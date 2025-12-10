@@ -92,6 +92,8 @@ namespace Debug {
                       << get_string_container(30, type_stream.str()) << " | Lexme: ";
             if (tc->token == TOK_TYPE) {
                 std::cout << tc->type->to_string();
+            } else if (tc->token == TOK_ALIAS) {
+                std::cout << tc->alias_namespace->file_node->file_name << ":" << tc->alias_namespace->namespace_hash.to_string();
             } else {
                 std::cout << tc->lexme;
             }

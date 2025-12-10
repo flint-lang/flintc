@@ -1,8 +1,12 @@
 use Core.print
 
+use "imported.ft" as i
+
 def main():
-    f32 pi = 3.14;
-    // Inserting floating point values
-    print($"The value of pi is approximately {pi}\n");
-    // Inserting an arithmetic expression
-    print($"2 + 2 equals {2 + 2}\n");
+	i.Vec3 v3 = i.Vec3(10, 20, 30);
+	print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");
+	print("Hello World!\n");
+	i32 res = i.add(10, 20);
+	print($"add(10 + 20) = {res}\n");
+	i32 res2 = i.i2.sub(20, 10);
+	print($"sub(20, 10) = {res2}\n");

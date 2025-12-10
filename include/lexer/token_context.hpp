@@ -8,6 +8,7 @@
 
 // Forward-declaration of the type class to prevent circular imports
 class Type;
+class Namespace;
 
 /// @struct `TokenContext`
 /// @brief The context for a token: where was the token (line), what is the context of the token (string) and of course, of which type was
@@ -20,15 +21,17 @@ struct TokenContext {
     union {
         std::string_view lexme;
         std::shared_ptr<Type> type;
+        Namespace *alias_namespace;
     };
 
-    // The constructor for the case the token is a regular token. In this case the token is not allowed to be `TOK_TYPE`
+    // The constructor for the case the token is a regular token. In this case the token is not allowed to be `TOK_TYPE` or `TOK_ALIAS`
     TokenContext(Token t, unsigned int l, unsigned int c, unsigned int id, const std::string_view &s) :
         token(t),
         line(l),
         column(c),
         file_id(id) {
         assert(token != TOK_TYPE);
+        assert(token != TOK_ALIAS);
         lexme = s;
     }
 
@@ -40,6 +43,16 @@ struct TokenContext {
         file_id(id) {
         assert(token == TOK_TYPE);
         new (&type) std::shared_ptr<Type>(t_ptr);
+    }
+
+    // The constructor for the case the token is a alias token. In this case the token is only allowed to be `TOK_ALIAS`
+    TokenContext(Token t, unsigned int l, unsigned int c, unsigned int id, Namespace *n_ptr) :
+        token(t),
+        line(l),
+        column(c),
+        file_id(id) {
+        assert(token == TOK_ALIAS);
+        alias_namespace = n_ptr;
     }
 
     // The destructor to properly free the string / decrement the shared pointers arc
@@ -57,6 +70,8 @@ struct TokenContext {
         file_id(other.file_id) {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(other.type);
+        } else if (token == TOK_ALIAS) {
+            alias_namespace = other.alias_namespace;
         } else {
             lexme = other.lexme;
         }
@@ -77,6 +92,8 @@ struct TokenContext {
             // Initialize the appropriate union member
             if (token == TOK_TYPE) {
                 new (&type) std::shared_ptr<Type>(other.type);
+            } else if (token == TOK_ALIAS) {
+                alias_namespace = other.alias_namespace;
             } else {
                 lexme = other.lexme;
             }
@@ -92,6 +109,8 @@ struct TokenContext {
         file_id(other.file_id) {
         if (token == TOK_TYPE) {
             new (&type) std::shared_ptr<Type>(std::move(other.type));
+        } else if (token == TOK_ALIAS) {
+            alias_namespace = other.alias_namespace;
         } else {
             lexme = other.lexme;
         }
@@ -120,6 +139,8 @@ struct TokenContext {
             // Initialize the appropriate union member by moving from other
             if (token == TOK_TYPE) {
                 new (&type) std::shared_ptr<Type>(std::move(other.type));
+            } else if (token == TOK_ALIAS) {
+                alias_namespace = other.alias_namespace;
             } else {
                 lexme = other.lexme;
             }

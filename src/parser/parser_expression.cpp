@@ -727,12 +727,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     const Context &ctx,                                                        //
     std::shared_ptr<Scope> &scope,                                             //
     const token_slice &tokens,                                                 //
-    const std::optional<std::string> &alias_base                               //
+    const std::optional<Namespace *> &alias                                    //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
+    std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
+    if (alias.has_value()) {
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value());
+    } else {
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get());
+    }
     if (!ret.has_value()) {
         return std::nullopt;
     }
@@ -751,13 +756,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     const Context &ctx,                                                    //
     std::shared_ptr<Scope> &scope,                                         //
-    const token_slice &tokens,                                             //
-    const std::optional<std::string> &alias_base                           //
+    const token_slice &tokens                                              //
 ) {
     PROFILE_CUMULATIVE("Parser::create_initializer");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias_base);
+    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get());
     if (!ret.has_value()) {
         return std::nullopt;
     }
@@ -1102,10 +1106,6 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     // Get the element type of the array
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
-    if (!check_type_aliasing(type_tokens)) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
     std::optional<std::shared_ptr<Type>> element_type = file_node_ptr->file_namespace->get_type(type_tokens);
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1753,14 +1753,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     return std::make_unique<LiteralNode>(lit_value, lit_type);
                 }
             }
-            // The first element should be an initializer for the alias
-            assert(tokens_mut.first->token == TOK_IDENTIFIER);
-            const std::string alias_base(tokens_mut.first->lexme);
+            // The first element should be the alias token
+            assert(tokens_mut.first->token == TOK_ALIAS);
+            Namespace *alias_namespace = tokens_mut.first->alias_namespace;
             tokens_mut.first++;
             // Then a dot should follow
             assert(tokens_mut.first->token == TOK_DOT);
             tokens_mut.first++;
-            auto call_node = create_call_expression(ctx, scope, tokens_mut, alias_base);
+            auto call_node = create_call_expression(ctx, scope, tokens_mut, alias_namespace);
             if (!call_node.has_value()) {
                 return std::nullopt;
             }
@@ -1779,22 +1779,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return call_node;
         }
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::aliased_initializer)) {
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().second == token_size) {
-            assert(tokens_mut.first->token == TOK_IDENTIFIER);
-            const std::string alias_base(tokens_mut.first->lexme);
-            tokens_mut.first++;
-            // Then a dot should follow
-            assert(tokens_mut.first->token == TOK_DOT);
-            tokens_mut.first++;
-            auto initializer_node = create_initializer(ctx, scope, tokens_mut, alias_base);
-            if (!initializer_node.has_value()) {
-                return std::nullopt;
-            }
-            return initializer_node;
-        }
-    }
     if (Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().first == 0 && range.value().second == token_size) {
@@ -1808,14 +1792,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
         if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
             // It's an initializer
-            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut, std::nullopt);
+            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
             if (!initializer.has_value()) {
                 return std::nullopt;
             }
             return initializer;
         } else if (tokens_mut.first->type->get_variation() == Type::Variation::MULTI && tokens_mut.first->type->to_string() != "bool8") {
             // It's an explicit initializer of an multi-type
-            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut, std::nullopt);
+            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
             if (!initializer.has_value()) {
                 return std::nullopt;
             }

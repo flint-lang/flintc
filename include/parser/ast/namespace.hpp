@@ -96,6 +96,27 @@ class Namespace {
     /// @return `std::optional<std::shared_ptr<Type>>` The found type, nullopt if the
     std::optional<std::shared_ptr<Type>> get_type_from_str(const std::string &type_str) const;
 
+    /// @function `get_namespace_from_alias`
+    /// @brief Returns the namespace imported through an alias
+    ///
+    /// @param `alias` The alias to get the namespace from
+    /// @return `std::optional<Namespace *>` The namespace from the given alias
+    std::optional<Namespace *> get_namespace_from_alias(const std::string &alias) const;
+
+    /// @function `get_functions_from_call_types`
+    /// @brief Returns all possible functions from the given argument types and the function name found in this namespace
+    ///
+    /// @param `fn_name` The name of the function which is called
+    /// @param `arg_types` The types of the arguments of the call
+    /// @param `is_aliased` Whether the this namespace is the current file's namespace (for non-aliased calls the private functions are
+    /// available too, but for aliased calls only publically available functions are visible)
+    /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which would match the name and arg types
+    std::vector<FunctionNode *> get_functions_from_call_types( //
+        const std::string &fn_name,                            //
+        const std::vector<std::shared_ptr<Type>> &arg_types,   //
+        const bool is_aliased                                  //
+    ) const;
+
     /// @function `get_type`
     /// @brief Creates a type from the given list of tokens and adds it to the public or global type list of this namespace
     ///

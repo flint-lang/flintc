@@ -3,6 +3,7 @@
 #include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "matcher/matcher.hpp"
+#include "parser/parser.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
@@ -24,6 +25,74 @@ std::optional<std::shared_ptr<Type>> Namespace::get_type_from_str(const std::str
         return private_symbols.types.at(type_str);
     }
     return std::nullopt;
+}
+
+std::optional<Namespace *> Namespace::get_namespace_from_alias(const std::string &alias) const {
+    if (public_symbols.aliased_imports.find(alias) == public_symbols.aliased_imports.end()) {
+        return std::nullopt;
+    }
+    return public_symbols.aliased_imports.at(alias);
+}
+
+std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
+    const std::string &fn_name,                                       //
+    const std::vector<std::shared_ptr<Type>> &arg_types,              //
+    const bool is_aliased                                             //
+) const {
+    std::vector<FunctionNode *> available_functions;
+
+    // Collect all available functions from public and private symbols
+    for (const auto &definition : public_symbols.definitions) {
+        if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
+            available_functions.emplace_back(definition->as<FunctionNode>());
+        }
+    }
+    if (!is_aliased) {
+        for (const auto &[hash, fn_vec] : private_symbols.functions) {
+            for (auto *fn : fn_vec) {
+                available_functions.emplace_back(fn);
+            }
+        }
+    }
+
+    std::vector<FunctionNode *> found_functions;
+    // Filter functions based on name, parameter count, and type compatibility
+    for (auto *fn : available_functions) {
+        // Check if function name matches
+        if (fn->name != fn_name) {
+            continue;
+        }
+
+        // Check if parameter count matches
+        if (fn->parameters.size() != arg_types.size()) {
+            continue;
+        }
+
+        // Check if all argument types are compatible with parameter types
+        bool all_params_match = true;
+        for (size_t i = 0; i < arg_types.size(); i++) {
+            const std::shared_ptr<Type> &param_type = std::get<0>(fn->parameters[i]);
+            const std::shared_ptr<Type> &arg_type = arg_types[i];
+
+            // Check if types are equal
+            if (arg_type->equals(param_type)) {
+                continue;
+            }
+
+            // Check if argument can be implicitly cast to parameter type
+            const Parser::CastDirection castability = Parser::check_castability(arg_type, param_type);
+            const std::string arg_type_str = arg_type->to_string();
+            if (castability.kind != Parser::CastDirection::Kind::CAST_LHS_TO_RHS) {
+                all_params_match = false;
+                break;
+            }
+        }
+
+        if (all_params_match) {
+            found_functions.emplace_back(fn);
+        }
+    }
+    return found_functions;
 }
 
 std::optional<std::shared_ptr<Type>> Namespace::get_type(const token_slice &tokens) {

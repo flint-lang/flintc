@@ -296,6 +296,8 @@ static std::string get_token_name(Token token) {
             return "\\n";
         case TOK_IDENTIFIER:
             return "IDENTIFIER";
+        case TOK_ALIAS:
+            return "ALIAS";
         default:
             if (symbols_rev.find(token) != symbols_rev.end()) {
                 return std::string(symbols_rev.at(token));

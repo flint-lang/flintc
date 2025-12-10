@@ -51,7 +51,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             }
         }
         // Check if the given alias is already taken
-        if (import_node.value().alias.has_value() && aliases.find(import_node.value().alias.value()) != aliases.end()) {
+        auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
+        if (import_node.value().alias.has_value() && aliased_imports.find(import_node.value().alias.value()) != aliased_imports.end()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -73,7 +74,10 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             return false;
         }
         if (added_import.value()->alias.has_value()) {
-            aliases[added_import.value()->alias.value()] = added_import.value();
+            assert(aliased_imports.find(added_import.value()->alias.value()) == aliased_imports.end());
+            // Add a nullopt to them, we actually resolve the imports in the `resolve_all_imports` function when all namespaces are
+            // available
+            aliased_imports[added_import.value()->alias.value()] = nullptr;
         }
         if (std::holds_alternative<Hash>(added_import.value()->path) ||                           //
             (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
@@ -246,6 +250,41 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                 ++it;
                 continue;
             }
+            // Collapse the whole alias chain to a single alias or to a single type
+            Namespace *alias_namespace = file_node_ptr->file_namespace.get();
+            // First check if the next token is an identifier and if it's a known import alias
+            if (it->token == TOK_IDENTIFIER && alias_namespace->get_namespace_from_alias(std::string(it->lexme)).has_value()) {
+                alias_namespace = alias_namespace->get_namespace_from_alias(std::string(it->lexme)).value();
+                *it = TokenContext(TOK_ALIAS, it->line, it->column, it->file_id, alias_namespace);
+                while (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+                    // Check if the next two tokens are another alias, for example in the expression `a.b.call()` we collapse the alias
+                    // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` instead it will collapse to a single
+                    // `Type` instead, since we know which exact type from which file it targets
+                    std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias( //
+                        std::string((it + 2)->lexme)                                                             //
+                    );
+                    if (next_alias_namespace.has_value()) {
+                        it->alias_namespace = next_alias_namespace.value();
+                        alias_namespace = next_alias_namespace.value();
+                        // Delete the `.b` since we changed the import of `a` to point to the `b` namespace directly
+                        Line::delete_tokens(source, it + 1, 2);
+                    } else {
+                        break;
+                    }
+                }
+                // Check if it's an imported type from another namespaces. Types from other namespaces will *always* only be an
+                // `alias.identifier`, they can never be anything else since otherwise they would not be exportable.
+                if (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+                    // Check if the type exists in the imported aliased namespace
+                    auto imported_type = alias_namespace->get_type_from_str(std::string((it + 2)->lexme));
+                    if (imported_type.has_value()) {
+                        *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, imported_type.value());
+                        Line::delete_tokens(source, it + 1, 2);
+                    }
+                }
+                ++it;
+                continue;
+            }
             // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
             if (Matcher::tokens_start_with(token_slice{it, line.tokens.second}, Matcher::type)) {
                 // It's a type token
@@ -290,7 +329,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     const Context &ctx,                                                                        //
     std::shared_ptr<Scope> &scope,                                                             //
     const token_slice &tokens,                                                                 //
-    const std::optional<std::string> &alias_base                                               //
+    const Namespace *call_namespace                                                            //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
@@ -431,130 +470,51 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
 
-    // Check if its a call to a builtin function, if it is, get the return type of said function
-    const auto builtin_function = get_builtin_function(function_name, file_node_ptr->imported_core_modules);
-    if (builtin_function.has_value() && (std::get<2>(builtin_function.value()) == alias_base)) {
-        if (function_name == "print" && argument_types.size() == 1 && argument_types.front()->to_string() == "str") {
-            // Check if the string is a typecast of a string literal, if yes its a special print call
-            if (arguments.front().first->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
-                auto *type_cast = arguments.front().first->as<TypeCastNode>();
-                if (type_cast->expr->type->to_string() == "__flint_type_str_lit") {
-                    arguments.front().first = std::move(type_cast->expr);
-                    argument_types.front() = arguments.front().first->type;
-                    const std::string &module_name = std::get<0>(builtin_function.value());
-                    std::optional<FunctionNode *> function = file_node_ptr->file_namespace->find_core_function( //
-                        module_name, function_name, argument_types                                              //
-                    );
-                    if (!function.has_value()) {
-                        return std::nullopt;
-                    }
-                    return CreateCallOrInitializerBaseRet{
-                        .args = std::move(arguments),
-                        .type = Type::get_primitive_type("void"),
-                        .is_initializer = false,
-                        .function = function.value(),
-                    };
-                }
-            }
-        }
-        // Check if the function has the same arguments as the function expects
-        const auto &function_overloads = std::get<1>(builtin_function.value());
-        // Check if any overloaded function exists
-        std::optional<std::tuple<types, types, types>> found_function;
-
-        for (const auto &[param_pairs, return_types_str, error_types_str] : function_overloads) {
-            if (arguments.size() != param_pairs.size()) {
-                continue;
-            }
-            types param_types(param_pairs.size());
-            for (size_t i = 0; i < param_pairs.size(); i++) {
-                const std::string param_type_str(param_pairs.at(i).first);
-                const auto &param_type = file_node_ptr->file_namespace->get_type_from_str(param_type_str);
-                assert(param_type.has_value());
-                param_types[i] = param_type.value();
-            }
-            types return_types(return_types_str.size());
-            for (size_t i = 0; i < return_types.size(); i++) {
-                const std::string return_type_str(return_types_str.at(i));
-                const auto &return_type = file_node_ptr->file_namespace->get_type_from_str(return_type_str);
-                assert(return_type.has_value());
-                return_types[i] = return_type.value();
-            }
-            if (argument_types != param_types) {
-                continue;
-            }
-            auto param_it = param_types.begin();
-            auto arg_it = argument_types.begin();
-            bool is_same = true;
-            while (arg_it != argument_types.end()) {
-                if (*param_it != *arg_it) {
-                    is_same = false;
-                }
-                ++param_it;
-                ++arg_it;
-            }
-            if (is_same) {
-                types error_types(error_types_str.size());
-                for (size_t i = 0; i < error_types.size(); i++) {
-                    const std::string error_type_str(error_types_str.at(i));
-                    const auto &error_type = file_node_ptr->file_namespace->get_type_from_str(error_type_str);
-                    assert(error_type.has_value());
-                    error_types[i] = error_type.value();
-                }
-                found_function = {param_types, return_types, error_types};
-            }
-        }
-        if (!found_function.has_value()) {
-            token_slice err_tokens = {tokens.first + arg_range.value().first - 2, tokens.first + arg_range.value().second + 1};
-            THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, err_tokens, function_name, argument_types);
-            return std::nullopt;
-        }
-        auto &fn = found_function.value();
-        const std::string &module_name = std::get<0>(builtin_function.value());
-        std::optional<FunctionNode *> function = file_node_ptr->file_namespace->find_core_function( //
-            module_name, function_name, argument_types                                              //
-        );
-        if (!function.has_value()) {
-            return std::nullopt;
-        }
-        if (std::get<1>(fn).size() > 1) {
-            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(std::get<1>(fn));
-            if (!file_node_ptr->file_namespace->add_type(group_type)) {
-                // The type was already present, so we set the type of the group expression to the already present type to minimize type
-                // duplication
-                group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
-            }
-            return CreateCallOrInitializerBaseRet{
-                .args = std::move(arguments),
-                .type = group_type,
-                .is_initializer = false,
-                .function = function.value(),
-            };
-        }
-        return CreateCallOrInitializerBaseRet{
-            .args = std::move(arguments),
-            .type = std::get<1>(fn).front(),
-            .is_initializer = false,
-            .function = function.value(),
-        };
-    }
-
+    // Get the function from it's name and the argument types
     // It's not a builtin call, so we need to get the function from it's name
-    auto function = get_function_from_call(function_name, argument_types);
-    if (function.empty()) {
+    const bool is_aliased = call_namespace->namespace_hash.to_string() != file_node_ptr->file_namespace->namespace_hash.to_string();
+    auto functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+    if (functions.empty()) {
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens, function_name, argument_types);
         return std::nullopt;
     }
-    if (function.size() > 1) {
-        // Ambigue call to function, could be one of multiple called functions
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    if (functions.size() > 1) {
+        // If there are multiple potential functions available this means that the arguments are implicitely castable to the argument types
+        // of a few functions. In this case we check if there is an overload of the function which matches our argument types *exactly*. If
+        // no function matches exactly then it's an error since the call is ambiguous and we cannot tell for sure which version to call.
+        FunctionNode *exact_function = nullptr;
+        for (FunctionNode *fn : functions) {
+            bool all_match = true;
+            for (size_t i = 0; i < fn->parameters.size(); i++) {
+                const auto &param_type = std::get<0>(fn->parameters.at(i));
+                if (!param_type->equals(argument_types.at(i))) {
+                    all_match = false;
+                    break;
+                }
+            }
+            if (all_match) {
+                if (exact_function != nullptr) {
+                    // We found two exact functions, which is an error too
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                exact_function = fn;
+            }
+        }
+
+        if (exact_function == nullptr) {
+            // Ambigue call to function, could be one of multiple called functions
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        functions.clear();
+        functions.emplace_back(exact_function);
     }
     // Check if the argument count does match the parameter count
-    [[maybe_unused]] const unsigned int param_count = function.front().first->parameters.size();
+    [[maybe_unused]] const unsigned int param_count = functions.front()->parameters.size();
     [[maybe_unused]] const unsigned int arg_count = arguments.size();
-    // Argument counts are guaranteed to match the param count because if they would not, the `get_function_from_call` function would have
-    // returned `std::nullopt`
+    // Argument counts are guaranteed to match the param count because if they would not, the `get_functions_from_call_types` function would
+    // have returned `an empty list`
     assert(param_count == arg_count);
     // If we came until here, the argument types definitely match the function parameter types, or they can be cast to them (in the literal
     // case), otherwise no function would have been found
@@ -566,7 +526,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         if (arg_str == "int" || arg_str == "float") {
             // Set the type of the argument to the expected parameter type, since we know it's compatible, otherwise the function would
             // never been suggested as a possible function to call in the first place
-            arguments[i].first->type = std::get<0>(function.front().first->parameters[i]);
+            arguments[i].first->type = std::get<0>(functions.front()->parameters[i]);
         }
         if (arguments[i].first->type->get_variation() == Type::Variation::ENUM) {
             arguments[i].second = false;
@@ -605,7 +565,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             }
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
-                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(function.front().first->parameters[i])) {
+                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(functions.front()->parameters[i])) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
@@ -613,7 +573,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
 
-    types return_types = function.front().first->return_types;
+    types return_types = functions.front()->return_types;
     std::shared_ptr<Type> return_type;
     if (return_types.empty()) {
         return_type = Type::get_primitive_type("void");
@@ -630,7 +590,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         .args = std::move(arguments),
         .type = return_type,
         .is_initializer = false,
-        .function = function.front().first,
+        .function = functions.front(),
     };
 }
 

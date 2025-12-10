@@ -1,8 +1,6 @@
 #pragma once
 
-#include "error/error.hpp"
 #include "matcher/matcher.hpp"
-#include "resolver/resolver.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -45,7 +43,6 @@
 #include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/optional_chain_node.hpp"
-#include "ast/expressions/string_interpolation_node.hpp"
 #include "ast/expressions/switch_expression.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
@@ -439,10 +436,6 @@ class Parser {
     /// @brief The list of all files the file that is currently parsed can seee / has imported
     std::vector<ImportNode *> imported_files{};
 
-    /// @var `aliases`
-    /// @brief All the aliases within this file
-    std::unordered_map<std::string, ImportNode *> aliases;
-
     /// @var `source_code`
     /// @brief The source code of the file this parser instance handles
     std::unique_ptr<const std::string> source_code;
@@ -491,31 +484,6 @@ class Parser {
         std::lock_guard<std::mutex> lock(parsed_tests_mutex);
         parsed_tests.emplace_back(test_node, file_name);
     }
-
-    /// @function `add_parsed_data`
-    /// @brief Adds a given data node to the map of all data nodes
-    ///
-    /// @param `data_node` The data node which was parsed
-    /// @param `file_name` The name of the file the data node is contained in
-    // static inline void add_parsed_data(DataNode *data_node, std::string file_name) {
-    //     std::lock_guard<std::mutex> lock(parsed_data_mutex);
-    //     parsed_data[file_name].emplace_back(data_node);
-    // }
-
-    /// @function `get_function_from_call`
-    /// @brief Looks through all parsed functions for a match for the given function call
-    ///
-    /// @param `call_name` The name of the called function
-    /// @param `arg_types` A list of the argument types of the function call
-    /// @return `std::vector<std::pair<FunctionNode *, std::string>>` A list containing all function matches for the call, if this list is
-    /// empty then no match was found, if it contains multiple entires then the call is ambigue, needing further specialization (like
-    /// explicit casting for example)
-    ///
-    /// @attention Asserts that the parameter `call_node` is not a nullptr
-    std::vector<std::pair<FunctionNode *, std::string>> get_function_from_call( //
-        const std::string &call_name,                                           //
-        const std::vector<std::shared_ptr<Type>> &arg_types                     //
-    );
 
     /// @function `add_open_function`
     /// @brief Adds a open function to the list of all open functions
@@ -603,57 +571,6 @@ class Parser {
         return std::distance(tokens.first, tokens.second);
     }
 
-    /// @function `check_type_aliasing`
-    /// @brief Checks if the type is aliased, if it is it checks if in the given file the given type does even exist
-    ///
-    /// @param `tokens` The type token slice to check
-    /// @return `bool` Whether something failed
-    bool check_type_aliasing(token_slice &tokens) {
-        if (std::distance(tokens.first, tokens.second) > 2 && tokens.first->token == TOK_IDENTIFIER &&
-            std::next(tokens.first)->token == TOK_DOT) {
-            const std::string alias(tokens.first->lexme);
-            // Check if this file even has the given alias
-            if (aliases.find(alias) == aliases.end()) {
-                THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, alias);
-                return false;
-            }
-            const std::string type_name((tokens.first + 2)->lexme);
-            for (const auto &import : imported_files) {
-                if (import->alias.has_value() && import->alias.value() == alias && //
-                    std::holds_alternative<Hash>(import->path)                     //
-                ) {
-                    const auto &import_hash = std::get<Hash>(import->path);
-                    const Namespace *file_namespace = Resolver::namespace_map.at(file_hash);
-                    for (const auto &definition : file_namespace->public_symbols.definitions) {
-                        const auto definition_variation = definition->get_variation();
-                        if (definition_variation == DefinitionNode::Variation::DATA) {
-                            const auto *data_node = definition->as<DataNode>();
-                            if (data_node->name == type_name) {
-                                tokens.first += 2;
-                                return true;
-                            }
-                        } else if (definition_variation == DefinitionNode::Variation::ENUM) {
-                            const auto *enum_node = definition->as<EnumNode>();
-                            if (enum_node->name == type_name) {
-                                tokens.first += 2;
-                                return true;
-                            }
-                        }
-                    }
-                    // The given type definition should have been in this file import from the alias, but it has not been found here
-                    THROW_ERR(                                                                             //
-                        ErrDefNotFoundInAliasedFile, ERR_PARSING, file_hash, (tokens.first + 2)->line,     //
-                        (tokens.first + 2)->column, alias, import_hash.path.filename().string(), type_name //
-                    );
-                    return false;
-                }
-            }
-            // It should never come here, it must have returned earlier, otherwise there is a bug somewhere
-            assert(false);
-        }
-        return true;
-    }
-
     /**************************************************************************************************************************************
      * @region `Util`
      * @brief This region is responsible for priving common functionality
@@ -693,6 +610,8 @@ class Parser {
     ///
     /// @param `lines` The lines to refine
     /// @param `source` A reference to the source token vector directly to enable direct modification
+    ///
+    /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
     void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
 
     /// @struct `CreateCallOrInitializerBaseRet`
@@ -724,13 +643,14 @@ class Parser {
     /// @param `ctx` The parsing context
     /// @param `scope` The scope the call happens in
     /// @param `tokens` The tokens which will be interpreted as call
-    /// @param `alias_base` The alias base of the call, if there is any
+    /// @param `call_namespace` The namespace the called function comes from, for example when called via an alias the namespace is the
+    /// alias namepsace, when called directly it's the namespace of this file
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
         const Context &ctx,                                                        //
         std::shared_ptr<Scope> &scope,                                             //
         const token_slice &tokens,                                                 //
-        const std::optional<std::string> &alias_base                               //
+        const Namespace *call_namespace                                            //
     );
 
     /// @function `create_unary_op_base`
@@ -910,12 +830,13 @@ class Parser {
     /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
+    /// @param `alias` The potential alias base on which the call is done
     /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
         const Context &ctx,                                                //
         std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
-        const std::optional<std::string> &alias_base                       //
+        const std::optional<Namespace *> &alias                            //
     );
 
     /// @function `create_initializer`
@@ -928,8 +849,7 @@ class Parser {
     std::optional<std::unique_ptr<ExpressionNode>> create_initializer( //
         const Context &ctx,                                            //
         std::shared_ptr<Scope> &scope,                                 //
-        const token_slice &tokens,                                     //
-        const std::optional<std::string> &alias_base                   //
+        const token_slice &tokens                                      //
     );
 
     /// @function `create_type_cast`
@@ -1149,12 +1069,12 @@ class Parser {
     ///
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
-    /// @param `alias_base` The alias base of the call, if any
+    /// @param `alias` The potential alias base of the call
     /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
     std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement( //
         std::shared_ptr<Scope> &scope,                                       //
         const token_slice &tokens,                                           //
-        const std::optional<std::string> &alias_base                         //
+        const std::optional<Namespace *> &alias                              //
     );
 
     /// @function `create_throw`

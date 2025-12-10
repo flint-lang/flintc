@@ -8,7 +8,6 @@
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
-#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
@@ -31,11 +30,16 @@
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement( //
     std::shared_ptr<Scope> &scope,                                               //
     const token_slice &tokens,                                                   //
-    const std::optional<std::string> &alias_base                                 //
+    const std::optional<Namespace *> &alias                                      //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
-    auto ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias_base);
+    std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
+    if (alias.has_value()) {
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value());
+    } else {
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get());
+    }
     if (!ret.has_value()) {
         return std::nullopt;
     }
@@ -2345,15 +2349,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
         token_slice tokens_mut = tokens;
-        assert(tokens_mut.first->token == TOK_IDENTIFIER && std::next(tokens_mut.first)->token == TOK_DOT);
-        const std::string alias_base(tokens_mut.first->lexme);
-        const auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
-        if (aliased_imports.find(alias_base) == aliased_imports.end()) {
-            THROW_ERR(ErrAliasNotFound, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, alias_base);
-            return std::nullopt;
-        }
+        assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
+        Namespace *alias_namespace = tokens_mut.first->alias_namespace;
         tokens_mut.first += 2;
-        statement_node = create_call_statement(scope, tokens_mut, alias_base);
+        statement_node = create_call_statement(scope, tokens_mut, alias_namespace);
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
         statement_node = create_call_statement(scope, tokens, std::nullopt);
     } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
@@ -2489,9 +2488,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
         statement_node = std::move(catch_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
-        assert(definition.first->token == TOK_IDENTIFIER && std::next(definition.first)->token == TOK_DOT);
-        const std::string alias_base(definition.first->lexme);
-        statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_base);
+        assert(definition.first->token == TOK_ALIAS && std::next(definition.first)->token == TOK_DOT);
+        Namespace *alias_namespace = definition.first->alias_namespace;
+        statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_namespace);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
         statement_node = create_call_statement(scope, definition, std::nullopt);
     } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {

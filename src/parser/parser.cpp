@@ -849,10 +849,6 @@ bool Parser::resolve_all_imports() {
         const auto &file_namespace = instance.file_node_ptr->file_namespace;
         const auto &imports = file_namespace->public_symbols.imports;
         for (const auto &import : imports) {
-            // Skip aliased imports from this symbol placing stage
-            if (import->alias.has_value()) {
-                continue;
-            }
             Namespace *imported_namespace = nullptr;
             if (std::holds_alternative<Hash>(import->path)) {
                 const Hash &import_hash = std::get<Hash>(import->path);
@@ -867,9 +863,15 @@ bool Parser::resolve_all_imports() {
                 assert(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
                 imported_namespace = Parser::core_namespaces.at(import_segments.back()).get();
             }
-            const Hash import_hash = imported_namespace->namespace_hash;
+            // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
+            if (import->alias.has_value()) {
+                auto &aliased_imports = file_namespace->public_symbols.aliased_imports;
+                aliased_imports[import->alias.value()] = imported_namespace;
+                continue;
+            }
             // Place all symbols of non-aliased imports to the private symbol list
             // Place all defined types in the private types map and all functions in the function map
+            const Hash import_hash = imported_namespace->namespace_hash;
             auto &private_symbols = file_namespace->private_symbols;
             for (const auto &definition : imported_namespace->public_symbols.definitions) {
                 switch (definition->get_variation()) {
@@ -1100,63 +1102,6 @@ std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> Pa
         }
     }
     return std::nullopt;
-}
-
-std::vector<std::pair<FunctionNode *, std::string>> Parser::get_function_from_call( //
-    const std::string &call_name,                                                   //
-    const std::vector<std::shared_ptr<Type>> &arg_types                             //
-) {
-    std::vector<std::shared_ptr<Type>> fn_arg_types;
-    std::vector<std::pair<FunctionNode *, std::string>> found_functions;
-    // First value of the pair is where the function came from, second is the pointer to the function itself
-    std::vector<std::pair<Hash, FunctionNode *>> available_functions;
-    for (auto &definition : file_node_ptr->file_namespace->public_symbols.definitions) {
-        if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
-            available_functions.emplace_back(file_hash, definition->as<FunctionNode>());
-        }
-    }
-    for (auto &fn_pair : file_node_ptr->file_namespace->private_symbols.functions) {
-        for (auto &fn : fn_pair.second) {
-            available_functions.emplace_back(fn_pair.first, fn);
-        }
-    }
-    for (const auto &[hash, fn] : available_functions) {
-        if (fn->name != call_name) {
-            continue;
-        }
-        if (fn->parameters.size() != arg_types.size()) {
-            continue;
-        }
-        fn_arg_types.clear();
-        fn_arg_types.reserve(fn->parameters.size());
-        for (const auto &param : fn->parameters) {
-            fn_arg_types.emplace_back(std::get<0>(param));
-        }
-        // Check if all parameters are of the type of the expected type, `int` and `float` comptime types can be used to call functions
-        // expecting integer and floating point types directly (calling 'some_function(5)' with the function's arg type being u64 for
-        // example)
-        bool is_ok = true;
-        for (size_t i = 0; i < arg_types.size(); i++) {
-            if (arg_types[i]->equals(fn_arg_types[i])) {
-                continue;
-            }
-            if (!arg_types[i]->equals(fn_arg_types[i]) && arg_types[i]->to_string() != "int" && arg_types[i]->to_string() != "float") {
-                is_ok = false;
-                break;
-            }
-            const CastDirection castability = check_primitive_castability(arg_types[i], fn_arg_types[i]);
-            if (castability.kind != CastDirection::Kind::CAST_LHS_TO_RHS) {
-                is_ok = false;
-                break;
-            }
-        }
-        if (!is_ok) {
-            // Continue if the function's don't match
-            continue;
-        }
-        found_functions.emplace_back(fn, file_name);
-    }
-    return found_functions;
 }
 
 token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {

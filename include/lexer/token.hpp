@@ -100,6 +100,7 @@ enum Token {
     // import keywords
     TOK_USE,
     TOK_AS,
+    TOK_ALIAS,
 
     // literals
     TOK_IDENTIFIER,

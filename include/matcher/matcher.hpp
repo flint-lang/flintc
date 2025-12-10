@@ -282,6 +282,7 @@ class Matcher {
         // import keywords
         {TOK_USE, std::make_shared<TokenTypeMatcher>(TOK_USE)},
         {TOK_AS, std::make_shared<TokenTypeMatcher>(TOK_AS)},
+        {TOK_ALIAS, std::make_shared<TokenTypeMatcher>(TOK_ALIAS)},
 
         // literals
         {TOK_IDENTIFIER, std::make_shared<TokenTypeMatcher>(TOK_IDENTIFIER)},
@@ -765,10 +766,9 @@ class Matcher {
     });
     static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr aliased_function_call = sequence({
-        one_of({token(TOK_IDENTIFIER), token(TOK_TYPE)}), token(TOK_DOT), function_call //
+        one_of({token(TOK_ALIAS), token(TOK_TYPE)}), token(TOK_DOT), function_call //
     });
     static const inline PatternPtr type_cast = sequence({one_of({type_prim, token(TOK_TYPE)}), token(TOK_LEFT_PAREN), until_right_paren});
-    static const inline PatternPtr aliased_initializer = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), type_cast});
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });
