@@ -30,7 +30,7 @@ class CLIParserMain : public CLIParserBase {
         for (size_t i = 0; i < args.size(); ++i) {
             std::string arg = args[i];
 
-            if (arg.length() > 2 && arg[0] == '-' && arg[1] != '-') {
+            if (arg.length() >= 2 && arg[0] == '-' && arg[1] != '-') {
                 for (size_t j = 1; j < arg.length(); j++) {
                     switch (arg[j]) {
                         case 'h':
