@@ -35,7 +35,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 
     if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
         if (definition_indentation > 0) {
-            THROW_ERR(ErrUseStatementNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
+            THROW_ERR(ErrUseClauselNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
             return false;
         }
         std::optional<ImportNode> import_node = create_import(definition_tokens);
