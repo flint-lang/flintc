@@ -1,0 +1,4 @@
+use Core.print
+
+def hello_from_file():
+    print("Hello from file!\n");

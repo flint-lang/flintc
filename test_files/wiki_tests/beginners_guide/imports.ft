@@ -34,3 +34,18 @@ test "6_aliased_type":
 	str path = "wiki_tests/beginners_guide/imports/6_aliased_type";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "v3 = (15, 25, 35)\n");
+
+test "7_subdir":
+	str path = "wiki_tests/beginners_guide/imports/7_subdir";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Hello from file!\n");
+
+test "8_relative_paths":
+	str path = "wiki_tests/beginners_guide/imports/8_relative_paths";
+	str file = "subdir/main.ft";
+	test_file_ok_in(path, file, "Hello from file!\n");
+
+test "9_out_of_cwd":
+	str path = "wiki_tests/beginners_guide/imports/8_relative_paths/subdir";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Parse Error at main.ft:1:5\n└─┬┤E0000│\n1 │ use \"../file.ft\"\n┌─┴─────┘\n├─ The import tried to escape the current working directory of the compiler\n├─ If you really need to reference a file outside this working directory, move up a directory\n├─ Only files within the current working directory are allowed to be accessed by the compiler\n");

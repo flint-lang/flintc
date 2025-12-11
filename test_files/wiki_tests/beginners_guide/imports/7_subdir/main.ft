@@ -1,0 +1,4 @@
+use "subdir/file.ft"
+
+def main():
+    hello_from_file();
