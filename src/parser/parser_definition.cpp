@@ -711,6 +711,24 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
                 } else {
                     const std::string lhs = std::string(iterator->lexme.substr(0, path_separator));
                     const std::string filename = std::string(iterator->lexme.substr(path_separator + 1));
+
+                    // Check if the relative path ever escapes the CWD
+                    const std::filesystem::path cwd = std::filesystem::current_path();
+                    std::filesystem::path checking_path = file_hash.path.parent_path() / lhs;
+                    // Normalize to resolve all ".." components
+                    checking_path = checking_path.lexically_normal();
+
+                    // Check if the normalized path is within CWD by getting the relative path
+                    auto rel_path = checking_path.lexically_relative(cwd);
+                    if (!rel_path.empty()) {
+                        std::string rel_str = rel_path.string();
+                        // If relative path starts with "..", then checking_path is outside cwd
+                        if (rel_str.size() >= 2 && rel_str[0] == '.' && rel_str[1] == '.') {
+                            THROW_ERR(ErrImportExitedCWD, ERR_PARSING, file_hash, token_slice{iterator, tokens.second});
+                            return std::nullopt;
+                        }
+                    }
+
                     const std::filesystem::path file_path = file_hash.path.parent_path() / lhs / filename;
                     import_path = Hash(file_path);
                 }

@@ -40,7 +40,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         std::optional<ImportNode> import_node = create_import(definition_tokens);
         if (!import_node.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         for (const auto &imported_file : imported_files) {

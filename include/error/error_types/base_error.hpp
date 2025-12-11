@@ -99,4 +99,10 @@ class BaseError {
         const token_list::const_iterator iterator, //
         const std::vector<Token> &ignores          //
     );
+
+    /// @function `get_wiki_link`
+    /// @brief Returns the base link to the wiki of the current compiler version
+    ///
+    /// @return `std::string` The link to the wiki
+    [[nodiscard]] static std::string get_wiki_link();
 };

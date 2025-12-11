@@ -225,3 +225,9 @@ bool BaseError::space_needed(                  //
 ) {
     return iterator != std::prev(tokens.second) && std::find(ignores.begin(), ignores.end(), std::next(iterator)->token) == ignores.end();
 }
+
+std::string BaseError::get_wiki_link() {
+    std::stringstream ss;
+    ss << "https://flint-lang.github.io/v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION;
+    return ss.str();
+}

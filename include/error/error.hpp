@@ -36,6 +36,7 @@
 #include "error_types/parsing/definitions/import//err_alias_not_found.hpp"
 #include "error_types/parsing/definitions/import/err_def_not_found_in_aliased_file.hpp"
 #include "error_types/parsing/definitions/import/err_def_unexpected_core_module.hpp"
+#include "error_types/parsing/definitions/import/err_import_exited_cwd.hpp"
 #include "error_types/parsing/definitions/import/err_use_clausel_not_at_top_level.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
 
