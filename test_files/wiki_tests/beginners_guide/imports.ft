@@ -1,4 +1,4 @@
-use "utils.ft"
+use "../utils.ft"
 
 test "0_simple_import":
 	str path = "wiki_tests/beginners_guide/imports/0_simple_import";

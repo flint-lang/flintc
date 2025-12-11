@@ -1,4 +1,4 @@
-use "utils.ft"
+use "../utils.ft"
 
 test "0_hello_world.ft":
 	str path = "wiki_tests/beginners_guide/basics";

@@ -1,4 +1,4 @@
-use "utils.ft"
+use "../utils.ft"
 
 test "0_crash":
 	str path = "wiki_tests/beginners_guide/interop/0_crash";

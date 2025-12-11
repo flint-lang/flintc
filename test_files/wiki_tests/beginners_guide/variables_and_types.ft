@@ -1,4 +1,4 @@
-use "utils.ft"
+use "../utils.ft"
 
 test "0_primitives_i32.ft":
 	str path = "wiki_tests/beginners_guide/variables_and_types";

@@ -1,7 +1,7 @@
 use Core.assert
 use Core.system
 
-use "utils.ft"
+use "../utils.ft"
 
 test "0_declaration.ft":
 	str path = "wiki_tests/intermediates_guide/optionals";
