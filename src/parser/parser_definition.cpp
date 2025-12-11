@@ -748,6 +748,15 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
         alias = iterator->lexme;
     }
 
+    // Check if an alias was placed on a Core module, this is not allowed
+    if (alias.has_value() && std::holds_alternative<std::vector<std::string>>(import_path)) {
+        const std::vector<std::string> &path = std::get<std::vector<std::string>>(import_path);
+        if (path.size() == 2 && path.front() == "Core") {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
+
     const unsigned int line = tokens.first->line;
     const unsigned int column = tokens.first->column;
     const unsigned int length = tokens.second->column - tokens.first->column;
