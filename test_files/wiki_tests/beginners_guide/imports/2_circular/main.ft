@@ -1,0 +1,15 @@
+use Core.print
+
+use "utils.ft"
+
+def recursive_count_main(i32 x):
+    if x > 5:
+        print("main end\n");
+        return;
+    print($"main:  {x}\n");
+    recursive_count_utils(x + 1);
+
+def main():
+    recursive_count_main(0);
+    print("\n");
+    recursive_count_utils(0);

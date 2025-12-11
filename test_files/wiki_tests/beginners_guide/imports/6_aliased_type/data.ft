@@ -1,0 +1,8 @@
+data Vec3:
+    f32 x;
+    f32 y;
+    f32 z;
+    Vec3(x, y, z);
+
+def add(mut Vec3 v1, Vec3 v2):
+    v1.(x, y, z) += v2.(x, y, z);

@@ -1,0 +1,7 @@
+use Core.print
+
+use "add.ft" as a
+
+def add(i32 x, i32 y) -> i32:
+    print($"{x} + {y} = {a.add(x, y)}\n");
+    return a.add(x, y);

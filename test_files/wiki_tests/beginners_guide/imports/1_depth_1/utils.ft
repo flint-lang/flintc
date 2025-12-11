@@ -1,0 +1,5 @@
+use "helper.ft"
+
+def some_operation(i32 x, i32 y) -> i32:
+    i32 res = substract_and_mult(x, y);
+    return res - (x + y);

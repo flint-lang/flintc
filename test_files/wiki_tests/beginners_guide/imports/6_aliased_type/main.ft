@@ -1,0 +1,8 @@
+use Core.print
+
+use "data.ft" as d
+
+def main():
+    d.Vec3 v3 = d.Vec3(10.0, 20.0, 30.0);
+    d.add(v3, d.Vec3(5.0, 5.0, 5.0));
+    print($"v3 = ({v3.x}, {v3.y}, {v3.z})\n");

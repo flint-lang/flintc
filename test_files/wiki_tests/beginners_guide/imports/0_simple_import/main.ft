@@ -1,0 +1,9 @@
+use Core.print
+
+use "utils.ft"
+
+def main():
+    i32 x = 5;
+    i32 y = 6;
+    i32 res = add(x, y);
+    print($"res = {res}\n");

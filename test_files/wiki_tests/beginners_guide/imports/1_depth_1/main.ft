@@ -1,0 +1,7 @@
+use Core.print
+
+use "utils.ft"
+
+def main():
+    i32 res = some_operation(44, 33);
+    print($"res = {res}\n");

@@ -1,0 +1,3 @@
+def substract_and_mult(i32 x, i32 y) -> i32:
+    i32 diff = x - y;
+    return diff * 2;
