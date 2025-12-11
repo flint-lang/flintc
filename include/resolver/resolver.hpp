@@ -11,12 +11,31 @@
 #include <unordered_map>
 #include <vector>
 
+/// @struct `FileDependency`
+/// @brief Represents a file import with information about whether it's aliased
+struct FileDependency {
+    /// @var `directory`
+    /// @brief Directory of the file relative to the file that imports it
+    std::filesystem::path directory;
+
+    /// @var `filename`
+    /// @brief Name of the imported file
+    std::string filename;
+
+    /// @var `is_aliased`
+    /// @brief Whether this import uses an alias (transitive for LSP)
+    bool is_aliased;
+
+    FileDependency(std::filesystem::path dir, std::string file, bool aliased) :
+        directory(std::move(dir)),
+        filename(std::move(file)),
+        is_aliased(aliased) {}
+};
+
 /// A dependency can either be a:
 /// - vector<string>: The library path (f.e. flint.utils.math)
-/// - pair<std::filesystem::path, string>:
-/// - - Left: The directory of the file relative to the file it imports
-/// - - Right: The name of the imported file
-using dependency = std::variant<std::vector<std::string>, std::pair<std::filesystem::path, std::string>>;
+/// - FileDependency: A file import with aliasing information
+using dependency = std::variant<std::vector<std::string>, FileDependency>;
 
 /// @struct `DepNode`
 /// @brief Forms an edge of the dependency graph and the dependencies are the lines to other edges
@@ -62,6 +81,10 @@ class Resolver {
     /// @var `max_graph_depth`
     /// @brief Number to determine the maximum depth of the graph when resolving the file dependencies
     static inline uint64_t max_graph_depth = UINT64_MAX;
+
+    /// @var `minimal_tree`
+    /// @brief When true, only parse aliased imports transitively (for LSP optimization). When false, parse all imports (for compiler)
+    static inline bool minimal_tree = false;
 
     /// @function `create_dependency_graph`
     /// @brief This function parses all files that the `file_node` depends on, causing parsing of the whole dependency tree
@@ -138,10 +161,12 @@ class Resolver {
     ///
     /// @param `open_dependencies` All open dependencies to process
     /// @param `next_dependencies` The map where to write the next dependencies to, which have to be processed next
+    /// @param `depth` The current depth in the dependency graph (for minimal_tree filtering)
     /// @return `bool` Whether all dependency processing was successful, false if anything failed
     static bool process_dependencies_parallel(                                //
         std::unordered_map<Hash, std::vector<dependency>> &open_dependencies, //
-        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies  //
+        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
+        const uint64_t depth                                                  //
     );
 
     /// @function `process_dependency_file`
@@ -150,11 +175,13 @@ class Resolver {
     /// @param `dep_hash` The hash of the dependency to process
     /// @param `dependencies` The dependencies the given dependency (`dep_name`) has
     /// @param `next_dependencies` The map where to write the next dependencies to, which have to be processed next
+    /// @param `depth` The current depth in the dependency graph (for minimal_tree filtering)
     /// @return `bool` Whether the processing of the dependency was successful, false if it failed
-    static bool process_dependency_file(                                     //
-        const Hash &dep_hash,                                                //
-        const std::vector<dependency> &dependencies,                         //
-        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies //
+    static bool process_dependency_file(                                      //
+        const Hash &dep_hash,                                                 //
+        const std::vector<dependency> &dependencies,                          //
+        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
+        const uint64_t depth                                                  //
     );
 
     /// @function `create_dependency`

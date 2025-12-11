@@ -47,12 +47,12 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
 
         bool any_failed = false;
         if (run_in_parallel) {
-            any_failed = process_dependencies_parallel(open_dependencies, next_dependencies);
+            any_failed = process_dependencies_parallel(open_dependencies, next_dependencies, depth);
         } else {
             // Run single-threaded
             for (const auto &[open_dep_hash, deps] : open_dependencies) {
                 // For all the dependencies of said file
-                if (!process_dependency_file(open_dep_hash, deps, next_dependencies)) {
+                if (!process_dependency_file(open_dep_hash, deps, next_dependencies, depth)) {
                     any_failed = true;
                 }
             }
@@ -120,7 +120,8 @@ Namespace *Resolver::get_namespace_from_hash(const Hash &file_hash) {
 
 bool Resolver::process_dependencies_parallel(                             //
     std::unordered_map<Hash, std::vector<dependency>> &open_dependencies, //
-    std::unordered_map<Hash, std::vector<dependency>> &next_dependencies  //
+    std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
+    const uint64_t depth                                                  //
 ) {
     // Parse current level's files in parallel
     std::vector<std::future<bool>> futures;
@@ -133,7 +134,8 @@ bool Resolver::process_dependencies_parallel(                             //
             process_dependency_file,           //
             open_dep_name,                     //
             deps,                              //
-            std::ref(next_dependencies)        //
+            std::ref(next_dependencies),       //
+            depth                              //
             ));
     }
     // Check results from all threads
@@ -147,10 +149,11 @@ bool Resolver::process_dependencies_parallel(                             //
     return any_failed;
 }
 
-bool Resolver::process_dependency_file(                                  //
-    const Hash &dep_hash,                                                //
-    const std::vector<dependency> &dependencies,                         //
-    std::unordered_map<Hash, std::vector<dependency>> &next_dependencies //
+bool Resolver::process_dependency_file(                                   //
+    const Hash &dep_hash,                                                 //
+    const std::vector<dependency> &dependencies,                          //
+    std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
+    const uint64_t depth                                                  //
 ) {
     for (const auto &open_dep_dep : dependencies) {
         if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
@@ -167,8 +170,8 @@ bool Resolver::process_dependency_file(                                  //
         }
 
         // File path
-        auto file_dep = std::get<std::pair<std::filesystem::path, std::string>>(open_dep_dep);
-        const Hash file_hash(file_dep.first / file_dep.second);
+        auto file_dep = std::get<FileDependency>(open_dep_dep);
+        const Hash file_hash(file_dep.directory / file_dep.filename);
         // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
         ResourceLock file_lock(file_hash.to_string());
         if (namespace_map.find(file_hash) != namespace_map.end()) {
@@ -216,13 +219,36 @@ bool Resolver::process_dependency_file(                                  //
         } // The mutex will be unlocked automatically when it goes out of scope
 
         // Add all dependencies of this parsed file to be parsed next
+        // In minimal_tree mode (LSP): at depth 0, parse all imports; at depth > 0, only parse aliased imports
         {
             std::lock_guard<std::mutex> lock(dependency_map_mutex);
-            if (next_dependencies.find(file_hash) != next_dependencies.end()) {
-                std::vector<dependency> next_deps = dependency_map.at(file_hash);
-                next_dependencies.at(file_hash).insert(next_dependencies.at(file_hash).end(), next_deps.begin(), next_deps.end());
-            } else {
-                next_dependencies[file_hash] = dependency_map.at(file_hash);
+            std::vector<dependency> next_deps = dependency_map.at(file_hash);
+
+            // Filter dependencies based on minimal_tree mode, depth, and aliasing
+            if (minimal_tree && depth > 0) {
+                // At depth > 0 in minimal mode: only add aliased dependencies
+                std::vector<dependency> filtered_deps;
+                for (const auto &dep : next_deps) {
+                    if (std::holds_alternative<std::vector<std::string>>(dep)) {
+                        // Always include Core imports
+                        filtered_deps.push_back(dep);
+                    } else {
+                        const auto &fd = std::get<FileDependency>(dep);
+                        if (fd.is_aliased) {
+                            // Only include aliased file imports at depth > 0
+                            filtered_deps.push_back(dep);
+                        }
+                    }
+                }
+                next_deps = filtered_deps;
+            }
+            // At depth == 0 or when !minimal_tree: add all dependencies (no filtering)
+            if (!next_deps.empty()) {
+                if (next_dependencies.find(file_hash) != next_dependencies.end()) {
+                    next_dependencies.at(file_hash).insert(next_dependencies.at(file_hash).end(), next_deps.begin(), next_deps.end());
+                } else {
+                    next_dependencies[file_hash] = next_deps;
+                }
             }
         } // The mutex will be unlocked automatically when it goes out of scope
     }
@@ -230,14 +256,15 @@ bool Resolver::process_dependency_file(                                  //
 }
 
 dependency Resolver::create_dependency(const ImportNode &node) {
-    dependency dep;
     if (std::holds_alternative<std::vector<std::string>>(node.path)) {
-        dep = std::get<std::vector<std::string>>(node.path);
+        // Core library import (e.g., Core.print)
+        return std::get<std::vector<std::string>>(node.path);
     } else {
+        // File import - track if it's aliased
         const auto &path_hash = std::get<Hash>(node.path);
-        dep = std::make_pair(path_hash.path.parent_path(), path_hash.path.filename().string());
+        bool is_aliased = node.alias.has_value();
+        return FileDependency(path_hash.path.parent_path(), path_hash.path.filename().string(), is_aliased);
     }
-    return dep;
 }
 
 std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node) {
