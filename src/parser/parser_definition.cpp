@@ -122,16 +122,25 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             tok_it++;
             // Parse the return types
             token_list::iterator last_type_begin = tok_it;
-            while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
-                if (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN) {
+            unsigned int depth = 0;
+            while (tok_it != definition.second) {
+                if (tok_it->token == TOK_LESS || tok_it->token == TOK_LEFT_BRACKET) {
+                    depth++;
+                    tok_it++;
+                    continue;
+                } else if (tok_it->token == TOK_GREATER || tok_it->token == TOK_RIGHT_BRACKET) {
+                    depth--;
+                    tok_it++;
+                    continue;
+                } else if (depth == 0 && (tok_it->token == TOK_COMMA || tok_it->token == TOK_RIGHT_PAREN)) {
                     // The type is everything from the last param begin
-                    token_slice type_tokens = {last_type_begin, tok_it + 1};
+                    token_slice type_tokens = {last_type_begin, tok_it};
                     const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
                     if (!return_type.has_value()) {
                         return std::nullopt;
                     }
                     return_types.emplace_back(return_type.value());
-                    last_type_begin = tok_it + 2;
+                    last_type_begin = tok_it + 1;
                 }
                 tok_it++;
             }
