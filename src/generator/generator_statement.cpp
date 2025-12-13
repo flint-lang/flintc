@@ -1950,7 +1950,23 @@ bool Generator::Statement::generate_array_assignment( //
         Module::String::generate_string_assignment(builder, element_ptr, array_assignment->expression.get(), expression);
         return true;
     }
-    // Store the main expression result in an 8 byte container
+
+    // For types larger than 8 bytes (like structs/tuples), use direct store via access_arr
+    const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
+    if (element_size_bytes > 8) {
+        // Get pointer to the array element
+        llvm::Value *element_ptr = builder.CreateCall(                 //
+            Module::Array::array_manip_functions.at("access_arr"),     //
+            {array_ptr, builder.getInt64(element_size_bytes), indices} //
+        );
+        // Cast the char* to the correct pointer type
+        llvm::Value *typed_element_ptr = builder.CreateBitCast(element_ptr, expression->getType()->getPointerTo(), "typed_element_ptr");
+        // Store the value directly
+        IR::aligned_store(builder, expression, typed_element_ptr);
+        return true;
+    }
+
+    // For primitives <= 8 bytes, use the `assign_arr_val_at` function instead
     llvm::Type *to_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first;
     const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
     expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
