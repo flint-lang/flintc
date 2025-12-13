@@ -66,6 +66,7 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
             } else if (tok_it->token == TOK_GREATER || tok_it->token == TOK_RIGHT_BRACKET) {
                 depth--;
                 tok_it++;
+                continue;
             }
             if (depth == 0 && (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN)) {
                 // The current token is the parameter type
