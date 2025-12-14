@@ -2339,10 +2339,13 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             );
             return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
         }
-        case Type::Variation::MULTI:
-            // TODO:
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return nullptr;
+        case Type::Variation::TUPLE:
+        case Type::Variation::MULTI: {
+            llvm::Value *elem_ptr = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
+                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr"    //
+            );
+            return IR::aligned_load(builder, element_type, elem_ptr, "access_arr_value");
+        }
         case Type::Variation::ARRAY: {
             // This is a slicing operation
             llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
