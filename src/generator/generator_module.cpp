@@ -85,6 +85,12 @@ bool Generator::Module::generate_module(     //
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Parse::generate_parse_functions(builder.get(), module.get(), false);
             break;
+        case BuiltinLibrary::TIME:
+            // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+            IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
+            Builtin::generate_c_functions(module.get());
+            Time::generate_time_functions(builder.get(), module.get(), false);
+            break;
     }
 
     // Clear the type map when we are done to prevent modules using types of no longer existing modules
@@ -159,6 +165,9 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::PARSE)) {
         success = success && generate_module(BuiltinLibrary::PARSE, cache_path, "parse");
     }
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::TIME)) {
+        success = success && generate_module(BuiltinLibrary::TIME, cache_path, "parse");
+    }
     if (!success) {
         return false;
     }
@@ -196,6 +205,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("system" + file_ending));
     libs.emplace_back(cache_path / ("math" + file_ending));
     libs.emplace_back(cache_path / ("parse" + file_ending));
+    libs.emplace_back(cache_path / ("time" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -331,6 +341,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("parse" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::PARSE);
+    }
+    if (!std::filesystem::exists(cache_path / ("time" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::TIME);
     }
     return needed_rebuilds;
 }

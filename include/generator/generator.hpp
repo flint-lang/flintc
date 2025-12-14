@@ -3458,6 +3458,36 @@ class Generator {
             static void generate_system_command_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
         };
 
+        /// @class `Time`
+        /// @brief The class which is responsible for generating everything related to time
+        /// @note This class cannot be initialized and all functions within this class are static
+        class Time {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            Time() = delete;
+
+            /// @var `time_functions`
+            /// @brief Map containing references to all time functions, to make calling them easier
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_time_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> time_functions = {
+                {"now", nullptr},
+            };
+
+            /// @function `generate_time_functions`
+            /// @brief Function to generate all functions from the time Core module
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        };
+
         /// @class `TypeCast`
         /// @brief The class which is responsilbe for everything type-casting related
         /// @note This class cannot be initialized and all functions within this class are static
