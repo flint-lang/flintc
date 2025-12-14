@@ -101,6 +101,7 @@ enum Token {
     TOK_USE,
     TOK_AS,
     TOK_ALIAS,
+    TOK_TYPE_KEYWORD,
 
     // literals
     TOK_IDENTIFIER,

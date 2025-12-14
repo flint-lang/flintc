@@ -40,6 +40,7 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
 
@@ -663,6 +664,11 @@ fail:
 Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_ptr<Type> &type_to_analyze) {
     Result result = Result::OK;
     switch (type_to_analyze->get_variation()) {
+        case Type::Variation::ALIAS: {
+            const auto *alias_type = type_to_analyze->as<AliasType>();
+            result = analyze_type(ctx, alias_type->type);
+            break;
+        }
         case Type::Variation::ARRAY: {
             const auto *array_type = type_to_analyze->as<ArrayType>();
             result = analyze_type(ctx, array_type->type);

@@ -1095,6 +1095,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     const token_slice &tokens                                         //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_initializer");
+    token_list toks = clone_from_slice(tokens);
     token_slice tokens_mut = tokens;
     std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
         tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //

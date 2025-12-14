@@ -417,6 +417,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
     }
 
     // The type can not be parsed and does not exist yet
+    token_list toks = Parser::clone_from_slice(tokens);
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }

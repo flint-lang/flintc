@@ -7,6 +7,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -200,7 +201,14 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         }
         // Check if the variable is of type str
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
+        if (var_type->get_variation() == Type::Variation::ALIAS) {
+            const auto *alias_type = var_type->as<AliasType>();
+            var_type = alias_type->type;
+        }
         switch (var_type->get_variation()) {
+            case Type::Variation::ALIAS: {
+                assert(false);
+            }
             case Type::Variation::ARRAY: {
                 const auto *array_type = var_type->as<ArrayType>();
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;

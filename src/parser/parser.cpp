@@ -4,6 +4,7 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
+#include "parser/type/alias_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
@@ -338,6 +339,14 @@ Parser::CastDirection Parser::check_castability( //
     const bool is_implicit                       //
 ) {
     PROFILE_CUMULATIVE("Parser::check_castability_type");
+    if (lhs_type->get_variation() == Type::Variation::ALIAS) {
+        const auto *lhs_alias = lhs_type->as<AliasType>();
+        return check_castability(lhs_alias->type, rhs_type, is_implicit);
+    }
+    if (rhs_type->get_variation() == Type::Variation::ALIAS) {
+        const auto *rhs_alias = rhs_type->as<AliasType>();
+        return check_castability(lhs_type, rhs_alias->type, is_implicit);
+    }
     if (lhs_type->equals(rhs_type)) {
         return CastDirection::same_type();
     }
@@ -586,6 +595,10 @@ Parser::CastDirection Parser::check_castability( //
 
 bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::unique_ptr<ExpressionNode> &expr, const bool is_implicit) {
     PROFILE_CUMULATIVE("Parser::check_castability_expr_inplace");
+    if (target_type->get_variation() == Type::Variation::ALIAS) {
+        const auto *alias_type = target_type->as<AliasType>();
+        return check_castability(alias_type->type, expr, is_implicit);
+    }
     if (expr->type->equals(target_type)) {
         return true;
     }
@@ -680,6 +693,9 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
     }
 
     switch (target_type->get_variation()) {
+        case Type::Variation::ALIAS:
+            assert(false);
+            break;
         case Type::Variation::ARRAY:
         case Type::Variation::DATA:
         case Type::Variation::ENUM:

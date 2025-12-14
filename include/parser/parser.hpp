@@ -612,7 +612,14 @@ class Parser {
     /// @param `source` A reference to the source token vector directly to enable direct modification
     ///
     /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
+    /// @note Also replaces all type aliases with their aliased types
     void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+
+    /// @function `substitute_type_aliases`
+    /// @brief Recursively substitutes all type aliases within the type to resolve
+    ///
+    /// @param `type_to_resolve` The type to resolve
+    void substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve);
 
     /// @struct `CreateCallOrInitializerBaseRet`
     /// @brief The return type of the `create_call_or_initializer_base` function. It's return type got very complex and that's why this

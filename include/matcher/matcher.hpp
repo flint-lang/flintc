@@ -283,6 +283,7 @@ class Matcher {
         {TOK_USE, std::make_shared<TokenTypeMatcher>(TOK_USE)},
         {TOK_AS, std::make_shared<TokenTypeMatcher>(TOK_AS)},
         {TOK_ALIAS, std::make_shared<TokenTypeMatcher>(TOK_ALIAS)},
+        {TOK_TYPE_KEYWORD, std::make_shared<TokenTypeMatcher>(TOK_TYPE_KEYWORD)},
 
         // literals
         {TOK_IDENTIFIER, std::make_shared<TokenTypeMatcher>(TOK_IDENTIFIER)},
@@ -696,6 +697,7 @@ class Matcher {
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr use_statement = sequence({token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference})});
+    static const inline PatternPtr type_alias = sequence({token(TOK_TYPE_KEYWORD), token(TOK_IDENTIFIER), type});
     static const inline PatternPtr extern_function_declaration = sequence({
         token(TOK_EXTERN), token(TOK_DEF), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({

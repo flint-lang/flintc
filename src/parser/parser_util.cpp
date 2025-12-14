@@ -8,8 +8,10 @@
 
 #include "debug.hpp"
 #include "error/error.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "profiler.hpp"
 
@@ -83,6 +85,25 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
         ) {
             imported_files.emplace_back(added_import.value());
+        }
+        return true;
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::type_alias)) {
+        assert(definition_tokens.first->token == TOK_TYPE_KEYWORD);
+        assert((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
+        const std::string type_alias((definition_tokens.first + 1)->lexme);
+        auto it = definition_tokens.first + 2;
+        while (it->token != TOK_EOL) {
+            it++;
+        }
+        // Everything from the second to the it token is the type
+        const token_slice type_tokens{definition_tokens.first + 2, it};
+        std::optional<std::shared_ptr<Type>> aliased_type = file_node_ptr->file_namespace->get_type(type_tokens);
+        if (!aliased_type.has_value()) {
+            return false;
+        }
+        std::shared_ptr<Type> type = std::make_shared<AliasType>(type_alias, aliased_type.value());
+        if (!file_node_ptr->file_namespace->add_type(type)) {
+            type = file_node_ptr->file_namespace->get_type_from_str(type->to_string()).value();
         }
         return true;
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::extern_function_declaration)) {
@@ -320,6 +341,96 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
                 }
             }
             ++it;
+        }
+    }
+
+    // Substitute all types aliases
+    for (auto line : lines) {
+        token_list toks = clone_from_slice(line.tokens);
+        for (auto it = line.tokens.first; it != line.tokens.second; ++it) {
+            if (it->token != TOK_TYPE) {
+                continue;
+            }
+            substitute_type_aliases(it->type);
+        }
+    }
+}
+
+void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
+    switch (type_to_resolve->get_variation()) {
+        case Type::Variation::ALIAS: {
+            const auto *alias_type = type_to_resolve->as<AliasType>();
+            type_to_resolve = alias_type->type;
+            break;
+        }
+        case Type::Variation::ARRAY: {
+            auto *array_type = type_to_resolve->as<ArrayType>();
+            substitute_type_aliases(array_type->type);
+            break;
+        }
+        case Type::Variation::DATA:
+            // Data types resolve in a different stage
+            break;
+        case Type::Variation::ENUM:
+            // Enums cannot contain a type alias
+            break;
+        case Type::Variation::ERROR_SET:
+            // Error sets cannot contain a type alias
+            break;
+        case Type::Variation::GROUP: {
+            auto *group_type = type_to_resolve->as<GroupType>();
+            for (auto &type : group_type->types) {
+                substitute_type_aliases(type);
+            }
+            break;
+        }
+        case Type::Variation::MULTI:
+            // Multi types cannot contain type aliases
+            break;
+        case Type::Variation::OPTIONAL: {
+            auto *optional_type = type_to_resolve->as<OptionalType>();
+            substitute_type_aliases(optional_type->base_type);
+            break;
+        }
+        case Type::Variation::POINTER: {
+            auto *pointer_type = type_to_resolve->as<PointerType>();
+            substitute_type_aliases(pointer_type->base_type);
+            break;
+        }
+        case Type::Variation::PRIMITIVE:
+            // Primitive types cannot contain type aliases
+            break;
+        case Type::Variation::RANGE: {
+            auto *range_type = type_to_resolve->as<RangeType>();
+            substitute_type_aliases(range_type->bound_type);
+            break;
+        }
+        case Type::Variation::TUPLE: {
+            auto *tuple_type = type_to_resolve->as<TupleType>();
+            for (auto &type : tuple_type->types) {
+                substitute_type_aliases(type);
+            }
+            break;
+        }
+        case Type::Variation::UNKNOWN:
+            // We do not handle unknown types here
+            break;
+        case Type::Variation::VARIANT: {
+            auto *variant_type = type_to_resolve->as<VariantType>();
+            if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                // Is variant type definition
+                auto *const var_type = std::get<VariantNode *const>(variant_type->var_or_list);
+                for (auto &type : var_type->possible_types) {
+                    substitute_type_aliases(type.second);
+                }
+            } else {
+                // Is variant list
+                auto &types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
+                for (auto &type : types) {
+                    substitute_type_aliases(type);
+                }
+            }
+            break;
         }
     }
 }

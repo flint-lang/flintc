@@ -155,6 +155,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     // import keywords
     {"use", TOK_USE},
     {"as", TOK_AS},
+    {"type", TOK_TYPE_KEYWORD},
     // builtin values
     {"true", TOK_TRUE},
     {"false", TOK_FALSE},
@@ -217,6 +218,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     // import keywords
     {TOK_USE, "use"},
     {TOK_AS, "as"},
+    {TOK_TYPE_KEYWORD, "type"},
     // builtin values
     {TOK_TRUE, "true"},
     {TOK_FALSE, "false"},
