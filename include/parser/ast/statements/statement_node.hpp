@@ -32,6 +32,7 @@ class StatementNode : public ASTNode {
         CONTINUE,
         DATA_FIELD_ASSIGNMENT,
         DECLARATION,
+        DO_WHILE,
         ENHANCED_FOR_LOOP,
         FOR_LOOP,
         GROUP_ASSIGNMENT,

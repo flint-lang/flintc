@@ -135,6 +135,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"switch", TOK_SWITCH},
     // looping keywords
     {"for", TOK_FOR},
+    {"do", TOK_DO},
     {"while", TOK_WHILE},
     {"parallel", TOK_PARALLEL},
     {"in", TOK_IN},
@@ -198,6 +199,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     {TOK_SWITCH, "switch"},
     // looping keywords
     {TOK_FOR, "for"},
+    {TOK_DO, "do"},
     {TOK_WHILE, "while"},
     {TOK_PARALLEL, "parallel"},
     {TOK_IN, "in"},

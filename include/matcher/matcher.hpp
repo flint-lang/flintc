@@ -16,6 +16,7 @@
 #include "matcher/token_type_matcher.hpp"
 #include "matcher/until_matcher.hpp"
 #include <cassert>
+#include <memory>
 #include <unordered_map>
 
 class Matcher {
@@ -258,6 +259,7 @@ class Matcher {
 
         // looping keywords
         {TOK_FOR, std::make_shared<TokenTypeMatcher>(TOK_FOR)},
+        {TOK_DO, std::make_shared<TokenTypeMatcher>(TOK_DO)},
         {TOK_WHILE, std::make_shared<TokenTypeMatcher>(TOK_WHILE)},
         {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
         {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
@@ -883,6 +885,7 @@ class Matcher {
     });
     static const inline PatternPtr par_for_loop = sequence({token(TOK_PARALLEL), enhanced_for_loop});
     static const inline PatternPtr while_loop = sequence({token(TOK_WHILE), until_colon});
+    static const inline PatternPtr do_while_loop = sequence({token(TOK_DO), token(TOK_COLON)});
     static const inline PatternPtr if_statement = sequence({token(TOK_IF), until_colon});
     static const inline PatternPtr else_if_statement = sequence({token(TOK_ELSE), token(TOK_IF), until_colon});
     static const inline PatternPtr else_statement = sequence({token(TOK_ELSE), until_colon});

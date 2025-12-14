@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/statements/do_while_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -182,6 +183,7 @@ namespace Debug {
         void print_throw(unsigned int indent_lvl, TreeBits &bits, const ReturnNode &return_node);
         void print_return(unsigned int indent_lvl, TreeBits &bits, const ThrowNode &return_node);
         void print_if(unsigned int indent_lvl, TreeBits &bits, const IfNode &if_node);
+        void print_do_while(unsigned int indent_lvl, TreeBits &bits, const DoWhileNode &do_while_node);
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, TreeBits &bits, const ForLoopNode &for_node);
         void print_enh_for(unsigned int indent_lvl, TreeBits &bits, const EnhForLoopNode &for_node);

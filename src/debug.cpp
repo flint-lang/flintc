@@ -8,6 +8,8 @@
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
@@ -843,6 +845,21 @@ namespace Debug {
             }
         }
 
+        void print_do_while(unsigned int indent_lvl, TreeBits &bits, const DoWhileNode &do_while_node) {
+            Local::print_header(indent_lvl, bits, "DoWhile ");
+            std::cout << "do .. while" << std::endl;
+
+            TreeBits cond_bits = bits.child(indent_lvl + 1, false);
+            print_expression(indent_lvl + 1, cond_bits, do_while_node.condition);
+
+            TreeBits do_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, do_bits, "Do ");
+            std::cout << "do [s" << do_while_node.scope->scope_id << "]" << std::endl;
+
+            TreeBits body_bits = bits.child(indent_lvl + 1, true);
+            print_body(indent_lvl + 1, body_bits, do_while_node.scope->body);
+        }
+
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node) {
             Local::print_header(indent_lvl, bits, "While ");
             std::cout << "while" << std::endl;
@@ -1214,6 +1231,11 @@ namespace Debug {
                 case StatementNode::Variation::DECLARATION: {
                     const auto *node = statement->as<DeclarationNode>();
                     print_declaration(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::DO_WHILE: {
+                    const auto *node = statement->as<DoWhileNode>();
+                    print_do_while(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::ENHANCED_FOR_LOOP: {

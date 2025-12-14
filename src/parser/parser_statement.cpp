@@ -218,6 +218,49 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     return std::make_unique<IfNode>(condition.value(), body_scope, else_scope);
 }
 
+std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop(//
+    std::shared_ptr<Scope> &scope,//
+    const token_slice &condition_line,//
+    const std::vector<Line> &body//
+) {
+    PROFILE_CUMULATIVE("Parser::create_do_while_loop");
+    token_slice condition_tokens = condition_line;
+    // Remove everything in front of the expression (\n, \t, else, if)
+    for (auto it = condition_tokens.first; it != condition_tokens.second; ++it) {
+        if (it->token == TOK_WHILE) {
+            condition_tokens.first++;
+            break;
+        }
+        condition_tokens.first++;
+    }
+    // Remove everything after the expression (;, \n)
+    for (auto rev_it = std::prev(condition_tokens.second); rev_it != condition_tokens.first; --rev_it) {
+        if (rev_it->token == TOK_SEMICOLON) {
+            condition_tokens.second--;
+            break;
+        }
+        condition_tokens.second--;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression( //
+        _ctx_, scope, condition_tokens, Type::get_primitive_type("bool")          //
+    );
+    if (!condition.has_value()) {
+        // Invalid expression inside while statement
+        return std::nullopt;
+    }
+
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
+    auto body_statements = create_body(body_scope, body);
+    if (!body_statements.has_value()) {
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
+    std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>(condition.value(), body_scope);
+    return do_while_node;
+}
+
+
 std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     std::shared_ptr<Scope> &scope,                                   //
     const token_slice &definition,                                   //
@@ -2479,7 +2522,16 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
+    } else if (Matcher::tokens_contain(definition, Matcher::do_while_loop)) {
+        const auto &condition_line = line_it->tokens;
+        ++line_it;
+        std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop(scope, condition_line, scoped_body.value());
+        if (!do_while_loop.has_value()) {
+            return std::nullopt;
+        }
+        statement_node = std::move(do_while_loop.value());
+    }
+    else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
         || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
     ) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);

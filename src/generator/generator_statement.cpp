@@ -7,6 +7,8 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
@@ -58,6 +60,13 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::DECLARATION: {
             const auto *node = statement->as<DeclarationNode>();
             return generate_declaration(builder, ctx, node);
+        }
+        // Das würd ich für's erste als TODO markieren
+        case StatementNode::Variation::DO_WHILE: {
+            [[maybe_unused]] const auto *node = statement->as<DoWhileNode>();
+            // TODO:
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
         }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             const auto *node = statement->as<EnhForLoopNode>();

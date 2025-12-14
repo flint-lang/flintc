@@ -1,6 +1,7 @@
 #pragma once
 
 #include "matcher/matcher.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -1111,6 +1112,19 @@ class Parser {
     std::optional<std::unique_ptr<IfNode>> create_if(std::shared_ptr<Scope> &scope,
         std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain);
 
+    /// @function `create_do_while_loop`
+    /// @brief Creates a DoWhileNode from the given definition and body tokens inside the given scope
+    ///
+    /// @param `scope` The scope in which the do-while loop is defined
+    /// @param `condition_line` The list of tokens representing the end of the scope and the condition
+    /// @param `body` The list of tokens representing the loop body
+    /// @return `std::optional<std::unique_ptr<DoWhileNode>>` An optional unique pointer to the created DoWhileNode
+    std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop(//
+        std::shared_ptr<Scope> &scope,//
+        const token_slice &condition_line,//
+        const std::vector<Line> &body//
+    );
+
     /// @function `create_while_loop`
     /// @brief Creates a WhileNode from the given definition and body tokens inside the given scope
     ///
@@ -1118,8 +1132,11 @@ class Parser {
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
-    std::optional<std::unique_ptr<WhileNode>> create_while_loop(std::shared_ptr<Scope> &scope, const token_slice &definition,
-        const std::vector<Line> &body);
+    std::optional<std::unique_ptr<WhileNode>> create_while_loop(//
+        std::shared_ptr<Scope> &scope,//
+        const token_slice &definition,//
+        const std::vector<Line> &body//
+    );
 
     /// @function `create_for_loop`
     /// @brief Creates a ForLoopNode from the given list of tokens
