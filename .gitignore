@@ -21,3 +21,5 @@ test.o
 logfile
 zig-out
 test
+
+chat.txt
