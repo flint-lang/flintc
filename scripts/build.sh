@@ -397,8 +397,9 @@ fetch_json_mini() {
     if [ ! -d "$root/vendor/sources/json-mini" ]; then
         echo "-- Fetching json-mini from GitHub..."
         cd "$root/vendor/sources"
-        git clone "https://github.com/flint-lang/json-mini.git" "$JSON_MINI_HASH"
+        git clone "https://github.com/flint-lang/json-mini.git"
         cd "$root"
+        fetch_json_mini
     else
         # Checking for internet connection
         echo "-- Checking for internet connection..."
@@ -428,8 +429,9 @@ fetch_fip() {
     if [ ! -d "$root/vendor/sources/fip" ]; then
         echo "-- Fetching fip from GitHub..."
         cd "$root/vendor/sources"
-        git clone "https://github.com/flint-lang/fip.git" "$FIP_HASH"
+        git clone "https://github.com/flint-lang/fip.git"
         cd "$root"
+        fetch_fip
     else
         # Checking for internet connection
         echo "-- Checking for internet connection..."
