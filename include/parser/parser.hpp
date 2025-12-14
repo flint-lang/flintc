@@ -222,6 +222,8 @@ class Parser {
     /// @brief Resolves all unknown types to point to real types
     ///
     /// @return `bool` Whether all unknown types could be resolved correctly
+    ///
+    /// @note Also substitutes all unknown types if the unknown type is an aliased type
     static bool resolve_all_unknown_types();
 
     /// @function `get_open_functions`

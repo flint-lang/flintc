@@ -4,6 +4,7 @@
 #include "lexer/lexer.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
@@ -150,6 +151,14 @@ bool Namespace::resolve_type(std::shared_ptr<Type> &type) {
         default:
             // No need to resolve the other types since they cannot contain unknown types
             break;
+        case Type::Variation::ALIAS: {
+            auto *alias_type = type->as<AliasType>();
+            type = alias_type->type;
+            if (!resolve_type(type)) {
+                return false;
+            }
+            break;
+        }
         case Type::Variation::ARRAY: {
             auto *array_type = type->as<ArrayType>();
             if (!resolve_type(array_type->type)) {
@@ -198,6 +207,9 @@ bool Namespace::resolve_type(std::shared_ptr<Type> &type) {
                 return false;
             }
             type = type_maybe.value();
+            if (!resolve_type(type)) {
+                return false;
+            }
             break;
         }
         case Type::Variation::VARIANT: {
