@@ -3486,6 +3486,14 @@ class Generator {
             /// @param `module` The LLVM Module the functions are generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
             static void generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_now_function`
+            /// @brief Function to generate the `now` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
         /// @class `TypeCast`
