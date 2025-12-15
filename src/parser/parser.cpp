@@ -213,6 +213,9 @@ Parser::CastDirection Parser::check_primitive_castability( //
     } else if (lhs_str == "float" && rhs_str == "int") {
         // Cast rhs (int) to lhs (float)
         return CastDirection::rhs_to_lhs();
+    } else if (lhs_str == "str" && rhs_type->get_variation() == Type::Variation::ENUM) {
+        // Enums are always castable to strings
+        return CastDirection::rhs_to_lhs();
     }
 
     bool lhs_to_rhs_allowed = false;

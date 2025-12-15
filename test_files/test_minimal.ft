@@ -1,10 +1,8 @@
 use Core.print
 
-def main():
-	str[] arr = str[10]("0123456789");
-	arr[5][3] = 'B';
-	for (i, elem) in arr:
-		print($"arr[{i}] = {elem}\n");
+enum Operation:
+	ADD, MULT;
 
-	u8 elem = arr[5][3];
-	print($"elem = {elem}\n");
+def main():
+	Operation op = Operation.ADD;
+	print($"op = {op}\n");
