@@ -342,7 +342,7 @@ class Generator {
 
     /// @var `enum_name_arrays_map`
     /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
-    /// name of the enum
+    /// name of the enum and the hash from where the enum came from, so `Sb7HsALK.<enum_name>`
     static inline std::unordered_map<std::string, llvm::GlobalVariable *> enum_name_arrays_map;
 
     /// @var `global_strings`
@@ -3495,6 +3495,16 @@ class Generator {
                 {"now", nullptr},
             };
 
+            /// @var `time_data_types`
+            /// @brief Map containing references to all time data types, to make referencing them easier
+            ///
+            /// @details
+            /// - **Key** `std::string` - The name of the data type
+            /// - **Value** `llvm::StructType *` - The reference to the generated type
+            ///
+            /// @attention This map will be empty until the `generate_types` function is called
+            static inline std::unordered_map<std::string, llvm::StructType *> time_data_types;
+
             /// @function `generate_time_functions`
             /// @brief Function to generate all functions from the time Core module
             ///
@@ -3502,6 +3512,12 @@ class Generator {
             /// @param `module` The LLVM Module the functions are generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
             static void generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_types`
+            /// @brief Generates all the types this module provides
+            ///
+            /// @param `module` The module in which to generate this module's types in
+            static void generate_types(llvm::Module *module);
 
             /// @function `generate_now_function`
             /// @brief Function to generate the `now` function

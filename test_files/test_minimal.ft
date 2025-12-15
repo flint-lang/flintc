@@ -1,9 +1,12 @@
 use Core.print
-
-def print_ranges(mut data<u64, u64>[] ranges):
-	for (i, elem) in ranges:
-		print($"ranges[{i}] = ({elem.$0}, {elem.$0})\n");
+use Core.time
 
 def main():
-	data<u64, u64>[] ranges = data<u64, u64>[5](_);
-	print_ranges(ranges);
+	TimeUnit tu = TimeUnit.MS;
+	switch tu:
+		NS: print("ns\n");
+		US: print("µs\n");
+		MS: print("ms\n");
+		S:  print("s\n");
+	TimeStamp ts = TimeStamp(100);
+	print($"ts.value = {ts.value}\n");
