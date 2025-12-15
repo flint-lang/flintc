@@ -5,3 +5,6 @@ def main():
 	arr[5][3] = 'B';
 	for (i, elem) in arr:
 		print($"arr[{i}] = {elem}\n");
+
+	u8 elem = arr[5][3];
+	print($"elem = {elem}\n");

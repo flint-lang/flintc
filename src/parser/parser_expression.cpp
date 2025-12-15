@@ -1645,7 +1645,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
             return std::nullopt;
         }
         return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
-    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access)) {
+    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access) || Matcher::tokens_match(tokens, Matcher::stacked_array_access)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
