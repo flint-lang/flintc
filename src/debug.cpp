@@ -1150,6 +1150,36 @@ namespace Debug {
             print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
         }
 
+        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, bits, "Stacked Array Assignment ");
+            std::cout << "on base expr" << std::endl;
+
+            indent_lvl++;
+            TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
+            std::cout << std::endl;
+
+            TreeBits base_expr_bits = base_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
+
+            for (size_t i = 0; i < assignment.indexing_expressions.size(); i++) {
+                TreeBits index_header_bits = bits.child(indent_lvl, false);
+                Local::print_header(indent_lvl, index_header_bits, "ID " + std::to_string(i) + " ");
+                std::cout << std::endl;
+
+                TreeBits index_bits = index_header_bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl + 1, index_bits, assignment.indexing_expressions.at(i));
+            }
+
+            // Print RHS expression
+            TreeBits rhs_expr_header_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, rhs_expr_header_bits, "RHS Expression ");
+            std::cout << "to be" << std::endl;
+
+            TreeBits rhs_expr_bits = rhs_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
+        }
+
         void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment) {
             Local::print_header(indent_lvl, bits, "Stacked Grouped Assignment ");
             std::cout << "Fields (";
@@ -1276,6 +1306,11 @@ namespace Debug {
                 case StatementNode::Variation::STACKED_ASSIGNMENT: {
                     const auto *node = statement->as<StackedAssignmentNode>();
                     print_stacked_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+                    const auto *node = statement->as<StackedArrayAssignmentNode>();
+                    print_stacked_array_assignment(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {

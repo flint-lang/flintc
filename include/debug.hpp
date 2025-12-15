@@ -1,6 +1,5 @@
 #pragma once
 
-#include "parser/ast/statements/do_while_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -41,6 +40,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -48,6 +48,7 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/statement_node.hpp"
@@ -199,6 +200,7 @@ namespace Debug {
             unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
         );
         void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment);
+        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment);
         void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment);
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, TreeBits &bits, const std::vector<std::unique_ptr<StatementNode>> &body);

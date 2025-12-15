@@ -37,6 +37,7 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/switch_statement.hpp"

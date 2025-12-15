@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/type/data_type.hpp"
@@ -218,10 +219,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     return std::make_unique<IfNode>(condition.value(), body_scope, else_scope);
 }
 
-std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop(//
-    std::shared_ptr<Scope> &scope,//
-    const token_slice &condition_line,//
-    const std::vector<Line> &body//
+std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
+    std::shared_ptr<Scope> &scope,                                        //
+    const token_slice &condition_line,                                    //
+    const std::vector<Line> &body                                         //
 ) {
     PROFILE_CUMULATIVE("Parser::create_do_while_loop");
     token_slice condition_tokens = condition_line;
@@ -259,7 +260,6 @@ std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop(//
     std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>(condition.value(), body_scope);
     return do_while_node;
 }
-
 
 std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     std::shared_ptr<Scope> &scope,                                   //
@@ -2126,11 +2126,24 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
     if (!rhs_expr.has_value()) {
         return std::nullopt;
     }
+    token_slice indexing_expression_tokens{iterator, iterator};
     // Okay, so now we find the dot token for the last stack and create an expression with everything to the left of it
     --iterator;
     size_t depth = 0;
     for (; iterator != tokens.first; --iterator) {
-        if (iterator->token == TOK_RIGHT_PAREN) {
+        if (iterator->token == TOK_RIGHT_BRACKET) {
+            depth++;
+        } else if (iterator->token == TOK_LEFT_BRACKET) {
+            depth--;
+            if (depth == 0) {
+                // There is an array access at the very right so everything left to it is the base expression
+                // Move the end to the ]
+                indexing_expression_tokens.second--;
+                // Move past the [
+                indexing_expression_tokens.first = iterator + 1;
+                break;
+            }
+        } else if (iterator->token == TOK_RIGHT_PAREN) {
             depth++;
         } else if (iterator->token == TOK_LEFT_PAREN) {
             depth--;
@@ -2150,6 +2163,42 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
         default:
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        case Type::Variation::PRIMITIVE: {
+            if (base_expr_type->to_string() != "str") {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            [[fallthrough]];
+        }
+        case Type::Variation::ARRAY: {
+            unsigned int dimensionality = 1;
+            std::shared_ptr<Type> base_type = Type::get_primitive_type("u8");
+            if (base_expr_type->to_string() != "str") {
+                const auto *array_type = base_expr_type->as<ArrayType>();
+                dimensionality = array_type->dimensionality;
+                base_type = array_type->type;
+            }
+            if (!rhs_expr.value()->type->equals(base_type)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_expression_tokens);
+            if (!indexing_expressions.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (indexing_expressions.value().size() != dimensionality) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            for (auto &expr : indexing_expressions.value()) {
+                if (!check_castability(Type::get_primitive_type("u64"), expr)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+            return std::make_unique<StackedArrayAssignmentNode>(base_expr.value(), indexing_expressions.value(), rhs_expr.value());
+        }
         case Type::Variation::DATA: {
             const auto *data_type = base_expr_type->as<DataType>();
             if (iterator->token == TOK_IDENTIFIER) {
@@ -2530,8 +2579,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(do_while_loop.value());
-    }
-    else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
+    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
         || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
     ) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(scope, definition, scoped_body.value(), statements);

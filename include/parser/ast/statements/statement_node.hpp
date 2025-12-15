@@ -41,6 +41,7 @@ class StatementNode : public ASTNode {
         IF,
         RETURN,
         STACKED_ASSIGNMENT,
+        STACKED_ARRAY_ASSIGNMENT,
         STACKED_GROUPED_ASSIGNMENT,
         SWITCH,
         THROW,

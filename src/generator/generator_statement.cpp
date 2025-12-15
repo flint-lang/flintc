@@ -61,7 +61,6 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<DeclarationNode>();
             return generate_declaration(builder, ctx, node);
         }
-        // Das würd ich für's erste als TODO markieren
         case StatementNode::Variation::DO_WHILE: {
             [[maybe_unused]] const auto *node = statement->as<DoWhileNode>();
             // TODO:
@@ -100,6 +99,11 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::STACKED_ASSIGNMENT: {
             const auto *node = statement->as<StackedAssignmentNode>();
             return generate_stacked_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+            [[maybe_unused]] const auto *node = statement->as<StackedArrayAssignmentNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
         }
         case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
             const auto *node = statement->as<StackedGroupedAssignmentNode>();

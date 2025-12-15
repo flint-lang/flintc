@@ -146,6 +146,23 @@ bool Generator::Allocation::generate_allocations(                               
             }
             case StatementNode::Variation::STACKED_ASSIGNMENT:
                 break;
+            case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+                const auto *node = statement->as<StackedArrayAssignmentNode>();
+                generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
+                if (!generate_expression_allocations(                                                            //
+                        builder, parent, scope, allocations, imported_core_modules, node->base_expression.get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                if (!generate_expression_allocations(                                                       //
+                        builder, parent, scope, allocations, imported_core_modules, node->expression.get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                break;
+            }
             case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT:
                 break;
             case StatementNode::Variation::SWITCH: {
