@@ -1367,6 +1367,19 @@ class Generator {
             const StackedAssignmentNode *stacked_assignment    //
         );
 
+        /// @function `generate_stacked_array_assignment`
+        /// @brief Generates the stacked array assignment from the given StackedArrayAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `stacked_assignment` The stacked array assignment to generate
+        /// @return `bool` Whether the code generation of the stacked array assignment was successful
+        [[nodiscard]] static bool generate_stacked_array_assignment( //
+            llvm::IRBuilder<> &builder,                              //
+            GenerationContext &ctx,                                  //
+            const StackedArrayAssignmentNode *stacked_assignment     //
+        );
+
         /// @function `generate_stacked_grouped_assignment`
         /// @brief Generates the stacked grouped assignment from the given StackedGroupedAssignmentNode
         ///
