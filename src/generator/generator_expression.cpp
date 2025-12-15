@@ -2333,6 +2333,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             // Non-supported type for array access
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
+        case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE: {
             llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
                 {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
