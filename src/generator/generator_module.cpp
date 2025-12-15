@@ -166,7 +166,7 @@ bool Generator::Module::generate_modules() {
         success = success && generate_module(BuiltinLibrary::PARSE, cache_path, "parse");
     }
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::TIME)) {
-        success = success && generate_module(BuiltinLibrary::TIME, cache_path, "parse");
+        success = success && generate_module(BuiltinLibrary::TIME, cache_path, "time");
     }
     if (!success) {
         return false;
