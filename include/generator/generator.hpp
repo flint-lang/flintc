@@ -3246,6 +3246,7 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_string_manip_functions` function is called
             static inline std::unordered_map<std::string_view, llvm::Function *> string_manip_functions = {
                 {"access_str_at", nullptr},
+                {"assign_str_at", nullptr},
                 {"create_str", nullptr},
                 {"init_str", nullptr},
                 {"assign_str", nullptr},
@@ -3265,6 +3266,14 @@ class Generator {
             /// @param `module` The LLVM Module the `access_str_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_access_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_assign_str_at_function`
+            /// @brief Generates the builtin hidden `assign_str_at` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `assign_str_at` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_assign_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_create_str_function`
             /// @brief Generates the builtin hidden `create_str` function
