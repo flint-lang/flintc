@@ -780,6 +780,58 @@ llvm::Value *Generator::IR::generate_const_string(llvm::Module *module, const st
     return string_global;
 }
 
+bool Generator::IR::generate_enum_value_strings( //
+    llvm::Module *module,                        //
+    const std::string &hash,                     //
+    const std::string &enum_name,                //
+    const std::vector<std::string> &enum_values  //
+) {
+    // Generate the type name array for later typecast lookups
+    // Create individual string constants
+    const std::string key = hash + "." + enum_name;
+    if (enum_name_arrays_map.find(key) != enum_name_arrays_map.end()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    std::vector<llvm::Constant *> string_pointers;
+    llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
+
+    for (size_t i = 0; i < enum_values.size(); ++i) {
+        // Create the string constant data
+        llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_values[i], true);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+        // Create a global variable to hold the string
+        llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
+            *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
+            "enum." + enum_name + ".name." + std::to_string(i)                                      //
+        );
+#pragma GCC diagnostic pop
+
+        // Get pointer to the string data (cast to i8*)
+        llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
+        string_pointers.push_back(string_ptr);
+    }
+
+    // Create the array type and global array
+    llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_values.size());
+    llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+    llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                           //
+        *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_name + ".names" //
+    );
+#pragma GCC diagnostic pop
+
+    // Optional Windows compatibility settings
+#ifdef __WIN32__
+    global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+#endif
+    enum_name_arrays_map[enum_name] = global_string_array;
+    return true;
+}
+
 llvm::Value *Generator::IR::generate_err_value( //
     llvm::IRBuilder<> &builder,                 //
     llvm::Module *module,                       //

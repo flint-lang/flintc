@@ -472,6 +472,22 @@ class Generator {
         /// @return `llvm::Value *` The generated static string value
         static llvm::Value *generate_const_string(llvm::Module *module, const std::string &str);
 
+        /// @function `generate_enum_value_strings`
+        /// @brief Generates all the global strings of the enum within the given module, necessary for type-casting of enum values to
+        /// strings
+        ///
+        /// @param `module` The module in which to generate the enum strings in
+        /// @param `hash` The hash of the file the enum is defined in
+        /// @param `enum_name` The name of the enum (e.g. it's type)
+        /// @param `enum_values` The values of the enum to generate the global strings from
+        /// @return `bool` Whether generating the global strings was successful
+        static bool generate_enum_value_strings(        //
+            llvm::Module *module,                       //
+            const std::string &hash,                    //
+            const std::string &enum_name,               //
+            const std::vector<std::string> &enum_values //
+        );
+
         /// @function `generate_err_value`
         /// @brief Generates an error value from the given error components
         ///
