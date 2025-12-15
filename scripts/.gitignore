@@ -1,2 +1,3 @@
 ./.gitginore
 build_dev_wsl.sh
+test_minimal.sh
