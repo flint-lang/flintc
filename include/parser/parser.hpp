@@ -1,6 +1,7 @@
 #pragma once
 
 #include "matcher/matcher.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "types.hpp"
 
 #include "ast/call_node_base.hpp"
@@ -222,6 +223,8 @@ class Parser {
     /// @brief Resolves all unknown types to point to real types
     ///
     /// @return `bool` Whether all unknown types could be resolved correctly
+    ///
+    /// @note Also substitutes all unknown types if the unknown type is an aliased type
     static bool resolve_all_unknown_types();
 
     /// @function `get_open_functions`
@@ -612,7 +615,14 @@ class Parser {
     /// @param `source` A reference to the source token vector directly to enable direct modification
     ///
     /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
+    /// @note Also replaces all type aliases with their aliased types
     void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+
+    /// @function `substitute_type_aliases`
+    /// @brief Recursively substitutes all type aliases within the type to resolve
+    ///
+    /// @param `type_to_resolve` The type to resolve
+    void substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve);
 
     /// @struct `CreateCallOrInitializerBaseRet`
     /// @brief The return type of the `create_call_or_initializer_base` function. It's return type got very complex and that's why this
@@ -1102,6 +1112,19 @@ class Parser {
     std::optional<std::unique_ptr<IfNode>> create_if(std::shared_ptr<Scope> &scope,
         std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain);
 
+    /// @function `create_do_while_loop`
+    /// @brief Creates a DoWhileNode from the given definition and body tokens inside the given scope
+    ///
+    /// @param `scope` The scope in which the do-while loop is defined
+    /// @param `condition_line` The list of tokens representing the end of the scope and the condition
+    /// @param `body` The list of tokens representing the loop body
+    /// @return `std::optional<std::unique_ptr<DoWhileNode>>` An optional unique pointer to the created DoWhileNode
+    std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop(//
+        std::shared_ptr<Scope> &scope,//
+        const token_slice &condition_line,//
+        const std::vector<Line> &body//
+    );
+
     /// @function `create_while_loop`
     /// @brief Creates a WhileNode from the given definition and body tokens inside the given scope
     ///
@@ -1109,8 +1132,11 @@ class Parser {
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
-    std::optional<std::unique_ptr<WhileNode>> create_while_loop(std::shared_ptr<Scope> &scope, const token_slice &definition,
-        const std::vector<Line> &body);
+    std::optional<std::unique_ptr<WhileNode>> create_while_loop(//
+        std::shared_ptr<Scope> &scope,//
+        const token_slice &definition,//
+        const std::vector<Line> &body//
+    );
 
     /// @function `create_for_loop`
     /// @brief Creates a ForLoopNode from the given list of tokens

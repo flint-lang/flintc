@@ -1,10 +1,6 @@
 use "imported_2.ft" as i2
 
-data Vec3:
-	i32 x;
-	i32 y;
-	i32 z;
-	Vec3(x, y, z);
+type Vec3 i32x3
 
 def add(i32 x, i32 y) -> i32:
 	return x + y;

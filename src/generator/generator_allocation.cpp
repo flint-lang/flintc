@@ -6,6 +6,8 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 #include "parser/parser.hpp"
 
 #include <string>
@@ -59,6 +61,18 @@ bool Generator::Allocation::generate_allocations(                               
             case StatementNode::Variation::DECLARATION: {
                 const auto *node = statement->as<DeclarationNode>();
                 if (!generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::DO_WHILE: {
+                const auto *node = statement->as<DoWhileNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->condition.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                if (!generate_allocations(builder, parent, node->scope, allocations, imported_core_modules)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
@@ -132,6 +146,23 @@ bool Generator::Allocation::generate_allocations(                               
             }
             case StatementNode::Variation::STACKED_ASSIGNMENT:
                 break;
+            case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+                const auto *node = statement->as<StackedArrayAssignmentNode>();
+                generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
+                if (!generate_expression_allocations(                                                            //
+                        builder, parent, scope, allocations, imported_core_modules, node->base_expression.get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                if (!generate_expression_allocations(                                                       //
+                        builder, parent, scope, allocations, imported_core_modules, node->expression.get()) //
+                ) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                break;
+            }
             case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT:
                 break;
             case StatementNode::Variation::SWITCH: {

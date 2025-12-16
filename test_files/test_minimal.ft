@@ -2,7 +2,8 @@ use Core.time
 use Core.print
 
 def main():
-	print("Sleeping for 200ms...\n");
-	Duration d = from(200, TimeUnit.MS);
-	sleep(d);
-	print("Sleeping done!\n");
+    i32 num = 0;
+    do:
+        print($"num = {num}\n");
+        num++;
+    while num < 5;

@@ -1,12 +1,17 @@
 #include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -15,10 +20,13 @@
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "llvm/IR/BasicBlock.h"
 
 #include <algorithm>
+#include <array>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
+#include <memory>
 #include <string>
 
 bool Generator::Statement::generate_statement(      //
@@ -58,6 +66,10 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<DeclarationNode>();
             return generate_declaration(builder, ctx, node);
         }
+        case StatementNode::Variation::DO_WHILE: {
+            [[maybe_unused]] const auto *node = statement->as<DoWhileNode>();
+            return generate_do_while_loop(builder, ctx, node);
+        }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             const auto *node = statement->as<EnhForLoopNode>();
             return generate_enh_for_loop(builder, ctx, node);
@@ -90,6 +102,10 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::STACKED_ASSIGNMENT: {
             const auto *node = statement->as<StackedAssignmentNode>();
             return generate_stacked_assignment(builder, ctx, node);
+        }
+        case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+            const auto *node = statement->as<StackedArrayAssignmentNode>();
+            return generate_stacked_array_assignment(builder, ctx, node);
         }
         case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
             const auto *node = statement->as<StackedGroupedAssignmentNode>();
@@ -200,7 +216,14 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         }
         // Check if the variable is of type str
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
+        if (var_type->get_variation() == Type::Variation::ALIAS) {
+            const auto *alias_type = var_type->as<AliasType>();
+            var_type = alias_type->type;
+        }
         switch (var_type->get_variation()) {
+            case Type::Variation::ALIAS: {
+                assert(false);
+            }
             case Type::Variation::ARRAY: {
                 const auto *array_type = var_type->as<ArrayType>();
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
@@ -634,6 +657,58 @@ bool Generator::Statement::generate_if_statement( //
     return true;
 }
 
+bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const DoWhileNode *do_while_node) {
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    std::array<llvm::BasicBlock*, 3> do_while_blocks{};
+
+    do_while_blocks[0] = llvm::BasicBlock::Create(context, "do_while_body", ctx.parent);
+    do_while_blocks[1] = llvm::BasicBlock::Create(context, "do_while_cond", ctx.parent);
+    last_looparound_blocks.emplace_back(do_while_blocks[1]);
+    do_while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(do_while_blocks[2]);
+
+    builder.SetInsertPoint(pred_block);
+    llvm::BranchInst *init_do_while_br = builder.CreateBr(do_while_blocks[0]);
+    init_do_while_br->setMetadata("comment",
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Start the do-while loop in '" + do_while_blocks[0]->getName().str() + "'")));
+
+    builder.SetInsertPoint(do_while_blocks[0]);
+    ctx.scope = do_while_node->scope;
+    if (!generate_body(builder, ctx)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if(builder.GetInsertBlock()->getTerminator() == nullptr) {
+        builder.CreateBr(do_while_blocks[1]);
+    }
+
+    builder.SetInsertPoint(do_while_blocks[1]);
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
+    ctx.scope = do_while_node->scope->get_parent();
+    Expression::garbage_type garbage;
+    group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, do_while_node->condition.get());
+    llvm::Value *expression = expression_arr.value().front();
+    if(!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::BranchInst *branch = builder.CreateCondBr(expression, do_while_blocks[0], do_while_blocks[2]);
+    branch->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(
+                context, "Continue loop in '" + do_while_blocks[0]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
+
+    do_while_blocks[2]->insertInto(ctx.parent);
+
+    ctx.scope = current_scope;
+    builder.SetInsertPoint(do_while_blocks[2]);
+
+    last_looparound_blocks.pop_back();
+    last_loop_merge_blocks.pop_back();
+    return true;
+}
+
 bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const WhileNode *while_node) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
@@ -659,7 +734,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     ctx.scope = while_node->scope->get_parent();
     Expression::garbage_type garbage;
     group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, while_node->condition.get());
-    llvm::Value *expression = expression_arr.value().at(0);
+    llvm::Value *expression = expression_arr.value().front();
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -2034,6 +2109,114 @@ bool Generator::Statement::generate_stacked_assignment( //
     llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
     llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
     IR::aligned_store(builder, expression, field_ptr);
+    return true;
+}
+
+bool Generator::Statement::generate_stacked_array_assignment( //
+    llvm::IRBuilder<> &builder,                               //
+    GenerationContext &ctx,                                   //
+    const StackedArrayAssignmentNode *stacked_assignment      //
+) {
+    // Generate the main expression
+    Expression::garbage_type garbage;
+    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->expression.get());
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!expression_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (expression_result.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *expression = expression_result.value().front();
+
+    // Now we can create the "base expression" which then gets accessed
+    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (!base_expr_res.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (base_expr_res.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *base_expr = base_expr_res.value().front();
+
+    // Generate all the indexing expressions
+    std::vector<llvm::Value *> idx_expressions;
+    for (auto &idx_expression : stacked_assignment->indexing_expressions) {
+        group_mapping idx_expr = Expression::generate_expression(builder, ctx, garbage, 0, idx_expression.get());
+        if (!idx_expr.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (idx_expr.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        idx_expressions.emplace_back(idx_expr.value().at(0));
+    }
+    // We need to make a special case if the "array" is a string
+    if (stacked_assignment->base_expression->type->to_string() == "str") {
+        // We do a normal string assignment at a given position
+        assert(stacked_assignment->expression->type->to_string() == "u8");
+        assert(idx_expressions.size() == 1);
+        llvm::Function *assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
+        builder.CreateCall(assign_str_at_fn, {base_expr, idx_expressions.front(), expression});
+        return true;
+    }
+
+    // Store all the results of the index expressions in the indices array
+    llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(stacked_assignment->indexing_expressions.size()));
+    for (size_t i = 0; i < idx_expressions.size(); i++) {
+        llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
+        IR::aligned_store(builder, idx_expressions[i], idx_ptr);
+    }
+    // The base expression should return the pointer to the array directly
+    llvm::Value *array_ptr = base_expr;
+    if (stacked_assignment->expression->type->to_string() == "str") {
+        // This call returns a 'str**'
+        llvm::Value *element_ptr = builder.CreateCall(             //
+            Module::Array::array_manip_functions.at("access_arr"), //
+            {array_ptr, builder.getInt64(8), indices}              //
+        );
+        // The string assignment will call the 'assign_str' function, which takes in a 'str**' argument for its dest, so this is correct
+        Module::String::generate_string_assignment(builder, element_ptr, stacked_assignment->expression.get(), expression);
+        return true;
+    }
+
+    // For types larger than 8 bytes (like structs/tuples), use direct store via access_arr
+    const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
+    if (element_size_bytes > 8) {
+        // Get pointer to the array element
+        llvm::Value *element_ptr = builder.CreateCall(                 //
+            Module::Array::array_manip_functions.at("access_arr"),     //
+            {array_ptr, builder.getInt64(element_size_bytes), indices} //
+        );
+        // Cast the char* to the correct pointer type
+        llvm::Value *typed_element_ptr = builder.CreateBitCast(element_ptr, expression->getType()->getPointerTo(), "typed_element_ptr");
+        // Store the value directly
+        IR::aligned_store(builder, expression, typed_element_ptr);
+        return true;
+    }
+
+    // For primitives <= 8 bytes, use the `assign_arr_val_at` function instead
+    llvm::Type *to_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first;
+    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
+    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
+    // Call the `assign_at_val` function
+    builder.CreateCall(                                                                     //
+        Module::Array::array_manip_functions.at("assign_arr_val_at"),                       //
+        {array_ptr, builder.getInt64(std::max(1U, expr_bitwidth / 8)), indices, expression} //
+    );
     return true;
 }
 

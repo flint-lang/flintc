@@ -3,6 +3,7 @@
 #include "generator/generator.hpp"
 
 #include "lexer/lexer_utils.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -460,6 +461,10 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
     }
     switch (type->get_variation()) {
+        case Type::Variation::ALIAS: {
+            const auto *alias_type = type->as<AliasType>();
+            return get_type(module, alias_type->type, is_extern);
+        }
         case Type::Variation::ARRAY: {
             // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
             if (type_map.find("type.str") == type_map.end()) {

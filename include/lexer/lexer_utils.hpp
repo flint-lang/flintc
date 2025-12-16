@@ -135,6 +135,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"switch", TOK_SWITCH},
     // looping keywords
     {"for", TOK_FOR},
+    {"do", TOK_DO},
     {"while", TOK_WHILE},
     {"parallel", TOK_PARALLEL},
     {"in", TOK_IN},
@@ -155,6 +156,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     // import keywords
     {"use", TOK_USE},
     {"as", TOK_AS},
+    {"type", TOK_TYPE_KEYWORD},
     // builtin values
     {"true", TOK_TRUE},
     {"false", TOK_FALSE},
@@ -197,6 +199,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     {TOK_SWITCH, "switch"},
     // looping keywords
     {TOK_FOR, "for"},
+    {TOK_DO, "do"},
     {TOK_WHILE, "while"},
     {TOK_PARALLEL, "parallel"},
     {TOK_IN, "in"},
@@ -217,6 +220,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     // import keywords
     {TOK_USE, "use"},
     {TOK_AS, "as"},
+    {TOK_TYPE_KEYWORD, "type"},
     // builtin values
     {TOK_TRUE, "true"},
     {TOK_FALSE, "false"},

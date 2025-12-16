@@ -76,6 +76,7 @@ enum Token {
 
     // looping keywords
     TOK_FOR,
+    TOK_DO,
     TOK_WHILE,
     TOK_PARALLEL,
     TOK_IN,
@@ -101,6 +102,7 @@ enum Token {
     TOK_USE,
     TOK_AS,
     TOK_ALIAS,
+    TOK_TYPE_KEYWORD,
 
     // literals
     TOK_IDENTIFIER,

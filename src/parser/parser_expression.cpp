@@ -1095,6 +1095,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     const token_slice &tokens                                         //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_initializer");
+    token_list toks = clone_from_slice(tokens);
     token_slice tokens_mut = tokens;
     std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
         tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
@@ -1644,7 +1645,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression
             return std::nullopt;
         }
         return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
-    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access)) {
+    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access) || Matcher::tokens_match(tokens, Matcher::stacked_array_access)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens);
         if (!access.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);

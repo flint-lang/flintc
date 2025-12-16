@@ -40,6 +40,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -47,6 +48,7 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/statement_node.hpp"
@@ -182,6 +184,7 @@ namespace Debug {
         void print_throw(unsigned int indent_lvl, TreeBits &bits, const ReturnNode &return_node);
         void print_return(unsigned int indent_lvl, TreeBits &bits, const ThrowNode &return_node);
         void print_if(unsigned int indent_lvl, TreeBits &bits, const IfNode &if_node);
+        void print_do_while(unsigned int indent_lvl, TreeBits &bits, const DoWhileNode &do_while_node);
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node);
         void print_for(unsigned int indent_lvl, TreeBits &bits, const ForLoopNode &for_node);
         void print_enh_for(unsigned int indent_lvl, TreeBits &bits, const EnhForLoopNode &for_node);
@@ -197,6 +200,7 @@ namespace Debug {
             unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
         );
         void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment);
+        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment);
         void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment);
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, TreeBits &bits, const std::vector<std::unique_ptr<StatementNode>> &body);

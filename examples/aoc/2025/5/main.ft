@@ -1,0 +1,129 @@
+use Core.print
+use Core.filesystem
+use Core.parse
+
+type Range data<u64, u64>
+
+def add_range(Range[] ranges, u64 min, u64 max) -> Range[]:
+	Range[] new_ranges = Range[ranges.len + 1](_);
+	for (i, elem) in ranges:
+		new_ranges[i] = elem;
+	new_ranges[ranges.len] = (min, max);
+	return new_ranges;
+
+def parse_ranges(str[] lines) -> (Range[], u64):
+	Range[] ranges = Range[0](_);
+	u64 id_start = 0;
+	for (idx, line) in lines:
+		if line == "":
+			id_start = idx + 1;
+			break;
+		u64 dash_idx = 0;
+		for (i, char) in line:
+			if char == '-':
+				dash_idx = i;
+				break;
+		u64 min = parse_u64(line[0..dash_idx]);
+		u64 max = parse_u64(line[(dash_idx + 1)..line.len]);
+		ranges = add_range(ranges, min, max);
+	return (ranges, id_start);
+
+def parse_indices(str[] lines, u64 id_start) -> u64[]:
+	u64[] indices = u64[lines.len - id_start](_);
+	for (i, elem) in indices:
+		elem = parse_u64(lines[id_start + i]);
+	return indices;
+
+def ranges_contain_value(Range[] ranges, u64 value) -> bool:
+	for (_, range) in ranges:
+		if value >= range.$0 and value <= range.$1:
+			return true;
+	return false;
+
+def sort_ranges(Range[] ranges) -> Range[]:
+	const u64 U64_MAX = 18_446_744_073_709_551_615;
+	Range[] new_range = Range[ranges.len](_);
+	bool[] range_added = bool[ranges.len](false);
+
+	// First find the smallest range and insert it at the front
+	Range smallest_range = (U64_MAX, U64_MAX);
+	u64 smallest_range_idx = 0;
+	for (i, range) in ranges:
+		if range.$0 < smallest_range.$0 or (range.$0 == smallest_range.$0 and range.$1 < smallest_range.$1):
+			smallest_range = range;
+			smallest_range_idx = i;
+	new_range[0] = smallest_range;
+	range_added[smallest_range_idx] = true;
+
+	// Finish sorting the ranges by repeatedly selecting the smallest remaining
+	for u64 start = 1; start < ranges.len; start++:
+		Range current_smallest = (U64_MAX, U64_MAX);
+		u64 current_smallest_idx = 0;
+		for (i, range) in ranges:
+			// only consider ranges not yet added
+			if range_added[i]:
+				continue;
+			// choose by lower bound, tie-break on upper bound
+			if range.$0 < current_smallest.$0 or (range.$0 == current_smallest.$0 and range.$1 < current_smallest.$1):
+				current_smallest = range;
+				current_smallest_idx = i;
+		new_range[start] = current_smallest;
+		range_added[current_smallest_idx] = true;
+
+	return new_range;
+
+// Merges all ranges which overlap or are adjacent, leaving a list of non-overlapping ranges
+def merge_ranges(Range[] ranges) -> Range[]:
+	const u64 U64_MAX = 18_446_744_073_709_551_615;
+	// if no ranges, return empty
+	if ranges.len == 0:
+		return Range[0](_);
+
+	// sort first
+	Range[] sorted = sort_ranges(ranges);
+	Range[] merged = Range[0](_);
+
+	// start with the first range
+	Range current = sorted[0];
+
+	// iterate the rest and merge when overlapping/adjacent
+	for u64 i = 1; i < sorted.len; i++:
+		Range next = sorted[i];
+
+		// safe overlap/adjacency check (avoid overflow on current.$1 + 1)
+		if next.$0 <= current.$1 or (current.$1 != U64_MAX and next.$0 == current.$1 + 1):
+			// extend the current range if next reaches further
+			if next.$1 > current.$1:
+				current = (current.$0, next.$1);
+		else:
+			// push the current merged range and start a new one
+			merged = add_range(merged, current.$0, current.$1);
+			current = next;
+
+	// push the final current range
+	merged = add_range(merged, current.$0, current.$1);
+
+	return merged;
+
+def part_1(Range[] ranges, u64[] indices):
+	u64 fresh_count = 0;
+	for (_, index) in indices:
+		if ranges_contain_value(ranges, index):
+			fresh_count++;
+	print($"part_1: {fresh_count}\n");
+
+def part_2(Range[] ranges):
+	// First we need to sort the ranges ascending by their first element
+	Range[] merged_ranges = merge_ranges(ranges);
+	u64 total_fresh_count = 0;
+	for (_, range) in merged_ranges:
+		total_fresh_count += range.$1 - range.$0 + 1;
+	print($"part_2 = {total_fresh_count}\n");
+
+def main():
+	str[] lines = read_lines("input.txt");
+	(ranges, id_start) := parse_ranges(lines);
+	u64[] indices = parse_indices(lines, id_start);
+
+	part_1(ranges, indices);
+	part_2(ranges);

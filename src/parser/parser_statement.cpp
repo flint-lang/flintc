@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/type/data_type.hpp"
@@ -216,6 +217,48 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     }
 
     return std::make_unique<IfNode>(condition.value(), body_scope, else_scope);
+}
+
+std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
+    std::shared_ptr<Scope> &scope,                                        //
+    const token_slice &condition_line,                                    //
+    const std::vector<Line> &body                                         //
+) {
+    PROFILE_CUMULATIVE("Parser::create_do_while_loop");
+    token_slice condition_tokens = condition_line;
+    // Remove everything in front of the expression (\n, \t, else, if)
+    for (auto it = condition_tokens.first; it != condition_tokens.second; ++it) {
+        if (it->token == TOK_WHILE) {
+            condition_tokens.first++;
+            break;
+        }
+        condition_tokens.first++;
+    }
+    // Remove everything after the expression (;, \n)
+    for (auto rev_it = std::prev(condition_tokens.second); rev_it != condition_tokens.first; --rev_it) {
+        if (rev_it->token == TOK_SEMICOLON) {
+            condition_tokens.second--;
+            break;
+        }
+        condition_tokens.second--;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> condition = create_expression( //
+        _ctx_, scope, condition_tokens, Type::get_primitive_type("bool")          //
+    );
+    if (!condition.has_value()) {
+        // Invalid expression inside while statement
+        return std::nullopt;
+    }
+
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope);
+    auto body_statements = create_body(body_scope, body);
+    if (!body_statements.has_value()) {
+        return std::nullopt;
+    }
+    body_scope->body = std::move(body_statements.value());
+    std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>(condition.value(), body_scope);
+    return do_while_node;
 }
 
 std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
@@ -2083,11 +2126,24 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
     if (!rhs_expr.has_value()) {
         return std::nullopt;
     }
+    token_slice indexing_expression_tokens{iterator, iterator};
     // Okay, so now we find the dot token for the last stack and create an expression with everything to the left of it
     --iterator;
     size_t depth = 0;
     for (; iterator != tokens.first; --iterator) {
-        if (iterator->token == TOK_RIGHT_PAREN) {
+        if (iterator->token == TOK_RIGHT_BRACKET) {
+            depth++;
+        } else if (iterator->token == TOK_LEFT_BRACKET) {
+            depth--;
+            if (depth == 0) {
+                // There is an array access at the very right so everything left to it is the base expression
+                // Move the end to the ]
+                indexing_expression_tokens.second--;
+                // Move past the [
+                indexing_expression_tokens.first = iterator + 1;
+                break;
+            }
+        } else if (iterator->token == TOK_RIGHT_PAREN) {
             depth++;
         } else if (iterator->token == TOK_LEFT_PAREN) {
             depth--;
@@ -2107,6 +2163,42 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
         default:
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        case Type::Variation::PRIMITIVE: {
+            if (base_expr_type->to_string() != "str") {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            [[fallthrough]];
+        }
+        case Type::Variation::ARRAY: {
+            unsigned int dimensionality = 1;
+            std::shared_ptr<Type> base_type = Type::get_primitive_type("u8");
+            if (base_expr_type->to_string() != "str") {
+                const auto *array_type = base_expr_type->as<ArrayType>();
+                dimensionality = array_type->dimensionality;
+                base_type = array_type->type;
+            }
+            if (!rhs_expr.value()->type->equals(base_type)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_expression_tokens);
+            if (!indexing_expressions.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (indexing_expressions.value().size() != dimensionality) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            for (auto &expr : indexing_expressions.value()) {
+                if (!check_castability(Type::get_primitive_type("u64"), expr)) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+            return std::make_unique<StackedArrayAssignmentNode>(base_expr.value(), indexing_expressions.value(), rhs_expr.value());
+        }
         case Type::Variation::DATA: {
             const auto *data_type = base_expr_type->as<DataType>();
             if (iterator->token == TOK_IDENTIFIER) {
@@ -2479,6 +2571,14 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(while_loop.value());
+    } else if (Matcher::tokens_contain(definition, Matcher::do_while_loop)) {
+        const auto &condition_line = line_it->tokens;
+        ++line_it;
+        std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop(scope, condition_line, scoped_body.value());
+        if (!do_while_loop.has_value()) {
+            return std::nullopt;
+        }
+        statement_node = std::move(do_while_loop.value());
     } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
         || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
     ) {

@@ -30,6 +30,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -37,6 +38,7 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
+#include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
@@ -1183,6 +1185,19 @@ class Generator {
             const IfNode *if_node                        //
         );
 
+        /// @function `generate_do_while_loop`
+        /// @brief Generates the do-while loop from the given WhileNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `do_while_node` The do-while node to generate
+        /// @return `bool` Whether the code generation of the do-while loop was successful
+        [[nodiscard]] static bool generate_do_while_loop( //
+            llvm::IRBuilder<> &builder,                   //
+            GenerationContext &ctx,                       //
+            const DoWhileNode *do_while_node              //
+        );
+
         /// @function `generate_while_loop`
         /// @brief Generates the while loop from the given WhileNode
         ///
@@ -1380,6 +1395,19 @@ class Generator {
             llvm::IRBuilder<> &builder,                        //
             GenerationContext &ctx,                            //
             const StackedAssignmentNode *stacked_assignment    //
+        );
+
+        /// @function `generate_stacked_array_assignment`
+        /// @brief Generates the stacked array assignment from the given StackedArrayAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `stacked_assignment` The stacked array assignment to generate
+        /// @return `bool` Whether the code generation of the stacked array assignment was successful
+        [[nodiscard]] static bool generate_stacked_array_assignment( //
+            llvm::IRBuilder<> &builder,                              //
+            GenerationContext &ctx,                                  //
+            const StackedArrayAssignmentNode *stacked_assignment     //
         );
 
         /// @function `generate_stacked_grouped_assignment`
@@ -3261,6 +3289,7 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_string_manip_functions` function is called
             static inline std::unordered_map<std::string_view, llvm::Function *> string_manip_functions = {
                 {"access_str_at", nullptr},
+                {"assign_str_at", nullptr},
                 {"create_str", nullptr},
                 {"init_str", nullptr},
                 {"assign_str", nullptr},
@@ -3280,6 +3309,14 @@ class Generator {
             /// @param `module` The LLVM Module the `access_str_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_access_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_assign_str_at_function`
+            /// @brief Generates the builtin hidden `assign_str_at` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `assign_str_at` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_assign_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_create_str_function`
             /// @brief Generates the builtin hidden `create_str` function

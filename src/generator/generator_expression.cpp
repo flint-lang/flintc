@@ -2357,16 +2357,20 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             // Non-supported type for array access
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
+        case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE: {
             llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
                 {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
             );
             return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
         }
-        case Type::Variation::MULTI:
-            // TODO:
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return nullptr;
+        case Type::Variation::TUPLE:
+        case Type::Variation::MULTI: {
+            llvm::Value *elem_ptr = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
+                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr"    //
+            );
+            return IR::aligned_load(builder, element_type, elem_ptr, "access_arr_value");
+        }
         case Type::Variation::ARRAY: {
             // This is a slicing operation
             llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
@@ -2937,7 +2941,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
 ) {
     const std::string from_type_str = from_type->to_string();
     const std::string to_type_str = to_type->to_string();
-    if (from_type == to_type) {
+    if (from_type->equals(to_type)) {
         return expr;
     } else if (from_type_str == "__flint_type_str_lit" && to_type_str == "str") {
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
@@ -3123,29 +3127,6 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             }
             break;
         }
-        case Type::Variation::ENUM: {
-            const auto *from_enum_type = to_type->as<EnumType>();
-            // Enum types are only allowed to be cast to strings or to integers
-            if (to_type_str == "i32" || to_type_str == "u32") {
-                // Enums are i32 values internally annyway, so we actually do not need any casting in this case
-                return expr;
-            } else if (to_type_str == "i64") {
-                return builder.CreateSExt(expr, builder.getInt64Ty(), "enum_cast_i64");
-            } else if (to_type_str == "u64") {
-                return builder.CreateZExt(expr, builder.getInt64Ty(), "enum_cast_u64");
-            } else if (to_type_str == "u8") {
-                return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
-            }
-            assert(to_type_str == "str");
-            llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
-            llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
-            llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
-            llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
-            llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
-            llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
-            llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
-            return cast_value;
-        }
         case Type::Variation::ERROR_SET: {
             const auto *to_error_type = to_type->as<ErrorSetType>();
             if (to_type_str == "anyerror") {
@@ -3157,6 +3138,29 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             expr = builder.CreateInsertValue(expr, builder.getInt32(new_type_id), {0}, "cast_type_id");
             return expr;
         }
+    }
+    if (from_type->get_variation() == Type::Variation::ENUM) {
+        const auto *from_enum_type = from_type->as<EnumType>();
+        // Enum types are only allowed to be cast to strings or to integers
+        if (to_type_str == "i32" || to_type_str == "u32") {
+            // Enums are i32 values internally annyway, so we actually do not need any casting in this case
+            return expr;
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty(), "enum_cast_i64");
+        } else if (to_type_str == "u64") {
+            return builder.CreateZExt(expr, builder.getInt64Ty(), "enum_cast_u64");
+        } else if (to_type_str == "u8") {
+            return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
+        }
+        assert(to_type_str == "str");
+        llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
+        llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
+        llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
+        llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
+        llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
+        llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+        llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
+        return cast_value;
     }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);

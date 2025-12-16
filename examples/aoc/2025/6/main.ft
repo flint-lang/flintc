@@ -1,0 +1,144 @@
+use Core.print
+use Core.filesystem
+use Core.parse
+
+enum Operation:
+	ADD, MULT;
+
+def is_number(u8 c) -> bool:
+	return c >= '0' and c <= '9';
+
+def count_numbers_in_line(str line) -> u64:
+	u64 num_count_per_line = 0;
+	for (i, char) in line:
+		if i == 0:
+			num_count_per_line = u64(is_number(char));
+			continue;
+		if line[i - 1] == ' ' and is_number(char):
+			num_count_per_line++;
+	return num_count_per_line;
+
+def parse_numbers(mut u64[,] numbers, str[] lines):
+	for (y, line) in lines[..(lines.len - 1)]:
+		u64 last_number_start = 0;
+		u64 num_count = 0;
+		for (x, char) in line:
+			if x == 0:
+				last_number_start = 1 - u64(is_number(char));
+				continue;
+			else if line[x - 1] == ' ' and is_number(char):
+				last_number_start = x;
+				continue;
+			else if is_number(line[x - 1]) and char == ' ':
+				u64 num = parse_u64(line[last_number_start..x]);
+				numbers[num_count, y] = num;
+				last_number_start = x;
+				num_count++;
+				continue;
+			else if char == ' ':
+				last_number_start++;
+		if last_number_start + 1 < line.len:
+			u64 last_num = parse_u64(line[last_number_start..]);
+			numbers[num_count, y] = last_num;
+
+def parse_operations(mut Operation[] operations, str line):
+	u64 op_count = 0;
+	for (_, char) in line:
+		if char == '+':
+			operations[op_count] = Operation.ADD;
+			op_count++;
+		else if char == '*':
+			operations[op_count] = Operation.MULT;
+			op_count++;
+
+def part_1(str[] lines):
+	u64 num_count = count_numbers_in_line(lines[0]);
+
+	const u64 Y = lines.len - 1;
+	u64[,] numbers = u64[num_count, Y](0);
+	parse_numbers(numbers, lines);
+
+	Operation[] operations = Operation[num_count](Operation.ADD);
+	parse_operations(operations, lines[Y]);
+
+	u64 total_sum = 0;
+	for u64 i = 0; i < num_count; i++:
+		Operation op = operations[i];
+		u64 local_sum = 0;
+		switch op:
+			ADD:
+				for u64 y = 0; y < Y; y++:
+					local_sum += numbers[i, y];
+			MULT:
+				local_sum = 1;
+				for u64 y = 0; y < Y; y++:
+					local_sum *= numbers[i, y];
+		total_sum += local_sum;
+
+	print($"part_1 = {total_sum}\n");
+
+// Used because of memory leaks, normally not needed
+def get_string_length(str string) -> u64:
+	return string.len;
+
+def parse_operations_2(str line) -> Operation[]:
+	Operation[] operations = Operation[line.len](Operation.ADD);
+	u64 offset = line.len - 1;
+	Operation current_operation = Operation.ADD;
+	for (i, char) in line:
+		if char == '+':
+			current_operation = Operation.ADD;
+		else if char == '*':
+			current_operation = Operation.MULT;
+		operations[offset - i] = current_operation;
+	return operations;
+
+def part_2(str[] lines):
+	u64 max_num_length = lines.len - 1;
+	u64 num_count = get_string_length(lines[0]);
+	str empty = "";
+	for u64 i = 0; i < max_num_length; i++:
+		empty += " ";
+	str[] num_strings = str[num_count](empty);
+	// We "rotate" the numbers 90° ccw and then we get a linear list of numbers again
+	for (x, line) in lines[0..(lines.len - 1)]:
+		for (offset, char) in line:
+			u64 y = num_count - offset - 1;
+			num_strings[y][x] = char;
+
+	Operation[] operations = parse_operations_2(lines[max_num_length]);
+	u64 intermediate = 0;
+	u64 total_sum = 0;
+	for (i, nums) in num_strings:
+		Operation op = operations[i];
+		if nums == empty:
+			// Apply the intermediate calculated value
+			total_sum += intermediate;
+			intermediate = switch op:
+				ADD -> u64(0);
+				MULT -> u64(1);
+			continue;
+
+		u64 end_idx = max_num_length;
+		while nums[end_idx - 1] == ' ':
+			end_idx--;
+		// The 'parse_u64' function handles leading spaces without a problem but trailing spaces are a problem for it
+		u64 num = parse_u64(nums[..end_idx]);
+		if i == 0:
+			// Just set the intermediate to the current number and continue
+			intermediate = num;
+			continue;
+
+		// Add / Mult the number to / with the intermediate
+		switch op:
+			ADD:
+				intermediate += num;
+			MULT:
+				intermediate *= num;
+	total_sum += intermediate;
+	print($"part_2 = {total_sum}\n");
+
+def main():
+	str[] lines = read_lines("input.txt");
+	part_1(lines);
+	part_2(lines);

@@ -8,6 +8,8 @@
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
@@ -843,6 +845,21 @@ namespace Debug {
             }
         }
 
+        void print_do_while(unsigned int indent_lvl, TreeBits &bits, const DoWhileNode &do_while_node) {
+            Local::print_header(indent_lvl, bits, "DoWhile ");
+            std::cout << "do .. while" << std::endl;
+
+            TreeBits cond_bits = bits.child(indent_lvl + 1, false);
+            print_expression(indent_lvl + 1, cond_bits, do_while_node.condition);
+
+            TreeBits do_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, do_bits, "Do ");
+            std::cout << "do [s" << do_while_node.scope->scope_id << "]" << std::endl;
+
+            TreeBits body_bits = bits.child(indent_lvl + 1, true);
+            print_body(indent_lvl + 1, body_bits, do_while_node.scope->body);
+        }
+
         void print_while(unsigned int indent_lvl, TreeBits &bits, const WhileNode &while_node) {
             Local::print_header(indent_lvl, bits, "While ");
             std::cout << "while" << std::endl;
@@ -1133,6 +1150,36 @@ namespace Debug {
             print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
         }
 
+        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment) {
+            Local::print_header(indent_lvl, bits, "Stacked Array Assignment ");
+            std::cout << "on base expr" << std::endl;
+
+            indent_lvl++;
+            TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
+            std::cout << std::endl;
+
+            TreeBits base_expr_bits = base_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
+
+            for (size_t i = 0; i < assignment.indexing_expressions.size(); i++) {
+                TreeBits index_header_bits = bits.child(indent_lvl, false);
+                Local::print_header(indent_lvl, index_header_bits, "ID " + std::to_string(i) + " ");
+                std::cout << std::endl;
+
+                TreeBits index_bits = index_header_bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl + 1, index_bits, assignment.indexing_expressions.at(i));
+            }
+
+            // Print RHS expression
+            TreeBits rhs_expr_header_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, rhs_expr_header_bits, "RHS Expression ");
+            std::cout << "to be" << std::endl;
+
+            TreeBits rhs_expr_bits = rhs_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
+        }
+
         void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment) {
             Local::print_header(indent_lvl, bits, "Stacked Grouped Assignment ");
             std::cout << "Fields (";
@@ -1216,6 +1263,11 @@ namespace Debug {
                     print_declaration(indent_lvl, bits, *node);
                     break;
                 }
+                case StatementNode::Variation::DO_WHILE: {
+                    const auto *node = statement->as<DoWhileNode>();
+                    print_do_while(indent_lvl, bits, *node);
+                    break;
+                }
                 case StatementNode::Variation::ENHANCED_FOR_LOOP: {
                     const auto *node = statement->as<EnhForLoopNode>();
                     print_enh_for(indent_lvl, bits, *node);
@@ -1254,6 +1306,11 @@ namespace Debug {
                 case StatementNode::Variation::STACKED_ASSIGNMENT: {
                     const auto *node = statement->as<StackedAssignmentNode>();
                     print_stacked_assignment(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+                    const auto *node = statement->as<StackedArrayAssignmentNode>();
+                    print_stacked_array_assignment(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {

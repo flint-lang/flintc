@@ -16,6 +16,7 @@
 #include "matcher/token_type_matcher.hpp"
 #include "matcher/until_matcher.hpp"
 #include <cassert>
+#include <memory>
 #include <unordered_map>
 
 class Matcher {
@@ -258,6 +259,7 @@ class Matcher {
 
         // looping keywords
         {TOK_FOR, std::make_shared<TokenTypeMatcher>(TOK_FOR)},
+        {TOK_DO, std::make_shared<TokenTypeMatcher>(TOK_DO)},
         {TOK_WHILE, std::make_shared<TokenTypeMatcher>(TOK_WHILE)},
         {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
         {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
@@ -283,6 +285,7 @@ class Matcher {
         {TOK_USE, std::make_shared<TokenTypeMatcher>(TOK_USE)},
         {TOK_AS, std::make_shared<TokenTypeMatcher>(TOK_AS)},
         {TOK_ALIAS, std::make_shared<TokenTypeMatcher>(TOK_ALIAS)},
+        {TOK_TYPE_KEYWORD, std::make_shared<TokenTypeMatcher>(TOK_TYPE_KEYWORD)},
 
         // literals
         {TOK_IDENTIFIER, std::make_shared<TokenTypeMatcher>(TOK_IDENTIFIER)},
@@ -696,6 +699,7 @@ class Matcher {
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr use_statement = sequence({token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference})});
+    static const inline PatternPtr type_alias = sequence({token(TOK_TYPE_KEYWORD), token(TOK_IDENTIFIER), type});
     static const inline PatternPtr extern_function_declaration = sequence({
         token(TOK_EXTERN), token(TOK_DEF), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
@@ -795,6 +799,9 @@ class Matcher {
         token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
     static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr stacked_array_access = sequence({
+        array_access, one_or_more({sequence({token(TOK_LEFT_BRACKET), until_right_bracket})}) //
+    });
     static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
@@ -881,6 +888,7 @@ class Matcher {
     });
     static const inline PatternPtr par_for_loop = sequence({token(TOK_PARALLEL), enhanced_for_loop});
     static const inline PatternPtr while_loop = sequence({token(TOK_WHILE), until_colon});
+    static const inline PatternPtr do_while_loop = sequence({token(TOK_DO), token(TOK_COLON)});
     static const inline PatternPtr if_statement = sequence({token(TOK_IF), until_colon});
     static const inline PatternPtr else_if_statement = sequence({token(TOK_ELSE), token(TOK_IF), until_colon});
     static const inline PatternPtr else_statement = sequence({token(TOK_ELSE), until_colon});

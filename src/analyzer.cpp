@@ -27,6 +27,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -40,6 +41,7 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
 
@@ -261,6 +263,18 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             }
             break;
         }
+        case StatementNode::Variation::DO_WHILE: {
+            const auto *node = statement->as<DoWhileNode>();
+            result = analyze_expression(ctx, node->condition.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            result = analyze_scope(ctx, node->scope.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            break;
+        }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             const auto *node = statement->as<EnhForLoopNode>();
             result = analyze_expression(ctx, node->iterable.get());
@@ -357,6 +371,24 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             result = analyze_expression(ctx, node->base_expression.get());
             if (result != Result::OK) {
                 goto fail;
+            }
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            break;
+        }
+        case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
+            const auto *node = statement->as<StackedArrayAssignmentNode>();
+            result = analyze_expression(ctx, node->base_expression.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            for (auto &expr : node->indexing_expressions) {
+                result = analyze_expression(ctx, expr.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
             }
             result = analyze_expression(ctx, node->expression.get());
             if (result != Result::OK) {
@@ -663,6 +695,11 @@ fail:
 Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_ptr<Type> &type_to_analyze) {
     Result result = Result::OK;
     switch (type_to_analyze->get_variation()) {
+        case Type::Variation::ALIAS: {
+            const auto *alias_type = type_to_analyze->as<AliasType>();
+            result = analyze_type(ctx, alias_type->type);
+            break;
+        }
         case Type::Variation::ARRAY: {
             const auto *array_type = type_to_analyze->as<ArrayType>();
             result = analyze_type(ctx, array_type->type);

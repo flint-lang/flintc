@@ -28,6 +28,7 @@ class Type {
     /// @enum `Variation`
     /// @brief A enum describing which type variations exist
     enum class Variation {
+        ALIAS,
         ARRAY,
         DATA,
         ENUM,
