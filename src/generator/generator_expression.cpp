@@ -1347,6 +1347,30 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 return_value.emplace_back(builder.CreateCall(func_decl, args));
                 return return_value;
             }
+        } else if (module_name == "time" &&
+            ((function_name == "sleep" && call_node->arguments.size() >= 1)                                //
+                || Module::Time::time_functions.find(function_name) != Module::Time::time_functions.end()) //
+        ) {
+            // Handle sleep overloads
+            std::string fn_name = function_name;
+            if (function_name == "sleep") {
+                if (call_node->arguments.front().first->type->to_string() == "Duration") {
+                    fn_name = "sleep_duration";
+                } else {
+                    fn_name = "sleep_time";
+                }
+            } else {
+                // Other 'time' module functions do not have overloads
+                if (std::get<1>(builtin_function.value()).size() > 1) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+            }
+            // No function from the time module is able to throw
+            assert(std::get<2>(std::get<1>(builtin_function.value()).front()).empty());
+            func_decl = Module::Time::time_functions.at(fn_name);
+            return_value.emplace_back(builder.CreateCall(func_decl, args));
+            return return_value;
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;

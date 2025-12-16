@@ -344,7 +344,7 @@ class Generator {
 
     /// @var `enum_name_arrays_map`
     /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
-    /// name of the enum
+    /// name of the enum and the hash from where the enum came from, so `Sb7HsALK.<enum_name>`
     static inline std::unordered_map<std::string, llvm::GlobalVariable *> enum_name_arrays_map;
 
     /// @var `global_strings`
@@ -473,6 +473,22 @@ class Generator {
         /// @param `str` The value of the string
         /// @return `llvm::Value *` The generated static string value
         static llvm::Value *generate_const_string(llvm::Module *module, const std::string &str);
+
+        /// @function `generate_enum_value_strings`
+        /// @brief Generates all the global strings of the enum within the given module, necessary for type-casting of enum values to
+        /// strings
+        ///
+        /// @param `module` The module in which to generate the enum strings in
+        /// @param `hash` The hash of the file the enum is defined in
+        /// @param `enum_name` The name of the enum (e.g. it's type)
+        /// @param `enum_values` The values of the enum to generate the global strings from
+        /// @return `bool` Whether generating the global strings was successful
+        static bool generate_enum_value_strings(        //
+            llvm::Module *module,                       //
+            const std::string &hash,                    //
+            const std::string &enum_name,               //
+            const std::vector<std::string> &enum_values //
+        );
 
         /// @function `generate_err_value`
         /// @brief Generates an error value from the given error components
@@ -3493,6 +3509,128 @@ class Generator {
             /// @param `module` The LLVM Module the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_system_command_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+        };
+
+        /// @class `Time`
+        /// @brief The class which is responsible for generating everything related to time
+        /// @note This class cannot be initialized and all functions within this class are static
+        class Time {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            Time() = delete;
+
+            /// @var `time_functions`
+            /// @brief Map containing references to all time functions, to make calling them easier
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_time_functions` function is called
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::Function *> time_functions = {
+                {"now", nullptr},
+            };
+
+            /// @var `time_data_types`
+            /// @brief Map containing references to all time data types, to make referencing them easier
+            ///
+            /// @details
+            /// - **Key** `std::string` - The name of the data type
+            /// - **Value** `llvm::StructType *` - The reference to the generated type
+            ///
+            /// @attention This map will be empty until the `generate_types` function is called
+            static inline std::unordered_map<std::string, llvm::StructType *> time_data_types;
+
+            /// @var `time_platform_functions`
+            /// @brief Maps the names of platform-specific functions needed inside the module to the function declaration
+            ///
+            /// @details
+            /// - **Key** `std::string` - The name of the platform-specific function
+            /// - **Value** `llvm::Function *` - The reference to the function
+            ///
+            /// @attention This map will be empty until the `generate_platform_functions` function is called
+            static inline std::unordered_map<std::string, llvm::Function *> time_platform_functions;
+
+            /// @function `generate_time_functions`
+            /// @brief Function to generate all functions from the time Core module
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_types`
+            /// @brief Generates all the types this module provides
+            ///
+            /// @param `module` The module in which to generate this module's types in
+            static void generate_types(llvm::Module *module);
+
+            /// @function `generate_platform_functions`
+            /// @brief Generates all platform-specific functions needed by this module
+            ///
+            /// @param `module` The module in which to generate the platform-specific function declarations
+            static void generate_platform_functions(llvm::Module *module);
+
+            /// @function `generate_time_init_function`
+            /// @brief Function to generate the `time_init` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_time_init_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_now_function`
+            /// @brief Function to generate the `now` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_duration_function`
+            /// @brief Function to generate the `duration` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_duration_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_sleep_duration_function`
+            /// @brief Function to generate the `sleep_duration` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_sleep_duration_function( //
+                llvm::IRBuilder<> *builder,               //
+                llvm::Module *module,                     //
+                const bool only_declarations = true       //
+            );
+
+            /// @function `generate_sleep_time_function`
+            /// @brief Function to generate the `sleep_time` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_sleep_time_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_as_unit_function`
+            /// @brief Funtion to generate the `as_unit` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_as_unit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
+            /// @function `generate_from_function`
+            /// @brief Funtion to generate the `from` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_from_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
         /// @class `TypeCast`

@@ -465,6 +465,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             Module::Math::generate_math_functions(nullptr, module.get(), true);
         } else if (core_module_name == "parse") {
             Module::Parse::generate_parse_functions(nullptr, module.get(), true);
+        } else if (core_module_name == "time") {
+            Module::Time::generate_time_functions(nullptr, module.get(), true);
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to
@@ -563,48 +565,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             }
             case DefinitionNode::Variation::ENUM: {
                 const auto *enum_node = node->as<EnumNode>();
-                // Generate the type name array for later typecast lookups
-                // Create individual string constants
-                if (enum_name_arrays_map.find(enum_node->name) != enum_name_arrays_map.end()) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-                std::vector<llvm::Constant *> string_pointers;
-                llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
-
-                for (size_t i = 0; i < enum_node->values.size(); ++i) {
-                    // Create the string constant data
-                    llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_node->values[i], true);
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
-                    // Create a global variable to hold the string
-                    llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
-                        *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
-                        "enum." + enum_node->name + ".name." + std::to_string(i)                                //
-                    );
-#pragma GCC diagnostic pop
-
-                    // Get pointer to the string data (cast to i8*)
-                    llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
-                    string_pointers.push_back(string_ptr);
-                }
-
-                // Create the array type and global array
-                llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_node->values.size());
-                llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
-                llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                                 //
-                    *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_node->name + ".names" //
-                );
-#pragma GCC diagnostic pop
-
-                // Optional Windows compatibility settings
-#ifdef __WIN32__
-                global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
-#endif
-                enum_name_arrays_map[enum_node->name] = global_string_array;
+                IR::generate_enum_value_strings(module.get(), enum_node->file_hash.to_string(), enum_node->name, enum_node->values);
                 break;
             }
         }

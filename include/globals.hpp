@@ -59,6 +59,7 @@ enum class BuiltinLibrary : unsigned int {
     SYSTEM = 512,
     MATH = 1024,
     PARSE = 2048,
+    TIME = 4096,
 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 
