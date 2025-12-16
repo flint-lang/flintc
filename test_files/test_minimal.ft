@@ -8,5 +8,5 @@ def main():
 		US: print("µs\n");
 		MS: print("ms\n");
 		S:  print("s\n");
-	TimeStamp ts = TimeStamp(100);
+	TimeStamp ts = now();
 	print($"ts.value = {ts.value}\n");

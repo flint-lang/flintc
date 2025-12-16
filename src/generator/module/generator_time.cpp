@@ -172,8 +172,8 @@ void Generator::Module::Time::generate_time_init_function( //
 
 void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
-    // TimeStamp now() {
-    //     TimeStamp stamp;
+    // TimeStamp* now() {
+    //     TimeStamp* stamp = (TimeStamp *)malloc(sizeof(TimeStamp));
     //
     // #ifdef __WIN32__
     //     __time_init();
@@ -181,21 +181,99 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     //     QueryPerformanceCounter(&counter);
     //     // Convert to nanoseconds: (counter * 1e9) / frequency
     //     // Typical frequency: 10 MHz → 100ns resolution
-    //     stamp.value = (uint64_t)((counter.QuadPart * 1000000000ULL) / __time_frequency.QuadPart);
-    //
-    // #elif defined(__APPLE__)
-    //     __time_init();
-    //     uint64_t abs_time = mach_absolute_time();
-    //     // Convert to nanoseconds
-    //     stamp.value = (abs_time * __time_info.numer) / __time_info.denom;
-    //
+    //     stamp->value = (uint64_t)((counter.QuadPart * 1000000000ULL) / __time_frequency.QuadPart);
     // #else
     //     // Linux/POSIX - use CLOCK_MONOTONIC for monotonic time
     //     struct timespec ts;
     //     clock_gettime(CLOCK_MONOTONIC, &ts);
-    //     stamp.value = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+    //     stamp->value = (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
     // #endif
     //
     //     return stamp;
     // }
+    llvm::StructType *timestamp_type = time_data_types.at("TimeStamp");
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+
+    llvm::FunctionType *now_type = llvm::FunctionType::get( //
+        timestamp_type->getPointerTo(),                     // Return type: TimeStamp*
+        false                                               // No arguments
+    );
+    llvm::Function *now_fn = llvm::Function::Create( //
+        now_type,                                    //
+        llvm::Function::ExternalLinkage,             //
+        hash + ".now",                               //
+        module                                       //
+    );
+    time_functions["now"] = now_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", now_fn);
+    builder->SetInsertPoint(entry_block);
+
+#ifdef __WIN32__
+    // Windows implementation
+
+    // Call time_init()
+    llvm::Function *init_fn = time_platform_functions.at("init_time");
+    builder->CreateCall(init_fn, {});
+
+    // Create LARGE_INTEGER counter on stack
+    llvm::StructType *large_integer_type = llvm::cast<llvm::StructType>(module->getTypeByName("LARGE_INTEGER"));
+    llvm::Value *counter_ptr = builder->CreateAlloca(large_integer_type, nullptr, "counter_ptr");
+
+    // Call QueryPerformanceCounter(&counter)
+    llvm::Function *qpc_fn = time_platform_functions.at("QueryPerformanceCounter");
+    builder->CreateCall(qpc_fn, {counter_ptr});
+
+    // Load counter value (counter.QuadPart)
+    llvm::Value *counter_field_ptr = builder->CreateStructGEP(large_integer_type, counter_ptr, 0, "counter_field_ptr");
+    llvm::Value *counter_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), counter_field_ptr, "counter_value");
+
+    // Load frequency from global
+    llvm::GlobalVariable *freq_global = module->getNamedGlobal(hash + ".global.time_frequency");
+    llvm::Value *freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_global, "freq_value");
+
+    // Calculate: (counter * 1000000000ULL) / frequency
+    llvm::Value *counter_ns = builder->CreateMul(counter_value, builder->getInt64(1000000000ULL), "counter_ns");
+    llvm::Value *stamp_value = builder->CreateUDiv(counter_ns, freq_value, "stamp_value");
+
+#else
+    // Linux/POSIX implementation
+
+    // Create struct timespec on stack
+    llvm::StructType *timespec_type = time_data_types.at("c.struct.timespec");
+    llvm::Value *ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
+
+    // Call clock_gettime(CLOCK_MONOTONIC, &ts)
+    // CLOCK_MONOTONIC = 1
+    llvm::Function *clock_gettime_fn = time_platform_functions.at("clock_gettime");
+    builder->CreateCall(clock_gettime_fn, {builder->getInt32(1), ts_ptr});
+
+    // Load ts.tv_sec
+    llvm::Value *tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
+    llvm::Value *tv_sec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_sec_ptr, "tv_sec");
+
+    // Load ts.tv_nsec
+    llvm::Value *tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
+    llvm::Value *tv_nsec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_nsec_ptr, "tv_nsec");
+
+    // Calculate: tv_sec * 1000000000ULL + tv_nsec
+    llvm::Value *tv_sec_ns = builder->CreateMul(tv_sec, builder->getInt64(1000000000ULL), "tv_sec_ns");
+    llvm::Value *stamp_value = builder->CreateAdd(tv_sec_ns, tv_nsec, "stamp_value");
+
+#endif
+
+    // Allocate TimeStamp on heap: malloc(sizeof(TimeStamp))
+    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, timestamp_type));
+    llvm::Value *timestamp_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "timestamp_ptr");
+
+    // Set the value field: stamp->value = stamp_value
+    llvm::Value *value_ptr = builder->CreateStructGEP(timestamp_type, timestamp_ptr, 0, "value_ptr");
+    IR::aligned_store(*builder, stamp_value, value_ptr);
+
+    // Return the pointer to the heap-allocated TimeStamp
+    builder->CreateRet(timestamp_ptr);
 }
