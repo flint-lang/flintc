@@ -5,6 +5,7 @@ static const std::string hash = Hash(std::string("time")).to_string();
 
 void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_types(module);
+    generate_platform_functions(module);
     generate_now_function(builder, module, only_declarations);
 }
 
@@ -43,8 +44,73 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
     }
 }
 
+void Generator::Module::Time::generate_platform_functions(llvm::Module *module) {
+#ifdef __WIN32__
+    // Windows-specific functions
+
+    // QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount)
+    llvm::StructType *large_integer_type = llvm::StructType::create(context, {llvm::Type::getInt64Ty(context)}, "LARGE_INTEGER");
+    llvm::FunctionType *QueryPerformanceCounter_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                                        // returns BOOL (i32)
+        {large_integer_type->getPointerTo()},                                   // LARGE_INTEGER*
+        false                                                                   // No vaargs
+    );
+    llvm::Function *QueryPerformanceCounter_fn = llvm::Function::Create(                                 //
+        QueryPerformanceCounter_type, llvm::Function::ExternalLinkage, "QueryPerformanceCounter", module //
+    );
+    time_platform_functions["QueryPerformanceCounter"] = QueryPerformanceCounter_fn;
+
+    // QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency)
+    llvm::FunctionType *QueryPerformanceFrequency_type = llvm::FunctionType::get(    //
+        llvm::Type::getInt32Ty(context), {large_integer_type->getPointerTo()}, false //
+    );
+    llvm::Function *QueryPerformanceFrequency_fn = llvm::Function::Create(                                   //
+        QueryPerformanceFrequency_type, llvm::Function::ExternalLinkage, "QueryPerformanceFrequency", module //
+    );
+    time_platform_functions["QueryPerformanceFrequency"] = QueryPerformanceFrequency_fn;
+#else
+    // Linux/POSIX functions
+
+    // struct timespec { time_t tv_sec; long tv_nsec; }
+    llvm::StructType *timespec_type = llvm::StructType::create( //
+        context,
+        {
+            llvm::Type::getInt64Ty(context), // tv_sec
+            llvm::Type::getInt64Ty(context)  // tv_nsec
+        },
+        "c.struct.timespec" //
+    );
+    time_data_types["c.struct.timespec"] = timespec_type;
+
+    // clock_gettime(clockid_t clock_id, struct timespec* tp)
+    llvm::FunctionType *clock_gettime_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                              // returns i32
+        {
+            llvm::Type::getInt32Ty(context), // i32 clock_id
+            timespec_type->getPointerTo()    // timespec* tp
+        },
+        false // No vaargs
+    );
+    llvm::Function *clock_gettime_fn = llvm::Function::Create(clock_gettime_type, llvm::Function::ExternalLinkage, "clock_gettime", module);
+    time_platform_functions["clock_gettime"] = clock_gettime_fn;
+
+    // nanosleep(const struct timespec* req, struct timespec* rem)
+    llvm::FunctionType *nanosleep_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                          // returns i32
+        {
+            timespec_type->getPointerTo(), // requested_time
+            timespec_type->getPointerTo()  // remaining
+        },
+        false // No vaargs
+    );
+    llvm::Function *nanosleep_fn = llvm::Function::Create(nanosleep_type, llvm::Function::ExternalLinkage, "nanosleep", module);
+    time_platform_functions["nanosleep"] = nanosleep_fn;
+#endif
+}
 void Generator::Module::Time::generate_now_function([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module,
     [[maybe_unused]] const bool only_declarations) {
+
+void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // TimeStamp now() {
     //     TimeStamp stamp;

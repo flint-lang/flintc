@@ -3505,6 +3505,16 @@ class Generator {
             /// @attention This map will be empty until the `generate_types` function is called
             static inline std::unordered_map<std::string, llvm::StructType *> time_data_types;
 
+            /// @var `time_platform_functions`
+            /// @brief Maps the names of platform-specific functions needed inside the module to the function declaration
+            ///
+            /// @details
+            /// - **Key** `std::string` - The name of the platform-specific function
+            /// - **Value** `llvm::Function *` - The reference to the function
+            ///
+            /// @attention This map will be empty until the `generate_platform_functions` function is called
+            static inline std::unordered_map<std::string, llvm::Function *> time_platform_functions;
+
             /// @function `generate_time_functions`
             /// @brief Function to generate all functions from the time Core module
             ///
@@ -3518,6 +3528,12 @@ class Generator {
             ///
             /// @param `module` The module in which to generate this module's types in
             static void generate_types(llvm::Module *module);
+
+            /// @function `generate_platform_functions`
+            /// @brief Generates all platform-specific functions needed by this module
+            ///
+            /// @param `module` The module in which to generate the platform-specific function declarations
+            static void generate_platform_functions(llvm::Module *module);
 
             /// @function `generate_now_function`
             /// @brief Function to generate the `now` function
