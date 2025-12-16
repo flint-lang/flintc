@@ -8,6 +8,7 @@ void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder
     generate_platform_functions(module);
     generate_time_init_function(builder, module, only_declarations);
     generate_now_function(builder, module, only_declarations);
+    generate_duration_function(builder, module, only_declarations);
 }
 
 void Generator::Module::Time::generate_types(llvm::Module *module) {
@@ -276,4 +277,94 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
 
     // Return the pointer to the heap-allocated TimeStamp
     builder->CreateRet(timestamp_ptr);
+}
+
+void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // Duration *duration(TimeStamp *t1, TimeStamp *t2) {
+    //     Duration *d = (Duration *)malloc(sizeof(Duration));
+    //     // Handle both forward and backward time differences
+    //     if (t2->value >= t1->value) {
+    //         d->value = t2->value - t1->value;
+    //     } else {
+    //         d->value = t1->value - t2->value;
+    //     }
+    //     return d;
+    // }
+    llvm::StructType *timestamp_type = time_data_types.at("TimeStamp");
+    llvm::StructType *duration_type = time_data_types.at("Duration");
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+
+    llvm::FunctionType *duration_fn_type = llvm::FunctionType::get( //
+        duration_type->getPointerTo(),                              // Return type: Duration*
+        {
+            timestamp_type->getPointerTo(), // TimeStamp* t1
+            timestamp_type->getPointerTo()  // TimeStamp* t2
+        },
+        false // No vaargs
+    );
+    llvm::Function *duration_fn = llvm::Function::Create( //
+        duration_fn_type,                                 //
+        llvm::Function::ExternalLinkage,                  //
+        hash + ".duration",                               //
+        module                                            //
+    );
+    time_functions["duration"] = duration_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the arguments
+    llvm::Argument *arg_t1 = duration_fn->arg_begin();
+    arg_t1->setName("t1");
+    llvm::Argument *arg_t2 = arg_t1 + 1;
+    arg_t2->setName("t2");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", duration_fn);
+    llvm::BasicBlock *forward_block = llvm::BasicBlock::Create(context, "forward", duration_fn);
+    llvm::BasicBlock *backward_block = llvm::BasicBlock::Create(context, "backward", duration_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", duration_fn);
+
+    // Entry block: load t1->value and t2->value
+    builder->SetInsertPoint(entry_block);
+
+    // Load t1->value
+    llvm::Value *t1_value_ptr = builder->CreateStructGEP(timestamp_type, arg_t1, 0, "t1_value_ptr");
+    llvm::Value *t1_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), t1_value_ptr, "t1_value");
+
+    // Load t2->value
+    llvm::Value *t2_value_ptr = builder->CreateStructGEP(timestamp_type, arg_t2, 0, "t2_value_ptr");
+    llvm::Value *t2_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), t2_value_ptr, "t2_value");
+
+    // Compare: t2->value >= t1->value
+    llvm::Value *t2_gte_t1 = builder->CreateICmpUGE(t2_value, t1_value, "t2_gte_t1");
+    builder->CreateCondBr(t2_gte_t1, forward_block, backward_block);
+
+    // Forward block: d->value = t2->value - t1->value
+    builder->SetInsertPoint(forward_block);
+    llvm::Value *forward_diff = builder->CreateSub(t2_value, t1_value, "forward_diff");
+    builder->CreateBr(merge_block);
+
+    // Backward block: d->value = t1->value - t2->value
+    builder->SetInsertPoint(backward_block);
+    llvm::Value *backward_diff = builder->CreateSub(t1_value, t2_value, "backward_diff");
+    builder->CreateBr(merge_block);
+
+    // Merge block: allocate Duration and set value
+    builder->SetInsertPoint(merge_block);
+    llvm::PHINode *diff_value = builder->CreatePHI(llvm::Type::getInt64Ty(context), 2, "diff_value");
+    diff_value->addIncoming(forward_diff, forward_block);
+    diff_value->addIncoming(backward_diff, backward_block);
+
+    // Allocate Duration on heap: malloc(sizeof(Duration))
+    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, duration_type));
+    llvm::Value *duration_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "duration_ptr");
+
+    // Set the value field: d->value = diff_value
+    llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
+    IR::aligned_store(*builder, diff_value, duration_value_ptr);
+
+    // Return the pointer to the heap-allocated Duration
+    builder->CreateRet(duration_ptr);
 }

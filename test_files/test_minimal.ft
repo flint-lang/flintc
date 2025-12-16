@@ -2,11 +2,13 @@ use Core.print
 use Core.time
 
 def main():
-	TimeUnit tu = TimeUnit.MS;
+	TimeStamp begin = now();
+	TimeUnit tu = TimeUnit.US;
 	switch tu:
 		NS: print("ns\n");
 		US: print("µs\n");
 		MS: print("ms\n");
 		S:  print("s\n");
-	TimeStamp ts = now();
-	print($"ts.value = {ts.value}\n");
+	TimeStamp end = now();
+	Duration duration = duration(begin, end);
+	print($"duration = {duration.value}\n");
