@@ -9,6 +9,7 @@ void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder
     generate_time_init_function(builder, module, only_declarations);
     generate_now_function(builder, module, only_declarations);
     generate_duration_function(builder, module, only_declarations);
+    generate_sleep_duration_function(builder, module, only_declarations);
 }
 
 void Generator::Module::Time::generate_types(llvm::Module *module) {
@@ -367,4 +368,109 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
 
     // Return the pointer to the heap-allocated Duration
     builder->CreateRet(duration_ptr);
+}
+
+void Generator::Module::Time::generate_sleep_duration_function( //
+    llvm::IRBuilder<> *builder,                                 //
+    llvm::Module *module,                                       //
+    const bool only_declarations                                //
+) {
+    // THE C IMPLEMENTATION:
+    // void sleep_duration(Duration *d) {
+    // #ifdef __WIN32__
+    //     // Windows Sleep takes milliseconds
+    //     uint64_t ms = d->value / 1000000ULL;
+    //     if (ms == 0 && d->value > 0) {
+    //         ms = 1; // Minimum 1ms on Windows
+    //     }
+    //     Sleep((DWORD)ms);
+    // #else
+    //     // POSIX nanosleep
+    //     struct timespec ts;
+    //     ts.tv_sec = (time_t)(d->value / 1000000000ULL);
+    //     ts.tv_nsec = (long)(d->value % 1000000000ULL);
+    //     nanosleep(&ts, NULL);
+    // #endif
+    // }
+    llvm::StructType *duration_type = time_data_types.at("Duration");
+
+    llvm::FunctionType *sleep_duration_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                                // Return type: void
+        {duration_type->getPointerTo()},                               // Duration* d
+        false                                                          // No vaargs
+    );
+    llvm::Function *sleep_duration_fn = llvm::Function::Create( //
+        sleep_duration_type,                                    //
+        llvm::Function::ExternalLinkage,                        //
+        hash + ".sleep_duration",                               //
+        module                                                  //
+    );
+    time_functions["sleep_duration"] = sleep_duration_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the argument
+    llvm::Argument *arg_d = sleep_duration_fn->arg_begin();
+    arg_d->setName("d");
+
+    // Create entry block
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", sleep_duration_fn);
+    builder->SetInsertPoint(entry_block);
+
+    // Load d->value
+    llvm::Value *d_value_ptr = builder->CreateStructGEP(duration_type, arg_d, 0, "d_value_ptr");
+    llvm::Value *d_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), d_value_ptr, "d_value");
+
+#ifdef __WIN32__
+    // Windows implementation using Sleep(ms)
+
+    // Convert nanoseconds to milliseconds: ms = d->value / 1000000ULL
+    llvm::Value *ms = builder->CreateUDiv(d_value, builder->getInt64(1000000ULL), "ms");
+
+    // Check if ms == 0 && d->value > 0
+    llvm::Value *ms_is_zero = builder->CreateICmpEQ(ms, builder->getInt64(0), "ms_is_zero");
+    llvm::Value *d_value_gt_zero = builder->CreateICmpUGT(d_value, builder->getInt64(0), "d_value_gt_zero");
+    llvm::Value *needs_min_sleep = builder->CreateAnd(ms_is_zero, d_value_gt_zero, "needs_min_sleep");
+
+    // If true, set ms = 1 (minimum 1ms on Windows)
+    llvm::Value *final_ms = builder->CreateSelect(needs_min_sleep, builder->getInt64(1), ms, "final_ms");
+
+    // Truncate to i32 for Sleep(DWORD)
+    llvm::Value *ms_i32 = builder->CreateTrunc(final_ms, llvm::Type::getInt32Ty(context), "ms_i32");
+
+    // Declare/get Sleep function
+    llvm::FunctionType *sleep_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                       // void return
+        {llvm::Type::getInt32Ty(context)},                    // DWORD dwMilliseconds
+        false                                                 // No vaargs
+    );
+    llvm::Function *sleep_fn = llvm::cast<llvm::Function>(module->getOrInsertFunction("Sleep", sleep_type).getCallee());
+
+    // Call Sleep(ms)
+    builder->CreateCall(sleep_fn, {ms_i32});
+#else
+    // Linux/POSIX implementation using nanosleep
+
+    llvm::StructType *timespec_type = time_data_types.at("c.struct.timespec");
+    llvm::Function *nanosleep_fn = time_platform_functions.at("nanosleep");
+
+    // Create struct timespec on stack
+    llvm::Value *ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
+
+    // ts.tv_sec = d->value / 1000000000ULL
+    llvm::Value *tv_sec = builder->CreateUDiv(d_value, builder->getInt64(1000000000ULL), "tv_sec");
+    llvm::Value *tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
+    IR::aligned_store(*builder, tv_sec, tv_sec_ptr);
+
+    // ts.tv_nsec = d->value % 1000000000ULL
+    llvm::Value *tv_nsec = builder->CreateURem(d_value, builder->getInt64(1000000000ULL), "tv_nsec");
+    llvm::Value *tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
+    IR::aligned_store(*builder, tv_nsec, tv_nsec_ptr);
+
+    // Call nanosleep(&ts, NULL)
+    builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(timespec_type->getPointerTo())});
+#endif
+
+    builder->CreateRetVoid();
 }
