@@ -1,19 +1,16 @@
 use Core.print
 use Core.time
 
+def slow_calculation() -> i32:
+    i32 sum = 0;
+    for i := 0; i < 1_000_000; i++:
+        sum += 1;
+    return sum;
+
 def main():
-	TimeStamp begin = now();
-	TimeUnit tu = TimeUnit.US;
-	switch tu:
-		NS: print("ns\n");
-		US: print("µs\n");
-		MS: print("ms\n");
-		S:  print("s\n");
-	TimeStamp middle = now();
-	Duration duration = duration(begin, middle);
-	print($"duration = {duration.value}\n");
-	duration.value = duration.value * 100;
-	sleep(duration);
-	TimeStamp end = now();
-	duration = duration(middle, end);
-	print($"duration = {duration.value}\n");
+    TimeStamp start = now();
+    i32 result = slow_calculation();
+    TimeStamp end = now();
+
+    Duration elapsed = duration(start, end);
+    print($"Calculation took {elapsed.value} ns\n");

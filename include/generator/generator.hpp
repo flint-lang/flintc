@@ -3570,6 +3570,14 @@ class Generator {
                 llvm::Module *module,                     //
                 const bool only_declarations = true       //
             );
+
+            /// @function `generate_sleep_time_function`
+            /// @brief Function to generate the `sleep_time` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_sleep_time_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
         /// @class `TypeCast`

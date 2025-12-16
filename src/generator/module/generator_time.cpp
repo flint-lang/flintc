@@ -474,3 +474,125 @@ void Generator::Module::Time::generate_sleep_duration_function( //
 
     builder->CreateRetVoid();
 }
+
+void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // void sleep_time(uint64_t t, TimeUnit u) {
+    //     uint64_t ns;
+    //     switch (u) {
+    //         case TIME_UNIT_NS:
+    //             ns = t;
+    //             break;
+    //         case TIME_UNIT_US:
+    //             ns = t * 1000ULL;
+    //             break;
+    //         case TIME_UNIT_MS:
+    //             ns = t * 1000000ULL;
+    //             break;
+    //         case TIME_UNIT_S:
+    //             ns = t * 1000000000ULL;
+    //             break;
+    //         default:
+    //             ns = 0;
+    //             break;
+    //     }
+    //     Duration d = {ns};
+    //     sleep_duration(&d);
+    // }
+    llvm::StructType *duration_type = time_data_types.at("Duration");
+    llvm::Function *sleep_duration_fn = time_functions.at("sleep_duration");
+    llvm::Function *malloc_fn = c_functions.at(MALLOC);
+
+    llvm::FunctionType *sleep_time_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                            // Return type: void
+        {
+            llvm::Type::getInt64Ty(context), // u64 t
+            llvm::Type::getInt32Ty(context)  // i32 u (TimeUnit enum)
+        },
+        false // No vaargs
+    );
+    llvm::Function *sleep_time_fn = llvm::Function::Create( //
+        sleep_time_type,                                    //
+        llvm::Function::ExternalLinkage,                    //
+        hash + ".sleep_time",                               //
+        module                                              //
+    );
+    time_functions["sleep_time"] = sleep_time_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the arguments
+    llvm::Argument *arg_t = sleep_time_fn->arg_begin();
+    arg_t->setName("t");
+    llvm::Argument *arg_u = arg_t + 1;
+    arg_u->setName("u");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", sleep_time_fn);
+    llvm::BasicBlock *case_ns_block = llvm::BasicBlock::Create(context, "case_ns", sleep_time_fn);
+    llvm::BasicBlock *case_us_block = llvm::BasicBlock::Create(context, "case_us", sleep_time_fn);
+    llvm::BasicBlock *case_ms_block = llvm::BasicBlock::Create(context, "case_ms", sleep_time_fn);
+    llvm::BasicBlock *case_s_block = llvm::BasicBlock::Create(context, "case_s", sleep_time_fn);
+    llvm::BasicBlock *default_block = llvm::BasicBlock::Create(context, "default", sleep_time_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", sleep_time_fn);
+
+    // Entry block: create switch
+    builder->SetInsertPoint(entry_block);
+    llvm::SwitchInst *switch_inst = builder->CreateSwitch(arg_u, default_block, 4);
+    switch_inst->addCase(builder->getInt32(0), case_ns_block); // TIME_UNIT_NS = 0
+    switch_inst->addCase(builder->getInt32(1), case_us_block); // TIME_UNIT_US = 1
+    switch_inst->addCase(builder->getInt32(2), case_ms_block); // TIME_UNIT_MS = 2
+    switch_inst->addCase(builder->getInt32(3), case_s_block);  // TIME_UNIT_S = 3
+
+    // Case NS: ns = t
+    builder->SetInsertPoint(case_ns_block);
+    llvm::Value *ns_ns = arg_t;
+    builder->CreateBr(merge_block);
+
+    // Case US: ns = t * 1000ULL
+    builder->SetInsertPoint(case_us_block);
+    llvm::Value *ns_us = builder->CreateMul(arg_t, builder->getInt64(1000ULL), "ns_us");
+    builder->CreateBr(merge_block);
+
+    // Case MS: ns = t * 1000000ULL
+    builder->SetInsertPoint(case_ms_block);
+    llvm::Value *ns_ms = builder->CreateMul(arg_t, builder->getInt64(1000000ULL), "ns_ms");
+    builder->CreateBr(merge_block);
+
+    // Case S: ns = t * 1000000000ULL
+    builder->SetInsertPoint(case_s_block);
+    llvm::Value *ns_s = builder->CreateMul(arg_t, builder->getInt64(1000000000ULL), "ns_s");
+    builder->CreateBr(merge_block);
+
+    // Default: ns = 0
+    builder->SetInsertPoint(default_block);
+    llvm::Value *ns_default = builder->getInt64(0);
+    builder->CreateBr(merge_block);
+
+    // Merge block: create Duration and call sleep_duration
+    builder->SetInsertPoint(merge_block);
+    llvm::PHINode *ns_value = builder->CreatePHI(llvm::Type::getInt64Ty(context), 5, "ns_value");
+    ns_value->addIncoming(ns_ns, case_ns_block);
+    ns_value->addIncoming(ns_us, case_us_block);
+    ns_value->addIncoming(ns_ms, case_ms_block);
+    ns_value->addIncoming(ns_s, case_s_block);
+    ns_value->addIncoming(ns_default, default_block);
+
+    // Allocate Duration on heap
+    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, duration_type));
+    llvm::Value *duration_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "duration_ptr");
+
+    // Set d->value = ns_value
+    llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
+    IR::aligned_store(*builder, ns_value, duration_value_ptr);
+
+    // Call sleep_duration(&d)
+    builder->CreateCall(sleep_duration_fn, {duration_ptr});
+
+    // Free the duration
+    llvm::Function *free_fn = c_functions.at(FREE);
+    builder->CreateCall(free_fn, {duration_ptr});
+
+    builder->CreateRetVoid();
+}
