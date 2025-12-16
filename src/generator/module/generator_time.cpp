@@ -10,6 +10,7 @@ void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder
     generate_now_function(builder, module, only_declarations);
     generate_duration_function(builder, module, only_declarations);
     generate_sleep_duration_function(builder, module, only_declarations);
+    generate_sleep_time_function(builder, module, only_declarations);
     generate_as_unit_function(builder, module, only_declarations);
 }
 

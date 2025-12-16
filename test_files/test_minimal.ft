@@ -3,7 +3,8 @@ use Core.time
 
 def slow_calculation() -> i32:
     i32 sum = 0;
-    for i := 0; i < 1_000_000; i++:
+    for i := 0; i < 100; i++:
+		sleep(10, TimeUnit.MS);
         sum += 1;
     return sum;
 
@@ -13,4 +14,4 @@ def main():
     TimeStamp end = now();
 
     Duration elapsed = duration(start, end);
-    print($"Calculation took {as_unit(elapsed, TimeUnit.MS)} ms\n");
+    print($"Calculation took {as_unit(elapsed, TimeUnit.S)} s\n");
