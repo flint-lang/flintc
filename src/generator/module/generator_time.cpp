@@ -6,6 +6,7 @@ static const std::string hash = Hash(std::string("time")).to_string();
 void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_types(module);
     generate_platform_functions(module);
+    generate_time_init_function(builder, module, only_declarations);
     generate_now_function(builder, module, only_declarations);
 }
 
@@ -107,8 +108,67 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
     time_platform_functions["nanosleep"] = nanosleep_fn;
 #endif
 }
-void Generator::Module::Time::generate_now_function([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module,
-    [[maybe_unused]] const bool only_declarations) {
+
+void Generator::Module::Time::generate_time_init_function( //
+    [[maybe_unused]] llvm::IRBuilder<> *builder,           //
+    [[maybe_unused]] llvm::Module *module,                 //
+    [[maybe_unused]] const bool only_declarations          //
+) {
+#ifdef __WIN32__
+    // Create __time_init function
+    llvm::FunctionType *init_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+    llvm::Function *init_fn = llvm::Function::Create( //
+        init_type,                                    //
+        llvm::Function::InternalLinkage,              //
+        hash + ".time_init",                          //
+        module                                        //
+    );
+    time_platform_functions["init_time"] = init_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create global for frequency
+    llvm::GlobalVariable *freq_global = new llvm::GlobalVariable(   //
+        *module,                                                    // Module
+        llvm::Type::getInt64Ty(context),                            // i64 type
+        false,                                                      // not constant
+        llvm::GlobalValue::InternalLinkage,                         // Only used within this module
+        llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0), // Initial value of 0
+        hash + ".global.time_frequency"                             // Name of the global
+    );
+
+    // Create global for initialized flag
+    llvm::GlobalVariable *init_global = new llvm::GlobalVariable(  //
+        *module,                                                   // Module
+        llvm::Type::getInt1Ty(context),                            // bool type
+        false,                                                     // not constant
+        llvm::GlobalValue::InternalLinkage,                        // Only used within this module
+        llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0), // Initial value of 'false'
+        hash + ".global.time_initialized"                          //
+    );
+
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", init_fn);
+    llvm::BasicBlock *init_block = llvm::BasicBlock::Create(context, "init", init_fn);
+    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", init_fn);
+
+    builder->SetInsertPoint(entry);
+    llvm::Value *is_initialized = builder->CreateLoad(llvm::Type::getInt1Ty(context), init_global);
+    builder->CreateCondBr(is_initialized, exit_block, init_block);
+
+    builder->SetInsertPoint(init_block);
+    llvm::Function *qpf_fn = time_platform_functions["QueryPerformanceFrequency"];
+    llvm::Value *freq_alloca = builder->CreateAlloca(llvm::Type::getInt64Ty(context));
+    builder->CreateCall(qpf_fn, {freq_alloca});
+    llvm::Value *freq_value = builder->CreateLoad(llvm::Type::getInt64Ty(context), freq_alloca);
+    builder->CreateStore(freq_value, freq_global);
+    builder->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1), init_global);
+    builder->CreateBr(exit_block);
+
+    builder->SetInsertPoint(exit_block);
+    builder->CreateRetVoid();
+#endif
+}
 
 void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:

@@ -3535,6 +3535,14 @@ class Generator {
             /// @param `module` The module in which to generate the platform-specific function declarations
             static void generate_platform_functions(llvm::Module *module);
 
+            /// @function `generate_time_init_function`
+            /// @brief Function to generate the `time_init` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the functions are generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
+            static void generate_time_init_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+
             /// @function `generate_now_function`
             /// @brief Function to generate the `now` function
             ///
