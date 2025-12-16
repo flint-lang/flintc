@@ -90,6 +90,7 @@ bool Generator::Module::generate_module(     //
             IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
             Time::generate_time_functions(builder.get(), module.get(), false);
+            Time::time_data_types.clear();
             break;
     }
 
