@@ -78,8 +78,7 @@ test "14_loops_while.ft":
 	str file = "14_loops_while.ft";
 	test_file_ok($"{path}/{file}", "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
 
-test "[f]15_loops_do_while.ft":
-	// NOTE: do-while loops are not yet supported in Flint, so compilation will fail
+test "15_loops_do_while.ft":
 	str path = "wiki_tests/beginners_guide/control_flow";
 	str file = "15_loops_do_while.ft";
 	test_file_ok($"{path}/{file}", "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
