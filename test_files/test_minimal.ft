@@ -13,4 +13,4 @@ def main():
     TimeStamp end = now();
 
     Duration elapsed = duration(start, end);
-    print($"Calculation took {elapsed.value} ns\n");
+    print($"Calculation took {as_unit(elapsed, TimeUnit.MS)} ms\n");

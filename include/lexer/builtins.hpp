@@ -209,7 +209,7 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{{"TimeStamp", "from"}, {"TimeStamp", "to"}}, {"Duration"}, {}}, // The single version of the 'duration' function
                 }},
-            {"as", // The 'as' function
+            {"as_unit", // The 'as_unit' function
                 {
                     {{{"Duration", "duration"}, {"TimeUnit", "unit"}}, {"f64"}, {}}, // The single version of the 'as' function
                 }},

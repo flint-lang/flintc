@@ -10,6 +10,7 @@ void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder
     generate_now_function(builder, module, only_declarations);
     generate_duration_function(builder, module, only_declarations);
     generate_sleep_duration_function(builder, module, only_declarations);
+    generate_as_unit_function(builder, module, only_declarations);
 }
 
 void Generator::Module::Time::generate_types(llvm::Module *module) {
@@ -595,4 +596,95 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     builder->CreateCall(free_fn, {duration_ptr});
 
     builder->CreateRetVoid();
+}
+
+void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // double as_unit(Duration *d, TimeUnit u) {
+    //     switch (u) {
+    //         case TIME_UNIT_NS:
+    //             return (double)d->value;
+    //         case TIME_UNIT_US:
+    //             return (double)d->value / 1000.0;
+    //         case TIME_UNIT_MS:
+    //             return (double)d->value / 1000000.0;
+    //         case TIME_UNIT_S:
+    //             return (double)d->value / 1000000000.0;
+    //     }
+    // }
+    llvm::StructType *duration_type = time_data_types.at("Duration");
+
+    llvm::FunctionType *as_unit_type = llvm::FunctionType::get( //
+        llvm::Type::getDoubleTy(context),                       // Return type: f64
+        {
+            duration_type->getPointerTo(),  // Duration* d
+            llvm::Type::getInt32Ty(context) // i32 u (TimeUnit enum)
+        },
+        false // No vaargs
+    );
+    llvm::Function *as_unit_fn = llvm::Function::Create( //
+        as_unit_type,                                    //
+        llvm::Function::ExternalLinkage,                 //
+        hash + ".as_unit",                               //
+        module                                           //
+    );
+    time_functions["as_unit"] = as_unit_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the arguments
+    llvm::Argument *arg_d = as_unit_fn->arg_begin();
+    arg_d->setName("d");
+    llvm::Argument *arg_u = arg_d + 1;
+    arg_u->setName("u");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", as_unit_fn);
+    llvm::BasicBlock *case_ns_block = llvm::BasicBlock::Create(context, "case_ns", as_unit_fn);
+    llvm::BasicBlock *case_us_block = llvm::BasicBlock::Create(context, "case_us", as_unit_fn);
+    llvm::BasicBlock *case_ms_block = llvm::BasicBlock::Create(context, "case_ms", as_unit_fn);
+    llvm::BasicBlock *case_s_block = llvm::BasicBlock::Create(context, "case_s", as_unit_fn);
+    llvm::BasicBlock *default_block = llvm::BasicBlock::Create(context, "default", as_unit_fn);
+
+    // Entry block: load d->value and create switch
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *d_value_ptr = builder->CreateStructGEP(duration_type, arg_d, 0, "d_value_ptr");
+    llvm::Value *d_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), d_value_ptr, "d_value");
+
+    llvm::SwitchInst *switch_inst = builder->CreateSwitch(arg_u, default_block, 4);
+    switch_inst->addCase(builder->getInt32(0), case_ns_block); // TIME_UNIT_NS = 0
+    switch_inst->addCase(builder->getInt32(1), case_us_block); // TIME_UNIT_US = 1
+    switch_inst->addCase(builder->getInt32(2), case_ms_block); // TIME_UNIT_MS = 2
+    switch_inst->addCase(builder->getInt32(3), case_s_block);  // TIME_UNIT_S = 3
+
+    // Case NS: return (double)d->value
+    builder->SetInsertPoint(case_ns_block);
+    llvm::Value *result_ns = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "result_ns");
+    builder->CreateRet(result_ns);
+
+    // Case US: return (double)d->value / 1000.0
+    builder->SetInsertPoint(case_us_block);
+    llvm::Value *d_value_f64_us = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_us");
+    llvm::Value *result_us =
+        builder->CreateFDiv(d_value_f64_us, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000.0), "result_us");
+    builder->CreateRet(result_us);
+
+    // Case MS: return (double)d->value / 1000000.0
+    builder->SetInsertPoint(case_ms_block);
+    llvm::Value *d_value_f64_ms = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_ms");
+    llvm::Value *result_ms =
+        builder->CreateFDiv(d_value_f64_ms, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000000.0), "result_ms");
+    builder->CreateRet(result_ms);
+
+    // Case S: return (double)d->value / 1000000000.0
+    builder->SetInsertPoint(case_s_block);
+    llvm::Value *d_value_f64_s = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_s");
+    llvm::Value *result_s =
+        builder->CreateFDiv(d_value_f64_s, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000000000.0), "result_s");
+    builder->CreateRet(result_s);
+
+    // Default: return 0.0 (invalid unit)
+    builder->SetInsertPoint(default_block);
+    builder->CreateRet(llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 0.0));
 }
