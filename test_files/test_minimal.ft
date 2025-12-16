@@ -1,8 +1,8 @@
 use Core.print
 
-enum Operation:
-	ADD, MULT;
-
 def main():
-	Operation op = Operation.ADD;
-	print($"op = {op}\n");
+    i32 num = 0;
+    do:
+        print($"num = {num}\n");
+        num++;
+    while num < 5;

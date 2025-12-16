@@ -30,6 +30,7 @@
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
+#include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
@@ -1166,6 +1167,19 @@ class Generator {
             std::vector<llvm::BasicBlock *> &blocks,     //
             unsigned int nesting_level,                  //
             const IfNode *if_node                        //
+        );
+
+        /// @function `generate_do_while_loop`
+        /// @brief Generates the do-while loop from the given WhileNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `do_while_node` The do-while node to generate
+        /// @return `bool` Whether the code generation of the do-while loop was successful
+        [[nodiscard]] static bool generate_do_while_loop( //
+            llvm::IRBuilder<> &builder,                   //
+            GenerationContext &ctx,                       //
+            const DoWhileNode *do_while_node              //
         );
 
         /// @function `generate_while_loop`

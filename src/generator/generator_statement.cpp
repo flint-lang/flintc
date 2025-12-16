@@ -1,10 +1,12 @@
 #include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
@@ -18,10 +20,13 @@
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "llvm/IR/BasicBlock.h"
 
 #include <algorithm>
+#include <array>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/Metadata.h>
+#include <memory>
 #include <string>
 
 bool Generator::Statement::generate_statement(      //
@@ -63,9 +68,7 @@ bool Generator::Statement::generate_statement(      //
         }
         case StatementNode::Variation::DO_WHILE: {
             [[maybe_unused]] const auto *node = statement->as<DoWhileNode>();
-            // TODO:
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return false;
+            return generate_do_while_loop(builder, ctx, node);
         }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             const auto *node = statement->as<EnhForLoopNode>();
@@ -654,6 +657,58 @@ bool Generator::Statement::generate_if_statement( //
     return true;
 }
 
+bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const DoWhileNode *do_while_node) {
+    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+
+    std::array<llvm::BasicBlock*, 3> do_while_blocks{};
+
+    do_while_blocks[0] = llvm::BasicBlock::Create(context, "do_while_body", ctx.parent);
+    do_while_blocks[1] = llvm::BasicBlock::Create(context, "do_while_cond", ctx.parent);
+    last_looparound_blocks.emplace_back(do_while_blocks[1]);
+    do_while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
+    last_loop_merge_blocks.emplace_back(do_while_blocks[2]);
+
+    builder.SetInsertPoint(pred_block);
+    llvm::BranchInst *init_do_while_br = builder.CreateBr(do_while_blocks[0]);
+    init_do_while_br->setMetadata("comment",
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Start the do-while loop in '" + do_while_blocks[0]->getName().str() + "'")));
+
+    builder.SetInsertPoint(do_while_blocks[0]);
+    ctx.scope = do_while_node->scope;
+    if (!generate_body(builder, ctx)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if(builder.GetInsertBlock()->getTerminator() == nullptr) {
+        builder.CreateBr(do_while_blocks[1]);
+    }
+
+    builder.SetInsertPoint(do_while_blocks[1]);
+    const std::shared_ptr<Scope> current_scope = ctx.scope;
+    ctx.scope = do_while_node->scope->get_parent();
+    Expression::garbage_type garbage;
+    group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, do_while_node->condition.get());
+    llvm::Value *expression = expression_arr.value().front();
+    if(!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::BranchInst *branch = builder.CreateCondBr(expression, do_while_blocks[0], do_while_blocks[2]);
+    branch->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(
+                context, "Continue loop in '" + do_while_blocks[0]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
+
+    do_while_blocks[2]->insertInto(ctx.parent);
+
+    ctx.scope = current_scope;
+    builder.SetInsertPoint(do_while_blocks[2]);
+
+    last_looparound_blocks.pop_back();
+    last_loop_merge_blocks.pop_back();
+    return true;
+}
+
 bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const WhileNode *while_node) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
@@ -679,7 +734,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     ctx.scope = while_node->scope->get_parent();
     Expression::garbage_type garbage;
     group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, while_node->condition.get());
-    llvm::Value *expression = expression_arr.value().at(0);
+    llvm::Value *expression = expression_arr.value().front();
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
