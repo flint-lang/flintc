@@ -1,7 +1,6 @@
 use Core.print
 use Core.assert
 
-#test_should_fail
 test "should fail":
 	assert(false);
 

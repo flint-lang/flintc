@@ -855,7 +855,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Fail block
     builder->SetInsertPoint(fail_block);
     llvm::Value *fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d tests failed!\033[0m\n");
-    builder->CreateCall(c_functions.at(PRINTF), {fail_fmt, counter_value});
+    llvm::Value *one_fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d test failed!\033[0m\n");
+    llvm::Value *counter_eq_one = builder->CreateICmpEQ(counter_value, builder->getInt32(1), "counter_eq_one");
+    llvm::Value *fmt = builder->CreateSelect(counter_eq_one, one_fail_fmt, fail_fmt);
+    builder->CreateCall(c_functions.at(PRINTF), {fmt, counter_value});
     IR::aligned_store(*builder, one, counter);
     builder->CreateBr(merge_block);
 
