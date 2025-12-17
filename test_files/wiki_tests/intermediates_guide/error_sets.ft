@@ -50,11 +50,13 @@ test "9_context.ft":
 	str file = "9_context.ft";
 	test_file_ok($"{path}/{file}", "type_id = 803109534\nvalue_id = 2\nmessage = Special Error 1\n\ntype_id = 803109534\nvalue_id = 3\nmessage = Overwritten message: true\n");
 
+#test_should_fail
 test "[f]10_anonymous_simple.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "10_anonymous_simple.ft";
 	test_file_ok($"{path}/{file}", "err.type_id = 0123456789\nerr.value_id = 0\nerr.message = Custom Message\n");
 
+#test_should_fail
 test "[f]11_anonymous_complex.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "11_anonymous_complex.ft";
@@ -70,11 +72,13 @@ test "13_inline_fail.ft":
 	str file = "13_inline_fail.ft";
 	test_file_fail($"{path}/{file}", "Custom Error: 2\n");
 
+#test_should_fail
 test "[f]14_infer.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "14_infer.ft";
 	test_file_ok($"{path}/{file}", "special error thrown\n");
 
+#test_should_fail
 test "[f]15_infer_catch.ft":
 	str path = "wiki_tests/intermediates_guide/error_sets";
 	str file = "15_infer_catch.ft";

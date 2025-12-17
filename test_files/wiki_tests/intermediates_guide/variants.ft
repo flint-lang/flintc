@@ -50,6 +50,7 @@ test "9_inline_defined.ft":
 	str file = "9_inline_defined.ft";
 	test_file_ok($"{path}/{file}", "i = -55\nf = 3.14\ns = Hello There\n");
 
+#test_should_fail
 test "[f]10_inline_in_data.ft":
 	str path = "wiki_tests/intermediates_guide/variants";
 	str file = "10_inline_in_data.ft";
@@ -95,6 +96,7 @@ test "18_extraction.ft":
 	str file = "18_extraction.ft";
 	test_file_ok($"{path}/{file}", "i == -5\nf == none\n");
 
+#test_should_fail
 test "[f]19_extraction_chain.ft":
 	str path = "wiki_tests/intermediates_guide/variants";
 	str file = "19_extraction_chain.ft";

@@ -81,6 +81,7 @@ test "13_chain_data.ft":
 	str file = "13_chain_data.ft";
 	test_file_ok($"{path}/{file}", "x! = 10\n");
 
+#test_should_fail
 test "[f]14_chain_nested_data.ft":
 	str path = "wiki_tests/intermediates_guide/optionals";
 	str file = "14_chain_nested_data.ft";

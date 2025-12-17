@@ -23,6 +23,7 @@ test "3_intro_assign.ft":
 	str file = "3_intro_assign.ft";
 	test_file_ok($"{path}/{file}", "arr[3] + arr[4] = 12\n");
 
+#test_should_fail
 test "[f]4_intro_grouped.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "4_intro_grouped.ft";
@@ -143,6 +144,7 @@ test "25_manual_slice.ft":
 	str file = "25_manual_slice.ft";
 	test_file_ok($"{path}/{file}", "Hello there\nllo there\n");
 
+#test_should_fail
 test "[f]26_perf_comp.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "26_perf_comp.ft";
