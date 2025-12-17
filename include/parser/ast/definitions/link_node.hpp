@@ -18,7 +18,7 @@ class LinkNode : public DefinitionNode {
         std::vector<std::string> &from, //
         std::vector<std::string> &to    //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         from(std::move(from)),
         to(std::move(to)) {}
 

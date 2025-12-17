@@ -35,7 +35,9 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
     }
 
-    if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
+    if (Matcher::tokens_contain(definition_tokens, Matcher::token(TOK_ANNOTATION))) {
+        return add_annotation(definition_tokens);
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
         if (definition_indentation > 0) {
             THROW_ERR(ErrUseClauselNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
             return false;
@@ -183,7 +185,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
         return false;
     }
-    return true;
+    return enusure_no_annotation_leftovers();
 }
 
 token_slice Parser::get_definition_tokens(const token_slice &tokens) {
@@ -1132,4 +1134,44 @@ bool Parser::ensure_castability_multiple(                      //
         }
     }
     return true;
+}
+
+bool Parser::add_annotation(const token_slice &tokens) {
+    assert(tokens.first->token == TOK_ANNOTATION);
+    assert((tokens.first + 1)->token == TOK_IDENTIFIER);
+    const std::string annotation_name((tokens.first + 1)->lexme);
+
+    if (annotation_map.find(annotation_name) == annotation_map.end()) {
+        // Unknown annotation
+        THROW_BASIC_ERR(ERR_PARSING);
+        return false;
+    }
+    const AnnotationKind kind = annotation_map.at(annotation_name);
+    // Check if the queue already contains this annotation kind, it is not allowed to define the same annotation twice
+    for (const auto &annotation : annotation_queue) {
+        if (annotation.kind == kind) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+    }
+
+    // Parse the arguments of the annotation, if there are any
+    std::vector<std::string> arguments;
+    auto it = tokens.first + 2;
+    if (it != tokens.second) {
+        // Arguments will follow
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return false;
+    }
+
+    annotation_queue.emplace_back(kind, arguments);
+    return true;
+}
+
+bool Parser::enusure_no_annotation_leftovers() {
+    if (annotation_queue.empty()) {
+        return true;
+    }
+    THROW_BASIC_ERR(ERR_PARSING);
+    return false;
 }

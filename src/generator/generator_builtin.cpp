@@ -758,15 +758,15 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
         // Find out the longest test name, to be able to align the passed / failed outputs
         unsigned int longest_name = 0;
-        for (const auto &[test_name, _] : test_list) {
-            if (test_name.length() > longest_name) {
-                longest_name = test_name.length();
+        for (const auto &[test_node, _] : test_list) {
+            if (test_node->name.length() > longest_name) {
+                longest_name = test_node->name.length();
             }
         }
 
         // Run all tests and print whether they succeeded
         size_t index = 0;
-        for (const auto &[test_name, test_function_name] : test_list) {
+        for (const auto &[test_node, test_function_name] : test_list) {
             llvm::Value *success_fmt = index + 1 < test_list.size() ? success_fmt_middle : success_fmt_end;
             llvm::Value *fail_fmt = index + 1 < test_list.size() ? fail_fmt_middle : fail_fmt_end;
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -783,7 +783,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             }
 
             // Print the tests name
-            llvm::Value *test_name_value = IR::generate_const_string(module, test_name);
+            llvm::Value *test_name_value = IR::generate_const_string(module, test_node->name);
 
             // Add a call to the actual function
             llvm::CallInst *test_call = builder->CreateCall( //
@@ -802,7 +802,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             // Create branching condition. Go to succeed block if the test_err_val is == 0, to the fail_block otherwise
             llvm::Value *comparison = builder->CreateICmpEQ(err_value, zero, "errcmp");
             // Branch to the succeed block or the fail block depending on the condition
-            builder->CreateCondBr(comparison, succeed_block, fail_block);
+            if (test_node->contains_annotation(AnnotationKind::TEST_SHOULD_FAIL)) {
+                // If the test is supposed to fail then the condition must be flipped
+                builder->CreateCondBr(comparison, fail_block, succeed_block);
+            } else {
+                builder->CreateCondBr(comparison, succeed_block, fail_block);
+            }
 
             builder->SetInsertPoint(succeed_block);
             builder->CreateCall(c_functions.at(PRINTF),                         //

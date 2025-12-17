@@ -201,7 +201,7 @@ bool Lexer::scan_token() {
             }
             break;
         case '#':
-            add_token(TOK_FLAG);
+            add_token(TOK_ANNOTATION);
             break;
         case '\'': {
             advance();

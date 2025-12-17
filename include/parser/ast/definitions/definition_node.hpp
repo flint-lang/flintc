@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/annotation_node.hpp"
 #include "parser/ast/ast_node.hpp"
 
 #include <cassert>
@@ -9,16 +10,15 @@
 class DefinitionNode : public ASTNode {
   protected:
     // constructor
-    DefinitionNode(                //
-        const Hash &file_hash,     //
-        const unsigned int line,   //
-        const unsigned int column, //
-        const unsigned int length  //
+    DefinitionNode(                                    //
+        const Hash &file_hash,                         //
+        const unsigned int line,                       //
+        const unsigned int column,                     //
+        const unsigned int length,                     //
+        const std::vector<AnnotationNode> &annotations //
         ) :
-        ASTNode(file_hash, line, column, length) {}
-
-    // DefinitionNode() :
-    // ASTNode(Hash(std::string("")), 0, 0, 0) {}
+        ASTNode(file_hash, line, column, length),
+        annotations(annotations) {}
 
   public:
     // destructor
@@ -29,6 +29,24 @@ class DefinitionNode : public ASTNode {
     // move operations
     DefinitionNode(DefinitionNode &&) = default;
     DefinitionNode &operator=(DefinitionNode &&) = default;
+
+    /// @var `annotations`
+    /// @brief The annotations defined for this definition
+    std::vector<AnnotationNode> annotations;
+
+    /// @function `contains_annotation`
+    /// @brief Checks whether this definition contains the given annotation kind
+    ///
+    /// @param `kind` The annotation kind to search for
+    /// @return `bool` Whether this definition contains the given annotation
+    bool contains_annotation(const AnnotationKind kind) const {
+        for (const auto &annotation : annotations) {
+            if (annotation.kind == kind) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /// @enum `Variation`
     /// @brief A enum describing which definition variations exist

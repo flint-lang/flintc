@@ -557,9 +557,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                     return std::nullopt;
                 }
                 if (tests.count(test_node->file_hash) == 0) {
-                    tests[test_node->file_hash].emplace_back(test_node->name, test_function.value()->getName().str());
+                    tests[test_node->file_hash].emplace_back(test_node, test_function.value()->getName().str());
                 } else {
-                    tests.at(test_node->file_hash).emplace_back(test_node->name, test_function.value()->getName().str());
+                    tests.at(test_node->file_hash).emplace_back(test_node, test_function.value()->getName().str());
                 }
                 break;
             }

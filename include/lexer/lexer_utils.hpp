@@ -22,7 +22,7 @@ static const std::unordered_map<std::string_view, Token> symbols = {
     {"?", TOK_QUESTION},
     {"!", TOK_EXCLAMATION},
     {"_", TOK_UNDERSCORE},
-    {"#", TOK_FLAG},
+    {"#", TOK_ANNOTATION},
     {"$", TOK_DOLLAR},
     // dual character tokens
     {"->", TOK_ARROW},
@@ -81,7 +81,7 @@ static const std::unordered_map<Token, std::string_view> symbols_rev = {
     {TOK_QUESTION, "?"},
     {TOK_EXCLAMATION, "!"},
     {TOK_UNDERSCORE, "_"},
-    {TOK_FLAG, "#"},
+    {TOK_ANNOTATION, "#"},
     {TOK_DOLLAR, "$"},
     // dual character tokens
     {TOK_ARROW, "->"},

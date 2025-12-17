@@ -703,7 +703,8 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return TestNode(file_hash, line, column, length, test_name, body_scope);
+    auto annotations = AnnotationNode::extract_consumable(annotation_queue, TestNode::consumable_annotations);
+    return TestNode(file_hash, line, column, length, annotations, test_name, body_scope);
 }
 
 std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {

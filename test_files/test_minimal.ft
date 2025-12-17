@@ -1,9 +1,9 @@
-use Core.time
 use Core.print
+use Core.assert
+
+#test_should_fail
+test "should fail":
+	assert(false);
 
 def main():
-    i32 num = 0;
-    do:
-        print($"num = {num}\n");
-        num++;
-    while num < 5;
+	print("Compile with --test to crate a test binary!\n");

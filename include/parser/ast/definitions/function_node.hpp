@@ -30,7 +30,7 @@ class FunctionNode : public DefinitionNode {
         std::optional<std::shared_ptr<Scope>> &scope,                                  //
         const std::optional<size_t> &mangle_id                                         //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         is_aligned(is_aligned),
         is_const(is_const),
         is_extern(is_extern),

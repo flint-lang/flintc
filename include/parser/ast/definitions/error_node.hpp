@@ -21,7 +21,7 @@ class ErrorNode : public DefinitionNode {
         const std::vector<std::string> &values,          //
         const std::vector<std::string> &default_messages //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         name(name),
         parent_error(parent_error),
         values(values),

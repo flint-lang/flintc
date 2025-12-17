@@ -21,7 +21,7 @@ class DataNode : public DefinitionNode {
         const std::string &name,                                                 //
         const std::vector<std::pair<std::string, std::shared_ptr<Type>>> &fields //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         is_shared(is_shared),
         is_immutable(is_immutable),
         is_aligned(is_aligned),

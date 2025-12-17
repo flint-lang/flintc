@@ -4,6 +4,7 @@
 #include "parser/ast/statements/do_while_node.hpp"
 #include "types.hpp"
 
+#include "ast/annotation_node.hpp"
 #include "ast/call_node_base.hpp"
 #include "ast/file_node.hpp"
 
@@ -62,7 +63,6 @@
 #include <stdexcept>
 #include <tuple>
 #include <utility>
-#include <variant>
 
 /// @class `Parser`
 /// @brief The class which is responsible for the AST generation (parsing)
@@ -298,6 +298,10 @@ class Parser {
     /// @var `file_node_ptr`
     /// @brief The file node this parser is currently parsing
     std::unique_ptr<FileNode> file_node_ptr;
+
+    /// @var `annotation_queue`
+    /// @brief A list of all annotations which are queued up before parsing the next definition or statement
+    std::vector<AnnotationNode> annotation_queue;
 
     /// @var `core_namespaces`
     /// @brief A map mapping the names of each core module to it's namespace containing all definitions of that namespace
@@ -743,6 +747,20 @@ class Parser {
         const token_slice &tokens                                  //
     );
 
+    /// @function `add_annotation`
+    /// @brief Adds the annotation contained in the given tokens to the annotation queue to be consumed by definitions or statements alike
+    ///
+    /// @param `tokens` The tokens containing the annotation to be added
+    /// @return `bool` Whether the annotation was able to be added to the queue
+    bool add_annotation(const token_slice &tokens);
+
+    /// @function `ensure_no_allotation_leftovers`
+    /// @brief Checks whether the annotation queue is empty, throws an error if the queue still contains annotations. This would mean that
+    /// an annotation was defined which was unable to be consumed by the following definition / statement
+    ///
+    /// @return `bool` True if all is fine, false if there were leftovers
+    bool enusure_no_annotation_leftovers();
+
     /**************************************************************************************************************************************
      * @region `Util` END
      *************************************************************************************************************************************/
@@ -1119,10 +1137,10 @@ class Parser {
     /// @param `condition_line` The list of tokens representing the end of the scope and the condition
     /// @param `body` The list of tokens representing the loop body
     /// @return `std::optional<std::unique_ptr<DoWhileNode>>` An optional unique pointer to the created DoWhileNode
-    std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop(//
-        std::shared_ptr<Scope> &scope,//
-        const token_slice &condition_line,//
-        const std::vector<Line> &body//
+    std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop( //
+        std::shared_ptr<Scope> &scope,                                //
+        const token_slice &condition_line,                            //
+        const std::vector<Line> &body                                 //
     );
 
     /// @function `create_while_loop`
@@ -1132,10 +1150,10 @@ class Parser {
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
-    std::optional<std::unique_ptr<WhileNode>> create_while_loop(//
-        std::shared_ptr<Scope> &scope,//
-        const token_slice &definition,//
-        const std::vector<Line> &body//
+    std::optional<std::unique_ptr<WhileNode>> create_while_loop( //
+        std::shared_ptr<Scope> &scope,                           //
+        const token_slice &definition,                           //
+        const std::vector<Line> &body                            //
     );
 
     /// @function `create_for_loop`

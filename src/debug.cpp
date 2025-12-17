@@ -1549,7 +1549,35 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Test ");
             const std::string &file_name = test.file_hash.path.filename().string();
             std::cout << file_name << " : \"" << test.name << "\" [s" << test.scope->scope_id << "]" << std::endl;
+            print_annotations(indent_lvl + 1, bits, test.annotations);
             print_body(indent_lvl + 1, bits, test.scope->body);
+        }
+
+        void print_annotations(unsigned int indent_lvl, TreeBits &bits, const std::vector<AnnotationNode> &annotations) {
+            if (annotations.empty()) {
+                return;
+            }
+            TreeBits header_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, header_bits, "Annotations ");
+            std::cout << std::endl;
+
+            for (size_t i = 0; i < annotations.size(); i++) {
+                const auto &annotation = annotations.at(i);
+                TreeBits annotation_bits = header_bits.child(indent_lvl + 1, i + 1 == annotations.size());
+                Local::print_header(indent_lvl + 1, annotation_bits, "Annotation ");
+                std::cout << annotation_map_rev.at(annotation.kind);
+                if (!annotation.arguments.empty()) {
+                    std::cout << "(";
+                    for (size_t j = 0; j < annotation.arguments.size(); j++) {
+                        if (j > 0) {
+                            std::cout << ", ";
+                        }
+                        std::cout << annotation.arguments.at(i);
+                    }
+                    std::cout << ")";
+                }
+                std::cout << std::endl;
+            }
         }
     } // namespace AST
 } // namespace Debug

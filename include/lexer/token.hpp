@@ -20,7 +20,7 @@ enum Token {
     TOK_QUESTION,
     TOK_EXCLAMATION,
     TOK_UNDERSCORE,
-    TOK_FLAG,
+    TOK_ANNOTATION,
     TOK_DOLLAR,
 
     // dual character tokens

@@ -15,17 +15,24 @@
 /// @brief Represents function definitions
 class TestNode : public DefinitionNode {
   public:
-    explicit TestNode(                //
-        const Hash &file_hash,        //
-        const unsigned int line,      //
-        const unsigned int column,    //
-        const unsigned int length,    //
-        const std::string &name,      //
-        std::shared_ptr<Scope> &scope //
+    explicit TestNode(                                  //
+        const Hash &file_hash,                          //
+        const unsigned int line,                        //
+        const unsigned int column,                      //
+        const unsigned int length,                      //
+        const std::vector<AnnotationNode> &annotations, //
+        const std::string &name,                        //
+        std::shared_ptr<Scope> &scope                   //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, annotations),
         name(name),
         scope(std::move(scope)) {}
+
+    /// @var `consumable_annotations`
+    /// @brief The annotations consumable by this statement node
+    static const inline std::unordered_set<AnnotationKind> consumable_annotations = {
+        AnnotationKind::TEST_SHOULD_FAIL,
+    };
 
     Variation get_variation() const override {
         return Variation::TEST;

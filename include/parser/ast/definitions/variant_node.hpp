@@ -19,7 +19,7 @@ class VariantNode : public DefinitionNode {
         const std::string &name,                                                                  //
         std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> &possible_types //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         name(name),
         possible_types(std::move(possible_types)) {}
 

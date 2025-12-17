@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/annotation_node.hpp"
 #include "parser/ast/ast_node.hpp"
 
 #include <cassert>
@@ -8,6 +9,9 @@
 /// @brief Base class for all statements
 class StatementNode : public ASTNode {
   protected:
+    explicit StatementNode(const std::vector<AnnotationNode> &annotations) :
+        annotations(annotations) {}
+
     // constructor
     StatementNode() = default;
 
@@ -20,6 +24,10 @@ class StatementNode : public ASTNode {
     // move operations
     StatementNode(StatementNode &&) = default;
     StatementNode &operator=(StatementNode &&) = default;
+
+    /// @var `annotations`
+    /// @brief The annotations defined for this statement
+    std::vector<AnnotationNode> annotations;
 
     /// @enum `Variation`
     /// @brief A enum describing which statement variations exist

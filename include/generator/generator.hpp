@@ -329,9 +329,12 @@ class Generator {
     static inline std::array<llvm::Module *, 1> main_module;
 
     /// @var `tests`
-    /// @brief A list of all generated test functions across all files together with the file hashes, and the name of the test and the exact
-    /// name of the function, because a `llvm::Function *` type would become invalid after combining multiple llvm modules
-    static inline std::unordered_map<Hash, std::vector<std::pair<std::string, std::string>>> tests;
+    /// @brief A list of all generated test functions across all files:
+    ///  - Key: `Hash` The hash of the file the tests are created in
+    ///  - Value: Pair
+    ///     - 0: The test node itself
+    ///     - 1: The exact generated name of the test across modules, to find the test function in the module
+    static inline std::unordered_map<Hash, std::vector<std::pair<const TestNode *, std::string>>> tests;
 
     /// @var `last_looparound_blocks`
     /// @brief The last basic blocks to loop back to, its a list to not need to update them for nested loops

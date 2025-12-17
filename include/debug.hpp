@@ -216,5 +216,6 @@ namespace Debug {
         void print_link(unsigned int indent_lvl, TreeBits &bits, const LinkNode &link);
         void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant);
         void print_test(unsigned int indent_lvl, TreeBits &bits, const TestNode &test);
+        void print_annotations(unsigned int indent_lvl, TreeBits &bits, const std::vector<AnnotationNode> &annotations);
     } // namespace AST
 } // namespace Debug

@@ -19,7 +19,7 @@ class ImportNode : public DefinitionNode {
         const std::variant<Hash, std::vector<std::string>> &path, //
         const std::optional<std::string> &alias                   //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         path(path),
         alias(alias) {}
 

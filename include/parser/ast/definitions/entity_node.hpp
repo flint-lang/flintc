@@ -25,7 +25,7 @@ class EntityNode : public DefinitionNode {
         std::vector<std::pair<std::string, std::string>> &parent_entities, //
         std::vector<std::string> &constructor_order                        //
         ) :
-        DefinitionNode(file_hash, line, column, length),
+        DefinitionNode(file_hash, line, column, length, {}),
         name(name),
         data_modules(std::move(data_modules)),
         func_modules(std::move(func_modules)),

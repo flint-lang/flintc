@@ -203,7 +203,7 @@ class Matcher {
         {TOK_QUESTION, std::make_shared<TokenTypeMatcher>(TOK_QUESTION)},
         {TOK_EXCLAMATION, std::make_shared<TokenTypeMatcher>(TOK_EXCLAMATION)},
         {TOK_UNDERSCORE, std::make_shared<TokenTypeMatcher>(TOK_UNDERSCORE)},
-        {TOK_FLAG, std::make_shared<TokenTypeMatcher>(TOK_FLAG)},
+        {TOK_ANNOTATION, std::make_shared<TokenTypeMatcher>(TOK_ANNOTATION)},
         {TOK_DOLLAR, std::make_shared<TokenTypeMatcher>(TOK_DOLLAR)},
 
         // dual character tokens
@@ -562,7 +562,7 @@ class Matcher {
         token(TOK_QUESTION),
         token(TOK_EXCLAMATION),
         token(TOK_UNDERSCORE),
-        token(TOK_FLAG),
+        token(TOK_ANNOTATION),
         token(TOK_DOLLAR),
     });
     static const inline PatternPtr symbol_dual = one_of({
