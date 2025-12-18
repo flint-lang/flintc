@@ -43,17 +43,19 @@ def get_battery_indices(str bank, u64 batt_count) -> u64[]:
 		begin_idx = batt_idx + 1;
 	return indices;
 
-def calculate_total_joltage(str[] banks, u64 batt_count) -> u64:
+def calculate_total_joltage(str[] banks, u64 batt_count, bool pretty_print) -> u64:
 	u64 total_joltage = 0;
 	for (_, bank) in banks:
 		u64[] indices = get_battery_indices(bank, batt_count);
 		u64 bank_joltage = calculate_joltage(bank, indices);
-		pretty_print_bank(bank, indices);
-		print($" -> {bank_joltage}\n");
+		if pretty_print:
+			pretty_print_bank(bank, indices);
+			print($" -> {bank_joltage}\n");
 		total_joltage += bank_joltage;
 	return total_joltage;
 
-def main():
+def main(str[] args):
+	const bool pretty_print = args.len > 1 and args[1] == "--pretty";
 	str[] banks = read_lines("input.txt");
-	print($"part_1: {calculate_total_joltage(banks, 2)}\n");
-	print($"part_2: {calculate_total_joltage(banks, 12)}\n");
+	print($"part_1: {calculate_total_joltage(banks, 2, pretty_print)}\n");
+	print($"part_2: {calculate_total_joltage(banks, 12, pretty_print)}\n");
