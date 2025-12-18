@@ -29,7 +29,7 @@ def part_2(i32[] numbers):
 		if dial == 0:
 			count++;
 
-	print($"part_1: {count}\n");
+	print($"part_2: {count}\n");
 
 def main():
 	str[] lines = read_lines("input.txt");
