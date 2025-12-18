@@ -799,8 +799,10 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 case CastDirection::Kind::CAST_RHS_TO_LHS:
                     if (expr_type_str == "int" || expr_type_str == "float") {
                         expr->type = optional_type->base_type;
+                        expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    } else {
+                        expr = std::make_unique<TypeCastNode>(optional_type->base_type, expr);
                     }
-                    expr = std::make_unique<TypeCastNode>(target_type, expr);
                     return true;
                 default:
                     return false;

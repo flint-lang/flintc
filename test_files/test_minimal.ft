@@ -1,5 +1,15 @@
 use Core.print
 
-def main(str[] args):
-	const bool pretty_print = args.len > 1 and args[1] == "--pretty";
-	print($"pretty_print? {pretty_print}\n");
+def opt_print(str? arg):
+	str parg = "";
+	if arg != none:
+		print("contains value!\n");
+		parg = arg!;
+	print($"arg = {parg}\n");
+
+def main():
+	str? arg = none;
+	opt_print(arg);
+
+	arg = "hello";
+	opt_print(arg);
