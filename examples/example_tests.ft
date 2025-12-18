@@ -1,5 +1,7 @@
 use Core.print
 
+use "test_projects.ft"
+
 use "aoc/2025/test.ft"
 
 def main():
