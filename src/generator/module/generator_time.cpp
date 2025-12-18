@@ -56,6 +56,7 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
 
     // QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount)
     llvm::StructType *large_integer_type = llvm::StructType::create(context, {llvm::Type::getInt64Ty(context)}, "LARGE_INTEGER");
+    time_data_types["LARGE_INTEGER"] = large_integer_type;
     llvm::FunctionType *QueryPerformanceCounter_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                                        // returns BOOL (i32)
         {large_integer_type->getPointerTo()},                                   // LARGE_INTEGER*
@@ -226,7 +227,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     builder->CreateCall(init_fn, {});
 
     // Create LARGE_INTEGER counter on stack
-    llvm::StructType *large_integer_type = llvm::cast<llvm::StructType>(module->getTypeByName("LARGE_INTEGER"));
+    llvm::StructType *large_integer_type = time_data_types.at("LARGE_INTEGER");
     llvm::Value *counter_ptr = builder->CreateAlloca(large_integer_type, nullptr, "counter_ptr");
 
     // Call QueryPerformanceCounter(&counter)
