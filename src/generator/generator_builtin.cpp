@@ -753,7 +753,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
         llvm::Value *fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
         llvm::Value *fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *perf_fmt = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
+        llvm::Value *perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
+        llvm::Value *perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_path + ":\n");
         builder->CreateCall(c_functions.at(PRINTF), //
@@ -771,8 +772,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         // Run all tests and print whether they succeeded
         size_t index = 0;
         for (const auto &[test_node, test_function_name] : test_list) {
-            llvm::Value *success_fmt = index + 1 < test_list.size() ? success_fmt_middle : success_fmt_end;
-            llvm::Value *fail_fmt = index + 1 < test_list.size() ? fail_fmt_middle : fail_fmt_end;
+            const bool is_end = index + 1 == test_list.size();
+            llvm::Value *success_fmt = is_end ? success_fmt_end : success_fmt_middle;
+            llvm::Value *fail_fmt = is_end ? fail_fmt_end : fail_fmt_middle;
+            llvm::Value *perf_fmt = is_end ? perf_fmt_end : perf_fmt_middle;
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
             llvm::BasicBlock *succeed_block = llvm::BasicBlock::Create(context, "test_success", main_function);
             llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(context, "test_fail", main_function);
