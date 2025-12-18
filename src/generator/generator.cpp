@@ -248,13 +248,13 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
-    // Generate built-in functions in the main module
+    // Generate all the print module functions
     Module::Print::generate_print_functions(builder.get(), module.get());
 
     // Generate all the "hidden" string helper functions
     Module::String::generate_string_manip_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" read helper functions
+    // Generate all the read module functions
     Module::Read::generate_read_functions(builder.get(), module.get());
 
     // Generate all the "hidden" typecast helper functions
@@ -266,20 +266,23 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Gneerate all the "hidden" array helper functions
     Module::Array::generate_array_manip_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" assert helper functions
+    // Generate all the assert module functions
     Module::Assert::generate_assert_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" filesystem helper functions
+    // Generate all the filesystem module functions
     Module::FileSystem::generate_filesystem_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" env helper functions
+    // Generate all the env module functions
     Module::Env::generate_env_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" system module functions
+    // Generate all the system module functions
     Module::System::generate_system_functions(builder.get(), module.get());
 
-    // Generate all the "hidden" math module functions
+    // Generate all the math module functions
     Module::Math::generate_math_functions(builder.get(), module.get());
+
+    // Generate all the time module functions
+    Module::Time::generate_time_functions(builder.get(), module.get());
 
     if (!is_test) {
         // Generate main function in the main module

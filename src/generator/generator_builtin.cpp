@@ -735,6 +735,9 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         "err_counter"                                  //
     );
     IR::aligned_store(*builder, zero, counter);
+    llvm::StructType *TimeStamp_type = Module::Time::time_data_types.at("TimeStamp");
+    llvm::AllocaInst *perf_start_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_start_TimePoint");
+    llvm::AllocaInst *perf_end_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_end_TimePoint");
 
     // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
     llvm::AllocaInst *test_alloca = builder->CreateAlloca(                 //
@@ -750,6 +753,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
         llvm::Value *fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
         llvm::Value *fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
+        llvm::Value *perf_fmt = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_path + ":\n");
         builder->CreateCall(c_functions.at(PRINTF), //
@@ -785,6 +789,14 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             // Print the tests name
             llvm::Value *test_name_value = IR::generate_const_string(module, test_node->name);
 
+            const bool is_perf_test = test_node->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
+            if (is_perf_test) {
+                // Store the current time in the test_start allocation
+                llvm::Function *time_now_fn = Module::Time::time_functions.at("now");
+                llvm::Value *now = builder->CreateCall(time_now_fn, {}, "start_val");
+                IR::aligned_store(*builder, now, perf_start_point);
+            }
+
             // Add a call to the actual function
             llvm::CallInst *test_call = builder->CreateCall( //
                 test_function,                               //
@@ -792,6 +804,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 "call_test"                                  //
             );
             IR::aligned_store(*builder, test_call, test_alloca);
+            if (is_perf_test) {
+                // Store the current time in the test_end allocation
+                llvm::Function *time_now_fn = Module::Time::time_functions.at("now");
+                llvm::Value *now = builder->CreateCall(time_now_fn, {}, "end_val");
+                IR::aligned_store(*builder, now, perf_end_point);
+            }
             llvm::Value *err_ptr = builder->CreateStructGEP(test_function->getReturnType(), test_alloca, 0, "test_err_ptr");
             llvm::Value *err_value = IR::aligned_load(*builder, //
                 llvm::Type::getInt32Ty(context),                //
@@ -828,6 +846,21 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(merge_block);
+            if (is_perf_test) {
+                // Print the perf test result
+                llvm::Function *time_duration_fn = Module::Time::time_functions.at("duration");
+                llvm::Value *perf_test_start = IR::aligned_load(                                    //
+                    *builder, TimeStamp_type->getPointerTo(), perf_start_point, "start_point_value" //
+                );
+                llvm::Value *perf_test_end = IR::aligned_load(                                  //
+                    *builder, TimeStamp_type->getPointerTo(), perf_end_point, "end_point_value" //
+                );
+                llvm::Value *duration = builder->CreateCall(time_duration_fn, {perf_test_start, perf_test_end}, "perf_test_duration");
+
+                llvm::Function *time_as_unit_fn = Module::Time::time_functions.at("as_unit");
+                llvm::Value *as_unit = builder->CreateCall(time_as_unit_fn, {duration, builder->getInt32(2)}, "as_unit");
+                builder->CreateCall(c_functions.at(PRINTF), {perf_fmt, as_unit});
+            }
             index++;
         }
     }

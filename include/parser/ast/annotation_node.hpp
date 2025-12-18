@@ -7,6 +7,21 @@
 /// @brief An enum of all possible annotation kinds there are
 enum class AnnotationKind {
     TEST_SHOULD_FAIL, // #test_should_fail usable on `TestNode`s
+    TEST_PERFORMANCE, // #test_performance usable on `TestNode`s
+};
+
+/// @var `annotation_map`
+/// @brief A map mapping strings to the correnct annotaiton kind enum
+static const inline std::unordered_map<std::string_view, AnnotationKind> annotation_map = {
+    {"test_should_fail", AnnotationKind::TEST_SHOULD_FAIL},
+    {"test_performance", AnnotationKind::TEST_PERFORMANCE},
+};
+
+/// @var `annotation_map_rev`
+/// @brief The reverse of the `annotation_map`, mapping the annotation kind enums to the strings views
+static const inline std::unordered_map<AnnotationKind, std::string_view> annotation_map_rev = {
+    {AnnotationKind::TEST_SHOULD_FAIL, "test_should_fail"},
+    {AnnotationKind::TEST_PERFORMANCE, "test_performance"},
 };
 
 /// @class `AnnotationNode`
@@ -50,12 +65,4 @@ class AnnotationNode : public ASTNode {
     /// @var `arguments`
     /// @brief Potential arguments of the annotation, could be empty
     std::vector<std::string> arguments;
-};
-
-static const inline std::unordered_map<std::string_view, AnnotationKind> annotation_map = {
-    {"test_should_fail", AnnotationKind::TEST_SHOULD_FAIL},
-};
-
-static const inline std::unordered_map<AnnotationKind, std::string_view> annotation_map_rev = {
-    {AnnotationKind::TEST_SHOULD_FAIL, "test_should_fail"},
 };
