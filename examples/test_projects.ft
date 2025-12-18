@@ -2,16 +2,19 @@ use Core.assert
 
 use "utils.ft"
 
+#test_performance
 test "fsh":
 	str path = "fsh";
 	str file = "main.ft";
 	test_compiles_in(path, file, none);
 
+#test_performance
 test "pong":
 	str path = "pong";
 	str file = "main.ft";
 	test_compiles_in(path, file, none);
 
+#test_performance
 test "pong-2.0":
 	str path = "pong-2.0";
 	str file = "main.ft";
