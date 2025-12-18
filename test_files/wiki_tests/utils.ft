@@ -50,7 +50,7 @@ def test_file_ok_in(str path, str file, str expected_output):
 	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --file {file}");
 	assert(exit_code == 0);
 	assert(output == "");
-	(exit_code, output) = system_command($"{cwd}/{path}/main");
+	(exit_code, output) = system_command($"cd {cwd}/{path}; ./main");
 	assert(exit_code == 0);
 	assert(output == expected_output);
 
