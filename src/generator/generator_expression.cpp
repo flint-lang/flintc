@@ -1172,13 +1172,17 @@ Generator::group_mapping Generator::Expression::generate_call( //
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     garbage_type garbage;
+
+    // Track which temporary optional allocations we've used
+    std::unordered_map<std::string, unsigned int> temp_opt_usage;
+
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
         const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters[i]);
-        // Complex rguments of function calls are always passed as references, but if the data type is complex this "reference" is a pointer
-        // to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any variable
-        // as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour should
-        // only effect array types, as data and strings are handled differently
+        // Complex arguments of function calls are always passed as references, but if the data type is complex this "reference" is a
+        // pointer to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any
+        // variable as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour
+        // should only effect array types, as data and strings are handled differently
         bool is_reference = arg.second && arg.first->type->get_variation() != Type::Variation::ARRAY;
         group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
@@ -1194,27 +1198,31 @@ Generator::group_mapping Generator::Expression::generate_call( //
         const auto arg_type = arg.first->type;
         if (param_type->get_variation() == Type::Variation::OPTIONAL && arg_type->get_variation() != Type::Variation::OPTIONAL) {
             // We're passing a non-optional value to an optional parameter
-            // Create a temporary optional struct on the stack
-            const OptionalType *opt_param_type = param_type->as<OptionalType>();
+            // Use the pre-allocated temporary optional from the allocations map
+            const std::string opt_type_str = param_type->to_string();
+            unsigned int temp_idx = temp_opt_usage[opt_type_str]++;
+            const std::string alloca_name = "temp_opt::" + opt_type_str + "::" + std::to_string(temp_idx);
 
-            // Check if the base types match
-            if (!arg_type->equals(opt_param_type->base_type)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-
+            llvm::Value *temp_opt = ctx.allocations.at(alloca_name);
             llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
-            llvm::AllocaInst *temp_opt = builder.CreateAlloca(opt_struct_type, nullptr, "temp_opt");
-            temp_opt->setMetadata("comment",
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Temporary optional for implicit conversion")));
 
-            // Set has_value to true
+            // Set has_value field
             llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, temp_opt, 0, "has_value_ptr");
-            builder.CreateStore(builder.getInt1(true), has_value_ptr);
+            IR::aligned_store(builder, builder.getInt1(true), has_value_ptr);
 
             // Set the value field
             llvm::Value *value_ptr = builder.CreateStructGEP(opt_struct_type, temp_opt, 1, "value_ptr");
-            builder.CreateStore(expr_val, value_ptr);
+            IR::aligned_store(builder, expr_val, value_ptr);
+            expr_val = temp_opt;
+        } else if (param_type->get_variation() == Type::Variation::OPTIONAL && arg_type->to_string() == "void?") {
+            // We pass a none-literal to a function expecting an optional. The `none` literal generates a zero-initializer so we simply
+            // store the whole literal expression on the temp allocation and then pass that allocation to the function
+            const std::string opt_type_str = param_type->to_string();
+            unsigned int temp_idx = temp_opt_usage[opt_type_str]++;
+            const std::string alloca_name = "temp_opt::" + opt_type_str + "::" + std::to_string(temp_idx);
+
+            llvm::Value *temp_opt = ctx.allocations.at(alloca_name);
+            IR::aligned_store(builder, expr_val, temp_opt);
             expr_val = temp_opt;
         }
         args.emplace_back(expr_val);

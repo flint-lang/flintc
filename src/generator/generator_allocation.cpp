@@ -248,6 +248,43 @@ bool Generator::Allocation::generate_call_allocations(                          
             return false;
         }
     }
+    // Generate temporary optional allocations for implicit conversions (T -> T?)
+    // We need to track how many temporaries of each optional type are needed simultaneously
+    std::unordered_map<std::string, unsigned int> temp_opt_counts;
+    for (size_t i = 0; i < call_node->arguments.size(); i++) {
+        const auto &arg = call_node->arguments[i];
+        const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters[i]);
+
+        // Check if we need a temporary for implicit T -> T? conversion
+        if (param_type->get_variation() == Type::Variation::OPTIONAL                                                      //
+            && (arg.first->type->get_variation() != Type::Variation::OPTIONAL || arg.first->type->to_string() == "void?") //
+        ) {
+            const std::string opt_type_str = param_type->to_string();
+            temp_opt_counts[opt_type_str]++;
+        }
+    }
+
+    // Create allocations for the maximum number of temporaries needed per optional type
+    for (const auto &[opt_type_str, count] : temp_opt_counts) {
+        for (unsigned int i = 0; i < count; i++) {
+            const std::string alloca_name = "temp_opt::" + opt_type_str + "::" + std::to_string(i);
+            if (allocations.find(alloca_name) != allocations.end()) {
+                continue;
+            }
+
+            // Get the optional type and create allocation
+            std::optional<std::shared_ptr<Type>> opt_type = Type::get_type_from_str(opt_type_str);
+            if (!opt_type.has_value()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+
+            llvm::Type *opt_struct_type = IR::add_and_or_get_type(parent->getParent(), opt_type.value(), false);
+            generate_allocation(builder, allocations, alloca_name, opt_struct_type, "__temp_opt_" + opt_type_str + "_" + std::to_string(i),
+                "Temporary optional allocation for implicit conversion to '" + opt_type_str + "'");
+        }
+    }
+
     llvm::Type *function_return_type = nullptr;
     // Check if the call targets any builtin functions
     auto builtin_function = Parser::get_builtin_function(call_node->function->name, imported_core_modules);
