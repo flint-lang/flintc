@@ -75,9 +75,10 @@ def test_compiles(str file):
 ///
 /// @param `path` The path in which to compile the program
 /// @param `file` The file to compile
-def test_compiles_in(str path, str file):
+/// @param `flags` Optional additional flags to compile with (for example `--flags="-lraylib"`)
+def test_compiles_in(str path, str file, str? flags):
 	(unused, cwd) := system_command("echo -n $(pwd)");
-	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --file {file}");
+	(exit_code, output) := system_command($"cd {cwd}/{path}; flintc --file {file} {flags ?? ""}");
 	if exit_code != 0:
 		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
 	assert(exit_code == 0);

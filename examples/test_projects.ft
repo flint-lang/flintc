@@ -5,14 +5,14 @@ use "utils.ft"
 test "fsh":
 	str path = "fsh";
 	str file = "main.ft";
-	test_compiles_in(path, file);
+	test_compiles_in(path, file, none);
 
 test "pong":
 	str path = "pong";
 	str file = "main.ft";
-	test_compiles_in(path, file);
+	test_compiles_in(path, file, none);
 
 test "pong-2.0":
 	str path = "pong-2.0";
 	str file = "main.ft";
-	test_compiles_in(path, file);
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
