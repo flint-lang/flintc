@@ -10,6 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Options
 option(BUILD_STATIC "Build a fully static executable" OFF)
 option(DEBUG_MODE "Enable debug build with DEBUG_BUILD definition" OFF)
+option(BUILD_TESTS "Build test executables" OFF)
 
 # Set default build type if not specified
 if(NOT CMAKE_BUILD_TYPE)
@@ -449,8 +450,10 @@ endfunction()
 # Create binaries
 create_executable(flintc "${MAIN_FILE};${SRC_FILES}" TRUE)
 create_executable(dynamic-flintc "${MAIN_FILE};${SRC_FILES}" FALSE)
-create_executable(tests "${TEST_FILES};${SRC_FILES}" TRUE)
-create_executable(dynamic-tests "${TEST_FILES};${SRC_FILES}" FALSE)
+if(BUILD_TESTS)
+    create_executable(tests "${TEST_FILES};${SRC_FILES}" TRUE)
+    create_executable(dynamic-tests "${TEST_FILES};${SRC_FILES}" FALSE)
+endif()
 
 # Create build directories
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/out)
@@ -462,22 +465,44 @@ add_custom_target(clean-all
     COMMENT "Cleaning build directories"
 )
 
-add_custom_target(build-all
-    DEPENDS
-        flintc
-        dynamic-flintc
-        tests
-        dynamic-tests
-)
+if(BUILD_TESTS)
+    add_custom_target(build-all
+        DEPENDS
+            flintc
+            dynamic-flintc
+            tests
+            dynamic-tests
+    )
+else()
+    add_custom_target(build-all
+        DEPENDS
+            flintc
+            dynamic-flintc
+    )
+endif()
 
-add_custom_target(static
-    DEPENDS
-        flintc
-        tests
-)
+if(BUILD_TESTS)
+    add_custom_target(static
+        DEPENDS
+            flintc
+            tests
+    )
+else()
+    add_custom_target(static
+        DEPENDS
+            flintc
+    )
+endif()
 
-add_custom_target(dynamic
-    DEPENDS
-        dynamic-flintc
-        dynamic-tests
-)
+if(BUILD_TESTS)
+    add_custom_target(dynamic
+        DEPENDS
+            dynamic-flintc
+            dynamic-tests
+    )
+else()
+    add_custom_target(dynamic
+        DEPENDS
+            dynamic-flintc
+    )
+endif()

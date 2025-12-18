@@ -23,6 +23,7 @@ Options:
         --rebuild-llvm      Forces rebuilding of the llvm libraries
         --rebuild-config    Forces rebuilding of the llvm-config executable
     -t, --test              Run the tests after compilation
+        --build-tests       Build the test executables (not built by default)
     -v, --verbose           Toggle verbosity on
         --llvm <version>    Select the llvm version tag to use (Defaults to 'llvmorg-19.1.7')
     -j <num>                The number of cores to use for compilation"
@@ -479,6 +480,11 @@ setup_build_windows() {
         echo "-- Building executable in debug mode..."
     fi
 
+    tests_flag=""
+    if [ "$build_tests" = "true" ]; then
+        tests_flag="-DBUILD_TESTS=ON"
+    fi
+
     if [ -d "$build_dir" ] && [ "$force_rebuild" = "true" ]; then
         rm -r "$build_dir"
     fi
@@ -493,6 +499,7 @@ setup_build_windows() {
         -DBUILD_DATE="$BUILD_DATE" \
         "$static_flag" \
         "$debug_flag" \
+        "$tests_flag" \
         "$verbosity_flag"
 }
 
@@ -518,6 +525,11 @@ setup_build_linux() {
         echo "-- Building executable in debug mode..."
     fi
 
+    tests_flag=""
+    if [ "$build_tests" = "true" ]; then
+        tests_flag="-DBUILD_TESTS=ON"
+    fi
+
     if [ -d "$build_dir" ] && [ "$force_rebuild" = "true" ]; then
         rm -r "$build_dir"
     fi
@@ -532,6 +544,7 @@ setup_build_linux() {
         -DBUILD_DATE="$BUILD_DATE" \
         "$static_flag" \
         "$debug_flag" \
+        "$tests_flag" \
         "$verbosity_flag"
 }
 
@@ -656,21 +669,29 @@ copy_executables() {
         if [ "$build_static" = "true" ]; then
             if [ "$build_debug" = "true" ]; then
                 checked_copy "$root/build/windows-static-debug/out/flintc.exe" "$root/build/out/flintc.exe"
-                checked_copy "$root/build/windows-static-debug/out/tests.exe" "$root/build/out/tests.exe"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/windows-static-debug/out/tests.exe" "$root/build/out/tests.exe"
+                fi
             fi
             if [ "$build_release" = "true" ]; then
                 checked_copy "$root/build/windows-static/out/flintc.exe" "$root/build/out/flintc-release.exe"
-                checked_copy "$root/build/windows-static/out/tests.exe" "$root/build/out/tests-release.exe"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/windows-static/out/tests.exe" "$root/build/out/tests-release.exe"
+                fi
             fi
         fi
         if [ "$build_dynamic" = "true" ]; then
             if [ "$build_debug" = "true" ]; then
                 checked_copy "$root/build/windows-debug/out/dynamic-flintc.exe" "$root/build/out/dynamic-flintc.exe"
-                checked_copy "$root/build/windows-debug/out/dynamic-tests.exe" "$root/build/out/dynamic-tests.exe"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/windows-debug/out/dynamic-tests.exe" "$root/build/out/dynamic-tests.exe"
+                fi
             fi
             if [ "$build_release" = "true" ]; then
                 checked_copy "$root/build/windows/out/dynamic-flintc.exe" "$root/build/out/dynamic-flintc-release.exe"
-                checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/dynamic-tests-release.exe"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/windows/out/dynamic-tests.exe" "$root/build/out/dynamic-tests-release.exe"
+                fi
             fi
         fi
     fi
@@ -679,21 +700,29 @@ copy_executables() {
         if [ "$build_static" = "true" ]; then
             if [ "$build_debug" = "true" ]; then
                 checked_copy "$root/build/linux-static-debug/out/flintc" "$root/build/out/flintc"
-                checked_copy "$root/build/linux-static-debug/out/tests" "$root/build/out/tests"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/linux-static-debug/out/tests" "$root/build/out/tests"
+                fi
             fi
             if [ "$build_release" = "true" ]; then
                 checked_copy "$root/build/linux-static/out/flintc" "$root/build/out/flintc-release"
-                checked_copy "$root/build/linux-static/out/tests" "$root/build/out/tests-release"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/linux-static/out/tests" "$root/build/out/tests-release"
+                fi
             fi
         fi
         if [ "$build_dynamic" = "true" ]; then
             if [ "$build_debug" = "true" ]; then
                 checked_copy "$root/build/linux-debug/out/dynamic-flintc" "$root/build/out/dynamic-flintc"
-                checked_copy "$root/build/linux-debug/out/dynamic-tests" "$root/build/out/dynamic-tests"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/linux-debug/out/dynamic-tests" "$root/build/out/dynamic-tests"
+                fi
             fi
             if [ "$build_release" = "true" ]; then
                 checked_copy "$root/build/linux/out/dynamic-flintc" "$root/build/out/dynamic-flintc-release"
-                checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/dynamic-tests-release"
+                if [ "$build_tests" = "true" ]; then
+                    checked_copy "$root/build/linux/out/dynamic-tests" "$root/build/out/dynamic-tests-release"
+                fi
             fi
         fi
     fi
@@ -733,6 +762,7 @@ force_rebuild=false
 force_rebuild_llvm=false
 force_rebuild_llvm_config=false
 run_tests=false
+build_tests=false
 build_debug=false
 build_release=false
 llvm_version="llvmorg-19.1.7"
@@ -798,6 +828,10 @@ while [ "$#" -gt 0 ]; do
         ;;
     --test)
         run_tests=true
+        shift
+        ;;
+    --build-tests)
+        build_tests=true
         shift
         ;;
     --windows)
