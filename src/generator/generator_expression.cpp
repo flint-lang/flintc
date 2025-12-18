@@ -1172,7 +1172,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
     std::vector<llvm::Value *> args;
     args.reserve(call_node->arguments.size());
     garbage_type garbage;
-    for (const auto &arg : call_node->arguments) {
+    for (size_t i = 0; i < call_node->arguments.size(); i++) {
+        const auto &arg = call_node->arguments[i];
+        const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters[i]);
         // Complex rguments of function calls are always passed as references, but if the data type is complex this "reference" is a pointer
         // to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any variable
         // as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour should
@@ -1188,6 +1190,33 @@ Generator::group_mapping Generator::Expression::generate_call( //
             return std::nullopt;
         }
         llvm::Value *expr_val = expression.value().front();
+        // Check if we need to convert non-optional to optional
+        const auto arg_type = arg.first->type;
+        if (param_type->get_variation() == Type::Variation::OPTIONAL && arg_type->get_variation() != Type::Variation::OPTIONAL) {
+            // We're passing a non-optional value to an optional parameter
+            // Create a temporary optional struct on the stack
+            const OptionalType *opt_param_type = param_type->as<OptionalType>();
+
+            // Check if the base types match
+            if (!arg_type->equals(opt_param_type->base_type)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+
+            llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
+            llvm::AllocaInst *temp_opt = builder.CreateAlloca(opt_struct_type, nullptr, "temp_opt");
+            temp_opt->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Temporary optional for implicit conversion")));
+
+            // Set has_value to true
+            llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, temp_opt, 0, "has_value_ptr");
+            builder.CreateStore(builder.getInt1(true), has_value_ptr);
+
+            // Set the value field
+            llvm::Value *value_ptr = builder.CreateStructGEP(opt_struct_type, temp_opt, 1, "value_ptr");
+            builder.CreateStore(expr_val, value_ptr);
+            expr_val = temp_opt;
+        }
         args.emplace_back(expr_val);
     }
 

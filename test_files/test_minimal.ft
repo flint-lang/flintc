@@ -13,3 +13,5 @@ def main():
 
 	arg = "hello";
 	opt_print(arg);
+
+	opt_print("temp");
