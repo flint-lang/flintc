@@ -42,7 +42,7 @@ def print_bin_op(str input):
     u8[] bin_ops = get_bin_ops();
     (contains, idx) := contains_one_of(input, bin_ops);
     if not contains:
-        print($"{input}");
+        print(input);
         return;
     u8 operator = input[idx];
 

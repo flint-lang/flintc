@@ -609,7 +609,8 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
             const auto *node = expression->as<StringInterpolationNode>();
             for (const auto &content : node->string_content) {
                 if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(content)) {
-                    result = analyze_expression(ctx, std::get<std::unique_ptr<ExpressionNode>>(content).get());
+                    const auto &expression_node = std::get<std::unique_ptr<ExpressionNode>>(content);
+                    result = analyze_expression(ctx, expression_node.get());
                     if (result != Result::OK) {
                         goto fail;
                     }

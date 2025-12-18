@@ -708,6 +708,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             if (expr->type->to_string() == "__flint_type_str_lit") {
                 check_castability(str_type, expr, true);
                 return expr;
+            } else {
+                // Interpolating only a single expression like `$"{val}"` is not allowed, you should use `str(val)` instead
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
             }
         } else {
             auto lit = std::move(std::get<std::unique_ptr<LiteralNode>>(optimized_content[0]));
