@@ -1,0 +1,33 @@
+use Core.assert
+
+use "../../utils.ft"
+
+test "Day 1":
+	str path = "aoc/2025/1";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1: 995\npart_2: 5847\n");
+
+test "Day 2":
+	str path = "aoc/2025/2";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1: 23560874270\npart_2: 44143124633\n");
+
+test "Day 3":
+	str path = "aoc/2025/3";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1: 16927\npart_2: 167384358365132\n");
+
+test "Day 4":
+	str path = "aoc/2025/4";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1: 1449\npart_2: 8746\n");
+
+test "Day 5":
+	str path = "aoc/2025/5";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1: 874\npart_2 = 348548952146313\n");
+
+test "Day 6":
+	str path = "aoc/2025/6";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1 = 5784380717354\npart_2 = 7996218225744\n");

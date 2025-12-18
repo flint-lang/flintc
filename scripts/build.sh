@@ -703,8 +703,13 @@ copy_executables() {
 run_tests() {
     if [ "$build_linux" = "true" ]; then
         if [ "$build_release" = "true" ]; then
+            echo "-- Running all the wiki tests..."
             cd "$root/test_files"
             flintc --file wiki_tests.ft --test --run
+
+            echo "-- Running all the example tests..."
+            cd "$root/examples"
+            flintc --file example_tests.ft --test --run
             cd "$root"
         fi
     fi
