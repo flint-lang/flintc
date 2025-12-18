@@ -289,7 +289,10 @@ int main(int argc, char *argv[]) {
     program.value().reset();
 
     if (clp.run) {
-        std::cout << "\n--- Running the executable '" << clp.out_file_path.string() << "' ---" << std::endl;
+        if (DEBUG_MODE) {
+            std::cout << "\n"
+                      << YELLOW << "[Debug Info] Running the executable '" << clp.out_file_path.string() << "'" << DEFAULT << std::endl;
+        }
 #ifdef __WIN32__
         const std::string system_command(std::string(".\\" + clp.out_file_path.string() + ".exe"));
 #else
