@@ -3317,6 +3317,67 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     const unsigned int expr_depth,                                  //
     const BinaryOpNode *bin_op_node                                 //
 ) {
+    // Handle short-circuit evaluation for 'and' and 'or' operators
+    if (bin_op_node->operator_token == TOK_AND || bin_op_node->operator_token == TOK_OR) {
+        const bool is_and = bin_op_node->operator_token == TOK_AND;
+
+        // Evaluate LHS first
+        const bool lhs_is_reference = bin_op_node->left->type->get_variation() == Type::Variation::VARIANT;
+        auto lhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->left.get(), lhs_is_reference);
+        if (!lhs_maybe.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        std::vector<llvm::Value *> lhs = lhs_maybe.value();
+        if (lhs.size() != 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *lhs_val = lhs[0];
+
+        // Save the LHS basic block before branching
+        llvm::BasicBlock *lhs_block = builder.GetInsertBlock();
+
+        // Create basic blocks for short-circuit evaluation
+        llvm::Function *parent_func = lhs_block->getParent();
+        llvm::BasicBlock *rhs_block = llvm::BasicBlock::Create(builder.getContext(), is_and ? "and.rhs" : "or.rhs", parent_func);
+        llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(builder.getContext(), is_and ? "and.merge" : "or.merge", parent_func);
+
+        // For 'and': if LHS is false, skip RHS and result is false
+        // For 'or': if LHS is true, skip RHS and result is true
+        if (is_and) {
+            builder.CreateCondBr(lhs_val, rhs_block, merge_block);
+        } else {
+            builder.CreateCondBr(lhs_val, merge_block, rhs_block);
+        }
+
+        // Evaluate RHS in rhs_block
+        builder.SetInsertPoint(rhs_block);
+        const bool rhs_is_reference = bin_op_node->right->type->get_variation() == Type::Variation::VARIANT;
+        auto rhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->right.get(), rhs_is_reference);
+        if (!rhs_maybe.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        std::vector<llvm::Value *> rhs = rhs_maybe.value();
+        if (rhs.size() != 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *rhs_val = rhs[0];
+
+        llvm::BasicBlock *rhs_end_block = builder.GetInsertBlock();
+        builder.CreateBr(merge_block);
+
+        // Create PHI node in merge block
+        builder.SetInsertPoint(merge_block);
+        llvm::PHINode *phi = builder.CreatePHI(builder.getInt1Ty(), 2, is_and ? "and.result" : "or.result");
+        phi->addIncoming(is_and ? builder.getFalse() : builder.getTrue(), lhs_block);
+        phi->addIncoming(rhs_val, rhs_end_block);
+        return std::vector<llvm::Value *>{phi};
+    }
+
+    // For all other operators, evaluate both sides
     const bool lhs_is_reference = bin_op_node->left->type->get_variation() == Type::Variation::VARIANT;
     auto lhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->left.get(), lhs_is_reference);
     if (!lhs_maybe.has_value()) {
@@ -3848,19 +3909,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             break;
         }
         case TOK_AND:
-            if (type_str != "bool") {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-            return builder.CreateLogicalAnd(lhs, rhs, "band");
-            break;
         case TOK_OR:
-            if (type_str != "bool") {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return std::nullopt;
-            }
-            return builder.CreateLogicalOr(lhs, rhs, "bor");
-            break;
+            // These should now be handled in generate_binary_op with proper short-circuit evaluation
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
     }
     return std::nullopt;
 }

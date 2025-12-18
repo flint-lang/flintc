@@ -1,15 +1,5 @@
 use Core.print
-use Core.assert
 
-#test_performance
-test "perf_test":
-	u64 sum = 0;
-	for u64 i = 0; i < 100_000_000; i++:
-		sum++;
-
-#test_should_fail
-test "should fail":
-	assert(false);
-
-def main():
-	print("Compile with --test to crate a test binary!\n");
+def main(str[] args):
+	const bool pretty_print = args.len > 1 and args[1] == "--pretty";
+	print($"pretty_print? {pretty_print}\n");
