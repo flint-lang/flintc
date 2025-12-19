@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+static const std::string hash = Hash(std::string("env")).to_string();
+
 void Generator::Module::Env::generate_env_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_get_env_function(builder, module, only_declarations);
     generate_set_env_function(builder, module, only_declarations);
@@ -35,7 +37,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
         {str_type->getPointerTo()},                             // Parameters: const str *var
         false                                                   // No vaarg
     );
-    llvm::Function *get_env_fn = llvm::Function::Create(get_env_type, llvm::Function::ExternalLinkage, "__flint_get_env", module);
+    llvm::Function *get_env_fn = llvm::Function::Create(get_env_type, llvm::Function::ExternalLinkage, hash + ".get_env", module);
     env_functions["get_env"] = get_env_fn;
     if (only_declarations) {
         return;
@@ -138,7 +140,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Function *set_env_fn = llvm::Function::Create( //
         set_env_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        "__flint_set_env",                               //
+        hash + ".set_env",                               //
         module                                           //
     );
     env_functions["set_env"] = set_env_fn;

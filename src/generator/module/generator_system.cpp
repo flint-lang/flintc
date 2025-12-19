@@ -1,6 +1,8 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 
+static const std::string hash = Hash(std::string("system")).to_string();
+
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_system_command_function(builder, module, only_declarations);
 }
@@ -76,7 +78,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Function *system_fn = llvm::Function::Create( //
         system_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        "__flint_system_command",                       //
+        hash + ".system_command",                       //
         module                                          //
     );
     system_functions["system_command"] = system_fn;

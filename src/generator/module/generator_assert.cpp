@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+static const std::string hash = Hash(std::string("assert")).to_string();
+
 void Generator::Module::Assert::generate_assert_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_assert_function(builder, module, only_declarations);
 }
@@ -22,7 +24,7 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
     llvm::Function *assert_fn = llvm::Function::Create( //
         assert_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        "__flint_assert",                               //
+        hash + ".assert",                               //
         module                                          //
     );
     assert_functions["assert"] = assert_fn;

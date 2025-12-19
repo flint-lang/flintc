@@ -1,6 +1,8 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 
+static const std::string hash = Hash(std::string("read")).to_string();
+
 void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // char *getline(long *n) {
@@ -48,7 +50,7 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     getline_function = llvm::Function::Create( //
         getline_type,                          //
         llvm::Function::ExternalLinkage,       //
-        "__flint_getline",                     //
+        hash + ".getline",                     //
         module                                 //
     );
     if (only_declarations) {
@@ -263,7 +265,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     llvm::Function *read_str_fn = llvm::Function::Create( //
         read_str_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "__flint_read_str",                               //
+        hash + ".read_str",                               //
         module                                            //
     );
     read_functions["read_str"] = read_str_fn;
@@ -372,7 +374,7 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Function *read_int_fn = llvm::Function::Create(                     //
         read_int_type,                                                        //
         llvm::Function::ExternalLinkage,                                      //
-        "__flint_read_i" + std::to_string(result_type->getIntegerBitWidth()), //
+        hash + ".read_i" + std::to_string(result_type->getIntegerBitWidth()), //
         module                                                                //
     );
     read_functions["read_i" + std::to_string(result_type->getIntegerBitWidth())] = read_int_fn;
@@ -512,7 +514,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Function *read_uint_fn = llvm::Function::Create(                    //
         read_uint_type,                                                       //
         llvm::Function::ExternalLinkage,                                      //
-        "__flint_read_u" + std::to_string(result_type->getIntegerBitWidth()), //
+        hash + ".read_u" + std::to_string(result_type->getIntegerBitWidth()), //
         module                                                                //
     );
     read_functions["read_u" + std::to_string(result_type->getIntegerBitWidth())] = read_uint_fn;
@@ -669,7 +671,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "__flint_read_f32",                               //
+        hash + ".read_f32",                               //
         module                                            //
     );
     read_functions["read_f32"] = read_f32_fn;
@@ -782,7 +784,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "__flint_read_f64",                               //
+        hash + ".read_f64",                               //
         module                                            //
     );
     read_functions["read_f64"] = read_f64_fn;

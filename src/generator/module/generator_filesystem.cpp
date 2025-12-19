@@ -1,5 +1,7 @@
 #include "generator/generator.hpp"
 
+static const std::string hash = Hash(std::string("filesystem")).to_string();
+
 void Generator::Module::FileSystem::generate_filesystem_functions( //
     llvm::IRBuilder<> *builder,                                    //
     llvm::Module *module,                                          //
@@ -73,7 +75,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
         {str_type->getPointerTo()},                               // Parameter: const str* path
         false                                                     // Not variadic
     );
-    llvm::Function *read_file_fn = llvm::Function::Create(read_file_type, llvm::Function::ExternalLinkage, "__flint_read_file", module);
+    llvm::Function *read_file_fn = llvm::Function::Create(read_file_type, llvm::Function::ExternalLinkage, hash + ".read_file", module);
     fs_functions["read_file"] = read_file_fn;
     if (only_declarations) {
         return;
@@ -344,7 +346,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
-    llvm::Function *read_lines_fn = llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, "__flint_file_lines", module);
+    llvm::Function *read_lines_fn = llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, hash + ".file_lines", module);
     fs_functions["read_lines"] = read_lines_fn;
     if (only_declarations) {
         return;
@@ -752,7 +754,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
         false                                                       // No vaarg
     );
     llvm::Function *file_exists_fn = llvm::Function::Create(                             //
-        file_exists_type, llvm::Function::ExternalLinkage, "__flint_file_exists", module //
+        file_exists_type, llvm::Function::ExternalLinkage, hash + ".file_exists", module //
     );
     fs_functions["file_exists"] = file_exists_fn;
     if (only_declarations) {
@@ -835,7 +837,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
         {str_type->getPointerTo(), str_type->getPointerTo()},      // Parameters: const str *path, const str *content
         false                                                      // Not variadic
     );
-    llvm::Function *write_file_fn = llvm::Function::Create(write_file_type, llvm::Function::ExternalLinkage, "__flint_write_file", module);
+    llvm::Function *write_file_fn = llvm::Function::Create(write_file_type, llvm::Function::ExternalLinkage, hash + ".write_file", module);
     fs_functions["write_file"] = write_file_fn;
     if (only_declarations) {
         return;
@@ -956,7 +958,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
         false                                                       // No vaarg
     );
     llvm::Function *append_file_fn = llvm::Function::Create(                             //
-        append_file_type, llvm::Function::ExternalLinkage, "__flint_append_file", module //
+        append_file_type, llvm::Function::ExternalLinkage, hash + ".append_file", module //
     );
     fs_functions["append_file"] = append_file_fn;
     if (only_declarations) {
@@ -1074,7 +1076,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
         false                                                   // No vaarg
     );
     llvm::Function *is_file_fn = llvm::Function::Create(                         //
-        is_file_type, llvm::Function::ExternalLinkage, "__flint_is_file", module //
+        is_file_type, llvm::Function::ExternalLinkage, hash + ".is_file", module //
     );
     fs_functions["is_file"] = is_file_fn;
     if (only_declarations) {
