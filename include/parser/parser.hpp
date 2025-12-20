@@ -233,6 +233,12 @@ class Parser {
     /// @return `std::vector<FunctionNode *>` A list of all open functions
     std::vector<FunctionNode *> get_open_functions();
 
+    /// @function `get_all_errors`
+    /// @brief Collects and returns all error types from all files
+    ///
+    /// @return `std::vector<ErrorNode *>` A list of all error nodes of all files
+    static std::vector<const ErrorNode *> get_all_errors();
+
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
     ///

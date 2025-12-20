@@ -55,7 +55,7 @@ struct Hash {
     /// @param `name` The name of the type to get a hash id from
     /// @return `uint32_t` A u32 hash value generated from this hash + the type's name
     uint32_t get_type_id_from_str(const std::string &name) const {
-        const std::string string = std::string(value.data()) + "." + name;
+        const std::string string = to_string() + "." + name;
         // 31-bit hash container
         struct Hash31 {
             uint32_t hash : 31;

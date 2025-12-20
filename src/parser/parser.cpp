@@ -26,6 +26,7 @@ void Parser::init_core_modules() {
         assert(core_namespaces.find(module_name) == core_namespaces.end());
         core_namespaces[module_name] = std::make_unique<Namespace>(module_name);
         std::unique_ptr<Namespace> &core_namespace = core_namespaces.at(module_name);
+        Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace.get();
         auto &types = core_namespace->public_symbols.types;
         // First go through all types the core module defines and add them to the namespace
         // - Add all error set types
@@ -215,6 +216,9 @@ Parser::CastDirection Parser::check_primitive_castability( //
         return CastDirection::rhs_to_lhs();
     } else if (lhs_str == "str" && rhs_type->get_variation() == Type::Variation::ENUM) {
         // Enums are always castable to strings
+        return CastDirection::rhs_to_lhs();
+    } else if (lhs_str == "str" && rhs_type->get_variation() == Type::Variation::ERROR_SET) {
+        // Error sets are always castable to strings
         return CastDirection::rhs_to_lhs();
     }
 
@@ -1008,6 +1012,29 @@ std::vector<FunctionNode *> Parser::get_open_functions() {
         open_function_list.emplace_back(std::get<0>(open_function));
     }
     return open_function_list;
+}
+
+std::vector<const ErrorNode *> Parser::get_all_errors() {
+    std::vector<const ErrorNode *> errors;
+    // Go through all core Modules and collect all errors they provide
+    for (const auto &[module_name, module_namespace] : core_namespaces) {
+        for (const auto &definition : module_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::ERROR) {
+                const auto *error_node = definition->as<ErrorNode>();
+                errors.emplace_back(error_node);
+            }
+        }
+    }
+    // Go through all instances of the parser and collect all errors from all instances
+    for (const auto &instance : Parser::instances) {
+        for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::ERROR) {
+                const auto *error_node = definition->as<ErrorNode>();
+                errors.emplace_back(error_node);
+            }
+        }
+    }
+    return errors;
 }
 
 bool Parser::parse_all_open_functions(const bool parse_parallel) {

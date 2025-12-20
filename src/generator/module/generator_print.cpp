@@ -69,8 +69,11 @@ void Generator::Module::Print::generate_print_function( //
     builder->CreateRetVoid();
 }
 
-void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::Print::generate_print_str_lit_function( //
+    llvm::IRBuilder<> *builder,                                 //
+    llvm::Module *module,                                       //
+    const bool only_declarations                                //
+) {
     llvm::Type *str_lit_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_lit")).first;
 
     // Create print function type

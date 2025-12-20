@@ -3199,6 +3199,12 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
         return cast_value;
     }
+    if (from_type->get_variation() == Type::Variation::ERROR_SET) {
+        if (to_type_str == "str") {
+            llvm::Function *get_err_str_fn = Error::error_functions.at("get_err_str");
+            return builder.CreateCall(get_err_str_fn, {expr}, "err_to_str");
+        }
+    }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;

@@ -2141,6 +2141,58 @@ class Generator {
         );
     }; // subclass Expression
 
+    /// @class `Error`
+    /// @brief The class which contains the generation functions and pointer to the functions for resolving all error to string requests
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Error {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Error() = delete;
+
+        /// @var `error_functions`
+        /// @brief Map containing references to all error functions
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_error_functions` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> error_functions = {
+            {"get_err_type_str", nullptr},
+            {"get_err_val_str", nullptr},
+            {"get_err_str", nullptr},
+        };
+
+        /// @function `generate_error_functions`
+        /// @brief Generates all the error functions used to resolve error types and get the error type strings from them
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the functions are generated in
+        static void generate_error_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_get_err_type_str_function`
+        /// @brief Generates the `get_err_type_str` function used to resolve error types
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the functions are generated in
+        static void generate_get_err_type_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_get_err_val_str_function`
+        /// @brief Generates the `get_err_val_str` function used to resolve error values
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the functions are generated in
+        static void generate_get_err_val_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_get_err_str_function`
+        /// @brief Generates the `get_err_str` function used to cast whole errors to strings (resulting in a `ErrType.ErrVal` string)
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the functions are generated in
+        static void generate_get_err_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+    };
+
     /// @class 'Module'
     /// @brief The class which holds all other module sub-classes
     /// @note This class cannot be initialized and all functions within this class are static

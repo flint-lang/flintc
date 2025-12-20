@@ -1,19 +1,21 @@
 use Core.print
+use Core.assert
 
-def opt_print(str? arg):
-	print($"arg = {arg ?? "none"}\n");
+error ErrFn(ErrAssert):
+	SpecialAssertion;
+
+def myfn(bool arg) {ErrFn}:
+	if not arg:
+		throw ErrFn.AssertionFailed("Special Assertion in 'myfn' function failed");
 
 def main():
-	str? arg = none;
-	opt_print(arg);
-	arg = "hello";
-	opt_print(arg);
-
-	opt_print(none);
-	opt_print("temp");
-
-test "test1":
-	opt_print(none);
-
-test "test2":
-	opt_print("test");
+	myfn(false) catch:
+		anyerror(e):
+			print("anyerror\n");
+		ErrFn(e):
+			print("ErrFn:\n");
+			print($" - type_id: {e.type_id}\n");
+			print($" - value_id: {e.value_id}\n");
+			print($" - message: {e.message}\n");
+			print($"\nerror is {e}: \"{e.message}\"\n\n");
+			throw e;

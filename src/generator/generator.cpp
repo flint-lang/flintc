@@ -284,6 +284,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the time module functions
     Module::Time::generate_time_functions(builder.get(), module.get());
 
+    // Generate the error functions to get the error types and value strings from errors, which also enables error to string castability
+    Error::generate_error_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());

@@ -157,12 +157,16 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     // Create the message that an error has occured
     llvm::Value *value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
     llvm::Value *message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
+    llvm::Function *get_err_type_str_fn = Error::error_functions.at("get_err_type_str");
+    llvm::Function *get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
+    llvm::Value *err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
+    llvm::Value *err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
     llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
-    llvm::Value *message_begin_ptr = IR::generate_const_string(                                              //
-        module, "ERROR: main function returned error\n - type_id: %u\n - value_id: %u\n - message: \"%s\"\n" //
+    llvm::Value *message_begin_ptr = IR::generate_const_string(                         //
+        module, "The given error bubbled up to the main function:\n └─ %s.%s: \"%s\"\n" //
     );
-    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, type_id, value_id, message});
+    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, err_type_str, err_val_str, message});
     // Free the error message
     builder->CreateCall(c_functions.at(FREE), {message_ptr});
     builder->CreateBr(merge_block);
