@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 
-static const std::string hash = Hash(std::string("print")).to_string();
+static const Hash hash(std::string("print"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_print_function(builder, module, only_declarations, "i32", "%d");
@@ -32,7 +33,7 @@ void Generator::Module::Print::generate_print_function( //
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        hash + ".print_" + type,                             //
+        hash_str + ".print_" + type,                         //
         module                                               //
     );
     print_functions[type] = print_function;
@@ -79,7 +80,7 @@ void Generator::Module::Print::generate_print_str_lit_function(llvm::IRBuilder<>
         false                                                         // No vaargs
     );
     // Create the print_str_lit function
-    const std::string function_name = hash + ".print_str_lit";
+    const std::string function_name = hash_str + ".print_str_lit";
     llvm::Function *print_str_lit_function = llvm::Function::Create( //
         print_str_lit_type,                                          //
         llvm::Function::ExternalLinkage,                             //
@@ -124,7 +125,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     llvm::Function *print_str_function = llvm::Function::Create( //
         print_str_type,                                          //
         llvm::Function::ExternalLinkage,                         //
-        hash + ".print_str",                                     //
+        hash_str + ".print_str",                                 //
         module                                                   //
     );
     print_functions["str"] = print_str_function;
@@ -172,7 +173,7 @@ void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *b
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        hash + ".print_bool",                                //
+        hash_str + ".print_bool",                            //
         module                                               //
     );
     print_functions["bool"] = print_function;

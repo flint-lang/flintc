@@ -1,7 +1,8 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 
-static const std::string hash = Hash(std::string("system")).to_string();
+static const Hash hash(std::string("system"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_system_command_function(builder, module, only_declarations);
@@ -56,7 +57,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
     llvm::Function *pclose_fn = c_functions.at(PCLOSE);
 
-    const unsigned int ErrSystem = Type::get_type_id_from_str("ErrSystem");
+    const unsigned int ErrSystem = hash.get_type_id_from_str("ErrSystem");
     const std::vector<error_value> &ErrSystemValues = std::get<2>(core_module_error_sets.at("system").at(0));
     const unsigned int SpawnFailed = 0;
     const std::string SpawnFailedMessage(ErrSystemValues.at(SpawnFailed).second);
@@ -78,7 +79,7 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Function *system_fn = llvm::Function::Create( //
         system_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        hash + ".system_command",                       //
+        hash_str + ".system_command",                   //
         module                                          //
     );
     system_functions["system_command"] = system_fn;

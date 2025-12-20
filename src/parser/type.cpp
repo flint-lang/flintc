@@ -93,29 +93,3 @@ std::optional<std::shared_ptr<Type>> Type::get_type_from_str(const std::string &
     }
     return types.at(type_str);
 }
-
-uint32_t Type::get_type_id_from_str(const std::string &name) {
-    // 31-bit hash container
-    struct Hash31 {
-        uint32_t hash : 31;
-        uint32_t unused : 1;
-    };
-
-    // FNV-1a hash algorithm constants
-    constexpr uint32_t FNV_PRIME = 16777619u;
-    constexpr uint32_t FNV_OFFSET_BASIS = 18652613u; // 2166136261 truncated to 31 bits
-
-    // Initialize with the FNV offset basis (truncated to 31 bits automatically)
-    Hash31 field;
-    field.hash = FNV_OFFSET_BASIS;
-    field.unused = 0;
-
-    for (char c : name) {
-        field.hash ^= static_cast<unsigned char>(c);
-        field.hash *= FNV_PRIME;
-    }
-
-    // Shift left and handle zero case
-    uint32_t result = static_cast<uint32_t>(field.hash) << 1;
-    return (result == 0) ? 1 : result;
-}

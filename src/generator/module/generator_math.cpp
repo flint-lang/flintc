@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 
-static const std::string hash = Hash(std::string("math")).to_string();
+static const Hash hash(std::string("math"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Math::generate_math_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     math_functions["sin_f32"] = c_functions.at(SINF);
@@ -62,7 +63,7 @@ void Generator::Module::Math::generate_abs_int_function( //
     llvm::Function *abs_int_fn = llvm::Function::Create( //
         abs_int_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        hash + ".abs_" + name,                           //
+        hash_str + ".abs_" + name,                       //
         module                                           //
     );
     const std::string fn_name = "abs_" + name;
@@ -116,7 +117,7 @@ void Generator::Module::Math::generate_min_function( //
     llvm::Function *min_fn = llvm::Function::Create( //
         min_type,                                    //
         llvm::Function::ExternalLinkage,             //
-        hash + ".min_" + name,                       //
+        hash_str + ".min_" + name,                   //
         module                                       //
     );
     const std::string fn_name = "min_" + name;
@@ -176,7 +177,7 @@ void Generator::Module::Math::generate_fmin_function( //
     llvm::Function *min_fn = llvm::Function::Create( //
         min_type,                                    //
         llvm::Function::ExternalLinkage,             //
-        hash + ".min_" + name,                       //
+        hash_str + ".min_" + name,                   //
         module                                       //
     );
     const std::string fn_name = "min_" + name;
@@ -236,7 +237,7 @@ void Generator::Module::Math::generate_max_function( //
     llvm::Function *max_fn = llvm::Function::Create( //
         max_type,                                    //
         llvm::Function::ExternalLinkage,             //
-        hash + ".max_" + name,                       //
+        hash_str + ".max_" + name,                   //
         module                                       //
     );
     const std::string fn_name = "max_" + name;
@@ -296,7 +297,7 @@ void Generator::Module::Math::generate_fmax_function( //
     llvm::Function *max_fn = llvm::Function::Create( //
         max_type,                                    //
         llvm::Function::ExternalLinkage,             //
-        hash + ".max_" + name,                       //
+        hash_str + ".max_" + name,                   //
         module                                       //
     );
     const std::string fn_name = "max_" + name;

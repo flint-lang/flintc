@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 
-static const std::string hash = Hash(std::string("env")).to_string();
+static const Hash hash(std::string("env"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Env::generate_env_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_get_env_function(builder, module, only_declarations);
@@ -25,7 +26,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     llvm::Function *getenv_fn = c_functions.at(GETENV);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
-    const unsigned int ErrEnv = Type::get_type_id_from_str("ErrEnv");
+    const unsigned int ErrEnv = hash.get_type_id_from_str("ErrEnv");
     const std::vector<error_value> &ErrEnvValues = std::get<2>(core_module_error_sets.at("env").at(0));
     const unsigned int VarNotFound = 0;
     const std::string VarNotFoundMessage(ErrEnvValues.at(VarNotFound).second);
@@ -37,7 +38,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
         {str_type->getPointerTo()},                             // Parameters: const str *var
         false                                                   // No vaarg
     );
-    llvm::Function *get_env_fn = llvm::Function::Create(get_env_type, llvm::Function::ExternalLinkage, hash + ".get_env", module);
+    llvm::Function *get_env_fn = llvm::Function::Create(get_env_type, llvm::Function::ExternalLinkage, hash_str + ".get_env", module);
     env_functions["get_env"] = get_env_fn;
     if (only_declarations) {
         return;
@@ -121,7 +122,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Function *setenv_fn = c_functions.at(SETENV);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
-    const unsigned int ErrEnv = Type::get_type_id_from_str("ErrEnv");
+    const unsigned int ErrEnv = hash.get_type_id_from_str("ErrEnv");
     const std::vector<error_value> &ErrEnvValues = std::get<2>(core_module_error_sets.at("env").at(0));
     const unsigned int InvalidName = 1;
     const unsigned int InvalidValue = 2;
@@ -140,7 +141,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Function *set_env_fn = llvm::Function::Create( //
         set_env_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        hash + ".set_env",                               //
+        hash_str + ".set_env",                           //
         module                                           //
     );
     env_functions["set_env"] = set_env_fn;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "parser/ast/definitions/definition_node.hpp"
-#include "parser/type/type.hpp"
 
 #include <cstdint>
 #include <string>
@@ -26,7 +25,7 @@ class ErrorNode : public DefinitionNode {
         parent_error(parent_error),
         values(values),
         default_messages(default_messages) {
-        error_id = Type::get_type_id_from_str(name);
+        error_id = file_hash.get_type_id_from_str(name);
     }
 
     Variation get_variation() const override {

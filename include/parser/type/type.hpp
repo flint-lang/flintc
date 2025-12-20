@@ -118,13 +118,4 @@ class Type {
     /// @param `type_str` The string representation of the full type
     /// @return `std::optional<std::shared_ptr<Type>>` The type from the types map, nullopt if the given type does not exist
     static std::optional<std::shared_ptr<Type>> get_type_from_str(const std::string &type_str);
-
-    /// @function `get_type_id_from_str`
-    /// @brief Gets an u32 type id from the given name of the type through hashing. Will always produce the same type ID from the same name.
-    /// The value `0` is reserved and will *never* be a result from this function. All other values within the 32 bits are valid hashes
-    /// though
-    ///
-    /// @param `name` The name of the type to get a hash id from
-    /// @return `uint32_t` A u32 hash value generated from the type's name
-    static uint32_t get_type_id_from_str(const std::string &name);
 };

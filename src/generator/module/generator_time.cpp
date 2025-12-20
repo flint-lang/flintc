@@ -1,7 +1,8 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 
-static const std::string hash = Hash(std::string("time")).to_string();
+static const Hash hash(std::string("time"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_types(module);
@@ -31,7 +32,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
         time_data_types[type_name] = llvm::StructType::create( //
             context,                                           //
             return_types_arr,                                  //
-            hash + ".data." + type_name,                       //
+            hash_str + ".data." + type_name,                   //
             false                                              //
         );
     }
@@ -46,7 +47,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
         for (const std::string_view &value : value_views) {
             enum_values.emplace_back(value);
         }
-        IR::generate_enum_value_strings(module, hash, enum_name, enum_values);
+        IR::generate_enum_value_strings(module, hash_str, enum_name, enum_values);
     }
 }
 
@@ -126,7 +127,7 @@ void Generator::Module::Time::generate_time_init_function( //
     llvm::Function *init_fn = llvm::Function::Create( //
         init_type,                                    //
         llvm::Function::InternalLinkage,              //
-        hash + ".time_init",                          //
+        hash_str + ".time_init",                      //
         module                                        //
     );
     time_platform_functions["init_time"] = init_fn;
@@ -141,7 +142,7 @@ void Generator::Module::Time::generate_time_init_function( //
         false,                                                      // not constant
         llvm::GlobalValue::InternalLinkage,                         // Only used within this module
         llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), 0), // Initial value of 0
-        hash + ".global.time_frequency"                             // Name of the global
+        hash_str + ".global.time_frequency"                         // Name of the global
     );
 
     // Create global for initialized flag
@@ -151,7 +152,7 @@ void Generator::Module::Time::generate_time_init_function( //
         false,                                                     // not constant
         llvm::GlobalValue::InternalLinkage,                        // Only used within this module
         llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 0), // Initial value of 'false'
-        hash + ".global.time_initialized"                          //
+        hash_str + ".global.time_initialized"                      //
     );
 
     llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", init_fn);
@@ -207,7 +208,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     llvm::Function *now_fn = llvm::Function::Create( //
         now_type,                                    //
         llvm::Function::ExternalLinkage,             //
-        hash + ".now",                               //
+        hash_str + ".now",                           //
         module                                       //
     );
     time_functions["now"] = now_fn;
@@ -239,7 +240,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     llvm::Value *counter_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), counter_field_ptr, "counter_value");
 
     // Load frequency from global
-    llvm::GlobalVariable *freq_global = module->getNamedGlobal(hash + ".global.time_frequency");
+    llvm::GlobalVariable *freq_global = module->getNamedGlobal(hash_str + ".global.time_frequency");
     llvm::Value *freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_global, "freq_value");
 
     // Calculate: (counter * 1000000000ULL) / frequency
@@ -311,7 +312,7 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
     llvm::Function *duration_fn = llvm::Function::Create( //
         duration_fn_type,                                 //
         llvm::Function::ExternalLinkage,                  //
-        hash + ".duration",                               //
+        hash_str + ".duration",                           //
         module                                            //
     );
     time_functions["duration"] = duration_fn;
@@ -406,7 +407,7 @@ void Generator::Module::Time::generate_sleep_duration_function( //
     llvm::Function *sleep_duration_fn = llvm::Function::Create( //
         sleep_duration_type,                                    //
         llvm::Function::ExternalLinkage,                        //
-        hash + ".sleep_duration",                               //
+        hash_str + ".sleep_duration",                           //
         module                                                  //
     );
     time_functions["sleep_duration"] = sleep_duration_fn;
@@ -518,7 +519,7 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     llvm::Function *sleep_time_fn = llvm::Function::Create( //
         sleep_time_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        hash + ".sleep_time",                               //
+        hash_str + ".sleep_time",                           //
         module                                              //
     );
     time_functions["sleep_time"] = sleep_time_fn;
@@ -628,7 +629,7 @@ void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *build
     llvm::Function *as_unit_fn = llvm::Function::Create( //
         as_unit_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        hash + ".as_unit",                               //
+        hash_str + ".as_unit",                           //
         module                                           //
     );
     time_functions["as_unit"] = as_unit_fn;
@@ -729,7 +730,7 @@ void Generator::Module::Time::generate_from_function(llvm::IRBuilder<> *builder,
     llvm::Function *from_fn = llvm::Function::Create( //
         from_type,                                    //
         llvm::Function::ExternalLinkage,              //
-        hash + ".from",                               //
+        hash_str + ".from",                           //
         module                                        //
     );
     time_functions["from"] = from_fn;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "parser/type/type.hpp"
+#include "parser/hash.hpp"
 #include "type_name_generator.hpp"
 
 #include <iomanip>
@@ -13,6 +13,7 @@ static void test_fuzzy(const unsigned long fuzzy_count) {
     std::unordered_map<uint32_t, std::vector<std::string>> hash_map;
     std::set<std::string> unique_strings;
     int zero_hashes = 0;
+    Hash empty_hash(std::string(""));
 
     for (unsigned long i = 0; i < fuzzy_count; ++i) {
         std::string type_name = generator.generate_random_type_name();
@@ -24,7 +25,7 @@ static void test_fuzzy(const unsigned long fuzzy_count) {
         }
         unique_strings.insert(type_name);
 
-        uint32_t hash = Type::get_type_id_from_str(type_name);
+        uint32_t hash = empty_hash.get_type_id_from_str(type_name);
 
         if (hash == 0) {
             zero_hashes++;

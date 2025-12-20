@@ -3171,7 +3171,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
                 return expr;
             }
             // We simply need to change the `type_id` value field of the error
-            unsigned int new_type_id = Type::get_type_id_from_str(to_error_type->error_node->name);
+            unsigned int new_type_id = to_error_type->error_node->file_hash.get_type_id_from_str(to_error_type->error_node->name);
             expr = builder.CreateInsertValue(expr, builder.getInt32(new_type_id), {0}, "cast_type_id");
             return expr;
         }

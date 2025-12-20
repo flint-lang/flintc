@@ -47,6 +47,40 @@ struct Hash {
         return hash_arr;
     }
 
+    /// @function `get_type_id_from_str`
+    /// @brief Gets an u32 type id from the given name of the type through hashing. Will always produce the same type ID from the same name.
+    /// The value `0` is reserved and will *never* be a result from this function. All other values within the 32 bits are valid hashes
+    /// though
+    ///
+    /// @param `name` The name of the type to get a hash id from
+    /// @return `uint32_t` A u32 hash value generated from this hash + the type's name
+    uint32_t get_type_id_from_str(const std::string &name) const {
+        const std::string string = std::string(value.data()) + "." + name;
+        // 31-bit hash container
+        struct Hash31 {
+            uint32_t hash : 31;
+            uint32_t unused : 1;
+        };
+
+        // FNV-1a hash algorithm constants
+        constexpr uint32_t FNV_PRIME = 16777619u;
+        constexpr uint32_t FNV_OFFSET_BASIS = 18652613u; // 2166136261 truncated to 31 bits
+
+        // Initialize with the FNV offset basis (truncated to 31 bits automatically)
+        Hash31 field;
+        field.hash = FNV_OFFSET_BASIS;
+        field.unused = 0;
+
+        for (char c : string) {
+            field.hash ^= static_cast<unsigned char>(c);
+            field.hash *= FNV_PRIME;
+        }
+
+        // Shift left and handle zero case
+        uint32_t result = static_cast<uint32_t>(field.hash) << 1;
+        return (result == 0) ? 1 : result;
+    }
+
     /// @function `empty`
     /// @brief Whether the hash is "empty", e.g. it was not initialized or default-initialized
     ///

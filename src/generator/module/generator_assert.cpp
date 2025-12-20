@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 
-static const std::string hash = Hash(std::string("assert")).to_string();
+static const Hash hash(std::string("assert"));
+static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Assert::generate_assert_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_assert_function(builder, module, only_declarations);
@@ -16,7 +17,7 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("void");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
-    const unsigned int ErrAssert = Type::get_type_id_from_str("ErrAssert");
+    const unsigned int ErrAssert = hash.get_type_id_from_str("ErrAssert");
     const std::vector<error_value> &ErrAssertValues = std::get<2>(core_module_error_sets.at("assert").at(0));
     const unsigned int AssertionFailed = 0;
     const std::string AssertionFailedMessage(ErrAssertValues.at(AssertionFailed).second);
@@ -24,7 +25,7 @@ void Generator::Module::Assert::generate_assert_function(llvm::IRBuilder<> *buil
     llvm::Function *assert_fn = llvm::Function::Create( //
         assert_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        hash + ".assert",                               //
+        hash_str + ".assert",                           //
         module                                          //
     );
     assert_functions["assert"] = assert_fn;
