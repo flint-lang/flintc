@@ -2473,10 +2473,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 0, "length_ptr");
         llvm::Value *length = IR::aligned_load(builder, builder.getInt64Ty(), length_ptr, "length");
-
-        std::vector<llvm::Value *> values;
-        values.emplace_back(length);
-        return values;
+        return std::vector<llvm::Value *>{length};
+    }
+    if (data_access->base_expr->type->to_string() == "anyerror") {
+        expr_val = builder.CreateExtractValue(expr_val, data_access->field_id, "anyerror_id_" + std::to_string(data_access->field_id));
+        return std::vector<llvm::Value *>{expr_val};
     }
 
     switch (data_access->base_expr->type->get_variation()) {
@@ -3199,7 +3200,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
         return cast_value;
     }
-    if (from_type->get_variation() == Type::Variation::ERROR_SET) {
+    if (from_type->get_variation() == Type::Variation::ERROR_SET || from_type->to_string() == "anyerror") {
         if (to_type_str == "str") {
             llvm::Function *get_err_str_fn = Error::error_functions.at("get_err_str");
             return builder.CreateCall(get_err_str_fn, {expr}, "err_to_str");

@@ -71,7 +71,7 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
     if (!expr.has_value()) {
         return std::nullopt;
     }
-    if (expr.value()->type->get_variation() != Type::Variation::ERROR_SET) {
+    if (expr.value()->type->get_variation() != Type::Variation::ERROR_SET && expr.value()->type->to_string() != "anyerror") {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
         return std::nullopt;
     }

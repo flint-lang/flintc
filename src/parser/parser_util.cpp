@@ -857,6 +857,11 @@ Parser::create_field_access_base(     //
             const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
             return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
         }
+        case Type::Variation::PRIMITIVE:
+            if (base_type->to_string() != "anyerror") {
+                break;
+            }
+            [[fallthrough]];
         case Type::Variation::ERROR_SET:
             if (field_name == "type_id") {
                 return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u32"));

@@ -1,21 +1,16 @@
 use Core.print
-use Core.assert
 
-error ErrFn(ErrAssert):
-	SpecialAssertion;
+error ErrArithmetic:
+	ErrZeroDivision;
 
-def myfn(bool arg) {ErrFn}:
-	if not arg:
-		throw ErrFn.AssertionFailed("Special Assertion in 'myfn' function failed");
+def div(i32 x, i32 y) -> i32:
+	if y == 0:
+		throw ErrArithmetic.ErrZeroDivision($"Tried to divide {x} by 0!");
+	return x / y;
 
 def main():
-	myfn(false) catch:
-		anyerror(e):
-			print("anyerror\n");
-		ErrFn(e):
-			print("ErrFn:\n");
-			print($" - type_id: {e.type_id}\n");
-			print($" - value_id: {e.value_id}\n");
-			print($" - message: {e.message}\n");
-			print($"\nerror is {e}: \"{e.message}\"\n\n");
-			throw e;
+	div(10, 0) catch err:
+		// 'err' is actually of type 'anyerror' now because there are no other types in the variant
+		// A 'variant<anyerror>' is just a 'anyerror'
+		print($"Caught error '{err}': \"{err.message}\"\n");
+		throw err;

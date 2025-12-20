@@ -220,6 +220,9 @@ Parser::CastDirection Parser::check_primitive_castability( //
     } else if (lhs_str == "str" && rhs_type->get_variation() == Type::Variation::ERROR_SET) {
         // Error sets are always castable to strings
         return CastDirection::rhs_to_lhs();
+    } else if (lhs_str == "str" && rhs_str == "anyerror") {
+        // The 'anyerror' Error can be cast to an string too obviously
+        return CastDirection::rhs_to_lhs();
     }
 
     bool lhs_to_rhs_allowed = false;
