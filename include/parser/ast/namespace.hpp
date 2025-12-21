@@ -22,11 +22,11 @@ class Namespace {
 
     explicit Namespace(const std::filesystem::path &file_path) :
         file_path(std::filesystem::absolute(file_path)),
-        namespace_hash(Hash(std::filesystem::absolute(file_path))) {}
+        namespace_hash(Hash(file_path)) {}
 
     explicit Namespace(std::vector<std::unique_ptr<DefinitionNode>> &definitions, const std::filesystem::path &file_path) :
         file_path(std::filesystem::absolute(file_path)),
-        namespace_hash(Hash(std::filesystem::absolute(file_path))) {
+        namespace_hash(Hash(file_path)) {
         public_symbols.definitions = std::move(definitions);
     }
 

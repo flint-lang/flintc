@@ -12,6 +12,29 @@
 /// The hash is pretty useful overall, but for now it simply encodes an absolute file path into a 8-byte hash which only contains the
 /// characters (a-z, A-Z, 1-9) making it 61 characters in total, meaning the hash could map to 61^8 ~ 2^48 possible absolute paths
 struct Hash {
+  private:
+    /// @function `normalize_path_for_hashing`
+    /// @brief Normalizes a file path for hashing by converting it to a relative path from the current working directory.
+    /// This ensures that the same source file produces the same hash regardless of where it's located on the filesystem.
+    ///
+    /// @param `file_path` The file path to normalize
+    /// @return `std::filesystem::path` The normalized relative path
+    static std::filesystem::path normalize_path_for_hashing(const std::filesystem::path &file_path) {
+        if (file_path.empty()) {
+            return file_path;
+        }
+
+        // Convert to absolute path first to handle relative paths correctly
+        std::filesystem::path abs_path = std::filesystem::absolute(file_path);
+
+        // Then convert to relative path from CWD
+        std::filesystem::path cwd = std::filesystem::current_path();
+        std::filesystem::path rel_path = std::filesystem::relative(abs_path, cwd);
+
+        // Normalize to resolve any ".." or "." components
+        return rel_path.lexically_normal();
+    }
+
   public:
     Hash() = default;
 
@@ -21,7 +44,7 @@ struct Hash {
 
     explicit Hash(const std::filesystem::path &file_path) :
         path(file_path.empty() ? file_path : std::filesystem::absolute(file_path)),
-        value(string_to_hash(path.string())) {}
+        value(string_to_hash(normalize_path_for_hashing(file_path).string())) {}
 
     /// @var `path`
     /// @brief The path this hash was used to be generated from

@@ -14,7 +14,7 @@ class Lexer {
   public:
     explicit Lexer(const std::filesystem::path &file_path, const std::string &file_content) :
         source(file_content),
-        file_hash(Hash(file_path.empty() ? file_path : std::filesystem::absolute(file_path))) {
+        file_hash(Hash(file_path)) {
         if (file_hash.empty()) {
             file_id = UINT32_MAX;
             return;
