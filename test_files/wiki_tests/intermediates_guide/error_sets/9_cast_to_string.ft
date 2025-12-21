@@ -1,0 +1,25 @@
+use Core.print
+
+error ErrArithmetic:
+	NullDivision, Negative;
+
+def divide(i32 x, i32 y) -> i32 {ErrArithmetic}:
+	if y == 0:
+		throw ErrArithmetic.NullDivision;
+	if x < 0 or y < 0:
+		// We just made up that error just to have a second error case
+		throw ErrArithmetic.Negative;
+	return x / y;
+
+def main():
+	i32 res = divide(10, 0) catch err:
+		switch err:
+			ErrArithmetic(e):
+				print($"err = {e}\n");
+				print($"message = {e.message}\n");
+				switch e:
+					NullDivision: print("Is NullDivision\n");
+					Negative: print("Is Negative\n");
+			anyerror(e):
+				print("Is anyerror\n");
+	print($"res = {res}\n");

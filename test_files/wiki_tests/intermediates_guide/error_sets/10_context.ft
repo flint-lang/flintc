@@ -18,12 +18,9 @@ def print_err(bool override):
 	throw_error(override) catch err:
 		switch err:
 			ErrSpecial(e):
-				print($"type_id = {e.type_id}\n");
-				print($"value_id = {e.value_id}\n");
-				print($"message = {e.message}\n");
+				print($"{e}: \"{e.message}\"\n");
 			anyerror(e): print("is anyerror\n");
 
 def main():
 	print_err(false);
-	print("\n");
 	print_err(true);

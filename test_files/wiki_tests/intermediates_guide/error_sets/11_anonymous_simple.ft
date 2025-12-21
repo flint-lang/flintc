@@ -1,0 +1,8 @@
+use Core.print
+
+def crash():
+	throw error.Crash("Custom Message");
+
+def main():
+	crash() catch err:
+		print($"{err}: \"{err.message}\"\n");
