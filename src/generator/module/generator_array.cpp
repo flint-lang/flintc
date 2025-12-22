@@ -271,7 +271,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
         {
             str_type->getPointerTo(),                      // Argument str* arr
             llvm::Type::getInt64Ty(context),               // Argument size_t element_size
-            llvm::Type::getVoidTy(context)->getPointerTo() // Argument void* value
+            llvm::Type::getInt8Ty(context)->getPointerTo() // Argument void* value
         },
         false // No vaargs
     );
@@ -486,7 +486,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
         {
             str_type->getPointerTo(),                      // Argument str* arr
             llvm::Type::getInt64Ty(context),               // Argument size_t value_size
-            llvm::Type::getVoidTy(context)->getPointerTo() // Argument void* value
+            llvm::Type::getInt8Ty(context)->getPointerTo() // Argument void* value
         },
         false // No vaargs
     );
@@ -574,7 +574,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     // Calculate data_start = (void **)(dim_lengths + dimensionality)
     llvm::Value *dim_lengths_offset = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, dimensionality, "dim_lengths_offset");
     llvm::Value *data_start = builder->CreateBitCast(                                          //
-        dim_lengths_offset, builder->getVoidTy()->getPointerTo()->getPointerTo(), "data_start" //
+        dim_lengths_offset, builder->getInt8Ty()->getPointerTo()->getPointerTo(), "data_start" //
     );
 
     // Create loop counter
@@ -594,7 +594,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     builder->SetInsertPoint(loop2_body);
 
     // Calculate element_ptr = data_start + i
-    llvm::Value *element_ptr = builder->CreateGEP(builder->getVoidTy()->getPointerTo(), data_start, current_counter2, "element_ptr");
+    llvm::Value *element_ptr = builder->CreateGEP(builder->getInt8Ty()->getPointerTo(), data_start, current_counter2, "element_ptr");
 
     // Call malloc: *element_ptr = malloc(value_size)
     llvm::Value *allocated_mem = builder->CreateCall(malloc_fn, {arg_value_size}, "allocated_mem");
@@ -603,7 +603,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     IR::aligned_store(*builder, allocated_mem, element_ptr);
 
     // Call memcpy: memcpy(*element_ptr, value, value_size)
-    llvm::Value *element_value = IR::aligned_load(*builder, builder->getVoidTy()->getPointerTo(), element_ptr, "element_value");
+    llvm::Value *element_value = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), element_ptr, "element_value");
     builder->CreateCall(memcpy_fn, {element_value, arg_value, arg_value_size});
 
     // Increment counter
@@ -1115,7 +1115,7 @@ void Generator::Module::Array::generate_assign_arr_at_function( //
             str_type->getPointerTo(),                        // Argument str* arr
             llvm::Type::getInt64Ty(context),                 // Argument size_t element_size
             llvm::Type::getInt64Ty(context)->getPointerTo(), // Argument size_t* indices
-            llvm::Type::getVoidTy(context)->getPointerTo()   // Argument: void* value
+            llvm::Type::getInt8Ty(context)->getPointerTo()   // Argument: void* value
         },
         false // No vaargs
     );

@@ -119,6 +119,7 @@ build_llvm_windows() {
         -DLLVM_TARGET_ARCH=X86 \
         -DLLVM_TARGETS_TO_BUILD=X86 \
         \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
         -DLLVM_ENABLE_THREADS=ON \
         -DLLVM_BUILD_STATIC=ON \
         -DBUILD_SHARED_LIBS=OFF \
@@ -219,6 +220,7 @@ build_llvm_linux() {
         -DLLVM_TARGET_ARCH=X86 \
         -DLLVM_TARGETS_TO_BUILD=X86 \
         \
+        -DLLVM_ENABLE_ASSERTIONS=ON \
         -DLLVM_ENABLE_THREADS=ON \
         -DLLVM_BUILD_STATIC=ON \
         -DBUILD_SHARED_LIBS=OFF \

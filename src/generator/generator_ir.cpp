@@ -732,28 +732,11 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder
 }
 
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
-    if (type->isIntegerTy()) {
-        return llvm::ConstantInt::get(type, 0);
+    if (type->isVoidTy()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return nullptr;
     }
-    if (type->isFloatTy() || type->isDoubleTy()) {
-        return llvm::ConstantFP::get(type, 0.0);
-    }
-    if (type->isPointerTy()) {
-        return llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(type));
-    }
-    if (type->isStructTy()) {
-        return llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type));
-    }
-    if (type->isVectorTy()) {
-        llvm::VectorType *vector_type = llvm::cast<llvm::VectorType>(type);
-        llvm::Type *element_type = vector_type->getElementType();
-        llvm::Constant *zero_element = llvm::cast<llvm::Constant>(get_default_value_of_type(element_type));
-        // Create a splat (all elements are the same)
-        return llvm::ConstantVector::getSplat(vector_type->getElementCount(), zero_element);
-    }
-    // No conversion available
-    THROW_BASIC_ERR(ERR_GENERATING);
-    return nullptr;
+    return llvm::Constant::getNullValue(type);
 }
 
 llvm::Value *Generator::IR::generate_const_string(llvm::Module *module, const std::string &str) {

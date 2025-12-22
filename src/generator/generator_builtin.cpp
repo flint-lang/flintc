@@ -198,7 +198,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // malloc
     {
         llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),        // Return type: void*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
             {llvm::Type::getInt64Ty(context)},                     // Arguments: u64
             false                                                  // No vaarg
         );
@@ -208,8 +208,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // free
     {
         llvm::FunctionType *free_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context),                      // Return type: void
-            {llvm::Type::getVoidTy(context)->getPointerTo()},    // Argument: void*
+            llvm::Type::getInt8Ty(context),                      // Return type: void
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},    // Argument: void*
             false                                                // No vaarg
         );
         llvm::Function *free_fn = llvm::Function::Create(free_type, llvm::Function::ExternalLinkage, "free", module);
@@ -218,10 +218,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // memcpy
     {
         llvm::FunctionType *memcpy_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),        // Return type: void*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void*
-                llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: const void*
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void*
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: const void*
                 llvm::Type::getInt64Ty(context)                 // Argument: u64
             },                                                  //
             false                                               // No vaarg
@@ -232,9 +232,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // realloc
     {
         llvm::FunctionType *realloc_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),         // Return type: void*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),         // Return type: void*
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void*
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void*
                 llvm::Type::getInt64Ty(context)                 // Argument: u64
             },                                                  //
             false                                               // No vaarg
@@ -261,8 +261,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *memcmp_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       //
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void* (memory address 1)
-                llvm::Type::getVoidTy(context)->getPointerTo(), // Argument: void* (memory address 2)
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* (memory address 1)
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* (memory address 2)
                 llvm::Type::getInt64Ty(context)                 // Argument: u64 (size to compare)
             },                                                  //
             false                                               // No vaarg
@@ -274,7 +274,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         // Create the exit call (calling the C exit() function)
         llvm::FunctionType *exit_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context),                      // return void
+            llvm::Type::getInt8Ty(context),                      // return void
             llvm::Type::getInt32Ty(context),                     // takes i32
             false                                                // No vaarg
         );
@@ -283,7 +283,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     }
     // abort
     {
-        llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
+        llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getInt8Ty(context), false);
         llvm::Function *abort_fn = llvm::Function::Create(abort_type, llvm::Function::ExternalLinkage, "abort", module);
         c_functions[ABORT] = abort_fn;
     }
@@ -291,7 +291,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *fgetc_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                      // return i32
-            {llvm::Type::getVoidTy(context)->getPointerTo()},     // FILE* stream (as void*)
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},     // FILE* stream (as void*)
             false                                                 // no vaarg
         );
         llvm::Function *fgetc_fn = llvm::Function::Create(fgetc_type, llvm::Function::ExternalLinkage, "fgetc", module);
@@ -300,10 +300,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // memmove
     {
         llvm::FunctionType *memmove_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),         // return void*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),         // return void*
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // void* dest
-                llvm::Type::getVoidTy(context)->getPointerTo(), // void* src
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* dest
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* src
                 llvm::Type::getInt64Ty(context)                 // i64 n
             },                                                  //
             false                                               // No vaarg
@@ -378,7 +378,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // fopen
     {
         llvm::FunctionType *fopen_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),       // return FILE*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return FILE*
             {
                 llvm::Type::getInt8Ty(context)->getPointerTo(), // char* filename
                 llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
@@ -393,7 +393,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fseek_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                      // return i32
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // FILE* stream
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // FILE* stream
                 llvm::Type::getInt64Ty(context),                // i64 offset
                 llvm::Type::getInt32Ty(context)                 // i32 whence (whatever that means)
             },                                                  //
@@ -406,7 +406,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *fclose_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32
-            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *fclose_fn = llvm::Function::Create(fclose_type, llvm::Function::ExternalLinkage, "fclose", module);
@@ -416,7 +416,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *ftell_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                      // return i64
-            {llvm::Type::getVoidTy(context)->getPointerTo()},     // FILE* stream
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},     // FILE* stream
             false                                                 // No vaarg
         );
         llvm::Function *ftell_fn = llvm::Function::Create(ftell_type, llvm::Function::ExternalLinkage, "ftell", module);
@@ -427,10 +427,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fread_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                      // return u64
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // void* ptr
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* ptr
                 llvm::Type::getInt64Ty(context),                // u64 size
                 llvm::Type::getInt64Ty(context),                // u64 n
-                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
             },                                                  //
             false                                               // No vaarg
         );
@@ -440,8 +440,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // rewind
     {
         llvm::FunctionType *rewind_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context),                        // return void
-            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            llvm::Type::getInt8Ty(context),                        // return void
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *rewind_fn = llvm::Function::Create(rewind_type, llvm::Function::ExternalLinkage, "rewind", module);
@@ -454,7 +454,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             {
                 llvm::Type::getInt8Ty(context)->getPointerTo(), // char* s
                 llvm::Type::getInt32Ty(context),                // i32 n
-                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
             },                                                  //
             false                                               // No vaarg
         );
@@ -466,10 +466,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fwrite_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                       // return u64
             {
-                llvm::Type::getVoidTy(context)->getPointerTo(), // void* ptr
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* ptr
                 llvm::Type::getInt64Ty(context),                // u64 size
                 llvm::Type::getInt64Ty(context),                // u64 n
-                llvm::Type::getVoidTy(context)->getPointerTo()  // FILE* stream
+                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
             },                                                  //
             false                                               // No vaarg
         );
@@ -503,7 +503,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // popen
     {
         llvm::FunctionType *popen_type = llvm::FunctionType::get( //
-            llvm::Type::getVoidTy(context)->getPointerTo(),       // return FILE*
+            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return FILE*
             {
                 llvm::Type::getInt8Ty(context)->getPointerTo(), // char* command
                 llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
@@ -517,7 +517,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *pclose_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32 (exit code)
-            {llvm::Type::getVoidTy(context)->getPointerTo()},      // FILE* stream
+            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage, "pclose", module);
