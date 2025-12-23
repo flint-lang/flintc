@@ -122,11 +122,11 @@ void Generator::Module::Time::generate_time_init_function( //
     [[maybe_unused]] const bool only_declarations          //
 ) {
 #ifdef __WIN32__
-    // Create __time_init function
+    // Create time_init function
     llvm::FunctionType *init_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
     llvm::Function *init_fn = llvm::Function::Create( //
         init_type,                                    //
-        llvm::Function::InternalLinkage,              //
+        llvm::Function::ExternalLinkage,              //
         hash_str + ".time_init",                      //
         module                                        //
     );
