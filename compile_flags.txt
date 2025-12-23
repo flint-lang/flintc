@@ -6,6 +6,7 @@
 -Ivendor/sources/fip
 -Iinclude
 -Itests
+-IC:\Users\zweiler1\AppData\Local\Microsoft\WinGet\Packages\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\llvm-mingw-20251202-ucrt-x86_64\include
 -std=c++17
 //-fno-exceptions
 -funwind-tables

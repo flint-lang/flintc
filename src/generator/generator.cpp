@@ -219,7 +219,8 @@ bool Generator::verify_module(const llvm::Module *module) {
         return false;
     } else if (hasErrors) {
         // Optionally print a message indicating only reference "errors" were found
-        std::cout << YELLOW << "[Debug Info] Module verification for module '" << module->getName().str() << "' successful\n" << DEFAULT << std::endl;
+        std::cout << YELLOW << "[Debug Info] Module verification for module '" << module->getName().str() << "' successful\n"
+                  << DEFAULT << std::endl;
         return true;
     }
     return true;

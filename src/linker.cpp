@@ -18,7 +18,6 @@
 #include "profiler.hpp"
 #include <cstdlib>
 #include <fstream>
-#include <sstream>
 
 static const char *fetch_crt_bat_content = R"(@echo off
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_crt.ps1" %*

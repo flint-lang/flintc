@@ -95,14 +95,39 @@ directly in any PowerShell or Command Prompt from any directory.
 
 ## Building
 
-Building is easy. You obviously first need to clone this repository. There exists a single `build.sh` script in the `scripts` directory, with many cli options to choose from. Execute `./scripts/build.sh --help` to list all possible commands. Choose what you whish to do and the script will do it for you. You must be in the root directory of the `flintc` repository for the build script to work properly.
+It is recommended to build the project with the `zig build` command after cloning this repository.
 
-You *need* to compile the linux build at least once, the build script relies on the built `llvm-config` executable built from the LLVM source. So, execute the build script like so:
+### Prequisites
 
-```sh
-./scripts/build.sh -l
+- CMake (to build LLVM)
+- Ninja (to build LLVM)
+- Python (>3.8, to build LLVM)
+
+### Linux
+
+On Linux you need to install the packages via your package manager of choice and then it should be smooth sailing with `zig build`.
+
+### Windows
+
+On Windows it is recommended to simpy use `winget` to install all required dependencies for this project:
+
+- `zig.zig` for Zig itself
+- `MartinStorsjo.LLVM-MinGW.UCRT` to get `ld.lld` since Zig does not ship it, and to get the C++ `std` library headers (`<string>`, etc)
+- `CMake`
+- `Ninja-build.Ninja`
+- `python3`
+
+```ps1
+winget install zig.zig MartinStorsjo.LLVM-MinGW.UCRT CMake Ninja-build.Ninja python3
 ```
 
-before compiling for windows using `./scripts/build.sh -w`, otherwise the Windows compilation will fail. After the initial compilation for Linux you can mix and match all possible commands of the build.sh script, it will work just fine (I always do `-lwsDRtf` to build the `R`elease and `D`ebug builds for `l`inux and `w`indws, link them `s`taticaly, run all `t`ests and build the `f`ls too.)
+After that you should have all C++ stl header libraries installed on your system, there is no need to install anything related to VS on the system. After all these packages are installed you can simply call `zig build` to compile the Flint compiler.
+
+Compiling LLVM itself for the first time could take up to an hour, it takes quite a lot of time, be aware of that. After the initial build the `flintc` directory takes up roughly 15GB of storage space, so be aware that LLVM takes a lot of space.
+
+> [!NOTE]
+> I was not able to get `neovim` to work properly on Windows, it did not like the installed standard library from the above mentioned minimal llvm-mingw package. `Zed`, however, worked fine so it now is the recommended IDE to use on Windows. I still need to figure out why nvim doesn't work on Windows, i would much rather use it instead of Zed but hey, we can't get everything.
+
+### After Compilation
 
 After compiling the compiler you need `base-devel` (Arch) or `build-essential` (Ubuntu) pavkages installed in order for the Flint compiler to be able to compile any program. This is because it needs the `crt1.o`, `crti.o` and `crtn.o` files available in your lib path.
