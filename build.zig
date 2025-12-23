@@ -11,6 +11,8 @@ pub fn build(b: *std.Build) !void {
 
     _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
     _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
+    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
+    _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
 
     const llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION})) orelse
         DEFAULT_LLVM_VERSION;
@@ -34,7 +36,7 @@ pub fn build(b: *std.Build) !void {
 
 fn buildFlintc(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, previous_step: *std.Build.Step) !void {
     const exe = b.addExecutable(.{
-        .name = "pseudo_flintc",
+        .name = "flintc",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -158,28 +160,30 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
         "vendor/sources/llvm-project/llvm",
         "-B",
         llvm_build_dir,
+        if (target == .windows) "-G" else "",
+        if (target == .windows) "Ninja" else "",
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
         "-DCMAKE_BUILD_TYPE=Release",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target) {
             .linux => "zig;cc",
-            .windows => "zig;cc;-target;x86_64-windows-gnu",
+            .windows => "zig;cc",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_CXX_COMPILER={s}", .{switch (target) {
             .linux => "zig;c++",
-            .windows => "zig;c++;-target;x86_64-windows-gnu",
+            .windows => "zig;c++",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_ASM_COMPILER={s}", .{switch (target) {
             .linux => "zig;cc",
-            .windows => "zig;cc;-target;x86_64-windows-gnu",
+            .windows => "zig;cc",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
-        b.fmt("-DCMAKE_SYSTEM_NAME={s}", .{switch (target) {
-            .linux => "Linux",
-            .windows => "Windows",
-            else => return error.TargetNeedsToBeLinuxOrWindows,
-        }}),
+        // b.fmt("-DCMAKE_SYSTEM_NAME={s}", .{switch (target) {
+        //     .linux => "Linux",
+        //     .windows => "Windows",
+        //     else => return error.TargetNeedsToBeLinuxOrWindows,
+        // }}),
         "-DLLVM_ENABLE_PROJECTS=lld;clang",
         "-DLLVM_ENABLE_LIBXML2=OFF",
         "-DLLVM_ENABLE_TERMINFO=OFF",
@@ -202,6 +206,9 @@ fn buildLLVM(b: *std.Build, target: std.Target.Os.Tag, previous_step: *std.Build
         // "-DCMAKE_VERBOSE_MAKEFILE=ON", // Increased build log verbosity
         // "-DLLVM_PARALLEL_COMPILE_JOBS=4",
     });
+    setup_main.setEnvironmentVariable("ASM", "zig;cc");
+    setup_main.setEnvironmentVariable("CC", "zig;cc");
+    setup_main.setEnvironmentVariable("CXX", "zig;cxx");
     setup_main.setName("llvm_setup");
     setup_main.step.dependOn(previous_step);
     // Build main LLVM
@@ -348,7 +355,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
 /// Create a no-op Run step that meets the return type requirements
 /// 'true' is a command that does nothing and returns success
 fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
-    const run_step = b.addSystemCommand(&[_][]const u8{"true"});
+    const run_step = b.addSystemCommand(&[_][]const u8{ "zig", "version" });
     return run_step;
 }
 
@@ -360,35 +367,37 @@ fn hasInternetConnection(b: *std.Build) bool {
 
 /// Generated with "llvm-config --link-static --libs all"
 const LLVM_LIBS = [_][]const u8{
-    "LLVMWindowsManifest",    "LLVMXRay",                 "LLVMLibDriver",
-    "LLVMDlltoolDriver",      "LLVMTextAPIBinaryReader",  "LLVMCoverage",
-    "LLVMLineEditor",         "LLVMSandboxIR",            "LLVMX86TargetMCA",
-    "LLVMX86Disassembler",    "LLVMX86AsmParser",         "LLVMX86CodeGen",
-    "LLVMX86Desc",            "LLVMX86Info",              "LLVMOrcDebugging",
-    "LLVMOrcJIT",             "LLVMWindowsDriver",        "LLVMMCJIT",
-    "LLVMJITLink",            "LLVMInterpreter",          "LLVMExecutionEngine",
-    "LLVMRuntimeDyld",        "LLVMOrcTargetProcess",     "LLVMOrcShared",
-    "LLVMDWP",                "LLVMDebugInfoLogicalView", "LLVMDebugInfoGSYM",
-    "LLVMOption",             "LLVMObjectYAML",           "LLVMObjCopy",
-    "LLVMMCA",                "LLVMMCDisassembler",       "LLVMLTO",
-    "LLVMPasses",             "LLVMHipStdPar",            "LLVMCFGuard",
-    "LLVMCoroutines",         "LLVMipo",                  "LLVMVectorize",
-    "LLVMLinker",             "LLVMInstrumentation",      "LLVMFrontendOpenMP",
-    "LLVMFrontendOffloading", "LLVMFrontendOpenACC",      "LLVMFrontendHLSL",
-    "LLVMFrontendDriver",     "LLVMExtensions",           "LLVMDWARFLinkerParallel",
-    "LLVMDWARFLinkerClassic", "LLVMDWARFLinker",          "LLVMCodeGenData",
-    "LLVMGlobalISel",         "LLVMMIRParser",            "LLVMAsmPrinter",
-    "LLVMSelectionDAG",       "LLVMCodeGen",              "LLVMTarget",
-    "LLVMObjCARCOpts",        "LLVMCodeGenTypes",         "LLVMIRPrinter",
-    "LLVMInterfaceStub",      "LLVMFileCheck",            "LLVMFuzzMutate",
-    "LLVMScalarOpts",         "LLVMInstCombine",          "LLVMAggressiveInstCombine",
-    "LLVMTransformUtils",     "LLVMBitWriter",            "LLVMAnalysis",
-    "LLVMProfileData",        "LLVMSymbolize",            "LLVMDebugInfoBTF",
-    "LLVMDebugInfoPDB",       "LLVMDebugInfoMSF",         "LLVMDebugInfoDWARF",
-    "LLVMObject",             "LLVMTextAPI",              "LLVMMCParser",
-    "LLVMIRReader",           "LLVMAsmParser",            "LLVMMC",
-    "LLVMDebugInfoCodeView",  "LLVMBitReader",            "LLVMFuzzerCLI",
-    "LLVMCore",               "LLVMRemarks",              "LLVMBitstreamReader",
-    "LLVMBinaryFormat",       "LLVMTargetParser",         "LLVMTableGen",
-    "LLVMSupport",            "LLVMDemangle",
+    "LLVMWindowsManifest",    "LLVMXRay",             "LLVMLibDriver",
+    "LLVMDlltoolDriver",      "LLVMTelemetry",        "LLVMTextAPIBinaryReader",
+    "LLVMCoverage",           "LLVMLineEditor",       "LLVMX86TargetMCA",
+    "LLVMX86Disassembler",    "LLVMX86AsmParser",     "LLVMX86CodeGen",
+    "LLVMX86Desc",            "LLVMX86Info",          "LLVMOrcDebugging",
+    "LLVMOrcJIT",             "LLVMWindowsDriver",    "LLVMMCJIT",
+    "LLVMJITLink",            "LLVMInterpreter",      "LLVMExecutionEngine",
+    "LLVMRuntimeDyld",        "LLVMOrcTargetProcess", "LLVMOrcShared",
+    "LLVMDWP",                "LLVMDWARFCFIChecker",  "LLVMDebugInfoLogicalView",
+    "LLVMOption",             "LLVMObjCopy",          "LLVMMCA",
+    "LLVMMCDisassembler",     "LLVMLTO",              "LLVMPasses",
+    "LLVMHipStdPar",          "LLVMCFGuard",          "LLVMCoroutines",
+    "LLVMipo",                "LLVMVectorize",        "LLVMSandboxIR",
+    "LLVMLinker",             "LLVMFrontendOpenMP",   "LLVMFrontendOffloading",
+    "LLVMObjectYAML",         "LLVMFrontendOpenACC",  "LLVMFrontendHLSL",
+    "LLVMFrontendDriver",     "LLVMInstrumentation",  "LLVMFrontendDirective",
+    "LLVMFrontendAtomic",     "LLVMExtensions",       "LLVMDWARFLinkerParallel",
+    "LLVMDWARFLinkerClassic", "LLVMDWARFLinker",      "LLVMGlobalISel",
+    "LLVMMIRParser",          "LLVMAsmPrinter",       "LLVMSelectionDAG",
+    "LLVMCodeGen",            "LLVMTarget",           "LLVMObjCARCOpts",
+    "LLVMCodeGenTypes",       "LLVMCGData",           "LLVMIRPrinter",
+    "LLVMInterfaceStub",      "LLVMFileCheck",        "LLVMFuzzMutate",
+    "LLVMScalarOpts",         "LLVMInstCombine",      "LLVMAggressiveInstCombine",
+    "LLVMTransformUtils",     "LLVMBitWriter",        "LLVMAnalysis",
+    "LLVMProfileData",        "LLVMSymbolize",        "LLVMDebugInfoBTF",
+    "LLVMDebugInfoPDB",       "LLVMDebugInfoMSF",     "LLVMDebugInfoCodeView",
+    "LLVMDebugInfoGSYM",      "LLVMDebugInfoDWARF",   "LLVMDebugInfoDWARFLowLevel",
+    "LLVMObject",             "LLVMTextAPI",          "LLVMMCParser",
+    "LLVMIRReader",           "LLVMAsmParser",        "LLVMMC",
+    "LLVMBitReader",          "LLVMFuzzerCLI",        "LLVMCore",
+    "LLVMRemarks",            "LLVMBitstreamReader",  "LLVMBinaryFormat",
+    "LLVMTargetParser",       "LLVMTableGen",         "LLVMSupport",
+    "LLVMDemangle",
 };
