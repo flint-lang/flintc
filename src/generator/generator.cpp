@@ -108,7 +108,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
     }
-    module->setTargetTriple(target_triple);
+    module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
 
     std::string error;
     const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
@@ -219,7 +219,7 @@ bool Generator::verify_module(const llvm::Module *module) {
         return false;
     } else if (hasErrors) {
         // Optionally print a message indicating only reference "errors" were found
-        std::cout << YELLOW << "[Debug Info] Module verification for module '" << module->getName().str() << "' successful\n" << std::endl;
+        std::cout << YELLOW << "[Debug Info] Module verification for module '" << module->getName().str() << "' successful\n" << DEFAULT << std::endl;
         return true;
     }
     return true;
