@@ -57,6 +57,21 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     );
     builder->SetInsertPoint(entry_block);
 
+#ifdef __WIN32__
+    // Setting the console output to UTF-8 that the tree characters render correctly
+    // SetConsoleOutputCP(CP_UTF8);
+    // CP_UTF8 has the value of 65001 stored in it
+    llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
+        {llvm::Type::getInt32Ty(context)},                                 // UINT
+        false                                                              // No vaargs
+    );
+    llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
+        SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
+    );
+    builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(65001)});
+#endif
+
     // Create the return types of the call of the main function.
     llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "main_ret");
     if (Parser::main_function_has_args) {
