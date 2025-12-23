@@ -41,8 +41,8 @@ if (Test-Path $msvcInstallDir) {
 } else {
     # 2) Download VS Build Tools bootstrapper if missing
     if (-Not (Test-Path $installer)) {
-        Invoke-WebRequest \
-          -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' \
+        Invoke-WebRequest `
+          -Uri 'https://aka.ms/vs/17/release/vs_BuildTools.exe' `
           -OutFile $installer
     }
 
@@ -182,7 +182,7 @@ bool Linker::fetch_crt_libs() {
 #ifdef __WIN32__
         // One or more lib is missing, call the bash script
         if (DEBUG_MODE) {
-            std::cout << YELLOW << "[Debug Info] " << DEFAULT << "One or more crt libraries are missing" << std::endl;
+            std::cout << YELLOW << "[Debug Info] " << "One or more crt libraries are missing" << DEFAULT << std::endl;
         }
         Profiler::start_task("Fetching crt libraries");
         std::filesystem::create_directories(crt_path);
