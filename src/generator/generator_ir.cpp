@@ -13,6 +13,7 @@
 #include "parser/type/variant_type.hpp"
 #include "llvm/IR/Constants.h"
 
+#include <iterator>
 #include <stack>
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
@@ -838,17 +839,23 @@ llvm::Value *Generator::IR::generate_err_value( //
     return err_struct;
 }
 
-void Generator::IR::generate_debug_print( //
-    llvm::IRBuilder<> *builder,           //
-    llvm::Module *module,                 //
-    const std::string &message            //
+void Generator::IR::generate_debug_print(    //
+    llvm::IRBuilder<> *builder,              //
+    llvm::Module *module,                    //
+    const std::string &format,               //
+    const std::vector<llvm::Value *> &values //
 ) {
-    if (!DEBUG_MODE) {
-        return;
-    }
-    llvm::Value *msg_str = generate_const_string(module, "DEBUG: " + message + "\n");
-    llvm::Function *print_fn = c_functions.at(PRINTF);
-    builder->CreateCall(print_fn, {msg_str});
+    llvm::Function *printf_fn = c_functions.at(PRINTF);
+    llvm::Value *debug_str = generate_const_string(module, "DEBUG: ");
+    builder->CreateCall(printf_fn, {debug_str});
+
+    llvm::Value *format_str = generate_const_string(module, format);
+    std::vector<llvm::Value *> args{format_str};
+    args.insert(args.end(), values.begin(), values.end());
+    builder->CreateCall(printf_fn, {args});
+
+    llvm::Value *endl_str = generate_const_string(module, "\n");
+    builder->CreateCall(printf_fn, {endl_str});
 }
 
 llvm::LoadInst *Generator::IR::aligned_load(llvm::IRBuilder<> &builder, llvm::Type *type, llvm::Value *ptr, const std::string &name) {

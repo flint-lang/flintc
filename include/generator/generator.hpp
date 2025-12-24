@@ -515,11 +515,13 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The module in which to generate the debug print
-        /// @param `message` The message to print
-        static void generate_debug_print( //
-            llvm::IRBuilder<> *builder,   //
-            llvm::Module *module,         //
-            const std::string &message    //
+        /// @param `format` The format string for the debug print call
+        /// @param `values` The actual llvm values to print in the debug print
+        static void generate_debug_print(            //
+            llvm::IRBuilder<> *builder,              //
+            llvm::Module *module,                    //
+            const std::string &format,               //
+            const std::vector<llvm::Value *> &values //
         );
 
         /// @function `aligned_load`
