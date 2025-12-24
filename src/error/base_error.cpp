@@ -14,9 +14,10 @@ std::string BaseError::to_string() const {
         oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << "unknown file" << DEFAULT << "\n" << "├┤E0000│\n";
         return oss.str();
     }
-    oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN
-        << std::filesystem::relative(hash.path, std::filesystem::current_path()).string() << ":" << line << ":" << column << DEFAULT
-        << "\n";
+    std::string file_path_string = std::filesystem::relative(hash.path, std::filesystem::current_path()).string();
+    std::replace(file_path_string.begin(), file_path_string.end(), '\\', '/');
+    oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << file_path_string << ":" << line << ":" << column
+        << DEFAULT << "\n";
     if (error_type == ERR_LEXING) {
         // The lines have not been lexed and added to the parser instances yet, so trying to print the lines will cause an exception
         // Instead, we need to do minimal printing, without the file content
