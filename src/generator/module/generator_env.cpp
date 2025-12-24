@@ -171,7 +171,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Value *var_len_ptr = builder->CreateStructGEP(str_type, var_arg, 0, "var_len_ptr");
     llvm::Value *var_len = IR::aligned_load(*builder, builder->getInt64Ty(), var_len_ptr, "var_len");
     llvm::Value *var_len_eq = builder->CreateICmpEQ(c_var_len, var_len, "var_len_eq");
-    builder->CreateCondBr(var_len_eq, name_ok_block, name_fail_block, IR::generate_weights(100, 0));
+    builder->CreateCondBr(var_len_eq, name_ok_block, name_fail_block, IR::generate_weights(100, 1));
 
     // Return an error if the var string contains a null character, throw ErrEnv.InvalidName
     builder->SetInsertPoint(name_fail_block);
@@ -191,7 +191,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::Value *content_len_ptr = builder->CreateStructGEP(str_type, content_arg, 0, "content_len_ptr");
     llvm::Value *content_len = IR::aligned_load(*builder, builder->getInt64Ty(), content_len_ptr, "content_len");
     llvm::Value *content_len_eq = builder->CreateICmpEQ(c_content_len, content_len, "content_len_eq");
-    builder->CreateCondBr(content_len_eq, value_ok_block, value_fail_block, IR::generate_weights(100, 0));
+    builder->CreateCondBr(content_len_eq, value_ok_block, value_fail_block, IR::generate_weights(100, 1));
 
     // Throw Err.InvalidValue if the content string contains a null character
     builder->SetInsertPoint(value_fail_block);
