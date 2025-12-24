@@ -287,7 +287,8 @@ static const inline std::unordered_map<std::string_view, std::vector<error_set>>
         "system",                  // The 'system' module
         {{"ErrSystem", "anyerror", // The 'ErrSystem' error set
             {
-                {"SpawnFailed", "Process could not be created"}, // Value 0
+                {"EmptyCommand", "The provided command was empty"}, // Value 0
+                {"SpawnFailed", "Process could not be created"},    // Value 1
             }}},
     }, // End of the 'system' module
     {

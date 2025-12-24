@@ -8,8 +8,11 @@ void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *bui
     generate_system_command_function(builder, module, only_declarations);
 }
 
-void Generator::Module::System::generate_system_command_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::System::generate_system_command_function( //
+    llvm::IRBuilder<> *builder,                                   //
+    llvm::Module *module,                                         //
+    const bool only_declarations                                  //
+) {
     // THE C IMPLEMENTATION
     // typedef struct {
     //     int exit_code;
@@ -59,8 +62,10 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
 
     const unsigned int ErrSystem = hash.get_type_id_from_str("ErrSystem");
     const std::vector<error_value> &ErrSystemValues = std::get<2>(core_module_error_sets.at("system").at(0));
-    const unsigned int SpawnFailed = 0;
+    const unsigned int EmptyCommand = 0;
+    const unsigned int SpawnFailed = 1;
     const std::string SpawnFailedMessage(ErrSystemValues.at(SpawnFailed).second);
+    const std::string EmptyCommandMessage(ErrSystemValues.at(EmptyCommand).second);
 
     const std::string return_type_str = "(i32, str)";
     std::optional<std::shared_ptr<Type>> result_type_ptr = Type::get_type_from_str(return_type_str);
@@ -93,6 +98,15 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
 
     // Create basic blocks
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", system_fn);
+    llvm::BasicBlock *empty_command_block = llvm::BasicBlock::Create(context, "empty_command", system_fn);
+    llvm::BasicBlock *nonempty_command_block = llvm::BasicBlock::Create(context, "nonempty_command", system_fn);
+#ifdef __WIN32__
+    llvm::BasicBlock *replace_slash_block = llvm::BasicBlock::Create(context, "replace_slash", system_fn);
+    llvm::BasicBlock *is_slash_to_replace_block = llvm::BasicBlock::Create(context, "is_slash_to_replace", system_fn);
+    llvm::BasicBlock *oob_check_block = llvm::BasicBlock::Create(context, "oob_check", system_fn);
+    llvm::BasicBlock *replace_slash_condition_block = llvm::BasicBlock::Create(context, "replace_slash_condition", system_fn);
+    llvm::BasicBlock *replace_slash_merge_block = llvm::BasicBlock::Create(context, "replace_slash_merge", system_fn);
+#endif
     llvm::BasicBlock *pipe_null_block = llvm::BasicBlock::Create(context, "pipe_null", system_fn);
     llvm::BasicBlock *pipe_valid_block = llvm::BasicBlock::Create(context, "pipe_valid", system_fn);
     llvm::BasicBlock *read_loop_header = llvm::BasicBlock::Create(context, "read_loop_header", system_fn);
@@ -120,9 +134,62 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     llvm::Value *output_ptr = builder->CreateStructGEP(function_result_type, result_struct, 2, "output_ptr");
     IR::aligned_store(*builder, empty_str, output_ptr);
 
+    // Check if the command is empty
+    llvm::Value *arg_command_len_ptr = builder->CreateStructGEP(str_type, arg_command, 0, "command_len_ptr");
+    llvm::Value *arg_command_len = IR::aligned_load(*builder, builder->getInt64Ty(), arg_command_len_ptr, "command_len");
+    llvm::Value *is_command_empty = builder->CreateICmpEQ(arg_command_len, builder->getInt64(0), "is_command_empty");
+    builder->CreateCondBr(is_command_empty, empty_command_block, nonempty_command_block);
+
+    // Handle empty command error, throw ErrSystem.EmptyCommand
+    builder->SetInsertPoint(empty_command_block);
+    llvm::Value *err_value_empty = IR::generate_err_value(*builder, module, ErrSystem, EmptyCommand, EmptyCommandMessage);
+    IR::aligned_store(*builder, err_value_empty, error_value_ptr);
+    llvm::Value *result_ret_empty = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
+    builder->CreateRet(result_ret_empty);
+
+    builder->SetInsertPoint(nonempty_command_block);
+    llvm::Value *command_to_use = arg_command;
+#ifdef __WIN32__
+    // Replace all slashes in the command with backslashes as a do-while loop. First copy the argument into the new string value and then
+    // modify that string inplace
+    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::AllocaInst *replace_idx_alloca = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "replace_idx");
+    IR::aligned_store(*builder, builder->getInt64(0), replace_idx_alloca);
+    llvm::Value *arg_command_value_ptr = builder->CreateStructGEP(str_type, arg_command, 1, "command_value_ptr");
+    llvm::Value *command_copy = builder->CreateCall(init_str_fn, {arg_command_value_ptr, arg_command_len}, "command_copy_value");
+    command_to_use = command_copy;
+    llvm::Value *command_copy_value_ptr = builder->CreateStructGEP(str_type, command_copy, 1, "command_copy_value_ptr");
+    builder->CreateBr(replace_slash_block);
+
+    builder->SetInsertPoint(replace_slash_block);
+    llvm::Value *replace_idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), replace_idx_alloca, "replace_idx_value");
+    llvm::Value *curr_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, replace_idx_value, "curr_char_ptr");
+    llvm::Value *curr_char = IR::aligned_load(*builder, builder->getInt8Ty(), curr_char_ptr, "curr_char");
+    llvm::Value *curr_is_slash = builder->CreateICmpEQ(curr_char, builder->getInt8('/'), "curr_is_slash");
+    builder->CreateCondBr(curr_is_slash, is_slash_to_replace_block, oob_check_block);
+
+    builder->SetInsertPoint(is_slash_to_replace_block);
+    IR::aligned_store(*builder, builder->getInt8('\\'), curr_char_ptr);
+    builder->CreateBr(oob_check_block);
+
+    builder->SetInsertPoint(oob_check_block);
+    llvm::Value *next_idx_value = builder->CreateAdd(replace_idx_value, builder->getInt64(1), "next_idx_value");
+    llvm::Value *is_oob = builder->CreateICmpEQ(next_idx_value, arg_command_len, "is_oob");
+    builder->CreateCondBr(is_oob, replace_slash_merge_block, replace_slash_condition_block);
+
+    builder->SetInsertPoint(replace_slash_condition_block);
+    llvm::Value *next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, next_idx_value, "next_char_ptr");
+    llvm::Value *next_char = IR::aligned_load(*builder, builder->getInt8Ty(), next_char_ptr, "next_char");
+    llvm::Value *next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
+    IR::aligned_store(*builder, next_idx_value, replace_idx_alloca);
+    builder->CreateCondBr(next_is_space, replace_slash_merge_block, replace_slash_block);
+
+    builder->SetInsertPoint(replace_slash_merge_block);
+#endif
+
     // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
     llvm::Value *redirect_str = IR::generate_const_string(module, " 2>&1");
-    llvm::Value *full_command = builder->CreateCall(add_str_lit_fn, {arg_command, redirect_str, builder->getInt64(5)}, "full_command");
+    llvm::Value *full_command = builder->CreateCall(add_str_lit_fn, {command_to_use, redirect_str, builder->getInt64(5)}, "full_command");
 
     // Get C string: c_command = (char *)full_command->value
     llvm::Value *c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
@@ -142,6 +209,9 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
 
     // Handle pipe NULL error, throw ErrSystem.SpawnFailed
     builder->SetInsertPoint(pipe_null_block);
+#ifdef __WIN32__
+    builder->CreateCall(free_fn, command_copy);
+#endif
     llvm::Value *output_load_null = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
     llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrSystem, SpawnFailed, SpawnFailedMessage);
@@ -189,11 +259,19 @@ void Generator::Module::System::generate_system_command_function(llvm::IRBuilder
     // Get command exit status: status = pclose(pipe)
     llvm::Value *status = builder->CreateCall(pclose_fn, {pipe}, "status");
     // Extract the low byte: result.exit_code = status & 0xFF
+#ifdef __WIN32__
+    // Raw exit code on Windows
+    llvm::Value *exit_code = status;
+#else
     llvm::Value *shifted_status = builder->CreateLShr(status, builder->getInt32(8), "shifted_status");
     llvm::Value *exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
+#endif
     IR::aligned_store(*builder, exit_code, exit_code_ptr);
 
     // Return the result struct
     llvm::Value *result_ret = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret");
+#ifdef __WIN32__
+    builder->CreateCall(free_fn, command_copy);
+#endif
     builder->CreateRet(result_ret);
 }
