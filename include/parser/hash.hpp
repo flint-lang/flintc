@@ -18,10 +18,10 @@ struct Hash {
     /// This ensures that the same source file produces the same hash regardless of where it's located on the filesystem.
     ///
     /// @param `file_path` The file path to normalize
-    /// @return `std::filesystem::path` The normalized relative path
-    static std::filesystem::path normalize_path_for_hashing(const std::filesystem::path &file_path) {
+    /// @return `std::string` The normalized relative path
+    static std::string normalize_path_for_hashing(const std::filesystem::path &file_path) {
         if (file_path.empty()) {
-            return file_path;
+            return "";
         }
 
         // Convert to absolute path first to handle relative paths correctly
@@ -32,7 +32,8 @@ struct Hash {
         std::filesystem::path rel_path = std::filesystem::relative(abs_path, cwd);
 
         // Normalize to resolve any ".." or "." components
-        return rel_path.lexically_normal();
+        std::string file_path_string = rel_path.lexically_normal().string();
+        return normalize_file_path_string(file_path_string);
     }
 
   public:
@@ -44,7 +45,7 @@ struct Hash {
 
     explicit Hash(const std::filesystem::path &file_path) :
         path(file_path.empty() ? file_path : std::filesystem::absolute(file_path)),
-        value(string_to_hash(normalize_path_for_hashing(file_path).string())) {}
+        value(string_to_hash(normalize_path_for_hashing(file_path))) {}
 
     /// @var `path`
     /// @brief The path this hash was used to be generated from
@@ -53,6 +54,18 @@ struct Hash {
     /// @var `value`
     /// @brief The hash value
     std::array<char, 8> value{'0'};
+
+    /// @function `normalize_file_path_string`
+    /// @brief Normalizes the string of any file path, replacing all potential occurrences of `\\` (for example on Windows) with `/` to make
+    /// the path-strings platform-agnostic and produce the same hashes
+    ///
+    /// @param `file_path_string` The file path string to normalize
+    /// @return `std::string` The normalized file path string
+    static std::string normalize_file_path_string(const std::string &file_path_string) {
+        std::string local_cpy = file_path_string;
+        std::replace(local_cpy.begin(), local_cpy.end(), '\\', '/');
+        return local_cpy;
+    }
 
     /// @function `string_to_hash`
     /// @brief Uses the `fip_create_hash` function implementation to create a 8-character hash from any given string input. The character

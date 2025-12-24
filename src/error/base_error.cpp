@@ -1,6 +1,7 @@
 #include "error/error_types/base_error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/lexer_utils.hpp"
+#include "parser/hash.hpp"
 #include "parser/parser.hpp"
 
 #include <algorithm>
@@ -15,7 +16,7 @@ std::string BaseError::to_string() const {
         return oss.str();
     }
     std::string file_path_string = std::filesystem::relative(hash.path, std::filesystem::current_path()).string();
-    std::replace(file_path_string.begin(), file_path_string.end(), '\\', '/');
+    file_path_string = Hash::normalize_file_path_string(file_path_string);
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << file_path_string << ":" << line << ":" << column
         << DEFAULT << "\n";
     if (error_type == ERR_LEXING) {
