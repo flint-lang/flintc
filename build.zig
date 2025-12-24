@@ -36,7 +36,7 @@ pub fn build(b: *std.Build) !void {
 
 fn buildFlintc(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, previous_step: *std.Build.Step) !void {
     const exe = b.addExecutable(.{
-        .name = "flintc",
+        .name = if (optimize == .Debug) "flintc-debug" else "flintc",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
