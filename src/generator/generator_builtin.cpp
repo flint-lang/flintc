@@ -525,7 +525,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },                                                  //
             false                                               // No vaarg
         );
-        llvm::Function *popen_fn = llvm::Function::Create(popen_type, llvm::Function::ExternalLinkage, "popen", module);
+        llvm::Function *popen_fn = llvm::Function::Create(popen_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_popen",
+#else
+            "popen",
+#endif
+            module);
         c_functions[POPEN] = popen_fn;
     }
     // pclose
@@ -535,7 +541,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
             false                                                  // No vaarg
         );
-        llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage, "pclose", module);
+        llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_pclose",
+#else
+            "pclose",
+#endif
+            module);
         c_functions[PCLOSE] = pclose_fn;
     }
     // sin
