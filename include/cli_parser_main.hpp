@@ -35,7 +35,7 @@ class CLIParserMain : public CLIParserBase {
                     switch (arg[j]) {
                         case 'h':
                             print_help();
-                            return 1;
+                            std::exit(0);
                         case 'f':
                             if (j + 1 < arg.length()) {
                                 std::cerr << "Expected the 'f' to be the last single-element argument in the argument '" << arg << "'!\n";
@@ -79,7 +79,7 @@ class CLIParserMain : public CLIParserBase {
             }
             if (arg == "--help") {
                 print_help();
-                return 1;
+                std::exit(0);
             } else if (arg == "--print-libbuiltins-path") {
                 std::cout << Generator::get_flintc_cache_path().string() << std::endl;
                 return 1;
