@@ -1,16 +1,9 @@
 use Core.print
 
-error ErrArithmetic:
-	ErrZeroDivision;
-
-def div(i32 x, i32 y) -> i32:
-	if y == 0:
-		throw ErrArithmetic.ErrZeroDivision($"Tried to divide {x} by 0!");
-	return x / y;
-
 def main():
-	div(10, 0) catch err:
-		// 'err' is actually of type 'anyerror' now because there are no other types in the variant
-		// A 'variant<anyerror>' is just a 'anyerror'
-		print($"Caught error '{err}': \"{err.message}\"\n");
-		throw err;
+    i32[,] arr = i32[5, 6](0);
+    arr[3, 3] = 5;
+    i32[] slice = arr[3, 2..4];
+    print($"slice.len = {slice.len}\n");
+    for (i, elem) in slice:
+        print($"slice[i] = {elem}\n");

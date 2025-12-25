@@ -122,7 +122,11 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
         {
             {"system_command", // The 'system_command' function
                 {
-                    {{{"str", "command"}}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system' function
+                    {{{"str", "command"}}, {"i32", "str"}, {"ErrSystem"}}, // The single version of the 'system_command' function
+                }},
+            {"get_cwd", // The 'get_cwd' function
+                {
+                    {{{}}, {"str"}, {}}, // The single version of the 'get_cwd' function
                 }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
