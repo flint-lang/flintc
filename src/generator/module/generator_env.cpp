@@ -5,6 +5,9 @@ static const std::string hash_str = hash.to_string();
 
 void Generator::Module::Env::generate_env_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_get_env_function(builder, module, only_declarations);
+#ifdef __WIN32__
+    generate_setenv_function(builder, module, only_declarations);
+#endif
     generate_set_env_function(builder, module, only_declarations);
 }
 
@@ -99,6 +102,92 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     builder->CreateRet(ret_success_val);
 }
 
+#ifdef __WIN32__
+void Generator::Module::Env::generate_setenv_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // int setenv(const char *env_var, const char *content, const bool overwrite) {
+    //     size_t envsize = 0;
+    //     getenv_s(&envsize, NULL, 0, env_var);
+    //     if (!overwrite && envsize > 0) {
+    //         return 0;
+    //     }
+    //     return _putenv_s(env_var, content);
+    // }
+    llvm::FunctionType *getenv_s_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                         // return i32
+        {
+            llvm::Type::getInt64Ty(context)->getPointerTo(), // size_t* _ReturnSize
+            llvm::Type::getInt8Ty(context)->getPointerTo(),  // char* _DstBuf
+            llvm::Type::getInt64Ty(context),                 // rsize_t _DstSize
+            llvm::Type::getInt8Ty(context)->getPointerTo()   // char* _VarName
+        },                                                   //
+        false                                                // No vaarg
+    );
+    llvm::Function *getenv_s_fn = llvm::Function::Create(getenv_s_type, llvm::Function::ExternalLinkage, "getenv_s", module);
+
+    llvm::FunctionType *_putenv_s_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                          // return i32
+        {
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* _Name
+            llvm::Type::getInt8Ty(context)->getPointerTo()  // char* _Value
+        },                                                  //
+        false                                               // No vaarg
+    );
+    llvm::Function *_putenv_s_fn = llvm::Function::Create(_putenv_s_type, llvm::Function::ExternalLinkage, "_putenv_s", module);
+
+    llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                       // return i32
+        {
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* env_var
+            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* content
+            llvm::Type::getInt32Ty(context)                 // int overwrite
+        },
+        false // No vaarg
+    );
+    llvm::Function *setenv_fn = llvm::Function::Create( //
+        setenv_type,                                    //
+        llvm::Function::ExternalLinkage,                //
+        hash_str + ".setenv",                           //
+        module                                          //
+    );
+    env_functions["setenv"] = setenv_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the parameters
+    llvm::Argument *arg_env_var = setenv_fn->arg_begin();
+    arg_env_var->setName("env_var");
+    llvm::Argument *arg_content = setenv_fn->arg_begin() + 1;
+    arg_content->setName("content");
+    llvm::Argument *arg_overwrite = setenv_fn->arg_begin() + 2;
+    arg_overwrite->setName("overwrite");
+
+    // Create basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", setenv_fn);
+    llvm::BasicBlock *noop_block = llvm::BasicBlock::Create(context, "noop", setenv_fn);
+    llvm::BasicBlock *putenv_block = llvm::BasicBlock::Create(context, "putenv", setenv_fn);
+
+    builder->SetInsertPoint(entry_block);
+    llvm::AllocaInst *envsize = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "envsize");
+    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo());
+    builder->CreateCall(getenv_s_fn, {envsize, nullpointer, builder->getInt64(0), arg_env_var});
+    llvm::Value *envsize_value = IR::aligned_load(*builder, builder->getInt64Ty(), envsize);
+    llvm::Value *envsize_gt_0 = builder->CreateICmpSGT(envsize_value, builder->getInt64(0), "envsize_gt_0");
+    llvm::Value *overwrite_as_bool = builder->CreateTrunc(arg_overwrite, builder->getInt1Ty(), "overwrite_as_bool");
+    llvm::Value *not_overwrite = builder->CreateNot(overwrite_as_bool, "not_overwrite");
+    llvm::Value *do_noop = builder->CreateAnd(not_overwrite, envsize_gt_0, "do_noop");
+    builder->CreateCondBr(do_noop, noop_block, putenv_block);
+
+    builder->SetInsertPoint(noop_block);
+    builder->CreateRet(builder->getInt32(0));
+
+    builder->SetInsertPoint(putenv_block);
+    llvm::Value *_putenv_s_result = builder->CreateCall(_putenv_s_fn, {arg_env_var, arg_content}, "_putenv_s_result");
+    builder->CreateRet(_putenv_s_result);
+}
+#endif
+
 void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // bool set_env(const str *var, const str *content, const bool overwrite) {
@@ -119,7 +208,11 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     return true;
     // }
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+#ifdef __WIN32__
+    llvm::Function *setenv_fn = env_functions.at("setenv");
+#else
     llvm::Function *setenv_fn = c_functions.at(SETENV);
+#endif
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
 
     const unsigned int ErrEnv = hash.get_type_id_from_str("ErrEnv");

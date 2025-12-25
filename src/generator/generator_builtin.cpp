@@ -501,6 +501,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *getenv_fn = llvm::Function::Create(getenv_type, llvm::Function::ExternalLinkage, "getenv", module);
         c_functions[GETENV] = getenv_fn;
     }
+#ifndef __WIN32__
     // setenv
     {
         llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
@@ -515,6 +516,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
         c_functions[SETENV] = setenv_fn;
     }
+#endif
     // popen
     {
         llvm::FunctionType *popen_type = llvm::FunctionType::get( //
