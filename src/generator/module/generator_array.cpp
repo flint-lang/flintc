@@ -1706,7 +1706,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //     for (size_t chunk = 0; chunk < num_chunks; chunk++) {
     //         if (chunk > 0) {
     //             size_t start_dim = (size_t)is_first_range;
-    //             for (size_t i = src_dimensionality - 1; i >= start_dim && carry; i--) {
+    //             for (size_t i = src_dimensionality - 1; i >= start_dim; i--) {
     //                 const size_t from = ranges[i * 2];
     //                 const size_t to = ranges[i * 2 + 1];
     //                 if (from != to) {
@@ -1852,8 +1852,12 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_merge", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_index_loop_action_block =
         llvm::BasicBlock::Create(context, "chunk_loop_index_loop_action", get_arr_slice_fn);
+    llvm::BasicBlock *const chunk_loop_index_loop_init_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_init", get_arr_slice_fn);
     //     }
     //     for (size_t i = 0; i < src_dimensionality; i++) {
+    llvm::BasicBlock *const chunk_loop_offset_loop_init_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_init", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_offset_loop_cond_block =
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_cond", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_offset_loop_body_block =
@@ -2179,19 +2183,23 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         // Check if chunk > 0 before incrementing indices
         llvm::Value *chunk_val_check = IR::aligned_load(*builder, i64_ty, chunk, "chunk_val_check");
         llvm::Value *chunk_gt_0 = builder->CreateICmpUGT(chunk_val_check, builder->getInt64(0), "chunk_gt_0");
-        builder->CreateCondBr(chunk_gt_0, chunk_loop_index_loop_cond_block, chunk_loop_offset_loop_cond_block);
+        builder->CreateCondBr(chunk_gt_0, chunk_loop_index_loop_init_block, chunk_loop_offset_loop_init_block);
+
         // for (size_t i = src_dimensionality - 1; i >= start_dim; i--) { (index increment loop)
         {
+            // INITIALIZATION Block (only run once when chunk > 0)
+            builder->SetInsertPoint(chunk_loop_index_loop_init_block);
+            llvm::Value *src_dimensionality_m1 = builder->CreateSub(src_dimensionality, builder->getInt64(1), "src_dimensionality_m1");
+            IR::aligned_store(*builder, src_dimensionality_m1, i);
+            builder->CreateBr(chunk_loop_index_loop_cond_block);
+
             // CONDITION Block
             builder->SetInsertPoint(chunk_loop_index_loop_cond_block);
             // Calculate start_dim inside the loop
             llvm::Value *start_dim = builder->CreateZExt(is_first_range, i64_ty, "start_dim");
-            llvm::Value *src_dimensionality_m1 = builder->CreateSub(src_dimensionality, builder->getInt64(1), "src_dimensionality_m1");
-
-            IR::aligned_store(*builder, src_dimensionality_m1, i);
             llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
             llvm::Value *i_ge_start_dim = builder->CreateICmpUGE(i_val, start_dim, "i_ge_start_dim");
-            builder->CreateCondBr(i_ge_start_dim, chunk_loop_index_loop_body_block, chunk_loop_offset_loop_cond_block);
+            builder->CreateCondBr(i_ge_start_dim, chunk_loop_index_loop_body_block, chunk_loop_offset_loop_init_block);
 
             // BODY Block
             builder->SetInsertPoint(chunk_loop_index_loop_body_block);
@@ -2216,7 +2224,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
                 // if (current_indices[i] < to) {
                 {
                     builder->SetInsertPoint(chunk_loop_index_loop_is_range_is_past);
-                    builder->CreateBr(chunk_loop_offset_loop_cond_block);
+                    builder->CreateBr(chunk_loop_offset_loop_init_block);
                 }
 
                 // } else {
@@ -2236,10 +2244,14 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
 
         // for (size_t i = 0; i < src_dimensionality; i++) {
         {
-            // CONDITION Block
-            builder->SetInsertPoint(chunk_loop_offset_loop_cond_block);
+            // INITIALIZATION Block (only run once per chunk)
+            builder->SetInsertPoint(chunk_loop_offset_loop_init_block);
             IR::aligned_store(*builder, builder->getInt64(0), i);
             IR::aligned_store(*builder, builder->getInt64(0), src_offset);
+            builder->CreateBr(chunk_loop_offset_loop_cond_block);
+
+            // CONDITION Block (no longer resets variables)
+            builder->SetInsertPoint(chunk_loop_offset_loop_cond_block);
             llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
             llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
             builder->CreateCondBr(i_lt_src_dimensionality, chunk_loop_offset_loop_body_block, chunk_loop_offset_loop_merge_block);
