@@ -6,6 +6,7 @@ static const std::string hash_str = hash.to_string();
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_system_command_function(builder, module, only_declarations);
+    generate_get_cwd_function(builder, module, only_declarations);
 }
 
 void Generator::Module::System::generate_system_command_function( //
@@ -274,4 +275,60 @@ void Generator::Module::System::generate_system_command_function( //
     builder->CreateCall(free_fn, command_copy);
 #endif
     builder->CreateRet(result_ret);
+}
+
+void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // str *get_cwd() {
+    //     // Maximum path length (PATH_MAX is POSIX, MAX_PATH is Windows)
+    //     char buffer[PATH_MAX];
+    // #ifdef __WIN32__
+    //     if (_getcwd(buffer, sizeof(buffer)) == NULL) {
+    // #else
+    //     if (getcwd(buffer, sizeof(buffer)) == NULL) {
+    // #endif
+    //         // Could not get cwd, return empty string or handle error as needed
+    //         return create_str(0);
+    //     }
+    //     return init_str(buffer, strlen(buffer));
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *getcwd_fn = c_functions.at(GETCWD);
+    llvm::Function *strlen_fn = c_functions.at(STRLEN);
+    llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+
+    llvm::FunctionType *get_cwd_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::Function *get_cwd_fn = llvm::Function::Create( //
+        get_cwd_type,                                    //
+        llvm::Function::ExternalLinkage,                 //
+        hash_str + ".get_cwd",                           //
+        module                                           //
+    );
+    system_functions["get_cwd"] = get_cwd_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create the basic blocks for the function
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", get_cwd_fn);
+    llvm::BasicBlock *const getcwd_fail_block = llvm::BasicBlock::Create(context, "getcwd_fail", get_cwd_fn);
+    llvm::BasicBlock *const getcwd_ok_block = llvm::BasicBlock::Create(context, "getcwd_ok", get_cwd_fn);
+
+    // Allocate the buffer on the stack
+    builder->SetInsertPoint(entry_block);
+    llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
+    llvm::Value *getcwd_result = builder->CreateCall(getcwd_fn, {buffer, builder->getInt32(256)}, "getcwd_result");
+    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo());
+    llvm::Value *getcwd_failed = builder->CreateICmpEQ(getcwd_result, nullpointer, "getcwd_failed");
+    builder->CreateCondBr(getcwd_failed, getcwd_fail_block, getcwd_ok_block);
+
+    builder->SetInsertPoint(getcwd_fail_block);
+    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
+    builder->CreateRet(empty_str);
+
+    builder->SetInsertPoint(getcwd_ok_block);
+    llvm::Value *cwd_str_len = builder->CreateCall(strlen_fn, {buffer}, "cwd_str_len");
+    llvm::Value *cwd_str = builder->CreateCall(init_str_fn, {buffer, cwd_str_len}, "cwd_str");
+    builder->CreateRet(cwd_str);
 }

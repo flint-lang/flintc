@@ -550,6 +550,25 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             module);
         c_functions[PCLOSE] = pclose_fn;
     }
+    // getcwd
+    {
+        llvm::FunctionType *getcwd_type = llvm::FunctionType::get( //
+            llvm::Type::getInt8Ty(context)->getPointerTo(),        // return char*
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* _DstBuf
+                llvm::Type::getInt32Ty(context)                 // i32 _SizeInBytes
+            },
+            false // No vaarg
+        );
+        llvm::Function *getcwd_fn = llvm::Function::Create(getcwd_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_getcwd",
+#else
+            "getcwd",
+#endif
+            module);
+        c_functions[GETCWD] = getcwd_fn;
+    }
     // sin
     {
         llvm::FunctionType *sin_type = llvm::FunctionType::get( //
