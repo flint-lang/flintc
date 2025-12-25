@@ -1861,8 +1861,6 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::BasicBlock *const chunk_loop_offset_loop_action_block =
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_action", get_arr_slice_fn);
     //     }
-    llvm::BasicBlock *const chunk_loop_index_loop_merge_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_merge", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_action_block = llvm::BasicBlock::Create(context, "chunk_loop_action", get_arr_slice_fn);
     // }
     llvm::BasicBlock *const chunk_loop_merge_block = llvm::BasicBlock::Create(context, "chunk_loop_merge", get_arr_slice_fn);
