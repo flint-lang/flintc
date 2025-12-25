@@ -725,7 +725,9 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[FGETS] = module->getFunction("fgets");
     c_functions[FWRITE] = module->getFunction("fwrite");
     c_functions[GETENV] = module->getFunction("getenv");
+#ifndef __WIN32__
     c_functions[SETENV] = module->getFunction("setenv");
+#endif
     c_functions[POPEN] = module->getFunction("popen");
     c_functions[PCLOSE] = module->getFunction("pclose");
     c_functions[SIN] = module->getFunction("sin");

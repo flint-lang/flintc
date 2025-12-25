@@ -169,7 +169,9 @@ class Generator {
         {CFunction::FGETS, nullptr},
         {CFunction::FWRITE, nullptr},
         {CFunction::GETENV, nullptr},
+#ifndef __WIN32__
         {CFunction::SETENV, nullptr},
+#endif
         {CFunction::POPEN, nullptr},
         {CFunction::PCLOSE, nullptr},
         {CFunction::SIN, nullptr},
