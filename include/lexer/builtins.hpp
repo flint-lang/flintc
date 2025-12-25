@@ -126,7 +126,7 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 }},
             {"get_cwd", // The 'get_cwd' function
                 {
-                    {{{}}, {"str"}, {}}, // The single version of the 'get_cwd' function
+                    {{}, {"str"}, {}}, // The single version of the 'get_cwd' function
                 }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
@@ -376,6 +376,7 @@ enum CFunction {
     SETENV,
     POPEN,
     PCLOSE,
+    GETCWD,
     SIN,
     SINF,
     COS,
