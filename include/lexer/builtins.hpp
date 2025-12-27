@@ -128,6 +128,10 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{}, {"str"}, {}}, // The single version of the 'get_cwd' function
                 }},
+            {"get_path", // The 'get_path' function
+                {
+                    {{{"str", "path"}}, {"str"}, {}}, // The single version of the 'get_path' function
+                }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
         {

@@ -1,19 +1,9 @@
 use Core.print
 use Core.system
-use Core.env
 
 def main():
     str cwd = get_cwd();
     print($"cwd = {cwd}\n");
-    str APPDATA = get_env("APPDATA");
-    print($"APPDATA = {APPDATA}\n");
-
-    print("\nset_env(\"APPDATA\", \"wololo\", false)\n");
-    set_env("APPDATA", "wololo", false);
-    APPDATA = get_env("APPDATA");
-    print($"new APPDATA: {APPDATA}\n");
-
-    print("\nset_env(\"APPDATA\", \"wololo\", true)\n");
-    set_env("APPDATA", "wololo", true);
-    APPDATA = get_env("APPDATA");
-    print($"new APPDATA: {APPDATA}\n");
+    print($"calling get_path(\"{cwd}/zig-out/bin/flintc\")\n");
+    str newpath = get_path($"{cwd}/zig-out/bin/flintc");
+    print($"cwd/zig-out/bin/flintc = {newpath}\n");

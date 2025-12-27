@@ -7,6 +7,7 @@ static const std::string hash_str = hash.to_string();
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_system_command_function(builder, module, only_declarations);
     generate_get_cwd_function(builder, module, only_declarations);
+    generate_get_path_function(builder, module, only_declarations);
 }
 
 void Generator::Module::System::generate_system_command_function( //
@@ -331,4 +332,307 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     llvm::Value *cwd_str_len = builder->CreateCall(strlen_fn, {buffer}, "cwd_str_len");
     llvm::Value *cwd_str = builder->CreateCall(init_str_fn, {buffer, cwd_str_len}, "cwd_str");
     builder->CreateRet(cwd_str);
+}
+
+void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION [Linux]:
+    // #define BUFFER_SIZE 256
+    // str *get_path(const str *path) {
+    //     char buffer[BUFFER_SIZE];
+    //     size_t buffer_len = 0;
+    //     const size_t path_len = path->len;
+    //     if (path_len >= BUFFER_SIZE) {
+    //         return create_str(0);
+    //     }
+    //     for (size_t i = 0; i < path_len; i++) {
+    //         char ci = path->value[i];
+    //         if (ci != '\\') {
+    //             buffer[buffer_len++] = ci;
+    //             continue;
+    //         }
+    //         // Check if the next character is a space, if not change the path to be a '/'
+    //         if (i + 1 == path_len || path->value[i + 1] != ' ') {
+    //             buffer[buffer_len++] = '/';
+    //         } else {
+    //             buffer[buffer_len++] = '\\';
+    //         }
+    //     }
+    //     return init_str(buffer, buffer_len);
+    // }
+    //
+    // THE C IMPLEMENTATION [Windows]:
+    // str *get_path(const str *path) {
+    //     char buffer[BUFFER_SIZE];
+    //     size_t buffer_len = 0;
+    //     const size_t path_len = path->len;
+    //     if (path_len >= BUFFER_SIZE) {
+    //         return create_str(0);
+    //     }
+    //     bool path_contains_space = false;
+    //     for (size_t i = 0; i < path_len; i++) {
+    //         char ci = path->value[i];
+    //         if (ci == '\\' && i + 1 < path_len && path->value[i + 1] == ' ') {
+    //             // If the next character is a space, replace the two characters with a single space and
+    //             // set the 'path_contains_space' value to true
+    //             buffer[buffer_len++] = ' ';
+    //             i++;
+    //             path_contains_space = true;
+    //             continue;
+    //         }
+    //         if (ci == '/') {
+    //             buffer[buffer_len++] = '\\';
+    //             continue;
+    //         } else if (ci == ' ') {
+    //             path_contains_space = true;
+    //         }
+    //         buffer[buffer_len++] = ci;
+    //     }
+    //     if (path_contains_space) {
+    //         if (buffer_len + 2 >= BUFFER_SIZE) {
+    //             return create_str(0);
+    //         }
+    //         memmove(buffer + 1, buffer, buffer_len);
+    //         buffer[0] = '"';
+    //         buffer[buffer_len + 1] = '"';
+    //         buffer_len += 2;
+    //     }
+    //     return init_str(buffer, buffer_len);
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
+    llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
+    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+
+    llvm::FunctionType *get_path_type = llvm::FunctionType::get(str_type->getPointerTo(), {str_type->getPointerTo()}, false);
+    llvm::Function *get_path_fn = llvm::Function::Create(get_path_type, llvm::Function::ExternalLinkage, hash_str + ".get_path", module);
+    system_functions["get_path"] = get_path_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the path parameter
+    llvm::Value *path_param = get_path_fn->arg_begin();
+    path_param->setName("path");
+
+    // Create all basic blocks at the top
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_path_fn);
+    llvm::BasicBlock *size_fail_block = llvm::BasicBlock::Create(context, "size_fail", get_path_fn);
+    llvm::BasicBlock *loop_init_block = llvm::BasicBlock::Create(context, "loop_init", get_path_fn);
+    llvm::BasicBlock *loop_cond_block = llvm::BasicBlock::Create(context, "loop_cond", get_path_fn);
+    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", get_path_fn);
+    llvm::BasicBlock *post_loop_block = llvm::BasicBlock::Create(context, "post_loop", get_path_fn);
+#ifdef __WIN32__
+    llvm::BasicBlock *check_next_space_block = llvm::BasicBlock::Create(context, "check_next_space", get_path_fn);
+    llvm::BasicBlock *not_backslash_space_block = llvm::BasicBlock::Create(context, "not_backslash_space", get_path_fn);
+    llvm::BasicBlock *windows_special_case_block = llvm::BasicBlock::Create(context, "windows_special_case", get_path_fn);
+    llvm::BasicBlock *handle_slash_block = llvm::BasicBlock::Create(context, "handle_slash", get_path_fn);
+    llvm::BasicBlock *handle_space_or_other_block = llvm::BasicBlock::Create(context, "handle_space_or_other", get_path_fn);
+    llvm::BasicBlock *set_space_flag_block = llvm::BasicBlock::Create(context, "set_space_flag", get_path_fn);
+    llvm::BasicBlock *store_normal_block = llvm::BasicBlock::Create(context, "store_normal", get_path_fn);
+    llvm::BasicBlock *add_quotes_block = llvm::BasicBlock::Create(context, "add_quotes", get_path_fn);
+    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", get_path_fn);
+    llvm::BasicBlock *quote_fail_block = llvm::BasicBlock::Create(context, "quote_fail", get_path_fn);
+    llvm::BasicBlock *quote_ok_block = llvm::BasicBlock::Create(context, "quote_ok", get_path_fn);
+#else
+    llvm::BasicBlock *check_backslash_space_block = llvm::BasicBlock::Create(context, "check_backslash_space", get_path_fn);
+    llvm::BasicBlock *handle_other_block = llvm::BasicBlock::Create(context, "handle_other", get_path_fn);
+    llvm::BasicBlock *convert_or_keep_block = llvm::BasicBlock::Create(context, "convert_or_keep", get_path_fn);
+    llvm::BasicBlock *convert_to_slash_block = llvm::BasicBlock::Create(context, "convert_to_slash", get_path_fn);
+    llvm::BasicBlock *keep_backslash_block = llvm::BasicBlock::Create(context, "keep_backslash", get_path_fn);
+#endif
+
+    // Entry block: Allocate variables and check path length
+    builder->SetInsertPoint(entry_block);
+    llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
+    llvm::AllocaInst *buffer_len = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "buffer_len");
+    llvm::AllocaInst *i_var = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
+    llvm::AllocaInst *path_contains_space = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "path_contains_space");
+
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, path_param, 0, "len_ptr");
+    llvm::Value *path_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "path_len");
+
+    llvm::Value *size_check = builder->CreateICmpUGE(path_len, builder->getInt64(256), "size_check");
+    builder->CreateCondBr(size_check, size_fail_block, loop_init_block);
+
+    // Size fail: Return empty string
+    builder->SetInsertPoint(size_fail_block);
+    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
+    builder->CreateRet(empty_str);
+
+    // Loop init: Initialize variables
+    builder->SetInsertPoint(loop_init_block);
+    builder->CreateStore(builder->getInt64(0), buffer_len);
+    builder->CreateStore(builder->getInt64(0), i_var);
+    builder->CreateStore(builder->getInt1(false), path_contains_space);
+    builder->CreateBr(loop_cond_block);
+
+    // Loop cond: Check i < path_len
+    builder->SetInsertPoint(loop_cond_block);
+    llvm::Value *i_val = builder->CreateLoad(builder->getInt64Ty(), i_var, "i_val");
+    llvm::Value *cond = builder->CreateICmpULT(i_val, path_len, "cond");
+    builder->CreateCondBr(cond, loop_body_block, post_loop_block);
+
+    // Loop body: Load current char
+    builder->SetInsertPoint(loop_body_block);
+    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, path_param, 1, "value_ptr");
+    llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {i_val}, "char_ptr");
+    llvm::Value *ci = builder->CreateLoad(builder->getInt8Ty(), char_ptr, "ci");
+
+#ifdef __WIN32__
+    // Windows: Check for backslash followed by space
+    llvm::Value *is_backslash = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash");
+    llvm::Value *next_i = builder->CreateAdd(i_val, builder->getInt64(1), "next_i");
+    llvm::Value *has_next = builder->CreateICmpULT(next_i, path_len, "has_next");
+    llvm::Value *next_i_valid = builder->CreateAnd(is_backslash, has_next, "next_i_valid");
+    builder->CreateCondBr(next_i_valid, check_next_space_block, not_backslash_space_block);
+
+    // Check next space
+    builder->SetInsertPoint(check_next_space_block);
+    llvm::Value *next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i}, "next_char_ptr");
+    llvm::Value *next_char = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr, "next_char");
+    llvm::Value *next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
+    builder->CreateCondBr(next_is_space, windows_special_case_block, not_backslash_space_block);
+
+    // Windows special case
+    builder->SetInsertPoint(windows_special_case_block);
+    llvm::Value *buf_len_sc = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_sc");
+    llvm::Value *buf_ptr_sc = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_sc}, "buf_ptr_sc");
+    builder->CreateStore(builder->getInt8(' '), buf_ptr_sc);
+    llvm::Value *new_buf_len_sc = builder->CreateAdd(buf_len_sc, builder->getInt64(1), "new_buf_len_sc");
+    builder->CreateStore(new_buf_len_sc, buffer_len);
+    llvm::Value *new_i_sc = builder->CreateAdd(i_val, builder->getInt64(2), "new_i_sc");
+    builder->CreateStore(new_i_sc, i_var);
+    builder->CreateStore(builder->getInt1(true), path_contains_space);
+    builder->CreateBr(loop_cond_block);
+
+    // Not backslash space: Check for forward slash
+    builder->SetInsertPoint(not_backslash_space_block);
+    llvm::Value *is_forward_slash = builder->CreateICmpEQ(ci, builder->getInt8('/'), "is_forward_slash");
+    builder->CreateCondBr(is_forward_slash, handle_slash_block, handle_space_or_other_block);
+
+    // Handle slash
+    builder->SetInsertPoint(handle_slash_block);
+    llvm::Value *buf_len_slash = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_slash");
+    llvm::Value *buf_ptr_slash = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_slash}, "buf_ptr_slash");
+    builder->CreateStore(builder->getInt8('\\'), buf_ptr_slash);
+    llvm::Value *new_buf_len_slash = builder->CreateAdd(buf_len_slash, builder->getInt64(1), "new_buf_len_slash");
+    builder->CreateStore(new_buf_len_slash, buffer_len);
+    llvm::Value *new_i_slash = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_slash");
+    builder->CreateStore(new_i_slash, i_var);
+    builder->CreateBr(loop_cond_block);
+
+    // Handle space or other
+    builder->SetInsertPoint(handle_space_or_other_block);
+    llvm::Value *is_space = builder->CreateICmpEQ(ci, builder->getInt8(' '), "is_space");
+    builder->CreateCondBr(is_space, set_space_flag_block, store_normal_block);
+
+    // Set space flag
+    builder->SetInsertPoint(set_space_flag_block);
+    builder->CreateStore(builder->getInt1(true), path_contains_space);
+    builder->CreateBr(store_normal_block);
+
+    // Store normal
+    builder->SetInsertPoint(store_normal_block);
+    llvm::Value *buf_len_normal = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_normal");
+    llvm::Value *buf_ptr_normal = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_normal}, "buf_ptr_normal");
+    builder->CreateStore(ci, buf_ptr_normal);
+    llvm::Value *new_buf_len_normal = builder->CreateAdd(buf_len_normal, builder->getInt64(1), "new_buf_len_normal");
+    builder->CreateStore(new_buf_len_normal, buffer_len);
+    llvm::Value *new_i_normal = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_normal");
+    builder->CreateStore(new_i_normal, i_var);
+    builder->CreateBr(loop_cond_block);
+#else
+    // Linux: Check for backslash
+    llvm::Value *is_backslash_linux = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash_linux");
+    builder->CreateCondBr(is_backslash_linux, check_backslash_space_block, handle_other_block);
+
+    // Check backslash space
+    builder->SetInsertPoint(check_backslash_space_block);
+    llvm::Value *next_i_linux = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_linux");
+    llvm::Value *is_last = builder->CreateICmpEQ(next_i_linux, path_len, "is_last");
+    // Note: Original had redundant condBr to same label; simplified to unconditional br
+    builder->CreateBr(convert_or_keep_block);
+
+    // Convert or keep
+    builder->SetInsertPoint(convert_or_keep_block);
+    llvm::Value *next_char_ptr_linux = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i_linux}, "next_char_ptr_linux");
+    llvm::Value *next_char_linux = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr_linux, "next_char_linux");
+    llvm::Value *next_is_space_linux = builder->CreateICmpEQ(next_char_linux, builder->getInt8(' '), "next_is_space_linux");
+    llvm::Value *should_convert = builder->CreateNot(next_is_space_linux, "should_convert");
+    builder->CreateCondBr(should_convert, convert_to_slash_block, keep_backslash_block);
+
+    // Convert to slash
+    builder->SetInsertPoint(convert_to_slash_block);
+    llvm::Value *buf_len_convert = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_convert");
+    llvm::Value *buf_ptr_convert = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_convert}, "buf_ptr_convert");
+    builder->CreateStore(builder->getInt8('/'), buf_ptr_convert);
+    llvm::Value *new_buf_len_convert = builder->CreateAdd(buf_len_convert, builder->getInt64(1), "new_buf_len_convert");
+    builder->CreateStore(new_buf_len_convert, buffer_len);
+    llvm::Value *new_i_convert = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_convert");
+    builder->CreateStore(new_i_convert, i_var);
+    builder->CreateBr(loop_cond_block);
+
+    // Keep backslash
+    builder->SetInsertPoint(keep_backslash_block);
+    llvm::Value *buf_len_keep = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_keep");
+    llvm::Value *buf_ptr_keep = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_keep}, "buf_ptr_keep");
+    builder->CreateStore(builder->getInt8('\\'), buf_ptr_keep);
+    llvm::Value *new_buf_len_keep = builder->CreateAdd(buf_len_keep, builder->getInt64(1), "new_buf_len_keep");
+    builder->CreateStore(new_buf_len_keep, buffer_len);
+    llvm::Value *new_i_keep = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_keep");
+    builder->CreateStore(new_i_keep, i_var);
+    builder->CreateBr(loop_cond_block);
+
+    // Handle other
+    builder->SetInsertPoint(handle_other_block);
+    llvm::Value *buf_len_other = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_other");
+    llvm::Value *buf_ptr_other = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_other}, "buf_ptr_other");
+    builder->CreateStore(ci, buf_ptr_other);
+    llvm::Value *new_buf_len_other = builder->CreateAdd(buf_len_other, builder->getInt64(1), "new_buf_len_other");
+    builder->CreateStore(new_buf_len_other, buffer_len);
+    llvm::Value *new_i_other = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_other");
+    builder->CreateStore(new_i_other, i_var);
+    builder->CreateBr(loop_cond_block);
+#endif
+
+    // Post loop
+    builder->SetInsertPoint(post_loop_block);
+    llvm::Value *final_buffer_len = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "final_buffer_len");
+
+#ifdef __WIN32__
+    // Windows: Check for adding quotes
+    llvm::Value *has_space = builder->CreateLoad(builder->getInt1Ty(), path_contains_space, "has_space");
+    builder->CreateCondBr(has_space, add_quotes_block, return_block);
+
+    // Add quotes
+    builder->SetInsertPoint(add_quotes_block);
+    llvm::Value *with_quotes_len = builder->CreateAdd(final_buffer_len, builder->getInt64(2), "with_quotes_len");
+    llvm::Value *quote_check = builder->CreateICmpUGE(with_quotes_len, builder->getInt64(256), "quote_check");
+    builder->CreateCondBr(quote_check, quote_fail_block, quote_ok_block);
+
+    // Quote fail
+    builder->SetInsertPoint(quote_fail_block);
+    llvm::Value *quote_fail_result = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "quote_fail_result");
+    builder->CreateRet(quote_fail_result);
+
+    // Quote ok
+    builder->SetInsertPoint(quote_ok_block);
+    llvm::Value *buf_first = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(0)}, "buf_first");
+    llvm::Value *buf_second = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(1)}, "buf_second");
+    builder->CreateCall(memmove_fn, {buf_second, buf_first, final_buffer_len});
+    builder->CreateStore(builder->getInt8('"'), buf_first);
+    llvm::Value *quote_pos = builder->CreateAdd(final_buffer_len, builder->getInt64(1), "quote_pos");
+    llvm::Value *buf_last = builder->CreateGEP(builder->getInt8Ty(), buffer, {quote_pos}, "buf_last");
+    builder->CreateStore(builder->getInt8('"'), buf_last);
+    builder->CreateStore(with_quotes_len, buffer_len);
+    builder->CreateBr(return_block);
+
+    // Return block
+    builder->SetInsertPoint(return_block);
+    final_buffer_len = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "final_buffer_len_updated");
+#endif
+
+    // Final return
+    llvm::Value *result = builder->CreateCall(init_str_fn, {buffer, final_buffer_len}, "result");
+    builder->CreateRet(result);
 }
