@@ -175,200 +175,207 @@ class Matcher {
     /// @param `token` The token to match for
     /// @return `PatternPtr` The created pattern
     static inline PatternPtr token(Token token) {
+        const auto &token_patterns = get_token_patterns();
         assert(token_patterns.find(token) != token_patterns.end());
         return token_patterns.at(token);
     }
 
   private:
-    /// @var `token_patterns`
-    /// @brief A map that contains all patterns to match single tokens. This is absolutely necessary because otherwise every single pattern
-    /// would create dozens of new token patterns. With this map, the patterns can be shared between other patterns instad
-    static const inline std::unordered_map<Token, PatternPtr> token_patterns = {
-        {TOK_EOF, std::make_shared<TokenTypeMatcher>(TOK_EOF)},
+    /// @function `get_token_patterns`
+    /// @brief Function to lazy-initialize the token patterns before they can be used in the `token` function call, preventing static
+    /// initialization ordering issues in release builds.
+    static const inline std::unordered_map<Token, PatternPtr> get_token_patterns() {
+        /// @var `token_patterns`
+        /// @brief A map that contains all patterns to match single tokens. This is absolutely necessary because otherwise every single
+        /// pattern would create dozens of new token patterns. With this map, the patterns can be shared between other patterns instad
+        static const std::unordered_map<Token, PatternPtr> token_patterns = {
+            {TOK_EOF, std::make_shared<TokenTypeMatcher>(TOK_EOF)},
 
-        // type token
-        {TOK_TYPE, std::make_shared<TokenTypeMatcher>(TOK_TYPE)},
+            // type token
+            {TOK_TYPE, std::make_shared<TokenTypeMatcher>(TOK_TYPE)},
 
-        // single character tokens
-        {TOK_LEFT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_LEFT_PAREN)},
-        {TOK_RIGHT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_PAREN)},
-        {TOK_LEFT_BRACKET, std::make_shared<TokenTypeMatcher>(TOK_LEFT_BRACKET)},
-        {TOK_RIGHT_BRACKET, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_BRACKET)},
-        {TOK_LEFT_BRACE, std::make_shared<TokenTypeMatcher>(TOK_LEFT_BRACE)},
-        {TOK_RIGHT_BRACE, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_BRACE)},
-        {TOK_COMMA, std::make_shared<TokenTypeMatcher>(TOK_COMMA)},
-        {TOK_DOT, std::make_shared<TokenTypeMatcher>(TOK_DOT)},
-        {TOK_SEMICOLON, std::make_shared<TokenTypeMatcher>(TOK_SEMICOLON)},
-        {TOK_COLON, std::make_shared<TokenTypeMatcher>(TOK_COLON)},
-        {TOK_QUESTION, std::make_shared<TokenTypeMatcher>(TOK_QUESTION)},
-        {TOK_EXCLAMATION, std::make_shared<TokenTypeMatcher>(TOK_EXCLAMATION)},
-        {TOK_UNDERSCORE, std::make_shared<TokenTypeMatcher>(TOK_UNDERSCORE)},
-        {TOK_ANNOTATION, std::make_shared<TokenTypeMatcher>(TOK_ANNOTATION)},
-        {TOK_DOLLAR, std::make_shared<TokenTypeMatcher>(TOK_DOLLAR)},
+            // single character tokens
+            {TOK_LEFT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_LEFT_PAREN)},
+            {TOK_RIGHT_PAREN, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_PAREN)},
+            {TOK_LEFT_BRACKET, std::make_shared<TokenTypeMatcher>(TOK_LEFT_BRACKET)},
+            {TOK_RIGHT_BRACKET, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_BRACKET)},
+            {TOK_LEFT_BRACE, std::make_shared<TokenTypeMatcher>(TOK_LEFT_BRACE)},
+            {TOK_RIGHT_BRACE, std::make_shared<TokenTypeMatcher>(TOK_RIGHT_BRACE)},
+            {TOK_COMMA, std::make_shared<TokenTypeMatcher>(TOK_COMMA)},
+            {TOK_DOT, std::make_shared<TokenTypeMatcher>(TOK_DOT)},
+            {TOK_SEMICOLON, std::make_shared<TokenTypeMatcher>(TOK_SEMICOLON)},
+            {TOK_COLON, std::make_shared<TokenTypeMatcher>(TOK_COLON)},
+            {TOK_QUESTION, std::make_shared<TokenTypeMatcher>(TOK_QUESTION)},
+            {TOK_EXCLAMATION, std::make_shared<TokenTypeMatcher>(TOK_EXCLAMATION)},
+            {TOK_UNDERSCORE, std::make_shared<TokenTypeMatcher>(TOK_UNDERSCORE)},
+            {TOK_ANNOTATION, std::make_shared<TokenTypeMatcher>(TOK_ANNOTATION)},
+            {TOK_DOLLAR, std::make_shared<TokenTypeMatcher>(TOK_DOLLAR)},
 
-        // dual character tokens
-        {TOK_ARROW, std::make_shared<TokenTypeMatcher>(TOK_ARROW)},
-        {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
-        {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
-        {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
-        {TOK_RANGE, std::make_shared<TokenTypeMatcher>(TOK_RANGE)},
+            // dual character tokens
+            {TOK_ARROW, std::make_shared<TokenTypeMatcher>(TOK_ARROW)},
+            {TOK_PIPE, std::make_shared<TokenTypeMatcher>(TOK_PIPE)},
+            {TOK_REFERENCE, std::make_shared<TokenTypeMatcher>(TOK_REFERENCE)},
+            {TOK_OPT_DEFAULT, std::make_shared<TokenTypeMatcher>(TOK_OPT_DEFAULT)},
+            {TOK_RANGE, std::make_shared<TokenTypeMatcher>(TOK_RANGE)},
 
-        // arithmetic tokens
-        {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
-        {TOK_MINUS, std::make_shared<TokenTypeMatcher>(TOK_MINUS)},
-        {TOK_MULT, std::make_shared<TokenTypeMatcher>(TOK_MULT)},
-        {TOK_DIV, std::make_shared<TokenTypeMatcher>(TOK_DIV)},
-        {TOK_MOD, std::make_shared<TokenTypeMatcher>(TOK_MOD)},
-        {TOK_POW, std::make_shared<TokenTypeMatcher>(TOK_POW)},
+            // arithmetic tokens
+            {TOK_PLUS, std::make_shared<TokenTypeMatcher>(TOK_PLUS)},
+            {TOK_MINUS, std::make_shared<TokenTypeMatcher>(TOK_MINUS)},
+            {TOK_MULT, std::make_shared<TokenTypeMatcher>(TOK_MULT)},
+            {TOK_DIV, std::make_shared<TokenTypeMatcher>(TOK_DIV)},
+            {TOK_MOD, std::make_shared<TokenTypeMatcher>(TOK_MOD)},
+            {TOK_POW, std::make_shared<TokenTypeMatcher>(TOK_POW)},
 
-        // assign tokens
-        {TOK_INCREMENT, std::make_shared<TokenTypeMatcher>(TOK_INCREMENT)},
-        {TOK_DECREMENT, std::make_shared<TokenTypeMatcher>(TOK_DECREMENT)},
-        {TOK_PLUS_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_PLUS_EQUALS)},
-        {TOK_MINUS_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_MINUS_EQUALS)},
-        {TOK_MULT_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_MULT_EQUALS)},
-        {TOK_DIV_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_DIV_EQUALS)},
-        {TOK_COLON_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_COLON_EQUAL)},
-        {TOK_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_EQUAL)},
+            // assign tokens
+            {TOK_INCREMENT, std::make_shared<TokenTypeMatcher>(TOK_INCREMENT)},
+            {TOK_DECREMENT, std::make_shared<TokenTypeMatcher>(TOK_DECREMENT)},
+            {TOK_PLUS_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_PLUS_EQUALS)},
+            {TOK_MINUS_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_MINUS_EQUALS)},
+            {TOK_MULT_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_MULT_EQUALS)},
+            {TOK_DIV_EQUALS, std::make_shared<TokenTypeMatcher>(TOK_DIV_EQUALS)},
+            {TOK_COLON_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_COLON_EQUAL)},
+            {TOK_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_EQUAL)},
 
-        // relational symbols
-        {TOK_EQUAL_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_EQUAL_EQUAL)},
-        {TOK_NOT_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_NOT_EQUAL)},
-        {TOK_LESS, std::make_shared<TokenTypeMatcher>(TOK_LESS)},
-        {TOK_LESS_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_LESS_EQUAL)},
-        {TOK_GREATER, std::make_shared<TokenTypeMatcher>(TOK_GREATER)},
-        {TOK_GREATER_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_GREATER_EQUAL)},
+            // relational symbols
+            {TOK_EQUAL_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_EQUAL_EQUAL)},
+            {TOK_NOT_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_NOT_EQUAL)},
+            {TOK_LESS, std::make_shared<TokenTypeMatcher>(TOK_LESS)},
+            {TOK_LESS_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_LESS_EQUAL)},
+            {TOK_GREATER, std::make_shared<TokenTypeMatcher>(TOK_GREATER)},
+            {TOK_GREATER_EQUAL, std::make_shared<TokenTypeMatcher>(TOK_GREATER_EQUAL)},
 
-        // bitwise operators
-        {TOK_SHIFT_LEFT, std::make_shared<TokenTypeMatcher>(TOK_SHIFT_LEFT)},
-        {TOK_SHIFT_RIGHT, std::make_shared<TokenTypeMatcher>(TOK_SHIFT_RIGHT)},
-        {TOK_BIT_AND, std::make_shared<TokenTypeMatcher>(TOK_BIT_AND)},
-        {TOK_BIT_OR, std::make_shared<TokenTypeMatcher>(TOK_BIT_OR)},
-        {TOK_BIT_XOR, std::make_shared<TokenTypeMatcher>(TOK_BIT_XOR)},
-        {TOK_BIT_NEG, std::make_shared<TokenTypeMatcher>(TOK_BIT_NEG)},
+            // bitwise operators
+            {TOK_SHIFT_LEFT, std::make_shared<TokenTypeMatcher>(TOK_SHIFT_LEFT)},
+            {TOK_SHIFT_RIGHT, std::make_shared<TokenTypeMatcher>(TOK_SHIFT_RIGHT)},
+            {TOK_BIT_AND, std::make_shared<TokenTypeMatcher>(TOK_BIT_AND)},
+            {TOK_BIT_OR, std::make_shared<TokenTypeMatcher>(TOK_BIT_OR)},
+            {TOK_BIT_XOR, std::make_shared<TokenTypeMatcher>(TOK_BIT_XOR)},
+            {TOK_BIT_NEG, std::make_shared<TokenTypeMatcher>(TOK_BIT_NEG)},
 
-        // relational keywords
-        {TOK_AND, std::make_shared<TokenTypeMatcher>(TOK_AND)},
-        {TOK_OR, std::make_shared<TokenTypeMatcher>(TOK_OR)},
-        {TOK_NOT, std::make_shared<TokenTypeMatcher>(TOK_NOT)},
+            // relational keywords
+            {TOK_AND, std::make_shared<TokenTypeMatcher>(TOK_AND)},
+            {TOK_OR, std::make_shared<TokenTypeMatcher>(TOK_OR)},
+            {TOK_NOT, std::make_shared<TokenTypeMatcher>(TOK_NOT)},
 
-        // branching keywords
-        {TOK_IF, std::make_shared<TokenTypeMatcher>(TOK_IF)},
-        {TOK_ELSE, std::make_shared<TokenTypeMatcher>(TOK_ELSE)},
-        {TOK_SWITCH, std::make_shared<TokenTypeMatcher>(TOK_SWITCH)},
+            // branching keywords
+            {TOK_IF, std::make_shared<TokenTypeMatcher>(TOK_IF)},
+            {TOK_ELSE, std::make_shared<TokenTypeMatcher>(TOK_ELSE)},
+            {TOK_SWITCH, std::make_shared<TokenTypeMatcher>(TOK_SWITCH)},
 
-        // looping keywords
-        {TOK_FOR, std::make_shared<TokenTypeMatcher>(TOK_FOR)},
-        {TOK_DO, std::make_shared<TokenTypeMatcher>(TOK_DO)},
-        {TOK_WHILE, std::make_shared<TokenTypeMatcher>(TOK_WHILE)},
-        {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
-        {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
-        {TOK_BREAK, std::make_shared<TokenTypeMatcher>(TOK_BREAK)},
-        {TOK_CONTINUE, std::make_shared<TokenTypeMatcher>(TOK_CONTINUE)},
+            // looping keywords
+            {TOK_FOR, std::make_shared<TokenTypeMatcher>(TOK_FOR)},
+            {TOK_DO, std::make_shared<TokenTypeMatcher>(TOK_DO)},
+            {TOK_WHILE, std::make_shared<TokenTypeMatcher>(TOK_WHILE)},
+            {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
+            {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
+            {TOK_BREAK, std::make_shared<TokenTypeMatcher>(TOK_BREAK)},
+            {TOK_CONTINUE, std::make_shared<TokenTypeMatcher>(TOK_CONTINUE)},
 
-        // function keywords
-        {TOK_DEF, std::make_shared<TokenTypeMatcher>(TOK_DEF)},
-        {TOK_RETURN, std::make_shared<TokenTypeMatcher>(TOK_RETURN)},
-        {TOK_FN, std::make_shared<TokenTypeMatcher>(TOK_FN)},
-        {TOK_BP, std::make_shared<TokenTypeMatcher>(TOK_BP)},
+            // function keywords
+            {TOK_DEF, std::make_shared<TokenTypeMatcher>(TOK_DEF)},
+            {TOK_RETURN, std::make_shared<TokenTypeMatcher>(TOK_RETURN)},
+            {TOK_FN, std::make_shared<TokenTypeMatcher>(TOK_FN)},
+            {TOK_BP, std::make_shared<TokenTypeMatcher>(TOK_BP)},
 
-        // error keywords
-        {TOK_ERROR, std::make_shared<TokenTypeMatcher>(TOK_ERROR)},
-        {TOK_THROW, std::make_shared<TokenTypeMatcher>(TOK_THROW)},
-        {TOK_CATCH, std::make_shared<TokenTypeMatcher>(TOK_CATCH)},
+            // error keywords
+            {TOK_ERROR, std::make_shared<TokenTypeMatcher>(TOK_ERROR)},
+            {TOK_THROW, std::make_shared<TokenTypeMatcher>(TOK_THROW)},
+            {TOK_CATCH, std::make_shared<TokenTypeMatcher>(TOK_CATCH)},
 
-        // variant keywords
-        {TOK_VARIANT, std::make_shared<TokenTypeMatcher>(TOK_VARIANT)},
-        {TOK_ENUM, std::make_shared<TokenTypeMatcher>(TOK_ENUM)},
+            // variant keywords
+            {TOK_VARIANT, std::make_shared<TokenTypeMatcher>(TOK_VARIANT)},
+            {TOK_ENUM, std::make_shared<TokenTypeMatcher>(TOK_ENUM)},
 
-        // import keywords
-        {TOK_USE, std::make_shared<TokenTypeMatcher>(TOK_USE)},
-        {TOK_AS, std::make_shared<TokenTypeMatcher>(TOK_AS)},
-        {TOK_ALIAS, std::make_shared<TokenTypeMatcher>(TOK_ALIAS)},
-        {TOK_TYPE_KEYWORD, std::make_shared<TokenTypeMatcher>(TOK_TYPE_KEYWORD)},
+            // import keywords
+            {TOK_USE, std::make_shared<TokenTypeMatcher>(TOK_USE)},
+            {TOK_AS, std::make_shared<TokenTypeMatcher>(TOK_AS)},
+            {TOK_ALIAS, std::make_shared<TokenTypeMatcher>(TOK_ALIAS)},
+            {TOK_TYPE_KEYWORD, std::make_shared<TokenTypeMatcher>(TOK_TYPE_KEYWORD)},
 
-        // literals
-        {TOK_IDENTIFIER, std::make_shared<TokenTypeMatcher>(TOK_IDENTIFIER)},
+            // literals
+            {TOK_IDENTIFIER, std::make_shared<TokenTypeMatcher>(TOK_IDENTIFIER)},
 
-        // primitives
-        {TOK_VOID, std::make_shared<TokenTypeMatcher>(TOK_VOID)},
-        {TOK_BOOL, std::make_shared<TokenTypeMatcher>(TOK_BOOL)},
-        {TOK_U8, std::make_shared<TokenTypeMatcher>(TOK_U8)},
-        {TOK_U8X2, std::make_shared<TokenTypeMatcher>(TOK_U8X2)},
-        {TOK_U8X3, std::make_shared<TokenTypeMatcher>(TOK_U8X3)},
-        {TOK_U8X4, std::make_shared<TokenTypeMatcher>(TOK_U8X4)},
-        {TOK_U8X8, std::make_shared<TokenTypeMatcher>(TOK_U8X8)},
-        {TOK_STR, std::make_shared<TokenTypeMatcher>(TOK_STR)},
-        {TOK_FLINT, std::make_shared<TokenTypeMatcher>(TOK_FLINT)},
-        {TOK_U32, std::make_shared<TokenTypeMatcher>(TOK_U32)},
-        {TOK_I32, std::make_shared<TokenTypeMatcher>(TOK_I32)},
-        {TOK_BOOL8, std::make_shared<TokenTypeMatcher>(TOK_BOOL8)},
-        {TOK_I32X2, std::make_shared<TokenTypeMatcher>(TOK_I32X2)},
-        {TOK_I32X3, std::make_shared<TokenTypeMatcher>(TOK_I32X3)},
-        {TOK_I32X4, std::make_shared<TokenTypeMatcher>(TOK_I32X4)},
-        {TOK_I32X8, std::make_shared<TokenTypeMatcher>(TOK_I32X8)},
-        {TOK_U64, std::make_shared<TokenTypeMatcher>(TOK_U64)},
-        {TOK_I64, std::make_shared<TokenTypeMatcher>(TOK_I64)},
-        {TOK_I64X2, std::make_shared<TokenTypeMatcher>(TOK_I64X2)},
-        {TOK_I64X3, std::make_shared<TokenTypeMatcher>(TOK_I64X3)},
-        {TOK_I64X4, std::make_shared<TokenTypeMatcher>(TOK_I64X4)},
-        {TOK_F32, std::make_shared<TokenTypeMatcher>(TOK_F32)},
-        {TOK_F32X2, std::make_shared<TokenTypeMatcher>(TOK_F32X2)},
-        {TOK_F32X3, std::make_shared<TokenTypeMatcher>(TOK_F32X3)},
-        {TOK_F32X4, std::make_shared<TokenTypeMatcher>(TOK_F32X4)},
-        {TOK_F32X8, std::make_shared<TokenTypeMatcher>(TOK_F32X8)},
-        {TOK_F64, std::make_shared<TokenTypeMatcher>(TOK_F64)},
-        {TOK_F64X2, std::make_shared<TokenTypeMatcher>(TOK_F64X2)},
-        {TOK_F64X3, std::make_shared<TokenTypeMatcher>(TOK_F64X3)},
-        {TOK_F64X4, std::make_shared<TokenTypeMatcher>(TOK_F64X4)},
+            // primitives
+            {TOK_VOID, std::make_shared<TokenTypeMatcher>(TOK_VOID)},
+            {TOK_BOOL, std::make_shared<TokenTypeMatcher>(TOK_BOOL)},
+            {TOK_U8, std::make_shared<TokenTypeMatcher>(TOK_U8)},
+            {TOK_U8X2, std::make_shared<TokenTypeMatcher>(TOK_U8X2)},
+            {TOK_U8X3, std::make_shared<TokenTypeMatcher>(TOK_U8X3)},
+            {TOK_U8X4, std::make_shared<TokenTypeMatcher>(TOK_U8X4)},
+            {TOK_U8X8, std::make_shared<TokenTypeMatcher>(TOK_U8X8)},
+            {TOK_STR, std::make_shared<TokenTypeMatcher>(TOK_STR)},
+            {TOK_FLINT, std::make_shared<TokenTypeMatcher>(TOK_FLINT)},
+            {TOK_U32, std::make_shared<TokenTypeMatcher>(TOK_U32)},
+            {TOK_I32, std::make_shared<TokenTypeMatcher>(TOK_I32)},
+            {TOK_BOOL8, std::make_shared<TokenTypeMatcher>(TOK_BOOL8)},
+            {TOK_I32X2, std::make_shared<TokenTypeMatcher>(TOK_I32X2)},
+            {TOK_I32X3, std::make_shared<TokenTypeMatcher>(TOK_I32X3)},
+            {TOK_I32X4, std::make_shared<TokenTypeMatcher>(TOK_I32X4)},
+            {TOK_I32X8, std::make_shared<TokenTypeMatcher>(TOK_I32X8)},
+            {TOK_U64, std::make_shared<TokenTypeMatcher>(TOK_U64)},
+            {TOK_I64, std::make_shared<TokenTypeMatcher>(TOK_I64)},
+            {TOK_I64X2, std::make_shared<TokenTypeMatcher>(TOK_I64X2)},
+            {TOK_I64X3, std::make_shared<TokenTypeMatcher>(TOK_I64X3)},
+            {TOK_I64X4, std::make_shared<TokenTypeMatcher>(TOK_I64X4)},
+            {TOK_F32, std::make_shared<TokenTypeMatcher>(TOK_F32)},
+            {TOK_F32X2, std::make_shared<TokenTypeMatcher>(TOK_F32X2)},
+            {TOK_F32X3, std::make_shared<TokenTypeMatcher>(TOK_F32X3)},
+            {TOK_F32X4, std::make_shared<TokenTypeMatcher>(TOK_F32X4)},
+            {TOK_F32X8, std::make_shared<TokenTypeMatcher>(TOK_F32X8)},
+            {TOK_F64, std::make_shared<TokenTypeMatcher>(TOK_F64)},
+            {TOK_F64X2, std::make_shared<TokenTypeMatcher>(TOK_F64X2)},
+            {TOK_F64X3, std::make_shared<TokenTypeMatcher>(TOK_F64X3)},
+            {TOK_F64X4, std::make_shared<TokenTypeMatcher>(TOK_F64X4)},
 
-        // literals
-        {TOK_STR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_STR_VALUE)},
-        {TOK_INT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_INT_VALUE)},
-        {TOK_FLINT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_FLINT_VALUE)},
-        {TOK_CHAR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_CHAR_VALUE)},
+            // literals
+            {TOK_STR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_STR_VALUE)},
+            {TOK_INT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_INT_VALUE)},
+            {TOK_FLINT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_FLINT_VALUE)},
+            {TOK_CHAR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_CHAR_VALUE)},
 
-        // builtin values
-        {TOK_TRUE, std::make_shared<TokenTypeMatcher>(TOK_TRUE)},
-        {TOK_FALSE, std::make_shared<TokenTypeMatcher>(TOK_FALSE)},
-        {TOK_NONE, std::make_shared<TokenTypeMatcher>(TOK_NONE)},
+            // builtin values
+            {TOK_TRUE, std::make_shared<TokenTypeMatcher>(TOK_TRUE)},
+            {TOK_FALSE, std::make_shared<TokenTypeMatcher>(TOK_FALSE)},
+            {TOK_NONE, std::make_shared<TokenTypeMatcher>(TOK_NONE)},
 
-        // data keywords
-        {TOK_DATA, std::make_shared<TokenTypeMatcher>(TOK_DATA)},
-        {TOK_SHARED, std::make_shared<TokenTypeMatcher>(TOK_SHARED)},
-        {TOK_IMMUTABLE, std::make_shared<TokenTypeMatcher>(TOK_IMMUTABLE)},
-        {TOK_ALIGNED, std::make_shared<TokenTypeMatcher>(TOK_ALIGNED)},
+            // data keywords
+            {TOK_DATA, std::make_shared<TokenTypeMatcher>(TOK_DATA)},
+            {TOK_SHARED, std::make_shared<TokenTypeMatcher>(TOK_SHARED)},
+            {TOK_IMMUTABLE, std::make_shared<TokenTypeMatcher>(TOK_IMMUTABLE)},
+            {TOK_ALIGNED, std::make_shared<TokenTypeMatcher>(TOK_ALIGNED)},
 
-        // func keywords
-        {TOK_FUNC, std::make_shared<TokenTypeMatcher>(TOK_FUNC)},
-        {TOK_REQUIRES, std::make_shared<TokenTypeMatcher>(TOK_REQUIRES)},
+            // func keywords
+            {TOK_FUNC, std::make_shared<TokenTypeMatcher>(TOK_FUNC)},
+            {TOK_REQUIRES, std::make_shared<TokenTypeMatcher>(TOK_REQUIRES)},
 
-        // entity keywords
-        {TOK_ENTITY, std::make_shared<TokenTypeMatcher>(TOK_ENTITY)},
-        {TOK_EXTENDS, std::make_shared<TokenTypeMatcher>(TOK_EXTENDS)},
-        {TOK_LINK, std::make_shared<TokenTypeMatcher>(TOK_LINK)},
+            // entity keywords
+            {TOK_ENTITY, std::make_shared<TokenTypeMatcher>(TOK_ENTITY)},
+            {TOK_EXTENDS, std::make_shared<TokenTypeMatcher>(TOK_EXTENDS)},
+            {TOK_LINK, std::make_shared<TokenTypeMatcher>(TOK_LINK)},
 
-        // threading keywords
-        {TOK_SPAWN, std::make_shared<TokenTypeMatcher>(TOK_SPAWN)},
-        {TOK_SYNC, std::make_shared<TokenTypeMatcher>(TOK_SYNC)},
-        {TOK_LOCK, std::make_shared<TokenTypeMatcher>(TOK_LOCK)},
+            // threading keywords
+            {TOK_SPAWN, std::make_shared<TokenTypeMatcher>(TOK_SPAWN)},
+            {TOK_SYNC, std::make_shared<TokenTypeMatcher>(TOK_SYNC)},
+            {TOK_LOCK, std::make_shared<TokenTypeMatcher>(TOK_LOCK)},
 
-        // modifiers
-        {TOK_CONST, std::make_shared<TokenTypeMatcher>(TOK_CONST)},
-        {TOK_MUT, std::make_shared<TokenTypeMatcher>(TOK_MUT)},
-        {TOK_PERSISTENT, std::make_shared<TokenTypeMatcher>(TOK_PERSISTENT)},
+            // modifiers
+            {TOK_CONST, std::make_shared<TokenTypeMatcher>(TOK_CONST)},
+            {TOK_MUT, std::make_shared<TokenTypeMatcher>(TOK_MUT)},
+            {TOK_PERSISTENT, std::make_shared<TokenTypeMatcher>(TOK_PERSISTENT)},
 
-        // test keywords
-        {TOK_TEST, std::make_shared<TokenTypeMatcher>(TOK_TEST)},
+            // test keywords
+            {TOK_TEST, std::make_shared<TokenTypeMatcher>(TOK_TEST)},
 
-        // fip tokens
-        {TOK_EXTERN, std::make_shared<TokenTypeMatcher>(TOK_EXTERN)},
-        {TOK_EXPORT, std::make_shared<TokenTypeMatcher>(TOK_EXPORT)},
+            // fip tokens
+            {TOK_EXTERN, std::make_shared<TokenTypeMatcher>(TOK_EXTERN)},
+            {TOK_EXPORT, std::make_shared<TokenTypeMatcher>(TOK_EXPORT)},
 
-        // other tokens
-        {TOK_INDENT, std::make_shared<TokenTypeMatcher>(TOK_INDENT)},
-        {TOK_EOL, std::make_shared<TokenTypeMatcher>(TOK_EOL)},
-    };
+            // other tokens
+            {TOK_INDENT, std::make_shared<TokenTypeMatcher>(TOK_INDENT)},
+            {TOK_EOL, std::make_shared<TokenTypeMatcher>(TOK_EOL)},
+        };
+        return token_patterns;
+    }
 
     /// @function `one_of`
     /// @brief Returns the pattern to match one of the given patterns
