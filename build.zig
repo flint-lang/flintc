@@ -192,8 +192,6 @@ fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.
     b.installArtifact(exe);
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
-    } else {
-        exe.lto = .full;
     }
     exe.link_function_sections = true;
     exe.link_data_sections = true;
