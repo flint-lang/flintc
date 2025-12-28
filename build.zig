@@ -88,7 +88,7 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
         break :blk std.mem.trim(u8, commit_hash, &std.ascii.whitespace);
     };
     std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
-    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("\"{s}\"", .{commit_hash}));
+    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{s}", .{commit_hash}));
 
     // Add build date
     const build_date: []const u8 = blk: {
