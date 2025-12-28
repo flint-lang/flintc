@@ -2,8 +2,8 @@ const std = @import("std");
 
 const FLINTC_VERSION = @import("build.zig.zon").version;
 const DEFAULT_LLVM_VERSION = "llvmorg-21.1.8";
+const FIP_VERSION = "v0.2.5";
 
-const FIP_HASH = "3710c353493bea6a6e5ade363bde6fb2e2285cb5";
 const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 
 pub fn build(b: *std.Build) !void {
@@ -525,7 +525,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         pull_fip_cmd.step.dependOn(&checkout_fip_cmd.step);
 
         // 7. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_HASH });
+        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_VERSION });
         checkout_fip_hash_cmd.setName("checkout_fip_hash");
         checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
         checkout_fip_hash_cmd.step.dependOn(&pull_fip_cmd.step);
