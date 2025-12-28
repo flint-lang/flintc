@@ -76,8 +76,6 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
     exe.root_module.addCMacro("FLINT_LSP", "");
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
-    } else {
-        exe.lto = .full;
     }
     exe.link_function_sections = true;
     exe.link_data_sections = true;
@@ -116,33 +114,32 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
     // zig fmt: off
     // Add C++ src files
     exe.root_module.addCSourceFiles(.{
-        .root = b.path("fls"),
         .files = &[_][]const u8{
             // LSP sources
-            "src/main.cpp",
-            "src/lsp_server.cpp",
-            "src/lsp_protocol.cpp",
-            "src/completion_data.cpp",
-            "src/completion.cpp",
+            "fls/src/main.cpp",
+            "fls/src/lsp_server.cpp",
+            "fls/src/lsp_protocol.cpp",
+            "fls/src/completion_data.cpp",
+            "fls/src/completion.cpp",
 
             // Sources from the main project
-            "../src/error/base_error.cpp",
-            "../src/error/err_expr_call_of_undefined_function.cpp",
-            "../src/parser/error_node.cpp",
-            "../src/parser/namespace.cpp",
-            "../src/parser/parser.cpp",
-            "../src/parser/parser_definition.cpp",
-            "../src/parser/parser_expression.cpp",
-            "../src/parser/parser_statement.cpp",
-            "../src/parser/parser_util.cpp",
-            "../src/parser/type.cpp",
-            "../src/analyzer.cpp",
-            "../src/debug.cpp",
-            "../src/fip.cpp",
-            "../src/lexer.cpp",
-            "../src/matcher.cpp",
-            "../src/profiler.cpp",
-            "../src/resolver.cpp",
+            "src/error/base_error.cpp",
+            "src/error/err_expr_call_of_undefined_function.cpp",
+            "src/parser/error_node.cpp",
+            "src/parser/namespace.cpp",
+            "src/parser/parser.cpp",
+            "src/parser/parser_definition.cpp",
+            "src/parser/parser_expression.cpp",
+            "src/parser/parser_statement.cpp",
+            "src/parser/parser_util.cpp",
+            "src/parser/type.cpp",
+            "src/analyzer.cpp",
+            "src/debug.cpp",
+            "src/fip.cpp",
+            "src/lexer.cpp",
+            "src/matcher.cpp",
+            "src/profiler.cpp",
+            "src/resolver.cpp",
         },
         .flags = &[_][]const u8{
             "-std=c++17",                   // Set C++ standard to C++17
