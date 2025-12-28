@@ -399,7 +399,9 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     //     return init_str(buffer, buffer_len);
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+#ifdef __WIN32__
     llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
+#endif
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
@@ -436,7 +438,6 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
 #else
     llvm::BasicBlock *check_backslash_space_block = llvm::BasicBlock::Create(context, "check_backslash_space", get_path_fn);
     llvm::BasicBlock *handle_other_block = llvm::BasicBlock::Create(context, "handle_other", get_path_fn);
-    llvm::BasicBlock *convert_or_keep_block = llvm::BasicBlock::Create(context, "convert_or_keep", get_path_fn);
     llvm::BasicBlock *convert_to_slash_block = llvm::BasicBlock::Create(context, "convert_to_slash", get_path_fn);
     llvm::BasicBlock *keep_backslash_block = llvm::BasicBlock::Create(context, "keep_backslash", get_path_fn);
 #endif
@@ -549,12 +550,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     // Check backslash space
     builder->SetInsertPoint(check_backslash_space_block);
     llvm::Value *next_i_linux = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_linux");
-    llvm::Value *is_last = builder->CreateICmpEQ(next_i_linux, path_len, "is_last");
-    // Note: Original had redundant condBr to same label; simplified to unconditional br
-    builder->CreateBr(convert_or_keep_block);
-
     // Convert or keep
-    builder->SetInsertPoint(convert_or_keep_block);
     llvm::Value *next_char_ptr_linux = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i_linux}, "next_char_ptr_linux");
     llvm::Value *next_char_linux = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr_linux, "next_char_linux");
     llvm::Value *next_is_space_linux = builder->CreateICmpEQ(next_char_linux, builder->getInt8(' '), "next_is_space_linux");
