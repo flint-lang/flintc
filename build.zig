@@ -58,6 +58,125 @@ pub fn build(b: *std.Build) !void {
     const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
     // Build flintc exe
     try buildFlintc(b, &build_llvm.step, target, optimize);
+    // Build FLS exe
+    try buildFLS(b, &update_fip.step, target, optimize);
+}
+
+fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
+    const exe = b.addExecutable(.{
+        .name = if (optimize == .Debug) "fls-debug" else "fls",
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+            .link_libcpp = true,
+        }),
+        .version = try .parse(FLINTC_VERSION),
+    });
+    b.installArtifact(exe);
+    exe.root_module.addCMacro("FLINT_LSP", "");
+    if (optimize == .Debug) {
+        exe.root_module.addCMacro("DEBUG_BUILD", "");
+    } else {
+        exe.lto = .full;
+    }
+    exe.link_function_sections = true;
+    exe.link_data_sections = true;
+    exe.compress_debug_sections = .zlib;
+    exe.build_id = .fast;
+
+    // Add commit hash
+    const commit_hash: []const u8 = blk: {
+        const commit_hash = b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" });
+        break :blk std.mem.trim(u8, commit_hash, &std.ascii.whitespace);
+    };
+    std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
+    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("\"{s}\"", .{commit_hash}));
+
+    // Add build date
+    const build_date: []const u8 = blk: {
+        const current_timestamp: u64 = @intCast(std.time.timestamp());
+        const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
+        const epoch_day = epoch_seconds.getEpochDay();
+        const year_day = epoch_day.calculateYearDay();
+        const month_day = year_day.calculateMonthDay();
+        break :blk b.fmt("\"{d}-{d:0>2}-{d:0>2}\"", .{
+            year_day.year,
+            month_day.month.numeric(),
+            month_day.day_index + 1, // day_index is 0-based
+        });
+    };
+    std.debug.print("-- Build Date is {s}\n", .{build_date});
+    exe.root_module.addCMacro("BUILD_DATE", build_date);
+
+    // Add Include paths
+    exe.root_module.addIncludePath(b.path("vendor/sources/fip"));
+    exe.root_module.addIncludePath(b.path("include"));
+    exe.root_module.addIncludePath(b.path("fls/include"));
+
+    // zig fmt: off
+    // Add C++ src files
+    exe.root_module.addCSourceFiles(.{
+        .root = b.path("fls"),
+        .files = &[_][]const u8{
+            // LSP sources
+            "src/main.cpp",
+            "src/lsp_server.cpp",
+            "src/lsp_protocol.cpp",
+            "src/completion_data.cpp",
+            "src/completion.cpp",
+
+            // Sources from the main project
+            "../src/error/base_error.cpp",
+            "../src/error/err_expr_call_of_undefined_function.cpp",
+            "../src/parser/error_node.cpp",
+            "../src/parser/namespace.cpp",
+            "../src/parser/parser.cpp",
+            "../src/parser/parser_definition.cpp",
+            "../src/parser/parser_expression.cpp",
+            "../src/parser/parser_statement.cpp",
+            "../src/parser/parser_util.cpp",
+            "../src/parser/type.cpp",
+            "../src/analyzer.cpp",
+            "../src/debug.cpp",
+            "../src/fip.cpp",
+            "../src/lexer.cpp",
+            "../src/matcher.cpp",
+            "../src/profiler.cpp",
+            "../src/resolver.cpp",
+        },
+        .flags = &[_][]const u8{
+            "-std=c++17",                   // Set C++ standard to C++17
+            "-Werror",                      // Treat warnings as errors
+            "-Wall",                        // Enable most warnings
+            "-Wextra",                      // Enable extra warnings
+            "-Wshadow",                     // Warn about shadow variables
+            "-Wcast-align",                 // Warn about pointer casts that increase alignment requirement
+            "-Wcast-qual",                  // Warn about casts that remove const qualifier
+            "-Wunused",                     // Warn about unused variables
+            "-Wold-style-cast",             // Warn about C-style casts
+            "-Wdouble-promotion",           // Warn about float being implicitly promoted to double
+            "-Wformat=2",                   // Warn about printf/scanf/strftime/strfmon format string issue
+            "-Wundef",                      // Warn if an undefined identifier is evaluated in an #if
+            "-Wpointer-arith",              // Warn about sizeof(void) and add/sub with void*
+            "-Wunreachable-code",           // Warn about unreachable code
+            "-Wno-deprecated-declarations", // Ignore deprecation warnings
+            "-Wno-deprecated",              // Ignore general deprecation warnings
+            "-fno-omit-frame-pointer",      // Prevent omitting frame pointer for debugging and stack unwinding
+            "-funwind-tables",              // Generate unwind tables for stack unwinding
+            "-ffunction-sections",          // Place each function in its own section
+            "-fdata-sections",              // Place each data object in its own section
+            "-fstandalone-debug",           // Emit standalone debug information
+            "-Wdeprecated-declarations",    // Warn about deprecated declarations
+        },
+    });
+    // zig fmt: on
+
+    // Add toml C src file for FIP
+    exe.root_module.addCSourceFile(.{
+        .file = b.path("vendor/sources/fip/toml/tomlc17.c"),
+    });
+
+    exe.step.dependOn(previous_step);
 }
 
 fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
