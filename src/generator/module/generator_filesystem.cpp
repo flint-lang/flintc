@@ -244,7 +244,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const bool only_declarations                                  //
 ) {
     // THE C IMPLEMENTATION:
-    // str *read_file_lines(const str *path) {
+    // str *read_lines(const str *path) {
     //     char *c_path = (char *)path->value;
     //     // Open the file for reading
     //     FILE *file = fopen(c_path, "r");
@@ -348,7 +348,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
     llvm::Function *read_lines_fn =
-        llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, hash_str + ".file_lines", module);
+        llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, hash_str + ".read_lines", module);
     fs_functions["read_lines"] = read_lines_fn;
     if (only_declarations) {
         return;
