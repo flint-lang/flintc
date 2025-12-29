@@ -30,24 +30,7 @@ pub fn build(b: *std.Build) !void {
             else => @panic("Unsupported OS"),
         };
 
-    const target = b.resolveTargetQuery(switch (target_option) {
-        .linux => .{
-            .cpu_arch = .x86_64,
-            .cpu_model = .baseline,
-            .os_tag = .linux,
-            .os_version_min = .{ .semver = .{ .major = 6, .minor = 12, .patch = 0 } },
-            .abi = .gnu,
-            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
-        },
-        .windows => .{
-            .cpu_arch = .x86_64,
-            .cpu_model = .baseline,
-            .os_tag = .windows,
-            .os_version_min = .{ .windows = .win7 },
-            .abi = .gnu,
-            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
-        },
-    });
+    const target = targets(b)[@intFromEnum(target_option)];
 
     // Update Json Mini
     const update_json_mini = try updateJsonMini(b);
@@ -59,8 +42,24 @@ pub fn build(b: *std.Build) !void {
     const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
     // Build flintc exe
     const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize);
+    b.installArtifact(flintc_exe);
     // Build FLS exe
-    try buildFLS(b, &update_fip.step, target, optimize);
+    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize);
+    b.installArtifact(fls_exe);
+
+    // Build all
+    const build_all_step = b.step("all", "Build all targets");
+    for (targets(b)) |t| {
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm.step, t, .Debug);
+        build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
+        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug);
+        build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
+
+        const flintc_exe_release = try buildFlintc(b, &build_llvm.step, t, .ReleaseSmall);
+        build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
+        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall);
+        build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
+    }
 
     // Testing
     const test_step = b.step("test", "Test the app");
@@ -90,7 +89,7 @@ pub fn build(b: *std.Build) !void {
     }
 }
 
-fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
+fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "fls-debug" else "fls",
         .root_module = b.createModule(.{
@@ -100,7 +99,6 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
         }),
         .version = try .parse(FLINTC_VERSION),
     });
-    b.installArtifact(exe);
     exe.root_module.addCMacro("FLINT_LSP", "");
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
@@ -202,6 +200,8 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
     });
 
     exe.step.dependOn(previous_step);
+
+    return exe;
 }
 
 fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !*std.Build.Step.Compile {
@@ -214,7 +214,6 @@ fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.
         }),
         .version = try .parse(FLINTC_VERSION),
     });
-    b.installArtifact(exe);
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
@@ -222,14 +221,6 @@ fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.
     exe.link_data_sections = true;
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
-
-    const run_step = b.step("run", "Run the app");
-    const run_cmd = b.addRunArtifact(exe);
-    run_step.dependOn(&run_cmd.step);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
 
     // Add commit hash
     const commit_hash: []const u8 = blk: {
@@ -706,4 +697,28 @@ fn hasInternetConnection(b: *std.Build) bool {
     const s = std.net.tcpConnectToHost(b.allocator, "google.com", 443) catch return false;
     s.close();
     return true;
+}
+
+/// Target[0] is Linux
+///
+/// Target[1] is Windows
+fn targets(b: *std.Build) [2]std.Build.ResolvedTarget {
+    return [_]std.Build.ResolvedTarget{
+        b.resolveTargetQuery(.{
+            .cpu_arch = .x86_64,
+            .cpu_model = .baseline,
+            .os_tag = .linux,
+            .os_version_min = .{ .semver = .{ .major = 6, .minor = 12, .patch = 0 } },
+            .abi = .gnu,
+            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
+        }),
+        b.resolveTargetQuery(.{
+            .cpu_arch = .x86_64,
+            .cpu_model = .baseline,
+            .os_tag = .windows,
+            .os_version_min = .{ .windows = .win7 },
+            .abi = .gnu,
+            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
+        }),
+    };
 }
