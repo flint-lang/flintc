@@ -23,12 +23,14 @@ pub fn build(b: *std.Build) !void {
         false;
     const jobs = b.option(usize, "jobs", "Number of cores to use for building LLVM") orelse
         (try std.Thread.getCpuCount() - 2);
-    const target_option: OSTag = b.option(OSTag, "target", "The OS to build for") orelse switch (host_target.result.os.tag) {
-        .linux => .linux,
-        .windows => .windows,
-        else => @panic("Unsupported OS"),
-    };
-    const target_query: std.Target.Query = switch (target_option) {
+    const target_option: OSTag = b.option(OSTag, "target", "The OS to build for") orelse
+        switch (host_target.result.os.tag) {
+            .linux => .linux,
+            .windows => .windows,
+            else => @panic("Unsupported OS"),
+        };
+
+    const target = b.resolveTargetQuery(switch (target_option) {
         .linux => .{
             .cpu_arch = .x86_64,
             .cpu_model = .baseline,
@@ -45,8 +47,7 @@ pub fn build(b: *std.Build) !void {
             .abi = .gnu,
             .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
         },
-    };
-    const target = b.resolveTargetQuery(target_query);
+    });
 
     // Update Json Mini
     const update_json_mini = try updateJsonMini(b);
@@ -57,9 +58,36 @@ pub fn build(b: *std.Build) !void {
     // Build LLVM
     const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
     // Build flintc exe
-    try buildFlintc(b, &build_llvm.step, target, optimize);
+    const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize);
     // Build FLS exe
     try buildFLS(b, &update_fip.step, target, optimize);
+
+    // Testing
+    const test_step = b.step("test", "Test the app");
+    if (optimize == .Debug) {
+        std.log.info("The 'test' build option requires a release build!", .{});
+    } else {
+        const test_wiki_cmd = b.addRunArtifact(flintc_exe);
+        test_wiki_cmd.addArg("--file");
+        test_wiki_cmd.addFileArg(b.path("test_files/wiki_tests.ft"));
+        test_wiki_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
+        test_wiki_cmd.addPathDir(b.getInstallPath(.bin, ""));
+        test_wiki_cmd.setCwd(b.path("test_files"));
+        test_wiki_cmd.has_side_effects = true;
+        test_wiki_cmd.step.dependOn(&flintc_exe.step);
+        test_step.dependOn(&test_wiki_cmd.step);
+
+        const test_examples_cmd = b.addRunArtifact(flintc_exe);
+        test_examples_cmd.addArg("--file");
+        test_examples_cmd.addFileArg(b.path("examples/example_tests.ft"));
+        test_examples_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
+        test_examples_cmd.addPathDir(b.getInstallPath(.bin, ""));
+        test_examples_cmd.setCwd(b.path("examples"));
+        test_examples_cmd.has_side_effects = true;
+        test_examples_cmd.step.dependOn(&flintc_exe.step);
+        test_examples_cmd.step.dependOn(&test_wiki_cmd.step);
+        test_step.dependOn(&test_examples_cmd.step);
+    }
 }
 
 fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
@@ -176,7 +204,7 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
     exe.step.dependOn(previous_step);
 }
 
-fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !void {
+fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
         .root_module = b.createModule(.{
@@ -303,6 +331,8 @@ fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.
 
     // Link LLVM libraries
     try linkWithLLVM(b, previous_step, exe, target, llvm_dir);
+
+    return exe;
 }
 
 fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, force_rebuild: bool, jobs: usize) !*std.Build.Step.Run {
