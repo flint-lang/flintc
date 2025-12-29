@@ -1,6 +1,0 @@
-// Prints all numbers fro 0 to 100000
-def main():
-	i32 num = 0;
-	while num < 1000000:
-		print(num);
-		num = num + 1;
