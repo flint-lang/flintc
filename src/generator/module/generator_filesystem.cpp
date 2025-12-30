@@ -343,8 +343,8 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const unsigned int TooLarge = 5;
     const std::string TooLargeMessage(ErrFSValues.at(TooLarge - ErrIOCount).second);
 
-    // Define return type - str* (array of strings)
-    const std::shared_ptr<Type> &result_type_ptr = Type::get_primitive_type("str");
+    // Define return type - str[] (array of strings)
+    const std::shared_ptr<Type> result_type_ptr = Type::get_type_from_str("str[]").value();
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
     llvm::Function *read_lines_fn =
