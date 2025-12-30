@@ -196,6 +196,9 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) {
             case TOK_INDENT:
                 token_str << std::string(Lexer::TAB_SIZE, ' ');
                 break;
+            case TOK_DOLLAR:
+                token_str << '$';
+                break;
             default:
                 token_str << it->lexme;
                 if (space_needed(tokens, it, {TOK_RIGHT_PAREN, TOK_COMMA, TOK_SEMICOLON, TOK_COLON})) {

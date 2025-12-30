@@ -710,7 +710,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
                 return expr;
             } else {
                 // Interpolating only a single expression like `$"{val}"` is not allowed, you should use `str(val)` instead
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprInterpolationOnlyOneExpr, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
             }
         } else {

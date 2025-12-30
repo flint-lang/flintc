@@ -1,8 +1,5 @@
 use Core.print
 
 def main():
-	for u64 i = 0; i < 10; i++:
-		u64 z = i * 5;
-		if i == 5:
-			break;
-		print($"z = {z}\n");
+	str hello = "Hello, World!\n";
+	print($"{hello}");
