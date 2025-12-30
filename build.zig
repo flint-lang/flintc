@@ -32,6 +32,27 @@ pub fn build(b: *std.Build) !void {
 
     const target = targets(b)[@intFromEnum(target_option)];
 
+    const commit_hash: []const u8 = std.mem.trim(
+        u8,
+        b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" }),
+        &std.ascii.whitespace,
+    );
+    std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
+
+    const build_date: []const u8 = blk: {
+        const current_timestamp: u64 = @intCast(std.time.timestamp());
+        const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
+        const epoch_day = epoch_seconds.getEpochDay();
+        const year_day = epoch_day.calculateYearDay();
+        const month_day = year_day.calculateMonthDay();
+        break :blk b.fmt("\"{d}-{d:0>2}-{d:0>2}\"", .{
+            year_day.year,
+            month_day.month.numeric(),
+            month_day.day_index + 1, // day_index is 0-based
+        });
+    };
+    std.debug.print("-- Build Date is {s}\n", .{build_date});
+
     // Update Json Mini
     const update_json_mini = try updateJsonMini(b);
     // Update Fip
@@ -41,23 +62,23 @@ pub fn build(b: *std.Build) !void {
     // Build LLVM
     const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize);
+    const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize, commit_hash, build_date);
     b.installArtifact(flintc_exe);
     // Build FLS exe
-    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize);
+    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date);
     b.installArtifact(fls_exe);
 
     // Build all
     const build_all_step = b.step("all", "Build all targets");
     for (targets(b)) |t| {
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm.step, t, .Debug);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm.step, t, .Debug, commit_hash, build_date);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
-        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug);
+        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm.step, t, .ReleaseSmall);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm.step, t, .ReleaseSmall, commit_hash, build_date);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
-        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall);
+        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
     }
 
@@ -89,7 +110,14 @@ pub fn build(b: *std.Build) !void {
     }
 }
 
-fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !*std.Build.Step.Compile {
+fn buildFLS(
+    b: *std.Build,
+    previous_step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    commit_hash: []const u8,
+    build_date: []const u8,
+) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "fls-debug" else "fls",
         .root_module = b.createModule(.{
@@ -99,38 +127,18 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
         }),
         .version = try .parse(FLINTC_VERSION),
     });
-    exe.root_module.addCMacro("FLINT_LSP", "");
-    if (optimize == .Debug) {
-        exe.root_module.addCMacro("DEBUG_BUILD", "");
-    }
     exe.link_function_sections = true;
     exe.link_data_sections = true;
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
-    // Add commit hash
-    const commit_hash: []const u8 = blk: {
-        const commit_hash = b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" });
-        break :blk std.mem.trim(u8, commit_hash, &std.ascii.whitespace);
-    };
-    std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
+    // Add Macros
+    exe.root_module.addCMacro("FLINT_LSP", "");
     exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{s}", .{commit_hash}));
-
-    // Add build date
-    const build_date: []const u8 = blk: {
-        const current_timestamp: u64 = @intCast(std.time.timestamp());
-        const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
-        const epoch_day = epoch_seconds.getEpochDay();
-        const year_day = epoch_day.calculateYearDay();
-        const month_day = year_day.calculateMonthDay();
-        break :blk b.fmt("\"{d}-{d:0>2}-{d:0>2}\"", .{
-            year_day.year,
-            month_day.month.numeric(),
-            month_day.day_index + 1, // day_index is 0-based
-        });
-    };
-    std.debug.print("-- Build Date is {s}\n", .{build_date});
     exe.root_module.addCMacro("BUILD_DATE", build_date);
+    if (optimize == .Debug) {
+        exe.root_module.addCMacro("DEBUG_BUILD", "");
+    }
 
     // Add Include paths
     exe.root_module.addIncludePath(b.path("vendor/sources/fip"));
@@ -204,7 +212,14 @@ fn buildFLS(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Res
     return exe;
 }
 
-fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) !*std.Build.Step.Compile {
+fn buildFlintc(
+    b: *std.Build,
+    previous_step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    commit_hash: []const u8,
+    build_date: []const u8,
+) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
         .root_module = b.createModule(.{
@@ -214,37 +229,17 @@ fn buildFlintc(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.
         }),
         .version = try .parse(FLINTC_VERSION),
     });
-    if (optimize == .Debug) {
-        exe.root_module.addCMacro("DEBUG_BUILD", "");
-    }
     exe.link_function_sections = true;
     exe.link_data_sections = true;
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
-    // Add commit hash
-    const commit_hash: []const u8 = blk: {
-        const commit_hash = b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" });
-        break :blk std.mem.trim(u8, commit_hash, &std.ascii.whitespace);
-    };
-    std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
+    // Add Macros
     exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{s}", .{commit_hash}));
-
-    // Add build date
-    const build_date: []const u8 = blk: {
-        const current_timestamp: u64 = @intCast(std.time.timestamp());
-        const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
-        const epoch_day = epoch_seconds.getEpochDay();
-        const year_day = epoch_day.calculateYearDay();
-        const month_day = year_day.calculateMonthDay();
-        break :blk b.fmt("\"{d}-{d:0>2}-{d:0>2}\"", .{
-            year_day.year,
-            month_day.month.numeric(),
-            month_day.day_index + 1, // day_index is 0-based
-        });
-    };
-    std.debug.print("-- Build Date is {s}\n", .{build_date});
     exe.root_module.addCMacro("BUILD_DATE", build_date);
+    if (optimize == .Debug) {
+        exe.root_module.addCMacro("DEBUG_BUILD", "");
+    }
 
     const llvm_dir = switch (target.result.os.tag) {
         .linux => "vendor/llvm-linux",
