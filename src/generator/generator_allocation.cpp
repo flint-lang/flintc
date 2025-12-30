@@ -465,8 +465,14 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
         if (iterators.second.has_value()) {
             const std::string element_name = iterators.second.value();
             const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + element_name;
-            // There is no allocation for the iterable, the allocation is actually a loaded pointer in the enh for loops body
-            allocations.emplace(element_alloca_name, nullptr);
+            if (for_node->iterable->type->get_variation() == Type::Variation::RANGE) {
+                generate_allocation(builder, allocations, element_alloca_name, builder.getInt64Ty(), element_name + "__ELEM_IDX", //
+                    "Create range elem iter alloca '" + element_name + "' of enh for loop in s::" + std::to_string(scope_id)      //
+                );
+            } else {
+                // There is no allocation for the iterable, the allocation is actually a loaded pointer in the enh for loops body
+                allocations.emplace(element_alloca_name, nullptr);
+            }
         }
     }
     if (!generate_allocations(builder, parent, for_node->body, allocations, imported_core_modules)) {

@@ -1,9 +1,7 @@
 use Core.print
-use Core.system
 
 def main():
-    str cwd = get_cwd();
-    print($"cwd = {cwd}\n");
-    print($"calling get_path(\"{cwd}/zig-out/bin/flintc\")\n");
-    str newpath = get_path($"{cwd}/zig-out/bin/flintc");
-    print($"cwd/zig-out/bin/flintc = {newpath}\n");
+	u64 start = 5;
+	u64 end = 10;
+	for (i, elem) in start..end:
+		print($"{i}: {elem}\n");

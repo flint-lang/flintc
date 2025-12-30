@@ -660,7 +660,7 @@ bool Generator::Statement::generate_if_statement( //
 bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const DoWhileNode *do_while_node) {
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
 
-    std::array<llvm::BasicBlock*, 3> do_while_blocks{};
+    std::array<llvm::BasicBlock *, 3> do_while_blocks{};
 
     do_while_blocks[0] = llvm::BasicBlock::Create(context, "do_while_body", ctx.parent);
     do_while_blocks[1] = llvm::BasicBlock::Create(context, "do_while_cond", ctx.parent);
@@ -671,7 +671,8 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
     builder.SetInsertPoint(pred_block);
     llvm::BranchInst *init_do_while_br = builder.CreateBr(do_while_blocks[0]);
     init_do_while_br->setMetadata("comment",
-        llvm::MDNode::get(context, llvm::MDString::get(context, "Start the do-while loop in '" + do_while_blocks[0]->getName().str() + "'")));
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context, "Start the do-while loop in '" + do_while_blocks[0]->getName().str() + "'")));
 
     builder.SetInsertPoint(do_while_blocks[0]);
     ctx.scope = do_while_node->scope;
@@ -679,7 +680,7 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    if(builder.GetInsertBlock()->getTerminator() == nullptr) {
+    if (builder.GetInsertBlock()->getTerminator() == nullptr) {
         builder.CreateBr(do_while_blocks[1]);
     }
 
@@ -689,15 +690,15 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
     Expression::garbage_type garbage;
     group_mapping expression_arr = Expression::generate_expression(builder, ctx, garbage, 0, do_while_node->condition.get());
     llvm::Value *expression = expression_arr.value().front();
-    if(!clear_garbage(builder, garbage)) {
+    if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
     llvm::BranchInst *branch = builder.CreateCondBr(expression, do_while_blocks[0], do_while_blocks[2]);
     branch->setMetadata("comment",
         llvm::MDNode::get(context,
-            llvm::MDString::get(
-                context, "Continue loop in '" + do_while_blocks[0]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
+            llvm::MDString::get(context,
+                "Continue loop in '" + do_while_blocks[0]->getName().str() + "' based on cond '" + expression->getName().str() + "'")));
 
     do_while_blocks[2]->insertInto(ctx.parent);
 
@@ -873,7 +874,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    if (iterable.value().size() > 1) {
+    if (iterable.value().size() > 1 && for_node->iterable->type->get_variation() != Type::Variation::RANGE) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
@@ -882,6 +883,9 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
+    llvm::Value *lower_bound = nullptr;
+    llvm::Value *upper_bound = nullptr;
+    const bool is_range = for_node->iterable->type->get_variation() == Type::Variation::RANGE;
     if (for_node->iterable->type->get_variation() == Type::Variation::ARRAY) {
         const auto *array_type = for_node->iterable->type->as<ArrayType>();
         llvm::Value *dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
@@ -900,8 +904,34 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         // The values start right after the lengths
         value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         element_type = IR::get_type(ctx.parent->getParent(), array_type->type).first;
+    } else if (is_range) {
+        assert(iterable.value().size() == 2);
+        lower_bound = iterable.value().front();
+        upper_bound = iterable.value().back();
+        llvm::Value *calculated_length = builder.CreateSub(upper_bound, lower_bound, "range_length");
+        // Ensure length is positive
+        llvm::Value *is_positive = builder.CreateICmpSGT(calculated_length, builder.getInt64(0), "is_positive");
+        llvm::BasicBlock *range_error_block = llvm::BasicBlock::Create(context, "range_error", ctx.parent);
+        llvm::BasicBlock *range_continue_block = llvm::BasicBlock::Create(context, "range_continue", ctx.parent);
+        builder.CreateCondBr(is_positive, range_continue_block, range_error_block);
+
+        builder.SetInsertPoint(range_error_block);
+        // For simplicity, set length to 0 and continue
+        // TODO: Print error that range is the wrong way around
+        llvm::Value *error_length = builder.getInt64(0);
+        llvm::Function *printf_function = c_functions.at(PRINTF);
+        llvm::Value *err_format = IR::generate_const_string(ctx.parent->getParent(), "ERROR: Incorrect range used in for loop: %zu..%zu\n");
+        builder.CreateCall(printf_function, {err_format, lower_bound, upper_bound});
+        builder.CreateBr(range_continue_block);
+
+        builder.SetInsertPoint(range_continue_block);
+        llvm::PHINode *length_phi = builder.CreatePHI(builder.getInt64Ty(), 2, "length_phi");
+        length_phi->addIncoming(calculated_length, pred_block);
+        length_phi->addIncoming(error_length, range_error_block);
+        length = length_phi;
+        element_type = builder.getInt64Ty();
     } else {
-        // Is 'str' type
+        // Is a 'str' type
         llvm::Value *len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "len_ptr");
         length = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "length");
         value_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "value_ptr");
@@ -955,11 +985,19 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     // body
     builder.SetInsertPoint(for_blocks[1]);
     // Load the current element from the iterable
-    llvm::Value *current_element_ptr = builder.CreateGEP(element_type, value_ptr, current_index, "current_element_ptr");
+    llvm::Value *current_element_ptr = nullptr;
+    llvm::Value *current_element = nullptr;
+    if (is_range) {
+        // For ranges, compute element = lower_bound + current_index
+        current_element = builder.CreateAdd(lower_bound, current_index, "range_element");
+        // If elem is stored in alloca, we'll store this value there below
+    } else {
+        current_element_ptr = builder.CreateGEP(element_type, value_ptr, current_index, "current_element_ptr");
+        current_element = IR::aligned_load(builder, element_type, current_element_ptr, "current_element");
+    }
     // We need to store the element in the tuple / in the element alloca
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         llvm::Value *elem_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 1, "elem_ptr");
-        llvm::Value *current_element = IR::aligned_load(builder, element_type, current_element_ptr, "current_element");
         IR::aligned_store(builder, current_element, elem_ptr);
     } else {
         // If we have a elem variable the elem variable is actually just the iterable element itself
@@ -967,10 +1005,15 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         if (iterators.second.has_value()) {
             const unsigned int scope_id = for_node->definition_scope->scope_id;
             const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
-            // Replace the old nullptr alloca with the new alloca
-            assert(ctx.allocations.at(element_alloca_name) == nullptr);
-            ctx.allocations.erase(element_alloca_name);
-            ctx.allocations.emplace(element_alloca_name, current_element_ptr);
+            llvm::Value *const element_alloca = ctx.allocations.at(element_alloca_name);
+            if (is_range) {
+                IR::aligned_store(builder, current_element, element_alloca);
+            } else {
+                // For non-range, replace the old nullptr alloca with the new alloca
+                assert(element_alloca == nullptr);
+                ctx.allocations.erase(element_alloca_name);
+                ctx.allocations.emplace(element_alloca_name, current_element_ptr);
+            }
         }
     }
     // Then we generate the body itself
