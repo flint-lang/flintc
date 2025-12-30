@@ -565,7 +565,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         fetch_fip_complete_step.step.dependOn(previous_step);
 
         // 4. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", "main" });
+        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_VERSION });
         checkout_fip_hash_cmd.setName("checkout_fip_hash");
         checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
         checkout_fip_hash_cmd.step.dependOn(&fetch_fip_complete_step.step);
