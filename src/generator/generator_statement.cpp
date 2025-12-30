@@ -202,6 +202,14 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
 
 bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, GenerationContext &ctx) {
     // First, get all variables of this scope that went out of scope
+    llvm::BasicBlock *prev_block = builder.GetInsertBlock();
+    llvm::BasicBlock *end_of_scope_block = llvm::BasicBlock::Create(               //
+        context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
+    );
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
+    builder.SetInsertPoint(prev_block);
+    builder.CreateBr(end_of_scope_block);
+    builder.SetInsertPoint(end_of_scope_block);
     auto variables = ctx.scope->get_unique_variables();
     for (const auto &[var_name, var_info] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
@@ -214,7 +222,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
             continue;
         }
-        // Check if the variable is of type str
+        // Check if the variable is an alias type
         std::shared_ptr<Type> var_type = std::get<0>(var_info);
         if (var_type->get_variation() == Type::Variation::ALIAS) {
             const auto *alias_type = var_type->as<AliasType>();
@@ -289,22 +297,83 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 break;
             case Type::Variation::VARIANT: {
                 const auto *variant_type = var_type->as<VariantType>();
-                if (!variant_type->is_err_variant) {
-                    break;
+                if (variant_type->is_err_variant) {
+                    const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                    llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                    llvm::StructType *error_type = type_map.at("__flint_type_err");
+                    llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
+                    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+                    llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
+                    llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
+                    free_call->setMetadata("comment",
+                        llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from variant '" + var_name + "'")));
+                } else {
+                    std::map<size_t, llvm::BasicBlock *> possible_value_blocks;
+                    const auto &possible_types = variant_type->get_possible_types();
+                    for (size_t i = 0; i < possible_types.size(); i++) {
+                        // Check if the type is complex, if it is then we need to free it
+                        const auto &possible_type = possible_types[i];
+                        auto type_info = IR::get_type(ctx.parent->getParent(), possible_type.second);
+                        const bool is_complex =                                                    //
+                            (type_info.second.first || possible_type.second->to_string() == "str") //
+                            // TODO: When DIMA works then data, entity etc types will be complex too and need to be freed as well here
+                            && possible_type.second->get_variation() != Type::Variation::DATA;
+                        if (is_complex) {
+                            // Add a basic block in which this complex type will be freed
+                            llvm::BasicBlock *free_block = llvm::BasicBlock::Create(                                                    //
+                                context, "variant_" + var_name + "_free_" + std::to_string(i) + "_" + possible_type.second->to_string() //
+                            );
+                            possible_value_blocks[i] = free_block;
+                        }
+                    }
+                    if (possible_value_blocks.empty()) {
+                        // If there are no complex values inside the variant then we do not need to free anything
+                        break;
+                    }
+                    // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
+                    // to each type.
+                    llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, "variant_" + var_name + "_free_merge");
+                    const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                    llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                    llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), var_type);
+                    llvm::Value *variant_active_value_ptr = builder.CreateStructGEP( //
+                        variant_struct_type, alloca, 0, "variant_active_value_ptr"   //
+                    );
+                    llvm::Value *variant_active_value = IR::aligned_load(                              //
+                        builder, builder.getInt8Ty(), variant_active_value_ptr, "variant_active_value" //
+                    );
+                    llvm::SwitchInst *active_value_switch = builder.CreateSwitch(variant_active_value, variant_free_merge_block);
+
+                    // Now generate the content of each block, get the value of the variant and free the value in it
+                    for (auto &[value_id, value_block] : possible_value_blocks) {
+                        active_value_switch->addCase(builder.getInt8(value_id), value_block);
+                        value_block->insertInto(ctx.parent);
+                        builder.SetInsertPoint(value_block);
+                        IR::generate_debug_print( //
+                            &builder, ctx.parent->getParent(),
+                            "Freeing variant '" + var_name + "' with value_id of '" + std::to_string(value_id) + "'", {} //
+                        );
+                        llvm::Value *variant_value_ptr = builder.CreateStructGEP(variant_struct_type, alloca, 1, "variant_value_ptr");
+                        auto value_type = IR::get_type(ctx.parent->getParent(), possible_types.at(value_id).second);
+                        const bool is_ptr = value_type.second.first;
+                        llvm::Value *variant_value = IR::aligned_load(                                                                //
+                            builder, is_ptr ? value_type.first->getPointerTo() : value_type.first, variant_value_ptr, "variant_value" //
+                        );
+                        llvm::Function *free_fn = c_functions.at(FREE);
+                        builder.CreateCall(free_fn, {variant_value});
+                        builder.CreateBr(variant_free_merge_block);
+                    }
+
+                    variant_free_merge_block->insertInto(ctx.parent);
+                    builder.SetInsertPoint(variant_free_merge_block);
                 }
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::StructType *error_type = type_map.at("__flint_type_err");
-                llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-                llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
-                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
-                free_call->setMetadata("comment",
-                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from variant '" + var_name + "'")));
                 break;
             }
         }
     }
+    builder.CreateBr(merge_block);
+    merge_block->insertInto(ctx.parent);
+    builder.SetInsertPoint(merge_block);
     return true;
 }
 
