@@ -477,7 +477,7 @@ fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []con
         }
 
         // 3. Reset hard
-        const reset_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard" });
+        const reset_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_llvm_cmd.setName("reset_llvm");
         reset_llvm_cmd.setCwd(b.path("vendor/sources/llvm-project"));
         reset_llvm_cmd.step.dependOn(previous_step);
@@ -522,7 +522,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         }
 
         // 3. Reset hard
-        const reset_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard" });
+        const reset_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_fip_cmd.setName("reset_fip");
         reset_fip_cmd.setCwd(b.path("vendor/sources/fip"));
         reset_fip_cmd.step.dependOn(previous_step);
@@ -540,7 +540,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         checkout_fip_cmd.step.dependOn(&fetch_fip_cmd.step);
 
         // 6. Pull fip
-        const pull_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "pull" });
+        const pull_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "pull", "-fq" });
         pull_fip_cmd.setName("pull_fip");
         pull_fip_cmd.setCwd(b.path("vendor/sources/fip"));
         pull_fip_cmd.step.dependOn(&checkout_fip_cmd.step);
@@ -585,7 +585,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
         }
 
         // 3. Reset hard
-        const reset_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard" });
+        const reset_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_json_mini_cmd.setName("reset_json_mini");
         reset_json_mini_cmd.setCwd(b.path("vendor/sources/json-mini"));
 
@@ -602,7 +602,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
         checkout_json_mini_cmd.step.dependOn(&fetch_json_mini_step.step);
 
         // 6. Pull json-mini
-        const pull_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "pull" });
+        const pull_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "pull", "-fq" });
         pull_json_mini_step.setName("pull_json_mini");
         pull_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
         pull_json_mini_step.step.dependOn(&checkout_json_mini_cmd.step);
