@@ -99,6 +99,8 @@ It is recommended to build the project with the `zig build` command after clonin
 
 ### Prequisites
 
+- Zig
+- `lld` (Zig does not provide `lld` itself)
 - CMake (to build LLVM)
 - Ninja (to build LLVM)
 - Python (>3.8, to build LLVM)
@@ -109,7 +111,7 @@ On Linux you need to install the packages via your package manager of choice and
 
 ### Windows
 
-On Windows it is recommended to simpy use `winget` to install all required dependencies for this project:
+On Windows it is recommended to simpy use `winget` to install all these required dependencies for this project:
 
 - `zig.zig` for Zig itself
 - `MartinStorsjo.LLVM-MinGW.UCRT` to get `ld.lld` since Zig does not ship it, and to get the C++ `std` library headers (`<string>`, etc)
