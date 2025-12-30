@@ -201,8 +201,8 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
 }
 
 bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, GenerationContext &ctx) {
-    // First, get all variables of this scope that went out of scope
     llvm::BasicBlock *prev_block = builder.GetInsertBlock();
+    llvm::Instruction *prev_terminator = prev_block->getTerminator();
     llvm::BasicBlock *end_of_scope_block = llvm::BasicBlock::Create(               //
         context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
     );
@@ -210,6 +210,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(prev_block);
     builder.CreateBr(end_of_scope_block);
     builder.SetInsertPoint(end_of_scope_block);
+    // Get all variables of this scope that went out of scope
     auto variables = ctx.scope->get_unique_variables();
     for (const auto &[var_name, var_info] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
@@ -374,6 +375,11 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     builder.CreateBr(merge_block);
     merge_block->insertInto(ctx.parent);
     builder.SetInsertPoint(merge_block);
+    if (prev_terminator != nullptr) {
+        // Move the previous terminator to this basic block to complete the chain, letting the end of scope generation "slide" in between
+        // the blocks
+        prev_terminator->moveBeforePreserving(*merge_block, merge_block->end());
+    }
     return true;
 }
 
@@ -845,12 +851,12 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     // Generate the instructions from the definition scope (it should only contain the initializer statement, for example 'i32 i = 0')
     const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = for_node->definition_scope;
-    if (!generate_body(builder, ctx)) {
+    if (!generate_statement(builder, ctx, ctx.scope->body.front())) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
 
-    // Create the basic blocks for the condition check, the while body and the merge block
+    // Create the basic blocks for the condition check, the for loop body and the merge block
     std::array<llvm::BasicBlock *, 4> for_blocks{};
     // Create then condition block (for the else if blocks)
     for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", ctx.parent);
@@ -864,7 +870,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
     ctx.scope = for_node->definition_scope;
-    if (!generate_body(builder, ctx)) {
+    if (!generate_statement(builder, ctx, ctx.scope->body.front())) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }

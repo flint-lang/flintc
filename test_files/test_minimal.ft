@@ -1,18 +1,8 @@
 use Core.print
 
-variant MyVar:
-	str, MyData, u32;
-
-data MyData:
-	i32 x;
-	f32 y;
-	u32 z;
-	MyData(x, y, z);
-
 def main():
-	MyVar v = str("hello there");
-	print($"v = {v!(str)}\n");
-
-	MyVar v2 = MyData(-10, 20.9, 33);
-	MyData d = v2!(MyData);
-	print($"v2.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+	for u64 i = 0; i < 10; i++:
+		u64 z = i * 5;
+		if i == 5:
+			break;
+		print($"z = {z}\n");
