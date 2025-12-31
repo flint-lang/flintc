@@ -779,8 +779,7 @@ bool Generator::IR::generate_enum_value_strings( //
     // Create individual string constants
     const std::string key = hash + "." + enum_name;
     if (enum_name_arrays_map.find(key) != enum_name_arrays_map.end()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
+        return true;
     }
     std::vector<llvm::Constant *> string_pointers;
     llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
@@ -794,7 +793,7 @@ bool Generator::IR::generate_enum_value_strings( //
         // Create a global variable to hold the string
         llvm::GlobalVariable *string_global = new llvm::GlobalVariable(                             //
             *module, string_data->getType(), true, llvm::GlobalValue::ExternalLinkage, string_data, //
-            "enum." + enum_name + ".name." + std::to_string(i)                                      //
+            hash + ".enum." + enum_name + ".name." + std::to_string(i)                              //
         );
 #pragma GCC diagnostic pop
 
@@ -817,7 +816,7 @@ bool Generator::IR::generate_enum_value_strings( //
 #ifdef __WIN32__
     global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
 #endif
-    enum_name_arrays_map[enum_name] = global_string_array;
+    enum_name_arrays_map[key] = global_string_array;
     return true;
 }
 
