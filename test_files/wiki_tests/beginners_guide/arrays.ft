@@ -144,8 +144,7 @@ test "25_manual_slice.ft":
 	str file = "25_manual_slice.ft";
 	test_file_ok($"{path}/{file}", "Hello there\nllo there\n");
 
-#test_should_fail
-test "[f]26_perf_comp.ft":
+test "26_perf_comp.ft":
 	str path = "wiki_tests/beginners_guide/arrays";
 	str file = "26_perf_comp.ft";
 	(exit_code, output) := system_command($"flintc --file {path}/{file}");
