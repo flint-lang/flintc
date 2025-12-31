@@ -147,37 +147,22 @@ test "28_multitype_arithmetic.ft":
 	str file = "28_multitype_arithmetic.ft";
 	test_file_ok($"{path}/{file}", "sum = (6, 8, 10, 12)\n");
 
-test "29_grouped_access.ft":
+test "29_splatting.ft":
 	str path = "wiki_tests/beginners_guide/data";
-	str file = "29_grouped_access.ft";
-	test_file_ok($"{path}/{file}", "(x, y, z) = (10, 3.5, 100)\n");
+	str file = "29_splatting.ft";
+	test_file_ok($"{path}/{file}", "vec3 = (10, 20, 30)\nvec3 = (40, 80, 120)\n");
 
-test "30_grouped_assignment.ft":
+test "30_set_cmp_scalar.ft":
 	str path = "wiki_tests/beginners_guide/data";
-	str file = "30_grouped_assignment.ft";
-	test_file_ok($"{path}/{file}", "m.(x, y, z) = (3, 3.14, 33)\n");
-
-test "31_grouped_assignment_scalar.ft":
-	str path = "wiki_tests/beginners_guide/data";
-	str file = "31_grouped_assignment_scalar.ft";
-	test_file_ok($"{path}/{file}", "m.(x, y, z) = (3, 3.14, 33)\n");
-
-test "32_grouped_field_swaps.ft":
-	str path = "wiki_tests/beginners_guide/data";
-	str file = "32_grouped_field_swaps.ft";
-	test_file_ok($"{path}/{file}", "vec4 = (30, 10, 40, 20)\n");
-
-test "33_set_cmp_scalar.ft":
-	str path = "wiki_tests/beginners_guide/data";
-	str file = "33_set_cmp_scalar.ft";
+	str file = "30_set_cmp_scalar.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
-test "34_set_cmp_group.ft":
+test "31_set_cmp_group.ft":
 	str path = "wiki_tests/beginners_guide/data";
-	str file = "34_set_cmp_group.ft";
+	str file = "31_set_cmp_group.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
-test "35_set_cmp_enum.ft":
+test "32_set_cmp_enum.ft":
 	str path = "wiki_tests/beginners_guide/data";
-	str file = "35_set_cmp_enum.ft";
+	str file = "32_set_cmp_enum.ft";
 	test_file_ok($"{path}/{file}", "is VAL2 or VAL4\nis VAL2 or VAL4\n");

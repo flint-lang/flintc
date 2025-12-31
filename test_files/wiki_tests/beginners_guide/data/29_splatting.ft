@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+	i32x3 vec3 = (10, 20, 30);
+	print($"vec3 = {vec3}\n");
+	vec3 *= 2;
+	vec3 *= i32(2);
+	print($"vec3 = {vec3}\n");
