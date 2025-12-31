@@ -197,6 +197,15 @@ class Parser {
         const bool is_implicit = true          //
     );
 
+    /// @function `is_castable_to`
+    /// @brief Checks if the given type is castable 'from' the given type 'to' the given type, and whether it needs to be implicitely
+    /// castable or explicitely castable
+    ///
+    /// @param `from` The type to cast from
+    /// @param `to` The type to cast to
+    /// @param `is_implicit` Whether the cast needs to be able to be done implicitely
+    static bool is_castable_to(const std::shared_ptr<Type> &from, const std::shared_ptr<Type> &to, const bool is_implicit = true);
+
     /// @function `check_castability`
     /// @brief Checks whether the given expression can be cast to the target type and casts the expression to the type if needed. If the
     /// expression is not castable to the given type the function will return false.

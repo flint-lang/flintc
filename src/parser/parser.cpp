@@ -367,9 +367,9 @@ Parser::CastDirection Parser::check_castability( //
         // If one of them is a multi-type, the other one has to be a single value with the same type as the base type of the mutli-type
         const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
         const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
-        if (lhs_mult != nullptr && rhs_mult == nullptr && lhs_mult->base_type == rhs_type) {
+        if (lhs_mult != nullptr && rhs_mult == nullptr && is_castable_to(lhs_mult->base_type, rhs_type)) {
             return CastDirection::rhs_to_lhs();
-        } else if (lhs_mult == nullptr && rhs_mult != nullptr && lhs_type == rhs_mult->base_type) {
+        } else if (lhs_mult == nullptr && rhs_mult != nullptr && is_castable_to(rhs_mult->base_type, lhs_type)) {
             return CastDirection::lhs_to_rhs();
         }
         if (lhs_type->to_string() == "__flint_type_str_lit" && rhs_type->to_string() == "str") {
@@ -603,6 +603,20 @@ Parser::CastDirection Parser::check_castability( //
     return CastDirection::rhs_to_lhs();
 }
 
+bool Parser::is_castable_to(const std::shared_ptr<Type> &from, const std::shared_ptr<Type> &to, const bool is_implicit) {
+    const CastDirection cast_direction = check_castability(from, to, is_implicit);
+    switch (cast_direction.kind) {
+        case CastDirection::Kind::NOT_CASTABLE:
+        case CastDirection::Kind::CAST_LHS_TO_RHS:
+        case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+            return false;
+        case CastDirection::Kind::SAME_TYPE:
+        case CastDirection::Kind::CAST_RHS_TO_LHS:
+        case CastDirection::Kind::CAST_BIDIRECTIONAL:
+            return true;
+    }
+}
+
 bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::unique_ptr<ExpressionNode> &expr, const bool is_implicit) {
     PROFILE_CUMULATIVE("Parser::check_castability_expr_inplace");
     if (target_type->get_variation() == Type::Variation::ALIAS) {
@@ -739,6 +753,22 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 return true;
             }
             if (expr->get_variation() != ExpressionNode::Variation::GROUP_EXPRESSION) {
+                // If rhs type is a single value of type 'int' or 'float' then it can be splatted to the lhs type
+                CastDirection::Kind primitive_castability = CastDirection::Kind::SAME_TYPE;
+                if (!multi_type->base_type->equals(expr->type)) {
+                    primitive_castability = check_primitive_castability(multi_type->base_type, expr->type).kind;
+                }
+                const bool rhs_is_able_to_swizzle =                                     //
+                    primitive_castability == CastDirection::Kind::CAST_RHS_TO_LHS       //
+                    || primitive_castability == CastDirection::Kind::CAST_BIDIRECTIONAL //
+                    || primitive_castability == CastDirection::Kind::SAME_TYPE;
+                if (rhs_is_able_to_swizzle) {
+                    if (expr->type->to_string() == "int" || expr->type->to_string() == "float") {
+                        expr->type = multi_type->base_type;
+                    }
+                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    return true;
+                }
                 return false;
             }
             auto *group_expr = expr->as<GroupExpressionNode>();

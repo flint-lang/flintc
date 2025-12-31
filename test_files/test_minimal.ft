@@ -1,10 +1,8 @@
 use Core.print
 
-type SomeTuple data<i32, f32, str>
-
-def add(mut SomeTuple st):
-    st.($0, $1, $2) += (4, 2.2, " you all!");
-
 def main():
-    SomeTuple st = (10, 2.3, "Hello there");
-    print($"st.($0, $1, $2) = ({st.$0}, {st.$1}, {st.$2})\n");
+	i32x3 vec3 = (10, 20, 30);
+	print($"vec3 = {vec3}\n");
+	vec3 = vec3 * 2;
+	vec3 *= i32(2);
+	print($"vec3 = {vec3}\n");
