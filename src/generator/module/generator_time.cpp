@@ -23,7 +23,9 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
     for (const data_type &type : data_types) {
         const std::string type_name(std::get<0>(type));
         const std::vector<data_field> &fields = std::get<1>(type);
-        assert(time_data_types.find(type_name) == time_data_types.end());
+        if (time_data_types.find(type_name) != time_data_types.end()) {
+            continue;
+        }
         std::vector<llvm::Type *> types_vec;
         for (const auto &[field_type, field_name] : fields) {
             types_vec.emplace_back(IR::get_type(module, Type::get_primitive_type(std::string(field_type))).first);

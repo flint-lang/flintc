@@ -1,8 +1,27 @@
 use Core.print
+use Core.time
+
+def get_slice(str src, u64 from, u64 to) -> str:
+	str res = "";
+	for u64 i = from; i < to; i++:
+		res = res + str(src[i]);
+	return res;
 
 def main():
-	i32x3 vec3 = (10, 20, 30);
-	print($"vec3 = {vec3}\n");
-	vec3 = vec3 * 2;
-	vec3 *= i32(2);
-	print($"vec3 = {vec3}\n");
+	str string = "Hello there"
+
+	TimeStamp t0 = now();
+	for i := 0; i < 1_000_000; i++:
+		str slice = get_slice(string, u64(2), string.length);
+
+	TimeStamp t1 = now();
+	for i := 0; i < 1_000_000; i++:
+		str slice = string[2..];
+
+	TimeStamp t2 = now();
+	Duration manual_time = duration(t0, t1);
+	u32 manual_time_ms = u32(as_unit(manual_time, TimeUnit.MS));
+	Duration slice_time = duration(t1, t2);
+	u32 slice_time_ms = u32(as_unit(slice_time, TimeUnit.MS));
+	print($"manual: {manual_time_ms} ms\n");
+	print($"slice: {slice_time_ms} ms\n");
