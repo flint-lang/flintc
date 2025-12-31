@@ -1,0 +1,11 @@
+use Core.print
+
+type SomeTuple data<i32, f32, u64>
+
+def add(mut SomeTuple st):
+	st.($0, $1, $2) += (4, 2.2, 7);
+
+def main():
+	SomeTuple st = (-10, 2.3, 2);
+	add(st);
+	print($"st.($0, $1, $2) = ({st.$0}, {st.$1}, {st.$2})\n");

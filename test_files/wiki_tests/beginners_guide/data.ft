@@ -166,3 +166,13 @@ test "32_set_cmp_enum.ft":
 	str path = "wiki_tests/beginners_guide/data";
 	str file = "32_set_cmp_enum.ft";
 	test_file_ok($"{path}/{file}", "is VAL2 or VAL4\nis VAL2 or VAL4\n");
+
+test "33_tuple_type_alias.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "33_tuple_type_alias.ft";
+	test_file_ok($"{path}/{file}", "st.($0, $1, $2) = (-6, 4.5, 9)\n");
+
+test "34_prim_type_alias.ft":
+	str path = "wiki_tests/beginners_guide/data";
+	str file = "34_prim_type_alias.ft";
+	test_file_ok($"{path}/{file}", "i: -10, f: 3.5\n");

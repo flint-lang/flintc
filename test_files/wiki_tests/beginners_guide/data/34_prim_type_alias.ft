@@ -1,0 +1,9 @@
+use Core.print
+
+type Int i32
+type Float f32
+
+def main():
+	Int i = -10;
+	Float f = 3.5;
+	print($"i: {i}, f: {f}\n");
