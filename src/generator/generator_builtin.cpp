@@ -801,6 +801,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     );
 
     // Go through all files for all tests
+    size_t i = 0;
     for (const auto &[file_hash, test_list] : tests) {
         // Print which file we are currently at
         llvm::Value *success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
@@ -810,7 +811,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
         llvm::Value *perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
-        llvm::Value *file_name_value = IR::generate_const_string(module, "\n" + file_path + ":\n");
+        llvm::Value *file_name_value = IR::generate_const_string(module, (i == 0 ? "" : "\n") + file_path + ":\n");
+        i++;
         builder->CreateCall(c_functions.at(PRINTF), //
             {file_name_value}                       //
         );
