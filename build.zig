@@ -63,10 +63,12 @@ pub fn build(b: *std.Build) !void {
     const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
     // Build flintc exe
     const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize, commit_hash, build_date);
-    b.installArtifact(flintc_exe);
+    const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
+    b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
     const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date);
-    b.installArtifact(fls_exe);
+    const fls_exe_install = b.addInstallArtifact(fls_exe, .{});
+    b.getInstallStep().dependOn(&fls_exe_install.step);
 
     // Build all
     const build_all_step = b.step("all", "Build all targets");
@@ -94,7 +96,8 @@ pub fn build(b: *std.Build) !void {
         test_wiki_cmd.addPathDir(b.getInstallPath(.bin, ""));
         test_wiki_cmd.setCwd(b.path("test_files"));
         test_wiki_cmd.has_side_effects = true;
-        test_wiki_cmd.step.dependOn(&flintc_exe.step);
+        test_wiki_cmd.step.dependOn(&flintc_exe_install.step);
+        test_wiki_cmd.step.dependOn(&fls_exe_install.step);
         test_step.dependOn(&test_wiki_cmd.step);
 
         const test_examples_cmd = b.addRunArtifact(flintc_exe);
@@ -104,7 +107,8 @@ pub fn build(b: *std.Build) !void {
         test_examples_cmd.addPathDir(b.getInstallPath(.bin, ""));
         test_examples_cmd.setCwd(b.path("examples"));
         test_examples_cmd.has_side_effects = true;
-        test_examples_cmd.step.dependOn(&flintc_exe.step);
+        test_examples_cmd.step.dependOn(&flintc_exe_install.step);
+        test_examples_cmd.step.dependOn(&fls_exe_install.step);
         test_examples_cmd.step.dependOn(&test_wiki_cmd.step);
         test_step.dependOn(&test_examples_cmd.step);
     }
