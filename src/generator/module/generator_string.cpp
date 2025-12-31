@@ -1248,7 +1248,7 @@ void Generator::Module::String::generate_string_assignment( //
     }
 }
 
-llvm::Value *Generator::Module::String::generate_string_addition(                                                 //
+std::optional<llvm::Value *> Generator::Module::String::generate_string_addition(                                 //
     llvm::IRBuilder<> &builder,                                                                                   //
     const std::shared_ptr<Scope> scope,                                                                           //
     const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
@@ -1268,8 +1268,8 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
         if (is_append) {
             llvm::Function *append_str_fn = string_manip_functions.at("append_str");
             if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
             }
             const auto *str_var = lhs_expr->as<VariableNode>();
             const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
@@ -1304,7 +1304,7 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
             llvm::Function *append_lit_fn = string_manip_functions.at("append_lit");
             if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
                 THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
+                return std::nullopt;
             }
             const auto *lhs_var = lhs_expr->as<VariableNode>();
             const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(lhs_var->name));
@@ -1347,5 +1347,5 @@ llvm::Value *Generator::Module::String::generate_string_addition(               
 
     // Both sides are literals, this shouldnt be possible, as they should have been folded already
     THROW_BASIC_ERR(ERR_GENERATING);
-    return nullptr;
+    return std::nullopt;
 }

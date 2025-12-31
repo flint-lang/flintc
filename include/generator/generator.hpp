@@ -3531,8 +3531,8 @@ class Generator {
             /// @param `rhs` The rhs value from llvm
             /// @param `rhs_expr` The rhs expression, to check if it is / was a literal
             /// @param `is_append` Whether to append the rhs to the lhs
-            /// @return `llvm::Value *` The result of the string addition
-            static llvm::Value *generate_string_addition(                                                                     //
+            /// @return `std::optional<llvm::Value *>` The result of the string addition, nullopt if the addition failed
+            static std::optional<llvm::Value *> generate_string_addition(                                                     //
                 llvm::IRBuilder<> &builder,                                                                                   //
                 const std::shared_ptr<Scope> scope,                                                                           //
                 const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
