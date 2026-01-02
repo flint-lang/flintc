@@ -807,8 +807,8 @@ bool Generator::IR::generate_enum_value_strings( //
     llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"
-    llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                           //
-        *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, "enum." + enum_name + ".names" //
+    llvm::GlobalVariable *global_string_array = new llvm::GlobalVariable(                                                   //
+        *module, array_type, true, llvm::GlobalValue::ExternalLinkage, string_array, hash + ".enum." + enum_name + ".names" //
     );
 #pragma GCC diagnostic pop
 
