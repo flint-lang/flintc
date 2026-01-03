@@ -2834,9 +2834,9 @@ class Generator {
                 const bool is_core_generation = true //
             );
 
-            /// @function `generate_dima_types`
+            /// @function `generate_types`
             /// @brief Generates all the slot, block and head types of all data types of all files
-            static void generate_dima_types();
+            static void generate_types();
 
             /// @function `generate_get_block_capacity_function`
             /// @brief Generates the `get_block_capacity` function to initialize all dima heads at program startup
@@ -2851,54 +2851,54 @@ class Generator {
                 const bool only_declarations = true           //
             );
 
-            /// @function `generate_dima_init_heads_function`
-            /// @brief Generates the `dima_init_heads` function to initialize all dima heads at program startup
+            /// @function `generate_init_heads_function`
+            /// @brief Generates the `init_heads` function to initialize all dima heads at program startup
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_init_heads` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_init_heads` function or to only generate it's declaration
-            static void generate_dima_init_heads_function( //
-                llvm::IRBuilder<> *builder,                //
-                llvm::Module *module,                      //
-                const bool only_declarations = true        //
+            /// @param `module` The LLVM Module the `init_heads` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `init_heads` function or to only generate it's declaration
+            static void generate_init_heads_function( //
+                llvm::IRBuilder<> *builder,           //
+                llvm::Module *module,                 //
+                const bool only_declarations = true   //
             );
 
-            /// @function `generate_dima_create_block_function`
-            /// @brief Gnerates the `dima_create_block` function to create a new block of a given size of the given type
+            /// @function `generate_create_block_function`
+            /// @brief Gnerates the `create_block` function to create a new block of a given size of the given type
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_create_block` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_create_block` function or to only generate it's
+            /// @param `module` The LLVM Module the `create_block` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `create_block` function or to only generate it's
             /// declaration
-            static void generate_dima_create_block_function( //
+            static void generate_create_block_function( //
+                llvm::IRBuilder<> *builder,             //
+                llvm::Module *module,                   //
+                const bool only_declarations = true     //
+            );
+
+            /// @function `generate_allocate_in_block_function`
+            /// @brief Gnerates the `allocate_in_block` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `allocate_in_block` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `allocate_in_block` function or to only generate it's
+            /// declaration
+            static void generate_allocate_in_block_function( //
                 llvm::IRBuilder<> *builder,                  //
                 llvm::Module *module,                        //
                 const bool only_declarations = true          //
             );
 
-            /// @function `generate_dima_allocate_in_block_function`
-            /// @brief Gnerates the `dima_allocate_in_block` function to create a new block of a given size of the given type
+            /// @function `generate_allocate_function`
+            /// @brief Gnerates the `allocate` function to create a new block of a given size of the given type
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_allocate_in_block` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_allocate_in_block` function or to only generate it's
-            /// declaration
-            static void generate_dima_allocate_in_block_function( //
-                llvm::IRBuilder<> *builder,                       //
-                llvm::Module *module,                             //
-                const bool only_declarations = true               //
-            );
-
-            /// @function `generate_dima_allocate_function`
-            /// @brief Gnerates the `dima_allocate` function to create a new block of a given size of the given type
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_allocate` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_allocate` function or to only generate it's declaration
-            static void generate_dima_allocate_function( //
-                llvm::IRBuilder<> *builder,              //
-                llvm::Module *module,                    //
-                const bool only_declarations = true      //
+            /// @param `module` The LLVM Module the `allocate` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `allocate` function or to only generate it's declaration
+            static void generate_allocate_function( //
+                llvm::IRBuilder<> *builder,         //
+                llvm::Module *module,               //
+                const bool only_declarations = true //
             );
         };
 

@@ -45,16 +45,16 @@ void Generator::Module::DIMA::generate_dima_functions( //
     llvm::Module *module,                              //
     const bool is_core_generation                      //
 ) {
-    generate_dima_types();
-    generate_dima_init_heads_function(builder, module, is_core_generation);
+    generate_types();
+    generate_init_heads_function(builder, module, is_core_generation);
 
     generate_get_block_capacity_function(builder, module, !is_core_generation);
-    generate_dima_create_block_function(builder, module, !is_core_generation);
-    generate_dima_allocate_in_block_function(builder, module, !is_core_generation);
-    generate_dima_allocate_function(builder, module, !is_core_generation);
+    generate_create_block_function(builder, module, !is_core_generation);
+    generate_allocate_in_block_function(builder, module, !is_core_generation);
+    generate_allocate_function(builder, module, !is_core_generation);
 }
 
-void Generator::Module::DIMA::generate_dima_types() {
+void Generator::Module::DIMA::generate_types() {
     if (type_map.find("__flint_type_dima_slot") != type_map.end()) {
         return;
     }
@@ -104,10 +104,10 @@ void Generator::Module::DIMA::generate_dima_types() {
     type_map["__flint_type_dima_head"] = head_type;
 }
 
-void Generator::Module::DIMA::generate_dima_init_heads_function( //
-    llvm::IRBuilder<> *builder,                                  //
-    llvm::Module *module,                                        //
-    const bool only_declarations                                 //
+void Generator::Module::DIMA::generate_init_heads_function( //
+    llvm::IRBuilder<> *builder,                             //
+    llvm::Module *module,                                   //
+    const bool only_declarations                            //
 ) {
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
@@ -228,10 +228,10 @@ void Generator::Module::DIMA::generate_get_block_capacity_function( //
     builder->CreateRet(loaded_capacity);
 }
 
-void Generator::Module::DIMA::generate_dima_create_block_function( //
-    llvm::IRBuilder<> *builder,                                    //
-    llvm::Module *module,                                          //
-    const bool only_declarations                                   //
+void Generator::Module::DIMA::generate_create_block_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
 ) {
     /*
      * This function needs to do a few simple things with DIMA. It recieves the size of the type to create a block for as well as the number
@@ -283,10 +283,10 @@ void Generator::Module::DIMA::generate_dima_create_block_function( //
     builder->CreateRet(allocated_block);
 }
 
-void Generator::Module::DIMA::generate_dima_allocate_in_block_function( //
-    llvm::IRBuilder<> *builder,                                         //
-    llvm::Module *module,                                               //
-    const bool only_declarations                                        //
+void Generator::Module::DIMA::generate_allocate_in_block_function( //
+    llvm::IRBuilder<> *builder,                                    //
+    llvm::Module *module,                                          //
+    const bool only_declarations                                   //
 ) {
     // THE C IMPLEMENTATION:
     // dima_slot_t *dima_allocate_in_block(dima_block_t *block) {
@@ -379,10 +379,10 @@ void Generator::Module::DIMA::generate_dima_allocate_in_block_function( //
     builder->CreateRet(slot_nullptr);
 }
 
-void Generator::Module::DIMA::generate_dima_allocate_function( //
-    llvm::IRBuilder<> *builder,                                //
-    llvm::Module *module,                                      //
-    const bool only_declarations                               //
+void Generator::Module::DIMA::generate_allocate_function( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations                          //
 ) {
     // THE C IMPLEMENTATION:
     // void *dima_allocate(dima_head_t **head_ref) {
