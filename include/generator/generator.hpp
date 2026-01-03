@@ -2809,6 +2809,8 @@ class Generator {
                 {"create_block", nullptr},
                 {"allocate_in_block", nullptr},
                 {"allocate", nullptr},
+                {"retain", nullptr},
+                {"release", nullptr},
             };
 
             /// @var `dima_heads`
@@ -2896,6 +2898,30 @@ class Generator {
             /// @param `module` The LLVM Module the `allocate` function will be generated in
             /// @param `only_declarations` Whether to actually generate the `allocate` function or to only generate it's declaration
             static void generate_allocate_function( //
+                llvm::IRBuilder<> *builder,         //
+                llvm::Module *module,               //
+                const bool only_declarations = true //
+            );
+
+            /// @function `generate_retain_function`
+            /// @brief Gnerates the `retain` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `retain` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `retain` function or to only generate it's declaration
+            static void generate_retain_function(   //
+                llvm::IRBuilder<> *builder,         //
+                llvm::Module *module,               //
+                const bool only_declarations = true //
+            );
+
+            /// @function `generate_release_function`
+            /// @brief Gnerates the `release` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `release` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `release` function or to only generate it's declaration
+            static void generate_release_function(  //
                 llvm::IRBuilder<> *builder,         //
                 llvm::Module *module,               //
                 const bool only_declarations = true //
