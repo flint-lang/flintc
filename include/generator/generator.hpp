@@ -2205,6 +2205,13 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Module() = delete;
 
+        /// @function `generate_dima_heads`
+        /// @brief Generates the DIMA heads for the given module's name
+        ///
+        /// @param `module` The LLVM Module in which to generate the dima heads
+        /// @param `module_name` The name of the module to generate the dima heads from
+        static void generate_dima_heads(llvm::Module *module, const std::string &module_name);
+
         /// @function `generate_module`
         /// @brief Generates a single module and compiles it to its .o file
         ///
@@ -2822,6 +2829,13 @@ class Generator {
             /// - **Value** `llvm::GlobalVariable *` - The reference to the global variable pointing at the head
             static inline std::unordered_map<std::string, llvm::GlobalVariable *> dima_heads;
 
+            /// @function `get_head`
+            /// @brief Returns the dima head of the given type
+            ///
+            /// @param `type` The type to get the dima head from
+            /// @return `llvm::GlobalVariable *` The dima head of the given type
+            static llvm::GlobalVariable *get_head(const std::shared_ptr<Type> &type);
+
             /// @function `generate_heads`
             /// @brief Generates all the global definitions for the heads, since they are linked together anyways we need to define them in
             /// every single module, so at the beginning of the module generation for each module we simply call this function to refresh
@@ -2838,10 +2852,12 @@ class Generator {
             /// @param `is_core_generation` Whether we generate all runtime-independant functions of DIMA in the `dima.o` file which is
             ///         linked to the `libbuiltins.a` or not. If it's not only the core generation then only the program-dependent functions
             ///         will be generated
-            static void generate_dima_functions(     //
-                llvm::IRBuilder<> *builder,          //
-                llvm::Module *module,                //
-                const bool is_core_generation = true //
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate their declarations
+            static void generate_dima_functions(      //
+                llvm::IRBuilder<> *builder,           //
+                llvm::Module *module,                 //
+                const bool is_core_generation = true, //
+                const bool only_declarations = false  //
             );
 
             /// @function `generate_types`

@@ -103,13 +103,17 @@ bool Generator::Module::generate_module(     //
             String::generate_string_manip_functions(builder.get(), module.get(), true);
             Parse::generate_parse_functions(builder.get(), module.get(), false);
             break;
-        case BuiltinLibrary::TIME:
+        case BuiltinLibrary::TIME: {
             // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
             IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
             Builtin::generate_c_functions(module.get());
+            DIMA::generate_dima_functions(builder.get(), module.get(), true, true);
+            generate_dima_heads(module.get(), "time");
             Time::generate_time_functions(builder.get(), module.get(), false);
+            DIMA::dima_heads.clear();
             Time::time_data_types.clear();
             break;
+        }
         case BuiltinLibrary::DIMA:
             Builtin::generate_c_functions(module.get());
             DIMA::generate_dima_functions(builder.get(), module.get(), true);

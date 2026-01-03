@@ -508,7 +508,6 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     // }
     llvm::StructType *duration_type = time_data_types.at("Duration");
     llvm::Function *sleep_duration_fn = time_functions.at("sleep_duration");
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *sleep_time_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            // Return type: void
@@ -586,9 +585,11 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     ns_value->addIncoming(ns_s, case_s_block);
     ns_value->addIncoming(ns_default, default_block);
 
-    // Allocate Duration on heap
-    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, duration_type));
-    llvm::Value *duration_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "duration_ptr");
+    // Allocate Duration with DIMA
+    llvm::Function *dima_allocate_fn = DIMA::dima_functions.at("allocate");
+    const Namespace *time_namespace = Resolver::get_namespace_from_hash(hash);
+    const auto duration_type_ptr = time_namespace->get_type_from_str("Duration").value();
+    llvm::Value *duration_ptr = builder->CreateCall(dima_allocate_fn, {DIMA::get_head(duration_type_ptr)}, "duration_ptr");
 
     // Set d->value = ns_value
     llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
@@ -598,8 +599,10 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     builder->CreateCall(sleep_duration_fn, {duration_ptr});
 
     // Free the duration
-    llvm::Function *free_fn = c_functions.at(FREE);
-    builder->CreateCall(free_fn, {duration_ptr});
+    llvm::Function *dima_release_fn = DIMA::dima_functions.at("release");
+    const std::string head_key = hash.to_string() + ".Duration";
+    llvm::GlobalVariable *data_head = Module::DIMA::dima_heads.at(head_key);
+    builder->CreateCall(dima_release_fn, {data_head, duration_ptr});
 
     builder->CreateRetVoid();
 }

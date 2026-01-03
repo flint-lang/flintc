@@ -36,6 +36,13 @@
  *    } dima_head_t;
  */
 
+llvm::GlobalVariable *Generator::Module::DIMA::get_head(const std::shared_ptr<Type> &type) {
+    const DataType *data_type = type->as<DataType>();
+    const std::string head_key = data_type->data_node->file_hash.to_string() + "." + data_type->data_node->name;
+    llvm::GlobalVariable *data_head = Module::DIMA::dima_heads.at(head_key);
+    return data_head;
+}
+
 void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
     llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
     const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
@@ -57,15 +64,18 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
 void Generator::Module::DIMA::generate_dima_functions( //
     llvm::IRBuilder<> *builder,                        //
     llvm::Module *module,                              //
-    const bool is_core_generation                      //
+    const bool is_core_generation,                     //
+    const bool only_declarations                       //
 ) {
     generate_types();
-    generate_init_heads_function(builder, module, is_core_generation);
+    generate_init_heads_function(builder, module, is_core_generation || only_declarations);
 
-    generate_get_block_capacity_function(builder, module, !is_core_generation);
-    generate_create_block_function(builder, module, !is_core_generation);
-    generate_allocate_in_block_function(builder, module, !is_core_generation);
-    generate_allocate_function(builder, module, !is_core_generation);
+    generate_get_block_capacity_function(builder, module, !is_core_generation || only_declarations);
+    generate_create_block_function(builder, module, !is_core_generation || only_declarations);
+    generate_allocate_in_block_function(builder, module, !is_core_generation || only_declarations);
+    generate_allocate_function(builder, module, !is_core_generation || only_declarations);
+    generate_retain_function(builder, module, !is_core_generation || only_declarations);
+    generate_release_function(builder, module, !is_core_generation || only_declarations);
 }
 
 void Generator::Module::DIMA::generate_types() {
