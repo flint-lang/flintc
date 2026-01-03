@@ -867,7 +867,8 @@ void Generator::Expression::convert_data_type_from_ext( //
     builder.SetInsertPoint(current_block);
     builder.CreateBr(convert_type_from_ext_block);
     builder.SetInsertPoint(convert_type_from_ext_block);
-    llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(struct_size)}, "result_ptr");
+    llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+    llvm::Value *result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(type)}, "result_ptr");
 
     // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
     // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
@@ -1114,7 +1115,8 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         }
 
         // Result is in sret_alloc, need to copy to heap for the rest of Flint to understand the return value of the function
-        llvm::Value *result_ptr = builder.CreateCall(c_functions.at(MALLOC), {builder.getInt64(return_size)}, "result_ptr");
+        llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+        llvm::Value *result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(call_node->type)}, "result_ptr");
         builder.CreateCall(c_functions.at(MEMCPY), {result_ptr, sret_alloc, builder.getInt64(return_size)});
         return std::vector<llvm::Value *>{result_ptr};
     }
@@ -1659,11 +1661,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             return std::nullopt;
         case Type::Variation::DATA: {
             // Allocate space for the data
-            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-            llvm::Value *data_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), struct_type));
-            llvm::Value *data_ptr = builder.CreateCall(                                                   //
-                c_functions.at(MALLOC), {data_size}, "initializer.data." + initializer->type->to_string() //
+            llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+            llvm::GlobalVariable *data_head = Module::DIMA::get_head(initializer->type);
+            llvm::Value *data_ptr = builder.CreateCall(                                             //
+                dima_allocate_fn, {data_head}, "initializer.data." + initializer->type->to_string() //
             );
+            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
 
             for (unsigned int i = 0; i < initializer->args.size(); i++) {
                 auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
@@ -1690,8 +1693,8 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                         // For data types, allocate memory and copy the data over
                         llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
                         llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                        llvm::Value *field_alloca = builder.CreateCall(                                        //
-                            c_functions.at(MALLOC), {field_size}, "initializer_" + std::to_string(i) + "_data" //
+                        llvm::Value *field_alloca = builder.CreateCall(                                 //
+                            dima_allocate_fn, {data_head}, "initializer_" + std::to_string(i) + "_data" //
                         );
                         // Copy the field value to the allocated memory
                         builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});

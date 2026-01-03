@@ -355,13 +355,20 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                             "Freeing variant '" + var_name + "' with value_id of '" + std::to_string(value_id) + "'", {} //
                         );
                         llvm::Value *variant_value_ptr = builder.CreateStructGEP(variant_struct_type, alloca, 1, "variant_value_ptr");
-                        auto value_type = IR::get_type(ctx.parent->getParent(), possible_types.at(value_id).second);
+                        const auto &variant_type_ptr = possible_types.at(value_id).second;
+                        auto value_type = IR::get_type(ctx.parent->getParent(), variant_type_ptr);
                         const bool is_ptr = value_type.second.first;
                         llvm::Value *variant_value = IR::aligned_load(                                                                //
                             builder, is_ptr ? value_type.first->getPointerTo() : value_type.first, variant_value_ptr, "variant_value" //
                         );
-                        llvm::Function *free_fn = c_functions.at(FREE);
-                        builder.CreateCall(free_fn, {variant_value});
+                        const bool is_dima_managed = variant_type->get_variation() == Type::Variation::DATA;
+                        if (is_dima_managed) {
+                            llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
+                            builder.CreateCall(dima_release_fn, {variant_value});
+                        } else {
+                            llvm::Function *free_fn = c_functions.at(FREE);
+                            builder.CreateCall(free_fn, {variant_value});
+                        }
                         builder.CreateBr(variant_free_merge_block);
                     }
 
@@ -433,7 +440,8 @@ bool Generator::Statement::generate_data_cleanup( //
         }
         field_id++;
     }
-    builder.CreateCall(c_functions.at(FREE), {data_ptr});
+    llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
+    builder.CreateCall(dima_release_fn, {Module::DIMA::get_head(data_type), data_ptr});
     return true;
 }
 
@@ -1769,14 +1777,23 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // Check if the base type is complex
             auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
             llvm::Type *base_type = base_type_info.first;
-            bool is_complex = base_type_info.second.first;
+            const bool is_complex = base_type_info.second.first;
+            const bool is_dima_managed = optional_type->base_type->get_variation() == Type::Variation::DATA;
             llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
             if (is_complex) {
                 // For complex types, allocate memory and store a pointer
                 llvm::Value *type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), base_type));
-                llvm::Value *allocated_memory = builder.CreateCall(                               //
-                    c_functions.at(MALLOC), {type_size}, assignment_node->name + "allocated_data" //
-                );
+                llvm::Value *allocated_memory = nullptr;
+                if (is_dima_managed) {
+                    llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+                    allocated_memory = builder.CreateCall(                                                                           //
+                        dima_allocate_fn, Module::DIMA::get_head(optional_type->base_type), assignment_node->name + "allocated_data" //
+                    );
+                } else {
+                    allocated_memory = builder.CreateCall(                                            //
+                        c_functions.at(MALLOC), {type_size}, assignment_node->name + "allocated_data" //
+                    );
+                }
                 IR::aligned_store(builder, expr.value().front(), allocated_memory);
                 store = IR::aligned_store(builder, allocated_memory, var_value_ptr);
             } else {
