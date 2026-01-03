@@ -47,13 +47,11 @@ void Generator::Module::DIMA::generate_dima_functions( //
 ) {
     generate_dima_types();
     generate_dima_init_heads_function(builder, module, is_core_generation);
-    generate_dima_get_head_function(builder, module, is_core_generation);
 
     generate_get_block_capacity_function(builder, module, !is_core_generation);
     generate_dima_create_block_function(builder, module, !is_core_generation);
     generate_dima_allocate_in_block_function(builder, module, !is_core_generation);
     generate_dima_allocate_function(builder, module, !is_core_generation);
-    generate_dima_allocate_slot_function(builder, module, !is_core_generation);
 }
 
 void Generator::Module::DIMA::generate_dima_types() {
@@ -164,70 +162,6 @@ void Generator::Module::DIMA::generate_dima_init_heads_function( //
     merge_block->insertInto(init_heads_fn);
     builder->SetInsertPoint(merge_block);
     builder->CreateRetVoid();
-}
-
-void Generator::Module::DIMA::generate_dima_get_head_function( //
-    llvm::IRBuilder<> *builder,                                //
-    llvm::Module *module,                                      //
-    const bool only_declarations                               //
-) {
-    // THE C IMPLEMENTATION:
-    // dima_head_t **get_head(uint32 type_id) {
-    //     switch (type_id) {
-    //         default:
-    //             ERROR;
-    //             abort();
-    //         case 69:
-    //             return &awesome_head;
-    //         // Other cases..
-    //     }
-    // }
-    llvm::Function *abort_fn = c_functions.at(ABORT);
-
-    llvm::StructType *dima_head_type = type_map.at("__flint_type_dima_head");
-    llvm::FunctionType *get_head_type = llvm::FunctionType::get( //
-        dima_head_type->getPointerTo()->getPointerTo(),          // return dima_head_t**
-        {llvm::Type::getInt32Ty(context)},                       // u32 type_id
-        false                                                    // No vaarg
-    );
-    llvm::Function *get_head_fn = llvm::Function::Create( //
-        get_head_type,                                    //
-        llvm::Function::ExternalLinkage,                  //
-        "__flint_dima_get_head",                          //
-        module                                            //
-    );
-    dima_functions["get_head"] = get_head_fn;
-    if (only_declarations) {
-        return;
-    }
-
-    // Get the parameter
-    llvm::Argument *arg_type_id = get_head_fn->arg_begin();
-    arg_type_id->setName("type_id");
-
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_head_fn);
-    llvm::BasicBlock *incorrect_id_block = llvm::BasicBlock::Create(context, "incorrect_id", get_head_fn);
-
-    builder->SetInsertPoint(entry_block);
-    const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
-    llvm::SwitchInst *head_switch = builder->CreateSwitch(arg_type_id, incorrect_id_block, data_types.size());
-
-    builder->SetInsertPoint(incorrect_id_block);
-    IR::generate_debug_print(builder, module, "__dima_allocate_slot: Unknown type ID: %u", {arg_type_id});
-    builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable();
-
-    builder->SetInsertPoint(entry_block);
-    for (const auto &data_type : data_types) {
-        const DataNode *data_node = data_type->as<DataType>()->data_node;
-        const size_t type_id = data_node->file_hash.get_type_id_from_str(data_node->name);
-        llvm::BasicBlock *type_block = llvm::BasicBlock::Create(context, "case_" + data_node->name, get_head_fn);
-        head_switch->addCase(builder->getInt32(type_id), type_block);
-
-        builder->SetInsertPoint(type_block);
-        llvm::GlobalVariable *head_variable = dima_heads.at(data_node->file_hash.to_string() + "." + data_node->name);
-        builder->CreateRet(head_variable);
-    }
 }
 
 void Generator::Module::DIMA::generate_get_block_capacity_function( //
@@ -697,51 +631,4 @@ void Generator::Module::DIMA::generate_dima_allocate_function( //
     );
     builder->CreateCall(memcpy_fn, {slot_value_ptr, head_default_value, type_size});
     builder->CreateRet(slot_value_ptr);
-}
-
-void Generator::Module::DIMA::generate_dima_allocate_slot_function( //
-    llvm::IRBuilder<> *builder,                                     //
-    llvm::Module *module,                                           //
-    const bool only_declarations                                    //
-) {
-    /*
-     * This function allocates a slot for the given `type_id`. It gets the head from the given type id and allocates a new slot
-     * in / for a specific type. It then returns an opaque pointer to the slot of the type. The slot itself always has the same
-     * structure. The type id is a 32 bit unsigned integer. This can be implemented pretty easily with a select or even better with a
-     * phi node in llvm. We only need to get the correct head and then we can call the `dima_allocate` function which handles the actual
-     * allocation of the slot within the given head for us.
-     */
-    // THE C IMPLEMENTATION:
-    // void *dima_allocate_slot(uint32_t type_id) {
-    //     dima_head_t **head_ref = __flint_dima_get_head(type_id);
-    //     return __flint_dima_allocate(head_ref);
-    // }
-    llvm::Function *dima_get_head_fn = dima_functions.at("get_head");
-    llvm::Function *dima_allocate_fn = dima_functions.at("allocate");
-
-    llvm::FunctionType *allocate_slot_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),               // return void*
-        {llvm::Type::getInt32Ty(context)},                            // u32 type_id
-        false                                                         // No vaarg
-    );
-    llvm::Function *allocate_slot_fn = llvm::Function::Create( //
-        allocate_slot_type,                                    //
-        llvm::Function::ExternalLinkage,                       //
-        "__flint_dima_allocate_slot",                          //
-        module                                                 //
-    );
-    dima_functions["allocate_slot"] = allocate_slot_fn;
-    if (only_declarations) {
-        return;
-    }
-
-    // Get the parameter
-    llvm::Argument *arg_type_id = allocate_slot_fn->arg_begin();
-    arg_type_id->setName("type_id");
-
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", allocate_slot_fn);
-    builder->SetInsertPoint(entry_block);
-    llvm::Value *head = builder->CreateCall(dima_get_head_fn, {arg_type_id}, "head");
-    llvm::Value *allocated_slot = builder->CreateCall(dima_allocate_fn, {head}, "allocated_slot");
-    builder->CreateRet(allocated_slot);
 }

@@ -2806,11 +2806,9 @@ class Generator {
             static inline std::unordered_map<std::string_view, llvm::Function *> dima_functions = {
                 {"get_block_capacity", nullptr},
                 {"init_heads", nullptr},
-                {"get_head", nullptr},
                 {"create_block", nullptr},
                 {"allocate_in_block", nullptr},
                 {"allocate", nullptr},
-                {"allocate_slot", nullptr},
             };
 
             /// @var `dima_heads`
@@ -2865,18 +2863,6 @@ class Generator {
                 const bool only_declarations = true        //
             );
 
-            /// @function `generate_dima_get_head_function`
-            /// @brief Generates the `dima_get_head` function to initialize all dima heads at program startup
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_get_head` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_get_head` function or to only generate it's declaration
-            static void generate_dima_get_head_function( //
-                llvm::IRBuilder<> *builder,              //
-                llvm::Module *module,                    //
-                const bool only_declarations = true      //
-            );
-
             /// @function `generate_dima_create_block_function`
             /// @brief Gnerates the `dima_create_block` function to create a new block of a given size of the given type
             ///
@@ -2913,19 +2899,6 @@ class Generator {
                 llvm::IRBuilder<> *builder,              //
                 llvm::Module *module,                    //
                 const bool only_declarations = true      //
-            );
-
-            /// @function `generate_dima_allocate_slot_function`
-            /// @brief Gnerates the `dima_allocate_slot` function to create a new block of a given size of the given type
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `dima_allocate_slot` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `dima_allocate_slot` function or to only generate it's
-            /// declaration
-            static void generate_dima_allocate_slot_function( //
-                llvm::IRBuilder<> *builder,                   //
-                llvm::Module *module,                         //
-                const bool only_declarations = true           //
             );
         };
 
