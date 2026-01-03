@@ -8,6 +8,24 @@
 
 #include <json/parser.hpp>
 
+void Generator::Module::generate_dima_heads(llvm::Module *module, const std::string &module_name) {
+    llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
+    llvm::ConstantPointerNull *nullpointer = llvm::ConstantPointerNull::get(head_type->getPointerTo());
+    Hash file_hash(module_name);
+    for (const auto &data_type_tuple : core_module_data_types.at(module_name)) {
+        const std::string data_node_name(std::get<0>(data_type_tuple));
+        const std::string head_var_str = file_hash.to_string() + ".dima.head.data." + data_node_name;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+        llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                                             //
+            *module, head_type->getPointerTo(), false, llvm::GlobalValue::WeakODRLinkage, nullpointer, head_var_str //
+        );
+#pragma GCC diagnostic pop
+        const std::string heads_key = file_hash.to_string() + "." + data_node_name;
+        DIMA::dima_heads[heads_key] = head_variable;
+    }
+}
+
 bool Generator::Module::generate_module(     //
     const BuiltinLibrary lib_to_build,       //
     const std::filesystem::path &cache_path, //

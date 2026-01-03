@@ -36,6 +36,24 @@
  *    } dima_head_t;
  */
 
+void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
+    llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
+    const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
+    llvm::ConstantPointerNull *nullpointer = llvm::ConstantPointerNull::get(head_type->getPointerTo());
+    for (const auto &data_type : data_types) {
+        const DataNode *data_node = data_type->as<DataType>()->data_node;
+        const std::string head_var_str = data_node->file_hash.to_string() + ".dima.head.data." + data_node->name;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+        llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                                             //
+            *module, head_type->getPointerTo(), false, llvm::GlobalValue::WeakODRLinkage, nullpointer, head_var_str //
+        );
+#pragma GCC diagnostic pop
+        const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
+        dima_heads[heads_key] = head_variable;
+    }
+}
+
 void Generator::Module::DIMA::generate_dima_functions( //
     llvm::IRBuilder<> *builder,                        //
     llvm::Module *module,                              //
@@ -140,8 +158,8 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         const std::string head_var_str = data_node->file_hash.to_string() + ".dima.head.data." + data_node->name;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"
-        llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                                              //
-            *module, head_type->getPointerTo(), false, llvm::GlobalValue::ExternalLinkage, nullpointer, head_var_str //
+        llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                                             //
+            *module, head_type->getPointerTo(), false, llvm::GlobalValue::WeakODRLinkage, nullpointer, head_var_str //
         );
 #pragma GCC diagnostic pop
         const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;

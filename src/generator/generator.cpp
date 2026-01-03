@@ -456,6 +456,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     Module::Array::generate_array_manip_functions(nullptr, module.get(), true);
     Module::String::generate_string_manip_functions(nullptr, module.get(), true);
     Module::TypeCast::generate_typecast_functions(nullptr, module.get(), true);
+    Module::DIMA::generate_heads(module.get());
 
     for (auto &imported_core_module : file.imported_core_modules) {
         const std::string &core_module_name = imported_core_module.first;

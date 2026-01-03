@@ -2822,6 +2822,14 @@ class Generator {
             /// - **Value** `llvm::GlobalVariable *` - The reference to the global variable pointing at the head
             static inline std::unordered_map<std::string, llvm::GlobalVariable *> dima_heads;
 
+            /// @function `generate_heads`
+            /// @brief Generates all the global definitions for the heads, since they are linked together anyways we need to define them in
+            /// every single module, so at the beginning of the module generation for each module we simply call this function to refresh
+            /// all global heads and add them to every single module to make the verifyer happy
+            ///
+            /// @param `module` The module to which to add the global head variables
+            static void generate_heads(llvm::Module *module);
+
             /// @function `generate_dima_functions`
             /// @brief Generates all the builtin hidden dima functions
             ///
