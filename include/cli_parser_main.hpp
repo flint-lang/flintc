@@ -254,6 +254,8 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PARSE);
             } else if (arg == "--print-ir-time") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::TIME);
+            } else if (arg == "--print-ir-dima") {
+                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::DIMA);
 #endif
             } else {
                 print_err("Unknown argument: " + arg);

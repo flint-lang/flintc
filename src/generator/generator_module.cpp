@@ -92,6 +92,10 @@ bool Generator::Module::generate_module(     //
             Time::generate_time_functions(builder.get(), module.get(), false);
             Time::time_data_types.clear();
             break;
+        case BuiltinLibrary::DIMA:
+            Builtin::generate_c_functions(module.get());
+            DIMA::generate_dima_functions(builder.get(), module.get(), true);
+            break;
     }
 
     // Clear the type map when we are done to prevent modules using types of no longer existing modules
@@ -169,6 +173,9 @@ bool Generator::Module::generate_modules() {
     if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::TIME)) {
         success = success && generate_module(BuiltinLibrary::TIME, cache_path, "time");
     }
+    if (which_need_rebuilding & static_cast<unsigned int>(BuiltinLibrary::DIMA)) {
+        success = success && generate_module(BuiltinLibrary::DIMA, cache_path, "dima");
+    }
     if (!success) {
         return false;
     }
@@ -207,6 +214,7 @@ bool Generator::Module::generate_modules() {
     libs.emplace_back(cache_path / ("math" + file_ending));
     libs.emplace_back(cache_path / ("parse" + file_ending));
     libs.emplace_back(cache_path / ("time" + file_ending));
+    libs.emplace_back(cache_path / ("dima" + file_ending));
 
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
@@ -345,6 +353,9 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
     if (!std::filesystem::exists(cache_path / ("time" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::TIME);
+    }
+    if (!std::filesystem::exists(cache_path / ("dima" + file_ending))) {
+        needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::DIMA);
     }
     return needed_rebuilds;
 }

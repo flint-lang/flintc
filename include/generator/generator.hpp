@@ -2768,6 +2768,167 @@ class Generator {
             static void generate_assert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
         };
 
+        /// @class `DIMA`
+        /// @brief The class which is reponsible for generating everything related to Flint's Deterministic Incremental Memory Architecture
+        /// @note This class cannot be initialized and all functions within this class are static
+        class DIMA {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            DIMA() = delete;
+
+            /// @var `BASE_CAPACITY`
+            /// @brief The base capacity of the smallest block. The size of each block is calculated with the formula of
+            ///        (BASE_CAPACITY * ((GROWTH_FACTOR / 10) ** BLOCK_ID))
+            static const inline constexpr size_t BASE_CAPACITY = 16;
+
+            /// @var `GROWTH_FACTOR`
+            /// @brief The growth factor with which dima blocks grow. The actual growth factor is calculated by dividing the factor by 10.
+            /// So when writing 15 we have a growth factor of 1.5. But with a growth factor of 20 it will be 2.0.
+            static const inline constexpr size_t GROWTH_FACTOR = 11;
+
+            /// @enum `Flags`
+            /// @brief The possible flags stored in each slot of DIMA
+            enum class Flags : uint8_t {
+                UNUSED = 0,
+                OCCUPIED = 1,
+                ARRAY_START = 2,
+                ARRAY_END = 4,
+            };
+
+            /// @var `dima_functions`
+            /// @brief Map containing references to all dima functions
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the genereated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_dima_functions` function is called
+            static inline std::unordered_map<std::string_view, llvm::Function *> dima_functions = {
+                {"get_block_capacity", nullptr},
+                {"init_heads", nullptr},
+                {"get_head", nullptr},
+                {"create_block", nullptr},
+                {"allocate_in_block", nullptr},
+                {"allocate", nullptr},
+                {"allocate_slot", nullptr},
+            };
+
+            /// @var `dima_heads`
+            /// @brief Map contianing references to all global variables which then point to the allocated heads
+            ///
+            /// @details
+            /// - **Key** `std::string` - The key has the format <hash>.<name> where the hash is the file hash of the type the dima type
+            ///                           comes from and the <name> is the type name of the dima type
+            /// - **Value** `llvm::GlobalVariable *` - The reference to the global variable pointing at the head
+            static inline std::unordered_map<std::string, llvm::GlobalVariable *> dima_heads;
+
+            /// @function `generate_dima_functions`
+            /// @brief Generates all the builtin hidden dima functions
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the dima functions will be generated in
+            /// @param `is_core_generation` Whether we generate all runtime-independant functions of DIMA in the `dima.o` file which is
+            ///         linked to the `libbuiltins.a` or not. If it's not only the core generation then only the program-dependent functions
+            ///         will be generated
+            static void generate_dima_functions(     //
+                llvm::IRBuilder<> *builder,          //
+                llvm::Module *module,                //
+                const bool is_core_generation = true //
+            );
+
+            /// @function `generate_dima_types`
+            /// @brief Generates all the slot, block and head types of all data types of all files
+            static void generate_dima_types();
+
+            /// @function `generate_get_block_capacity_function`
+            /// @brief Generates the `get_block_capacity` function to initialize all dima heads at program startup
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `get_block_capacity` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `get_block_capacity` function or to only generate it's
+            /// declaration
+            static void generate_get_block_capacity_function( //
+                llvm::IRBuilder<> *builder,                   //
+                llvm::Module *module,                         //
+                const bool only_declarations = true           //
+            );
+
+            /// @function `generate_dima_init_heads_function`
+            /// @brief Generates the `dima_init_heads` function to initialize all dima heads at program startup
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_init_heads` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_init_heads` function or to only generate it's declaration
+            static void generate_dima_init_heads_function( //
+                llvm::IRBuilder<> *builder,                //
+                llvm::Module *module,                      //
+                const bool only_declarations = true        //
+            );
+
+            /// @function `generate_dima_get_head_function`
+            /// @brief Generates the `dima_get_head` function to initialize all dima heads at program startup
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_get_head` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_get_head` function or to only generate it's declaration
+            static void generate_dima_get_head_function( //
+                llvm::IRBuilder<> *builder,              //
+                llvm::Module *module,                    //
+                const bool only_declarations = true      //
+            );
+
+            /// @function `generate_dima_create_block_function`
+            /// @brief Gnerates the `dima_create_block` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_create_block` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_create_block` function or to only generate it's
+            /// declaration
+            static void generate_dima_create_block_function( //
+                llvm::IRBuilder<> *builder,                  //
+                llvm::Module *module,                        //
+                const bool only_declarations = true          //
+            );
+
+            /// @function `generate_dima_allocate_in_block_function`
+            /// @brief Gnerates the `dima_allocate_in_block` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_allocate_in_block` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_allocate_in_block` function or to only generate it's
+            /// declaration
+            static void generate_dima_allocate_in_block_function( //
+                llvm::IRBuilder<> *builder,                       //
+                llvm::Module *module,                             //
+                const bool only_declarations = true               //
+            );
+
+            /// @function `generate_dima_allocate_function`
+            /// @brief Gnerates the `dima_allocate` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_allocate` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_allocate` function or to only generate it's declaration
+            static void generate_dima_allocate_function( //
+                llvm::IRBuilder<> *builder,              //
+                llvm::Module *module,                    //
+                const bool only_declarations = true      //
+            );
+
+            /// @function `generate_dima_allocate_slot_function`
+            /// @brief Gnerates the `dima_allocate_slot` function to create a new block of a given size of the given type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `dima_allocate_slot` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `dima_allocate_slot` function or to only generate it's
+            /// declaration
+            static void generate_dima_allocate_slot_function( //
+                llvm::IRBuilder<> *builder,                   //
+                llvm::Module *module,                         //
+                const bool only_declarations = true           //
+            );
+        };
+
         /// @class `Env`
         /// @brief The class which is responsible for generating everything related to environment variables
         /// @note This class cannot be initialized and all functions within this class are static

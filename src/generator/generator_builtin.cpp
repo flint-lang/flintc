@@ -72,6 +72,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(65001)});
 #endif
 
+    // Init DIMA
+    llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
+    builder->CreateCall(dima_init_heads_fn, {});
+
     // Create the return types of the call of the main function.
     llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "main_ret");
     if (Parser::main_function_has_args) {

@@ -285,6 +285,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the time module functions
     Module::Time::generate_time_functions(builder.get(), module.get());
 
+    // Generate all the "hidden" dima functions
+    Module::DIMA::generate_dima_functions(builder.get(), module.get(), false);
+
     // Generate the error functions to get the error types and value strings from errors, which also enables error to string castability
     Error::generate_error_functions(builder.get(), module.get());
 

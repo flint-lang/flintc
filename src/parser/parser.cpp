@@ -1070,6 +1070,31 @@ std::vector<const ErrorNode *> Parser::get_all_errors() {
     return errors;
 }
 
+std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
+    std::vector<std::shared_ptr<Type>> data_types;
+    // Go through all core Modules and collect all data nodes they provide
+    for (const auto &[module_name, module_namespace] : core_namespaces) {
+        for (const auto &definition : module_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA) {
+                const auto *data_node = definition->as<DataNode>();
+                const auto data_type = module_namespace->get_type_from_str(data_node->name).value();
+                data_types.emplace_back(data_type);
+            }
+        }
+    }
+    // Go through all instances of the parser and collect all data nodes from all instances
+    for (const auto &instance : Parser::instances) {
+        for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA) {
+                const auto *data_node = definition->as<DataNode>();
+                const auto data_type = instance.file_node_ptr->file_namespace->get_type_from_str(data_node->name).value();
+                data_types.emplace_back(data_type);
+            }
+        }
+    }
+    return data_types;
+}
+
 bool Parser::parse_all_open_functions(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Functions");
 

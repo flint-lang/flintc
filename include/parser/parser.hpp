@@ -245,8 +245,14 @@ class Parser {
     /// @function `get_all_errors`
     /// @brief Collects and returns all error types from all files
     ///
-    /// @return `std::vector<ErrorNode *>` A list of all error nodes of all files
+    /// @return `std::vector<const ErrorNode *>` A list of all error nodes of all files
     static std::vector<const ErrorNode *> get_all_errors();
+
+    /// @function `get_all_data_types`
+    /// @brief Collects and returns all data types from all files
+    ///
+    /// @¶eturn `std::vector<std::shared_ptr<Type>>` A list of all data types of all files
+    static std::vector<std::shared_ptr<Type>> get_all_data_types();
 
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
