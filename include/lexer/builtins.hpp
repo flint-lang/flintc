@@ -356,6 +356,7 @@ enum CFunction {
     MALLOC,
     FREE,
     MEMCPY,
+    MEMSET,
     REALLOC,
     SNPRINTF,
     MEMCMP,

@@ -248,6 +248,20 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *memcpy_fn = llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module);
         c_functions[MEMCPY] = memcpy_fn;
     }
+    // memset
+    {
+        llvm::FunctionType *memset_type = llvm::FunctionType::get( //
+            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* __s
+                llvm::Type::getInt32Ty(context),                // Argument: i32 __c
+                llvm::Type::getInt64Ty(context)                 // Argument: u64 __n
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *memset_fn = llvm::Function::Create(memset_type, llvm::Function::ExternalLinkage, "memset", module);
+        c_functions[MEMSET] = memset_fn;
+    }
     // realloc
     {
         llvm::FunctionType *realloc_type = llvm::FunctionType::get( //
@@ -708,6 +722,7 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[MALLOC] = module->getFunction("malloc");
     c_functions[FREE] = module->getFunction("free");
     c_functions[MEMCPY] = module->getFunction("memcpy");
+    c_functions[MEMSET] = module->getFunction("memset");
     c_functions[REALLOC] = module->getFunction("realloc");
     c_functions[SNPRINTF] = module->getFunction("snprintf");
     c_functions[MEMCMP] = module->getFunction("memcmp");
