@@ -873,7 +873,7 @@ void Generator::Expression::convert_data_type_from_ext( //
         llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
         result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(type)}, "result_ptr");
     } else {
-        // TODO: Potential memory leak here, it does not seem like groups or tuples are freed anywhere
+        // TODO: Potential memory leak here, it does not seem like tuples are freed anywhere, but maybe tuples are no problem
         llvm::Function *malloc_fn = c_functions.at(MALLOC);
         result_ptr = builder.CreateCall(malloc_fn, {builder.getInt64(struct_size)}, "result_ptr");
     }
@@ -1167,6 +1167,10 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
                 llvm::Value *elem = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), group_type->types[i]).first, elem_ptr);
                 return_value.emplace_back(elem);
             }
+            // The Group's return value has been allocated before the extern call, now that we have extracted the results we need to free it
+            // again
+            llvm::Function *free_fn = c_functions.at(FREE);
+            builder.CreateCall(free_fn, {ret_val});
         }
     }
     return return_value;
