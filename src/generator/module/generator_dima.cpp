@@ -133,6 +133,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     const bool only_declarations                            //
 ) {
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *memset_fn = c_functions.at(MEMSET);
 
     llvm::FunctionType *init_heads_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
     llvm::Function *init_heads_fn = llvm::Function::Create( //
@@ -182,6 +183,14 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         // Store the type size in the head
         llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, 1, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
+        // Allocate enough memory for the default value and set it to 0 for now
+        // TODO: Once data has default values we need to set the fields of the data here too
+        llvm::Value *default_value = builder->CreateCall(                                      //
+            malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + data_node->name //
+        );
+        builder->CreateCall(memset_fn, {default_value, builder->getInt32(0), builder->getInt64(data_type_size)});
+        llvm::Value *default_value_ptr = builder->CreateStructGEP(head_type, allocated_head, 0, "default_value_ptr");
+        IR::aligned_store(*builder, default_value, default_value_ptr);
         IR::aligned_store(*builder, allocated_head, head_variable);
         last_block = data_block;
     }
