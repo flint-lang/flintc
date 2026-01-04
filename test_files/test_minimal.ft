@@ -2,11 +2,14 @@ use Core.print
 
 data MyData:
 	i32 x;
-	f32 y;
-	u64 z;
-	str s;
-	MyData(x, y, z, s);
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
+
+func MyFunc requires(MyData d):
+	def print():
+		print($"d = ({d.x}, {d.y}, {d.z})\n");
 
 def main():
-	MyData d = MyData(-10, 3.4, 100, "wololo");
-	print($"d = \{{d.x}, {d.y}, {d.z}, \"{d.s}\"\}\n");
+	d := MyData(10, 20, 30);
+	MyFunc.print(d);

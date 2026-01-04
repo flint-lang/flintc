@@ -1591,13 +1591,20 @@ class Parser {
     /// The return type of the `create_entity` function
     using create_entity_type = std::pair<EntityNode, std::optional<std::pair<std::unique_ptr<DataNode>, std::unique_ptr<FuncNode>>>>;
 
+    /// The type of the required data for func modules
+    using required_data_type = std::vector<std::pair<std::shared_ptr<Type>, std::string>>;
+
     /// @function `create_function`
     /// @brief Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional
     /// creation of AST Nodes for the body
     ///
     /// @param `definition` The list of tokens representing the function definition
+    /// @param `required_data` A list of required data if the function is defined within a func module
     /// @return `std::optional<FunctionNode>` The created FunctionNode
-    std::optional<FunctionNode> create_function(const token_slice &definition);
+    std::optional<FunctionNode> create_function(                                       //
+        const token_slice &definition,                                                 //
+        const std::optional<std::pair<std::string, required_data_type>> &required_data //
+    );
 
     /// @function `create_extern_function`
     /// @brief Creates an extern function definition from the given definition tokens. Communicates with the FIP to find out where the
@@ -1618,12 +1625,13 @@ class Parser {
     /// @function `create_func`
     /// @brief Creates a FuncNode from the given definition and body tokens
     ///
+    /// @param `file_node` The file node in which to add all the functions the func module defines
     /// @param `definition` The list of tokens representing the function definition
     /// @param `body` The list of tokens representing the function body
     /// @return `std::optional<FuncNode>` The created FuncNode or nullopt if creation failed
     ///
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
-    std::optional<FuncNode> create_func(const token_slice &definition, const std::vector<Line> &body);
+    std::optional<FuncNode> create_func(FileNode &file_node, const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens

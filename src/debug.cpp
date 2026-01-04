@@ -1423,9 +1423,39 @@ namespace Debug {
 
         // print_func
         //     Prints the content of the generated FuncNode
-        void print_func([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] TreeBits &bits, [[maybe_unused]] const FuncNode &func) {
+        void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func) {
             Local::print_header(indent_lvl, bits, "Func ");
-            std::cout << typeid(func).name() << "\n";
+            std::cout << func.name;
+            if (!func.required_data.empty()) {
+                std::cout << "requires(";
+                for (size_t i = 0; i < func.required_data.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &rd = func.required_data.at(i);
+                    std::cout << rd.first->to_string() << " " << rd.second;
+                }
+            }
+            std::cout << "\n";
+            for (size_t i = 0; i < func.functions.size(); i++) {
+                const auto *function = func.functions.at(i);
+                TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == func.functions.size());
+                Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
+                std::cout << function->name << "(";
+                for (size_t j = 0; j < function->parameters.size(); j++) {
+                    const auto &param = function->parameters.at(j);
+                    if (j > 0) {
+                        std::cout << ", ";
+                    }
+                    if (std::get<2>(param)) {
+                        std::cout << "mut ";
+                    } else {
+                        std::cout << "const ";
+                    }
+                    std::cout << std::get<0>(param)->to_string() << " " << std::get<1>(param);
+                }
+                std::cout << ")\n";
+            }
         }
 
         /// print_function

@@ -8,18 +8,18 @@
 #include <utility>
 #include <vector>
 
-/// FuncNode
-///     Represents func module definitions
+/// @class `FuncNode`
+/// @brief Represents func module definitions
 class FuncNode : public DefinitionNode {
   public:
-    explicit FuncNode(                                                   //
-        const Hash &file_hash,                                           //
-        const unsigned int line,                                         //
-        const unsigned int column,                                       //
-        const unsigned int length,                                       //
-        std::string &name,                                               //
-        std::vector<std::pair<std::string, std::string>> &required_data, //
-        std::vector<std::unique_ptr<FunctionNode>> functions             //
+    explicit FuncNode(                                                             //
+        const Hash &file_hash,                                                     //
+        const unsigned int line,                                                   //
+        const unsigned int column,                                                 //
+        const unsigned int length,                                                 //
+        const std::string &name,                                                   //
+        std::vector<std::pair<std::shared_ptr<Type>, std::string>> &required_data, //
+        std::vector<FunctionNode *> &functions                                     //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
@@ -39,14 +39,15 @@ class FuncNode : public DefinitionNode {
     FuncNode(FuncNode &&) = default;
     FuncNode &operator=(FuncNode &&) = default;
 
-    /// name
-    ///     The name of the func module
+    /// @var `name`
+    /// @brief The name of the func module
     std::string name;
-    /// required_data
-    ///     The data types that are required by the func and their variable names
-    std::vector<std::pair<std::string, std::string>> required_data;
-    /// functions
-    ///     The functions defined inside the func module. These functions get passed the required data as arguments by
-    ///     default
-    std::vector<std::unique_ptr<FunctionNode>> functions;
+
+    /// @var `required_data`
+    /// @brief The data types that are required by the func and their accessor names
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> required_data;
+
+    /// @var `functions`
+    /// @brief The functions defined inside the func module. These functions get passed the required data as arguments by default
+    std::vector<FunctionNode *> functions;
 };

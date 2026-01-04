@@ -124,7 +124,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     }
     if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
         // Dont actually parse the function body, only its definition
-        std::optional<FunctionNode> function_node = create_function(definition_tokens);
+        std::optional<FunctionNode> function_node = create_function(definition_tokens, {});
         if (!function_node.has_value()) {
             return false;
         }
@@ -140,7 +140,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
-        std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
+        std::optional<FuncNode> func_node = create_func(file_node, definition_tokens, body_lines);
         if (!func_node.has_value()) {
             return false;
         }

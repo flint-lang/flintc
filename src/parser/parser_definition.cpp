@@ -12,10 +12,19 @@
 #include <algorithm>
 #include <optional>
 
-std::optional<FunctionNode> Parser::create_function(const token_slice &definition) {
+std::optional<FunctionNode> Parser::create_function(                               //
+    const token_slice &definition,                                                 //
+    const std::optional<std::pair<std::string, required_data_type>> &required_data //
+) {
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    if (required_data.has_value()) {
+        // Add all the required data as implicit mutable parameters
+        for (auto &data_param : required_data.value().second) {
+            parameters.emplace_back(data_param.first, data_param.second, true);
+        }
+    }
     std::vector<std::shared_ptr<Type>> return_types;
     bool is_aligned = false;
     bool is_const = false;
@@ -170,6 +179,11 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
 
     // If its the main function, change its name
     if (name == "main") {
+        if (required_data.has_value()) {
+            // It is not allowed to define the main function within a func module
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         name = "_main";
         if (error_types.size() > 1) {
             // The main function cannot throw user-defined errors, it can only throw errors of type "anyerror"
@@ -236,6 +250,10 @@ std::optional<FunctionNode> Parser::create_function(const token_slice &definitio
         mid = next_mangle_id;
         next_mangle_id++;
     }
+    if (required_data.has_value()) {
+        // If there is required data then this function is defined inside a func module, the name needs to be changed accordingly
+        name = required_data.value().first + "." + name;
+    }
     FunctionNode function_node(                                                                              //
         file_hash, line, column, length,                                                                     //
         is_aligned, is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
@@ -278,7 +296,7 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     PROFILE_CUMULATIVE("Parser::create_extern_function");
     // First we check if the definition starts with `extern`, it should
     assert(definition.first->token == TOK_EXTERN);
-    std::optional<FunctionNode> fn = create_function(definition);
+    std::optional<FunctionNode> fn = create_function(definition, {});
     if (!fn.has_value()) {
         return std::nullopt;
     }
@@ -403,13 +421,90 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     return DataNode(file_hash, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
-std::optional<FuncNode> Parser::create_func(        //
-    [[maybe_unused]] const token_slice &definition, //
-    [[maybe_unused]] const std::vector<Line> &body  //
+std::optional<FuncNode> Parser::create_func( //
+    FileNode &file_node,                     //
+    const token_slice &definition,           //
+    const std::vector<Line> &body            //
 ) {
     PROFILE_CUMULATIVE("Parser::create_func");
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+    token_slice token_mut = definition;
+    assert(token_mut.first->token == TOK_FUNC);
+    token_mut.first++;
+    assert(token_mut.first->token == TOK_IDENTIFIER);
+    const std::string func_name(token_mut.first->lexme);
+    token_mut.first++;
+    required_data_type required_data;
+    if (token_mut.first->token == TOK_REQUIRES) {
+        auto tok_it = token_mut.first + 1;
+        assert(tok_it->token == TOK_LEFT_PAREN);
+        tok_it++;
+        while (tok_it != token_mut.second && tok_it->token != TOK_RIGHT_PAREN) {
+            // The current token is the type
+            const auto required_data_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            if (!required_data_type.has_value()) {
+                return std::nullopt;
+            }
+            if (required_data_type.value()->get_variation() != Type::Variation::DATA) {
+                // Only data is allowed to be required by a func module
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            // The next token is the required data accessor name
+            assert((tok_it + 1)->token == TOK_IDENTIFIER);
+            const std::string access_name((tok_it + 1)->lexme);
+            required_data.emplace_back(required_data_type.value(), access_name);
+            tok_it += 2;
+        }
+        assert(tok_it != definition.second);
+    }
+
+    std::vector<FunctionNode *> functions;
+    std::vector<Line> body_mut = body;
+    while (!body_mut.empty()) {
+        const Line function_definition_line = body_mut.front();
+        body_mut.erase(body_mut.begin());
+        if (body_mut.empty()) {
+            // Function has no body
+            // TODO: When "virtual" (linked) functions are implemented this case could be allowed if the function is only a definition and
+            // not a declaration
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::vector<Line> function_body_lines;
+        for (auto it = body_mut.begin(); it != body_mut.end();) {
+            if (it->indent_lvl > function_definition_line.indent_lvl) {
+                function_body_lines.emplace_back(*it);
+                body_mut.erase(it);
+                continue;
+            }
+            break;
+        }
+        if (function_body_lines.empty()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        std::pair<std::string, required_data_type> required_data_pair{func_name, required_data};
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair);
+        if (!fn.has_value()) {
+            return std::nullopt;
+        }
+        FunctionNode *added_function = file_node.add_function(fn.value());
+        add_open_function({added_function, function_body_lines});
+        functions.emplace_back(added_function);
+    }
+
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return FuncNode(   //
+        file_hash,     //
+        line,          //
+        column,        //
+        length,        //
+        func_name,     //
+        required_data, //
+        functions      //
+    );
 }
 
 Parser::create_entity_type Parser::create_entity(   //
