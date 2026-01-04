@@ -157,6 +157,8 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     for (const auto &data_type : data_types) {
         const DataNode *data_node = data_type->as<DataType>()->data_node;
         const std::string block_name = "init_data_" + data_node->name;
+        llvm::StructType *data_struct_type = IR::add_and_or_get_type(module, data_type, false);
+        const size_t data_type_size = Allocation::get_type_size(module, data_struct_type);
         llvm::BasicBlock *data_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
         builder->SetInsertPoint(last_block);
         builder->CreateBr(data_block);
@@ -177,6 +179,9 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         // Allocate enough memory for the head, the default value for now is just zero-allocated which means that the whole default head
         // structure can simply be zero-initialized and still be correct
         llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + data_node->name);
+        // Store the type size in the head
+        llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, 1, "type_size_ptr");
+        IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
         IR::aligned_store(*builder, allocated_head, head_variable);
         last_block = data_block;
     }
