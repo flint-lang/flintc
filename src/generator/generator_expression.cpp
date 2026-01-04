@@ -867,8 +867,16 @@ void Generator::Expression::convert_data_type_from_ext( //
     builder.SetInsertPoint(current_block);
     builder.CreateBr(convert_type_from_ext_block);
     builder.SetInsertPoint(convert_type_from_ext_block);
-    llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-    llvm::Value *result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(type)}, "result_ptr");
+    const bool is_data = type->get_variation() == Type::Variation::DATA;
+    llvm::Value *result_ptr = nullptr;
+    if (is_data) {
+        llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+        result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(type)}, "result_ptr");
+    } else {
+        // TODO: Potential memory leak here, it does not seem like groups or tuples are freed anywhere
+        llvm::Function *malloc_fn = c_functions.at(MALLOC);
+        result_ptr = builder.CreateCall(malloc_fn, {builder.getInt64(struct_size)}, "result_ptr");
+    }
 
     // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
     // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
