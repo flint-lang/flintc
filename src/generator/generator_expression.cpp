@@ -1690,17 +1690,21 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                         IR::aligned_store(builder, expr_val, field_ptr);
                         break;
                     case Type::Variation::DATA: {
-                        // For data types, allocate memory and copy the data over
-                        llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                        llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                        llvm::Value *field_alloca = builder.CreateCall(                                 //
-                            dima_allocate_fn, {data_head}, "initializer_" + std::to_string(i) + "_data" //
-                        );
-                        // Copy the field value to the allocated memory
-                        builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
+                        // For data types, the memory has already been allocated using DIMA, so we can just use the expression's pointer
+                        // directly
+                        // TODO: Once a proper lifetime-system is implemented we would need to copy the DIMA data and free the temporaries
+                        // etc. but that's not implemented yet. Also, once a proper lifetime-system is implemented we would need to check
+                        // whether the initializer itself is a temporary and in that case not copy it but just take ownership of it
+                        // llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
+                        // llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
+                        // llvm::Value *field_alloca = builder.CreateCall(                                 //
+                        //     dima_allocate_fn, {data_head}, "initializer_" + std::to_string(i) + "_data" //
+                        // );
+                        // // Copy the field value to the allocated memory
+                        // builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
 
                         // Store the pointer to the complex data in the parent structure
-                        IR::aligned_store(builder, field_alloca, field_ptr);
+                        IR::aligned_store(builder, expr_val, field_ptr);
                         break;
                     }
                     case Type::Variation::ARRAY: {
