@@ -844,6 +844,9 @@ void Generator::IR::generate_debug_print(    //
     const std::string &format,               //
     const std::vector<llvm::Value *> &values //
 ) {
+    if (!DEBUG_MODE) {
+        return;
+    }
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Value *debug_str = generate_const_string(module, "DEBUG: ");
     builder->CreateCall(printf_fn, {debug_str});
