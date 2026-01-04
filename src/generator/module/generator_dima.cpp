@@ -263,19 +263,31 @@ void Generator::Module::DIMA::generate_create_block_function( //
      * of calculation and allocations.
      */
     // THE C IMPLEMENTATION:
-    // void *dima_create_block(size_t type_size, size_t slot_count) {
-    //     size_t slot_size = sizeof(DimaSlot) + type_size;
-    //     size_t block_size = sizeof(DimaBlock);
-    //     size_t allocation_size = block_size + slot_size * slot_count;
-    //     return malloc(allocation_size);
+    // dima_block_t *dima_create_block(const size_t type_size, const size_t capacity) {
+    //     const size_t slot_size = sizeof(dima_slot_t) + type_size;
+    //     dima_block_t *block = (dima_block_t *)malloc(sizeof(dima_block_t) + slot_size * capacity);
+    //     memset(block->slots, 0, capacity * slot_size);
+    //     block->type_size = type_size;
+    //     block->capacity = capacity;
+    //     block->used = 0;
+    //     block->pinned_count = 0;
+    //     block->first_free_slot_id = 0;
+    //     return block;
     // }
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *memset_fn = c_functions.at(MEMSET);
+
+    llvm::StructType *dima_block_type = type_map.at("__flint_type_dima_block");
+    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
+
+    const size_t dima_block_size = Allocation::get_type_size(module, dima_block_type);
+    const size_t dima_slot_size = Allocation::get_type_size(module, dima_slot_type);
 
     llvm::FunctionType *create_block_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),              // return void*
+        dima_block_type->getPointerTo(),                             // return dima_block_t*
         {
             llvm::Type::getInt64Ty(context), // u64 type_size
-            llvm::Type::getInt64Ty(context)  // u64 slot_coount
+            llvm::Type::getInt64Ty(context)  // u64 capacity
         },                                   //
         false                                // No vaarg
     );
@@ -293,17 +305,27 @@ void Generator::Module::DIMA::generate_create_block_function( //
     // Get the parameters
     llvm::Argument *arg_type_size = create_block_fn->arg_begin();
     arg_type_size->setName("type_size");
-    llvm::Argument *arg_slot_count = create_block_fn->arg_begin() + 1;
-    arg_slot_count->setName("slot_count");
+    llvm::Argument *arg_capacity = create_block_fn->arg_begin() + 1;
+    arg_capacity->setName("capacity");
 
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", create_block_fn);
     builder->SetInsertPoint(entry_block);
-    llvm::Value *slot_struct_size = builder->getInt64(16);
-    llvm::Value *slot_size = builder->CreateAdd(slot_struct_size, arg_type_size, "slot_size");
-    llvm::Value *block_struct_size = builder->getInt64(32);
-    llvm::Value *slot_allocation_size = builder->CreateMul(slot_size, arg_slot_count, "slot_allocation_size");
-    llvm::Value *allocation_size = builder->CreateAdd(block_struct_size, slot_allocation_size, "allocation_size");
+    llvm::Value *slot_size = builder->CreateAdd(builder->getInt64(dima_slot_size), arg_type_size, "slot_size");
+    llvm::Value *slot_allocation_size = builder->CreateMul(slot_size, arg_capacity, "slot_allocation_size");
+    llvm::Value *allocation_size = builder->CreateAdd(builder->getInt64(dima_block_size), slot_allocation_size, "allocation_size");
     llvm::Value *allocated_block = builder->CreateCall(malloc_fn, {allocation_size}, "allocated_block");
+    llvm::Value *block_type_size_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 0, "block_slots_ptr");
+    IR::aligned_store(*builder, arg_type_size, block_type_size_ptr);
+    llvm::Value *block_capacity_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 1, "block_capacity_ptr");
+    IR::aligned_store(*builder, arg_capacity, block_capacity_ptr);
+    llvm::Value *block_used_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 2, "block_used_ptr");
+    IR::aligned_store(*builder, builder->getInt64(0), block_used_ptr);
+    llvm::Value *block_pinned_count_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 3, "block_pinned_count_ptr");
+    IR::aligned_store(*builder, builder->getInt64(0), block_pinned_count_ptr);
+    llvm::Value *block_first_free_slot_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 4, "block_first_free_slot_ptr");
+    IR::aligned_store(*builder, builder->getInt64(0), block_first_free_slot_ptr);
+    llvm::Value *block_slots_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, 5, "block_slots_ptr");
+    builder->CreateCall(memset_fn, {block_slots_ptr, builder->getInt32(0), slot_allocation_size});
     builder->CreateRet(allocated_block);
 }
 
