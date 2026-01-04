@@ -10,10 +10,9 @@
  *    // This is the main reason why DIMA is more memory expensive than manual memory management.
  *    typedef struct dima_slot_t {
  *        void *owner;       // A pointer to the owner of this slot
- *        uint32_t block_id; // ID of the block the slot is contained in. These 4 bytes would be used for padding anyways, so we can
- *                           // just add this field to make some DIMA operations quite a lot faster
- *        uint24_t arc;      // Reference count of how many references this slot has
- *        uint8_t flags;     // The flags of the slot. It's a bitset:
+ *        uint32_t arc;      // Reference count of how many references this slot has
+ *        uint16_t block_id; // ID of the block the slot is contained in
+ *        uint16_t flags;    // The flags of the slot. It's a bitset:
  *                           //   | isOccupied | isOwned | isArrStart | isArrMember | isAsync | isOwnedByEntity | Unused | Unused |
  *                           //   | ---------- | ------- | ---------- | ----------- | ------- | --------------- | ------ | ------ |
  *        char value[];      // The actual value the dima Slot holds, directly inlined inside the slot
@@ -86,9 +85,9 @@ void Generator::Module::DIMA::generate_types() {
         context,                                            //
         {
             llvm::Type::getInt8Ty(context)->getPointerTo(),         // ptr owner
-            llvm::Type::getInt32Ty(context),                        // u32 block_id
-            llvm::Type::getIntNTy(context, 24),                     // u24 arc
-            llvm::Type::getInt8Ty(context),                         // u8 flags
+            llvm::Type::getInt32Ty(context),                        // u32 arc
+            llvm::Type::getInt16Ty(context),                        // u16 block_id
+            llvm::Type::getInt16Ty(context),                        // u16 flags
             llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char value[]
 
         },                //
@@ -403,14 +402,14 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     llvm::Value *slot_offset_in_bytes = builder->CreateMul(slot_size, i_value, "slot_offset_in_bytes");
     llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), block_slots_ptr, slot_offset_in_bytes, "slot_ptr");
     llvm::Value *slot_flags_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 3, "slot_flags_ptr");
-    llvm::Value *slot_flags = IR::aligned_load(*builder, builder->getInt8Ty(), slot_flags_ptr, "slot_flags");
-    llvm::Value *is_empty = builder->CreateICmpEQ(slot_flags, builder->getInt8(static_cast<uint8_t>(Flags::UNUSED)), "is_empty");
+    llvm::Value *slot_flags = IR::aligned_load(*builder, builder->getInt16Ty(), slot_flags_ptr, "slot_flags");
+    llvm::Value *is_empty = builder->CreateICmpEQ(slot_flags, builder->getInt16(static_cast<uint16_t>(Flags::UNUSED)), "is_empty");
     builder->CreateCondBr(is_empty, slot_unused_block, loop_merge_block);
 
     builder->SetInsertPoint(slot_unused_block);
-    IR::aligned_store(*builder, builder->getInt8(static_cast<uint8_t>(Flags::OCCUPIED)), slot_flags_ptr);
+    IR::aligned_store(*builder, builder->getInt16(static_cast<uint16_t>(Flags::OCCUPIED)), slot_flags_ptr);
     llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "slot_arc_ptr");
-    IR::aligned_store(*builder, builder->getIntN(24, 1), slot_arc_ptr);
+    IR::aligned_store(*builder, builder->getInt32(1), slot_arc_ptr);
     llvm::Value *block_used_ptr = builder->CreateStructGEP(dima_block_type, arg_block, 2, "block_used_ptr");
     llvm::Value *block_used = IR::aligned_load(*builder, builder->getInt64Ty(), block_used_ptr, "block_used");
     llvm::Value *block_used_p1 = builder->CreateAdd(block_used, builder->getInt64(1), "block_used_p1");
@@ -637,7 +636,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
             IR::aligned_store(*builder, created_block, block_ptr);
             llvm::Value *slot_ptr = builder->CreateCall(allocate_in_block_fn, {block}, "slot_ptr");
             IR::aligned_store(*builder, slot_ptr, slot_alloca);
-            llvm::Value *slot_block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 1, "slot_block_id_ptr");
+            llvm::Value *slot_block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "slot_block_id_ptr");
             IR::aligned_store(*builder, block_idx, slot_block_id_ptr);
             builder->CreateBr(create_block_inline_merge_block);
         }
@@ -662,7 +661,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
         IR::aligned_store(*builder, block_count_p1, new_head_block_count_ptr);
         llvm::Value *slot_ptr = builder->CreateCall(allocate_in_block_fn, {new_block}, "slot_ptr");
         IR::aligned_store(*builder, slot_ptr, slot_alloca);
-        llvm::Value *slot_block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 1, "slot_block_id_ptr");
+        llvm::Value *slot_block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "slot_block_id_ptr");
         IR::aligned_store(*builder, head_block_count, slot_block_id_ptr);
         builder->CreateBr(copy_block);
     }
@@ -719,9 +718,9 @@ void Generator::Module::DIMA::generate_retain_function( //
     builder->SetInsertPoint(entry_block);
     const size_t container_of_offset = -Allocation::get_type_size(module, dima_slot_type);
     llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(container_of_offset), "slot_ptr");
-    llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "slot_arc_ptr");
-    llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getIntNTy(24), slot_arc_ptr, "slot_arc");
-    llvm::Value *slot_arc_p1 = builder->CreateAdd(slot_arc, builder->getIntN(24, 1), "slot_arc_p1");
+    llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 1, "slot_arc_ptr");
+    llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getInt32Ty(), slot_arc_ptr, "slot_arc");
+    llvm::Value *slot_arc_p1 = builder->CreateAdd(slot_arc, builder->getInt32(1), "slot_arc_p1");
     IR::aligned_store(*builder, slot_arc_p1, slot_arc_ptr);
     builder->CreateRet(arg_value);
 }
@@ -827,12 +826,12 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::BasicBlock *realloc_block = llvm::BasicBlock::Create(context, "realloc_block", release_fn);
 
     builder->SetInsertPoint(entry_block);
-    llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(dima_slot_size), "slot_ptr");
-    llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "slot_arc_ptr");
-    llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getIntNTy(24), slot_arc_ptr, "slot_arc");
-    llvm::Value *slot_arc_m1 = builder->CreateSub(slot_arc, builder->getIntN(24, 1), "slot_arc_m1");
+    llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(-dima_slot_size), "slot_ptr");
+    llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 1, "slot_arc_ptr");
+    llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getInt32Ty(), slot_arc_ptr, "slot_arc");
+    llvm::Value *slot_arc_m1 = builder->CreateSub(slot_arc, builder->getInt32(1), "slot_arc_m1");
     IR::aligned_store(*builder, slot_arc_m1, slot_arc_ptr);
-    llvm::Value *slot_arc_m1_gt_0 = builder->CreateICmpUGT(slot_arc_m1, builder->getIntN(24, 0), "slot_arc_m1_gt_0");
+    llvm::Value *slot_arc_m1_gt_0 = builder->CreateICmpUGT(slot_arc_m1, builder->getInt32(0), "slot_arc_m1_gt_0");
     builder->CreateCondBr(slot_arc_m1_gt_0, early_return_block, release_slot_block, IR::generate_weights(100, 1));
 
     builder->SetInsertPoint(early_return_block);
@@ -840,7 +839,7 @@ void Generator::Module::DIMA::generate_release_function( //
 
     builder->SetInsertPoint(release_slot_block);
     llvm::Value *head = IR::aligned_load(*builder, dima_head_type->getPointerTo(), arg_head_ref, "head");
-    llvm::Value *block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 1, "block_id_ptr");
+    llvm::Value *block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, 2, "block_id_ptr");
     llvm::Value *block_id = IR::aligned_load(*builder, builder->getInt32Ty(), block_id_ptr, "block_id");
     llvm::Value *blocks_ptr = builder->CreateStructGEP(dima_head_type, head, 3, "blocks_ptr");
     llvm::Value *block_ptr = builder->CreateGEP(dima_block_type->getPointerTo(), blocks_ptr, block_id, "block_ptr");

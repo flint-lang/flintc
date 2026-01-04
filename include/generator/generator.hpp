@@ -2795,7 +2795,7 @@ class Generator {
 
             /// @enum `Flags`
             /// @brief The possible flags stored in each slot of DIMA
-            enum class Flags : uint8_t {
+            enum class Flags : uint16_t {
                 UNUSED = 0,
                 OCCUPIED = 1,
                 ARRAY_START = 2,
