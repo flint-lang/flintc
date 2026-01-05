@@ -14,6 +14,7 @@
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -252,6 +253,26 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
+                }
+                break;
+            }
+            case Type::Variation::ENTITY: {
+                const auto *entity_type = var_type->as<EntityType>();
+                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+                llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), var_type).first;
+                for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
+                    const auto &data_node = entity_type->entity_node->data_modules.at(i);
+                    const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
+                    const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
+                    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), data_type).first;
+                    const std::string data_type_str = data_type->to_string();
+                    llvm::Value *field_ptr_ptr = builder.CreateStructGEP(struct_type, alloca, i, "field_" + data_type_str + "_ptr");
+                    llvm::Value *field_ptr = IR::aligned_load(builder, base_type->getPointerTo(), field_ptr_ptr, "field_" + data_type_str);
+                    if (!generate_data_cleanup(builder, ctx, base_type, field_ptr, data_type)) {
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return false;
+                    }
                 }
                 break;
             }

@@ -376,6 +376,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
         case Type::Variation::DATA:
             // Data types resolve in a different stage
             break;
+        case Type::Variation::ENTITY:
+            // Entity types resolve in a different stage
+            break;
         case Type::Variation::ENUM:
             // Enums cannot contain a type alias
             break;

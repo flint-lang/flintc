@@ -513,11 +513,11 @@ Parser::create_entity_type Parser::create_entity(   //
 ) {
     PROFILE_CUMULATIVE("Parser::create_entity");
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    std::vector<std::string> data_modules;
-    std::vector<std::string> func_modules;
+    std::vector<DataNode *> data_modules;
+    std::vector<FuncNode *> func_modules;
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
-    std::vector<std::pair<std::string, std::string>> parent_entities;
-    std::vector<std::string> constructor_order;
+    std::vector<std::pair<EntityNode *, std::string>> parent_entities;
+    std::vector<size_t> constructor_order;
     return {
         EntityNode(Hash(std::string("")), 0, 0, 0, "", data_modules, func_modules, link_nodes, parent_entities, constructor_order),
         std::nullopt,

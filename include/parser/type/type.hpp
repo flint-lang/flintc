@@ -31,6 +31,7 @@ class Type {
         ALIAS,
         ARRAY,
         DATA,
+        ENTITY,
         ENUM,
         ERROR_SET,
         FUNC,

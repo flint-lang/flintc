@@ -708,6 +708,8 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
         }
         case Type::Variation::DATA:
             break;
+        case Type::Variation::ENTITY:
+            break;
         case Type::Variation::ENUM:
             break;
         case Type::Variation::ERROR_SET:

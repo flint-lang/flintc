@@ -5,6 +5,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
@@ -12,6 +13,7 @@
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
 
 #include <iterator>
 #include <stack>
@@ -505,6 +507,24 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Set the body of the struct now that we have all field types
             struct_type->setBody(field_types, false); // false = not packed
             return {struct_type, {true, true}};
+        }
+        case Type::Variation::ENTITY: {
+            const auto *entity_type = type->as<EntityType>();
+            // Check if it's a known entity type
+            const std::string type_str = "type.entity." + entity_type->entity_node->name;
+            if (type_map.find(type_str) != type_map.end()) {
+                return {type_map.at(type_str), {true, true}};
+            }
+            // Create the entity type, it's just a struct containing pointers to the entities' defined data
+            std::vector<llvm::Type *> field_types;
+            for (const auto &data_node : entity_type->entity_node->data_modules) {
+                Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
+                std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
+                field_types.emplace_back(IR::get_type(module, data_type).first);
+            }
+            llvm::StructType *struct_type = llvm::StructType::create(context, field_types, type_str, false);
+            type_map[type_str] = struct_type;
+            return {struct_type, {false, false}};
         }
         case Type::Variation::ENUM:
             return {llvm::Type::getInt32Ty(context), {false, false}};

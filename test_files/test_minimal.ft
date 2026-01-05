@@ -1,9 +1,32 @@
 use Core.print
 
-use "imported.ft" as i
+data MyData:
+	i32 x;
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
+
+func MyFunc requires(MyData d):
+	def print():
+		print($"d = ({d.x}, {d.y}, {d.z})\n");
+	
+	def get_x() -> i32:
+		return d.x;
+
+entity MyEntity:
+	data:
+		MyData;
+	func:
+		MyFunc;
+	MyEntity(MyData);
 
 def main():
-	d := i.MyData(10, 20, 30);
-	i.MyFunc.print(d);
-	x := i.MyFunc.get_x(d);
+	d := MyData(10, 20, 30);
+	MyFunc.print(d);
+	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
+
+	// MyEntity e = MyEntity(d);
+	// e.print();
+	// x = e.get_x();
+	// print($"e.get_x() = {x}\n");
