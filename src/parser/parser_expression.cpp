@@ -1763,7 +1763,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::make_unique<LiteralNode>(lit_value, lit_type);
                     }
                     case Type::Variation::FUNC: {
-                        auto call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt, true);
+                        const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
+                        std::optional<std::unique_ptr<ExpressionNode>> call_node = std::nullopt;
+                        if (func_node->file_hash.to_string() != file_hash.to_string()) {
+                            auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
+                            call_node = create_call_expression(ctx, scope, tokens_mut, func_namespace, true);
+                        } else {
+                            call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt, true);
+                        }
                         if (!call_node.has_value()) {
                             return std::nullopt;
                         }

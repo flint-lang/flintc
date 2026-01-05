@@ -1,6 +1,14 @@
-use "imported_2.ft" as i2
+use Core.print
 
-type Vec3 i32x3
+data MyData:
+	i32 x;
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
 
-def add(i32 x, i32 y) -> i32:
-	return x + y;
+func MyFunc requires(MyData d):
+	def print():
+		print($"d = ({d.x}, {d.y}, {d.z})\n");
+	
+	def get_x() -> i32:
+		return d.x;

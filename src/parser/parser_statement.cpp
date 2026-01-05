@@ -2447,7 +2447,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             }
-            statement_node = create_call_statement(scope, tokens, std::nullopt, true);
+            const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
+            if (func_node->file_hash.to_string() != file_hash.to_string()) {
+                auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
+                statement_node = create_call_statement(scope, tokens, func_namespace, true);
+            } else {
+                statement_node = create_call_statement(scope, tokens, std::nullopt, true);
+            }
         } else {
             assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
             Namespace *alias_namespace = tokens_mut.first->alias_namespace;
