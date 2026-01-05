@@ -523,6 +523,9 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 );
             }
             return {type_map.at("__flint_type_err"), {false, true}};
+        case Type::Variation::FUNC:
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            break;
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             const std::string type_str = "type.tuple." + type->to_string();

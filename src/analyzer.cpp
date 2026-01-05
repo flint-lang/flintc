@@ -712,6 +712,8 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
             break;
         case Type::Variation::ERROR_SET:
             break;
+        case Type::Variation::FUNC:
+            break;
         case Type::Variation::GROUP: {
             const auto *group_type = type_to_analyze->as<GroupType>();
             for (const auto &type : group_type->types) {

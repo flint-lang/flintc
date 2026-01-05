@@ -680,12 +680,14 @@ class Parser {
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `call_namespace` The namespace the called function comes from, for example when called via an alias the namespace is the
     /// alias namepsace, when called directly it's the namespace of this file
+    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
         const Context &ctx,                                                        //
         std::shared_ptr<Scope> &scope,                                             //
         const token_slice &tokens,                                                 //
-        const Namespace *call_namespace                                            //
+        const Namespace *call_namespace,                                           //
+        const bool is_func_module_call = false                                     //
     );
 
     /// @function `create_unary_op_base`
@@ -880,12 +882,14 @@ class Parser {
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
     /// @param `alias` The potential alias base on which the call is done
+    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
     /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
         const Context &ctx,                                                //
         std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
-        const std::optional<Namespace *> &alias                            //
+        const std::optional<Namespace *> &alias,                           //
+        const bool is_func_module_call = false                             //
     );
 
     /// @function `create_initializer`
@@ -1119,11 +1123,13 @@ class Parser {
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
     /// @param `alias` The potential alias base of the call
+    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
     /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
     std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement( //
         std::shared_ptr<Scope> &scope,                                       //
         const token_slice &tokens,                                           //
-        const std::optional<Namespace *> &alias                              //
+        const std::optional<Namespace *> &alias,                             //
+        const bool is_func_module_call = false                               //
     );
 
     /// @function `create_throw`

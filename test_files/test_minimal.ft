@@ -9,7 +9,12 @@ data MyData:
 func MyFunc requires(MyData d):
 	def print():
 		print($"d = ({d.x}, {d.y}, {d.z})\n");
+	
+	def get_x() -> i32:
+		return d.x;
 
 def main():
 	d := MyData(10, 20, 30);
 	MyFunc.print(d);
+	x := MyFunc.get_x(d);
+	print($"d.x = {x}\n");

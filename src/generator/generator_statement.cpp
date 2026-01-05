@@ -269,6 +269,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                     llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from error '" + var_name + "'")));
                 break;
             }
+            case Type::Variation::FUNC:
+                break;
             case Type::Variation::GROUP:
                 break;
             case Type::Variation::MULTI:

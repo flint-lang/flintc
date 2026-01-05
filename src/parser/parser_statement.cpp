@@ -31,15 +31,16 @@
 std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement( //
     std::shared_ptr<Scope> &scope,                                               //
     const token_slice &tokens,                                                   //
-    const std::optional<Namespace *> &alias                                      //
+    const std::optional<Namespace *> &alias,                                     //
+    const bool is_func_module_call                                               //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
     std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value());
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value(), is_func_module_call);
     } else {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get());
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_module_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -2441,10 +2442,18 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
         token_slice tokens_mut = tokens;
-        assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
-        Namespace *alias_namespace = tokens_mut.first->alias_namespace;
-        tokens_mut.first += 2;
-        statement_node = create_call_statement(scope, tokens_mut, alias_namespace);
+        if (tokens_mut.first->token == TOK_TYPE) {
+            if (tokens_mut.first->type->get_variation() != Type::Variation::FUNC) {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            statement_node = create_call_statement(scope, tokens, std::nullopt, true);
+        } else {
+            assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
+            Namespace *alias_namespace = tokens_mut.first->alias_namespace;
+            tokens_mut.first += 2;
+            statement_node = create_call_statement(scope, tokens_mut, alias_namespace);
+        }
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
         statement_node = create_call_statement(scope, tokens, std::nullopt);
     } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {

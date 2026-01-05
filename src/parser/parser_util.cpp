@@ -382,6 +382,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
         case Type::Variation::ERROR_SET:
             // Error sets cannot contain a type alias
             break;
+        case Type::Variation::FUNC:
+            // Func types resolve in a different stage
+            break;
         case Type::Variation::GROUP: {
             auto *group_type = type_to_resolve->as<GroupType>();
             for (auto &type : group_type->types) {
@@ -444,7 +447,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     const Context &ctx,                                                                        //
     std::shared_ptr<Scope> &scope,                                                             //
     const token_slice &tokens,                                                                 //
-    const Namespace *call_namespace                                                            //
+    const Namespace *call_namespace,                                                           //
+    const bool is_func_module_call                                                             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
@@ -452,6 +456,14 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
+    std::string func_module_name = "";
+    if (is_func_module_call) {
+        assert(tokens.first->token == TOK_TYPE);
+        assert(tokens.first->type->get_variation() == Type::Variation::FUNC);
+        assert((tokens.first + 1)->token == TOK_DOT);
+        assert((tokens.first + 2)->token == TOK_IDENTIFIER);
+        func_module_name = std::string(tokens.first->type->to_string());
+    }
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
         return std::nullopt;
@@ -512,16 +524,17 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     }
 
     // Check if it's an initializer
-    if (tokens.first->token == TOK_TYPE) {
+    const auto &name_token = is_func_module_call ? tokens.first + 2 : tokens.first;
+    if (name_token->token == TOK_TYPE) {
         switch (tokens.first->type->get_variation()) {
             default: {
-                [[maybe_unused]] const Type::Variation variation = tokens.first->type->get_variation();
-                [[maybe_unused]] const std::string type_str = tokens.first->type->to_string();
+                [[maybe_unused]] const Type::Variation variation = name_token->type->get_variation();
+                [[maybe_unused]] const std::string type_str = name_token->type->to_string();
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             }
             case Type::Variation::DATA: {
-                const DataNode *data_node = tokens.first->type->as<DataType>()->data_node;
+                const DataNode *data_node = name_token->type->as<DataType>()->data_node;
                 auto &fields = data_node->fields;
                 // Now check if the initializer arguments are equal to the expected initializer fields
                 if (fields.size() != arguments.size()) {
@@ -542,13 +555,13 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
                 return CreateCallOrInitializerBaseRet{
                     .args = std::move(arguments),
-                    .type = tokens.first->type,
+                    .type = name_token->type,
                     .is_initializer = true,
                     .function = nullptr,
                 };
             }
             case Type::Variation::MULTI: {
-                const auto *multi_type = tokens.first->type->as<MultiType>();
+                const auto *multi_type = name_token->type->as<MultiType>();
                 const std::shared_ptr<Type> base_type = multi_type->base_type;
                 const unsigned int width = multi_type->width;
                 if (arguments.size() != width) {
@@ -563,7 +576,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
                 return CreateCallOrInitializerBaseRet{
                     .args = std::move(arguments),
-                    .type = tokens.first->type,
+                    .type = name_token->type,
                     .is_initializer = true,
                     .function = nullptr,
                 };
@@ -576,7 +589,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     for (auto tok = tokens.first; tok != tokens.second; ++tok) {
         // Get the function name
         if (tok->token == TOK_IDENTIFIER) {
-            function_name = tok->lexme;
+            if (is_func_module_call) {
+                function_name = tokens.first->type->to_string() + "." + std::string(tok->lexme);
+            } else {
+                function_name = tok->lexme;
+            }
             break;
         } else if (std::distance(tokens.first, tok) == arg_range.value().first) {
             // Function with no name
@@ -651,18 +668,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference
-            auto tok = tokens.first;
-            for (; tok != tokens.second; ++tok) {
-                // Get the function name
-                if (tok->token == TOK_IDENTIFIER && tok->lexme == function_name) {
-                    break;
-                }
-            }
-            // Next is the open paren
-            ++tok;
-            assert(tok->token == TOK_LEFT_PAREN);
+            auto tok = tokens.first + arg_range->first;
             // Now we need to get until the token where the error happened, e.g. the ith argument
-            ++tok;
             size_t depth = 0;
             size_t arg_id = i;
             while (arg_id > 0) {

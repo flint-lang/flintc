@@ -731,16 +731,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     const Context &ctx,                                                        //
     std::shared_ptr<Scope> &scope,                                             //
     const token_slice &tokens,                                                 //
-    const std::optional<Namespace *> &alias                                    //
+    const std::optional<Namespace *> &alias,                                   //
+    const bool is_func_module_call                                             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value());
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_module_call);
     } else {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get());
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_module_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -1735,27 +1736,39 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // located on the right of the call still
             if (tokens_mut.first->token == TOK_TYPE) {
                 // It's some form of "alias" on a base type
-                if (tokens_mut.first->type->get_variation() == Type::Variation::ERROR_SET) {
-                    const auto *error_type = tokens_mut.first->type->as<ErrorSetType>();
-                    // It's an error literal with a message added to it
-                    assert((tokens_mut.first + 1)->token == TOK_DOT);
-                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                    assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
-                    const std::string value((tokens_mut.first + 2)->lexme);
-                    const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
-                    if (!pair.has_value()) {
-                        // Unsupported error value
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
+                switch (tokens_mut.first->type->get_variation()) {
+                    default:
+                        break;
+                    case Type::Variation::ERROR_SET: {
+                        const auto *error_type = tokens_mut.first->type->as<ErrorSetType>();
+                        // It's an error literal with a message added to it
+                        assert((tokens_mut.first + 1)->token == TOK_DOT);
+                        assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                        assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
+                        const std::string value((tokens_mut.first + 2)->lexme);
+                        const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
+                        if (!pair.has_value()) {
+                            // Unsupported error value
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
+                        auto message =
+                            create_expression(ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str"));
+                        if (!message.has_value()) {
+                            return std::nullopt;
+                        }
+                        const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
+                        LitValue lit_value = LitError{.error_type = lit_type, .value = value, .message = std::move(message.value())};
+                        return std::make_unique<LiteralNode>(lit_value, lit_type);
                     }
-                    token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
-                    auto message = create_expression(ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str"));
-                    if (!message.has_value()) {
-                        return std::nullopt;
+                    case Type::Variation::FUNC: {
+                        auto call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt, true);
+                        if (!call_node.has_value()) {
+                            return std::nullopt;
+                        }
+                        return std::move(call_node.value());
                     }
-                    const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
-                    LitValue lit_value = LitError{.error_type = lit_type, .value = value, .message = std::move(message.value())};
-                    return std::make_unique<LiteralNode>(lit_value, lit_type);
                 }
             }
             // The first element should be the alias token
