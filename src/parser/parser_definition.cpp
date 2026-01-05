@@ -507,21 +507,30 @@ std::optional<FuncNode> Parser::create_func( //
     );
 }
 
-Parser::create_entity_type Parser::create_entity(   //
-    [[maybe_unused]] const token_slice &definition, //
-    [[maybe_unused]] const std::vector<Line> &body  //
+std::optional<EntityNode> Parser::create_entity(   //
+    const token_slice &definition,                 //
+    [[maybe_unused]] const std::vector<Line> &body //
 ) {
     PROFILE_CUMULATIVE("Parser::create_entity");
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+    auto tok_it = definition.first;
+    assert(tok_it->token == TOK_ENTITY);
+    tok_it++;
+    assert(tok_it->token == TOK_IDENTIFIER);
+    const std::string entity_name(tok_it->lexme);
+    tok_it++;
+    std::vector<std::pair<const EntityNode *, std::string>> parent_entities;
     std::vector<DataNode *> data_modules;
     std::vector<FuncNode *> func_modules;
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
     std::vector<std::pair<EntityNode *, std::string>> parent_entities;
     std::vector<size_t> constructor_order;
-    return {
-        EntityNode(Hash(std::string("")), 0, 0, 0, "", data_modules, func_modules, link_nodes, parent_entities, constructor_order),
-        std::nullopt,
-    };
+
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return EntityNode(                                                                                                                  //
+        file_hash, line, column, length, entity_name, data_modules, func_modules, link_nodes, parent_entities, constructor_order, false //
+    );
 }
 
 std::vector<std::unique_ptr<LinkNode>> Parser::create_links([[maybe_unused]] const std::vector<Line> &body) {

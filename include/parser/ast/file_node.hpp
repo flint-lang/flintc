@@ -14,6 +14,7 @@
 #include "error/error.hpp"
 #include "parser/ast/namespace.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
@@ -114,9 +115,17 @@ class FileNode : public ASTNode {
     /// @brief Adds an entity node to this file node
     ///
     /// @param `entity` The entity node to add
-    void add_entity(EntityNode &entity) {
+    /// @return `std::optional<EnttiyNode *>` A pointer to the added entity node, because this function takes ownership of `entity`, nullopt
+    /// if adding the entity type to this namespace failed
+    std::optional<EntityNode *> add_entity(EntityNode &entity) {
         auto &definitions = file_namespace->public_symbols.definitions;
         definitions.emplace_back(std::make_unique<EntityNode>(std::move(entity)));
+        EntityNode *added_entity = static_cast<EntityNode *>(definitions.back().get());
+        if (!file_namespace->add_type(std::make_shared<EntityType>(added_entity))) {
+            THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_entity->line, added_entity->column, added_entity->name);
+            return std::nullopt;
+        }
+        return added_entity;
     }
 
     /// @function `add_function`

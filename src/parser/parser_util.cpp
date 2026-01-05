@@ -149,11 +149,19 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::entity_definition)) {
-        create_entity_type entity_creation = create_entity(definition_tokens, body_lines);
-        file_node.add_entity(entity_creation.first);
-        if (entity_creation.second.has_value()) {
-            std::unique_ptr<DataNode> data_node_ptr = std::move(entity_creation.second.value().first);
-            std::unique_ptr<FuncNode> func_node_ptr = std::move(entity_creation.second.value().second);
+        std::optional<EntityNode> entity_node = create_entity(definition_tokens, body_lines);
+        if (!entity_node.has_value()) {
+            return false;
+        }
+        std::optional<EntityNode *> added_entity = file_node.add_entity(entity_node.value());
+        if (!added_entity.has_value()) {
+            return false;
+        }
+        if (added_entity.value()->is_monolithic) {
+            assert(added_entity.value()->data_modules.size() == 1);
+            assert(added_entity.value()->func_modules.size() == 1);
+            DataNode *data_node_ptr = std::move(added_entity.value()->data_modules.front());
+            FuncNode *func_node_ptr = std::move(added_entity.value()->func_modules.front());
             file_node.add_data(*data_node_ptr);
             file_node.add_func(*func_node_ptr);
         }
