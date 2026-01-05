@@ -16,6 +16,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <memory>
@@ -96,9 +97,17 @@ class FileNode : public ASTNode {
     /// @brief Adds a func node to this file node
     ///
     /// @param `func` The func node to add
-    void add_func(FuncNode &func) {
+    /// @return `std::optional<FuncNode *>` A pointer to the added func node, because this function takes ownership of `func`, nullopt if
+    /// adding the func type to this namespace failed
+    std::optional<FuncNode *> add_func(FuncNode &func) {
         auto &definitions = file_namespace->public_symbols.definitions;
         definitions.emplace_back(std::make_unique<FuncNode>(std::move(func)));
+        FuncNode *added_func = static_cast<FuncNode *>(definitions.back().get());
+        if (!file_namespace->add_type(std::make_shared<FuncType>(added_func))) {
+            THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_func->line, added_func->column, added_func->name);
+            return std::nullopt;
+        }
+        return added_func;
     }
 
     /// @function `add_entity`

@@ -33,6 +33,7 @@ class Type {
         DATA,
         ENUM,
         ERROR_SET,
+        FUNC,
         GROUP,
         MULTI,
         OPTIONAL,

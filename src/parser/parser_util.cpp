@@ -144,7 +144,10 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!func_node.has_value()) {
             return false;
         }
-        file_node.add_func(func_node.value());
+        std::optional<FuncNode *> added_func = file_node.add_func(func_node.value());
+        if (!added_func.has_value()) {
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::entity_definition)) {
         create_entity_type entity_creation = create_entity(definition_tokens, body_lines);
         file_node.add_entity(entity_creation.first);
