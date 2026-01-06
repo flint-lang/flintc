@@ -520,7 +520,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             for (const auto &data_node : entity_type->entity_node->data_modules) {
                 Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
-                field_types.emplace_back(IR::get_type(module, data_type).first);
+                field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
             }
             llvm::StructType *struct_type = llvm::StructType::create(context, field_types, type_str, false);
             type_map[type_str] = struct_type;
