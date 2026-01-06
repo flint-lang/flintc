@@ -1,8 +1,19 @@
-use Core.print
+use Core.assert
+
+def sum_x_to_y(i32 x, i32 y) -> i32:
+    i32 sum = 0;
+    for i32 i = x; i < y; i++:
+        sum = sum + i;
+    return sum;
+
+def sum_until(mut u32 n) -> u32:
+    u32 sum = 0;
+    n--; // Skip the highest numer, we only count until, not including with
+    while n > 0:
+        sum = sum + n;
+        n--;
+    return sum;
 
 def main():
-	u32 i = 0;
-	switch i:
-		1: print("1\n");
-		2: print("2\n");
-		else: print("else\n");
+    assert(sum_x_to_y(10, 20) == 145);
+    assert(sum_until(u32(20)) == 190);

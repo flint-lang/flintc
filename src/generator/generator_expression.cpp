@@ -347,8 +347,13 @@ llvm::Value *Generator::Expression::generate_variable( //
     // The variable is a "function parameter" when it's the context of the ehnhanced for loop, for example. It's set to a function paramter
     // in all the cases where we want to return the pointer to the allocation directly instead of loading it, but this only holds true when
     // the parameter is not a tuple. Tuples are by-value by default but when passed in to a function they are passed by reference, so we
-    // still need to load them even when it's a function parameter
-    if (std::get<3>(ctx.scope->variables.at(variable_node->name)) && variable_node->type->get_variation() != Type::Variation::TUPLE) {
+    // still need to load them even when it's a function parameter. This also does not count when the function parameter is mutable. If we
+    // have a mutable primitive typed function parameter then a local version of it is allocated in the functions scope, which means we
+    // still need to load that value before returning it.
+    if (std::get<3>(ctx.scope->variables.at(variable_node->name))         // is function parameter
+        && !std::get<2>(ctx.scope->variables.at(variable_node->name))     // is not mutable
+        && variable_node->type->get_variation() != Type::Variation::TUPLE // Is not of type tuple
+    ) {
         return variable;
     }
 
