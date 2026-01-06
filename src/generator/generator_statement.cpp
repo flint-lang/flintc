@@ -267,8 +267,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                     const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                     llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), data_type).first;
                     const std::string data_type_str = data_type->to_string();
-                    llvm::Value *field_ptr_ptr = builder.CreateStructGEP(struct_type, alloca, i, "field_" + data_type_str + "_ptr");
-                    llvm::Value *field_ptr = IR::aligned_load(builder, base_type->getPointerTo(), field_ptr_ptr, "field_" + data_type_str);
+                    llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, alloca, i, "field_" + data_type_str + "_ptr");
                     if (!generate_data_cleanup(builder, ctx, base_type, field_ptr, data_type)) {
                         THROW_BASIC_ERR(ERR_GENERATING);
                         return false;
