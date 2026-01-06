@@ -1751,6 +1751,30 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             }
             return std::vector<llvm::Value *>{data_ptr};
         }
+        case Type::Variation::ENTITY: {
+            // Create an empty entity first and then simply store the pointers to the data values in it and return the constructed entity
+            // structure
+            llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Value *initialized_entity = IR::get_default_value_of_type(entity_type);
+            for (size_t i = 0; i < initializer->args.size(); i++) {
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                if (!expr_result.has_value()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                // For initializers, we need pure single-value types
+                if (expr_result.value().size() > 1) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                // The initializer is of type `i8*` and we need to cast it to `T*` before storing it
+                llvm::Value *expr_val = expr_result.value().front();
+                llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), initializer->args.at(i)->type).first;
+                llvm::Value *cast_expr = builder.CreatePointerCast(expr_val, data_type->getPointerTo());
+                initialized_entity = builder.CreateInsertValue(initialized_entity, cast_expr, i, "entity_init_" + std::to_string(i));
+            }
+            return std::vector<llvm::Value *>{initialized_entity};
+        }
         case Type::Variation::MULTI: {
             // Create an "empty" vector of the multi-type
             llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
