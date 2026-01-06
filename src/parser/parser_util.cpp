@@ -571,6 +571,33 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .function = nullptr,
                 };
             }
+            case Type::Variation::ENTITY: {
+                const auto *entity_type = name_token->type->as<EntityType>();
+                auto &data_modules = entity_type->entity_node->data_modules;
+                // Check if all initializer arguments are equal to the expected data module types
+                if (arguments.size() != data_modules.size()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                for (size_t i = 0; i < arguments.size(); i++) {
+                    std::shared_ptr<Type> arg_type = arguments.at(i).first->type;
+                    if (arg_type->get_variation() != Type::Variation::DATA) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    DataNode *arg_node = arg_type->as<DataType>()->data_node;
+                    if (arg_node != data_modules.at(i)) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                }
+                return CreateCallOrInitializerBaseRet{
+                    .args = std::move(arguments),
+                    .type = name_token->type,
+                    .is_initializer = true,
+                    .function = nullptr,
+                };
+            }
             case Type::Variation::MULTI: {
                 const auto *multi_type = name_token->type->as<MultiType>();
                 const std::shared_ptr<Type> base_type = multi_type->base_type;

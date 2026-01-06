@@ -9,10 +9,8 @@ func BaseFunc requires(BaseData d):
 		print($"speed = {d.speed}\n");
 
 entity BaseEntity:
-	data:
-		BaseData;
-	func:
-		BaseFunc;
+	data: BaseData;
+	func: BaseFunc;
 	BaseEntity(BaseData);
 
 data MyData:
@@ -28,12 +26,12 @@ func MyFunc requires(MyData d):
 	def get_x() -> i32:
 		return d.x;
 
-entity MyEntity extends(BaseEntity b):
-	data: MyData;
-	func: MyFunc;
-	// TODO: Does not work yet
-	// MyEntity(b, MyData);
-	MyEntity(MyData);
+entity MyEntity:
+	data:
+		BaseData, MyData;
+	func:
+		BaseFunc, MyFunc;
+	MyEntity(BaseData, MyData);
 
 def main():
 	d := MyData(10, 20, 30);
@@ -41,6 +39,7 @@ def main():
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
 
+	BaseEntity e = BaseEntity(BaseData(10));
 	// MyEntity e = MyEntity(d);
 	// e.print();
 	// x = e.get_x();
