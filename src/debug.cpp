@@ -1427,7 +1427,7 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Func ");
             std::cout << func.name;
             if (!func.required_data.empty()) {
-                std::cout << "requires(";
+                std::cout << " requires(";
                 for (size_t i = 0; i < func.required_data.size(); i++) {
                     if (i > 0) {
                         std::cout << ", ";
@@ -1435,6 +1435,7 @@ namespace Debug {
                     const auto &rd = func.required_data.at(i);
                     std::cout << rd.first->to_string() << " " << rd.second;
                 }
+                std::cout << ")";
             }
             std::cout << "\n";
             for (size_t i = 0; i < func.functions.size(); i++) {
