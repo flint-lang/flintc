@@ -622,12 +622,16 @@ bool Parser::create_switch_branches(            //
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return false;
         }
-        for (const auto &match : matches) {
+        for (auto &match : matches) {
             const auto variation = match->get_variation();
             const bool is_not_literal = variation != ExpressionNode::Variation::LITERAL;
             const bool is_not_default_value = variation != ExpressionNode::Variation::DEFAULT;
             if (is_not_literal && is_not_default_value) {
                 // Not allowed value for the switch statement's expression
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            if (!check_castability(switcher_type, match)) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }

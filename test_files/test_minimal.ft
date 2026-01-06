@@ -1,48 +1,8 @@
 use Core.print
 
-data BaseData:
-	i32 speed;
-	BaseData(speed);
-
-func BaseFunc requires(BaseData d):
-	def base():
-		print($"speed = {d.speed}\n");
-
-entity BaseEntity:
-	data: BaseData;
-	func: BaseFunc;
-	BaseEntity(BaseData);
-
-data MyData:
-	i32 x;
-	i32 y;
-	i32 z;
-	MyData(x, y, z);
-
-func MyFunc requires(MyData d):
-	def print():
-		print($"d = ({d.x}, {d.y}, {d.z})\n");
-	
-	def get_x() -> i32:
-		return d.x;
-
-entity MyEntity:
-	data:
-		BaseData, MyData;
-	func:
-		BaseFunc, MyFunc;
-	MyEntity(BaseData, MyData);
-
 def main():
-	d := MyData(10, 20, 30);
-	MyFunc.print(d);
-	x := MyFunc.get_x(d);
-	print($"d.x = {x}\n");
-
-	BaseEntity be = BaseEntity(BaseData(10));
-	// be.base();
-
-	// MyEntity e = MyEntity(d);
-	// e.print();
-	// x = e.get_x();
-	// print($"e.get_x() = {x}\n");
+	u32 i = 0;
+	switch i:
+		1: print("1\n");
+		2: print("2\n");
+		else: print("else\n");
