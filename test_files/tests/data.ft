@@ -56,7 +56,7 @@ data SomeData:
     SomeData(a, b, c);
 
 def add_a_to_b(mut SomeData sd):
-    sd.b = sd.b + sd.a;
+    sd.b = sd.b + f32(sd.a);
 
 def if_c_revert_a(mut SomeData sd):
     if sd.c:

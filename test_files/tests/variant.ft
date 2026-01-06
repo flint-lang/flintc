@@ -4,7 +4,7 @@ variant VarTup:
 	Int(i32), Tuple(f32, i32), bool;
 
 def test_tagged_tuple_variant():
-	VarTup my_var = 5;
+	VarTup my_var = i32(5);
 	i32 constant = 10;
 
 	i32 res = switch my_var:
@@ -34,7 +34,7 @@ variant VarTag:
 	Int(i32), Float(f32), bool;
 
 def test_tagged_variant():
-	VarTag my_var = 5;
+	VarTag my_var = i32(5);
 	i32 constant = 10;
 
 	i32 res = switch my_var:
@@ -43,7 +43,7 @@ def test_tagged_variant():
 		bool(b) -> constant + 3;
 	assert(res == 8);
 
-	my_var = 3.4;
+	my_var = f32(3.4);
 	switch my_var:
 		VarTag.Int(i): assert(false);
 		VarTag.Float(f): assert(i32(f - 3.4) == 0);
@@ -61,14 +61,14 @@ variant Var:
 	i32, f32, bool;
 
 def test_switch_statements():
-	Var my_var = 5;
+	Var my_var = i32(5);
 	
 	switch my_var:
 		i32(i): assert(i == 5);
 		f32(f): assert(i32(f - 3.4) == 0);
 		bool(b): assert(not b);
 	
-	my_var = 3.4;
+	my_var = f32(3.4);
 	switch my_var:
 		i32(i): assert(i == 5);
 		f32(f): assert(i32(f - 3.4) == 0);
@@ -81,7 +81,7 @@ def test_switch_statements():
 		bool(b): assert(not b);
 
 def test_switch_expressions():
-	Var my_var = 5;
+	Var my_var = i32(5);
 	i32 constant = 10;
 
 	i32 res = switch my_var:
@@ -90,7 +90,7 @@ def test_switch_expressions():
 		bool(b) -> constant + 3;
 	assert(res == 8);
 
-	my_var = 3.4;
+	my_var = f32(3.4);
 	res = switch my_var:
 		i32(i) -> i + 3;
 		f32(f) -> constant + 2;
@@ -109,11 +109,11 @@ def test_force_extraction():
 	bool x = my_var!(bool);
 	assert(not x);
 
-	my_var = 10;
+	my_var = i32(10);
 	i32 res_i = my_var!(VarTag.Int);
 	assert(res_i == 10);
 
-	my_var = 3.3;
+	my_var = f32(3.3);
 	f32 res_f = my_var!(VarTag.Float);
 	assert(i32((res_f - 3.3) * 100_000) == 0);
 
@@ -123,12 +123,12 @@ def test_extraction_operator():
 	assert(res != none);
 	assert(res!);
 
-	my_var = 10;
+	my_var = i32(10);
 	i32? res_i = my_var?(VarTag.Int);
 	assert(res_i != none);
 	assert(res_i! == 10);
 
-	my_var = 3.3;
+	my_var = f32(3.3);
 	f32? res_f = my_var?(VarTag.Float);
 	assert(res_f != none);
 	assert(i32((res_f! - 3.3) * 100_000) == 0);

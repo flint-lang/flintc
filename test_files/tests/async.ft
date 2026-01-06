@@ -1,0 +1,21 @@
+use Core.print
+use Core.system
+
+def doWork(str work) -> u32:
+    print($"working {work}\n");
+    sleep(100, TimeUnit.MS);
+    return work[0];
+
+def main():
+    print("Hello, World!\n");
+
+    async<u32> ret1 = async doWork("hard");
+    async<u32> ret2 = async doWork("Spezi");
+
+    // Do something else
+
+    u32 res1 = ret1.await() catch err:
+        throw err;
+
+    u32 res2 = ret2.await() catch err:
+        throw err;

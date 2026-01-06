@@ -69,7 +69,7 @@ def throw_extra_special(u32 i) {ErrExtraSpecial}:
 		0, 1, 2, 3:
 			throw_special(i) catch:
 				ErrSpecial(es):
-					ErrExtraSpecial ees = es;
+					ErrSpecial ees = es;
 					throw ees;
 				anyerror(e): throw ErrAssert.AssertionFailed;
 		4: throw ErrExtraSpecial.E1;
