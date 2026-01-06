@@ -1,5 +1,20 @@
 use Core.print
 
+data BaseData:
+	i32 speed;
+	BaseData(speed);
+
+func BaseFunc requires(BaseData d):
+	def base():
+		print($"speed = {d.speed}\n");
+
+entity BaseEntity:
+	data:
+		BaseData;
+	func:
+		BaseFunc;
+	BaseEntity(BaseData);
+
 data MyData:
 	i32 x;
 	i32 y;
@@ -13,11 +28,11 @@ func MyFunc requires(MyData d):
 	def get_x() -> i32:
 		return d.x;
 
-entity MyEntity:
-	data:
-		MyData;
-	func:
-		MyFunc;
+entity MyEntity extends(BaseEntity b):
+	data: MyData;
+	func: MyFunc;
+	// TODO: Does not work yet
+	// MyEntity(b, MyData);
 	MyEntity(MyData);
 
 def main():

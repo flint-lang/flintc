@@ -1646,7 +1646,7 @@ class Parser {
     /// @param `definition` The list of tokens representing the entity definition
     /// @param `body` The list of tokens representing the entity body
     /// @return `std::optional<EntityNode>` The created entity, or nullopt if it's creation failed
-    std::optional<EntityNode> create_entity(const token_slice &definition, const std::vector<Line> &body);
+    std::optional<EntityNode> create_entity(const token_slice &definition, std::vector<Line> &body);
 
     /// @function `create_links`
     /// @brief Creates a list of LinkNode's from a given body containing those links

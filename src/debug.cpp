@@ -1384,10 +1384,45 @@ namespace Debug {
 
         // print_entity
         //     Prints the content of the generated EntityNode
-        void print_entity([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] TreeBits &bits,
-            [[maybe_unused]] const EntityNode &entity) {
+        void print_entity(unsigned int indent_lvl, TreeBits &bits, const EntityNode &entity) {
             Local::print_header(indent_lvl, bits, "Entity ");
-            std::cout << typeid(entity).name() << "\n";
+            std::cout << entity.name << "(";
+            for (size_t i = 0; i < entity.constructor_order.size(); i++) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << entity.data_modules.at(entity.constructor_order.at(i))->name;
+            }
+            std::cout << ") ";
+            if (!entity.parent_entities.empty()) {
+                std::cout << " extends(";
+                for (size_t i = 0; i < entity.parent_entities.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &pe = entity.parent_entities.at(i);
+                    std::cout << pe.first->name << " " << pe.second;
+                }
+                std::cout << ")";
+            }
+            std::cout << "\n";
+            TreeBits data_bits = bits.child(indent_lvl + 1, false);
+            Local::print_header(indent_lvl + 1, data_bits, "Data ");
+            std::cout << "\n";
+            for (size_t i = 0; i < entity.data_modules.size(); i++) {
+                TreeBits data_module_bits = data_bits.child(indent_lvl + 2, i + 1 == entity.data_modules.size());
+                Local::print_header(indent_lvl + 2, data_module_bits, entity.data_modules.at(i)->name + " ");
+                std::cout << "\n";
+            }
+
+            TreeBits func_bits = bits.child(indent_lvl + 1, true);
+            Local::print_header(indent_lvl + 1, func_bits, "Func ");
+            std::cout << "\n";
+            for (size_t i = 0; i < entity.func_modules.size(); i++) {
+                TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == entity.func_modules.size());
+                Local::print_header(indent_lvl + 2, func_module_bits, entity.func_modules.at(i)->name + " ");
+                std::cout << "\n";
+            }
         }
 
         // print_enum
