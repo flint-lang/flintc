@@ -3,6 +3,9 @@ use Core.assert
 def add(i32 x, i32 y) -> i32:
     return x + y;
 
+def interpolate(i32 x) -> str:
+    return $"x is {x}\n";
+
 def add_str(str a, str b) -> str:
     return a + b;
 
@@ -22,5 +25,6 @@ def test_str():
     assert("1" <= "2");
     assert("4" >= "3");
     assert("a" != "b");
+    assert(interpolate(42) == "x is 42");
     assert(add_str("A", "B") == "AB");
     assert(str(add(4, 5)) == "9");
