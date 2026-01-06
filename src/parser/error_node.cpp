@@ -25,6 +25,17 @@ unsigned int ErrorNode::get_value_count() const {
     }
 }
 
+bool ErrorNode::is_parent_of(const ErrorNode *other) const {
+    std::optional<const ErrorNode *> other_parent = other->get_parent_node();
+    while (other_parent.has_value()) {
+        if (this == other_parent.value()) {
+            return true;
+        }
+        other_parent = other_parent.value()->get_parent_node();
+    }
+    return false;
+}
+
 std::optional<std::pair<unsigned int, std::string>> ErrorNode::get_id_msg_pair_of_value(const std::string &value) const {
     unsigned int offset = get_value_count() - values.size();
     const auto it = std::find(values.begin(), values.end(), value);

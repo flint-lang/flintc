@@ -225,6 +225,20 @@ Parser::CastDirection Parser::check_primitive_castability( //
         return CastDirection::rhs_to_lhs();
     }
 
+    // Check if both sides are error variants and whether one error variant is the superset of the other one
+    if (lhs_type->get_variation() == Type::Variation::ERROR_SET && rhs_type->get_variation() == Type::Variation::ERROR_SET) {
+        ErrorNode *lhs_err = lhs_type->as<ErrorSetType>()->error_node;
+        ErrorNode *rhs_err = rhs_type->as<ErrorSetType>()->error_node;
+        // It is always allowed to cast to more specific errors if the more specific error is the superset of the basic error
+        if (lhs_err->is_parent_of(rhs_err)) {
+            return CastDirection::lhs_to_rhs();
+        }
+        if (rhs_err->is_parent_of(lhs_err)) {
+            return CastDirection::rhs_to_lhs();
+        }
+        return CastDirection::not_castable();
+    }
+
     bool lhs_to_rhs_allowed = false;
     bool rhs_to_lhs_allowed = false;
     if (is_implicit) {

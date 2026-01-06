@@ -44,6 +44,13 @@ class ErrorNode : public DefinitionNode {
     /// @return `unsigned int` The total count of values within this set
     unsigned int get_value_count() const;
 
+    /// @function `is_parent_of`
+    /// @brief Checks whether this error is a parent of the other given error node
+    ///
+    /// @param `other` The other error node to check against
+    /// @return `bool` Whether this error node is a parent of the given error node
+    bool is_parent_of(const ErrorNode *other) const;
+
     /// @function `get_id_msg_pair_of_value`
     /// @brief Returns the id of a given string value, the value is either in this set or in one of it's base sets together with the default
     /// message of that value, or nullopt if the value is not part of this error set
