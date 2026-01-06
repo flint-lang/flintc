@@ -1,178 +1,178 @@
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_decl_initializer.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "0_decl_initializer.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "1_decl_field_access.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "1_decl_field_access.ft";
 	test_file_ok($"{path}/{file}", "v2.x = 10, v2.y = 20\n");
 
 test "2_decl_field_assign.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "2_decl_field_assign.ft";
 	test_file_ok($"{path}/{file}", "v2.x = 10, v2.y = 20\nv2.x = 15, v2.y = 20\n");
 
 test "3_decl_grouped_access.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "3_decl_grouped_access.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z) = (1, 2, 3)\n");
 
 test "4_decl_grouped_assign.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "4_decl_grouped_assign.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (3, 1, 2)\n");
 
 test "5_decl_grouped_increment.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "5_decl_grouped_increment.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n");
 
 #test_should_fail
 test "[f]6_default_one.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "6_default_one.ft";
 	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 20)\n");
 
 #test_should_fail
 test "[f]7_default_all.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "7_default_all.ft";
 	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 7)\n");
 
 test "8_nested_simple.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "8_nested_simple.ft";
 	test_file_ok($"{path}/{file}", "rect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
 
 test "9_nested_copy.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "9_nested_copy.ft";
 	test_file_ok($"{path}/{file}", "p1.(x, y) = (0, 0)\np2.(x, y) = (10, 10)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n\np1.(x, y) = (4, 5)\np2.(x, y) = (22, 33)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
 
 test "10_nested_circle.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "10_nested_circle.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "11_function_simple.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "11_function_simple.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 3, y: 4)\n");
 
 test "12_function_mutating_immutable.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "12_function_mutating_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
 test "13_function_mutating_mutable.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "13_function_mutating_mutable.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 6, y: 7)\n");
 
 test "14_function_pass_immutable.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "14_function_pass_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/14_function_pass_immutable.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/14_function_pass_immutable.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
 test "15_function_return.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "15_function_return.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 5, y: 7)\n");
 
 test "16_tuple_define.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "16_tuple_define.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "17_tuple_access.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "17_tuple_access.ft";
 	test_file_ok($"{path}/{file}", "first = 3\nsecond = 2.2\nthird = \"hello!\"\n");
 
 test "18_tuple_oob.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "18_tuple_oob.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/18_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/18_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
 
 test "19_tuple_assign.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "19_tuple_assign.ft";
 	test_file_ok($"{path}/{file}", "first = 7\nsecond = 4.7\nthird = \"yes\"\n");
 
 test "20_tuple_grouped.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "20_tuple_grouped.ft";
 	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (7, 4.7, \"yes\")\n");
 
 test "21_tuple_multitype_overlap.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "21_tuple_multitype_overlap.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/21_tuple_multitype_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a multi-type\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/21_tuple_multitype_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a multi-type\n");
 
 test "22_tuple_return_wrong.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "22_tuple_return_wrong.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "23_tuple_return_correct.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "23_tuple_return_correct.ft";
 	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (1, 4.7, hello)\n");
 
 test "24_tuple_param_immutable.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "24_tuple_param_immutable.ft";
 	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\n");
 
 test "25_tuple_param_mutable.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "25_tuple_param_mutable.ft";
 	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\ntuple.(i32, f32, str) = (2, 3.3, \"four\")\n");
 
 test "26_multitype.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "26_multitype.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3 = (4, 5, 6)\n");
 
 test "27_multitype_function.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "27_multitype_function.ft";
 	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
 
 test "28_multitype_arithmetic.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "28_multitype_arithmetic.ft";
 	test_file_ok($"{path}/{file}", "sum = (6, 8, 10, 12)\n");
 
 test "29_splatting.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "29_splatting.ft";
 	test_file_ok($"{path}/{file}", "vec3 = (10, 20, 30)\nvec3 = (40, 80, 120)\n");
 
 test "30_set_cmp_scalar.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "30_set_cmp_scalar.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
 test "31_set_cmp_group.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "31_set_cmp_group.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
 test "32_set_cmp_enum.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "32_set_cmp_enum.ft";
 	test_file_ok($"{path}/{file}", "is VAL2 or VAL4\nis VAL2 or VAL4\n");
 
 test "33_tuple_type_alias.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "33_tuple_type_alias.ft";
 	test_file_ok($"{path}/{file}", "st.($0, $1, $2) = (-6, 4.5, 9)\n");
 
 test "34_prim_type_alias.ft":
-	str path = "wiki_tests/beginners_guide/data";
+	str path = "tests/wiki/beginners_guide/data";
 	str file = "34_prim_type_alias.ft";
 	test_file_ok($"{path}/{file}", "i: -10, f: 3.5\n");

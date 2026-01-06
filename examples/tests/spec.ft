@@ -41,7 +41,7 @@ def main():
 
 	print("test_str...\n");
 	test_str();
-	
+
 	print("test_switch...\n");
 	test_switch();
 

@@ -89,28 +89,16 @@ pub fn build(b: *std.Build) !void {
     if (optimize == .Debug) {
         std.log.info("The 'test' build option requires a release build!", .{});
     } else {
-        const test_wiki_cmd = b.addRunArtifact(flintc_exe);
-        test_wiki_cmd.addArg("--file");
-        test_wiki_cmd.addFileArg(b.path("test_files/wiki_tests.ft"));
-        test_wiki_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
-        test_wiki_cmd.addPathDir(b.getInstallPath(.bin, ""));
-        test_wiki_cmd.setCwd(b.path("test_files"));
-        test_wiki_cmd.has_side_effects = true;
-        test_wiki_cmd.step.dependOn(&flintc_exe_install.step);
-        test_wiki_cmd.step.dependOn(&fls_exe_install.step);
-        test_step.dependOn(&test_wiki_cmd.step);
-
-        const test_examples_cmd = b.addRunArtifact(flintc_exe);
-        test_examples_cmd.addArg("--file");
-        test_examples_cmd.addFileArg(b.path("examples/example_tests.ft"));
-        test_examples_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
-        test_examples_cmd.addPathDir(b.getInstallPath(.bin, ""));
-        test_examples_cmd.setCwd(b.path("examples"));
-        test_examples_cmd.has_side_effects = true;
-        test_examples_cmd.step.dependOn(&flintc_exe_install.step);
-        test_examples_cmd.step.dependOn(&fls_exe_install.step);
-        test_examples_cmd.step.dependOn(&test_wiki_cmd.step);
-        test_step.dependOn(&test_examples_cmd.step);
+        const test_cmd = b.addRunArtifact(flintc_exe);
+        test_cmd.addArg("--file");
+        test_cmd.addFileArg(b.path("examples/tests.ft"));
+        test_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
+        test_cmd.addPathDir(b.getInstallPath(.bin, ""));
+        test_cmd.setCwd(b.path("examples"));
+        test_cmd.has_side_effects = true;
+        test_cmd.step.dependOn(&flintc_exe_install.step);
+        test_cmd.step.dependOn(&fls_exe_install.step);
+        test_step.dependOn(&test_cmd.step);
     }
 }
 

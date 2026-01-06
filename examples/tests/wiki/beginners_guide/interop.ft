@@ -1,62 +1,62 @@
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_crash":
-	str path = "wiki_tests/beginners_guide/interop/0_crash";
+	str path = "tests/wiki/beginners_guide/interop/0_crash";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ Defined 'extern' function without the FIP running and active\n└─ Check your configs in '.fip/config/' to see if there are any problems with it\n");
 
 test "1_still_crash":
-	str path = "wiki_tests/beginners_guide/interop/1_still_crash";
+	str path = "tests/wiki/beginners_guide/interop/1_still_crash";
 	str file = "main.ft";
 	// To emulate a missing installed fip-c module we just disable the module in the `fip.toml` file
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ Defined 'extern' function without the FIP running and active\n└─ Check your configs in '.fip/config/' to see if there are any problems with it\n");
 
 test "2_hello":
-	str path = "wiki_tests/beginners_guide/interop/2_hello";
+	str path = "tests/wiki/beginners_guide/interop/2_hello";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Hello from C!\n");
 
 test "3_signature_mismatch":
-	str path = "wiki_tests/beginners_guide/interop/3_signature_mismatch";
+	str path = "tests/wiki/beginners_guide/interop/3_signature_mismatch";
 	str file = "main.ft";
 	test_file_fail_in(1, path, file, "Parse Error at main.ft:4:1\n└─┬┤E0000│\n4 │ extern def add(i32 x, i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
 
 test "4_signature_ok":
-	str path = "wiki_tests/beginners_guide/interop/4_signature_ok";
+	str path = "tests/wiki/beginners_guide/interop/4_signature_ok";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Hello from C!\nadd(1, 8) = 9\n");
 
 test "5_data_passing":
-	str path = "wiki_tests/beginners_guide/interop/5_data_passing";
+	str path = "tests/wiki/beginners_guide/interop/5_data_passing";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "md.(x, y, s, i) = (10, 10, 3.2, false)\nmd.(x, y, s, i) = (12, 15, 1.6, true)\n");
 
 test "6_name_doesnt_matter":
-	str path = "wiki_tests/beginners_guide/interop/6_name_doesnt_matter";
+	str path = "tests/wiki/beginners_guide/interop/6_name_doesnt_matter";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Generation Error at main.ft:18:1\n└──┬┤E0000│\n18 │ extern def do_something(SomeData md) -> SomeData;\n┌──┴─┘\n├─ Defined extern function 'do_something' twice\n└─ It was first defined at main.ft:17:1\n");
 
 test "7_tuples":
-	str path = "wiki_tests/beginners_guide/interop/7_tuples";
+	str path = "tests/wiki/beginners_guide/interop/7_tuples";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");
 
 test "8_multi_types":
-	str path = "wiki_tests/beginners_guide/interop/8_multi_types";
+	str path = "tests/wiki/beginners_guide/interop/8_multi_types";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
 
 test "9_variable_pointer":
-	str path = "wiki_tests/beginners_guide/interop/9_variable_pointer";
+	str path = "tests/wiki/beginners_guide/interop/9_variable_pointer";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "x = 15\n");
 
 test "10_ptr_in_definition":
-	str path = "wiki_tests/beginners_guide/interop/10_ptr_in_definition";
+	str path = "tests/wiki/beginners_guide/interop/10_ptr_in_definition";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Analyzing Error at main.ft:3:13\n└─┬┤E0000│\n3 │ def add(mut i32* lhs, i32 rhs):\n┌─┴─────────────┘\n├─ Pointer types are not allowed in non-extern functions\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");
 
 test "11_ptr_in_body":
-	str path = "wiki_tests/beginners_guide/interop/11_ptr_in_body";
+	str path = "tests/wiki/beginners_guide/interop/11_ptr_in_body";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Analyzing Error at main.ft:4:14\n└─┬┤E0000│\n3 │ def add(i32 lhs, i32 rhs):\n4 │ »   i32* a = &lhs;\n┌─┴──────────────┘\n├─ Pointer types are not allowed in non-extern contexts\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");

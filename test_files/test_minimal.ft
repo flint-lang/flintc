@@ -1,19 +1,49 @@
-use Core.assert
+use Core.print
 
-def sum_x_to_y(i32 x, i32 y) -> i32:
-    i32 sum = 0;
-    for i32 i = x; i < y; i++:
-        sum = sum + i;
-    return sum;
+data BaseData:
+	i32 speed;
+	BaseData(speed);
 
-def sum_until(mut u32 n) -> u32:
-    u32 sum = 0;
-    n--; // Skip the highest numer, we only count until, not including with
-    while n > 0:
-        sum = sum + n;
-        n--;
-    return sum;
+func BaseFunc requires(BaseData d):
+	def base():
+		print($"speed = {d.speed}\n");
+
+entity BaseEntity:
+	data: BaseData;
+	func: BaseFunc;
+	BaseEntity(BaseData);
+
+data MyData:
+	i32 x;
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
+
+func MyFunc requires(MyData d):
+	def print():
+		print($"d = ({d.x}, {d.y}, {d.z})\n");
+	
+	def get_x() -> i32:
+		return d.x;
+
+entity MyEntity:
+	data:
+		BaseData, MyData;
+	func:
+		BaseFunc, MyFunc;
+	MyEntity(BaseData, MyData);
 
 def main():
-    assert(sum_x_to_y(10, 20) == 145);
-    assert(sum_until(u32(20)) == 190);
+	d := MyData(10, 20, 30);
+	MyFunc.print(d);
+	x := MyFunc.get_x(d);
+	print($"d.x = {x}\n");
+
+	BaseEntity be = BaseEntity(BaseData(10));
+	// be.base();
+
+	MyEntity me = MyEntity(BaseData(10), MyData(1, 2, 3));
+	// me.base();
+	// me.print();
+	// x = me.get_x();
+	// print($"me.get_x() = {x}\n");

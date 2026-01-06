@@ -1,5 +1,13 @@
-use Core.assert
+use Core.print
 
+use "aoc/2025/test.ft"
+use "tests/wiki.ft"
+
+def main():
+	print("Please compile this test using the --test flag!\n");
+
+
+use Core.assert
 use "utils.ft"
 
 #test_performance

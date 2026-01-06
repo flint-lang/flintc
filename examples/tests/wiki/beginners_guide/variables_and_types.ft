@@ -1,117 +1,117 @@
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_primitives_i32.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "0_primitives_i32.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "1_primitives_u32.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "1_primitives_u32.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "2_primitives_f32.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "2_primitives_f32.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "3_primitives_str.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "3_primitives_str.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "4_variables_single.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "4_variables_single.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "5_variables_assignment.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "5_variables_assignment.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "6_variables_shadowing.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "6_variables_shadowing.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/6_variables_shadowing.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = 8;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/variables_and_types/6_variables_shadowing.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = 8;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
 
 test "7_variables_shadowing_diff.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "7_variables_shadowing_diff.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/7_variables_shadowing_diff.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   f32 x = 3.3;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/variables_and_types/7_variables_shadowing_diff.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   f32 x = 3.3;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
 
 test "8_inferred_typing_inf.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "8_inferred_typing_inf.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "9_inferred_typing_exp.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "9_inferred_typing_exp.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "10_operators_plus.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "10_operators_plus.ft";
 	test_file_ok($"{path}/{file}", "u32 add overflow caught\n");
 
 test "11_operators_minus.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "11_operators_minus.ft";
 	test_file_ok($"{path}/{file}", "u32 sub underflow caught\n");
 
 test "12_operators_div.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "12_operators_div.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "13_operators_fp_arithmetic.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "13_operators_fp_arithmetic.ft";
 	test_file_ok($"{path}/{file}", "0.3 + 0.6 = 0.9\n0.9 == 0.9 ? false\n");
 
 test "14_operators_strings.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "14_operators_strings.ft";
 	test_file_ok($"{path}/{file}", "Hello, World!\n");
 
 test "15_casting_mismatch.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "15_casting_mismatch.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at wiki_tests/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n└─┬┤E0000│\n1 │ def main():\n2 │ »   i32 val = 3.3;\n┌─┴───────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: i32\n    └─ But got:  float\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/variables_and_types/15_casting_mismatch.ft:2:15\n└─┬┤E0000│\n1 │ def main():\n2 │ »   i32 val = 3.3;\n┌─┴───────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: i32\n    └─ But got:  float\n");
 
 test "16_casting_simple.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "16_casting_simple.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "17_casting_string.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "17_casting_string.ft";
 	test_file_ok($"{path}/{file}", "fval = 3.3\n");
 
 test "18_casting_cutoff.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "18_casting_cutoff.ft";
 	test_file_ok($"{path}/{file}", "fval = 3.7, ival = 3\n");
 
 test "19_casting_implicit.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "19_casting_implicit.ft";
 	// NOTE: This should print 'fval = 3.0\n' but it does not print that yet
 	test_file_ok($"{path}/{file}", "fval = 3\n");
 
 test "20_interpol_addition.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "20_interpol_addition.ft";
 	test_file_ok($"{path}/{file}", "fval = 3\n");
 
 test "21_interpol.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "21_interpol.ft";
 	test_file_ok($"{path}/{file}", "Hello, my name is Flint and I am 1 years old.\n");
 
 test "22_interpol_variable.ft":
-	str path = "wiki_tests/beginners_guide/variables_and_types";
+	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "22_interpol_variable.ft";
 	test_file_ok($"{path}/{file}", "The value of pi is approximately 3.14\n2 + 2 equals 4\n");

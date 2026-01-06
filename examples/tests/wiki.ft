@@ -1,0 +1,12 @@
+use "wiki/beginners_guide/basics.ft"
+use "wiki/beginners_guide/variables_and_types.ft"
+use "wiki/beginners_guide/control_flow.ft"
+use "wiki/beginners_guide/functions.ft"
+use "wiki/beginners_guide/data.ft"
+use "wiki/beginners_guide/arrays.ft"
+use "wiki/beginners_guide/imports.ft"
+use "wiki/beginners_guide/interop.ft"
+
+use "wiki/intermediates_guide/optionals.ft"
+use "wiki/intermediates_guide/variants.ft"
+use "wiki/intermediates_guide/error_sets.ft"

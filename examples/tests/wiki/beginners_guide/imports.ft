@@ -1,51 +1,51 @@
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_simple_import":
-	str path = "wiki_tests/beginners_guide/imports/0_simple_import";
+	str path = "tests/wiki/beginners_guide/imports/0_simple_import";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = 11\n");
 
 test "1_depth_1":
-	str path = "wiki_tests/beginners_guide/imports/1_depth_1";
+	str path = "tests/wiki/beginners_guide/imports/1_depth_1";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = -55\n");
 
 test "2_circular":
-	str path = "wiki_tests/beginners_guide/imports/2_circular";
+	str path = "tests/wiki/beginners_guide/imports/2_circular";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "main:  0\nutils: 1\nmain:  2\nutils: 3\nmain:  4\nutils: 5\nmain end\n\nutils: 0\nmain:  1\nutils: 2\nmain:  3\nutils: 4\nmain:  5\nutils end\n");
 
 test "3_circular_otherfile":
-	str path = "wiki_tests/beginners_guide/imports/2_circular";
+	str path = "tests/wiki/beginners_guide/imports/2_circular";
 	str file = "utils.ft";
 	test_file_ok_in(path, file, "main:  0\nutils: 1\nmain:  2\nutils: 3\nmain:  4\nutils: 5\nmain end\n\nutils: 0\nmain:  1\nutils: 2\nmain:  3\nutils: 4\nmain:  5\nutils end\n");
 
 test "4_aliasing_core":
-	str path = "wiki_tests/beginners_guide/imports/4_aliasing_core";
+	str path = "tests/wiki/beginners_guide/imports/4_aliasing_core";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "10 + 20 = 30\nres = 30\n");
 
 test "5_alias_chain":
-	str path = "wiki_tests/beginners_guide/imports/5_alias_chain";
+	str path = "tests/wiki/beginners_guide/imports/5_alias_chain";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = 30\n");
 
 test "6_aliased_type":
-	str path = "wiki_tests/beginners_guide/imports/6_aliased_type";
+	str path = "tests/wiki/beginners_guide/imports/6_aliased_type";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "v3 = (15, 25, 35)\n");
 
 test "7_subdir":
-	str path = "wiki_tests/beginners_guide/imports/7_subdir";
+	str path = "tests/wiki/beginners_guide/imports/7_subdir";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Hello from file!\n");
 
 test "8_relative_paths":
-	str path = "wiki_tests/beginners_guide/imports/8_relative_paths";
+	str path = "tests/wiki/beginners_guide/imports/8_relative_paths";
 	str file = "subdir/main.ft";
 	test_file_ok_in(path, file, "Hello from file!\n");
 
 test "9_out_of_cwd":
-	str path = "wiki_tests/beginners_guide/imports/8_relative_paths/subdir";
+	str path = "tests/wiki/beginners_guide/imports/8_relative_paths/subdir";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:5\n└─┬┤E0000│\n1 │ use \"../file.ft\"\n┌─┴─────┘\n├─ The import tried to escape the current working directory of the compiler\n├─ If you really need to reference a file outside this working directory, move up a directory\n├─ Only files within the current working directory are allowed to be accessed by the compiler\n");

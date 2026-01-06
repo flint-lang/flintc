@@ -1,103 +1,103 @@
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_declaration.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "0_declaration.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "1_switch.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "1_switch.ft";
 	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds u64 value of 55\n");
 
 test "2_fn_mutation.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "2_fn_mutation.ft";
 	test_file_ok($"{path}/{file}", "holds i32 value of -10\nholds f32 value of 3.4\nholds u64 value of 55\n");
 
 test "3_accessor_naming.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "3_accessor_naming.ft";
 	test_file_ok($"{path}/{file}", "holds i32 value of -10\n");
 
 test "4_switch_unsafety.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "4_switch_unsafety.ft";
 	test_file_ok($"{path}/{file}", "holds bool8 value of 01000001\nholds bool8 value of 00101111\n");
 
 test "5_switch_bitmask.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "5_switch_bitmask.ft";
 	test_file_ok($"{path}/{file}", "BitMask: 00110000 00110000 00110000 00110000\nBitMask: 00000001 01101000 00011001 00000000\n");
 
 test "6_big_variant.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "6_big_variant.ft";
 	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds tuple value of (5, 6.9, 00100001)\n");
 
 test "7_big_tagged.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "7_big_tagged.ft";
 	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds tuple value of (5, 6.9, 00100001)\n");
 
 test "8_name_collision.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "8_name_collision.ft";
 	test_file_ok($"{path}/{file}", "Is i32: 10\n");
 
 test "9_inline_defined.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "9_inline_defined.ft";
 	test_file_ok($"{path}/{file}", "i = -55\nf = 3.14\ns = Hello There\n");
 
 #test_should_fail
 test "[f]10_inline_in_data.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "10_inline_in_data.ft";
 	test_file_ok($"{path}/{file}", "flags = 00000000\ni = -10\n");
 
 test "11_cmp_type.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "11_cmp_type.ft";
 	test_file_ok($"{path}/{file}", "holds f32 value\n");
 
 test "12_cmp_type_switch.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "12_cmp_type_switch.ft";
 	test_file_ok($"{path}/{file}", "holds f32 value\n");
 
 test "13_cmp_type_tag.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "13_cmp_type_tag.ft";
 	test_file_ok($"{path}/{file}", "holds Int value\n");
 
 test "14_cmp_type_switch_tag.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "14_cmp_type_switch_tag.ft";
 	test_file_ok($"{path}/{file}", "holds Float value\n");
 
 test "15_cmp_var_eq.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "15_cmp_var_eq.ft";
 	test_file_ok($"{path}/{file}", "differ\nare equal\n");
 
 test "16_active_type.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "16_active_type.ft";
 	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\n");
 
 test "17_unwrapping.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "17_unwrapping.ft";
 	test_file_ok($"{path}/{file}", "holds f32 value: 3.14\n");
 
 test "18_extraction.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "18_extraction.ft";
 	test_file_ok($"{path}/{file}", "i == -5\nf == none\n");
 
 #test_should_fail
 test "[f]19_extraction_chain.ft":
-	str path = "wiki_tests/intermediates_guide/variants";
+	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "19_extraction_chain.ft";
 	test_file_ok($"{path}/{file}", "x = 10\nx2 = 30\n");

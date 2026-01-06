@@ -1,20 +1,20 @@
 use Core.assert
 use Core.system
 
-use "../utils.ft"
+use "../../../utils.ft"
 
 test "0_declaration.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "0_declaration.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "1_tuple.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "1_tuple.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "2_unwrap_err.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "2_unwrap_err.ft";
 	(exit_code, output) := system_command($"flintc --file {path}/{file}");
 	assert(exit_code == 0);
@@ -27,72 +27,72 @@ test "2_unwrap_err.ft":
 	assert(output == "");
 
 test "3_compare.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "3_compare.ft";
 	test_file_ok($"{path}/{file}", "has no value\nhas value: 69\n");
 
 test "4_compare_dual.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "4_compare_dual.ft";
 	test_file_ok($"{path}/{file}", "are equal\nare inequal, maybe_1 = 69, maybe_2 = 'none'\nare inequal, maybe_1 = 69, maybe_2 = 420\nare equal, maybe_1 = 69, maybe_2 = 69\n");
 
 test "5_null_coalescing.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "5_null_coalescing.ft";
 	test_file_ok($"{path}/{file}", "x = 0\nx = 69\n");
 
 test "6_switch_statement.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "6_switch_statement.ft";
 	test_file_ok($"{path}/{file}", "none\nvalue = 69\n");
 
 test "7_switch_value_mut.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "7_switch_value_mut.ft";
 	test_file_ok($"{path}/{file}", "value = 30\nvalue = 10\n");
 
 test "8_safety_circumvention.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "8_safety_circumvention.ft";
 	test_file_ok($"{path}/{file}", "v = 30\nv = 0\n");
 
 test "9_switch_statement_function.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "9_switch_statement_function.ft";
 	test_file_ok($"{path}/{file}", "none\nvalue = 69\nvalue = 20\n");
 
 test "10_chain_force_unwrap_data.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "10_chain_force_unwrap_data.ft";
 	test_file_ok($"{path}/{file}", "x = 10\n");
 
 test "11_chain_force_unwrap_group.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "11_chain_force_unwrap_group.ft";
 	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
 
 test "12_chain_force_unwrap_array.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "12_chain_force_unwrap_array.ft";
 	test_file_ok($"{path}/{file}", "arr[4] = 9\n");
 
 test "13_chain_data.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "13_chain_data.ft";
 	test_file_ok($"{path}/{file}", "x! = 10\n");
 
 #test_should_fail
 test "[f]14_chain_nested_data.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "14_chain_nested_data.ft";
 	test_file_ok($"{path}/{file}", "x! = 10\n");
 
 test "15_reference.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "15_reference.ft";
 	test_file_ok($"{path}/{file}", "md.(x, y, v) = (7, 6.28, \"Hello There\")\n");
 
 test "16_list.ft":
-	str path = "wiki_tests/intermediates_guide/optionals";
+	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "16_list.ft";
 	test_file_ok($"{path}/{file}", "10\n10 -> 20\n");
