@@ -8,6 +8,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
@@ -58,7 +59,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::DEFAULT: {
             [[maybe_unused]] const auto *node = expression_node->as<DefaultNode>();
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // Somehow it was unused until now?
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // TODO: Somehow it was unused until now?
             return std::nullopt;
         }
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
@@ -72,6 +73,10 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         case ExpressionNode::Variation::INITIALIZER: {
             const auto *node = expression_node->as<InitializerNode>();
             return generate_initializer(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::INSTANCE_CALL: {
+            const auto *node = expression_node->as<InstanceCallNodeExpression>();
+            return generate_instance_call(builder, ctx, node);
         }
         case ExpressionNode::Variation::LITERAL: {
             const auto *node = expression_node->as<LiteralNode>();
@@ -1535,6 +1540,24 @@ Generator::group_mapping Generator::Expression::generate_call( //
     return return_value;
 }
 
+Generator::group_mapping Generator::Expression::generate_instance_call( //
+    llvm::IRBuilder<> &builder,                                         //
+    GenerationContext &ctx,                                             //
+    const InstanceCallNodeBase *call_node                               //
+) {
+    switch (call_node->instance_variable->type->get_variation()) {
+        default:
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        case Type::Variation::FUNC:
+            // TODO: Add instanced calls for func modules
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        case Type::Variation::ENTITY:
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node));
+    }
+}
+
 void Generator::Expression::generate_rethrow( //
     llvm::IRBuilder<> &builder,               //
     GenerationContext &ctx,                   //
@@ -2557,6 +2580,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             } else {
                 values.emplace_back(builder.CreateExtractElement(expr_val, data_access->field_id));
             }
+            return values;
+        }
+        case Type::Variation::ENTITY: {
+            std::vector<llvm::Value *> values;
+            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "entity_data_ptr"));
             return values;
         }
         case Type::Variation::ERROR_SET: {

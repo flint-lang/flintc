@@ -3,8 +3,8 @@
 #include "parser/ast/call_node_base.hpp"
 #include "statement_node.hpp"
 
-/// @class `CallExpressionNode`
-/// @brief Represents function or method calls
+/// @class `CallNodeStatement`
+/// @brief Represents function or method call statements
 class CallNodeStatement : public CallNodeBase, public StatementNode {
   public:
     using CallNodeBase::CallNodeBase;

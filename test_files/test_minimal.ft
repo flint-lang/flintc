@@ -39,11 +39,11 @@ def main():
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
 
-	BaseEntity be = BaseEntity(BaseData(10));
-	// be.base();
+	be := BaseEntity(BaseData(10));
+	be.base();
 
-	MyEntity me = MyEntity(BaseData(10), MyData(1, 2, 3));
-	// me.base();
-	// me.print();
-	// x = me.get_x();
-	// print($"me.get_x() = {x}\n");
+	me := MyEntity(BaseData(10), MyData(1, 2, 3));
+	me.base();
+	me.print();
+	x = me.get_x();
+	print($"me.get_x() = {x}\n");

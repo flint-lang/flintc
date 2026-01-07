@@ -12,6 +12,7 @@
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
@@ -34,6 +35,7 @@
 #include "parser/ast/statements/group_declaration_node.hpp"
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
+#include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
@@ -356,6 +358,22 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             }
             break;
         }
+        case StatementNode::Variation::INSTANCE_CALL: {
+            const auto *node = statement->as<InstanceCallNodeStatement>();
+            for (const auto &arg : node->arguments) {
+                Context local_ctx = ctx;
+                if (node->function->is_extern) {
+                    local_ctx.level = ContextLevel::EXTERNAL;
+                } else {
+                    local_ctx.level = ContextLevel::INTERNAL;
+                }
+                result = analyze_expression(local_ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
         case StatementNode::Variation::RETURN: {
             const auto *node = statement->as<ReturnNode>();
             if (node->return_value.has_value()) {
@@ -569,6 +587,22 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
             const auto *node = expression->as<InitializerNode>();
             for (const auto &arg : node->args) {
                 result = analyze_expression(ctx, arg.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
+        case ExpressionNode::Variation::INSTANCE_CALL: {
+            const auto *node = expression->as<InstanceCallNodeExpression>();
+            Context local_ctx = ctx;
+            if (node->function->is_extern) {
+                local_ctx.level = ContextLevel::EXTERNAL;
+            } else {
+                local_ctx.level = ContextLevel::INTERNAL;
+            }
+            for (const auto &arg : node->arguments) {
+                result = analyze_expression(ctx, arg.first.get());
                 if (result != Result::OK) {
                     goto fail;
                 }

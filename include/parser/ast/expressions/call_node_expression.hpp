@@ -16,7 +16,7 @@ class CallNodeExpression : public CallNodeBase, public ExpressionNode {
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type                                         //
         ) :
-        CallNodeBase(function, std::move(arguments), error_types, type) {
+        CallNodeBase(function, arguments, error_types, type) {
         ExpressionNode::type = type;
     }
 

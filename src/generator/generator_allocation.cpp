@@ -4,9 +4,11 @@
 #include "error/error_type.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/parser.hpp"
 
@@ -126,6 +128,16 @@ bool Generator::Allocation::generate_allocations(                               
             case StatementNode::Variation::IF: {
                 const auto *node = statement->as<IfNode>();
                 if (!generate_if_allocations(builder, parent, allocations, imported_core_modules, node)) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::INSTANCE_CALL: {
+                const auto *node = statement->as<InstanceCallNodeStatement>();
+                if (!generate_call_allocations(builder, parent, scope, allocations,     //
+                        imported_core_modules, static_cast<const CallNodeBase *>(node)) //
+                ) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
@@ -693,6 +705,16 @@ bool Generator::Allocation::generate_expression_allocations(                    
             break;
         case ExpressionNode::Variation::INITIALIZER:
             break;
+        case ExpressionNode::Variation::INSTANCE_CALL: {
+            const auto *node = expression->as<InstanceCallNodeExpression>();
+            if (!generate_call_allocations(builder, parent, scope, allocations, imported_core_modules, //
+                    static_cast<const CallNodeBase *>(node))                                           //
+            ) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
+        }
         case ExpressionNode::Variation::LITERAL:
             break;
         case ExpressionNode::Variation::OPTIONAL_CHAIN:

@@ -10,6 +10,7 @@
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
@@ -95,6 +96,11 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<IfNode>();
             std::vector<llvm::BasicBlock *> blocks;
             return generate_if_statement(builder, ctx, blocks, 0, node);
+        }
+        case StatementNode::Variation::INSTANCE_CALL: {
+            const auto *node = statement->as<InstanceCallNodeStatement>();
+            group_mapping gm = Expression::generate_instance_call(builder, ctx, static_cast<const InstanceCallNodeBase *>(node));
+            return gm.has_value();
         }
         case StatementNode::Variation::RETURN: {
             const auto *node = statement->as<ReturnNode>();

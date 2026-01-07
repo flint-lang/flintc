@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/continue_node.hpp"
+#include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/stacked_array_assignment.hpp"
 #include "parser/ast/statements/stacked_assignment.hpp"
 #include "parser/ast/statements/stacked_grouped_assignment.hpp"
@@ -28,11 +29,11 @@
 #include <string>
 #include <variant>
 
-std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement( //
-    std::shared_ptr<Scope> &scope,                                               //
-    const token_slice &tokens,                                                   //
-    const std::optional<Namespace *> &alias,                                     //
-    const bool is_func_module_call                                               //
+std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
+    std::shared_ptr<Scope> &scope,                                           //
+    const token_slice &tokens,                                               //
+    const std::optional<Namespace *> &alias,                                 //
+    const bool is_func_module_call                                           //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
@@ -46,12 +47,21 @@ std::optional<std::unique_ptr<CallNodeStatement>> Parser::create_call_statement(
         return std::nullopt;
     }
     assert(!ret->is_initializer);
-    std::unique_ptr<CallNodeStatement> call_node = std::make_unique<CallNodeStatement>( //
-        ret->function, std::move(ret->args), ret->function->error_types, ret->type      //
-    );
-    call_node->scope_id = scope->scope_id;
-    last_parsed_call = call_node.get();
-    return call_node;
+    if (ret->instance_variable.has_value()) {
+        std::unique_ptr<InstanceCallNodeStatement> instance_call_node = std::make_unique<InstanceCallNodeStatement>( //
+            ret->function, ret->args, ret->function->error_types, ret->type, ret->instance_variable.value()          //
+        );
+        instance_call_node->scope_id = scope->scope_id;
+        last_parsed_call = instance_call_node.get();
+        return std::move(instance_call_node);
+    } else {
+        std::unique_ptr<CallNodeStatement> simple_call_node = std::make_unique<CallNodeStatement>( //
+            ret->function, ret->args, ret->function->error_types, ret->type                        //
+        );
+        simple_call_node->scope_id = scope->scope_id;
+        last_parsed_call = simple_call_node.get();
+        return std::move(simple_call_node);
+    }
 }
 
 std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, const token_slice &tokens) {

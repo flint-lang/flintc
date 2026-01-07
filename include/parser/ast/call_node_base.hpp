@@ -10,11 +10,11 @@
 /// @brief The base class for calls, both statements and expressions
 class CallNodeBase {
   public:
-    CallNodeBase(                                                                //
-        FunctionNode *function,                                                  //
-        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments, //
-        const std::vector<std::shared_ptr<Type>> &error_types,                   //
-        const std::shared_ptr<Type> &type                                        //
+    CallNodeBase(                                                                 //
+        FunctionNode *function,                                                   //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const std::vector<std::shared_ptr<Type>> &error_types,                    //
+        const std::shared_ptr<Type> &type                                         //
         ) :
         function(function),
         arguments(std::move(arguments)),

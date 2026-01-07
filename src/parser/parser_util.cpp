@@ -569,6 +569,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .type = name_token->type,
                     .is_initializer = true,
                     .function = nullptr,
+                    .instance_variable = std::nullopt,
                 };
             }
             case Type::Variation::ENTITY: {
@@ -596,6 +597,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .type = name_token->type,
                     .is_initializer = true,
                     .function = nullptr,
+                    .instance_variable = std::nullopt,
                 };
             }
             case Type::Variation::MULTI: {
@@ -617,14 +619,31 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .type = name_token->type,
                     .is_initializer = true,
                     .function = nullptr,
+                    .instance_variable = std::nullopt,
                 };
             }
         }
     }
 
+    // If the call starts with `identifier.identifier(` and the first `identifier` is a variable, we then can check if that variable is of
+    // type entity or func module. If it's an entity then it's an instanced call. Func modules will be handled at a later time but they
+    // follow the same syntax.
+    // The pattern `identifier.identifier` does neither match type-calls like FuncType.call since that's `type.identifier` or aliased calls,
+    // as these are `alias.identifier`, so this means that this pattern is unique to instance calls
+    const bool is_instance_call = tokens.first->token == TOK_IDENTIFIER //
+        && (tokens.first + 1)->token == TOK_DOT                         //
+        && (tokens.first + 2)->token == TOK_IDENTIFIER;
+    std::optional<std::unique_ptr<ExpressionNode>> instance_variable = std::nullopt;
+    auto tok = tokens.first;
+    if (is_instance_call) {
+        tok++;
+        assert(tok->token == TOK_DOT);
+        tok++;
+    }
+
     // It's definitely a call
     std::string function_name;
-    for (auto tok = tokens.first; tok != tokens.second; ++tok) {
+    for (; tok != tokens.second; ++tok) {
         // Get the function name
         if (tok->token == TOK_IDENTIFIER) {
             if (is_func_module_call) {
@@ -643,7 +662,44 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // Get the function from it's name and the argument types
     // It's not a builtin call, so we need to get the function from it's name
     const bool is_aliased = call_namespace->namespace_hash.to_string() != file_node_ptr->file_namespace->namespace_hash.to_string();
-    auto functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+    std::vector<FunctionNode *> functions;
+    std::unordered_set<const FuncNode *> func_nodes;
+    if (is_instance_call) {
+        std::optional<VariableNode> variable_node = create_variable(scope, {tokens.first, tokens.first + 1});
+        if (!variable_node.has_value()) {
+            return std::nullopt;
+        }
+        // Get the type of the variable next
+        const auto &var_type = variable_node.value().type;
+        switch (var_type->get_variation()) {
+            default:
+                // Doing an instance call on a variable that's not an entity or func type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case Type::Variation::ENTITY: {
+                const EntityNode *entity_node = var_type->as<EntityType>()->entity_node;
+                for (const auto &func_module : entity_node->func_modules) {
+                    for (const auto &function : func_module->functions) {
+                        // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
+                        const std::string fn_name = function->name.substr(func_module->name.size() + 1);
+                        std::cout << "FN_NAME: " << fn_name << std::endl;
+                        if (fn_name != function_name) {
+                            continue;
+                        }
+                        functions.emplace_back(function);
+                        func_nodes.emplace(func_module);
+                    }
+                }
+                break;
+            }
+            case Type::Variation::FUNC:
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+        }
+        instance_variable = std::make_unique<VariableNode>(std::move(variable_node.value()));
+    } else {
+        functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+    }
     if (functions.empty()) {
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens, function_name, argument_types);
         return std::nullopt;
@@ -680,6 +736,46 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         functions.clear();
         functions.emplace_back(exact_function);
     }
+    // If it's an instanced function we need to add the implicit arguments of the called function to the arguments of the call. The implicit
+    // parameters are "field accesses" of the entities data fields
+    // Entity field accesses are not allowed by the user, but the compiler can create them just fine. They are prevented at the parsing
+    // stage, but permitted at the codegen stage
+    if (is_instance_call) {
+        assert(func_nodes.size() == 1);
+        assert(instance_variable.has_value());
+        assert(instance_variable.value()->type->get_variation() == Type::Variation::ENTITY);
+        const FuncNode *func_node = *func_nodes.begin();
+        const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
+        for (size_t i = func_node->required_data.size(); i > 0; i--) {
+            // Get the index of the required data in the entity
+            const auto &required_data_type = func_node->required_data.at(i - 1).first;
+            const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
+            size_t idx = 0;
+            for (const auto &data_node : entity_node->data_modules) {
+                if (data_node == required_data_node) {
+                    break;
+                }
+                idx++;
+            }
+            if (idx == entity_node->data_modules.size()) {
+                // The data node is not present in the entity type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                instance_variable.value()->as<VariableNode>()->name,                    //
+                instance_variable.value()->type                                         //
+            );
+            std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
+                base_expr,                                                               //
+                std::nullopt,                                                            // Entity fields have no name
+                idx,                                                                     // The index of the data in the entity struct
+                required_data_type                                                       //
+            );
+            arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
+            argument_types.insert(argument_types.begin(), required_data_type);
+        }
+    }
     // Check if the argument count does match the parameter count
     [[maybe_unused]] const unsigned int param_count = functions.front()->parameters.size();
     [[maybe_unused]] const unsigned int arg_count = arguments.size();
@@ -706,7 +802,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference
-            auto tok = tokens.first + arg_range->first;
+            tok = tokens.first + arg_range->first;
             // Now we need to get until the token where the error happened, e.g. the ith argument
             size_t depth = 0;
             size_t arg_id = i;
@@ -751,6 +847,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         .type = return_type,
         .is_initializer = false,
         .function = functions.front(),
+        .instance_variable = std::move(instance_variable),
     };
 }
 

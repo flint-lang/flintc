@@ -24,6 +24,7 @@
 #include "parser/ast/expressions/variant_extraction_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/ast/file_node.hpp"
+#include "parser/ast/instance_call_node_base.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/array_assignment_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
@@ -1619,6 +1620,19 @@ class Generator {
             llvm::IRBuilder<> &builder,     //
             GenerationContext &ctx,         //
             const CallNodeBase *call_node   //
+        );
+
+        /// @function `generate_instance_call`
+        /// @brief Generates the instance call from the given InstanceCallNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `call_node` The call node to generate
+        /// @return `group_mapping` The value(s) containing the result of the instance call
+        static group_mapping generate_instance_call( //
+            llvm::IRBuilder<> &builder,              //
+            GenerationContext &ctx,                  //
+            const InstanceCallNodeBase *call_node    //
         );
 
         /// @function `generate_rethrow`

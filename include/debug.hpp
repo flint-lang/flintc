@@ -58,6 +58,7 @@
 
 #include "parser/ast/call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
+#include "parser/ast/instance_call_node_base.hpp"
 #include "parser/ast/unary_op_base.hpp"
 
 #include <string>
@@ -161,6 +162,7 @@ namespace Debug {
         void print_literal(unsigned int indent_lvl, TreeBits &bits, const LiteralNode &lit);
         void print_string_interpolation(unsigned int indent_lvl, TreeBits &bits, const StringInterpolationNode &interpol);
         void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call);
+        void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call);
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, TreeBits &bits, const TypeCastNode &cast);
         void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type);

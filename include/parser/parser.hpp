@@ -668,6 +668,10 @@ class Parser {
         /// @var `function`
         /// @brief A pointer to the function the call targets. If it's an initializer then this value is a nullptr
         FunctionNode *function{nullptr};
+
+        /// @var `instance_variable`
+        /// @brief The instance variable expression the call is done at, if any (`entity_variable.call()` for example)
+        std::optional<std::unique_ptr<ExpressionNode>> instance_variable;
     };
 
     /// @function `create_call_or_initializer_base`
@@ -1124,12 +1128,13 @@ class Parser {
     /// @param `tokens` The list of tokens representing the call statement
     /// @param `alias` The potential alias base of the call
     /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
-    /// @return `std::optional<std::unique_ptr<CallNodeStatement>>` A unique pointer to the created CallNodeStatement
-    std::optional<std::unique_ptr<CallNodeStatement>> create_call_statement( //
-        std::shared_ptr<Scope> &scope,                                       //
-        const token_slice &tokens,                                           //
-        const std::optional<Namespace *> &alias,                             //
-        const bool is_func_module_call = false                               //
+    /// @return `std::optional<std::unique_ptr<StatementNode>>` A unique pointer to the created StatementNode. It could be either a "normal"
+    /// call or an instance call, that's why we return it as a statement node instead
+    std::optional<std::unique_ptr<StatementNode>> create_call_statement( //
+        std::shared_ptr<Scope> &scope,                                   //
+        const token_slice &tokens,                                       //
+        const std::optional<Namespace *> &alias,                         //
+        const bool is_func_module_call = false                           //
     );
 
     /// @function `create_throw`

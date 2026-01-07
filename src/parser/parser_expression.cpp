@@ -6,6 +6,7 @@
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -747,15 +748,28 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         return std::nullopt;
     }
     assert(!ret->is_initializer);
-    std::unique_ptr<CallNodeExpression> call_node = std::make_unique<CallNodeExpression>( //
-        ret->function,                                                                    //
-        ret->args,                                                                        //
-        ret->function->error_types,                                                       //
-        ret->type                                                                         //
-    );
-    call_node->scope_id = scope->scope_id;
-    last_parsed_call = call_node.get();
-    return call_node;
+    if (ret->instance_variable.has_value()) {
+        std::unique_ptr<InstanceCallNodeExpression> instance_call_node = std::make_unique<InstanceCallNodeExpression>( //
+            ret->function,                                                                                             //
+            ret->args,                                                                                                 //
+            ret->function->error_types,                                                                                //
+            ret->type,                                                                                                 //
+            ret->instance_variable.value()                                                                             //
+        );
+        instance_call_node->scope_id = scope->scope_id;
+        last_parsed_call = instance_call_node.get();
+        return std::move(instance_call_node);
+    } else {
+        std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>( //
+            ret->function,                                                                           //
+            ret->args,                                                                               //
+            ret->function->error_types,                                                              //
+            ret->type                                                                                //
+        );
+        simple_call_node->scope_id = scope->scope_id;
+        last_parsed_call = simple_call_node.get();
+        return std::move(simple_call_node);
+    }
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
@@ -1792,7 +1806,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::move(call_node.value());
         }
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::function_call)) {
+    if (Matcher::tokens_match(tokens_mut, Matcher::function_call) || Matcher::tokens_match(tokens, Matcher::instance_call)) {
         auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
         if (range.has_value() && range.value().second == token_size) {
             // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something

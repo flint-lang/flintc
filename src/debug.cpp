@@ -5,10 +5,12 @@
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/expressions/unary_op_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/parser.hpp"
@@ -415,6 +417,41 @@ namespace Debug {
             }
         }
 
+        void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call) {
+            Local::print_header(indent_lvl, bits, "Instance Call ");
+            assert(call.instance_variable->get_variation() == ExpressionNode::Variation::VARIABLE);
+            if (!call.error_types.empty()) {
+                std::cout << "throws[";
+                for (auto it = call.error_types.begin(); it != call.error_types.end(); ++it) {
+                    if (it != call.error_types.begin()) {
+                        std::cout << ", ";
+                    }
+                    std::cout << (*it)->to_string();
+                }
+                std::cout << "] ";
+            }
+            const auto &variable_node = call.instance_variable->as<VariableNode>();
+            std::cout << variable_node->name << "." << call.function->name << "(";
+            for (auto it = call.arguments.begin(); it != call.arguments.end(); ++it) {
+                if (it != call.arguments.begin()) {
+                    std::cout << ", ";
+                }
+                std::cout << (it->second ? "ref" : "val");
+            }
+            std::cout << ") [c" << call.call_id << "] in [s" << call.scope_id << "]";
+            if (!call.arguments.empty()) {
+                std::cout << " with args";
+            }
+            std::cout << std::endl;
+
+            indent_lvl++;
+            for (auto arg = call.arguments.begin(); arg != call.arguments.end(); ++arg) {
+                bool is_last = std::next(arg) == call.arguments.end();
+                TreeBits child_bits = bits.child(indent_lvl, is_last);
+                print_expression(indent_lvl, child_bits, arg->first);
+            }
+        }
+
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin) {
             Local::print_header(indent_lvl, bits, "BinOp ");
             std::cout << get_token_name(bin.operator_token);
@@ -719,6 +756,11 @@ namespace Debug {
                 case ExpressionNode::Variation::INITIALIZER: {
                     const auto *node = expr->as<InitializerNode>();
                     print_initializer(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::INSTANCE_CALL: {
+                    const auto *node = expr->as<InstanceCallNodeExpression>();
+                    print_instance_call(indent_lvl, bits, *node);
                     break;
                 }
                 case ExpressionNode::Variation::LITERAL: {
@@ -1296,6 +1338,11 @@ namespace Debug {
                 case StatementNode::Variation::IF: {
                     const auto *node = statement->as<IfNode>();
                     print_if(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::INSTANCE_CALL: {
+                    const auto *node = statement->as<InstanceCallNodeStatement>();
+                    print_instance_call(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::RETURN: {
