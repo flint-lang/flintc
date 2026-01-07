@@ -223,7 +223,7 @@ void Generator::Module::DIMA::generate_get_block_capacity_function( //
     llvm::Function *get_block_capacity_fn = llvm::Function::Create( //
         get_block_capacity_type,                                    //
         llvm::Function::ExternalLinkage,                            //
-        "__flint_get_block_capacity",                               //
+        "__flint_dima_get_block_capacity",                          //
         module                                                      //
     );
     dima_functions["get_block_capacity"] = get_block_capacity_fn;
