@@ -546,12 +546,29 @@ std::optional<EntityNode> Parser::create_entity( //
         assert(tok_it != definition.second);
     }
 
+    // Add all data modules and func modules of all parent entities to the data modules list in the order defined in the `extends`
+    // definition
+    std::vector<DataNode *> data_modules;
+    std::vector<FuncNode *> func_modules;
+    for (const auto &parent_entity : parent_entities) {
+        for (DataNode *data_node : parent_entity.first->data_modules) {
+            if (std::find(data_modules.begin(), data_modules.end(), data_node) == data_modules.end()) {
+                data_modules.emplace_back(data_node);
+            }
+        }
+        for (FuncNode *func_node : parent_entity.first->func_modules) {
+            if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
+                func_modules.emplace_back(func_node);
+            }
+        }
+    }
+
     // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first define
     // all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first and then func
     // modules
 
+    // Add all data modules defined in the `data` section of the entity
     auto line_it = body.begin();
-    std::vector<DataNode *> data_modules;
     tok_it = line_it->tokens.first;
     assert(tok_it->token == TOK_DATA);
     tok_it++;
@@ -584,6 +601,12 @@ std::optional<EntityNode> Parser::create_entity( //
                         return std::nullopt;
                     }
                     auto *data_node = tok_it->type->as<DataType>()->data_node;
+                    if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
+                        // Redefinition of data module in this entity definition (potentially from one extended entity?)
+                        // TODO: This potentially could only be a warning too
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
                     data_modules.emplace_back(data_node);
                     break;
                 }
@@ -604,7 +627,6 @@ std::optional<EntityNode> Parser::create_entity( //
         return std::nullopt;
     }
 
-    std::vector<FuncNode *> func_modules;
     tok_it = line_it->tokens.first;
     assert(tok_it->token == TOK_FUNC);
     tok_it++;
@@ -637,6 +659,12 @@ std::optional<EntityNode> Parser::create_entity( //
                         return std::nullopt;
                     }
                     auto *func_node = tok_it->type->as<FuncType>()->func_node;
+                    if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
+                        // Redefinition of func module in this entity definition (potentially from one extended entity?)
+                        // TODO: This potentially could only be a warning too
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
                     func_modules.emplace_back(func_node);
                     break;
                 }
@@ -678,13 +706,36 @@ std::optional<EntityNode> Parser::create_entity( //
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             case TOK_IDENTIFIER: {
-                // TODO: Add support to dect parent accessors here
-                // if (!parent_entities.empty()) {
-                //     // Search if the identifier is one of the parent entities' accessors
-                //     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                //     return std::nullopt;
-                // }
-                auto type = file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                const std::string identifier(tok_it->lexme);
+                if (!parent_entities.empty()) {
+                    // Search if the identifier is one of the parent entities' accessors
+                    bool parent_added = false;
+                    for (const auto &[parent_entity, accessor] : parent_entities) {
+                        if (identifier == accessor) {
+                            // For now we simply add the parent's data modules to the data constructor list and to the data modules of this
+                            // entity. If any data module is defined duplicately afterwards (explicit, below) then an error will be thrown.
+                            // If duplicates arise from extended entities then it is simply skipped to the next token iteration
+                            // TODO: Update change the constructors of extended entities to be required to pass in an entity at the position
+                            // of the extended entity accessor. For now the simpler approach is chosen.
+                            for (DataNode *data_node : parent_entity->data_modules) {
+                                if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
+                                    // Duplicate data constructor
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return std::nullopt;
+                                }
+                                constructed_data.emplace_back(data_node);
+                                auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
+                                constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                            }
+                            parent_added = true;
+                        }
+                    }
+                    if (parent_added) {
+                        tok_it++;
+                        break;
+                    }
+                }
+                auto type = file_node_ptr->file_namespace->get_type_from_str(identifier);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -701,6 +752,7 @@ std::optional<EntityNode> Parser::create_entity( //
                 DataNode *data_node = tok_it->type->as<DataType>()->data_node;
                 auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
                 if (idx == data_modules.end()) {
+                    // Unknown data module
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }

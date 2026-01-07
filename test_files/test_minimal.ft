@@ -26,12 +26,10 @@ func MyFunc requires(MyData d):
 	def get_x() -> i32:
 		return d.x;
 
-entity MyEntity:
-	data:
-		BaseData, MyData;
-	func:
-		BaseFunc, MyFunc;
-	MyEntity(BaseData, MyData);
+entity MyEntity extends(BaseEntity e):
+	data: MyData;
+	func: MyFunc;
+	MyEntity(e, MyData);
 
 def main():
 	d := MyData(10, 20, 30);
