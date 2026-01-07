@@ -513,7 +513,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Check if it's a known entity type
             const std::string type_str = "type.entity." + entity_type->entity_node->name;
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {true, true}};
+                return {type_map.at(type_str), {false, false}};
             }
             // Create the entity type, it's just a struct containing pointers to the entities' defined data
             std::vector<llvm::Type *> field_types;
