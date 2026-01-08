@@ -1,7 +1,7 @@
 use "spec/variables_and_types/primitives.ft"
 use "spec/variables_and_types/inferred.ft"
 use "spec/variables_and_types/operators.ft"
-// use "spec/variables_and_types/strings.ft"
+use "spec/variables_and_types/strings.ft"
 
 use "spec/functions/tests.ft"
 
@@ -16,7 +16,3 @@ use "spec/functions/tests.ft"
 // use "spec/str.ft"
 // use "spec/switch.ft"
 // use "spec/variant.ft"
-
-use Core.print
-def main():
-	print("Compile with the '--test' flag!\n");
