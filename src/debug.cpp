@@ -88,6 +88,11 @@ namespace Debug {
         if (!DEBUG_MODE) {
             return;
         }
+#ifdef DEBUG_BUILD
+        if (!PRINT_TOK_STREAM) {
+            return;
+        }
+#endif
         std::cout << YELLOW << "[Debug Info] Printing token vector of file '" << file_name << "'" << DEFAULT << std::endl;
         std::stringstream type_stream;
         for (auto tc = tokens.first; tc != tokens.second; ++tc) {
