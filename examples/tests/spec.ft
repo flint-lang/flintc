@@ -1,4 +1,4 @@
-use "spec/variables.ft"
+use "spec/primitives.ft"
 use "spec/tests.ft"
 
 use "spec/array.ft"
