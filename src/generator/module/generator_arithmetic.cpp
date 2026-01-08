@@ -113,6 +113,9 @@ void Generator::Module::Arithmetic::generate_pow_function( //
     //         if (_exp % 2 == 1) {
     //             result *= _base;
     //         }
+    //         if (_exp == 1) {
+    //             break;
+    //         }
     //         _base *= _base;
     //         _exp /= 2;
     //     }
@@ -131,6 +134,7 @@ void Generator::Module::Arithmetic::generate_pow_function( //
     llvm::BasicBlock *loop_condition = llvm::BasicBlock::Create(context, "loop_condition", int_pow_fn);
     llvm::BasicBlock *loop_body = llvm::BasicBlock::Create(context, "loop_body", int_pow_fn);
     llvm::BasicBlock *exp_uneven = llvm::BasicBlock::Create(context, "exp_uneven", int_pow_fn);
+    llvm::BasicBlock *exp_one_check = llvm::BasicBlock::Create(context, "exp_one_check", int_pow_fn);
     llvm::BasicBlock *exp_merge = llvm::BasicBlock::Create(context, "exp_merge", int_pow_fn);
     llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "merge", int_pow_fn);
     builder->SetInsertPoint(entry);
@@ -177,7 +181,7 @@ void Generator::Module::Arithmetic::generate_pow_function( //
         exp_mod_2 = builder->CreateURem(exp_val, two, "exp_mod_2");
     }
     llvm::Value *exp_mod_2_eq_1 = builder->CreateICmpEQ(exp_mod_2, one, "mod_2_eq_1");
-    builder->CreateCondBr(exp_mod_2_eq_1, exp_uneven, exp_merge);
+    builder->CreateCondBr(exp_mod_2_eq_1, exp_uneven, exp_one_check);
 
     // Multiply the result with the base
     builder->SetInsertPoint(exp_uneven);
@@ -189,7 +193,14 @@ void Generator::Module::Arithmetic::generate_pow_function( //
         res_times_base = builder->CreateCall(arithmetic_functions.at(name + "_safe_mul"), {result_val, base_val}, "res_times_base");
     }
     IR::aligned_store(*builder, res_times_base, result);
-    builder->CreateBr(exp_merge);
+    builder->CreateBr(exp_one_check);
+
+    // Check if the exponent is 1, break if it is. This is to prevent the `base * base` multiplication whose result would never be used
+    // anyway since the exponent would reach 0 at the end of the loop. This multiplication could overflow the underlying type without
+    // affecting the end result, so a special case has to be made
+    builder->SetInsertPoint(exp_one_check);
+    llvm::Value *is_exp_one = builder->CreateICmpEQ(exp_val, one, "is_exp_one");
+    builder->CreateCondBr(is_exp_one, merge, exp_merge);
 
     // Square base, cut exp in half
     builder->SetInsertPoint(exp_merge);
