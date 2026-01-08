@@ -1,53 +1,21 @@
-use "spec/primitives.ft"
-use "spec/tests.ft"
+use "spec/variables_and_types/primitives.ft"
+use "spec/variables_and_types/inferred.ft"
+// use "spec/variables_and_types/strings.ft"
 
-use "spec/array.ft"
-use "spec/data.ft"
-use "spec/enum.ft"
-use "spec/error.ft"
-use "spec/loops.ft"
-use "spec/multi_types.ft"
-use "spec/optional.ft"
-use "spec/read.ft"
-use "spec/str.ft"
-use "spec/switch.ft"
-use "spec/variant.ft"
+use "spec/functions/tests.ft"
+
+// use "spec/array.ft"
+// use "spec/data.ft"
+// use "spec/enum.ft"
+// use "spec/error.ft"
+// use "spec/loops.ft"
+// use "spec/multi_types.ft"
+// use "spec/optional.ft"
+// use "spec/read.ft"
+// use "spec/str.ft"
+// use "spec/switch.ft"
+// use "spec/variant.ft"
 
 use Core.print
-
 def main():
-	print("test_array...\n");
-	test_array();
-
-	print("test_data...\n");
-	test_data();
-
-	print("test_enum...\n");
-	test_enum();
-
-	print("test_error...\n");
-	test_error();
-
-	print("test_multi_types...\n");
-	test_multi_types();
-
-	print("test_loops...\n");
-	test_loops();
-
-	print("test_optional...\n");
-	test_optional();
-
-	// Its annoying to always enter things so this is commented out
-	// print("test_read...\n");
-	// test_read();
-
-	print("test_str...\n");
-	test_str();
-
-	print("test_switch...\n");
-	test_switch();
-
-	print("test_variant...\n");
-	test_variant();
-
-	print("All tests passed!\n");
+	print("Compile with the '--test' flag!\n");

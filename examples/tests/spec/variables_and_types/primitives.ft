@@ -1,5 +1,10 @@
 use Core.assert
 
+/*
+ * This file contains all possibilities for declaring primitive types
+ * It contains all primitive types currently supported in Flint
+ */
+
 test "0. Declare booleans":
 	bool b1 = true;
 	bool b2 = false;
@@ -31,9 +36,10 @@ test "4. Declare chars":
 	u8 u2 = 'A';
 
 test "5. Declare strings":
-	str s = "Hello, there!";
-	u64 strlen = s.length;
-	strlen = s.len;
+	str s1 = "";
+	str s2 = "Hello, there!";
+	u64 strlen = s2.length;
+	strlen = s2.len;
 
 test "6. Declare i32xN vectors":
 	i32x2 v2i = (10, 20);
