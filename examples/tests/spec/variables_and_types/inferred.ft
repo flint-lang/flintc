@@ -19,7 +19,7 @@ test "1. Inferred float":
 	// default-type of 'f32'. So, 'f' has the type 'f32' here.
 	f := 3.14;
 	f--;
-	const f32 epsilon = 0.0001;
+	const f32 epsilon = 0.000001;
 	assert(f - 2.14 < epsilon);
 
 test "2. Inferred char":

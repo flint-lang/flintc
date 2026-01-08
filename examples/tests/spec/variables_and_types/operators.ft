@@ -1,0 +1,262 @@
+use Core.assert
+
+test "0. Add i32":
+	i32 x = -10;
+	i32 y = 20;
+	i32 z = x + y;
+	assert(z == 10);
+
+test "1. Add i64":
+	i64 x = -1_203;
+	i64 y = 45_323;
+	i64 z = x + y;
+	assert(z == 44_120);
+
+test "2. Add u8":
+	u8 x = 'x';
+	u8 y = 'y';
+	u8 z = x + y;
+	assert(z == u8(241));
+
+test "3. Add u32":
+	u32 x = 10;
+	u32 y = 20;
+	u32 z = x + y;
+	assert(z == 30);
+
+test "4. Add u64":
+	u64 x = 13_042;
+	u64 y = 12_322;
+	u64 z = x + y;
+	assert(z == 25_364);
+
+test "5. Add f32":
+	f32 x = 3.14;
+	f32 y = 9.81;
+	f32 z = x + y;
+	const f32 epsilon = 0.000001;
+	assert(z - 12.95 < epsilon);
+
+test "6. Add f64":
+	f64 x = 3.14;
+	f64 y = 9.81;
+	f64 z = x + y;
+	const f64 epsilon = 0.00000000000001;
+	assert(z - 12.95 < epsilon);
+
+test "7. Add str":
+	str x = "Hello";
+	str y = ", There";
+	str z = x + y;
+	assert(z == "Hello, There");
+
+test "8. Sub i32":
+	i32 x = -10;
+	i32 y = 20;
+	i32 z = x - y;
+	assert(z == -30);
+
+test "9. Sub i32 neg":
+	i32 x = -10;
+	i32 y = -20;
+	i32 z = x - y;
+	assert(z == 10);
+
+test "10. Sub i64":
+	i64 x = -1_203;
+	i64 y = 45_323;
+	i64 z = x - y;
+	assert(z == -46_526);
+
+test "11. Sub i64 neg":
+	i64 x = -1_203;
+	i32 y = -45_323;
+	i64 z = x - y;
+	assert(z == 44_120);
+
+test "12. Sub u8":
+	u8 x = 'x';
+	u8 y = 'Y';
+	u8 z = x - y;
+	assert(z == u8(31));
+
+test "13. Sub u32":
+	u32 x = 20;
+	u32 y = 10;
+	u32 z = x - y;
+	assert(z == 10);
+
+test "14. Sub u64":
+	u64 x = 13_042;
+	u64 y = 12_322;
+	u64 z = x - y;
+	assert(z == 720);
+
+test "15. Sub f32":
+	f32 x = 3.14;
+	f32 y = 9.81;
+	f32 z = x - y;
+	const f32 epsilon = 0.000001;
+	assert(z + 6.67 < epsilon);
+
+test "16. Sub f64":
+	f64 x = 3.14;
+	f64 y = 9.81;
+	f64 z = x - y;
+	const f64 epsilon = 0.00000000000001;
+	assert(z + 6.67 < epsilon);
+
+test "17. Sub str":
+	// Substracting strings is not allowed in Flint
+	assert(true);
+
+test "18. Mul i32":
+	i32 x = -10;
+	i32 y = 20;
+	i32 z = x * y;
+	assert(z == -200);
+
+test "19. Mul i64":
+	i64 x = -1_203;
+	i64 y = 45_323;
+	i64 z = x * y;
+	assert(z == -54_523_569);
+
+test "20. Mul u8":
+	u8 x = u8(7);
+	u8 y = u8(13);
+	u8 z = x * y;
+	assert(z == '[');
+
+test "21. Mul u32":
+	u32 x = 10;
+	u32 y = 20;
+	u32 z = x * y;
+	assert(z == 200);
+
+test "22. Mul u64":
+	u64 x = 13_042;
+	u64 y = 12_322;
+	u64 z = x * y;
+	assert(z == 160_703_524);
+
+test "23. Mul f32":
+	f32 x = 3.14;
+	f32 y = 9.81;
+	f32 z = x * y;
+	// Epsilon needs to be a tad bit larger to accommondate the accumulated
+	// inprecision error
+	const f32 epsilon = 0.000002;
+	assert(z - 30.8034 < epsilon);
+
+test "24. Mul f64":
+	f64 x = 3.14;
+	f64 y = 9.81;
+	f64 z = x * y;
+	const f64 epsilon = 0.00000000000001;
+	assert(z - 30.8034 < epsilon);
+
+test "25. Mul str":
+	// Multiplying strings is not allowed in Flint
+	assert(true);
+
+test "26. Div i32":
+	i32 x = -2_230;
+	i32 y = 11;
+	i32 z = x / y;
+	assert(z == -202);
+
+test "27. Div i64":
+	i64 x = 45_323;
+	i64 y = -1_203;
+	i64 z = x / y;
+	assert(z == -37);
+
+test "28. Div u8":
+	u8 x = 'x';
+	u8 y = u8(7);
+	u8 z = x / y;
+	assert(z == u8(17));
+
+test "29. Div u32":
+	u32 x = 23_410;
+	u32 y = 17;
+	u32 z = x / y;
+	assert(z == 1377);
+
+test "30. Div u64":
+	u64 x = 7_132_042;
+	u64 y = 12_322;
+	u64 z = x / y;
+	assert(z == 578);
+
+test "31. Div f32":
+	f32 x = 3.14;
+	f32 y = 9.81;
+	f32 z = x / y;
+	// Epsilon needs to be a tad bit larger to accommondate the accumulated
+	// inprecision error
+	const f32 epsilon = 0.000001;
+	assert(z - 0.320081 < epsilon);
+
+test "32. Div f64":
+	f64 x = 3.14;
+	f64 y = 9.81;
+	f64 z = x / y;
+	const f64 epsilon = 0.00000000000001;
+	// Compile-time precision floating point literals can be as long as you want
+	assert(z - 0.32008154943934760 < epsilon);
+
+test "33. Div str":
+	// Dividing strings is not allowed in Flint
+	assert(true);
+
+test "34. Pow i32":
+	i32 x = -2;
+	i32 y = 5;
+	i32 z = x ** y;
+	assert(z == -32);
+
+test "35. Pow i64":
+	i64 x = -12;
+	i64 y = 7;
+	i64 z = x ** y;
+	assert(z == -35_831_808);
+
+test "36. Pow u8":
+	u8 x = u8(3);
+	u8 y = u8(5);
+	u8 z = x ** y;
+	assert(z == u8(243));
+
+test "37. Pow u32":
+	u32 x = 4;
+	u32 y = 12;
+	u32 z = x ** y;
+	assert(z == 16_777_216);
+
+test "38. Pow u64":
+	u64 x = 5;
+	u64 y = 15;
+	u64 z = x ** y;
+	assert(z == 30_517_578_125);
+
+test "39. Pow f32":
+	f32 x = 3.14;
+	f32 y = 9.81;
+	f32 z = x ** y;
+	const f32 epsilon = 0.000001;
+	const f32 error_deviation = 0.054688;
+	assert(z - 74_968.6771450056263 - error_deviation < epsilon);
+
+test "40. Pow f64":
+	f64 x = 3.14;
+	f64 y = 9.81;
+	f64 z = x ** y;
+	const f64 epsilon = 0.00000000000001;
+	const f32 error_deviation = 0.00000000007275;
+	assert(z - 74_968.6771450056263 - error_deviation < epsilon);
+
+test "41. Pow str":
+	// Powiding strings is not allowed in Flint
+	assert(true);

@@ -1,5 +1,6 @@
 use "spec/variables_and_types/primitives.ft"
 use "spec/variables_and_types/inferred.ft"
+use "spec/variables_and_types/operators.ft"
 // use "spec/variables_and_types/strings.ft"
 
 use "spec/functions/tests.ft"
