@@ -175,8 +175,9 @@ std::optional<FileNode *> Parser::parse() {
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Lexer lines of file '" << file_name << "'" << DEFAULT << std::endl;
         unsigned int line_idx = 1;
+        const size_t last_line_width = std::to_string(source_code_lines.size()).size();
         for (const auto &line : source_code_lines) {
-            std::cout << std::to_string(line_idx) << " | " << std::string(line.second);
+            std::cout << std::left << std::setw(last_line_width) << std::to_string(line_idx) << " | " << std::string(line.second);
             line_idx++;
         }
     }
