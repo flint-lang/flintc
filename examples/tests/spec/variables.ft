@@ -1,0 +1,58 @@
+use Core.assert
+
+test "0. Declare booleans":
+	bool b1 = true;
+	bool b2 = false;
+
+test "1. Declare bitset":
+	bool8 b8 = u8(10);
+	assert(not b8.$0);
+	assert(b8.$1);
+	assert(not b8.$2);
+	assert(b8.$3);
+	assert(not b8.$4);
+	assert(not b8.$5);
+	assert(not b8.$6);
+	assert(not b8.$7);
+	assert(str(b8) == "00001010");
+
+test "2. Declare integers":
+	i32 i1 = 0;
+	i64 i2 = -10_923;
+	u32 u3 = 442;
+	u64 u4 = 1_545_533_0_0_0;
+
+test "3. Declare floats":
+	f32 f1 = 1.2;
+	f64 f2 = -4_323.234_091;
+
+test "4. Declare chars":
+	u8 u1 = 0;
+	u8 u2 = 'A';
+
+test "5. Declare strings":
+	str s = "Hello, there!";
+	u64 strlen = s.length;
+	strlen = s.len;
+
+test "6. Declare i32xN vectors":
+	i32x2 v2i = (10, 20);
+	i32x3 v3i = (10, 20, 30);
+	i32x4 v4i = (10, 20, 30, 40);
+	i32x8 v8i = (10, 20, 30, 40, 50, 60, 70, 80);
+
+test "7. Declare i64xN vectors":
+	i64x2 v2l = (100, 200);
+	i64x3 v3l = (100, 200, 300);
+	i64x4 v4l = (100, 200, 300, 400);
+
+test "8. Declare f32xN vectors":
+	f32x2 v2f = (10.0, 20.0);
+	f32x3 v3f = (10.0, 20.0, 30.0);
+	f32x4 v4f = (10.0, 20.0, 30.0, 40.0);
+	f32x8 v8f = (10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0);
+
+test "9. Declare f64xN vectors":
+	f64x2 v2d = (100.0, 200.0);
+	f64x3 v3d = (100.0, 200.0, 300.0);
+	f64x4 v4d = (100.0, 200.0, 300.0, 400.0);

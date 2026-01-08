@@ -1,7 +1,15 @@
 use Core.assert
 
 test "assert(true)":
-    assert(true);
+	assert(true);
 
+#test_should_fail
 test "assert(false)":
-    assert(false);
+	assert(false);
+
+#test_performance
+test "performance test":
+	u64 sum = 0;
+	for (i, _) in 0..100_000_000:
+		sum++;
+	assert(sum == 100_000_000);
