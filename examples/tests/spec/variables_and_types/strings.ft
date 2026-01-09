@@ -1,13 +1,13 @@
 use Core.assert
 
-test "0. Add strings":
+test "0.  Add strings":
 	str s1 = "Hello, ";
 	str s2 = "There!";
 	str s3 = s1 + s2;
 	assert(s3 == "Hello, There!");
 	assert(s3.len == 13);
 
-test "1. Append strings":
+test "1.  Append strings":
 	str result;
 	for i32 i = 0; i < 5; i++:
 		for i32 j = 0; j < 5; j++:
@@ -15,29 +15,29 @@ test "1. Append strings":
 	assert(result == "0123412345234563456745678");
 	assert(result.length == 25);
 
-test "2. Cmp lt same size":
+test "2.  Cmp lt same size":
 	assert("a" < "b");
 
-test "3. Cmp neq same size":
-    assert("a" != "b");
+test "3.  Cmp neq same size":
+	assert("a" != "b");
 
-test "4. Cmp lt":
-    assert("a" < "ab");
+test "4.  Cmp lt":
+	assert("a" < "ab");
 
-test "5. Cmp lt Upcase":
-    assert("A" < "z");
+test "5.  Cmp lt Upcase":
+	assert("A" < "z");
 
-test "6. Cmp gt Upcase":
-    assert("az" > "aZ");
+test "6.  Cmp gt Upcase":
+	assert("az" > "aZ");
 
-test "7. Cmp gt bigger":
-    assert("ab" > "a");
+test "7.  Cmp gt bigger":
+	assert("ab" > "a");
 
-test "8. Cmp le same size":
-    assert("1" <= "2");
+test "8.  Cmp le same size":
+	assert("1" <= "2");
 
-test "9. Cmp ge same size":
-    assert("4" >= "3");
+test "9.  Cmp ge same size":
+	assert("4" >= "3");
 
 test "10. String interpolate bool 'true'":
 	bool b = true;

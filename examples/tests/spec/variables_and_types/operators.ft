@@ -1,62 +1,62 @@
 use Core.assert
 
-test "0. Add i32":
+test "0.  Add i32":
 	i32 x = -10;
 	i32 y = 20;
 	i32 z = x + y;
 	assert(z == 10);
 
-test "1. Add i64":
+test "1.  Add i64":
 	i64 x = -1_203;
 	i64 y = 45_323;
 	i64 z = x + y;
 	assert(z == 44_120);
 
-test "2. Add u8":
+test "2.  Add u8":
 	u8 x = 'x';
 	u8 y = 'y';
 	u8 z = x + y;
 	assert(z == u8(241));
 
-test "3. Add u32":
+test "3.  Add u32":
 	u32 x = 10;
 	u32 y = 20;
 	u32 z = x + y;
 	assert(z == 30);
 
-test "4. Add u64":
+test "4.  Add u64":
 	u64 x = 13_042;
 	u64 y = 12_322;
 	u64 z = x + y;
 	assert(z == 25_364);
 
-test "5. Add f32":
+test "5.  Add f32":
 	f32 x = 3.14;
 	f32 y = 9.81;
 	f32 z = x + y;
 	const f32 epsilon = 0.000001;
 	assert(z - 12.95 < epsilon);
 
-test "6. Add f64":
+test "6.  Add f64":
 	f64 x = 3.14;
 	f64 y = 9.81;
 	f64 z = x + y;
 	const f64 epsilon = 0.00000000000001;
 	assert(z - 12.95 < epsilon);
 
-test "7. Add str":
+test "7.  Add str":
 	str x = "Hello";
 	str y = ", There";
 	str z = x + y;
 	assert(z == "Hello, There");
 
-test "8. Sub i32":
+test "8.  Sub i32":
 	i32 x = -10;
 	i32 y = 20;
 	i32 z = x - y;
 	assert(z == -30);
 
-test "9. Sub i32 neg":
+test "9.  Sub i32 neg":
 	i32 x = -10;
 	i32 y = -20;
 	i32 z = x - y;
