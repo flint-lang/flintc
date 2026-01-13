@@ -3,6 +3,8 @@
 #include "parser/parser.hpp"
 #include "llvm/IR/BasicBlock.h"
 
+#include <filesystem>
+
 void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
@@ -819,9 +821,22 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         "test_alloca"                                                      //
     );
 
+    // Sort all tests based on the relative file path string lexographically to keep a constant ordering
+    // The value of the tests, e.g. the test_list consists of a test node and the name of the test. The path can only be obtained by the
+    // hash
+    std::vector<std::pair<Hash, std::vector<std::pair<const TestNode *, std::string>>>> sorted_tests;
+    for (const auto &[file_hash, test_list] : tests) {
+        sorted_tests.emplace_back(file_hash, test_list);
+    }
+    std::sort(sorted_tests.begin(), sorted_tests.end(), [](const auto &lhs, const auto &rhs) {
+        const std::string lhs_path = std::filesystem::relative(lhs.first.path, std::filesystem::current_path()).string();
+        const std::string rhs_path = std::filesystem::relative(rhs.first.path, std::filesystem::current_path()).string();
+        return lhs_path < rhs_path; // lexicographic order
+    });
+
     // Go through all files for all tests
     size_t i = 0;
-    for (const auto &[file_hash, test_list] : tests) {
+    for (const auto &[file_hash, test_list] : sorted_tests) {
         // Print which file we are currently at
         llvm::Value *success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
         llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
