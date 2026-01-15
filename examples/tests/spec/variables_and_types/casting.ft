@@ -1,0 +1,216 @@
+use Core.assert
+
+test "0.  Cast bool 'false' to str":
+	bool b = false;
+	str s = str(b);
+	assert(s == "false");
+
+test "1.  Cast bool 'true' to str":
+	bool b = true;
+	str s = str(b);
+	assert(s == "true");
+
+test "2.  Cast bool8 to str":
+	bool8 b8 = u8(13);
+	str s = str(b8);
+	assert(s == "00001101");
+
+test "3.  Cast u8 to str":
+	u8 u = 88;
+	str s = str(u);
+	assert(s == "X");
+
+test "4.  Cast u32 to str":
+	u32 u = 178;
+	str s = str(u);
+	assert(s == "178");
+
+test "5.  Cast u64 to str":
+	u64 u = 178_923;
+	str s = str(u);
+	assert(s == "178923");
+
+test "6.  Cast i32 to str":
+	i32 i = -178;
+	str s = str(i);
+	assert(s == "-178");
+
+test "7.  Cast i64 to str":
+	i64 i = -178_923;
+	str s = str(i);
+	assert(s == "-178923");
+
+test "8.  Cast f32 to str":
+	f32 f = -3.14;
+	str s = str(f);
+	assert(s == "-3.14");
+
+test "9.  Cast f64 to str":
+	f64 f = -3.14;
+	str s = str(f);
+	assert(s == "-3.14");
+
+test "10. Cast u8x2 to str":
+	u8x2 u = u8x2(10, 20);
+	str s = str(u);
+	assert(s == "(10, 20)");
+
+test "11. Cast u8x3 to str":
+	u8x3 u = u8x3(10, 20, 30);
+	str s = str(u);
+	assert(s == "(10, 20, 30)");
+
+test "12. Cast u8x4 to str":
+	u8x4 u = u8x4(10, 20, 30, 40);
+	str s = str(u);
+	assert(s == "(10, 20, 30, 40)");
+
+test "13. Cast u8x8 to str":
+	u8x8 u = u8x8(10, 20, 30, 40, 50, 60, 70, 80);
+	str s = str(u);
+	assert(s == "(10, 20, 30, 40, 50, 60, 70, 80)");
+
+test "14. Cast i32x2 to str":
+	i32x2 i = i32x2(-10, 20);
+	str s = str(i);
+	assert(s == "(-10, 20)");
+
+test "15. Cast i32x3 to str":
+	i32x3 i = i32x3(-10, 20, -30);
+	str s = str(i);
+	assert(s == "(-10, 20, -30)");
+
+test "16. Cast i32x4 to str":
+	i32x4 i = i32x4(-10, 20, -30, 40);
+	str s = str(i);
+	assert(s == "(-10, 20, -30, 40)");
+
+test "17. Cast i32x8 to str":
+	i32x8 i = i32x8(-10, 20, -30, 40, -50, 60, -70, 80);
+	str s = str(i);
+	assert(s == "(-10, 20, -30, 40, -50, 60, -70, 80)");
+
+test "18. Cast i64x2 to str":
+	i64x2 i = i64x2(-100, 200);
+	str s = str(i);
+	assert(s == "(-100, 200)");
+
+test "19. Cast i64x3 to str":
+	i64x3 i = i64x3(-100, 200, -300);
+	str s = str(i);
+	assert(s == "(-100, 200, -300)");
+
+test "20. Cast i64x4 to str":
+	i64x4 i = i64x4(-100, 200, -300, 400);
+	str s = str(i);
+	assert(s == "(-100, 200, -300, 400)");
+
+test "21. Cast f32x2 to str":
+	f32x2 f = f32x2(1.1, -2.2);
+	str s = str(f);
+	assert(s == "(1.1, -2.2)");
+
+test "22. Cast f32x3 to str":
+	f32x3 f = f32x3(1.1, -2.2, 3.3);
+	str s = str(f);
+	assert(s == "(1.1, -2.2, 3.3)");
+
+test "23. Cast f32x4 to str":
+	f32x4 f = f32x4(1.1, -2.2, 3.3, -4.4);
+	str s = str(f);
+	assert(s == "(1.1, -2.2, 3.3, -4.4)");
+
+test "24. Cast f32x8 to str":
+	f32x8 f = f32x8(1.1, -2.2, 3.3, -4.4, 5.5, -6.6, 7.7, -8.8);
+	str s = str(f);
+	assert(s == "(1.1, -2.2, 3.3, -4.4, 5.5, -6.6, 7.7, -8.8)");
+
+test "25. Cast f64x2 to str":
+	f64x2 f = f64x2(1.1, -2.2);
+	str s = str(f);
+	assert(s == "(1.1, -2.2)");
+
+test "26. Cast f64x3 to str":
+	f64x3 f = f64x3(1.1, -2.2, 3.3);
+	str s = str(f);
+	assert(s == "(1.1, -2.2, 3.3)");
+
+test "27. Cast f64x4 to str":
+	f64x4 f = f64x4(1.1, -2.2, 3.3, -4.4);
+	str s = str(f);
+	assert(s == "(1.1, -2.2, 3.3, -4.4)");
+
+test "28. Cast bool 'false' to u8":
+	bool b = false;
+	u8 u = u8(b);
+	assert(u == 0);
+
+test "29. Cast bool 'true'  to u8":
+	bool b = true;
+	u8 u = u8(b);
+	assert(u == 1);
+
+test "30. Cast bool 'false' to u32":
+	bool b = false;
+	u32 u = u32(b);
+	assert(u == 0);
+
+test "31. Cast bool 'true'  to u32":
+	bool b = true;
+	u32 u = u32(b);
+	assert(u == 1);
+
+test "32. Cast bool 'false' to u64":
+	bool b = false;
+	u64 u = u64(b);
+	assert(u == 0);
+
+test "33. Cast bool 'true'  to u64":
+	bool b = true;
+	u64 u = u64(b);
+	assert(u == 1);
+
+test "34. Cast bool 'false' to i32":
+	bool b = false;
+	i32 u = i32(b);
+	assert(u == 0);
+
+test "35. Cast bool 'true'  to i32":
+	bool b = true;
+	i32 i = i32(b);
+	assert(i == 1);
+
+test "36. Cast bool 'false' to i64":
+	bool b = false;
+	i64 i = i64(b);
+	assert(i == 0);
+
+test "37. Cast bool 'true'  to i64":
+	bool b = true;
+	i64 i = i64(b);
+	assert(i == 1);
+
+test "38. Cast bool 'false' to f32":
+	bool b = false;
+	f32 f = f32(b);
+	assert(f == 0.0);
+
+test "39. Cast bool 'true'  to f32":
+	bool b = true;
+	f32 f = f32(b);
+	assert(f == 1.0);
+
+test "40. Cast bool 'false' to f64":
+	bool b = false;
+	f64 d = f64(b);
+	assert(d == 0.0);
+
+test "41. Cast bool 'true'  to f64":
+	bool b = true;
+	f64 d = f64(b);
+	assert(d == 1.0);
+
+test "42. Cast 'u8' to 'bool8'":
+	u8 u = 13;
+	bool8 b8 = bool8(u);
+	assert(str(b8) == "00001101");
