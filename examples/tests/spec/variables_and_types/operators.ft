@@ -260,3 +260,198 @@ test "40. Pow f64":
 test "41. Pow str":
 	// Powiding strings is not allowed in Flint
 	assert(true);
+
+#test_should_fail
+test "42. Bool 'false'":
+	bool b = false;
+	assert(b);
+
+test "43. Bool 'true'":
+	bool b = true;
+	assert(b);
+
+test "44. Bool not var(false)":
+	bool var = false;
+	bool b = not var;
+	assert(b);
+
+test "45. Bool not var(true)":
+	bool var = true;
+	bool b = not var;
+	assert(not b);
+
+test "46. Bool 'false' and 'false'":
+	bool b = false and false;
+	assert(not b);
+
+test "47. Bool 'false' and 'true'":
+	bool b = false and true;
+	assert(not b);
+
+test "48. Bool 'true' and 'false'":
+	bool b = true and false;
+	assert(not b);
+
+test "49. Bool 'true' and 'true'":
+	bool b = true and true;
+	assert(b);
+
+test "50. Bool var(false) and 'false'":
+	bool var = false;
+	bool b = var and false;
+	assert(not b);
+
+test "51. Bool var(false) and 'true'":
+	bool var = false;
+	bool b = var and true;
+	assert(not b);
+
+test "52. Bool var(true) and 'false'":
+	bool var = true;
+	bool b = var and false;
+	assert(not b);
+
+test "53. Bool var(true) and 'true'":
+	bool var = true;
+	bool b = var and true;
+	assert(b);
+
+test "54. Bool 'false' and var(false)":
+	bool var = false;
+	bool b = false and var;
+	assert(not b);
+
+test "55. Bool 'false' and var(true)":
+	bool var = true;
+	bool b = false and var;
+	assert(not b);
+
+test "56. Bool 'true' and var(false)":
+	bool var = false;
+	bool b = true and var;
+	assert(not b);
+
+test "57. Bool 'true' and var(true)":
+	bool var = true;
+	bool b = true and var;
+	assert(b);
+
+test "58. Bool var(false) and var(false)":
+	bool var1 = false;
+	bool var2 = false;
+	bool b = var1 and var2;
+	assert(not b);
+
+test "59. Bool var(false) and var(true)":
+	bool var1 = false;
+	bool var2 = true;
+	bool b = var1 and var2;
+	assert(not b);
+
+test "60. Bool var(true) and var(false)":
+	bool var1 = true;
+	bool var2 = false;
+	bool b = var1 and var2;
+	assert(not b);
+
+test "61. Bool var(true) and var(true)":
+	bool var1 = true;
+	bool var2 = true;
+	bool b = var1 and var2;
+	assert(b);
+
+test "62. Bool 'false' or 'false'":
+	bool b = false or false;
+	assert(not b);
+
+test "63. Bool 'false' or 'true'":
+	bool b = false or true;
+	assert(b);
+
+test "64. Bool 'true' or 'false'":
+	bool b = true or false;
+	assert(b);
+
+test "65. Bool 'true' or 'true'":
+	bool b = true or true;
+	assert(b);
+
+test "66. Bool var(false) or 'false'":
+	bool var = false;
+	bool b = var or false;
+	assert(not b);
+
+test "67. Bool var(false) or 'true'":
+	bool var = false;
+	bool b = var or true;
+	assert(b);
+
+test "68. Bool var(true) or 'false'":
+	bool var = true;
+	bool b = var or false;
+	assert(b);
+
+test "69. Bool var(true) or 'true'":
+	bool var = true;
+	bool b = var or true;
+	assert(b);
+
+test "70. Bool 'false' or var(false)":
+	bool var = false;
+	bool b = false or var;
+	assert(not b);
+
+test "71. Bool 'false' or var(true)":
+	bool var = true;
+	bool b = false or var;
+	assert(b);
+
+test "72. Bool 'true' or var(false)":
+	bool var = false;
+	bool b = true or var;
+	assert(b);
+
+test "73. Bool 'true' or var(true)":
+	bool var = true;
+	bool b = true or var;
+	assert(b);
+
+test "74. Bool var(false) or var(false)":
+	bool var1 = false;
+	bool var2 = false;
+	bool b = var1 or var2;
+	assert(not b);
+
+test "75. Bool var(false) or var(true)":
+	bool var1 = false;
+	bool var2 = true;
+	bool b = var1 or var2;
+	assert(b);
+
+test "76. Bool var(true) or var(false)":
+	bool var1 = true;
+	bool var2 = false;
+	bool b = var1 or var2;
+	assert(b);
+
+test "77. Bool var(true) or var(true)":
+	bool var1 = true;
+	bool var2 = true;
+	bool b = var1 or var2;
+	assert(b);
+
+test "78. Bool precedence 1":
+	bool condition = true or false and false;
+	assert(condition);
+
+test "79. Bool precedence 2":
+	bool condition = (true or false) and false;
+	assert(not condition);
+
+test "80. Bool precedence 3":
+	bool condition = true and true or false;
+	assert(condition);
+
+test "81. Bool precedence 4":
+	bool condition = true and (true or false);
+	assert(condition);
