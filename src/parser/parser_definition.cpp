@@ -572,55 +572,64 @@ std::optional<EntityNode> Parser::create_entity( //
     tok_it = line_it->tokens.first;
     assert(tok_it->token == TOK_DATA);
     tok_it++;
-    assert(tok_it->token == TOK_COLON);
-    tok_it++;
     bool semicolon_found = false;
-    while (line_it != body.end()) {
-        while (tok_it != line_it->tokens.second) {
-            switch (tok_it->token) {
-                default:
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                case TOK_COMMA:
-                    break;
-                case TOK_SEMICOLON:
-                    semicolon_found = true;
-                    break;
-                case TOK_IDENTIFIER: {
-                    auto type = file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                    if (!type.has_value()) {
+    if (tok_it->token == TOK_COLON) {
+        // This entity provides some data
+        tok_it++;
+        while (line_it != body.end()) {
+            while (tok_it != line_it->tokens.second) {
+                switch (tok_it->token) {
+                    default:
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
+                    case TOK_COMMA:
+                        break;
+                    case TOK_SEMICOLON:
+                        semicolon_found = true;
+                        break;
+                    case TOK_IDENTIFIER: {
+                        auto type = file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                        if (!type.has_value()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                        [[fallthrough]];
                     }
-                    *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                    [[fallthrough]];
+                    case TOK_TYPE: {
+                        if (tok_it->type->get_variation() != Type::Variation::DATA) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        auto *data_node = tok_it->type->as<DataType>()->data_node;
+                        if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
+                            // Redefinition of data module in this entity definition (potentially from one extended entity?)
+                            // TODO: This potentially could only be a warning too
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        data_modules.emplace_back(data_node);
+                        break;
+                    }
                 }
-                case TOK_TYPE: {
-                    if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    auto *data_node = tok_it->type->as<DataType>()->data_node;
-                    if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
-                        // Redefinition of data module in this entity definition (potentially from one extended entity?)
-                        // TODO: This potentially could only be a warning too
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    data_modules.emplace_back(data_node);
+                if (semicolon_found) {
                     break;
                 }
+                tok_it++;
             }
+            line_it++;
+            tok_it = line_it->tokens.first;
             if (semicolon_found) {
                 break;
             }
-            tok_it++;
         }
+    } else {
+        // This entity does not provide any data on it's own. This is fine if it extends another entity, otherwise this would be an error
+        assert(tok_it->token == TOK_SEMICOLON);
+        assert(!parent_entities.empty());
+        assert(!data_modules.empty());
         line_it++;
         tok_it = line_it->tokens.first;
-        if (semicolon_found) {
-            break;
-        }
     }
     if (line_it == body.end()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -685,8 +694,12 @@ std::optional<EntityNode> Parser::create_entity( //
         return std::nullopt;
     }
 
-    // TODO: Parse all links once links are implemented
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
+    if (tok_it->token == TOK_LINK) {
+        // TODO: Parse all links once links are implemented
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
 
     std::vector<size_t> constructor_order;
     assert(tok_it->token == TOK_IDENTIFIER);

@@ -13,26 +13,20 @@ entity BaseEntity:
 	func: BaseFunc;
 	BaseEntity(BaseData);
 
-data MyData:
-	i32 x;
-	i32 y;
-	i32 z;
-	MyData(x, y, z);
-
-func MyFunc requires(MyData d):
+func MyFunc requires(BaseData d):
 	def print():
-		print($"d = ({d.x}, {d.y}, {d.z})\n");
+		print($"b = {d.speed}\n");
 	
 	def get_x() -> i32:
-		return d.x;
+		return 0;
 
 entity MyEntity extends(BaseEntity e):
-	data: MyData;
+	data;
 	func: MyFunc;
-	MyEntity(e, MyData);
+	MyEntity(e);
 
 def main():
-	d := MyData(10, 20, 30);
+	d := BaseData(10);
 	MyFunc.print(d);
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
@@ -40,7 +34,7 @@ def main():
 	be := BaseEntity(BaseData(10));
 	be.base();
 
-	me := MyEntity(BaseData(10), MyData(1, 2, 3));
+	me := MyEntity(BaseData(10));
 	me.base();
 	me.print();
 	x = me.get_x();
