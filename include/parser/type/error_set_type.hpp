@@ -26,6 +26,11 @@ class ErrorSetType : public Type {
         return error_node->name;
     }
 
+    std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
+        assert(!is_return_type);
+        return "__flint_type_err";
+    }
+
     /// @var `error_node`
     /// @brief The error node this error type points to
     ErrorNode *const error_node;

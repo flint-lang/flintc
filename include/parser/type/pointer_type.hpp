@@ -27,6 +27,11 @@ class PointerType : public Type {
         return base_type->to_string() + "*";
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret." : "type.";
+        return type_str + to_string();
+    }
+
     /// @var `base_type`
     /// @brief The actual base type of the pointer type
     std::shared_ptr<Type> base_type;

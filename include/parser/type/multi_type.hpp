@@ -1,6 +1,7 @@
 #pragma once
 
 #include "type.hpp"
+
 #include <string>
 
 /// @class `MultiType`
@@ -32,6 +33,11 @@ class MultiType : public Type {
             return "bool8";
         }
         return base_type_str + "x" + std::to_string(width);
+    }
+
+    std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret." : "type.";
+        return type_str + to_string();
     }
 
     /// @var `base_type`

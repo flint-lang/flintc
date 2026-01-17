@@ -25,6 +25,11 @@ class UnknownType : public Type {
         return "Unknown(" + type_str + ")";
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_string = is_return_type ? "type.ret." : "type.";
+        return type_string + type_str;
+    }
+
     /// @var `type_str`
     /// The string representation of the type
     std::string type_str;

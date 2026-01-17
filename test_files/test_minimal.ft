@@ -1,34 +1,8 @@
 use Core.print
 
-use "imported.ft"
-use "imported_2.ft"
-
-func MyFunc requires(BaseData d):
-	def print():
-		print($"b = {d.speed}\n");
-	
-	def get_x() -> i32:
-		return 0;
-
-	def printVec3(DVec3 d3):
-		print($"(x, y, z) = ({d3.x}, {d3.y}, {d3.z})\n");
-
-entity MyEntity extends(BaseEntity e):
-	data;
-	func: MyFunc;
-	MyEntity(e);
+def somefn(i32 x, i32 y) -> (i32, i32):
+	return (x, y);
 
 def main():
-	d := BaseData(10);
-	MyFunc.print(d);
-	x := MyFunc.get_x(d);
-	print($"d.x = {x}\n");
-
-	be := BaseEntity(BaseData(10));
-	be.base();
-
-	me := MyEntity(BaseData(10));
-	me.base();
-	me.print();
-	x = me.get_x();
-	print($"me.get_x() = {x}\n");
+	(x, y) := somefn(10, 20);
+	print($"(x, y) = ({x}, {y})\n");

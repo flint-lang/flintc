@@ -378,6 +378,10 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         IR() = delete;
 
+        /// @function `init_builtin_types`
+        /// @brief Initializes the builtin types like `__flint_type_err`
+        static void init_builtin_types();
+
         /// @function `add_and_or_get_type`
         /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType

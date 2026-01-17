@@ -26,6 +26,11 @@ class FuncType : public Type {
         return func_node->name;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? ".type.ret.func." : ".type.func.";
+        return func_node->file_hash.to_string() + type_str + func_node->name;
+    }
+
     /// @var `func_node`
     /// @brief The func node this func type points to
     FuncNode *const func_node;

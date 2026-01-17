@@ -25,6 +25,11 @@ class RangeType : public Type {
         return "range<" + bound_type->to_string() + ">";
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret." : "type.";
+        return type_str + to_string();
+    }
+
     /// @var `bound_type`
     /// @brief The type of the range bounds
     std::shared_ptr<Type> bound_type;

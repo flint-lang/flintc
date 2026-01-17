@@ -1,6 +1,6 @@
 use Core.print
 
-use "test_minimal.ft"
+use "multifile.ft"
 
 data DVec3:
 	i32 x;

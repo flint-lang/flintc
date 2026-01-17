@@ -69,6 +69,23 @@ class VariantType : public Type {
         }
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        std::string type_str = is_return_type ? "type.ret.variant." : "type.variant.";
+        if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(var_or_list)) {
+            auto &types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
+            for (auto it = types.begin(); it != types.end(); ++it) {
+                if (it != types.begin()) {
+                    type_str += "_";
+                }
+                type_str += (*it)->to_string();
+            }
+        } else {
+            auto &variant_node = std::get<VariantNode *const>(var_or_list);
+            type_str = variant_node->file_hash.to_string() + "." + type_str + variant_node->name;
+        }
+        return type_str;
+    }
+
     /// @function `get_idx_of_type`
     /// @brief Returns the index of the given type in the type list
     ///

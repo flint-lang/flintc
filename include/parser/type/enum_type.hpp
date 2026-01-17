@@ -26,6 +26,10 @@ class EnumType : public Type {
         return enum_node->name;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        return is_return_type ? "type.ret.i32" : "type.i32";
+    }
+
     /// @var `enum_node`
     /// @brief The enum node this enum type points to
     EnumNode *const enum_node;

@@ -28,6 +28,10 @@ class AliasType : public Type {
         return alias;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        return type->get_type_string(is_return_type);
+    }
+
     /// @var `alias`
     /// @brief The alias of the type
     std::string alias;

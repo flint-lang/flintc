@@ -15,8 +15,35 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 
-#include <iterator>
 #include <stack>
+
+void Generator::IR::init_builtin_types() {
+    if (type_map.find("type.str") == type_map.end()) {
+        llvm::StructType *str_type = llvm::StructType::create( //
+            context,                                           //
+            {
+                llvm::Type::getInt64Ty(context),                        // the length / dimensionality
+                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (characters / the lenghts followed by row-major array)
+            },                                                          //
+            "type.str",                                                 //
+            false                                                       // is not packed, its padded
+        );
+        type_map["type.str"] = str_type;
+    }
+    if (type_map.find("__flint_type_err") == type_map.end()) {
+        llvm::Type *str_type = type_map.at("type.str");
+        type_map["__flint_type_err"] = llvm::StructType::create( //
+            context,                                             //
+            {
+                llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
+                llvm::Type::getInt32Ty(context), // ErrValue
+                str_type->getPointerTo()         // ErrMessage
+            },                                   //
+            "__flint_type_err",                  //
+            false                                // is not packed, it's padded
+        );
+    }
+}
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
     llvm::Module *module,                             //
@@ -24,70 +51,38 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     const bool is_return_type,                        //
     const bool is_extern                              //
 ) {
-    std::vector<std::shared_ptr<Type>> types;
-    std::string types_str = is_return_type ? "ret." : "";
-    const auto type_variation = type->get_variation();
-    if (type_variation == Type::Variation::GROUP) {
-        const auto *group_type = type->as<GroupType>();
-        types = group_type->types;
-    } else if (type_variation == Type::Variation::TUPLE) {
-        const auto *tuple_type = type->as<TupleType>();
-        types_str = "tuple.";
-        types = tuple_type->types;
-    } else if (type_variation == Type::Variation::DATA) {
-        const auto *data_type = type->as<DataType>();
-        if (!is_return_type) {
-            types_str = "data." + data_type->data_node->name;
-            for (auto &[_, field_type] : data_type->data_node->fields) {
-                types.emplace_back(field_type);
+    const std::string type_str = type->get_type_string(is_return_type);
+    if (type_map.find(type_str) != type_map.end()) {
+        return type_map.at(type_str);
+    }
+    if (type_str == "type.ret.void") {
+        type_map[type_str] = llvm::StructType::create(context, {type_map.at("__flint_type_err")}, type_str, false);
+        return type_map.at(type_str);
+    }
+    if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_str)) {
+        type_map[type_str] = exists;
+        return exists;
+    }
+    if (is_return_type) {
+        std::vector<llvm::Type *> types_vec;
+        types_vec.emplace_back(type_map.at("__flint_type_err"));
+        if (type->get_variation() == Type::Variation::GROUP) {
+            const GroupType *group_type = type->as<GroupType>();
+            for (const auto &elem : group_type->types) {
+                auto elem_type = get_type(module, elem, is_extern);
+                types_vec.emplace_back(elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first);
             }
         } else {
-            types.emplace_back(type);
+            auto ret_type = get_type(module, type, is_extern);
+            types_vec.emplace_back(ret_type.second.first ? ret_type.first->getPointerTo() : ret_type.first);
         }
-    } else if (type->to_string() != "void") {
-        types.emplace_back(type);
+        type_map[type_str] = llvm::StructType::create(context, types_vec, type_str, false);
+        return type_map.at(type_str);
     }
-    for (auto it = types.begin(); it < types.end(); ++it) {
-        types_str.append((*it)->to_string());
-        if (std::distance(it, types.end()) > 1) {
-            types_str.append("_");
-        }
-    }
-    // If its a return type it can be void, if not it cant
-    assert(is_return_type || types_str != "");
-    if (types_str == "ret.") {
-        types_str = "ret.void";
-    }
-    if (type_map.find(types_str) != type_map.end()) {
-        return type_map[types_str];
-    }
-
-    // Get the return types
-    std::vector<llvm::Type *> types_vec;
-    if (is_return_type) {
-        types_vec.reserve(types.size() + 1);
-        // First element is always the error struct { i32, i32, str* }
-        types_vec.push_back(type_map.at("__flint_type_err"));
-    } else {
-        types_vec.reserve(types.size());
-    }
-    // Rest of the elements are the return types
-    for (const auto &ret_value : types) {
-        auto ret_type = get_type(module, ret_value, is_extern);
-        if (ret_type.second.second) {
-            types_vec.emplace_back(ret_type.first->getPointerTo());
-        } else {
-            types_vec.emplace_back(ret_type.first);
-        }
-    }
-    llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
-    type_map[types_str] = llvm::StructType::create( //
-        context,                                    //
-        return_types_arr,                           //
-        "type." + types_str,                        //
-        false                                       //
-    );
-    return type_map[types_str];
+    auto llvm_type = get_type(module, type, is_extern);
+    assert(llvm_type.first->isStructTy());
+    type_map[type_str] = llvm::cast<llvm::StructType>(llvm_type.first);
+    return type_map.at(type_str);
 }
 
 llvm::Value *Generator::IR::generate_bitwidth_change( //
@@ -159,224 +154,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
-    if (type_variation == Type::Variation::DATA || type_variation == Type::Variation::TUPLE || type_variation == Type::Variation::GROUP) {
-        std::string type_str;
-        switch (type_variation) {
-            default:
-                assert(false);
-                return std::nullopt;
-            case Type::Variation::DATA: {
-                const auto *data_type = type->as<DataType>();
-                // Check if the type already exists in the map and return it directly if it does
-                type_str = "type.data." + data_type->to_string() + ".extern";
-                if (type_map.find(type_str) != type_map.end()) {
-                    return type_map[type_str];
-                }
-                break;
-            }
-            case Type::Variation::TUPLE: {
-                const auto *tuple_type = type->as<TupleType>();
-                // Check if the type already exists in the map and return it directly if it does
-                type_str = "type.tuple." + tuple_type->to_string() + ".extern";
-                if (type_map.find(type_str) != type_map.end()) {
-                    return type_map[type_str];
-                }
-                break;
-            }
-            case Type::Variation::GROUP: {
-                const auto *group_type = type->as<GroupType>();
-                // Check if the type already exists in the map and return it directly if it does
-                type_str = "type.group." + group_type->to_string() + ".extern";
-                if (type_map.find(type_str) != type_map.end()) {
-                    return type_map[type_str];
-                }
-                break;
-            }
-        }
-        // First we need to check the total size of the data structure. If it's bigger than 16 bytes the 16-byte-rule applies (we pass in
-        // the struct by reference or we need to pass in a pointer to the returned struct as first argument)
-        llvm::Type *_struct_type = get_type(module, type, false).first;
-        assert(_struct_type->isStructTy());
-        if (Allocation::get_type_size(module, _struct_type) > 16) {
-            // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
-            return _struct_type->getPointerTo();
-        }
-        // The struct will be packed into n smaller values which are all <= 8 bytes in size
-        // It follows these rules:
-        //
-        // 1. Types of same sizes will always be packed against each other without any padding, until the 8 bytes are full
-        // 2. Types of different sizes will always be packed with padding in between them to keep them properly aligned
-        // 3. Two floats filling up the whole 8 byte budget will result in a two-component vector `<2 x float>`
-        // 4. The minimum size to fit the whole structure in applies
-        //
-        // Some example structures and their corresponding output types:
-        //  { i8, i8, i8, i8, i8 } -> i40
-        //      The four i8 values are packed together into a 40 bit integer
-        //      They do not need any more space, so it stays a 40 bit integer
-        //
-        //  { f32, i32, i8 } -> { i64, i8 }
-        //      The first i64 contains the encoded f32 and the i32, nothing special here
-        //      Then the i8 follows directly, all looks normal here
-        //
-        //  { f32, i32, i8, i8 } -> { i64, i32 }
-        //      The first i64 is just like above, nothing special
-        //      But wait! Why is the second now an i32 and not an i16 as expected??? I have no idea
-        //      Also, is it now [ i8, i8, _, _ ] or [ i8, _, i8, _ ] for the second one??
-        //
-        //  { f32, i32, i8, i8, i8 } -> { i64, i32 }
-        //      This case should be pretty unabmiguous, the i32 should look like [ i8, i8, i8, _ ]
-        //      But because of the previous example i am not so sure any more...
-        //
-        //  { f32, i32, i8, i8, i8, i8 } -> { i64, i32 }
-        //      This is absolutely unambiguous
-        //
-        //  { f32, i32, i8, i8, i8, i8, i8 } -> { i64, i64 }
-        //      Okay interesting, the second value is not `i40` any more...just like in the above cases, actually...
-        //      So the second structure should look like [ i8, i8, i8, i8, i8, _, _, _ ] now
-        //      This could also describe what happened above...
-        //      i8 works fine, but i16 and i24 become i32.
-        //      This tells me that only i8, i32 and i64 are valid values for the second value in the struct
-        //
-        //  { i8, i8, i8, f32, f32, i32 } -> { i64, i64 }
-        //      The first three bytes of the first i64 contain the three i8 values
-        //      The fourth byte of the first i64 is padding
-        //      The next four bytes contain the f32 encoded into it
-        //      The first four bytes of the second i64 contain the second f32 encoded
-        //      The last four bytes of the second i64 contain the i32
-        //      [ u8, u8, u8, _, f32 ], [ f32, i32 ]
-        //
-        //  { i8, i32, f32, i8 } -> { i64, i64 }
-        //      The structure looks like this i would assume
-        //      [ i8, _, _, _, i32 ], [ f32, i8, _, _, _ ]
-        //
-        //  { f32, f32, i32 } -> { <2 x f32>, i32 }
-        //      The two float values become packed together into a two-component vector
-        //      The i32 stays untouched
-        //
-        //  { i32, i32, i32 } -> { i64, i32 }
-        //      i32s are not packed into vectors like floats, they are packed into an i64
-
-        // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
-        // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
-        // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
-        // applies
-        // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
-        // sub-64-byte packed results like packing 5 u8 values into one i40.
-        llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-        std::vector<llvm::Type *> elem_types = struct_type->elements();
-        std::array<std::stack<unsigned int>, 2> stacks;
-        unsigned int offset = 0;
-        unsigned int first_size = 0;
-
-        size_t elem_idx = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
-            // We can only pack the element into the stack if there is enough space left
-            if (8 - offset < elem_size) {
-                break;
-            }
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[0].push(0);
-                offset += elem_size;
-                first_size += elem_size;
-                continue;
-            }
-            // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
-            // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
-            // size.
-            // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
-            // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            if (elem_offset == 8) {
-                // This element does not fit into this stack, we need to put it into the next stack
-                break;
-            }
-            stacks[0].push(elem_offset);
-            offset = elem_offset + elem_size;
-            first_size = elem_offset + elem_size;
-        }
-        offset = 0;
-        for (; elem_idx < elem_types.size(); elem_idx++) {
-            size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
-            // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
-            // applied
-            assert(8 - offset >= elem_size);
-            // If the current offset is 0 we can simply put in the element into the stack without further checks
-            if (offset == 0) {
-                stacks[1].push(0);
-                offset += elem_size;
-                continue;
-            }
-            uint8_t elem_offset = offset;
-            if (offset % elem_size != 0) {
-                elem_offset = ((elem_size + offset) / elem_size) * elem_size;
-            }
-            // This element does not fit into this stack, this should not happen since it's the last stack
-            assert(elem_offset != 8);
-            stacks[1].push(elem_offset);
-            offset = elem_offset + elem_size;
-        }
-        assert(elem_idx == elem_types.size());
-        elem_idx = 0;
-        // Now we reach the second phase, we have figured out how to put the elements into the stacks, now we can create the types
-        if (stacks[1].empty()) {
-            // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
-            // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
-            if (stacks[0].size() == first_size) {
-                return llvm::Type::getIntNTy(context, first_size * 8);
-            } else if (stacks[0].size() == 1) {
-                return elem_types.front();
-            } else if (stacks[0].size() == 2) {
-                if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
-                    return llvm::VectorType::get(elem_types.front(), 2, false);
-                }
-            }
-        }
-        // Because we only need to fill two 8-byte containers we can have an array here again
-        std::array<llvm::Type *, 2> types;
-        types[0] = nullptr;
-        types[1] = nullptr;
-        if (stacks[0].size() == 1) {
-            if (elem_types.front()->isFloatingPointTy()) {
-                types[0] = llvm::Type::getDoubleTy(context);
-            } else {
-                types[0] = llvm::Type::getInt64Ty(context);
-            }
-        } else if (stacks[0].size() == 2) {
-            if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
-                types[0] = llvm::VectorType::get(elem_types.front(), 2, false);
-            } else {
-                types[0] = llvm::Type::getInt64Ty(context);
-            }
-        } else {
-            types[0] = llvm::Type::getInt64Ty(context);
-        }
-        if (stacks[1].size() == 1) {
-            types[1] = elem_types.at(stacks[0].size());
-        } else if (stacks[1].size() == 2) {
-            if (elem_types.at(stacks[0].size())->isFloatingPointTy() && elem_types.at(stacks[0].size() + 1)->isFloatingPointTy()) {
-                types[1] = llvm::VectorType::get(elem_types.front(), 2, false);
-            } else {
-                types[1] = llvm::Type::getInt64Ty(context);
-            }
-        } else {
-            types[1] = llvm::Type::getInt64Ty(context);
-        }
-        assert(types[0] != nullptr);
-        assert(types[1] != nullptr);
-
-        // Create a struct of the computed stack types
-        std::vector<llvm::Type *> types_vec;
-        types_vec.push_back(types[0]);
-        types_vec.push_back(types[1]);
-        llvm::StructType *out_struct = llvm::StructType::create(context, types_vec, type_str, false);
-        type_map[type_str] = out_struct;
-        return out_struct;
-    } else if (type_variation == Type::Variation::MULTI) {
+    if (type_variation == Type::Variation::MULTI) {
         const auto *multi_type = type->as<MultiType>();
         // Let's first look at how each multi-type behaves, considereing the 16 byte rule as well
         // They follow the same rules as above, as multi-types are passed as structs into FIP functions
@@ -449,7 +227,227 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         }
         return type_map.at(type_str);
     }
-    return std::nullopt;
+
+    std::string type_str;
+    switch (type_variation) {
+        default:
+            // This type does not need special handling as an extern type
+            return std::nullopt;
+        case Type::Variation::DATA: {
+            const auto *data_type = type->as<DataType>();
+            // Check if the type already exists in the map and return it directly if it does
+            type_str = data_type->get_type_string() + ".extern";
+            if (type_map.find(type_str) != type_map.end()) {
+                return type_map[type_str];
+            }
+            break;
+        }
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type->as<TupleType>();
+            // Check if the type already exists in the map and return it directly if it does
+            type_str = tuple_type->get_type_string() + ".extern";
+            if (type_map.find(type_str) != type_map.end()) {
+                return type_map[type_str];
+            }
+            break;
+        }
+        case Type::Variation::GROUP: {
+            const auto *group_type = type->as<GroupType>();
+            // Check if the type already exists in the map and return it directly if it does
+            type_str = group_type->get_type_string() + ".extern";
+            if (type_map.find(type_str) != type_map.end()) {
+                return type_map[type_str];
+            }
+            break;
+        }
+    }
+    if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_str)) {
+        type_map[type_str] = exists;
+        return exists;
+    }
+    // First we need to check the total size of the data structure. If it's bigger than 16 bytes the 16-byte-rule applies (we pass in
+    // the struct by reference or we need to pass in a pointer to the returned struct as first argument)
+    llvm::Type *_struct_type = get_type(module, type, false).first;
+    assert(_struct_type->isStructTy());
+    if (Allocation::get_type_size(module, _struct_type) > 16) {
+        // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
+        return _struct_type->getPointerTo();
+    }
+    // The struct will be packed into n smaller values which are all <= 8 bytes in size
+    // It follows these rules:
+    //
+    // 1. Types of same sizes will always be packed against each other without any padding, until the 8 bytes are full
+    // 2. Types of different sizes will always be packed with padding in between them to keep them properly aligned
+    // 3. Two floats filling up the whole 8 byte budget will result in a two-component vector `<2 x float>`
+    // 4. The minimum size to fit the whole structure in applies
+    //
+    // Some example structures and their corresponding output types:
+    //  { i8, i8, i8, i8, i8 } -> i40
+    //      The four i8 values are packed together into a 40 bit integer
+    //      They do not need any more space, so it stays a 40 bit integer
+    //
+    //  { f32, i32, i8 } -> { i64, i8 }
+    //      The first i64 contains the encoded f32 and the i32, nothing special here
+    //      Then the i8 follows directly, all looks normal here
+    //
+    //  { f32, i32, i8, i8 } -> { i64, i32 }
+    //      The first i64 is just like above, nothing special
+    //      But wait! Why is the second now an i32 and not an i16 as expected??? I have no idea
+    //      Also, is it now [ i8, i8, _, _ ] or [ i8, _, i8, _ ] for the second one??
+    //
+    //  { f32, i32, i8, i8, i8 } -> { i64, i32 }
+    //      This case should be pretty unabmiguous, the i32 should look like [ i8, i8, i8, _ ]
+    //      But because of the previous example i am not so sure any more...
+    //
+    //  { f32, i32, i8, i8, i8, i8 } -> { i64, i32 }
+    //      This is absolutely unambiguous
+    //
+    //  { f32, i32, i8, i8, i8, i8, i8 } -> { i64, i64 }
+    //      Okay interesting, the second value is not `i40` any more...just like in the above cases, actually...
+    //      So the second structure should look like [ i8, i8, i8, i8, i8, _, _, _ ] now
+    //      This could also describe what happened above...
+    //      i8 works fine, but i16 and i24 become i32.
+    //      This tells me that only i8, i32 and i64 are valid values for the second value in the struct
+    //
+    //  { i8, i8, i8, f32, f32, i32 } -> { i64, i64 }
+    //      The first three bytes of the first i64 contain the three i8 values
+    //      The fourth byte of the first i64 is padding
+    //      The next four bytes contain the f32 encoded into it
+    //      The first four bytes of the second i64 contain the second f32 encoded
+    //      The last four bytes of the second i64 contain the i32
+    //      [ u8, u8, u8, _, f32 ], [ f32, i32 ]
+    //
+    //  { i8, i32, f32, i8 } -> { i64, i64 }
+    //      The structure looks like this i would assume
+    //      [ i8, _, _, _, i32 ], [ f32, i8, _, _, _ ]
+    //
+    //  { f32, f32, i32 } -> { <2 x f32>, i32 }
+    //      The two float values become packed together into a two-component vector
+    //      The i32 stays untouched
+    //
+    //  { i32, i32, i32 } -> { i64, i32 }
+    //      i32s are not packed into vectors like floats, they are packed into an i64
+
+    // We implement it as a two-phase approach. In the first phase we go through all elements and track indexing and needed padding etc
+    // and put them onto a stack with the count of total elements in the stack and each element in the stack represents the offset of
+    // the element within the output 8-byte pack, so we create two stacks because for data greater than 16 bytes the 16-byte-rule
+    // applies
+    // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
+    // sub-64-byte packed results like packing 5 u8 values into one i40.
+    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    std::array<std::stack<unsigned int>, 2> stacks;
+    unsigned int offset = 0;
+    unsigned int first_size = 0;
+
+    size_t elem_idx = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+        // We can only pack the element into the stack if there is enough space left
+        if (8 - offset < elem_size) {
+            break;
+        }
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[0].push(0);
+            offset += elem_size;
+            first_size += elem_size;
+            continue;
+        }
+        // Now we simply need to check where in the 8 byte structure we need to put the elements in. We can do this by calculating the
+        // padding based on the type alignment, the alignment is just the elem_size in our case because we work with types <= 8 bytes in
+        // size.
+        // If the offset is divisible by the element size it does not need to be changed. If it is not divisible we need to clamp it to
+        // the next divisible offset value, so if current offset is 2 but element size is 4 the offset needs to be clamped to 4
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        if (elem_offset == 8) {
+            // This element does not fit into this stack, we need to put it into the next stack
+            break;
+        }
+        stacks[0].push(elem_offset);
+        offset = elem_offset + elem_size;
+        first_size = elem_offset + elem_size;
+    }
+    offset = 0;
+    for (; elem_idx < elem_types.size(); elem_idx++) {
+        size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
+        // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
+        // applied
+        assert(8 - offset >= elem_size);
+        // If the current offset is 0 we can simply put in the element into the stack without further checks
+        if (offset == 0) {
+            stacks[1].push(0);
+            offset += elem_size;
+            continue;
+        }
+        uint8_t elem_offset = offset;
+        if (offset % elem_size != 0) {
+            elem_offset = ((elem_size + offset) / elem_size) * elem_size;
+        }
+        // This element does not fit into this stack, this should not happen since it's the last stack
+        assert(elem_offset != 8);
+        stacks[1].push(elem_offset);
+        offset = elem_offset + elem_size;
+    }
+    assert(elem_idx == elem_types.size());
+    elem_idx = 0;
+    // Now we reach the second phase, we have figured out how to put the elements into the stacks, now we can create the types
+    if (stacks[1].empty()) {
+        // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
+        // we pack multiple u8 values into one, for them we can get even i40, i48 or i56 results
+        if (stacks[0].size() == first_size) {
+            return llvm::Type::getIntNTy(context, first_size * 8);
+        } else if (stacks[0].size() == 1) {
+            return elem_types.front();
+        } else if (stacks[0].size() == 2) {
+            if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
+                return llvm::VectorType::get(elem_types.front(), 2, false);
+            }
+        }
+    }
+    // Because we only need to fill two 8-byte containers we can have an array here again
+    std::array<llvm::Type *, 2> types;
+    types[0] = nullptr;
+    types[1] = nullptr;
+    if (stacks[0].size() == 1) {
+        if (elem_types.front()->isFloatingPointTy()) {
+            types[0] = llvm::Type::getDoubleTy(context);
+        } else {
+            types[0] = llvm::Type::getInt64Ty(context);
+        }
+    } else if (stacks[0].size() == 2) {
+        if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
+            types[0] = llvm::VectorType::get(elem_types.front(), 2, false);
+        } else {
+            types[0] = llvm::Type::getInt64Ty(context);
+        }
+    } else {
+        types[0] = llvm::Type::getInt64Ty(context);
+    }
+    if (stacks[1].size() == 1) {
+        types[1] = elem_types.at(stacks[0].size());
+    } else if (stacks[1].size() == 2) {
+        if (elem_types.at(stacks[0].size())->isFloatingPointTy() && elem_types.at(stacks[0].size() + 1)->isFloatingPointTy()) {
+            types[1] = llvm::VectorType::get(elem_types.front(), 2, false);
+        } else {
+            types[1] = llvm::Type::getInt64Ty(context);
+        }
+    } else {
+        types[1] = llvm::Type::getInt64Ty(context);
+    }
+    assert(types[0] != nullptr);
+    assert(types[1] != nullptr);
+
+    // Create a struct of the computed stack types
+    std::vector<llvm::Type *> types_vec;
+    types_vec.push_back(types[0]);
+    types_vec.push_back(types[1]);
+    llvm::StructType *out_struct = llvm::StructType::create(context, types_vec, type_str, false);
+    type_map[type_str] = out_struct;
+    return out_struct;
 }
 
 std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
@@ -470,29 +468,21 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
         case Type::Variation::ARRAY: {
             // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
-            if (type_map.find("type.str") == type_map.end()) {
-                llvm::StructType *str_type = llvm::StructType::create( //
-                    context,                                           //
-                    {
-                        llvm::Type::getInt64Ty(context),                        // the dimensionality
-                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (the lenghts followed by the row-major array)
-                    },                                                          //
-                    "type.str",
-                    false // is not packed, its padded
-                );
-                type_map["type.str"] = str_type;
-            }
             return {type_map.at("type.str")->getPointerTo(), {false, false}};
         }
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();
             // Check if its a known data type
-            const std::string type_str = "type.data." + data_type->data_node->name;
+            const std::string type_str = data_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
                 return {type_map.at(type_str), {true, true}};
             }
-            // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
+            if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_str)) {
+                type_map[type_str] = exists;
+                return {exists, {true, true}};
+            }
             llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
+            // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
             type_map[type_str] = struct_type;
             // Now process the field types
             std::vector<llvm::Type *> field_types;
@@ -511,7 +501,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         case Type::Variation::ENTITY: {
             const auto *entity_type = type->as<EntityType>();
             // Check if it's a known entity type
-            const std::string type_str = "type.entity." + entity_type->entity_node->name;
+            const std::string type_str = entity_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
                 return {type_map.at(type_str), {false, false}};
             }
@@ -522,33 +512,23 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
             }
-            llvm::StructType *struct_type = llvm::StructType::create(context, field_types, type_str, false);
+            llvm::StructType *struct_type = llvm::StructType::getTypeByName(context, type_str);
+            if (struct_type == nullptr) {
+                struct_type = llvm::StructType::create(context, field_types, type_str, false);
+            }
             type_map[type_str] = struct_type;
             return {struct_type, {false, false}};
         }
         case Type::Variation::ENUM:
             return {llvm::Type::getInt32Ty(context), {false, false}};
         case Type::Variation::ERROR_SET:
-            if (type_map.find("__flint_type_err") == type_map.end()) {
-                llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
-                type_map["__flint_type_err"] = llvm::StructType::create( //
-                    context,                                             //
-                    {
-                        llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
-                        llvm::Type::getInt32Ty(context), // ErrValue
-                        str_type->getPointerTo()         // ErrMessage
-                    },                                   //
-                    "__flint_type_err",                  //
-                    false                                // is not packed, it's padded
-                );
-            }
             return {type_map.at("__flint_type_err"), {false, true}};
         case Type::Variation::FUNC:
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
-            const std::string type_str = "type.tuple." + type->to_string();
+            const std::string type_str = group_type->get_type_string();
             std::vector<llvm::Type *> type_vector;
             for (const auto &tup_type : group_type->types) {
                 auto pair = get_type(module, tup_type);
@@ -559,7 +539,10 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             }
             if (type_map.find(type_str) == type_map.end()) {
                 llvm::ArrayRef<llvm::Type *> type_array(type_vector);
-                llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, type_str, false);
+                llvm::StructType *llvm_tuple_type = llvm::StructType::getTypeByName(context, type_str);
+                if (llvm_tuple_type == nullptr) {
+                    llvm_tuple_type = llvm::StructType::create(context, type_array, type_str, false);
+                }
                 type_map[type_str] = llvm_tuple_type;
             }
             return {type_map.at(type_str), {false, true}};
@@ -575,16 +558,16 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
-            const std::string opt_str = type->to_string();
+            const std::string opt_str = type->get_type_string();
             if (type_map.find(opt_str) == type_map.end()) {
                 auto pair = get_type(module, optional_type->base_type);
                 if (pair.second.first) {
                     pair.first = pair.first->getPointerTo();
                 }
-                llvm::StructType *llvm_opt_type = llvm::StructType::create(                                  //
-                    context, {llvm::Type::getInt1Ty(context), pair.first}, "type.optional." + opt_str, false //
+                llvm::StructType *opt_type = llvm::StructType::create(                    //
+                    context, {llvm::Type::getInt1Ty(context), pair.first}, opt_str, false //
                 );
-                type_map[opt_str] = llvm_opt_type;
+                type_map[opt_str] = opt_type;
             }
             return {type_map.at(opt_str), {false, true}};
         }
@@ -597,18 +580,6 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             const auto *primitive_type = type->as<PrimitiveType>();
             if (primitive_type->type_name == "__flint_type_str_struct") {
                 // A string is a struct of type 'type { i64, [0 x i8] }'
-                if (type_map.find("type.str") == type_map.end()) {
-                    llvm::StructType *str_type = llvm::StructType::create( //
-                        context,                                           //
-                        {
-                            llvm::Type::getInt64Ty(context),                        // len of string
-                            llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                        },                                                          //
-                        "type.str",
-                        false // is not packed, its padded
-                    );
-                    type_map["type.str"] = str_type;
-                }
                 return {type_map.at("type.str"), {false, false}};
             }
             if (primitive_type->type_name == "__flint_type_str_lit") {
@@ -643,18 +614,6 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                             return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
                         }
                         // A string is a struct of type 'type { i64, [0 x i8] }'
-                        if (type_map.find("type.str") == type_map.end()) {
-                            llvm::StructType *str_type = llvm::StructType::create( //
-                                context,                                           //
-                                {
-                                    llvm::Type::getInt64Ty(context),                        // len of string
-                                    llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data
-                                },                                                          //
-                                "type.str",
-                                false // is not packed, its padded
-                            );
-                            type_map["type.str"] = str_type;
-                        }
                         return {type_map.at("type.str")->getPointerTo(), {false, false}};
                     }
                     case TOK_BOOL:
@@ -670,7 +629,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             break;
         case Type::Variation::TUPLE: {
             const auto *tuple_type = type->as<TupleType>();
-            const std::string tuple_str = "type.tuple." + type->to_string();
+            const std::string tuple_str = type->get_type_string();
             std::vector<llvm::Type *> type_vector;
             for (const auto &tup_type : tuple_type->types) {
                 auto pair = get_type(module, tup_type);
@@ -692,22 +651,9 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         case Type::Variation::VARIANT: {
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {
-                if (type_map.find("__flint_type_err") == type_map.end()) {
-                    llvm::Type *str_type = get_type(module, Type::get_primitive_type("str")).first;
-                    type_map["__flint_type_err"] = llvm::StructType::create( //
-                        context,                                             //
-                        {
-                            llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
-                            llvm::Type::getInt32Ty(context), // ErrValue
-                            str_type->getPointerTo()         // ErrMessage
-                        },                                   //
-                        "__flint_type_err",                  //
-                        false                                // is not packed, it's padded
-                    );
-                }
                 return {type_map.at("__flint_type_err"), {false, true}};
             }
-            const std::string var_str = type->to_string();
+            const std::string var_str = type->get_type_string();
             // Check if its a known data type
             if (type_map.find(var_str) == type_map.end()) {
                 unsigned int max_size = 0;
@@ -734,7 +680,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                         llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
                         llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
                     },                                                                 //
-                    "type.variant." + var_str,
+                    var_str,
                     false // is not packed, its padded
                 );
                 type_map[var_str] = variant_struct_type;

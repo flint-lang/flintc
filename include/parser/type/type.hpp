@@ -89,6 +89,15 @@ class Type {
     /// @return `std::strint` The string representation of this type
     virtual std::string to_string() const = 0;
 
+    /// @function `get_type_string`
+    /// @brief Returns the type string of the type used as the key for the `type_map`. It is placed here because the key building logic was
+    /// scattered and duplicated across the codebase, which made it easy to introduce mismatches to get / set the types in the type map
+    ///
+    /// @param `is_return_type` Whether this type is used as a return type, in that case the created string differs
+    /// @return `std::string` The string key of the `type_map` of the generator. It is also needed to make the whole type map approach more
+    /// robust in terms of same-named types from different files
+    virtual std::string get_type_string(const bool is_return_type = false) const = 0;
+
     /// @function `init_types`
     /// @brief Initializes all primitive types to be ready to be used
     /// @note This function only needs to be called once at the start of the parsing phase

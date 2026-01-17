@@ -43,6 +43,19 @@ class TupleType : public Type {
         return type_str;
     }
 
+    std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
+        // Tuples cannot be returned from functions directly
+        assert(!is_return_type);
+        std::string type_str = "type.tuple.";
+        for (size_t i = 0; i < types.size(); i++) {
+            if (i > 0) {
+                type_str += "_";
+            }
+            type_str += types.at(i)->to_string();
+        }
+        return type_str;
+    }
+
     /// @var `types`
     /// @brief The types of this group
     std::vector<std::shared_ptr<Type>> types;

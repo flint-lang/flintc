@@ -26,6 +26,11 @@ class DataType : public Type {
         return data_node->name;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? ".type.ret.data." : ".type.data.";
+        return data_node->file_hash.to_string() + type_str + data_node->name;
+    }
+
     /// @var `data_node`
     /// @brief The data node this data type points to
     DataNode *const data_node;

@@ -43,6 +43,20 @@ class GroupType : public Type {
         return type_str;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        std::string type_str = is_return_type ? "type.ret." : "type.tuple.";
+        if (types.empty()) {
+            return type_str + "void";
+        }
+        for (size_t i = 0; i < types.size(); i++) {
+            if (i > 0) {
+                type_str += "_";
+            }
+            type_str += types.at(i)->to_string();
+        }
+        return type_str;
+    }
+
     /// @var `types`
     /// @brief The types of this group
     std::vector<std::shared_ptr<Type>> types;

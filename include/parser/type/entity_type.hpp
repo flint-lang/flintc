@@ -26,6 +26,11 @@ class EntityType : public Type {
         return entity_node->name;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? ".type.ret.entity." : ".type.entity.";
+        return entity_node->file_hash.to_string() + type_str + entity_node->name;
+    }
+
     /// @var `entity_node`
     /// @brief The entity node this entity type points to
     EntityNode *const entity_node;

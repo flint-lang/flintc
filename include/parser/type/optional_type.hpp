@@ -27,6 +27,11 @@ class OptionalType : public Type {
         return base_type->to_string() + "?";
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret.optional." : "type.optional.";
+        return type_str + to_string();
+    }
+
     /// @var `base_type`
     /// @brief The actual base type of the optional type
     std::shared_ptr<Type> base_type;

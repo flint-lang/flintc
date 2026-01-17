@@ -25,6 +25,11 @@ class PrimitiveType : public Type {
         return type_name;
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret." : "type.";
+        return type_str + type_name;
+    }
+
     /// @var `type_name`
     /// @brief The name of the primitive type
     std::string type_name;

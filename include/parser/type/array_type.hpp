@@ -31,6 +31,11 @@ class ArrayType : public Type {
         return type->to_string() + "[" + std::string(dimensionality - 1, ',') + "]";
     }
 
+    std::string get_type_string(const bool is_return_type = false) const override {
+        const std::string type_str = is_return_type ? "type.ret.str" : "type.str";
+        return type_str;
+    }
+
     /// @var `dimensionality`
     /// @brief The dimensionality of the array
     size_t dimensionality;

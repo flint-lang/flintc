@@ -243,6 +243,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
 
+    // First initialize all builtin types
+    IR::init_builtin_types();
+
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
