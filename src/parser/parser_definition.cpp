@@ -6,7 +6,6 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
@@ -14,9 +13,9 @@
 #include <algorithm>
 #include <optional>
 
-std::optional<FunctionNode> Parser::create_function(                               //
-    const token_slice &definition,                                                 //
-    const std::optional<std::pair<std::string, required_data_type>> &required_data //
+std::optional<FunctionNode> Parser::create_function(                            //
+    const token_slice &definition,                                              //
+    const std::optional<std::pair<std::string, required_data_t>> &required_data //
 ) {
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
@@ -423,11 +422,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     return DataNode(file_hash, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
 }
 
-std::optional<FuncNode> Parser::create_func( //
-    FileNode &file_node,                     //
-    const token_slice &definition,           //
-    const std::vector<Line> &body            //
-) {
+std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
     PROFILE_CUMULATIVE("Parser::create_func");
     token_slice token_mut = definition;
     assert(token_mut.first->token == TOK_FUNC);
@@ -435,7 +430,7 @@ std::optional<FuncNode> Parser::create_func( //
     assert(token_mut.first->token == TOK_IDENTIFIER);
     const std::string func_name(token_mut.first->lexme);
     token_mut.first++;
-    required_data_type required_data;
+    required_data_t required_data;
     if (token_mut.first->token == TOK_REQUIRES) {
         auto tok_it = token_mut.first + 1;
         assert(tok_it->token == TOK_LEFT_PAREN);
@@ -446,8 +441,10 @@ std::optional<FuncNode> Parser::create_func( //
             if (!required_data_type.has_value()) {
                 return std::nullopt;
             }
-            if (required_data_type.value()->get_variation() != Type::Variation::DATA) {
-                // Only data is allowed to be required by a func module
+            if (required_data_type.value()->get_variation() != Type::Variation::DATA &&
+                required_data_type.value()->get_variation() != Type::Variation::UNKNOWN) {
+                // Only data is allowed to be required by a func module. If it's unknown then the type will be resolved later, but then also
+                // only data types are allowed
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -461,40 +458,6 @@ std::optional<FuncNode> Parser::create_func( //
     }
 
     std::vector<FunctionNode *> functions;
-    std::vector<Line> body_mut = body;
-    while (!body_mut.empty()) {
-        const Line function_definition_line = body_mut.front();
-        body_mut.erase(body_mut.begin());
-        if (body_mut.empty()) {
-            // Function has no body
-            // TODO: When "virtual" (linked) functions are implemented this case could be allowed if the function is only a definition and
-            // not a declaration
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        std::vector<Line> function_body_lines;
-        for (auto it = body_mut.begin(); it != body_mut.end();) {
-            if (it->indent_lvl > function_definition_line.indent_lvl) {
-                function_body_lines.emplace_back(*it);
-                body_mut.erase(it);
-                continue;
-            }
-            break;
-        }
-        if (function_body_lines.empty()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        std::pair<std::string, required_data_type> required_data_pair{func_name, required_data};
-        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair);
-        if (!fn.has_value()) {
-            return std::nullopt;
-        }
-        FunctionNode *added_function = file_node.add_function(fn.value());
-        add_open_function({added_function, function_body_lines});
-        functions.emplace_back(added_function);
-    }
-
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
@@ -509,10 +472,7 @@ std::optional<FuncNode> Parser::create_func( //
     );
 }
 
-std::optional<EntityNode> Parser::create_entity( //
-    const token_slice &definition,               //
-    std::vector<Line> &body                      //
-) {
+std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
     PROFILE_CUMULATIVE("Parser::create_entity");
     auto tok_it = definition.first;
     assert(tok_it->token == TOK_ENTITY);
@@ -520,7 +480,7 @@ std::optional<EntityNode> Parser::create_entity( //
     assert(tok_it->token == TOK_IDENTIFIER);
     const std::string entity_name(tok_it->lexme);
     tok_it++;
-    std::vector<std::pair<const EntityNode *, std::string>> parent_entities;
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> parent_entities;
     if (tok_it->token == TOK_EXTENDS) {
         tok_it++;
         assert(tok_it->token == TOK_LEFT_PAREN);
@@ -531,260 +491,25 @@ std::optional<EntityNode> Parser::create_entity( //
             if (!extended_entity_type.has_value()) {
                 return std::nullopt;
             }
-            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY) {
-                // Only entities are allowed to be extended by a entities
+            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY &&
+                extended_entity_type.value()->get_variation() != Type::Variation::UNKNOWN) {
+                // Entities are only allowed to be extended from other entities
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            // The next token is the required data accessor name
+            // The next token is the extended entity accessor name
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
-            const auto *entity_node = extended_entity_type.value()->as<EntityType>()->entity_node;
-            parent_entities.emplace_back(entity_node, access_name);
+            parent_entities.emplace_back(extended_entity_type.value(), access_name);
             tok_it += 2;
         }
         assert(tok_it != definition.second);
     }
 
-    // Add all data modules and func modules of all parent entities to the data modules list in the order defined in the `extends`
-    // definition
     std::vector<DataNode *> data_modules;
     std::vector<FuncNode *> func_modules;
-    for (const auto &parent_entity : parent_entities) {
-        for (DataNode *data_node : parent_entity.first->data_modules) {
-            if (std::find(data_modules.begin(), data_modules.end(), data_node) == data_modules.end()) {
-                data_modules.emplace_back(data_node);
-            }
-        }
-        for (FuncNode *func_node : parent_entity.first->func_modules) {
-            if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
-                func_modules.emplace_back(func_node);
-            }
-        }
-    }
-
-    // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first define
-    // all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first and then func
-    // modules
-
-    // Add all data modules defined in the `data` section of the entity
-    auto line_it = body.begin();
-    tok_it = line_it->tokens.first;
-    assert(tok_it->token == TOK_DATA);
-    tok_it++;
-    bool semicolon_found = false;
-    if (tok_it->token == TOK_COLON) {
-        // This entity provides some data
-        tok_it++;
-        while (line_it != body.end()) {
-            while (tok_it != line_it->tokens.second) {
-                switch (tok_it->token) {
-                    default:
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    case TOK_COMMA:
-                        break;
-                    case TOK_SEMICOLON:
-                        semicolon_found = true;
-                        break;
-                    case TOK_IDENTIFIER: {
-                        auto type = file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                        if (!type.has_value()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                        [[fallthrough]];
-                    }
-                    case TOK_TYPE: {
-                        if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        auto *data_node = tok_it->type->as<DataType>()->data_node;
-                        if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
-                            // Redefinition of data module in this entity definition (potentially from one extended entity?)
-                            // TODO: This potentially could only be a warning too
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        data_modules.emplace_back(data_node);
-                        break;
-                    }
-                }
-                if (semicolon_found) {
-                    break;
-                }
-                tok_it++;
-            }
-            line_it++;
-            tok_it = line_it->tokens.first;
-            if (semicolon_found) {
-                break;
-            }
-        }
-    } else {
-        // This entity does not provide any data on it's own. This is fine if it extends another entity, otherwise this would be an error
-        assert(tok_it->token == TOK_SEMICOLON);
-        assert(!parent_entities.empty());
-        assert(!data_modules.empty());
-        line_it++;
-        tok_it = line_it->tokens.first;
-    }
-    if (line_it == body.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
-    tok_it = line_it->tokens.first;
-    assert(tok_it->token == TOK_FUNC);
-    tok_it++;
-    assert(tok_it->token == TOK_COLON);
-    tok_it++;
-    semicolon_found = false;
-    while (line_it != body.end()) {
-        while (tok_it != line_it->tokens.second) {
-            switch (tok_it->token) {
-                default:
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                case TOK_COMMA:
-                    break;
-                case TOK_SEMICOLON:
-                    semicolon_found = true;
-                    break;
-                case TOK_IDENTIFIER: {
-                    auto type = file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                    if (!type.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                    [[fallthrough]];
-                }
-                case TOK_TYPE: {
-                    if (tok_it->type->get_variation() != Type::Variation::FUNC) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    auto *func_node = tok_it->type->as<FuncType>()->func_node;
-                    if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
-                        // Redefinition of func module in this entity definition (potentially from one extended entity?)
-                        // TODO: This potentially could only be a warning too
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    func_modules.emplace_back(func_node);
-                    break;
-                }
-            }
-            if (semicolon_found) {
-                break;
-            }
-            tok_it++;
-        }
-        line_it++;
-        tok_it = line_it->tokens.first;
-        if (semicolon_found) {
-            break;
-        }
-    }
-    if (line_it == body.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
-    if (tok_it->token == TOK_LINK) {
-        // TODO: Parse all links once links are implemented
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
-    }
-
     std::vector<size_t> constructor_order;
-    assert(tok_it->token == TOK_IDENTIFIER);
-    if (tok_it->lexme != entity_name) {
-        // Incorrect constructor name
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    tok_it++;
-    assert(tok_it->token == TOK_LEFT_PAREN);
-    tok_it++;
-    std::vector<DataNode *> constructed_data;
-    while (tok_it != line_it->tokens.second && tok_it->token != TOK_RIGHT_PAREN) {
-        switch (tok_it->token) {
-            default:
-                // Not allowed token in constructor
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            case TOK_IDENTIFIER: {
-                const std::string identifier(tok_it->lexme);
-                if (!parent_entities.empty()) {
-                    // Search if the identifier is one of the parent entities' accessors
-                    bool parent_added = false;
-                    for (const auto &[parent_entity, accessor] : parent_entities) {
-                        if (identifier == accessor) {
-                            // For now we simply add the parent's data modules to the data constructor list and to the data modules of this
-                            // entity. If any data module is defined duplicately afterwards (explicit, below) then an error will be thrown.
-                            // If duplicates arise from extended entities then it is simply skipped to the next token iteration
-                            // TODO: Update change the constructors of extended entities to be required to pass in an entity at the position
-                            // of the extended entity accessor. For now the simpler approach is chosen.
-                            for (DataNode *data_node : parent_entity->data_modules) {
-                                if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                                    // Duplicate data constructor
-                                    THROW_BASIC_ERR(ERR_PARSING);
-                                    return std::nullopt;
-                                }
-                                constructed_data.emplace_back(data_node);
-                                auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
-                                constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
-                            }
-                            parent_added = true;
-                        }
-                    }
-                    if (parent_added) {
-                        tok_it++;
-                        break;
-                    }
-                }
-                auto type = file_node_ptr->file_namespace->get_type_from_str(identifier);
-                if (!type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                [[fallthrough]];
-            }
-            case TOK_TYPE: {
-                if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                    // Only data types allowed in constructor
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                DataNode *data_node = tok_it->type->as<DataType>()->data_node;
-                auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
-                if (idx == data_modules.end()) {
-                    // Unknown data module
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                // Check if the module has already been added to the constructed data
-                if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                    // Duplicate data type
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                constructed_data.emplace_back(data_node);
-                constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
-                [[fallthrough]];
-            }
-            case TOK_COMMA:
-                tok_it++;
-                break;
-        }
-    }
-
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;

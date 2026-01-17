@@ -78,7 +78,15 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     if (PRINT_DEP_TREE) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }
-    bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
+    bool parsed_successful = Parser::parse_all_open_func_modules(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_entities(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
         return std::nullopt;
     }

@@ -1,14 +1,17 @@
 use Core.print
 
-data MyData:
-	i32 x;
-	i32 y;
-	i32 z;
-	MyData(x, y, z);
+use "imported_2.ft"
 
-func MyFunc requires(MyData d):
-	def print():
-		print($"d = ({d.x}, {d.y}, {d.z})\n");
-	
-	def get_x() -> i32:
-		return d.x;
+data BaseData:
+	i32 speed;
+	BaseData(speed);
+
+func BaseFunc requires(BaseData d):
+	def base():
+		print($"speed = {d.speed}\n");
+
+entity BaseEntity:
+	data: BaseData;
+	func: BaseFunc;
+	BaseEntity(BaseData);
+

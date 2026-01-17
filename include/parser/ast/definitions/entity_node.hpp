@@ -16,18 +16,18 @@
 /// are supported. Monolithic entities will be supported *eventually*
 class EntityNode : public DefinitionNode {
   public:
-    explicit EntityNode(                                                                //
-        const Hash &file_hash,                                                          //
-        const unsigned int line,                                                        //
-        const unsigned int column,                                                      //
-        const unsigned int length,                                                      //
-        const std::string &name,                                                        //
-        const std::vector<DataNode *> &data_modules,                                    //
-        const std::vector<FuncNode *> &func_modules,                                    //
-        std::vector<std::unique_ptr<LinkNode>> &link_nodes,                             //
-        const std::vector<std::pair<const EntityNode *, std::string>> &parent_entities, //
-        const std::vector<size_t> &constructor_order,                                   //
-        const bool is_monolithic                                                        //
+    explicit EntityNode(                                                                   //
+        const Hash &file_hash,                                                             //
+        const unsigned int line,                                                           //
+        const unsigned int column,                                                         //
+        const unsigned int length,                                                         //
+        const std::string &name,                                                           //
+        const std::vector<DataNode *> &data_modules,                                       //
+        const std::vector<FuncNode *> &func_modules,                                       //
+        std::vector<std::unique_ptr<LinkNode>> &link_nodes,                                //
+        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &parent_entities, //
+        const std::vector<size_t> &constructor_order,                                      //
+        const bool is_monolithic                                                           //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
@@ -69,8 +69,8 @@ class EntityNode : public DefinitionNode {
 
     /// @var `parent_entities`
     /// @brief The parent entities, whose data and func modules and link modules will be used. The first value in the pair is the parent
-    /// entity itself, the second value is it's accessor name
-    std::vector<std::pair<const EntityNode *, std::string>> parent_entities;
+    /// entity type itself, the second value is it's accessor name
+    std::vector<std::pair<std::shared_ptr<Type>, std::string>> parent_entities;
 
     /// @var `constructor_order`
     /// @brief The order of the data modules in which they have to be constructed

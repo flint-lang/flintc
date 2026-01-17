@@ -5,6 +5,7 @@
 #include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
 #include "parser/type/alias_type.hpp"
+#include "parser/type/unknown_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
@@ -1110,6 +1111,434 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
         }
     }
     return data_types;
+}
+
+bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
+    PROFILE_SCOPE("Parse Open Func Modules");
+
+    // Define a task to process a single func module
+    auto process_function = [](Parser &parser, FuncNode *func, std::vector<Line> &body) -> bool {
+        PROFILE_SCOPE("Process func module '" + func->name + "'");
+        // First, refine all the body lines
+        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
+        // Go through all required data of the func module and resolve them if they are unknown and throw an error if they are not data
+        for (auto &required_data : func->required_data) {
+            switch (required_data.first->get_variation()) {
+                case Type::Variation::DATA:
+                    // All ok
+                    break;
+                case Type::Variation::UNKNOWN: {
+                    const UnknownType *unknown_type = required_data.first->as<UnknownType>();
+                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
+                    if (!type.has_value()) {
+                        // Unknown type in requires clausel of func module
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    if (type.value()->get_variation() == Type::Variation::DATA) {
+                        required_data.first = type.value();
+                        break;
+                    }
+                    [[fallthrough]];
+                }
+                default:
+                    // The required type is not a data type
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+            }
+        }
+
+        std::vector<Line> body_mut = body;
+        while (!body_mut.empty()) {
+            const Line function_definition_line = body_mut.front();
+            body_mut.erase(body_mut.begin());
+            if (body_mut.empty()) {
+                // Function has no body
+                // TODO: When "virtual" (linked) functions are implemented this case could be allowed if the function is only a definition
+                // and not a declaration
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            std::vector<Line> function_body_lines;
+            for (auto it = body_mut.begin(); it != body_mut.end();) {
+                if (it->indent_lvl > function_definition_line.indent_lvl) {
+                    function_body_lines.emplace_back(*it);
+                    body_mut.erase(it);
+                    continue;
+                }
+                break;
+            }
+            if (function_body_lines.empty()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            std::pair<std::string, required_data_t> required_data_pair{func->name, func->required_data};
+            std::optional<FunctionNode> fn = parser.create_function(function_definition_line.tokens, required_data_pair);
+            if (!fn.has_value()) {
+                return false;
+            }
+            FunctionNode *added_function = parser.file_node_ptr->add_function(fn.value());
+            parser.add_open_function({added_function, function_body_lines});
+            func->functions.emplace_back(added_function);
+        }
+        return true;
+    };
+
+    bool result = true;
+    if (parse_parallel) {
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Iterate through all parsers and their open func modules
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_func()) {
+                auto &[func, body] = next.value();
+                // Enqueue a task for each function
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), func, std::ref(body)));
+            }
+        }
+        // Collect results from all tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+    } else {
+        // Process functions sequentially
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_func()) {
+                auto &[func, body] = next.value();
+                result = result && process_function(parser, func, std::ref(body));
+            }
+        }
+    }
+    return result;
+}
+
+bool Parser::parse_all_open_entities(const bool parse_parallel) {
+    PROFILE_SCOPE("Parse Open Entities");
+
+    // Define a task to process a single entity
+    auto process_function = [](Parser &parser, EntityNode *entity, std::vector<Line> &body) -> bool {
+        PROFILE_SCOPE("Process entity '" + entity->name + "'");
+        // Go through all extended entities and resolve all unknown types and ensure that the extended entities are entities at all
+        for (auto &parent_entity : entity->parent_entities) {
+            switch (parent_entity.first->get_variation()) {
+                case Type::Variation::ENTITY:
+                    // All ok
+                    break;
+                case Type::Variation::UNKNOWN: {
+                    const UnknownType *unknown_type = parent_entity.first->as<UnknownType>();
+                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
+                    if (!type.has_value()) {
+                        // Unknown type in extends clausel of entity
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    if (type.value()->get_variation() == Type::Variation::ENTITY) {
+                        parent_entity.first = type.value();
+                        break;
+                    }
+                    [[fallthrough]];
+                }
+                default:
+                    // The required type is not a data type
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+            }
+        }
+
+        auto &data_modules = entity->data_modules;
+        auto &func_modules = entity->func_modules;
+        auto &parent_entities = entity->parent_entities;
+
+        // Add all data modules and func modules of all parent entities to the data modules list in the order defined in the `extends`
+        // definition
+        for (const auto &parent_entity_type : parent_entities) {
+            const EntityNode *parent_entity = parent_entity_type.first->as<EntityType>()->entity_node;
+            for (DataNode *data_node : parent_entity->data_modules) {
+                if (std::find(data_modules.begin(), data_modules.end(), data_node) == data_modules.end()) {
+                    data_modules.emplace_back(data_node);
+                }
+            }
+            for (FuncNode *func_node : parent_entity->func_modules) {
+                if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
+                    func_modules.emplace_back(func_node);
+                }
+            }
+        }
+
+        // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
+        // define all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
+        // and then func modules
+
+        // Add all data modules defined in the `data` section of the entity
+        auto line_it = body.begin();
+        auto tok_it = line_it->tokens.first;
+        assert(tok_it->token == TOK_DATA);
+        tok_it++;
+        bool semicolon_found = false;
+        if (tok_it->token == TOK_COLON) {
+            // This entity provides some data
+            tok_it++;
+            while (line_it != body.end()) {
+                while (tok_it != line_it->tokens.second) {
+                    switch (tok_it->token) {
+                        default:
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        case TOK_COMMA:
+                            break;
+                        case TOK_SEMICOLON:
+                            semicolon_found = true;
+                            break;
+                        case TOK_IDENTIFIER: {
+                            auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                            if (!type.has_value()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                            }
+                            *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                            [[fallthrough]];
+                        }
+                        case TOK_TYPE: {
+                            if (tok_it->type->get_variation() != Type::Variation::DATA) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                            }
+                            auto *data_node = tok_it->type->as<DataType>()->data_node;
+                            if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
+                                // Redefinition of data module in this entity definition (potentially from one extended entity?)
+                                // TODO: This potentially could only be a warning too
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                            }
+                            data_modules.emplace_back(data_node);
+                            break;
+                        }
+                    }
+                    if (semicolon_found) {
+                        break;
+                    }
+                    tok_it++;
+                }
+                line_it++;
+                tok_it = line_it->tokens.first;
+                if (semicolon_found) {
+                    break;
+                }
+            }
+        } else {
+            // This entity does not provide any data on it's own. This is fine if it extends another entity, otherwise this would be an
+            // error
+            assert(tok_it->token == TOK_SEMICOLON);
+            assert(!parent_entities.empty());
+            assert(!data_modules.empty());
+            line_it++;
+            tok_it = line_it->tokens.first;
+        }
+        if (line_it == body.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+
+        tok_it = line_it->tokens.first;
+        assert(tok_it->token == TOK_FUNC);
+        tok_it++;
+        assert(tok_it->token == TOK_COLON);
+        tok_it++;
+        semicolon_found = false;
+        while (line_it != body.end()) {
+            while (tok_it != line_it->tokens.second) {
+                switch (tok_it->token) {
+                    default:
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    case TOK_COMMA:
+                        break;
+                    case TOK_SEMICOLON:
+                        semicolon_found = true;
+                        break;
+                    case TOK_IDENTIFIER: {
+                        auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                        if (!type.has_value()) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        }
+                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                        [[fallthrough]];
+                    }
+                    case TOK_TYPE: {
+                        if (tok_it->type->get_variation() != Type::Variation::FUNC) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        }
+                        auto *func_node = tok_it->type->as<FuncType>()->func_node;
+                        if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
+                            // Redefinition of func module in this entity definition (potentially from one extended entity?)
+                            // TODO: This potentially could only be a warning too
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        }
+                        func_modules.emplace_back(func_node);
+                        break;
+                    }
+                }
+                if (semicolon_found) {
+                    break;
+                }
+                tok_it++;
+            }
+            line_it++;
+            tok_it = line_it->tokens.first;
+            if (semicolon_found) {
+                break;
+            }
+        }
+        if (line_it == body.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+
+        std::vector<std::unique_ptr<LinkNode>> link_nodes;
+        if (tok_it->token == TOK_LINK) {
+            // TODO: Parse all links once links are implemented
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
+
+        assert(tok_it->token == TOK_IDENTIFIER);
+        if (tok_it->lexme != entity->name) {
+            // Incorrect constructor name
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        tok_it++;
+        assert(tok_it->token == TOK_LEFT_PAREN);
+        tok_it++;
+        std::vector<DataNode *> constructed_data;
+        while (tok_it != line_it->tokens.second && tok_it->token != TOK_RIGHT_PAREN) {
+            switch (tok_it->token) {
+                default:
+                    // Not allowed token in constructor
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                case TOK_IDENTIFIER: {
+                    const std::string identifier(tok_it->lexme);
+                    if (!parent_entities.empty()) {
+                        // Search if the identifier is one of the parent entities' accessors
+                        bool parent_added = false;
+                        for (const auto &[parent_entity_type, accessor] : parent_entities) {
+                            const EntityNode *parent_entity = parent_entity_type->as<EntityType>()->entity_node;
+                            if (identifier == accessor) {
+                                // For now we simply add the parent's data modules to the data constructor list and to the data modules of
+                                // this entity. If any data module is defined duplicately afterwards (explicit, below) then an error will be
+                                // thrown. If duplicates arise from extended entities then it is simply skipped to the next token iteration
+                                // TODO: Update change the constructors of extended entities to be required to pass in an entity at the
+                                // position of the extended entity accessor. For now the simpler approach is chosen.
+                                for (DataNode *data_node : parent_entity->data_modules) {
+                                    if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
+                                        // Duplicate data constructor
+                                        THROW_BASIC_ERR(ERR_PARSING);
+                                        return false;
+                                    }
+                                    constructed_data.emplace_back(data_node);
+                                    auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
+                                    entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                                }
+                                parent_added = true;
+                            }
+                        }
+                        if (parent_added) {
+                            tok_it++;
+                            break;
+                        }
+                    }
+                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
+                    if (!type.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                    [[fallthrough]];
+                }
+                case TOK_TYPE: {
+                    if (tok_it->type->get_variation() != Type::Variation::DATA) {
+                        // Only data types allowed in constructor
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    DataNode *data_node = tok_it->type->as<DataType>()->data_node;
+                    auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
+                    if (idx == data_modules.end()) {
+                        // Unknown data module
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    // Check if the module has already been added to the constructed data
+                    if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
+                        // Duplicate data type
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                    constructed_data.emplace_back(data_node);
+                    entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                    [[fallthrough]];
+                }
+                case TOK_COMMA:
+                    tok_it++;
+                    break;
+            }
+        }
+
+        return true;
+    };
+
+    bool result = true;
+    if (parse_parallel) {
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Iterate through all parsers and their open entities
+        bool is_base_entity = true;
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_entity(is_base_entity)) {
+                auto &[entity, body] = next.value();
+                // Enqueue a task for each function
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), entity, std::ref(body)));
+            }
+        }
+        // Collect results from all entities with no parents
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+        is_base_entity = false;
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_entity(is_base_entity)) {
+                auto &[entity, body] = next.value();
+                // Enqueue a task for each function
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), entity, std::ref(body)));
+            }
+        }
+        // Collect results from all entities with parents
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+    } else {
+        // Process entities sequentially, start only with entities with no parents
+        bool is_base_entity = true;
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_entity(is_base_entity)) {
+                auto &[entity, body] = next.value();
+                result = result && process_function(parser, entity, std::ref(body));
+            }
+        }
+        // And then parse all entities which extend other ones. This way the "base" entities are all parsed first
+        is_base_entity = false;
+        for (auto &parser : Parser::instances) {
+            while (auto next = parser.get_next_open_entity(is_base_entity)) {
+                auto &[entity, body] = next.value();
+                result = result && process_function(parser, entity, std::ref(body));
+            }
+        }
+    }
+    return result;
 }
 
 bool Parser::parse_all_open_functions(const bool parse_parallel) {

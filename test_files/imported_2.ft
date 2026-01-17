@@ -1,5 +1,16 @@
 use Core.print
 
+use "test_minimal.ft"
+
+data DVec3:
+	i32 x;
+	i32 y;
+	i32 z;
+	DVec3(x, y, z);
+
+def somefn(DVec3 d3, MyEntity e):
+	e.printVec3(d3);
+
 def sub(i32 x, i32 y) -> i32:
 	print($"{x} - {y} = {x - y}\n");
 	return x - y;

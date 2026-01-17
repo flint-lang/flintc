@@ -1453,7 +1453,7 @@ namespace Debug {
                         std::cout << ", ";
                     }
                     const auto &pe = entity.parent_entities.at(i);
-                    std::cout << pe.first->name << " " << pe.second;
+                    std::cout << pe.first->to_string() << " " << pe.second;
                 }
                 std::cout << ")";
             }

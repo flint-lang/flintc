@@ -254,6 +254,20 @@ class Parser {
     /// @¶eturn `std::vector<std::shared_ptr<Type>>` A list of all data types of all files
     static std::vector<std::shared_ptr<Type>> get_all_data_types();
 
+    /// @function `parse_all_open_func_modules`
+    /// @brief Parses all still open func module bodies
+    ///
+    /// @param `parse_parallel` Whether to parse the open func modules in parallel
+    /// @return `bool` Wheter all func modules were able to be parsed
+    static bool parse_all_open_func_modules(const bool parse_parallel);
+
+    /// @function `parse_all_open_entities`
+    /// @brief Parses all still open entity bodies
+    ///
+    /// @param `parse_parallel` Whether to parse the open entities in parallel
+    /// @return `bool` Wheter all entities were able to be parsed
+    static bool parse_all_open_entities(const bool parse_parallel);
+
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
     ///
@@ -311,6 +325,14 @@ class Parser {
     /// @var `main_file_hash`
     /// @brief The hash of the file contianing the main function
     static inline Hash main_file_hash{std::string("")};
+
+    /// @var `open_func_list`
+    /// @brief The list of all open func modules which will be parsed in the second phase of the parser
+    std::vector<std::pair<FuncNode *, std::vector<Line>>> open_func_list{};
+
+    /// @var `open_entity_list`
+    /// @brief The list of all open entities which will be parsed in the second phase of the parser
+    std::vector<std::pair<EntityNode *, std::vector<Line>>> open_entity_list{};
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
@@ -513,6 +535,26 @@ class Parser {
         parsed_tests.emplace_back(test_node, file_name);
     }
 
+    /// @function `add_open_func`
+    /// @brief Adds a open func module to the list of all open func modules
+    ///
+    /// @param `open_func` A rvalue reference to the OpenFuncModule to add to the list
+    ///
+    /// @attention This function takes ownership of the `open_func` parameter
+    void add_open_func(std::pair<FuncNode *, std::vector<Line>> &&open_func) {
+        open_func_list.push_back(std::move(open_func));
+    }
+
+    /// @function `add_open_entity`
+    /// @brief Adds a open entity to the list of all open entities
+    ///
+    /// @param `open_function` A rvalue reference to the OpenEntity to add to the list
+    ///
+    /// @attention This function takes ownership of the `open_entity` parameter
+    void add_open_entity(std::pair<EntityNode *, std::vector<Line>> &&open_entity) {
+        open_entity_list.push_back(std::move(open_entity));
+    }
+
     /// @function `add_open_function`
     /// @brief Adds a open function to the list of all open functions
     ///
@@ -521,6 +563,45 @@ class Parser {
     /// @attention This function takes ownership of the `open_function` parameter
     void add_open_function(std::pair<FunctionNode *, std::vector<Line>> &&open_function) {
         open_functions_list.push_back(std::move(open_function));
+    }
+
+    /// @function `get_next_open_func`
+    /// @brief Returns the next open func module to parse
+    ///
+    /// @return `std::optional<std::pair<FuncNode *, std::vector<Line>>>` The next open func module to parse. Returns a nullopt if there
+    /// are no open funct modules left
+    std::optional<std::pair<FuncNode *, std::vector<Line>>> get_next_open_func() {
+        if (open_func_list.empty()) {
+            return std::nullopt;
+        }
+        std::pair<FuncNode *, std::vector<Line>> of = std::move(open_func_list.back());
+        open_func_list.pop_back();
+        return of;
+    }
+
+    /// @function `get_next_open_entity`
+    /// @brief Returns the next open entity to parse
+    ///
+    /// @param `is_base_entity` Whether to get the next base entity (one with no parents) or not
+    /// @return `std::optional<std::pair<EntityNode *, std::vector<Line>>>` The next open entity to parse. Returns a nullopt if there
+    /// are no open functions left
+    std::optional<std::pair<EntityNode *, std::vector<Line>>> get_next_open_entity(const bool is_base_entity) {
+        if (open_entity_list.empty()) {
+            return std::nullopt;
+        }
+        std::vector<std::pair<EntityNode *, std::vector<Line>>>::reverse_iterator iterator = open_entity_list.rbegin();
+        while (iterator != open_entity_list.rend()) {
+            if (is_base_entity != iterator->first->parent_entities.empty()) {
+                iterator++;
+                continue;
+            }
+            std::pair<EntityNode *, std::vector<Line>> oe = std::move(*iterator);
+            auto base_it = iterator.base();
+            --base_it;
+            open_entity_list.erase(base_it);
+            return oe;
+        }
+        return std::nullopt;
     }
 
     /// @function `get_next_open_function`
@@ -1600,7 +1681,7 @@ class Parser {
      *************************************************************************************************************************************/
 
     /// The type of the required data for func modules
-    using required_data_type = std::vector<std::pair<std::shared_ptr<Type>, std::string>>;
+    using required_data_t = std::vector<std::pair<std::shared_ptr<Type>, std::string>>;
 
     /// @function `create_function`
     /// @brief Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional
@@ -1609,9 +1690,9 @@ class Parser {
     /// @param `definition` The list of tokens representing the function definition
     /// @param `required_data` A list of required data if the function is defined within a func module
     /// @return `std::optional<FunctionNode>` The created FunctionNode
-    std::optional<FunctionNode> create_function(                                       //
-        const token_slice &definition,                                                 //
-        const std::optional<std::pair<std::string, required_data_type>> &required_data //
+    std::optional<FunctionNode> create_function(                                    //
+        const token_slice &definition,                                              //
+        const std::optional<std::pair<std::string, required_data_t>> &required_data //
     );
 
     /// @function `create_extern_function`
@@ -1633,13 +1714,11 @@ class Parser {
     /// @function `create_func`
     /// @brief Creates a FuncNode from the given definition and body tokens
     ///
-    /// @param `file_node` The file node in which to add all the functions the func module defines
     /// @param `definition` The list of tokens representing the function definition
-    /// @param `body` The list of tokens representing the function body
     /// @return `std::optional<FuncNode>` The created FuncNode or nullopt if creation failed
     ///
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
-    std::optional<FuncNode> create_func(FileNode &file_node, const token_slice &definition, const std::vector<Line> &body);
+    std::optional<FuncNode> create_func(const token_slice &definition);
 
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens
@@ -1649,9 +1728,8 @@ class Parser {
     /// then will be added to the AST too. "Monolithic" entities are no different to modular ones internally.
     ///
     /// @param `definition` The list of tokens representing the entity definition
-    /// @param `body` The list of tokens representing the entity body
     /// @return `std::optional<EntityNode>` The created entity, or nullopt if it's creation failed
-    std::optional<EntityNode> create_entity(const token_slice &definition, std::vector<Line> &body);
+    std::optional<EntityNode> create_entity(const token_slice &definition);
 
     /// @function `create_links`
     /// @brief Creates a list of LinkNode's from a given body containing those links
