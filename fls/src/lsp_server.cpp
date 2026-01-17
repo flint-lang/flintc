@@ -90,7 +90,17 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    bool parsed_successful = Parser::parse_all_open_functions(parse_parallel);
+    bool parsed_successful = Parser::parse_all_open_func_modules(parse_parallel);
+    if (!parsed_successful) {
+        parser_cleanup();
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_entities(parse_parallel);
+    if (!parsed_successful) {
+        parser_cleanup();
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_functions(parse_parallel);
     if (!parsed_successful) {
         parser_cleanup();
         return std::nullopt;
