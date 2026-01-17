@@ -676,7 +676,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     for (const auto &function : func_module->functions) {
                         // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
                         const std::string fn_name = function->name.substr(func_module->name.size() + 1);
-                        std::cout << "FN_NAME: " << fn_name << std::endl;
                         if (fn_name != function_name) {
                             continue;
                         }
@@ -734,6 +733,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // parameters are "field accesses" of the entities data fields
     // Entity field accesses are not allowed by the user, but the compiler can create them just fine. They are prevented at the parsing
     // stage, but permitted at the codegen stage
+    size_t arg_start_id = 0;
     if (is_instance_call) {
         assert(func_nodes.size() == 1);
         assert(instance_variable.has_value());
@@ -768,6 +768,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             );
             arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
             argument_types.insert(argument_types.begin(), required_data_type);
+            arg_start_id++;
         }
     }
     // Check if the argument count does match the parameter count
@@ -781,7 +782,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references Every
     // non-primitive type is always a reference (except enum types, for now)
     // We also check if the argument type is of type 'int' or 'float' and simply change it to the function parameter type directly
-    for (size_t i = 0; i < arguments.size(); i++) {
+    for (size_t i = arg_start_id; i < arguments.size(); i++) {
         const std::string arg_str = arguments[i].first->type->to_string();
         if (arg_str == "int" || arg_str == "float") {
             // Set the type of the argument to the expected parameter type, since we know it's compatible, otherwise the function would
@@ -799,7 +800,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             tok = tokens.first + arg_range->first;
             // Now we need to get until the token where the error happened, e.g. the ith argument
             size_t depth = 0;
-            size_t arg_id = i;
+            size_t arg_id = i - arg_start_id;
             while (arg_id > 0) {
                 if (tok->token == TOK_COMMA && depth == 0) {
                     arg_id--;
