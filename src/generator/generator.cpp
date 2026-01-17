@@ -296,9 +296,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         Builtin::generate_builtin_main(builder.get(), module.get());
     }
 
-    // std::cout << " -------- MAIN -------- \n"
-    //           << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
-    //           << std::endl;
+    if (PRINT_FILE_IR) {
+        std::cout << " -------- MAIN -------- \n"
+                  << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
+                  << std::endl;
+    }
 
     // for (const auto &func : main_module[0]->getFunctionList()) {
     //     std::cout << "FuncName: " << func.getName().str() << std::endl;
@@ -379,9 +381,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 }
             }
 
-            // std::cout << " -------- " << file_module.value()->getName().str() << " -------- \n"
-            //           << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
-            //           << std::endl;
+            if (PRINT_FILE_IR) {
+                std::cout << " -------- " << file_module.value()->getName().str() << " -------- \n"
+                          << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
+                          << std::endl;
+            }
 
             // Link the generated module in the main module
             if (linker.linkInModule(std::move(file_module.value()))) {

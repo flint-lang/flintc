@@ -22,6 +22,7 @@ bool PRINT_AST = true;
 bool PRINT_IR_PROGRAM = true;
 bool PRINT_PROFILE_RESULTS = true;
 bool PRINT_CUMULATIVE_PROFILE_RESULTS = false;
+bool PRINT_FILE_IR = false;
 bool HARD_CRASH = false;
 bool NO_BINARY = false;
 bool NO_GENERATION = false;
@@ -1445,7 +1446,7 @@ namespace Debug {
                 }
                 std::cout << entity.data_modules.at(entity.constructor_order.at(i))->name;
             }
-            std::cout << ") ";
+            std::cout << ")";
             if (!entity.parent_entities.empty()) {
                 std::cout << " extends(";
                 for (size_t i = 0; i < entity.parent_entities.size(); i++) {
@@ -1479,7 +1480,7 @@ namespace Debug {
 
         // print_enum
         //     Prints the content of the generated EnumNode
-        void print_enum([[maybe_unused]] unsigned int indent_lvl, TreeBits &bits, const EnumNode &enum_node) {
+        void print_enum(unsigned int indent_lvl, TreeBits &bits, const EnumNode &enum_node) {
             Local::print_header(indent_lvl, bits, "Enum ");
             std::cout << enum_node.name << std::endl;
 

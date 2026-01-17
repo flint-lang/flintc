@@ -228,6 +228,8 @@ class CLIParserMain : public CLIParserBase {
                 NO_GENERATION = true;
             } else if (arg == "--no-binary") {
                 NO_BINARY = true;
+            } else if (arg == "--print-file-ir") {
+                PRINT_FILE_IR = true;
             } else if (arg == "--print-ir-arithmetic") {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
             } else if (arg == "--print-ir-array") {
@@ -343,6 +345,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "                                  HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
+        std::cout << "      --print-file-ir             Enables printing of the IR code for every file which was parsed\n";
         std::cout << "      --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
         std::cout << "                                  HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
         std::cout << "      --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
