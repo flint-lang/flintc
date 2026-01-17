@@ -31,4 +31,4 @@ def main():
 	me.base();
 	me.print();
 	x = me.get_x();
-	print($"me.get_xlua require'lspconfig'.flint.setup{}() = {x}\n");
+	print($"me.get_x() = {x}\n");
