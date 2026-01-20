@@ -346,7 +346,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
         "-G",
         "Ninja",
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
-        "-DCMAKE_BUILD_TYPE=MinSizeRel",
+        "-DCMAKE_BUILD_TYPE=Debug",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target.result.os.tag) {
             .linux => "zig;cc",
             .windows => "zig;cc;-target;x86_64-windows-gnu",
