@@ -224,7 +224,9 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     }
     llvm::Function *func_decl = parent->getParent()->getFunction(function_name);
     if (func_decl != nullptr) {
-        if (std::find(function_names.begin(), function_names.end(), function_name) == function_names.end()) {
+        if (std::find(function_names.begin(), function_names.end(), function_name) == function_names.end() //
+            && !call_node->function->mangle_id.has_value()                                                 //
+        ) {
             // Function is defined in another module
             return {func_decl, true};
         }

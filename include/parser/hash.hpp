@@ -2,6 +2,7 @@
 
 #include "fip.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <filesystem>

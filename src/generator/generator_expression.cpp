@@ -1207,7 +1207,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
         // pointer to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any
         // variable as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour
         // should only effect array types, as data and strings are handled differently
-        bool is_reference = arg.second && arg.first->type->get_variation() != Type::Variation::ARRAY;
+        const bool is_not_arr = arg.first->type->get_variation() != Type::Variation::ARRAY;
+        const bool is_not_entity = arg.first->type->get_variation() != Type::Variation::ENTITY;
+        const bool is_reference = arg.second && is_not_arr && is_not_entity;
         group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1489,7 +1491,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
     if (function_origin == FunctionOrigin::INTERN) {
-        const std::string &target_name = call_node->function->file_hash.to_string() + "." + function_name;
+        const std::string target_name = call_node->function->file_hash.to_string() + "." + function_name //
+            + (call_node->function->mangle_id.has_value() ? ("." + std::to_string(call_node->function->mangle_id.value())) : "");
+
         if (unresolved_functions.find(target_name) == unresolved_functions.end()) {
             unresolved_functions[target_name] = {call};
         } else {

@@ -395,6 +395,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 THROW_BASIC_ERR(ERR_LINKING);
                 return std::nullopt;
             }
+
+            if (PRINT_FILE_IR) {
+                std::cout << " -------- main module after linking -------- \n"
+                          << resolve_ir_comments(get_module_ir_string(main_module.front())) << "\n ---------------- \n"
+                          << std::endl;
+            }
         }
 
         tips.assign(new_tips.begin(), new_tips.end());

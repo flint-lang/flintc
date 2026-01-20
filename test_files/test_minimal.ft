@@ -1,8 +1,24 @@
 use Core.print
 
-def somefn(i32 x, i32 y) -> (i32, i32):
-	return (x, y);
+data Data:
+	i32 x;
+	i32 y;
+	i32 z;
+	Data(x, y, z);
+
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+
+entity Entity:
+	data: Data;
+	func: Func;
+	Entity(Data);
+
+def somefn(Entity e):
+	e.print();
 
 def main():
-	(x, y) := somefn(10, 20);
-	print($"(x, y) = ({x}, {y})\n");
+	e := Entity(Data(10, 20, 30));
+	e.print();
+	somefn(e);
