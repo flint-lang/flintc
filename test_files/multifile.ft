@@ -18,6 +18,10 @@ entity MyEntity extends(BaseEntity e):
 	func: MyFunc;
 	MyEntity(e);
 
+// When defining the function in here, everything works fine
+//def somefn(MyEntity e):
+//	e.print();
+
 def main():
 	d := BaseData(10);
 	MyFunc.print(d);
@@ -32,3 +36,6 @@ def main():
 	me.print();
 	x = me.get_x();
 	print($"me.get_x() = {x}\n");
+
+	v3 := DVec3(10, 20, 30);
+	me.printVec3(v3);

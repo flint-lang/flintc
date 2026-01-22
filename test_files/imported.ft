@@ -1,7 +1,5 @@
 use Core.print
 
-use "imported_2.ft"
-
 data BaseData:
 	i32 speed;
 	BaseData(speed);
@@ -14,4 +12,3 @@ entity BaseEntity:
 	data: BaseData;
 	func: BaseFunc;
 	BaseEntity(BaseData);
-
