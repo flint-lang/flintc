@@ -48,8 +48,7 @@ llvm::StructType *Generator::IR::create_struct_type( //
         return type_map.at(type_name);
     }
     if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info]" << DEFAULT << ": Adding type '" << YELLOW << type_name << DEFAULT << "' to the type_map"
-                  << std::endl;
+        std::cout << YELLOW << "[Debug Info]: Adding type '" << type_name << "' to the type_map" << DEFAULT << std::endl;
     }
     if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_name)) {
         type_map[type_name] = exists;
