@@ -16,7 +16,7 @@ void Generator::Error::generate_get_err_type_str_function(llvm::IRBuilder<> *bui
     llvm::Function *get_err_type_str_fn = llvm::Function::Create( //
         get_err_type_str_type,                                    //
         llvm::Function::ExternalLinkage,                          //
-        "__flint_get_err_type_str",                               //
+        "flint.get_err_type_str",                                 //
         module                                                    //
     );
     error_functions["get_err_type_str"] = get_err_type_str_fn;
@@ -76,7 +76,7 @@ void Generator::Error::generate_get_err_val_str_function(llvm::IRBuilder<> *buil
     llvm::Function *get_err_val_str_fn = llvm::Function::Create( //
         get_err_val_str_type,                                    //
         llvm::Function::ExternalLinkage,                         //
-        "__flint_get_err_val_str",                               //
+        "flint.get_err_val_str",                                 //
         module                                                   //
     );
     error_functions["get_err_val_str"] = get_err_val_str_fn;
@@ -182,8 +182,8 @@ void Generator::Error::generate_get_err_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *get_err_val_str_fn = error_functions.at("get_err_val_str");
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
 
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
-    llvm::StructType *error_type = type_map.at("__flint_type_err");
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::StructType *error_type = type_map.at("type.flint.err");
     llvm::FunctionType *get_err_str_type = llvm::FunctionType::get( //
         str_type->getPointerTo(),                                   // returns str*
         {error_type},                                               // Takes the error to create a string from
@@ -192,7 +192,7 @@ void Generator::Error::generate_get_err_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *get_err_str_fn = llvm::Function::Create( //
         get_err_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "__flint_get_err_str",                               //
+        "flint.get_err_str",                                 //
         module                                               //
     );
     error_functions["get_err_str"] = get_err_str_fn;

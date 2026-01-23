@@ -74,7 +74,7 @@ void Generator::Module::Print::generate_print_str_lit_function( //
     llvm::Module *module,                                       //
     const bool only_declarations                                //
 ) {
-    llvm::Type *str_lit_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_lit")).first;
+    llvm::Type *str_lit_type = IR::get_type(module, Type::get_primitive_type("type.flint.str.lit")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_lit_type = llvm::FunctionType::get( //
@@ -90,7 +90,7 @@ void Generator::Module::Print::generate_print_str_lit_function( //
         function_name,                                               //
         module                                                       //
     );
-    print_functions["__flint_type_str_lit"] = print_str_lit_function;
+    print_functions["type.flint.str.lit"] = print_str_lit_function;
     if (only_declarations) {
         return;
     }
@@ -116,7 +116,7 @@ void Generator::Module::Print::generate_print_str_lit_function( //
 
 void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module,
     const bool only_declarations) {
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //

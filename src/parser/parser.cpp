@@ -388,9 +388,9 @@ Parser::CastDirection Parser::check_castability( //
         } else if (lhs_mult == nullptr && rhs_mult != nullptr && is_castable_to(rhs_mult->base_type, lhs_type)) {
             return CastDirection::lhs_to_rhs();
         }
-        if (lhs_type->to_string() == "__flint_type_str_lit" && rhs_type->to_string() == "str") {
+        if (lhs_type->to_string() == "type.flint.str.lit" && rhs_type->to_string() == "str") {
             return CastDirection::lhs_to_rhs();
-        } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "__flint_type_str_lit") {
+        } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "type.flint.str.lit") {
             return CastDirection::rhs_to_lhs();
         }
         // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
@@ -644,7 +644,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
     }
     const std::string expr_type_str = expr->type->to_string();
     const std::string target_type_str = target_type->to_string();
-    if (expr_type_str == "__flint_type_str_lit" && target_type_str == "str") {
+    if (expr_type_str == "type.flint.str.lit" && target_type_str == "str") {
         expr = std::make_unique<TypeCastNode>(target_type, expr);
         return true;
     }
@@ -880,7 +880,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     const unsigned int line = literal->line;
                     const unsigned int column = literal->column;
                     const unsigned int length = literal->length;
-                    expr = std::make_unique<LiteralNode>(new_value, Type::get_primitive_type("__flint_type_str_lit"), literal->is_folded);
+                    expr = std::make_unique<LiteralNode>(new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded);
                     expr = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr);
                     expr->line = line;
                     expr->column = column;

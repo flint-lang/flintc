@@ -379,7 +379,7 @@ class Generator {
         IR() = delete;
 
         /// @function `init_builtin_types`
-        /// @brief Initializes the builtin types like `__flint_type_err`
+        /// @brief Initializes the builtin types like `type.flint.err`
         static void init_builtin_types();
 
         /// @function `add_and_or_get_type`
@@ -3390,7 +3390,7 @@ class Generator {
                 {"flint", nullptr},
                 {"u8", nullptr},
                 {"str", nullptr},
-                {"__flint_str_type_lit", nullptr},
+                {"type.flint.str.lit", nullptr},
                 {"bool", nullptr},
             };
 

@@ -28,7 +28,7 @@ class ErrorSetType : public Type {
 
     std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
         assert(!is_return_type);
-        return "__flint_type_err";
+        return "type.flint.err";
     }
 
     /// @var `error_node`

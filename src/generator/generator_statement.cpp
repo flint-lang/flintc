@@ -244,7 +244,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 const auto *array_type = var_type->as<ArrayType>();
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
                 llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), alloca, var_name + "_cleanup");
                 if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
@@ -286,7 +286,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             case Type::Variation::ERROR_SET: {
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::StructType *error_type = type_map.at("__flint_type_err");
+                llvm::StructType *error_type = type_map.at("type.flint.err");
                 llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
                 llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
                 llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
@@ -313,7 +313,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 // Get the allocation of the variable
                 const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
                 llvm::Value *str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), alloca, var_name + "_cleanup");
                 builder.CreateCall(c_functions.at(FREE), {str_ptr});
                 break;
@@ -329,7 +329,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 if (variant_type->is_err_variant) {
                     const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
                     llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                    llvm::StructType *error_type = type_map.at("__flint_type_err");
+                    llvm::StructType *error_type = type_map.at("type.flint.err");
                     llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
                     llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
                     llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
@@ -458,7 +458,7 @@ bool Generator::Statement::generate_data_cleanup( //
             }
         } else if (field_variation == Type::Variation::ARRAY) {
             const auto *array_type = field_type->as<ArrayType>();
-            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
             llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), field_ptr);
             if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
@@ -990,7 +990,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         return false;
     }
     llvm::Value *iterable_expr = iterable.value().front();
-    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
@@ -1273,7 +1273,7 @@ bool Generator::Statement::generate_variant_switch_statement( //
     const auto *variant_type = switch_statement->switcher->type->as<VariantType>();
     llvm::StructType *variant_struct_type;
     if (variant_type->is_err_variant) {
-        variant_struct_type = type_map.at("__flint_type_err");
+        variant_struct_type = type_map.at("type.flint.err");
     } else {
         variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
     }
@@ -1486,7 +1486,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     llvm::Value *const err_var = ctx.allocations.at(err_ret_name);
 
     // Load the error value
-    llvm::Type *const error_type = type_map.at("__flint_type_err");
+    llvm::Type *const error_type = type_map.at("type.flint.err");
     llvm::Value *err_val_ptr = builder.CreateStructGEP(error_type, err_var, 0, "err_val_ptr");
     llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
         llvm::Type::getInt32Ty(context),                                              //
@@ -1555,7 +1555,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         assert(catch_node->scope->body.size() == 1);
         const auto *switch_statement = catch_node->scope->body.front()->as<SwitchStatement>();
         // Add the error variable to the list of allocations (temporarily)
-        err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::__flint_value_err";
+        err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::flint.value_err";
         ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
         if (!generate_variant_switch_statement(builder, ctx, switch_statement, err_var)) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -2168,7 +2168,7 @@ bool Generator::Statement::generate_array_assignment( //
     const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(array_assignment->variable_name));
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = ctx.allocations.at(var_name);
-    llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first->getPointerTo();
+    llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first->getPointerTo();
     // Check if this is a function parameter - if so, use it directly without loading
     llvm::Value *array_ptr;
     if (std::get<3>(ctx.scope->variables.at(array_assignment->variable_name))) {

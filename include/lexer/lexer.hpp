@@ -142,9 +142,7 @@ class Lexer {
 
     /// @function `identifier`
     /// @brief Lexes an identifier
-    ///
-    /// @return `bool` Whether lexing the identifier was successful (It fails when it starts with __flint_)
-    [[nodiscard]] bool identifier();
+    void identifier();
 
     /// @function `number`
     /// @brief Lexes a number

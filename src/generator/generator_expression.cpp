@@ -275,7 +275,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         const unsigned int err_value = err_value_msg_pair.value().first;
         const std::string default_err_message = err_value_msg_pair.value().second;
 
-        llvm::StructType *err_type = type_map.at("__flint_type_err");
+        llvm::StructType *err_type = type_map.at("type.flint.err");
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
         err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_id), {0}, "insert_err_type_id");
@@ -529,7 +529,7 @@ void Generator::Expression::convert_type_to_ext( //
         }
         case Type::Variation::PRIMITIVE:
             if (type->to_string() == "str") {
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
                 args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
                 return;
             }
@@ -1087,7 +1087,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         if (return_size > 16) {
             needs_sret = true;
             // Get the pre-allocated sret space
-            const std::string sret_alloca_name = "__flint_sret_" + call_node->type->to_string();
+            const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
             sret_alloc = ctx.allocations.at(sret_alloca_name);
         }
     }
@@ -1475,7 +1475,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
         0,                                                              //
         function_name + std::to_string(call_node->call_id) + "_err_ptr" //
     );
-    llvm::StructType *error_type = type_map.at("__flint_type_err");
+    llvm::StructType *error_type = type_map.at("type.flint.err");
     llvm::Value *err_val = IR::aligned_load(builder,                    //
         error_type,                                                     //
         err_ptr,                                                        //
@@ -1572,7 +1572,7 @@ void Generator::Expression::generate_rethrow( //
     const std::string function_name = call_node->function->name;
 
     // Load error value
-    llvm::StructType *error_type = type_map.at("__flint_type_err");
+    llvm::StructType *error_type = type_map.at("type.flint.err");
     llvm::LoadInst *err_val = IR::aligned_load(builder,                   //
         error_type,                                                       //
         err_var,                                                          //
@@ -2298,7 +2298,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         }
     }
     if (initializer->element_type->to_string() == "str") {
-        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
         llvm::Value *str_len_ptr = builder.CreateStructGEP(str_type, initializer_expression, 0, "str_len_ptr");
         llvm::Value *str_len = IR::aligned_load(builder, builder.getInt64Ty(), str_len_ptr, "str_len");
         uint64_t str_size = data_layout.getTypeAllocSize(str_type);
@@ -2545,7 +2545,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 0, "length_ptr");
         llvm::Value *length = IR::aligned_load(builder, builder.getInt64Ty(), length_ptr, "length");
         return std::vector<llvm::Value *>{length};
@@ -2564,7 +2564,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
             std::vector<llvm::Value *> length_values;
             for (size_t i = 0; i < array_type->dimensionality; i++) {
@@ -3038,7 +3038,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
             }
         }
     }
-    if (to_type->to_string() == "str" && type_cast_node->expr->type->to_string() == "__flint_type_str_lit") {
+    if (to_type->to_string() == "str" && type_cast_node->expr->type->to_string() == "type.flint.str.lit") {
         assert(expr.size() == 1);
         expr[0] = Module::String::generate_string_declaration(builder, expr[0], type_cast_node->expr.get());
         return expr;
@@ -3061,7 +3061,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     const std::string to_type_str = to_type->to_string();
     if (from_type->equals(to_type)) {
         return expr;
-    } else if (from_type_str == "__flint_type_str_lit" && to_type_str == "str") {
+    } else if (from_type_str == "type.flint.str.lit" && to_type_str == "str") {
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         // Get the length of the literal
         llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), {expr}, "lit_len");
@@ -3204,7 +3204,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             llvm::Value *str_value = builder.CreateCall(                                                   //
                 Module::String::string_manip_functions.at("create_str"), {builder.getInt64(1)}, "char_val" //
             );
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("__flint_type_str_struct")).first;
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
             IR::aligned_store(builder, expr, val_ptr);
             return str_value;

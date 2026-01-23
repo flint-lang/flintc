@@ -29,16 +29,16 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
         {
             {"print", // The 'print' function
                 {
-                    {{{"i32", "value"}}, {"void"}, {}},                  // The 'i32' argument overload of the 'print' function
-                    {{{"i64", "value"}}, {"void"}, {}},                  // The 'i64' argument overload of the 'print' function
-                    {{{"u32", "value"}}, {"void"}, {}},                  // The 'u32' argument overload of the 'print' function
-                    {{{"u64", "value"}}, {"void"}, {}},                  // The 'u64' argument overload of the 'print' function
-                    {{{"f32", "value"}}, {"void"}, {}},                  // The 'f32' argument overload of the 'print' function
-                    {{{"f64", "value"}}, {"void"}, {}},                  // The 'f64' argument overload of the 'print' function
-                    {{{"u8", "value"}}, {"void"}, {}},                   // The 'u8' argument overload of the 'print' function
-                    {{{"str", "value"}}, {"void"}, {}},                  // The 'str' argument overload of the 'print' function
-                    {{{"__flint_type_str_lit", "value"}}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
-                    {{{"bool", "value"}}, {"void"}, {}},                 // The 'bool' argument overload of the 'print' function
+                    {{{"i32", "value"}}, {"void"}, {}},                // The 'i32' argument overload of the 'print' function
+                    {{{"i64", "value"}}, {"void"}, {}},                // The 'i64' argument overload of the 'print' function
+                    {{{"u32", "value"}}, {"void"}, {}},                // The 'u32' argument overload of the 'print' function
+                    {{{"u64", "value"}}, {"void"}, {}},                // The 'u64' argument overload of the 'print' function
+                    {{{"f32", "value"}}, {"void"}, {}},                // The 'f32' argument overload of the 'print' function
+                    {{{"f64", "value"}}, {"void"}, {}},                // The 'f64' argument overload of the 'print' function
+                    {{{"u8", "value"}}, {"void"}, {}},                 // The 'u8' argument overload of the 'print' function
+                    {{{"str", "value"}}, {"void"}, {}},                // The 'str' argument overload of the 'print' function
+                    {{{"type.flint.str.lit", "value"}}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
+                    {{{"bool", "value"}}, {"void"}, {}},               // The 'bool' argument overload of the 'print' function
                 }},
         }},  // End of the 'print' module
     {"read", // The 'read' module
@@ -399,7 +399,7 @@ enum CFunction {
 };
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
-    {"__flint_type_str_lit", {"str"}},
+    {"type.flint.str.lit", {"str"}},
     {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
     {"i32", {"str", "u8", "i64", "f32", "f64", "u32", "u64"}},
     {"i64", {"str", "u8", "i32", "f32", "f64", "u32", "u64"}},
@@ -432,7 +432,7 @@ static const inline std::unordered_map<std::string_view, std::vector<std::string
 };
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
-    {"__flint_type_str_lit", {"str"}},
+    {"type.flint.str.lit", {"str"}},
     {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
     {"i32", {"str", "i64", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
     {"i64", {"str", "i64x2", "i64x3", "i64x4"}},

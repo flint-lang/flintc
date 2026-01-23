@@ -18,7 +18,7 @@ void Type::init_types() {
     std::shared_ptr<Type> f64_type = get_primitive_type("f64");
     std::shared_ptr<Type> bool_type = get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
-    get_primitive_type("__flint_type_str_lit");
+    get_primitive_type("type.flint.str.lit");
     std::shared_ptr<Type> void_type = get_primitive_type("void");
     add_type(std::make_shared<OptionalType>(void_type));
     std::shared_ptr<Type> u8_type = get_primitive_type("u8");
@@ -60,14 +60,6 @@ bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
 std::shared_ptr<Type> Type::get_primitive_type(const std::string &type_str) {
     // Check if string is empty
     assert(!type_str.empty() && "Identifier cannot be empty");
-    // Check first character (must be letter or underscore)
-    assert((std::isalpha(static_cast<unsigned char>(type_str[0])) || type_str[0] == '_') &&
-        "Identifier must start with a letter or underscore");
-    // Check remaining characters
-    for (size_t i = 1; i < type_str.size(); ++i) {
-        assert((std::isalnum(static_cast<unsigned char>(type_str[i])) || type_str[i] == '_') &&
-            "Identifier must contain only letters, digits, or underscores");
-    }
     // Check if the given type already exists in the types map
     {
         std::shared_lock<std::shared_mutex> shared_lock(types_mutex);

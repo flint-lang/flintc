@@ -361,7 +361,7 @@ bool Generator::Allocation::generate_call_allocations(                          
             }
 
             // Needs sret allocation, so we use type-based naming so it's shared across calls
-            const std::string sret_alloca_name = "__flint_sret_" + call_node->type->to_string();
+            const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
 
             // Only allocate once per type per function
             if (allocations.find(sret_alloca_name) == allocations.end()) {
@@ -387,7 +387,7 @@ bool Generator::Allocation::generate_call_allocations(                          
     );
 
     // Create the error return value allocation
-    llvm::StructType *error_type = type_map.at("__flint_type_err");
+    llvm::StructType *error_type = type_map.at("type.flint.err");
     const std::string err_alloca_name = "s" + std::to_string(scope->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
     generate_allocation(builder, allocations, err_alloca_name,                          //
         error_type,                                                                     //

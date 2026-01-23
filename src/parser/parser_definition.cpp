@@ -230,7 +230,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     } else {
         return_type = return_types.front();
     }
-    body_scope.value()->add_variable("__flint_return_type", return_type, 0, false, true);
+    body_scope.value()->add_variable("flint.return_type", return_type, 0, false, true);
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
@@ -781,7 +781,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 
     // Create the body scope
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>();
-    body_scope->add_variable("__flint_return_type", Type::get_primitive_type("void"), 0, false, true);
+    body_scope->add_variable("flint.return_type", Type::get_primitive_type("void"), 0, false, true);
 
     // Check if this test already exists within this file
     if (!TestNode::check_test_name(file_name, test_name)) {

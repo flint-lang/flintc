@@ -243,7 +243,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     // THE C IMPLEMENTATION:
     // str *read_str() {
     //     long len = 0;
-    //     char *buffer = __flint_getline(&len);
+    //     char *buffer = flint.getline(&len);
     //     if (buffer == NULL) {
     //         printf("Something went wrong\n");
     //         abort();
@@ -256,7 +256,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     //     result->len = len;
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -286,7 +286,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
     IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
-    // Call getline: char *buffer = __flint_getline(&len)
+    // Call getline: char *buffer = flint.getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
 
     // Check if buffer is NULL
@@ -299,7 +299,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     // In a real implementation, we'd add a printf call here
     // For simplicity, we'll just abort directly since the error message
     // is mostly informational
-    llvm::Value *format_str = IR::generate_const_string(module, "Got a NULL from __flint_getline function call\n");
+    llvm::Value *format_str = IR::generate_const_string(module, "Got a NULL from flint.getline function call\n");
     builder->CreateCall(printf_fn, {format_str});
     builder->CreateCall(abort_fn, {});
     builder->CreateUnreachable(); // This block never returns
@@ -347,7 +347,7 @@ void Generator::Module::Read::generate_read_int_function( //
     // THE C IMPLEMENTATION:
     // int32_t read_i32() {
     //     long len = 0;
-    //     char *buffer = __flint_getline(&len);
+    //     char *buffer = flint.getline(&len);
     //     if (buffer == NULL) {
     //         printf("Something went wrong\n");
     //         abort();
@@ -397,7 +397,7 @@ void Generator::Module::Read::generate_read_int_function( //
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
     IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
-    // Call getline: char *buffer = __flint_getline(&len)
+    // Call getline: char *buffer = flint.getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
 
     // Check if buffer is NULL
@@ -481,7 +481,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     // THE C IMPLEMENTATION:
     // uint32_t read_u32() {
     //     long len = 0;
-    //     char *buffer = __flint_getline(&len);
+    //     char *buffer = flint.getline(&len);
     //     if (buffer == NULL) {
     //         printf("Something went wrong\n");
     //         abort();
@@ -540,7 +540,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
     IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
-    // Call getline: char *buffer = __flint_getline(&len)
+    // Call getline: char *buffer = flint.getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
 
     // Check if buffer is NULL
@@ -644,7 +644,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     // THE C IMPLEMENTATION:
     // float read_f32() {
     //     long len = 0;
-    //     char *buffer = __flint_getline(&len);
+    //     char *buffer = flint.getline(&len);
     //     if (buffer == NULL) {
     //         printf("Something went wrong\n");
     //         abort();
@@ -694,7 +694,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
     IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
-    // Call getline: char *buffer = __flint_getline(&len)
+    // Call getline: char *buffer = flint.getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
 
     // Check if buffer is NULL
@@ -757,7 +757,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     // THE C IMPLEMENTATION:
     // double read_f64() {
     //     long len = 0;
-    //     char *buffer = __flint_getline(&len);
+    //     char *buffer = flint.getline(&len);
     //     if (buffer == NULL) {
     //         printf("Something went wrong\n");
     //         abort();
@@ -807,7 +807,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
     IR::aligned_store(*builder, builder->getInt64(0), len_ptr);
 
-    // Call getline: char *buffer = __flint_getline(&len)
+    // Call getline: char *buffer = flint.getline(&len)
     llvm::Value *buffer = builder->CreateCall(getline_function, {len_ptr}, "buffer");
 
     // Check if buffer is NULL

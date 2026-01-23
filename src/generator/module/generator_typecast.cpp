@@ -58,7 +58,7 @@ void Generator::Module::TypeCast::generate_count_digits_function(llvm::IRBuilder
     llvm::Function *count_digits_fn = llvm::Function::Create( //
         count_digits_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "__flint_count_digits",                               //
+        "flint.count_digits",                                 //
         module                                                //
     );
 
@@ -131,7 +131,7 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     //         return init_str("false", 5);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
 
     llvm::FunctionType *bool_to_str_type = llvm::FunctionType::get( //
@@ -142,7 +142,7 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     llvm::Function *bool_to_str_fn = llvm::Function::Create( //
         bool_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "__flint_bool_to_str",                               //
+        "flint.bool_to_str",                                 //
         module                                               //
     );
     typecast_functions["bool_to_str"] = bool_to_str_fn;
@@ -195,7 +195,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     // }
     const std::string multitype_string = type_str + "x" + std::to_string(width);
     llvm::Type *multi_type = IR::get_type(module, Type::get_type_from_str(multitype_string).value()).first;
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *elem_to_str_fn = typecast_functions.at(type_str + "_to_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *append_str_fn = String::string_manip_functions.at("append_str");
@@ -204,8 +204,8 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
 
     const std::string typecast_function_name = multitype_string + "_to_str";
     llvm::FunctionType *multitype_to_str_type = llvm::FunctionType::get(str_type->getPointerTo(), {multi_type}, false);
-    llvm::Function *multitype_to_str_fn = llvm::Function::Create(                                           //
-        multitype_to_str_type, llvm::Function::ExternalLinkage, "__flint_" + typecast_function_name, module //
+    llvm::Function *multitype_to_str_fn = llvm::Function::Create(                                         //
+        multitype_to_str_type, llvm::Function::ExternalLinkage, "flint." + typecast_function_name, module //
     );
     typecast_functions[typecast_function_name] = multitype_to_str_fn;
     if (only_declarations) {
@@ -267,7 +267,7 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
 ) {
     // The string result of the bool8 value will always be of size 8. Each character of the string is either '0' or '1', depending of the
     // bit value of each element
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *bool8_to_str_type = llvm::FunctionType::get( //
@@ -278,7 +278,7 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
     llvm::Function *bool8_to_str_fn = llvm::Function::Create( //
         bool8_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "__flint_bool8_to_str",                               //
+        "flint.bool8_to_str",                                 //
         module                                                //
     );
     typecast_functions["bool8_to_str"] = bool8_to_str_fn;
@@ -348,7 +348,7 @@ void Generator::Module::TypeCast::generate_u8_to_str(llvm::IRBuilder<> *builder,
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -360,7 +360,7 @@ void Generator::Module::TypeCast::generate_u8_to_str(llvm::IRBuilder<> *builder,
     llvm::Function *u8_to_str_fn = llvm::Function::Create( //
         u8_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                   //
-        "__flint_u8_to_str",                               //
+        "flint.u8_to_str",                                 //
         module                                             //
     );
     typecast_functions["u8_to_str"] = u8_to_str_fn;
@@ -555,7 +555,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
@@ -568,7 +568,7 @@ void Generator::Module::TypeCast::generate_i32_to_str(llvm::IRBuilder<> *builder
     llvm::Function *i32_to_str_fn = llvm::Function::Create( //
         i32_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_i32_to_str",                               //
+        "flint.i32_to_str",                                 //
         module                                              //
     );
     typecast_functions["i32_to_str"] = i32_to_str_fn;
@@ -743,7 +743,7 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -755,7 +755,7 @@ void Generator::Module::TypeCast::generate_u32_to_str(llvm::IRBuilder<> *builder
     llvm::Function *u32_to_str_fn = llvm::Function::Create( //
         u32_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_u32_to_str",                               //
+        "flint.u32_to_str",                                 //
         module                                              //
     );
     typecast_functions["u32_to_str"] = u32_to_str_fn;
@@ -950,7 +950,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
@@ -963,7 +963,7 @@ void Generator::Module::TypeCast::generate_i64_to_str(llvm::IRBuilder<> *builder
     llvm::Function *i64_to_str_fn = llvm::Function::Create( //
         i64_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_i64_to_str",                               //
+        "flint.i64_to_str",                                 //
         module                                              //
     );
     typecast_functions["i64_to_str"] = i64_to_str_fn;
@@ -1146,7 +1146,7 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -1158,7 +1158,7 @@ void Generator::Module::TypeCast::generate_u64_to_str(llvm::IRBuilder<> *builder
     llvm::Function *u64_to_str_fn = llvm::Function::Create( //
         u64_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_u64_to_str",                               //
+        "flint.u64_to_str",                                 //
         module                                              //
     );
     typecast_functions["u64_to_str"] = u64_to_str_fn;
@@ -1331,7 +1331,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
@@ -1343,7 +1343,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     llvm::Function *f32_to_str_fn = llvm::Function::Create( //
         f32_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_f32_to_str",                               //
+        "flint.f32_to_str",                                 //
         module                                              //
     );
     typecast_functions["f32_to_str"] = f32_to_str_fn;
@@ -1639,7 +1639,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
@@ -1651,7 +1651,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     llvm::Function *f64_to_str_fn = llvm::Function::Create( //
         f64_to_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_f64_to_str",                               //
+        "flint.f64_to_str",                                 //
         module                                              //
     );
     typecast_functions["f64_to_str"] = f64_to_str_fn;

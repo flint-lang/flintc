@@ -522,7 +522,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     argument_types.reserve(arguments.size());
     for (size_t i = 0; i < arguments.size(); i++) {
         // Typecast all string literals in the args to string variables
-        if (arguments[i].first->type->to_string() == "__flint_type_str_lit") {
+        if (arguments[i].first->type->to_string() == "type.flint.str.lit") {
             arguments[i].first = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), arguments[i].first);
         }
         argument_types.emplace_back(arguments[i].first->type);

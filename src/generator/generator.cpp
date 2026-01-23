@@ -249,7 +249,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
-    // Force the addition of the '__flint_type_err' struct type before continuing with generation of the builtin functions
+    // Force the addition of the 'type.flint.err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
     // Generate all the print module functions
@@ -640,6 +640,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                 } else {
                     std::cerr << "Failed to write broken_module.ll: " << ec.message() << "\n";
                 }
+                return std::nullopt;
             }
             call->getCalledOperandUse().set(actual_function);
         }

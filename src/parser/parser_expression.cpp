@@ -508,7 +508,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         }
                     }
                     LitValue lit_value = LitStr{.value = processed_str.str()};
-                    return LiteralNode(lit_value, Type::get_primitive_type("__flint_type_str_lit"));
+                    return LiteralNode(lit_value, Type::get_primitive_type("type.flint.str.lit"));
                 }
             }
             case TOK_TRUE: {
@@ -648,17 +648,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(elem)) {
             auto &expr = std::get<std::unique_ptr<ExpressionNode>>(elem);
 
-            // Check if it's a __flint_type_str_lit literal (after our int/float->str conversion)
-            if (expr->type->to_string() == "__flint_type_str_lit" && expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+            // Check if it's a type.flint.str.lit literal (after our int/float->str conversion)
+            if (expr->type->to_string() == "type.flint.str.lit" && expr->get_variation() == ExpressionNode::Variation::LITERAL) {
                 auto *lit = expr->as<LiteralNode>();
                 const auto &lit_str = std::get<LitStr>(lit->value);
                 literal_value = lit_str.value;
                 is_str_literal = true;
             }
-            // Check if it's a TypeCast wrapping a __flint_type_str_lit
+            // Check if it's a TypeCast wrapping a type.flint.str.lit
             else if (expr->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
                 auto *cast = expr->as<TypeCastNode>();
-                if (cast->expr->type->to_string() == "__flint_type_str_lit" &&
+                if (cast->expr->type->to_string() == "type.flint.str.lit" &&
                     cast->expr->get_variation() == ExpressionNode::Variation::LITERAL) {
                     auto *lit = cast->expr->as<LiteralNode>();
                     const auto &lit_str = std::get<LitStr>(lit->value);
@@ -668,7 +668,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             }
         } else { // std::unique_ptr<LiteralNode>
             auto &lit_ptr = std::get<std::unique_ptr<LiteralNode>>(elem);
-            if (lit_ptr->type->to_string() == "__flint_type_str_lit" || lit_ptr->type->to_string() == "str") {
+            if (lit_ptr->type->to_string() == "type.flint.str.lit" || lit_ptr->type->to_string() == "str") {
                 const auto &lit_str = std::get<LitStr>(lit_ptr->value);
                 literal_value = lit_str.value;
                 is_str_literal = true;
@@ -683,7 +683,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             // Non-literal expression: flush accumulated strings first
             if (has_accumulated) {
                 LitValue str_val = LitStr{accumulated_string};
-                auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("__flint_type_str_lit"));
+                auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("type.flint.str.lit"));
                 optimized_content.emplace_back(std::move(lit_node));
                 accumulated_string.clear();
                 has_accumulated = false;
@@ -696,7 +696,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     // Flush any remaining accumulated strings
     if (has_accumulated) {
         LitValue str_val = LitStr{accumulated_string};
-        auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("__flint_type_str_lit"));
+        auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("type.flint.str.lit"));
         optimized_content.emplace_back(std::move(lit_node));
     }
 
@@ -706,7 +706,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
 
         if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(optimized_content[0])) {
             auto expr = std::move(std::get<std::unique_ptr<ExpressionNode>>(optimized_content[0]));
-            if (expr->type->to_string() == "__flint_type_str_lit") {
+            if (expr->type->to_string() == "type.flint.str.lit") {
                 check_castability(str_type, expr, true);
                 return expr;
             } else {
@@ -716,7 +716,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             }
         } else {
             auto lit = std::move(std::get<std::unique_ptr<LiteralNode>>(optimized_content[0]));
-            if (lit->type->to_string() == "__flint_type_str_lit") {
+            if (lit->type->to_string() == "type.flint.str.lit") {
                 std::unique_ptr<ExpressionNode> expr = std::make_unique<LiteralNode>(std::move(*lit));
                 check_castability(str_type, expr, true);
                 return expr;
@@ -928,7 +928,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
     // Check if the types in the group are correct
     for (unsigned int i = 0; i < expressions.size(); i++) {
         const std::string type_str = expressions[i]->type->to_string();
-        if (type_str == "__flint_type_str_lit") {
+        if (type_str == "type.flint.str.lit") {
             expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
         } else if (expressions[i]->type->get_variation() == Type::Variation::GROUP) {
             // Nested groups are not allowed
@@ -2258,10 +2258,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Finally check if one of the two sides are string literals, if they are they need to become a string variable
-    if (lhs.value()->type->to_string() == "__flint_type_str_lit") {
+    if (lhs.value()->type->to_string() == "type.flint.str.lit") {
         lhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), lhs.value());
     }
-    if (rhs.value()->type->to_string() == "__flint_type_str_lit") {
+    if (rhs.value()->type->to_string() == "type.flint.str.lit") {
         rhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), rhs.value());
     }
 

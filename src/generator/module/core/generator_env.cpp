@@ -23,7 +23,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     //         return init_str(c_env, strlen(c_env));
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *getenv_fn = c_functions.at(GETENV);
@@ -93,7 +93,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     // Prepare successful return value
     llvm::AllocaInst *ret_success_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_success_alloc");
     llvm::Value *ret_success_err_ptr = builder->CreateStructGEP(function_result_type, ret_success_alloc, 0, "ret_success_err_ptr");
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
     IR::aligned_store(*builder, err_struct, ret_success_err_ptr);
     llvm::Value *ret_success_val_ptr = builder->CreateStructGEP(function_result_type, ret_success_alloc, 1, "ret_success_val_ptr");
@@ -207,7 +207,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     }
     //     return true;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 #ifdef __WIN32__
     llvm::Function *setenv_fn = env_functions.at("setenv");
 #else
@@ -311,7 +311,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     // Return the result
     llvm::AllocaInst *ret_result_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_result_alloc");
     llvm::Value *ret_result_err_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 0, "ret_result_err_ptr");
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
     IR::aligned_store(*builder, err_struct, ret_result_err_ptr);
     llvm::Value *ret_result_val_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 1, "ret_result_val_ptr");

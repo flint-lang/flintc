@@ -10,7 +10,6 @@
 
 // --- LEXING ERRORS ---
 #include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
-#include "error_types/lexing/identifiers/err_invalid_identifier.hpp"
 #include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
 #include "error_types/lexing/literals/err_lit_expected_char_value.hpp"
 #include "error_types/lexing/literals/err_lit_unterminated_string.hpp"

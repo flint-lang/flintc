@@ -43,7 +43,7 @@ llvm::GlobalVariable *Generator::Module::DIMA::get_head(const std::shared_ptr<Ty
 }
 
 void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
-    llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
+    llvm::StructType *head_type = type_map.at("type.dima.head");
     const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
     llvm::ConstantPointerNull *nullpointer = llvm::ConstantPointerNull::get(head_type->getPointerTo());
     for (const auto &data_type : data_types) {

@@ -86,7 +86,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         llvm::Argument *argv = main_function->args().begin() + 1;
         argv->setName("argv");
         // Now get the string type
-        llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+        llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
         const llvm::DataLayout &data_layout = module->getDataLayout();
         const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
         llvm::Value *arr_len = builder->CreateAdd(                                                      //
@@ -149,7 +149,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // First, load the first return value of the return struct
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
-    llvm::Type *err_type = type_map.at("__flint_type_err");
+    llvm::Type *err_type = type_map.at("type.flint.err");
     llvm::LoadInst *err_val = IR::aligned_load(*builder, err_type, err_ptr, "main_err_val");
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -182,7 +182,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
     llvm::Value *err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
     llvm::Value *err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
     llvm::Value *message_begin_ptr = IR::generate_const_string(                         //
         module, "The given error bubbled up to the main function:\n └─ %s.%s: \"%s\"\n" //

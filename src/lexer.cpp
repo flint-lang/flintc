@@ -193,9 +193,7 @@ bool Lexer::scan_token() {
             break;
         case '_':
             if (is_alpha_num(peek_next())) {
-                if (!identifier()) {
-                    return false;
-                }
+                identifier();
             } else {
                 add_token(TOK_UNDERSCORE);
             }
@@ -366,9 +364,7 @@ bool Lexer::scan_token() {
                     return false;
                 }
             } else if (is_alpha(character)) {
-                if (!identifier()) {
-                    return false;
-                }
+                identifier();
             } else {
                 THROW_ERR(ErrUnexpectedToken, ERR_LEXING, file_hash, line, column, std::string(1, character));
                 return false;
@@ -379,7 +375,7 @@ bool Lexer::scan_token() {
     return true;
 }
 
-bool Lexer::identifier() {
+void Lexer::identifier() {
     // Includes all characters in the identifier which are
     // alphanumerical
     while (is_alpha_num(peek_next())) {
@@ -388,20 +384,15 @@ bool Lexer::identifier() {
 
     std::string_view identifier = std::string_view(source.data() + start, current - start + 1);
     std::string identifier_str(identifier);
-    // Check if the name starts with __flint_ as these names are not permitted for user-defined functions
-    if (identifier.length() > 8 && identifier.substr(0, 8) == "__flint_") {
-        THROW_ERR(ErrInvalidIdentifier, ERR_LEXING, file_hash, line, column, identifier_str);
-        return false;
-    }
     if (primitives.count(identifier) > 0) {
         std::shared_ptr<Type> type = Type::get_primitive_type(identifier_str);
         tokens.emplace_back(TokenContext{TOK_TYPE, line, column, file_id, type});
-        return true;
+        return;
     }
 
     Token token = (keywords.count(identifier_str) > 0) ? keywords.at(identifier_str) : TOK_IDENTIFIER;
     add_token(token, identifier);
-    return true;
+    return;
 }
 
 bool Lexer::number() {

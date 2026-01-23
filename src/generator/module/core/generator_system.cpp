@@ -52,7 +52,7 @@ void Generator::Module::System::generate_system_command_function( //
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
     llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
@@ -123,7 +123,7 @@ void Generator::Module::System::generate_system_command_function( //
 
     // Initialize error value to be empty
     llvm::Value *error_value_ptr = builder->CreateStructGEP(function_result_type, result_struct, 0, "error_value_ptr");
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
     IR::aligned_store(*builder, err_struct, error_value_ptr);
 
@@ -293,7 +293,7 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     //     }
     //     return init_str(buffer, strlen(buffer));
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *getcwd_fn = c_functions.at(GETCWD);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
@@ -398,7 +398,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     //     }
     //     return init_str(buffer, buffer_len);
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 #ifdef __WIN32__
     llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
 #endif

@@ -51,7 +51,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     //     }
     //     return content;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);
@@ -317,7 +317,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     //     fclose(file);
     //     return lines_array;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -719,7 +719,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
     IR::aligned_store(*builder, err_struct, ret_err_ptr);
     llvm::Value *ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
@@ -746,7 +746,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     //     return false;
     // }
     // Get required function pointers
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
 
@@ -816,7 +816,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -907,7 +907,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::AllocaInst *ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
     llvm::Value *ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
     error_value = IR::generate_err_value(*builder, module, ErrFS, NotWritable, NotWritableMessage);
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Value *no_error_value = IR::get_default_value_of_type(err_type);
     llvm::Value *ret_err_val = builder->CreateSelect(write_check, no_error_value, error_value);
     IR::aligned_store(*builder, ret_err_val, ret_err_ptr);
@@ -938,7 +938,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -1067,7 +1067,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     //
     //     return FALSE;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("__flint_type_str_struct")).first;
+    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fread_fn = c_functions.at(FREAD);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);

@@ -98,7 +98,7 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
 std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_return");
     // Get the return type of the function
-    std::shared_ptr<Type> return_type = scope->get_variable_type("__flint_return_type").value();
+    std::shared_ptr<Type> return_type = scope->get_variable_type("flint.return_type").value();
     unsigned int return_id = 0;
     for (auto it = tokens.first; it != tokens.second; ++it) {
         if (it->token == TOK_RETURN) {
@@ -1290,14 +1290,14 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!file_node_ptr->file_namespace->add_type(switcher_type)) {
             switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
-        if (!body_scope->add_variable("__flint_value_err", switcher_type, body_scope->scope_id, false, false)) {
+        if (!body_scope->add_variable("flint.value_err", switcher_type, body_scope->scope_id, false, false)) {
             assert(false);
             return std::nullopt;
         }
         if (!create_variant_switch_branches(body_scope, s_branches, e_branches, body, switcher_type, true, false)) {
             return std::nullopt;
         }
-        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("__flint_value_err", switcher_type);
+        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("flint.value_err", switcher_type);
         std::unique_ptr<StatementNode> switch_statement = std::make_unique<SwitchStatement>(dummy_switcher, s_branches);
         body_scope->body.push_back(std::move(switch_statement));
     }
@@ -1790,7 +1790,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             final_type = Type::get_primitive_type("i32");
         } else if (type_str == "float") {
             final_type = Type::get_primitive_type("f32");
-        } else if (type_str == "__flint_type_str_lit") {
+        } else if (type_str == "type.flint.str.lit") {
             final_type = Type::get_primitive_type("str");
         } else {
             final_type = rhs.value()->type;

@@ -8,7 +8,7 @@
 #include <json/parser.hpp>
 
 void Generator::Module::generate_dima_heads(llvm::Module *module, const std::string &module_name) {
-    llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
+    llvm::StructType *head_type = type_map.at("type.dima.head");
     llvm::ConstantPointerNull *nullpointer = llvm::ConstantPointerNull::get(head_type->getPointerTo());
     Hash file_hash(module_name);
     for (const auto &data_type_tuple : core_module_data_types.at(module_name)) {
