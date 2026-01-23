@@ -2,7 +2,7 @@
 #include "lexer/builtins.hpp"
 
 static const Hash hash(std::string("system"));
-static const std::string hash_str = hash.to_string();
+static const std::string prefix = hash.to_string() + ".system.";
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_system_command_function(builder, module, only_declarations);
@@ -86,7 +86,7 @@ void Generator::Module::System::generate_system_command_function( //
     llvm::Function *system_fn = llvm::Function::Create( //
         system_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        hash_str + ".system_command",                   //
+        prefix + "system_command",                      //
         module                                          //
     );
     system_functions["system_command"] = system_fn;
@@ -303,7 +303,7 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     llvm::Function *get_cwd_fn = llvm::Function::Create( //
         get_cwd_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        hash_str + ".get_cwd",                           //
+        prefix + "get_cwd",                              //
         module                                           //
     );
     system_functions["get_cwd"] = get_cwd_fn;
@@ -406,7 +406,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
     llvm::FunctionType *get_path_type = llvm::FunctionType::get(str_type->getPointerTo(), {str_type->getPointerTo()}, false);
-    llvm::Function *get_path_fn = llvm::Function::Create(get_path_type, llvm::Function::ExternalLinkage, hash_str + ".get_path", module);
+    llvm::Function *get_path_fn = llvm::Function::Create(get_path_type, llvm::Function::ExternalLinkage, prefix + "get_path", module);
     system_functions["get_path"] = get_path_fn;
     if (only_declarations) {
         return;

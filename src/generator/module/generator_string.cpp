@@ -5,6 +5,8 @@
 
 #include <llvm/IR/DerivedTypes.h>
 
+static const std::string prefix = "flint.string.";
+
 void Generator::Module::String::generate_access_str_at_function( //
     llvm::IRBuilder<> *builder,                                  //
     llvm::Module *module,                                        //
@@ -32,7 +34,7 @@ void Generator::Module::String::generate_access_str_at_function( //
     llvm::Function *access_str_at_fn = llvm::Function::Create( //
         access_str_at_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.access_str_at",                                 //
+        prefix + "access_str_at",                              //
         module                                                 //
     );
     string_manip_functions["access_str_at"] = access_str_at_fn;
@@ -128,7 +130,7 @@ void Generator::Module::String::generate_assign_str_at_function( //
     llvm::Function *assign_str_at_fn = llvm::Function::Create( //
         assign_str_at_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.assign_str_at",                                 //
+        prefix + "assign_str_at",                              //
         module                                                 //
     );
     string_manip_functions["assign_str_at"] = assign_str_at_fn;
@@ -221,7 +223,7 @@ void Generator::Module::String::generate_create_str_function( //
     llvm::Function *create_str_fn = llvm::Function::Create( //
         create_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.create_str",                                 //
+        prefix + "create_str",                              //
         module                                              //
     );
     string_manip_functions["create_str"] = create_str_fn;
@@ -284,7 +286,7 @@ void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *bu
     llvm::Function *init_str_fn = llvm::Function::Create( //
         init_str_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "flint.init_str",                                 //
+        prefix + "init_str",                              //
         module                                            //
     );
     string_manip_functions["init_str"] = init_str_fn;
@@ -345,7 +347,7 @@ void Generator::Module::String::generate_compare_str_function( //
     llvm::Function *compare_str_fn = llvm::Function::Create( //
         compare_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "flint.compare_str",                                 //
+        prefix + "compare_str",                              //
         module                                               //
     );
     string_manip_functions["compare_str"] = compare_str_fn;
@@ -434,7 +436,7 @@ void Generator::Module::String::generate_assign_str_function( //
     llvm::Function *assign_str_fn = llvm::Function::Create( //
         assign_str_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.assign_str",                                 //
+        prefix + "assign_str",                              //
         module                                              //
     );
     string_manip_functions["assign_str"] = assign_str_fn;
@@ -496,7 +498,7 @@ void Generator::Module::String::generate_assign_lit_function( //
     llvm::Function *assign_lit_fn = llvm::Function::Create( //
         assign_lit_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.assign_lit",                                 //
+        prefix + "assign_lit",                              //
         module                                              //
     );
     string_manip_functions["assign_lit"] = assign_lit_fn;
@@ -577,7 +579,7 @@ void Generator::Module::String::generate_append_str_function( //
         },                                            //
         false                                         // No varargs
     );
-    llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, "flint.append_str", module);
+    llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, prefix + "append_str", module);
     string_manip_functions["append_str"] = append_str_fn;
     if (only_declarations) {
         return;
@@ -671,7 +673,7 @@ void Generator::Module::String::generate_append_lit_function( //
         },                                                  //
         false                                               // No varargs
     );
-    llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, "flint.append_lit", module);
+    llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, prefix + "append_lit", module);
     string_manip_functions["append_lit"] = append_lit_fn;
     if (only_declarations) {
         return;
@@ -760,7 +762,7 @@ void Generator::Module::String::generate_add_str_str_function( //
     llvm::Function *add_str_str_fn = llvm::Function::Create( //
         add_str_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "flint.add_str_str",                                 //
+        prefix + "add_str_str",                              //
         module                                               //
     );
     string_manip_functions["add_str_str"] = add_str_str_fn;
@@ -844,7 +846,7 @@ void Generator::Module::String::generate_add_str_lit_function( //
     llvm::Function *add_str_lit_fn = llvm::Function::Create( //
         add_str_lit_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "flint.add_str_lit",                                 //
+        prefix + "add_str_lit",                              //
         module                                               //
     );
     string_manip_functions["add_str_lit"] = add_str_lit_fn;
@@ -925,7 +927,7 @@ void Generator::Module::String::generate_add_lit_str_function( //
     llvm::Function *add_lit_str_fn = llvm::Function::Create( //
         add_lit_str_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "flint.add_lit_str",                                 //
+        prefix + "add_lit_str",                              //
         module                                               //
     );
     string_manip_functions["add_lit_str"] = add_lit_str_fn;
@@ -1027,7 +1029,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
     llvm::Function *get_str_slice_fn = llvm::Function::Create( //
         get_str_slice_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.get_str_slice",                                 //
+        prefix + "get_str_slice",                              //
         module                                                 //
     );
     string_manip_functions["get_str_slice"] = get_str_slice_fn;

@@ -4,6 +4,8 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
 
+static const std::string prefix = "flint.dima.";
+
 /*
  * For each type there is (for now only data types) a head will be generated. The head will have the structure
  *    // Each slot has 16 Bytes of data before the actual slot, meaining it will waste 16 bytes for each allocated value.
@@ -129,7 +131,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     llvm::Function *init_heads_fn = llvm::Function::Create( //
         init_heads_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.dima_init_heads",                            //
+        prefix + "init_heads",                              //
         module                                              //
     );
     dima_functions["init_heads"] = init_heads_fn;
@@ -213,7 +215,7 @@ void Generator::Module::DIMA::generate_get_block_capacity_function( //
     llvm::Function *get_block_capacity_fn = llvm::Function::Create( //
         get_block_capacity_type,                                    //
         llvm::Function::ExternalLinkage,                            //
-        "flint.dima_get_block_capacity",                            //
+        prefix + "get_block_capacity",                              //
         module                                                      //
     );
     dima_functions["get_block_capacity"] = get_block_capacity_fn;
@@ -297,7 +299,7 @@ void Generator::Module::DIMA::generate_create_block_function( //
     llvm::Function *create_block_fn = llvm::Function::Create( //
         create_block_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint.dima_create_block",                            //
+        prefix + "create_block",                              //
         module                                                //
     );
     dima_functions["create_block"] = create_block_fn;
@@ -363,7 +365,7 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     llvm::Function *allocate_in_block_fn = llvm::Function::Create( //
         allocate_in_block_type,                                    //
         llvm::Function::ExternalLinkage,                           //
-        "flint.dima_allocate_in_block",                            //
+        prefix + "allocate_in_block",                              //
         module                                                     //
     );
     dima_functions["allocate_in_block"] = allocate_in_block_fn;
@@ -501,7 +503,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
     llvm::Function *allocate_fn = llvm::Function::Create( //
         allocate_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "flint.dima_allocate",                            //
+        prefix + "allocate",                              //
         module                                            //
     );
     dima_functions["allocate"] = allocate_fn;
@@ -705,7 +707,7 @@ void Generator::Module::DIMA::generate_retain_function( //
     llvm::Function *retain_fn = llvm::Function::Create( //
         retain_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        "flint.dima_retain",                            //
+        prefix + "retain",                              //
         module                                          //
     );
     dima_functions["retain"] = retain_fn;
@@ -806,7 +808,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Function *release_fn = llvm::Function::Create( //
         release_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        "flint.dima_release",                            //
+        prefix + "release",                              //
         module                                           //
     );
     dima_functions["release"] = release_fn;

@@ -1,6 +1,8 @@
 #include "generator/generator.hpp"
 #include "globals.hpp"
 
+static const std::string prefix = "flint.arithmetic.";
+
 void Generator::Module::Arithmetic::generate_arithmetic_functions( //
     llvm::IRBuilder<> *builder,                                    //
     llvm::Module *module,                                          //
@@ -89,7 +91,7 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
 
 bool Generator::Module::Arithmetic::refresh_arithmetic_functions(llvm::Module *module) {
     for (auto &arithmetic_function : arithmetic_functions) {
-        arithmetic_function.second = module->getFunction("flint." + arithmetic_function.first);
+        arithmetic_function.second = module->getFunction(prefix + arithmetic_function.first);
         if (arithmetic_function.second == nullptr) {
             return false;
         }
@@ -123,7 +125,7 @@ void Generator::Module::Arithmetic::generate_pow_function( //
     // }
     const std::string name = (is_signed ? "i" : "u") + std::to_string(int_type->getBitWidth());
     llvm::FunctionType *int_pow_type = llvm::FunctionType::get(int_type, {int_type, int_type}, false);
-    llvm::Function *int_pow_fn = llvm::Function::Create(int_pow_type, llvm::Function::ExternalLinkage, "flint." + name + "_pow", module);
+    llvm::Function *int_pow_fn = llvm::Function::Create(int_pow_type, llvm::Function::ExternalLinkage, prefix + name + "_pow", module);
     arithmetic_functions[name + "_pow"] = int_pow_fn;
     if (only_declarations) {
         return;
@@ -241,7 +243,7 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
     llvm::Function *int_safe_add_fn = llvm::Function::Create( //
         int_safe_add_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint." + name + "_safe_add",                        //
+        prefix + name + "_safe_add",                          //
         module                                                //
     );
     arithmetic_functions[name + "_safe_add"] = int_safe_add_fn;
@@ -337,7 +339,7 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
     llvm::Function *int_safe_sub_fn = llvm::Function::Create( //
         int_safe_sub_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint." + name + "_safe_sub",                        //
+        prefix + name + "_safe_sub",                          //
         module                                                //
     );
     arithmetic_functions[name + "_safe_sub"] = int_safe_sub_fn;
@@ -470,7 +472,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
     llvm::Function *int_safe_mul_fn = llvm::Function::Create( //
         int_safe_mul_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint." + name + "_safe_mul",                        //
+        prefix + name + "_safe_mul",                          //
         module                                                //
     );
     arithmetic_functions[name + "_safe_mul"] = int_safe_mul_fn;
@@ -774,7 +776,7 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
     llvm::Function *int_safe_div_fn = llvm::Function::Create( //
         int_safe_div_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint." + name + "_safe_div",                        //
+        prefix + name + "_safe_div",                          //
         module                                                //
     );
     arithmetic_functions[name + "_safe_div"] = int_safe_div_fn;
@@ -855,7 +857,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mod( //
     llvm::Function *int_safe_mod_fn = llvm::Function::Create( //
         int_safe_mod_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint." + name + "_safe_mod",                        //
+        prefix + name + "_safe_mod",                          //
         module                                                //
     );
     arithmetic_functions[name + "_safe_mod"] = int_safe_mod_fn;
@@ -904,7 +906,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
     llvm::Function *uint_safe_add_fn = llvm::Function::Create( //
         uint_safe_add_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint." + name + "_safe_add",                         //
+        prefix + name + "_safe_add",                           //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_add"] = uint_safe_add_fn;
@@ -974,7 +976,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
     llvm::Function *uint_safe_sub_fn = llvm::Function::Create( //
         uint_safe_sub_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint." + name + "_safe_sub",                         //
+        prefix + name + "_safe_sub",                           //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_sub"] = uint_safe_sub_fn;
@@ -1045,7 +1047,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
     llvm::Function *uint_safe_mul_fn = llvm::Function::Create( //
         uint_safe_mul_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint." + name + "_safe_mul",                         //
+        prefix + name + "_safe_mul",                           //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_mul"] = uint_safe_mul_fn;
@@ -1126,7 +1128,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
     llvm::Function *uint_safe_div_fn = llvm::Function::Create( //
         uint_safe_div_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint." + name + "_safe_div",                         //
+        prefix + name + "_safe_div",                           //
         module                                                 //
     );
     arithmetic_functions[name + "_safe_div"] = uint_safe_div_fn;
@@ -1198,7 +1200,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
     llvm::Function *int_vector_safe_add_fn = llvm::Function::Create( //
         int_vector_safe_add_type,                                    //
         llvm::Function::ExternalLinkage,                             //
-        "flint." + name + "_safe_add",                               //
+        prefix + name + "_safe_add",                                 //
         module                                                       //
     );
     arithmetic_functions[name + "_safe_add"] = int_vector_safe_add_fn;
@@ -1327,7 +1329,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
     llvm::Function *int_vector_safe_sub_fn = llvm::Function::Create( //
         int_vector_safe_sub_type,                                    //
         llvm::Function::ExternalLinkage,                             //
-        "flint." + name + "_safe_sub",                               //
+        prefix + name + "_safe_sub",                                 //
         module                                                       //
     );
     arithmetic_functions[name + "_safe_sub"] = int_vector_safe_sub_fn;
@@ -1456,7 +1458,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
     llvm::Function *int_vector_safe_mul_fn = llvm::Function::Create( //
         int_vector_safe_mul_type,                                    //
         llvm::Function::ExternalLinkage,                             //
-        "flint." + name + "_safe_mul",                               //
+        prefix + name + "_safe_mul",                                 //
         module                                                       //
     );
     arithmetic_functions[name + "_safe_mul"] = int_vector_safe_mul_fn;
@@ -1575,7 +1577,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
     llvm::Function *int_vector_safe_div_fn = llvm::Function::Create( //
         int_vector_safe_div_type,                                    //
         llvm::Function::ExternalLinkage,                             //
-        "flint." + name + "_safe_div",                               //
+        prefix + name + "_safe_div",                                 //
         module                                                       //
     );
     arithmetic_functions[name + "_safe_div"] = int_vector_safe_div_fn;

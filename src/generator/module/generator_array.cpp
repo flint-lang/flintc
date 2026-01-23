@@ -4,6 +4,8 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intrinsics.h"
 
+static const std::string prefix = "flint.array.";
+
 void Generator::Module::Array::generate_get_arr_len_function( //
     llvm::IRBuilder<> *builder,                               //
     llvm::Module *module,                                     //
@@ -29,7 +31,7 @@ void Generator::Module::Array::generate_get_arr_len_function( //
     llvm::Function *get_arr_len_fn = llvm::Function::Create( //
         get_arr_len_type,                                    //
         llvm::Function::ExternalLinkage,                     //
-        "flint.get_arr_len",                                 //
+        prefix + "get_arr_len",                              //
         module                                               //
     );
     array_manip_functions["get_arr_len"] = get_arr_len_fn;
@@ -135,7 +137,7 @@ void Generator::Module::Array::generate_create_arr_function( //
     llvm::Function *create_arr_fn = llvm::Function::Create( //
         create_arr_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.create_arr",                                 //
+        prefix + "create_arr",                              //
         module                                              //
     );
     array_manip_functions["create_arr"] = create_arr_fn;
@@ -278,7 +280,7 @@ void Generator::Module::Array::generate_fill_arr_inline_function( //
     llvm::Function *fill_arr_inline_fn = llvm::Function::Create( //
         fill_arr_inline_type,                                    //
         llvm::Function::ExternalLinkage,                         //
-        "flint.fill_arr_inline",                                 //
+        prefix + "fill_arr_inline",                              //
         module                                                   //
     );
     array_manip_functions["fill_arr_inline"] = fill_arr_inline_fn;
@@ -493,7 +495,7 @@ void Generator::Module::Array::generate_fill_arr_deep_function( //
     llvm::Function *fill_arr_deep_fn = llvm::Function::Create( //
         fill_arr_deep_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.fill_arr_deep",                                 //
+        prefix + "fill_arr_deep",                              //
         module                                                 //
     );
     array_manip_functions["fill_arr_deep"] = fill_arr_deep_fn;
@@ -664,7 +666,7 @@ void Generator::Module::Array::generate_fill_arr_val_function( //
     llvm::Function *fill_arr_val_fn = llvm::Function::Create( //
         fill_arr_val_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "flint.fill_arr_val",                                 //
+        prefix + "fill_arr_val",                              //
         module                                                //
     );
     array_manip_functions["fill_arr_val"] = fill_arr_val_fn;
@@ -889,7 +891,7 @@ void Generator::Module::Array::generate_access_arr_function( //
     llvm::Function *access_arr_fn = llvm::Function::Create( //
         access_arr_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "flint.access_arr",                                 //
+        prefix + "access_arr",                              //
         module                                              //
     );
     array_manip_functions["access_arr"] = access_arr_fn;
@@ -1067,7 +1069,7 @@ void Generator::Module::Array::generate_access_arr_val_function( //
     llvm::Function *access_arr_val_fn = llvm::Function::Create( //
         access_arr_val_type,                                    //
         llvm::Function::ExternalLinkage,                        //
-        "flint.access_arr_val",                                 //
+        prefix + "access_arr_val",                              //
         module                                                  //
     );
     array_manip_functions["access_arr_val"] = access_arr_val_fn;
@@ -1122,7 +1124,7 @@ void Generator::Module::Array::generate_assign_arr_at_function( //
     llvm::Function *assign_arr_at_fn = llvm::Function::Create( //
         assign_arr_at_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.assign_arr_at",                                 //
+        prefix + "assign_arr_at",                              //
         module                                                 //
     );
     array_manip_functions["assign_arr_at"] = assign_arr_at_fn;
@@ -1179,7 +1181,7 @@ void Generator::Module::Array::generate_assign_arr_val_at_function( //
     llvm::Function *assign_arr_val_at_fn = llvm::Function::Create( //
         assign_arr_val_at_type,                                    //
         llvm::Function::ExternalLinkage,                           //
-        "flint.assign_val_arr_at",                                 //
+        prefix + "assign_val_arr_at",                              //
         module                                                     //
     );
     array_manip_functions["assign_arr_val_at"] = assign_arr_val_at_fn;
@@ -1241,7 +1243,7 @@ void Generator::Module::Array::generate_free_arr_function(llvm::IRBuilder<> *bui
         },
         false // No vaargs
     );
-    llvm::Function *free_arr_fn = llvm::Function::Create(free_arr_type, llvm::Function::ExternalLinkage, "flint.free_arr", module);
+    llvm::Function *free_arr_fn = llvm::Function::Create(free_arr_type, llvm::Function::ExternalLinkage, prefix + "free_arr", module);
     array_manip_functions["free_arr"] = free_arr_fn;
     if (only_declarations) {
         return;
@@ -1439,7 +1441,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::Function *get_arr_slice_1d_fn = llvm::Function::Create( //
         get_arr_slice_1d_type,                                    //
         llvm::Function::ExternalLinkage,                          //
-        "flint.get_arr_slice_1d",                                 //
+        prefix + "get_arr_slice_1d",                              //
         module                                                    //
     );
     array_manip_functions["get_arr_slice_1d"] = get_arr_slice_1d_fn;
@@ -1760,7 +1762,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Function *get_arr_slice_fn = llvm::Function::Create( //
         get_arr_slice_type,                                    //
         llvm::Function::ExternalLinkage,                       //
-        "flint.get_arr_slice",                                 //
+        prefix + "get_arr_slice",                              //
         module                                                 //
     );
     array_manip_functions["get_arr_slice"] = get_arr_slice_fn;

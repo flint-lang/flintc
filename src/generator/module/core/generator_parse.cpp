@@ -3,7 +3,7 @@
 #include <cstdlib>
 
 static const Hash hash(std::string("parse"));
-static const std::string hash_str = hash.to_string();
+static const std::string prefix = hash.to_string() + ".parse.";
 
 void Generator::Module::Parse::generate_parse_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_parse_uint_function(builder, module, only_declarations, 8);
@@ -57,11 +57,11 @@ void Generator::Module::Parse::generate_parse_int_function( //
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
     llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
-    llvm::Function *parse_uN_fn = llvm::Function::Create(  //
-        parse_uN_type,                                     //
-        llvm::Function::ExternalLinkage,                   //
-        hash_str + ".parse_i" + std::to_string(bit_width), //
-        module                                             //
+    llvm::Function *parse_uN_fn = llvm::Function::Create( //
+        parse_uN_type,                                    //
+        llvm::Function::ExternalLinkage,                  //
+        prefix + "parse_i" + std::to_string(bit_width),   //
+        module                                            //
     );
     const std::string fn_name = std::string("parse_i" + std::to_string(bit_width));
     parse_functions[fn_name] = parse_uN_fn;
@@ -233,11 +233,11 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
     llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
-    llvm::Function *parse_uN_fn = llvm::Function::Create(  //
-        parse_uN_type,                                     //
-        llvm::Function::ExternalLinkage,                   //
-        hash_str + ".parse_u" + std::to_string(bit_width), //
-        module                                             //
+    llvm::Function *parse_uN_fn = llvm::Function::Create( //
+        parse_uN_type,                                    //
+        llvm::Function::ExternalLinkage,                  //
+        prefix + "parse_u" + std::to_string(bit_width),   //
+        module                                            //
     );
     const std::string fn_name = std::string("parse_u" + std::to_string(bit_width));
     parse_functions[fn_name] = parse_uN_fn;
@@ -402,7 +402,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     llvm::Function *parse_f32_fn = llvm::Function::Create( //
         parse_f32_type,                                    //
         llvm::Function::ExternalLinkage,                   //
-        hash_str + ".parse_f32",                           //
+        prefix + "parse_f32",                              //
         module                                             //
     );
     parse_functions["parse_f32"] = parse_f32_fn;
@@ -522,7 +522,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     llvm::Function *parse_f64_fn = llvm::Function::Create( //
         parse_f64_type,                                    //
         llvm::Function::ExternalLinkage,                   //
-        hash_str + ".parse_f64",                           //
+        prefix + "parse_f64",                              //
         module                                             //
     );
     parse_functions["parse_f64"] = parse_f64_fn;

@@ -2,7 +2,7 @@
 #include "lexer/builtins.hpp"
 
 static const Hash hash(std::string("read"));
-static const std::string hash_str = hash.to_string();
+static const std::string prefix = hash.to_string() + ".read.";
 
 void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
@@ -51,7 +51,7 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     getline_function = llvm::Function::Create( //
         getline_type,                          //
         llvm::Function::ExternalLinkage,       //
-        hash_str + ".getline",                 //
+        prefix + "getline",                    //
         module                                 //
     );
     if (only_declarations) {
@@ -266,7 +266,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     llvm::Function *read_str_fn = llvm::Function::Create( //
         read_str_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        hash_str + ".read_str",                           //
+        prefix + "read_str",                              //
         module                                            //
     );
     read_functions["read_str"] = read_str_fn;
@@ -372,11 +372,11 @@ void Generator::Module::Read::generate_read_int_function( //
     const std::string ParseIntMessage(ErrReadValues.at(ParseInt).second);
     llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_int_type = llvm::FunctionType::get(function_result_type, false);
-    llvm::Function *read_int_fn = llvm::Function::Create(                         //
-        read_int_type,                                                            //
-        llvm::Function::ExternalLinkage,                                          //
-        hash_str + ".read_i" + std::to_string(result_type->getIntegerBitWidth()), //
-        module                                                                    //
+    llvm::Function *read_int_fn = llvm::Function::Create(                      //
+        read_int_type,                                                         //
+        llvm::Function::ExternalLinkage,                                       //
+        prefix + "read_i" + std::to_string(result_type->getIntegerBitWidth()), //
+        module                                                                 //
     );
     read_functions["read_i" + std::to_string(result_type->getIntegerBitWidth())] = read_int_fn;
     if (only_declarations) {
@@ -512,11 +512,11 @@ void Generator::Module::Read::generate_read_uint_function( //
     const std::string NegativeUintMessage(ErrReadValues.at(NegativeUint).second);
     llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
     llvm::FunctionType *read_uint_type = llvm::FunctionType::get(function_result_type, false);
-    llvm::Function *read_uint_fn = llvm::Function::Create(                        //
-        read_uint_type,                                                           //
-        llvm::Function::ExternalLinkage,                                          //
-        hash_str + ".read_u" + std::to_string(result_type->getIntegerBitWidth()), //
-        module                                                                    //
+    llvm::Function *read_uint_fn = llvm::Function::Create(                     //
+        read_uint_type,                                                        //
+        llvm::Function::ExternalLinkage,                                       //
+        prefix + "read_u" + std::to_string(result_type->getIntegerBitWidth()), //
+        module                                                                 //
     );
     read_functions["read_u" + std::to_string(result_type->getIntegerBitWidth())] = read_uint_fn;
     if (only_declarations) {
@@ -672,7 +672,7 @@ void Generator::Module::Read::generate_read_f32_function(llvm::IRBuilder<> *buil
     llvm::Function *read_f32_fn = llvm::Function::Create( //
         read_f32_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        hash_str + ".read_f32",                           //
+        prefix + "read_f32",                              //
         module                                            //
     );
     read_functions["read_f32"] = read_f32_fn;
@@ -785,7 +785,7 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
     llvm::Function *read_f64_fn = llvm::Function::Create( //
         read_f64_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        hash_str + ".read_f64",                           //
+        prefix + "read_f64",                              //
         module                                            //
     );
     read_functions["read_f64"] = read_f64_fn;

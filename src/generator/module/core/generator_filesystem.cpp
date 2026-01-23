@@ -1,7 +1,7 @@
 #include "generator/generator.hpp"
 
 static const Hash hash(std::string("filesystem"));
-static const std::string hash_str = hash.to_string();
+static const std::string prefix = hash.to_string() + ".filesystem.";
 
 void Generator::Module::FileSystem::generate_filesystem_functions( //
     llvm::IRBuilder<> *builder,                                    //
@@ -76,7 +76,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
         {str_type->getPointerTo()},                               // Parameter: const str* path
         false                                                     // Not variadic
     );
-    llvm::Function *read_file_fn = llvm::Function::Create(read_file_type, llvm::Function::ExternalLinkage, hash_str + ".read_file", module);
+    llvm::Function *read_file_fn = llvm::Function::Create(read_file_type, llvm::Function::ExternalLinkage, prefix + "read_file", module);
     fs_functions["read_file"] = read_file_fn;
     if (only_declarations) {
         return;
@@ -347,8 +347,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const std::shared_ptr<Type> result_type_ptr = Type::get_type_from_str("str[]").value();
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
-    llvm::Function *read_lines_fn =
-        llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, hash_str + ".read_lines", module);
+    llvm::Function *read_lines_fn = llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, prefix + "read_lines", module);
     fs_functions["read_lines"] = read_lines_fn;
     if (only_declarations) {
         return;
@@ -755,8 +754,8 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
         {str_type->getPointerTo()},                                 // str* path
         false                                                       // No vaarg
     );
-    llvm::Function *file_exists_fn = llvm::Function::Create(                                 //
-        file_exists_type, llvm::Function::ExternalLinkage, hash_str + ".file_exists", module //
+    llvm::Function *file_exists_fn = llvm::Function::Create(                              //
+        file_exists_type, llvm::Function::ExternalLinkage, prefix + "file_exists", module //
     );
     fs_functions["file_exists"] = file_exists_fn;
     if (only_declarations) {
@@ -839,8 +838,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
         {str_type->getPointerTo(), str_type->getPointerTo()},      // Parameters: const str *path, const str *content
         false                                                      // Not variadic
     );
-    llvm::Function *write_file_fn =
-        llvm::Function::Create(write_file_type, llvm::Function::ExternalLinkage, hash_str + ".write_file", module);
+    llvm::Function *write_file_fn = llvm::Function::Create(write_file_type, llvm::Function::ExternalLinkage, prefix + "write_file", module);
     fs_functions["write_file"] = write_file_fn;
     if (only_declarations) {
         return;
@@ -960,8 +958,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
         {str_type->getPointerTo(), str_type->getPointerTo()},       // Parameters: const str *path, const str *content
         false                                                       // No vaarg
     );
-    llvm::Function *append_file_fn = llvm::Function::Create(                                 //
-        append_file_type, llvm::Function::ExternalLinkage, hash_str + ".append_file", module //
+    llvm::Function *append_file_fn = llvm::Function::Create(                              //
+        append_file_type, llvm::Function::ExternalLinkage, prefix + "append_file", module //
     );
     fs_functions["append_file"] = append_file_fn;
     if (only_declarations) {
@@ -1078,8 +1076,8 @@ void Generator::Module::FileSystem::generate_is_file_function( //
         {str_type->getPointerTo()},                             // str *path
         false                                                   // No vaarg
     );
-    llvm::Function *is_file_fn = llvm::Function::Create(                             //
-        is_file_type, llvm::Function::ExternalLinkage, hash_str + ".is_file", module //
+    llvm::Function *is_file_fn = llvm::Function::Create(                          //
+        is_file_type, llvm::Function::ExternalLinkage, prefix + "is_file", module //
     );
     fs_functions["is_file"] = is_file_fn;
     if (only_declarations) {
