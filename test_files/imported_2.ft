@@ -16,5 +16,5 @@ data DVec3:
 // a problem at all? This needs further investigations, i will open up an issue on GH for this. For
 // now i will not fix it because i simply was unable to locate where it possibly could even come
 // from. I did not find *any* clues on where this problem comes from and how to possibly fix it.
-//def somefn(MyEntity e):
-//	e.print();
+def somefn(MyEntity e):
+	e.print();

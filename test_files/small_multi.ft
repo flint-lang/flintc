@@ -1,7 +1,6 @@
 use Core.print
 
-use "imported.ft"
-use "imported_2.ft"
+use "small_multi_1.ft"
 
 func MyFunc requires(BaseData d):
 	def print():
@@ -10,17 +9,13 @@ func MyFunc requires(BaseData d):
 	def get_x() -> i32:
 		return 0;
 
-	def printVec3(DVec3 d3):
-		print($"(x, y, z) = ({d3.x}, {d3.y}, {d3.z})\n");
-
 entity MyEntity extends(BaseEntity e):
 	data;
 	func: MyFunc;
 	MyEntity(e);
 
-// When defining the function in here, everything works fine
-//def somefn(MyEntity e):
-//	e.print();
+def somefn(MyEntity e):
+	e.print();
 
 def main():
 	d := BaseData(10);
@@ -36,7 +31,4 @@ def main():
 	me.print();
 	x = me.get_x();
 	print($"me.get_x() = {x}\n");
-
-	v3 := DVec3(10, 20, 30);
-	me.printVec3(v3);
 	somefn(me);

@@ -1,0 +1,14 @@
+use Core.print
+
+data BaseData:
+	i32 speed;
+	BaseData(speed);
+
+func BaseFunc requires(BaseData d):
+	def base():
+		print($"speed = {d.speed}\n");
+
+entity BaseEntity:
+	data: BaseData;
+	func: BaseFunc;
+	BaseEntity(BaseData);

@@ -29,7 +29,7 @@ test "2. Inferred char":
 	assert(c == 'Z');
 
 test "3. Inferred string":
-	// The string is of type '__flint_type_str_lit' because it's a string literal
+	// The string is of type 'type.flint.str.lit' because it's a string literal
 	// But the string variable will be of type 'str'
 	string := "Hello, There!";
 	string += "\n";
