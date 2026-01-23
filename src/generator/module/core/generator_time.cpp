@@ -31,12 +31,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
             types_vec.emplace_back(IR::get_type(module, Type::get_primitive_type(std::string(field_type))).first);
         }
         llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
-        time_data_types[type_name] = llvm::StructType::create( //
-            context,                                           //
-            return_types_arr,                                  //
-            hash_str + ".data." + type_name,                   //
-            false                                              //
-        );
+        time_data_types[type_name] = IR::create_struct_type(hash_str + ".data." + type_name, return_types_arr);
     }
 
     // Generate the enum strings for this module's provided enum types

@@ -382,6 +382,19 @@ class Generator {
         /// @brief Initializes the builtin types like `type.flint.err`
         static void init_builtin_types();
 
+        /// @function `create_struct_type`
+        /// @brief Creates a struct type with the given type name and the given field types
+        ///
+        /// @param `type_name` The name of the struct type to create
+        /// @param `field_types` The field types of the newly created struct
+        /// @param `is_packed` Whether the struct is packed
+        /// @return `llvm::StructType *` The created struct type
+        static llvm::StructType *create_struct_type(      //
+            const std::string &type_name,                 //
+            const std::vector<llvm::Type *> &field_types, //
+            const bool is_packed = false                  //
+        );
+
         /// @function `add_and_or_get_type`
         /// @brief Checks if a given return type of a given types list already exists. If it exists, it returns a reference to it, if it
         /// does not exist it creates it and then returns a reference to the created StructType

@@ -19,30 +19,48 @@
 
 void Generator::IR::init_builtin_types() {
     if (type_map.find("type.str") == type_map.end()) {
-        llvm::StructType *str_type = llvm::StructType::create( //
-            context,                                           //
+        IR::create_struct_type("type.str",
             {
                 llvm::Type::getInt64Ty(context),                        // the length / dimensionality
                 llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // str data (characters / the lenghts followed by row-major array)
-            },                                                          //
-            "type.str",                                                 //
-            false                                                       // is not packed, its padded
+            } //
         );
-        type_map["type.str"] = str_type;
     }
-    if (type_map.find("__flint_type_err") == type_map.end()) {
+    if (type_map.find("type.flint.err") == type_map.end()) {
         llvm::Type *str_type = type_map.at("type.str");
-        type_map["__flint_type_err"] = llvm::StructType::create( //
-            context,                                             //
+        IR::create_struct_type("type.flint.err",
             {
                 llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
                 llvm::Type::getInt32Ty(context), // ErrValue
                 str_type->getPointerTo()         // ErrMessage
-            },                                   //
-            "__flint_type_err",                  //
-            false                                // is not packed, it's padded
+            } //
         );
     }
+}
+
+llvm::StructType *Generator::IR::create_struct_type( //
+    const std::string &type_name,                    //
+    const std::vector<llvm::Type *> &elements,       //
+    const bool is_packed                             //
+) {
+    assert(!type_name.empty());
+    if (type_map.find(type_name) != type_map.end()) {
+        return type_map.at(type_name);
+    }
+    std::cout << YELLOW << "[Debug Info]" << DEFAULT << ": Adding type '" << YELLOW << type_name << DEFAULT << "' to the type_map"
+              << std::endl;
+    if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_name)) {
+        type_map[type_name] = exists;
+        return exists;
+    }
+    llvm::StructType *type = llvm::StructType::create( //
+        context,                                       //
+        elements,                                      //
+        type_name,                                     //
+        is_packed                                      //
+    );
+    type_map[type_name] = type;
+    return type;
 }
 
 llvm::StructType *Generator::IR::add_and_or_get_type( //
@@ -56,7 +74,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
         return type_map.at(type_str);
     }
     if (type_str == "type.ret.void") {
-        type_map[type_str] = llvm::StructType::create(context, {type_map.at("__flint_type_err")}, type_str, false);
+        type_map[type_str] = IR::create_struct_type(type_str, {type_map.at("type.flint.err")});
         return type_map.at(type_str);
     }
     if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_str)) {
@@ -65,7 +83,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
     }
     if (is_return_type) {
         std::vector<llvm::Type *> types_vec;
-        types_vec.emplace_back(type_map.at("__flint_type_err"));
+        types_vec.emplace_back(type_map.at("type.flint.err"));
         if (type->get_variation() == Type::Variation::GROUP) {
             const GroupType *group_type = type->as<GroupType>();
             for (const auto &elem : group_type->types) {
@@ -76,7 +94,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
             auto ret_type = get_type(module, type, is_extern);
             types_vec.emplace_back(ret_type.second.first ? ret_type.first->getPointerTo() : ret_type.first);
         }
-        type_map[type_str] = llvm::StructType::create(context, types_vec, type_str, false);
+        type_map[type_str] = IR::create_struct_type(type_str, types_vec);
         return type_map.at(type_str);
     }
     auto llvm_type = get_type(module, type, is_extern);
@@ -220,10 +238,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
                 }
             }
 
-            llvm::StructType *struct_type = llvm::StructType::create( //
-                context, types, type_str, false                       //
-            );
-            type_map[type_str] = struct_type;
+            type_map[type_str] = IR::create_struct_type(type_str, types);
         }
         return type_map.at(type_str);
     }
@@ -445,7 +460,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     std::vector<llvm::Type *> types_vec;
     types_vec.push_back(types[0]);
     types_vec.push_back(types[1]);
-    llvm::StructType *out_struct = llvm::StructType::create(context, types_vec, type_str, false);
+    llvm::StructType *out_struct = IR::create_struct_type(type_str, types_vec);
     type_map[type_str] = out_struct;
     return out_struct;
 }
@@ -476,10 +491,6 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             const std::string type_str = data_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
                 return {type_map.at(type_str), {true, true}};
-            }
-            if (llvm::StructType *exists = llvm::StructType::getTypeByName(context, type_str)) {
-                type_map[type_str] = exists;
-                return {exists, {true, true}};
             }
             llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
             // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
@@ -512,17 +523,13 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
             }
-            llvm::StructType *struct_type = llvm::StructType::getTypeByName(context, type_str);
-            if (struct_type == nullptr) {
-                struct_type = llvm::StructType::create(context, field_types, type_str, false);
-            }
-            type_map[type_str] = struct_type;
-            return {struct_type, {false, false}};
+            type_map[type_str] = IR::create_struct_type(type_str, field_types);
+            return {type_map.at(type_str), {false, false}};
         }
         case Type::Variation::ENUM:
             return {llvm::Type::getInt32Ty(context), {false, false}};
         case Type::Variation::ERROR_SET:
-            return {type_map.at("__flint_type_err"), {false, true}};
+            return {type_map.at("type.flint.err"), {false, true}};
         case Type::Variation::FUNC:
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
@@ -538,12 +545,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 type_vector.emplace_back(pair.first);
             }
             if (type_map.find(type_str) == type_map.end()) {
-                llvm::ArrayRef<llvm::Type *> type_array(type_vector);
-                llvm::StructType *llvm_tuple_type = llvm::StructType::getTypeByName(context, type_str);
-                if (llvm_tuple_type == nullptr) {
-                    llvm_tuple_type = llvm::StructType::create(context, type_array, type_str, false);
-                }
-                type_map[type_str] = llvm_tuple_type;
+                type_map[type_str] = IR::create_struct_type(type_str, type_vector);
             }
             return {type_map.at(type_str), {false, true}};
         }
@@ -564,10 +566,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 if (pair.second.first) {
                     pair.first = pair.first->getPointerTo();
                 }
-                llvm::StructType *opt_type = llvm::StructType::create(                    //
-                    context, {llvm::Type::getInt1Ty(context), pair.first}, opt_str, false //
-                );
-                type_map[opt_str] = opt_type;
+                type_map[opt_str] = IR::create_struct_type(opt_str, {llvm::Type::getInt1Ty(context), pair.first});
             }
             return {type_map.at(opt_str), {false, true}};
         }
@@ -578,15 +577,15 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
         case Type::Variation::PRIMITIVE: {
             const auto *primitive_type = type->as<PrimitiveType>();
-            if (primitive_type->type_name == "__flint_type_str_struct") {
+            if (primitive_type->type_name == "type.flint.str") {
                 // A string is a struct of type 'type { i64, [0 x i8] }'
                 return {type_map.at("type.str"), {false, false}};
             }
-            if (primitive_type->type_name == "__flint_type_str_lit") {
+            if (primitive_type->type_name == "type.flint.str.lit") {
                 return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
             }
             if (primitive_type->type_name == "anyerror") {
-                return {type_map.at("__flint_type_err"), {false, false}};
+                return {type_map.at("type.flint.err"), {false, false}};
             }
             if (primitives.find(primitive_type->type_name) != primitives.end()) {
                 switch (primitives.at(primitive_type->type_name)) {
@@ -639,9 +638,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 type_vector.emplace_back(pair.first);
             }
             if (type_map.find(tuple_str) == type_map.end()) {
-                llvm::ArrayRef<llvm::Type *> type_array(type_vector);
-                llvm::StructType *llvm_tuple_type = llvm::StructType::create(context, type_array, tuple_str, false);
-                type_map[tuple_str] = llvm_tuple_type;
+                type_map[tuple_str] = IR::create_struct_type(tuple_str, type_vector);
             }
             return {type_map.at(tuple_str), {false, true}};
         }
@@ -651,7 +648,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         case Type::Variation::VARIANT: {
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {
-                return {type_map.at("__flint_type_err"), {false, true}};
+                return {type_map.at("type.flint.err"), {false, true}};
             }
             const std::string var_str = type->get_type_string();
             // Check if its a known data type
@@ -674,14 +671,11 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                         }
                     }
                 }
-                llvm::StructType *variant_struct_type = llvm::StructType::create( //
-                    context,                                                      //
+                llvm::StructType *variant_struct_type = IR::create_struct_type(var_str,
                     {
                         llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
                         llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
-                    },                                                                 //
-                    var_str,
-                    false // is not packed, its padded
+                    } //
                 );
                 type_map[var_str] = variant_struct_type;
             }
@@ -796,7 +790,7 @@ llvm::Value *Generator::IR::generate_err_value( //
     const unsigned int err_value,               //
     const std::string &err_message              //
 ) {
-    llvm::StructType *err_type = type_map.at("__flint_type_err");
+    llvm::StructType *err_type = type_map.at("type.flint.err");
     llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
     llvm::Value *err_struct = get_default_value_of_type(err_type);
     err_struct = builder.CreateInsertValue(err_struct, builder.getInt32(err_id), {0}, "insert_err_type_id");

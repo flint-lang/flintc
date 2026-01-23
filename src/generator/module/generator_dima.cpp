@@ -78,53 +78,43 @@ void Generator::Module::DIMA::generate_dima_functions( //
 }
 
 void Generator::Module::DIMA::generate_types() {
-    if (type_map.find("__flint_type_dima_slot") != type_map.end()) {
-        return;
+    if (type_map.find("type.dima.slot") == type_map.end()) {
+        type_map["type.dima.slot"] = IR::create_struct_type("type.dima.slot",
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),         // ptr owner
+                llvm::Type::getInt32Ty(context),                        // u32 arc
+                llvm::Type::getInt16Ty(context),                        // u16 block_id
+                llvm::Type::getInt16Ty(context),                        // u16 flags
+                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char value[]
+            } //
+        );
     }
-    llvm::StructType *slot_type = llvm::StructType::create( //
-        context,                                            //
-        {
-            llvm::Type::getInt8Ty(context)->getPointerTo(),         // ptr owner
-            llvm::Type::getInt32Ty(context),                        // u32 arc
-            llvm::Type::getInt16Ty(context),                        // u16 block_id
-            llvm::Type::getInt16Ty(context),                        // u16 flags
-            llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char value[]
 
-        },                //
-        "dima.type.slot", //
-        false             //
-    );
-    type_map["__flint_type_dima_slot"] = slot_type;
+    if (type_map.find("type.dima.block") == type_map.end()) {
+        llvm::StructType *slot_type = type_map.at("type.dima.slot");
+        type_map["type.dima.block"] = IR::create_struct_type("type.dima.block",
+            {
+                llvm::Type::getInt64Ty(context),   // u64 type_size
+                llvm::Type::getInt64Ty(context),   // u64 capacity
+                llvm::Type::getInt64Ty(context),   // u64 used
+                llvm::Type::getInt64Ty(context),   // u64 pinned_count
+                llvm::Type::getInt64Ty(context),   // u64 first_free_slot_id
+                llvm::ArrayType::get(slot_type, 0) // dima_slot_t slots[]
+            } //
+        );
+    }
 
-    llvm::StructType *block_type = llvm::StructType::create( //
-        context,                                             //
-        {
-            llvm::Type::getInt64Ty(context),   // u64 type_size
-            llvm::Type::getInt64Ty(context),   // u64 capacity
-            llvm::Type::getInt64Ty(context),   // u64 used
-            llvm::Type::getInt64Ty(context),   // u64 pinned_count
-            llvm::Type::getInt64Ty(context),   // u64 first_free_slot_id
-            llvm::ArrayType::get(slot_type, 0) // dima_slot_t slots[]
-
-        },                 //
-        "dima.type.block", //
-        false              //
-    );
-    type_map["__flint_type_dima_block"] = block_type;
-
-    llvm::StructType *head_type = llvm::StructType::create( //
-        context,                                            //
-        {
-            llvm::Type::getInt8Ty(context)->getPointerTo(),     // char* default_value
-            llvm::Type::getInt64Ty(context),                    // u64 type_size
-            llvm::Type::getInt64Ty(context),                    // u64 block_count
-            llvm::ArrayType::get(block_type->getPointerTo(), 0) // dima_block_t* blocks[]
-
-        },                //
-        "dima.type.head", //
-        false             //
-    );
-    type_map["__flint_type_dima_head"] = head_type;
+    if (type_map.find("type.dima.head") == type_map.end()) {
+        llvm::StructType *block_type = type_map.at("type.dima.block");
+        type_map["type.dima.head"] = IR::create_struct_type("type.dima.head",
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(),     // char* default_value
+                llvm::Type::getInt64Ty(context),                    // u64 type_size
+                llvm::Type::getInt64Ty(context),                    // u64 block_count
+                llvm::ArrayType::get(block_type->getPointerTo(), 0) // dima_block_t* blocks[]
+            } //
+        );
+    }
 }
 
 void Generator::Module::DIMA::generate_init_heads_function( //
@@ -139,7 +129,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     llvm::Function *init_heads_fn = llvm::Function::Create( //
         init_heads_type,                                    //
         llvm::Function::ExternalLinkage,                    //
-        "__flint_dima_init_heads",                          //
+        "flint.dima_init_heads",                            //
         module                                              //
     );
     dima_functions["init_heads"] = init_heads_fn;
@@ -152,7 +142,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     builder->SetInsertPoint(entry_block);
     llvm::BasicBlock *last_block = entry_block;
 
-    llvm::StructType *head_type = type_map.at("__flint_type_dima_head");
+    llvm::StructType *head_type = type_map.at("type.dima.head");
     const size_t head_size = Allocation::get_type_size(module, head_type);
     const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
     for (const auto &data_type : data_types) {
@@ -223,7 +213,7 @@ void Generator::Module::DIMA::generate_get_block_capacity_function( //
     llvm::Function *get_block_capacity_fn = llvm::Function::Create( //
         get_block_capacity_type,                                    //
         llvm::Function::ExternalLinkage,                            //
-        "__flint_dima_get_block_capacity",                          //
+        "flint.dima_get_block_capacity",                            //
         module                                                      //
     );
     dima_functions["get_block_capacity"] = get_block_capacity_fn;
@@ -290,8 +280,8 @@ void Generator::Module::DIMA::generate_create_block_function( //
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
     llvm::Function *memset_fn = c_functions.at(MEMSET);
 
-    llvm::StructType *dima_block_type = type_map.at("__flint_type_dima_block");
-    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
+    llvm::StructType *dima_block_type = type_map.at("type.dima.block");
+    llvm::StructType *dima_slot_type = type_map.at("type.dima.slot");
 
     const size_t dima_block_size = Allocation::get_type_size(module, dima_block_type);
     const size_t dima_slot_size = Allocation::get_type_size(module, dima_slot_type);
@@ -307,7 +297,7 @@ void Generator::Module::DIMA::generate_create_block_function( //
     llvm::Function *create_block_fn = llvm::Function::Create( //
         create_block_type,                                    //
         llvm::Function::ExternalLinkage,                      //
-        "__flint_dima_create_block",                          //
+        "flint.dima_create_block",                            //
         module                                                //
     );
     dima_functions["create_block"] = create_block_fn;
@@ -362,8 +352,8 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     //     }
     //     return NULL;
     // }
-    llvm::StructType *dima_block_type = type_map.at("__flint_type_dima_block");
-    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
+    llvm::StructType *dima_block_type = type_map.at("type.dima.block");
+    llvm::StructType *dima_slot_type = type_map.at("type.dima.slot");
 
     llvm::FunctionType *allocate_in_block_type = llvm::FunctionType::get( //
         dima_slot_type->getPointerTo(),                                   // return dima_slot_t*
@@ -373,7 +363,7 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     llvm::Function *allocate_in_block_fn = llvm::Function::Create( //
         allocate_in_block_type,                                    //
         llvm::Function::ExternalLinkage,                           //
-        "__flint_dima_allocate_in_block",                          //
+        "flint.dima_allocate_in_block",                            //
         module                                                     //
     );
     dima_functions["allocate_in_block"] = allocate_in_block_fn;
@@ -499,9 +489,9 @@ void Generator::Module::DIMA::generate_allocate_function( //
     llvm::Function *allocate_in_block_fn = dima_functions.at("allocate_in_block");
     llvm::Function *get_block_capacity_fn = dima_functions.at("get_block_capacity");
 
-    llvm::StructType *dima_head_type = type_map.at("__flint_type_dima_head");
-    llvm::StructType *dima_block_type = type_map.at("__flint_type_dima_block");
-    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
+    llvm::StructType *dima_head_type = type_map.at("type.dima.head");
+    llvm::StructType *dima_block_type = type_map.at("type.dima.block");
+    llvm::StructType *dima_slot_type = type_map.at("type.dima.slot");
 
     llvm::FunctionType *allocate_type = llvm::FunctionType::get( //
         llvm::Type::getInt8Ty(context)->getPointerTo(),          // return void*
@@ -511,7 +501,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
     llvm::Function *allocate_fn = llvm::Function::Create( //
         allocate_type,                                    //
         llvm::Function::ExternalLinkage,                  //
-        "__flint_dima_allocate",                          //
+        "flint.dima_allocate",                            //
         module                                            //
     );
     dima_functions["allocate"] = allocate_fn;
@@ -705,7 +695,7 @@ void Generator::Module::DIMA::generate_retain_function( //
     //     slot->arc++;
     //     return value;
     // }
-    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
+    llvm::StructType *dima_slot_type = type_map.at("type.dima.slot");
 
     llvm::FunctionType *retain_type = llvm::FunctionType::get( //
         llvm::Type::getInt8Ty(context)->getPointerTo(),        // return void*
@@ -715,7 +705,7 @@ void Generator::Module::DIMA::generate_retain_function( //
     llvm::Function *retain_fn = llvm::Function::Create( //
         retain_type,                                    //
         llvm::Function::ExternalLinkage,                //
-        "__flint_dima_retain",                          //
+        "flint.dima_retain",                            //
         module                                          //
     );
     dima_functions["retain"] = retain_fn;
@@ -795,9 +785,9 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
 
-    llvm::StructType *dima_slot_type = type_map.at("__flint_type_dima_slot");
-    llvm::StructType *dima_block_type = type_map.at("__flint_type_dima_block");
-    llvm::StructType *dima_head_type = type_map.at("__flint_type_dima_head");
+    llvm::StructType *dima_slot_type = type_map.at("type.dima.slot");
+    llvm::StructType *dima_block_type = type_map.at("type.dima.block");
+    llvm::StructType *dima_head_type = type_map.at("type.dima.head");
 
     llvm::ConstantPointerNull *block_nullptr = llvm::ConstantPointerNull::get(dima_block_type->getPointerTo());
 
@@ -816,7 +806,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Function *release_fn = llvm::Function::Create( //
         release_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        "__flint_dima_release",                          //
+        "flint.dima_release",                            //
         module                                           //
     );
     dima_functions["release"] = release_fn;
