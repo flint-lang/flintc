@@ -26,6 +26,7 @@
 #include "error_types/parsing/definitions/err_def_no_main_function.hpp"
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
 #include "error_types/parsing/definitions/func/err_def_func_redefinition.hpp"
+#include "error_types/parsing/definitions/function/err_def_function_redefinition.hpp"
 #include "error_types/parsing/definitions/function/err_fn_cannot_return_tuple.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_err_set.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_no_returns.hpp"

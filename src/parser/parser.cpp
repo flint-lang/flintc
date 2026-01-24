@@ -1177,9 +1177,12 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
             if (!fn.has_value()) {
                 return false;
             }
-            FunctionNode *added_function = parser.file_node_ptr->add_function(fn.value());
-            parser.add_open_function({added_function, function_body_lines});
-            func->functions.emplace_back(added_function);
+            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(fn.value(), core_namespaces);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            parser.add_open_function({added_function.value(), function_body_lines});
+            func->functions.emplace_back(added_function.value());
         }
         return true;
     };
@@ -1491,6 +1494,10 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         return true;
     };
 
+    // TODO: Create a dpendency graph of all entities and parse them from the tips to the "roots". There does not exist only one tree of
+    // entities, since multiple entities could have completely separated dependency graphs. This means that this is not one inteconnected
+    // dependency tree but a list of dependency trees where each tree can be parsed in parallel from the tip to the root, compilation within
+    // each tree needs to be done sequentially but the trees could be parsed independant from one another.
     bool result = true;
     if (parse_parallel) {
         // Enqueue tasks in the global thread pool

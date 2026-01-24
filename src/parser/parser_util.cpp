@@ -113,7 +113,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!function_node.has_value()) {
             return false;
         }
-        file_node.add_function(function_node.value());
+        file_node.add_function(function_node.value(), core_namespaces);
         return true;
     }
 
@@ -128,8 +128,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!function_node.has_value()) {
             return false;
         }
-        FunctionNode *added_function = file_node.add_function(function_node.value());
-        add_open_function({added_function, body_lines});
+        std::optional<FunctionNode *> added_function = file_node.add_function(function_node.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return false;
+        }
+        add_open_function({added_function.value(), body_lines});
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
         std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
         if (!data_node.has_value()) {

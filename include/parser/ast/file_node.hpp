@@ -140,11 +140,100 @@ class FileNode : public ASTNode {
     /// @brief Adds a function node to this file node
     ///
     /// @param `function` The function node to add
-    /// @return `FunctionNode *` A pointer to the added function node, because this function takes ownership of `function`
-    FunctionNode *add_function(FunctionNode &function) {
-        auto &definitions = file_namespace->public_symbols.definitions;
-        definitions.emplace_back(std::make_unique<FunctionNode>(std::move(function)));
-        return static_cast<FunctionNode *>(definitions.back().get());
+    /// @param `core_namespaces` Reference to the Parser-internal initialized core namespaces map
+    /// @return `std::optional<FunctionNode *>` A pointer to the added function node, because this function takes ownership of `function`,
+    /// nullopt if the given function already existed in the file's namespace, e.g. duplicate definition
+    std::optional<FunctionNode *> add_function(                                            //
+        FunctionNode &function,                                                            //
+        const std::unordered_map<std::string, std::unique_ptr<Namespace>> &core_namespaces //
+    ) {
+        auto &public_definitions = file_namespace->public_symbols.definitions;
+        for (const auto &def : public_definitions) {
+            if (def->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                continue;
+            }
+            const auto *fn_def = def->as<FunctionNode>();
+            if (function.name != fn_def->name) {
+                // They do not share the same name, skip
+                continue;
+            }
+            if (function.parameters.size() != fn_def->parameters.size()) {
+                // Not the same parameter count, skip
+                continue;
+            }
+            bool all_the_same = true;
+            for (size_t i = 0; i < function.parameters.size(); i++) {
+                const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
+                const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+                if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
+                    all_the_same = false;
+                    break;
+                }
+            }
+            if (all_the_same) {
+                THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+                return std::nullopt;
+            }
+        }
+        auto &private_functions = file_namespace->private_symbols.functions;
+        for (const auto &[hash, fn_list] : private_functions) {
+            for (const auto &fn_def : fn_list) {
+                if (function.name != fn_def->name) {
+                    // They do not share the same name, skip
+                    continue;
+                }
+                if (function.parameters.size() != fn_def->parameters.size()) {
+                    // Not the same parameter count, skip
+                    continue;
+                }
+                bool all_the_same = true;
+                for (size_t i = 0; i < function.parameters.size(); i++) {
+                    const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
+                    const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+                    if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
+                        all_the_same = false;
+                        break;
+                    }
+                }
+                if (all_the_same) {
+                    THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+                    return std::nullopt;
+                }
+            }
+        }
+        for (const auto &[module_name, import] : imported_core_modules) {
+            // Get the function list of the imported core module namespace
+            const auto &core_namespace = core_namespaces.at(module_name);
+            for (const auto &def : core_namespace->public_symbols.definitions) {
+                if (def->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                    continue;
+                }
+                const auto *fn_def = def->as<FunctionNode>();
+                if (function.name != fn_def->name) {
+                    // They do not share the same name, skip
+                    continue;
+                }
+                if (function.parameters.size() != fn_def->parameters.size()) {
+                    // Not the same parameter count, skip
+                    continue;
+                }
+                bool all_the_same = true;
+                for (size_t i = 0; i < function.parameters.size(); i++) {
+                    const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
+                    const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+                    if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
+                        all_the_same = false;
+                        break;
+                    }
+                }
+                if (all_the_same) {
+                    THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+                    return std::nullopt;
+                }
+            }
+        }
+        public_definitions.emplace_back(std::make_unique<FunctionNode>(std::move(function)));
+        return static_cast<FunctionNode *>(public_definitions.back().get());
     }
 
     /// @function `add_enum`

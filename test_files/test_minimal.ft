@@ -1,24 +1,12 @@
 use Core.print
 
-data Data:
-	i32 x;
-	i32 y;
-	i32 z;
-	Data(x, y, z);
+def add(i32 x, i32 y) -> i32:
+    return x + y;
 
-func Func requires(Data d):
-	def print():
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
-
-entity Entity:
-	data: Data;
-	func: Func;
-	Entity(Data);
-
-def somefn(Entity e):
-	e.print();
+def print(i32 x):
+    print($"x: {x}\n");
 
 def main():
-	e := Entity(Data(10, 20, 30));
-	e.print();
-	somefn(e);
+    print("Hello, World!\n");
+    i32 thirty = add(10, 20);
+    print(thirty);
