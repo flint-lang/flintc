@@ -1400,6 +1400,27 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             return false;
         }
 
+        // Make sure that all required data from all func modules is present in the entity
+        for (const auto &func : func_modules) {
+            for (const auto &required_data : func->required_data) {
+                bool contains_required_data = false;
+                const auto *required_data_node = required_data.first->as<DataType>()->data_node;
+                for (const auto &provided_data_node : data_modules) {
+                    if (provided_data_node == required_data_node) {
+                        contains_required_data = true;
+                        break;
+                    }
+                }
+                if (!contains_required_data) {
+                    THROW_ERR(                                                                             //
+                        ErrDefEntityMissingData, ERR_PARSING, parser.file_hash,                            //
+                        entity->line, entity->column, entity->length, required_data_node->name, func->name //
+                    );
+                    return false;
+                }
+            }
+        }
+
         std::vector<std::unique_ptr<LinkNode>> link_nodes;
         if (tok_it->token == TOK_LINK) {
             // TODO: Parse all links once links are implemented

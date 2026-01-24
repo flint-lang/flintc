@@ -20,7 +20,7 @@ class ErrDefEntityWrongConstructorName : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Expected entity constructor name '" << YELLOW << expected_name << DEFAULT << "' but got '"
+        oss << BaseError::to_string() << "└─ Expected entity constructor name '" << YELLOW << expected_name << DEFAULT << "' but got '"
             << YELLOW << actual_name << DEFAULT << "'";
         return oss.str();
     }
