@@ -451,6 +451,15 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
             // The next token is the required data accessor name
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
+            for (const auto &present : required_data) {
+                if (present.first->equals(required_data_type.value())) {
+                    THROW_ERR(                                                      //
+                        ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,   //
+                        token_slice{tok_it, tok_it + 2}, required_data_type.value() //
+                    );
+                    return std::nullopt;
+                }
+            }
             required_data.emplace_back(required_data_type.value(), access_name);
             tok_it += 3;
         }

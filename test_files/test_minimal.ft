@@ -1,12 +1,19 @@
 use Core.print
 
-def add(i32 x, i32 y) -> i32:
-    return x + y;
+data MyData:
+	i32x2 pos;
+	i32x2 size;
+	MyData(pos, size);
 
-def print(i32 x):
-    print($"x: {x}\n");
+func MyFunc requires(MyData d1, MyData d2):
+	def move(i32 x, i32 y):
+		d.pos = d.pos + (x, y);
+	
+	def print():
+		print($"pos: {d.pos}, size: {d.size}\n");
 
 def main():
-    print("Hello, World!\n");
-    i32 thirty = add(10, 20);
-    print(thirty);
+	d := MyData(i32x2(100, 100), i32x2(100, 100));
+	MyFunc.print(d);
+	MyFunc.move(d, 10, 20);
+	MyFunc.print(d);
