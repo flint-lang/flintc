@@ -452,7 +452,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
             required_data.emplace_back(required_data_type.value(), access_name);
-            tok_it += 2;
+            tok_it += 3;
         }
         assert(tok_it != definition.second);
     }
