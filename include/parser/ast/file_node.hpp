@@ -62,6 +62,14 @@ class FileNode : public ASTNode {
     /// @return `ImportNode *` A pointer to the added import node, because this function takes ownership of `import`
     std::optional<ImportNode *> add_import(ImportNode &import) {
         auto &imports = file_namespace->public_symbols.imports;
+        // Check if we already imported that core module before
+        for (const auto &imported : imports) {
+            if (import.path == imported->path) {
+                // Imported same file / core module
+                THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_namespace->namespace_hash, &import);
+                return std::nullopt;
+            }
+        }
         imports.emplace_back(std::make_unique<ImportNode>(std::move(import)));
         ImportNode *added_import = static_cast<ImportNode *>(imports.back().get());
         if (std::holds_alternative<std::vector<std::string>>(added_import->path)) {
