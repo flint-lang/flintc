@@ -461,7 +461,11 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
                 }
             }
             required_data.emplace_back(required_data_type.value(), access_name);
-            tok_it += 3;
+            if ((tok_it + 2)->token == TOK_RIGHT_PAREN) {
+                tok_it += 2;
+            } else {
+                tok_it += 3;
+            }
         }
         assert(tok_it != definition.second);
     }
