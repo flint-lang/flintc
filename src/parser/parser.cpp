@@ -1308,9 +1308,10 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                             }
                             auto *data_node = tok_it->type->as<DataType>()->data_node;
                             if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
-                                // Redefinition of data module in this entity definition (potentially from one extended entity?)
-                                // TODO: This potentially could only be a warning too
-                                THROW_BASIC_ERR(ERR_PARSING);
+                                THROW_ERR(                                                    //
+                                    ErrDefEntityDuplicateData, ERR_PARSING, parser.file_hash, //
+                                    tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                                );
                                 return false;
                             }
                             data_modules.emplace_back(data_node);
@@ -1375,9 +1376,10 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                         }
                         auto *func_node = tok_it->type->as<FuncType>()->func_node;
                         if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
-                            // Redefinition of func module in this entity definition (potentially from one extended entity?)
-                            // TODO: This potentially could only be a warning too
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(                                                    //
+                                ErrDefEntityDuplicateFunc, ERR_PARSING, parser.file_hash, //
+                                tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                            );
                             return false;
                         }
                         func_modules.emplace_back(func_node);
