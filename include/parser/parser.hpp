@@ -582,26 +582,15 @@ class Parser {
     /// @function `get_next_open_entity`
     /// @brief Returns the next open entity to parse
     ///
-    /// @param `is_base_entity` Whether to get the next base entity (one with no parents) or not
     /// @return `std::optional<std::pair<EntityNode *, std::vector<Line>>>` The next open entity to parse. Returns a nullopt if there
     /// are no open functions left
-    std::optional<std::pair<EntityNode *, std::vector<Line>>> get_next_open_entity(const bool is_base_entity) {
+    std::optional<std::pair<EntityNode *, std::vector<Line>>> get_next_open_entity() {
         if (open_entity_list.empty()) {
             return std::nullopt;
         }
-        std::vector<std::pair<EntityNode *, std::vector<Line>>>::reverse_iterator iterator = open_entity_list.rbegin();
-        while (iterator != open_entity_list.rend()) {
-            if (is_base_entity != iterator->first->parent_entities.empty()) {
-                iterator++;
-                continue;
-            }
-            std::pair<EntityNode *, std::vector<Line>> oe = std::move(*iterator);
-            auto base_it = iterator.base();
-            --base_it;
-            open_entity_list.erase(base_it);
-            return oe;
-        }
-        return std::nullopt;
+        std::pair<EntityNode *, std::vector<Line>> oe = std::move(open_entity_list.back());
+        open_entity_list.pop_back();
+        return oe;
     }
 
     /// @function `get_next_open_function`

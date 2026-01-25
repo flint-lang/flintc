@@ -1517,55 +1517,131 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         return true;
     };
 
-    // TODO: Create a dpendency graph of all entities and parse them from the tips to the "roots". There does not exist only one tree of
-    // entities, since multiple entities could have completely separated dependency graphs. This means that this is not one inteconnected
-    // dependency tree but a list of dependency trees where each tree can be parsed in parallel from the tip to the root, compilation within
-    // each tree needs to be done sequentially but the trees could be parsed independant from one another.
+    // Parse all entities from tips to roots since dependant entities need internal information of the base entities
+    struct DepNode {
+        Parser *parser;
+        EntityNode *entity;
+        std::vector<Line> body;
+        std::vector<std::string> parents;
+        std::vector<std::string> children;
+        bool processed = false;
+    };
+    std::unordered_map<std::string, DepNode> nodes;
+
+    // Helper to create node placeholder if missing
+    auto get_or_create_node = [&nodes](const std::string &key) -> DepNode & {
+        if (nodes.find(key) == nodes.end()) {
+            auto res = nodes.emplace(key, DepNode());
+            return res.first->second;
+        }
+        return nodes.at(key);
+    };
+
+    // Collect all open entities from all parsers
+    for (auto &parser : instances) {
+        while (auto next = parser.get_next_open_entity()) {
+            auto &[entity, body] = next.value();
+            const std::string key = entity->file_hash.to_string() + "." + entity->name;
+            DepNode &node = get_or_create_node(key);
+            node.parser = &parser;
+            node.entity = entity;
+            node.body = std::move(body);
+            for (const auto &[parent_type, accessor_name] : entity->parent_entities) {
+                const EntityNode *parent_entity = parent_type->as<EntityType>()->entity_node;
+                const std::string parent_key = parent_entity->file_hash.to_string() + "." + parent_entity->name;
+                node.parents.emplace_back(parent_key);
+                DepNode &parent_node = get_or_create_node(parent_key);
+                parent_node.children.emplace_back(key);
+            }
+        }
+    }
+    // Get a list of all entities which do not have any parents, these are the tips of our entity dependency trees
+    // We also check in this phase that every single node's entity pointer has been set. If this is not the case something went wrong
+    std::vector<std::string> tip_keys;
+    for (const auto &[key, node] : nodes) {
+        assert(node.entity != nullptr);
+        if (node.parents.empty()) {
+            tip_keys.emplace_back(key);
+        }
+    }
+
+    // We now parse all entities at our tips and collect the next stage of tips which need to be parsed, all current tips can be processed
+    // in parallel as well
+    std::vector<std::string> next_tip_keys;
     bool result = true;
     if (parse_parallel) {
-        // Enqueue tasks in the global thread pool
-        std::vector<std::future<bool>> futures;
-        // Iterate through all parsers and their open entities
-        bool is_base_entity = true;
-        for (auto &parser : Parser::instances) {
-            while (auto next = parser.get_next_open_entity(is_base_entity)) {
-                auto &[entity, body] = next.value();
-                // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), entity, std::ref(body)));
+        while (!tip_keys.empty()) {
+            // Enqueue tasks in the global thread pool
+            std::vector<std::future<bool>> futures;
+            // Iterate through all current tip keys and enqueue the processing of them
+            for (const auto &tip_key : tip_keys) {
+                auto &node = nodes.at(tip_key);
+                // Enqueue a task for each node
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(*node.parser), node.entity, std::ref(node.body)));
+                // We set the processed state in here for correctness of later code
+                node.processed = true;
+                // Collect all the keys for the next iteration. We only mark those entities whose parents have fully been parsed, if any
+                // parent is still missing we do not add the key
+                for (const auto &child_key : node.children) {
+                    auto &child_node = nodes.at(child_key);
+                    bool all_parents_processed = true;
+                    for (const auto &parent_key : child_node.parents) {
+                        auto &parent_node = nodes.at(parent_key);
+                        all_parents_processed &= parent_node.processed;
+                    }
+                    if (!all_parents_processed) {
+                        continue;
+                    }
+                    // If all parents have been processed then we add the child to the keys to parse next
+                    if (std::find(next_tip_keys.begin(), next_tip_keys.end(), child_key) == next_tip_keys.end()) {
+                        next_tip_keys.emplace_back(child_key);
+                    }
+                }
             }
-        }
-        // Collect results from all entities with no parents
-        for (auto &future : futures) {
-            result = result && future.get(); // Combine results using logical AND
-        }
-        is_base_entity = false;
-        for (auto &parser : Parser::instances) {
-            while (auto next = parser.get_next_open_entity(is_base_entity)) {
-                auto &[entity, body] = next.value();
-                // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), entity, std::ref(body)));
+            // Collect results from all entities
+            for (auto &future : futures) {
+                result = result && future.get(); // Combine results using logical AND
             }
-        }
-        // Collect results from all entities with parents
-        for (auto &future : futures) {
-            result = result && future.get(); // Combine results using logical AND
+            // Cancel if one of the entities failed since now other entities depend on them and potentially would fail too
+            if (!result) {
+                return result;
+            }
+            tip_keys = next_tip_keys;
+            next_tip_keys.clear();
         }
     } else {
-        // Process entities sequentially, start only with entities with no parents
-        bool is_base_entity = true;
-        for (auto &parser : Parser::instances) {
-            while (auto next = parser.get_next_open_entity(is_base_entity)) {
-                auto &[entity, body] = next.value();
-                result = result && process_function(parser, entity, std::ref(body));
+        // Process entities sequentially
+        while (!tip_keys.empty()) {
+            // Iterate through all current tip keys and enqueue the processing of them
+            for (const auto &tip_key : tip_keys) {
+                auto &node = nodes.at(tip_key);
+                // Enqueue a task for each node
+                result = result && process_function(*node.parser, node.entity, node.body);
+                // We set the processed state in here for correctness of later code
+                node.processed = true;
+                // Collect all the keys for the next iteration
+                for (const auto &child_key : node.children) {
+                    auto &child_node = nodes.at(child_key);
+                    bool all_parents_processed = true;
+                    for (const auto &parent_key : child_node.parents) {
+                        auto &parent_node = nodes.at(parent_key);
+                        all_parents_processed &= parent_node.processed;
+                    }
+                    if (!all_parents_processed) {
+                        continue;
+                    }
+                    // If all parents have been processed then we add the child to the keys to parse next
+                    if (std::find(next_tip_keys.begin(), next_tip_keys.end(), child_key) == next_tip_keys.end()) {
+                        next_tip_keys.emplace_back(child_key);
+                    }
+                }
             }
-        }
-        // And then parse all entities which extend other ones. This way the "base" entities are all parsed first
-        is_base_entity = false;
-        for (auto &parser : Parser::instances) {
-            while (auto next = parser.get_next_open_entity(is_base_entity)) {
-                auto &[entity, body] = next.value();
-                result = result && process_function(parser, entity, std::ref(body));
+            // Cancel if one of the entities failed since now other entities depend on them and potentially would fail too
+            if (!result) {
+                return result;
             }
+            tip_keys = next_tip_keys;
+            next_tip_keys.clear();
         }
     }
     return result;

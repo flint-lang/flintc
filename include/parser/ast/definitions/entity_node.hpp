@@ -77,6 +77,7 @@ class EntityNode : public DefinitionNode {
     std::vector<size_t> constructor_order;
 
     /// @var `is_monolithic`
-    /// @brief Whether this entity is monolithic. In that case it only contains one data and func module respectively
+    /// @brief Whether this entity is monolithic. In that case it only contains one data and func module respectively and is not allowed to
+    /// extend any other entity, so it's parent entities must be empty
     bool is_monolithic;
 };
