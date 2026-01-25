@@ -1,0 +1,55 @@
+use Core.print
+
+data Data1:
+    u32 value;
+    Data1(value);
+
+data Data2:
+    f32 value;
+    Data2(value);
+
+data Data3:
+    i32 value;
+    Data3(value);
+
+func Func1 requires(Data1 d1):
+    def f1():
+        print($"f1: {d1.value}\n");
+
+func Func2 requires(Data2 d2):
+    def f2():
+        print($"f2: {d2.value}\n");
+
+func Func3 requires(Data3 d3):
+    def f3():
+        print($"f3: {d3.value}\n");
+
+entity Entity1:
+    data: Data1;
+    func: Func1;
+    Entity1(Data1);
+
+entity Entity2 extends(Entity1 e1):
+    data: Data2;
+    func: Func2;
+    Entity2(e1, Data2);
+
+entity Entity3 extends(Entity2 e2):
+    data: Data2, Data3;
+    func: Func3;
+    Entity3(e2, Data3);
+
+def main():
+    e1 := Entity1(Data1(100));
+    e1.f1();
+    print("\n");
+
+    e2 := Entity2(Data1(80), Data2(3.4));
+    e2.f1();
+    e2.f2();
+    print("\n");
+
+    e3 := Entity3(Data1(8), Data2(3.14), Data3(-30));
+    e3.f1();
+    e3.f2();
+    e3.f3();

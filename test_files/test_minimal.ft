@@ -35,7 +35,7 @@ entity Entity2 extends(Entity1 e1):
 	Entity2(e1, Data2);
 
 entity Entity3 extends(Entity2 e2):
-	data: Data2, Data3;
+	data: Data3;
 	func: Func3;
 	Entity3(e2, Data3);
 

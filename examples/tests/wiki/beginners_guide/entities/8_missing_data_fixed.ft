@@ -1,0 +1,27 @@
+use Core.print
+
+data DTransform:
+    i32x2 pos;
+    i32x2 size;
+    DTransform(pos, size);
+
+data DScale:
+    f32x2 scale;
+    DScale(scale);
+
+func FMove requires(DTransform trans, DScale scale):
+    def print():
+        print($"pos: {trans.pos}, size: {trans.size}, scale: {scale.scale}\n");
+
+    def get_pos() -> i32x2:
+        return trans.pos;
+
+entity Entity:
+    data: DTransform, DScale;
+    func: FMove;
+    Entity(DTransform, DScale);
+
+def main():
+    e := Entity(DTransform(i32x2(100, 120), i32x2(200, 220)), DScale(f32x2(3.3, 4.4)));
+    e.print();
+    print($"e.pos = {e.get_pos()}\n");

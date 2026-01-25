@@ -1,0 +1,19 @@
+use Core.print
+
+data DTransform:
+    i32x2 pos;
+    i32x2 size;
+    DTransform(pos, size);
+
+func FMove requires(DTransform trans):
+    def print():
+        print($"pos: {trans.pos}, size: {trans.size}\n");
+
+entity Entity:
+    data: DTransform;
+    func: FMove;
+    Entity(DTransform);
+
+def main():
+    e := Entity(DTransform(i32x2(100, 120), i32x2(200, 220)));
+    e.print();

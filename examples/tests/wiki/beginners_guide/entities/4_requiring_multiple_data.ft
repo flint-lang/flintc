@@ -1,0 +1,24 @@
+use Core.print
+
+data MyData:
+    i32x2 pos;
+    i32x2 size;
+    MyData(pos, size);
+
+data Data2:
+    f32x2 dir;
+    Data2(dir);
+
+func MyFunc requires(MyData d1, Data2 d2):
+    def move(i32 x, i32 y):
+        d1.pos = d1.pos + i32x2(f32(x) * d2.dir.x, f32(y) * d2.dir.y);
+
+    def print():
+        print($"pos: {d1.pos}, size: {d1.size}, dir: {d2.dir}\n");
+
+def main():
+    d1 := MyData(i32x2(100, 100), i32x2(100, 100));
+    d2 := Data2(f32x2(3.3, 2.2));
+    MyFunc.print(d1, d2);
+    MyFunc.move(d1, d2, 10, 20);
+    MyFunc.print(d1, d2);
