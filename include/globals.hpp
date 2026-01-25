@@ -15,7 +15,7 @@ constexpr inline bool DEBUG_MODE = false;
 #endif
 
 #ifndef PATCH
-#define PATCH "0"
+#define PATCH "1"
 #endif
 
 #ifndef VERSION
