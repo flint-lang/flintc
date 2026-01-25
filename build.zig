@@ -67,21 +67,32 @@ pub fn build(b: *std.Build) !void {
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
     const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date);
+    fls_exe.step.dependOn(&flintc_exe.step);
     const fls_exe_install = b.addInstallArtifact(fls_exe, .{});
     b.getInstallStep().dependOn(&fls_exe_install.step);
 
     // Build all
     const build_all_step = b.step("all", "Build all targets");
+    var last_target_step: *std.Build.Step = &fls_exe.step;
     for (targets(b)) |t| {
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm.step, t, .Debug, commit_hash, build_date);
+        const build_llvm_step = try buildLLVM(b, &update_llvm.step, t, force_llvm_rebuild, jobs);
+
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date);
+        flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
+
         const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date);
+        fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm.step, t, .ReleaseSmall, commit_hash, build_date);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date);
+        flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
+
         const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date);
+        fls_exe_release.step.dependOn(&flintc_exe_release.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
+        last_target_step = &fls_exe_release.step;
     }
 
     // Testing
@@ -346,7 +357,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
         "-G",
         "Ninja",
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
-        "-DCMAKE_BUILD_TYPE=Release", // Old: MinSizeRel
+        "-DCMAKE_BUILD_TYPE=MinSizeRel",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target.result.os.tag) {
             .linux => "zig;cc",
             .windows => "zig;cc;-target;x86_64-windows-gnu",
