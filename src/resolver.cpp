@@ -181,7 +181,10 @@ bool Resolver::process_dependency_file(                                   //
             continue;
         }
         // File is not yet part of the dependency tree, parse it
-        std::optional<FileNode *> file = Parser::create(file_hash.path)->parse();
+        std::optional<Parser *> parser = Parser::create(file_hash.path);
+        // Checking if the path exists is done at the import-clausel creation of the other file
+        assert(parser.has_value());
+        std::optional<FileNode *> file = parser.value()->parse();
         if (!file.has_value()) {
             std::cerr << "Error: File '" << file_hash.path.filename().string() << "' could not be parsed!" << std::endl;
             return false;

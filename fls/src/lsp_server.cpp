@@ -73,7 +73,13 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     if (file_content.has_value()) {
         file = Parser::create(file_path, file_content.value())->parse();
     } else {
-        file = Parser::create(file_path)->parse();
+        std::optional<Parser *> parser = Parser::create(file_path);
+        if (!parser.has_value()) {
+            std::cerr << RED << "Error" << DEFAULT << ": The file " << YELLOW << file_path.relative_path().string() << DEFAULT
+                      << " does not exist" << std::endl;
+            return std::nullopt;
+        }
+        file = parser.value()->parse();
     }
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << file_path.filename().string() << DEFAULT

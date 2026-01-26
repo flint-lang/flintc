@@ -130,9 +130,11 @@ void Parser::init_core_modules() {
     }
 }
 
-Parser *Parser::create(const std::filesystem::path &file) {
-    instances.emplace_back(Parser(file));
-    return &instances.back();
+std::optional<Parser *> Parser::create(const std::filesystem::path &file) {
+    try {
+        instances.emplace_back(Parser(file));
+        return &instances.back();
+    } catch ([[maybe_unused]] const std::exception &e) { return std::nullopt; }
 }
 
 Parser *Parser::create(const std::filesystem::path &file, const std::string &file_content) {

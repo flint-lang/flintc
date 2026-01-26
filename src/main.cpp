@@ -41,7 +41,13 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     Profiler::start_task("Parsing the program", true);
     Type::init_types();
     Parser::init_core_modules();
-    std::optional<FileNode *> file = Parser::create(source_file_path)->parse();
+    std::optional<Parser *> parser = Parser::create(source_file_path);
+    if (!parser.has_value()) {
+        std::cout << RED << "Error" << DEFAULT << ": The input file " << YELLOW << source_file_path.relative_path().string() << DEFAULT
+                  << " does not exist or is not readable" << std::endl;
+        return std::nullopt;
+    }
+    std::optional<FileNode *> file = parser.value()->parse();
     if (!file.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << source_file_path.filename() << DEFAULT
                   << std::endl;

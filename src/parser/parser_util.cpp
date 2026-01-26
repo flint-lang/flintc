@@ -53,6 +53,13 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 return false;
             }
         }
+        // Check if the file exists if it's a file import
+        if (std::holds_alternative<Hash>(import_node.value().path)) {
+            if (!std::filesystem::exists(std::get<Hash>(import_node.value().path).path)) {
+                THROW_ERR(ErrImportNonexistentFile, ERR_PARSING, file_hash, &import_node.value());
+                return false;
+            }
+        }
         // Check if the given alias is already taken
         auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
         if (import_node.value().alias.has_value() && aliased_imports.find(import_node.value().alias.value()) != aliased_imports.end()) {

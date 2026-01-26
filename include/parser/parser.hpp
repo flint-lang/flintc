@@ -142,8 +142,8 @@ class Parser {
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
     ///
     /// @param `file` The path to the file to create the parser instance from
-    /// @return `Parser *` A pointer to the created parser instance
-    static Parser *create(const std::filesystem::path &file);
+    /// @return `std::optional<Parser *>` A pointer to the created parser instance, nullopt if the passed in file did not exist
+    static std::optional<Parser *> create(const std::filesystem::path &file);
 
     /// @function `create`
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
