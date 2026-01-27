@@ -826,7 +826,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             }
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
-                if (!std::get<2>(scope->variables.at(variable_node->name)) && std::get<2>(functions.front()->parameters[i])) {
+                if (!scope->variables.at(variable_node->name).is_mutable && std::get<2>(functions.front()->parameters[i])) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }

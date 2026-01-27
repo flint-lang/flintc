@@ -451,8 +451,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                       
         // A single iterator tuple
         const std::string it_name = std::get<std::string>(for_node->iterators);
         const auto it_variable = for_node->definition_scope->variables.at(it_name);
-        std::shared_ptr<Type> it_type_ptr = std::get<0>(it_variable);
-        llvm::Type *it_type = IR::get_type(parent->getParent(), it_type_ptr).first;
+        llvm::Type *it_type = IR::get_type(parent->getParent(), it_variable.type).first;
         const unsigned int scope_id = for_node->definition_scope->scope_id;
         std::string alloca_name = "s" + std::to_string(scope_id) + "::" + it_name;
         generate_allocation(builder, allocations, alloca_name, it_type, it_name + "__ITER_TUPL",        //

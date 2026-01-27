@@ -230,12 +230,17 @@ std::optional<FunctionNode> Parser::create_function(                            
     } else {
         return_type = return_types.front();
     }
-    body_scope.value()->add_variable("flint.return_type", return_type, 0, false, true);
+    body_scope.value()->add_variable("flint.return_type", {.type = return_type, .scope_id = 0, .is_mutable = false, .is_fn_param = true});
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
-        if (!body_scope.value()->add_variable(                                                                  //
-                std::get<1>(param), std::get<0>(param), body_scope.value()->scope_id, std::get<2>(param), true) //
+        if (!body_scope.value()->add_variable(std::get<1>(param),
+                {
+                    .type = std::get<0>(param),
+                    .scope_id = body_scope.value()->scope_id,
+                    .is_mutable = std::get<2>(param),
+                    .is_fn_param = true,
+                }) //
         ) {
             // Variable already exists in the func definition list
             THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, std::get<1>(param));
@@ -794,7 +799,13 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
 
     // Create the body scope
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>();
-    body_scope->add_variable("flint.return_type", Type::get_primitive_type("void"), 0, false, true);
+    body_scope->add_variable("flint.return_type",
+        {
+            .type = Type::get_primitive_type("void"),
+            .scope_id = 0,
+            .is_mutable = false,
+            .is_fn_param = true,
+        });
 
     // Check if this test already exists within this file
     if (!TestNode::check_test_name(file_name, test_name)) {

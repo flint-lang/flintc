@@ -90,7 +90,7 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
         const auto *var_node = expr.value()->as<VariableNode>();
         // Add the current scope to the scope list in the variable we throw to determine that the variable is returned, excluding it from
         // being freed to early
-        std::get<5>(scope->variables.at(var_node->name)).emplace_back(scope->scope_id);
+        scope->variables.at(var_node->name).return_scope_ids.emplace_back(scope->scope_id);
     }
     return ThrowNode(expr.value());
 }
@@ -124,7 +124,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE) {
         const auto *variable_node = expr.value()->as<VariableNode>();
-        std::vector<unsigned int> &return_scopes = std::get<5>(scope->variables.at(variable_node->name));
+        std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
         // Duplicate Return statement within the same scope, every scope should only have one return value
         assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
         return_scopes.push_back(scope->scope_id);
@@ -134,7 +134,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
         for (auto &group_expr : group_node->expressions) {
             if (group_expr->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = group_expr->as<VariableNode>();
-                std::vector<unsigned int> &return_scopes = std::get<5>(scope->variables.at(variable_node->name));
+                std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
                 // Duplicate Return statement within the same scope, every scope should only have one return value
                 assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
                 return_scopes.push_back(scope->scope_id);
@@ -480,7 +480,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         if (!file_node_ptr->file_namespace->add_type(tuple_type)) {
             tuple_type = file_node_ptr->file_namespace->get_type_from_str(tuple_type->to_string()).value();
         }
-        if (!definition_scope->add_variable(tuple_name, tuple_type, definition_scope->scope_id, false, true, true)) {
+        if (!definition_scope->add_variable(tuple_name, {tuple_type, definition_scope->scope_id, false, true, true})) {
             auto tuple_it = definition_mut.first - 2;
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, tuple_it->line, tuple_it->column, tuple_name);
             return std::nullopt;
@@ -493,14 +493,14 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         const std::optional<std::string> element_name = its.second;
         if (index_name.has_value()) {
             auto index_it = definition_mut.first - 5;
-            if (!definition_scope->add_variable(index_name.value(), index_type, definition_scope->scope_id, false, false, true)) {
+            if (!definition_scope->add_variable(index_name.value(), {index_type, definition_scope->scope_id, false, false, true})) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, index_it->line, index_it->column, index_name.value());
                 return std::nullopt;
             }
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
-            if (!definition_scope->add_variable(element_name.value(), element_type, definition_scope->scope_id, true, false, true)) {
+            if (!definition_scope->add_variable(element_name.value(), {element_type, definition_scope->scope_id, true, false, true})) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
             }
@@ -925,7 +925,7 @@ bool Parser::create_optional_switch_branches(   //
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
             const unsigned int scope_id = branch_scope->scope_id;
             const std::string var_name(match_tokens.first->lexme);
-            if (!branch_scope->add_variable(var_name, optional_type->base_type, scope_id, is_mutable, false, true)) {
+            if (!branch_scope->add_variable(var_name, {optional_type->base_type, scope_id, is_mutable, false, true})) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -1063,7 +1063,7 @@ bool Parser::create_variant_switch_branches(    //
         match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
 
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope);
-        if (!branch_scope->add_variable(access_name, access_type, branch_scope->scope_id, is_mutable, false, true)) {
+        if (!branch_scope->add_variable(access_name, {access_type, branch_scope->scope_id, is_mutable, false, true})) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
@@ -1131,7 +1131,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         }
         case Type::Variation::OPTIONAL: {
             const auto *var_node = switcher.value()->as<VariableNode>();
-            const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
+            const bool is_mutable = scope->variables.at(var_node->name).is_mutable;
             if (!create_optional_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
                 return std::nullopt;
             }
@@ -1143,7 +1143,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
                 return std::nullopt;
             }
             const auto *var_node = switcher.value()->as<VariableNode>();
-            const bool is_mutable = std::get<2>(scope->variables.find(var_node->name)->second);
+            const bool is_mutable = scope->variables.at(var_node->name).is_mutable;
             if (!create_variant_switch_branches(scope, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
                 return std::nullopt;
             }
@@ -1266,7 +1266,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
                 err_variable_type = file_node_ptr->file_namespace->get_type_from_str(err_variable_type->to_string()).value();
             }
         }
-        if (!body_scope->add_variable(err_var.value(), err_variable_type, body_scope->scope_id, false, false)) {
+        if (!body_scope->add_variable(err_var.value(), {err_variable_type, body_scope->scope_id, false, false})) {
             THROW_ERR(                                                                                                                //
                 ErrVarRedefinition, ERR_PARSING, file_hash, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
@@ -1290,7 +1290,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!file_node_ptr->file_namespace->add_type(switcher_type)) {
             switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
-        if (!body_scope->add_variable("flint.value_err", switcher_type, body_scope->scope_id, false, false)) {
+        if (!body_scope->add_variable("flint.value_err", {switcher_type, body_scope->scope_id, false, false})) {
             assert(false);
             return std::nullopt;
         }
@@ -1334,11 +1334,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        if (!std::get<2>(scope->variables.at(it_lexme))) {
+        if (!scope->variables.at(it_lexme).is_mutable) {
             THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
+        const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
         assignees.emplace_back(expected_type, it_lexme);
         index += 2;
         if (std::next(it)->token == TOK_RIGHT_PAREN) {
@@ -1395,11 +1395,11 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        if (!std::get<2>(scope->variables.at(it_lexme))) {
+        if (!scope->variables.at(it_lexme).is_mutable) {
             THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
             return std::nullopt;
         }
-        const std::shared_ptr<Type> &expected_type = std::get<0>(scope->variables.at(it_lexme));
+        const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
         assignees.emplace_back(expected_type, it_lexme);
         index += 2;
         if (std::next(it)->token == TOK_RIGHT_PAREN) {
@@ -1479,11 +1479,11 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                if (!std::get<2>(scope->variables.at(it_lexme))) {
+                if (!scope->variables.at(it_lexme).is_mutable) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
+                const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
                 if (rhs.has_value()) {
                     if (!rhs.value()->type->equals(expected_type)) {
                         THROW_BASIC_ERR(ERR_PARSING);
@@ -1520,11 +1520,11 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                     THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                if (!std::get<2>(scope->variables.at(it_lexme))) {
+                if (!scope->variables.at(it_lexme).is_mutable) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
                     return std::nullopt;
                 }
-                std::shared_ptr<Type> expected_type = std::get<0>(scope->variables.at(it_lexme));
+                const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
                 std::optional<std::unique_ptr<ExpressionNode>> expression;
@@ -1626,7 +1626,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             assert(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = types.at(i);
-                if (!scope->add_variable(variables.at(i).second, types.at(i), scope->scope_id, true, false)) {
+                if (!scope->add_variable(variables.at(i).second, {types.at(i), scope->scope_id, true, false})) {
                     // Variable shadowing
                     THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, lhs_tokens.first->line, lhs_tokens.first->column,
                         variables.at(i).second);
@@ -1639,7 +1639,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             const auto *multi_type = expression.value()->type->as<MultiType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = multi_type->base_type;
-                if (!scope->add_variable(variables.at(i).second, multi_type->base_type, scope->scope_id, true, false)) {
+                if (!scope->add_variable(variables.at(i).second, {multi_type->base_type, scope->scope_id, true, false})) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
                         lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
@@ -1680,7 +1680,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = tuple_type->types[i];
-                if (!scope->add_variable(variables.at(i).second, tuple_type->types[i], scope->scope_id, true, false)) {
+                if (!scope->add_variable(variables.at(i).second, {tuple_type->types[i], scope->scope_id, true, false})) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
                         lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
@@ -1759,7 +1759,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         assert(!is_inferred);
         assert(declared_type != nullptr);
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        if (!scope->add_variable(name, declared_type, scope->scope_id, is_mutable, false)) {
+        if (!scope->add_variable(name, {declared_type, scope->scope_id, is_mutable, false})) {
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
                 name);
             return std::nullopt;
@@ -1813,7 +1813,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
 
     // Add variable to scope
-    if (!scope->add_variable(name, final_type, scope->scope_id, is_mutable, false)) {
+    if (!scope->add_variable(name, {final_type, scope->scope_id, is_mutable, false})) {
         THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
             is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column, name);
         return std::nullopt;
@@ -1878,7 +1878,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     }
     const auto *var_node = base_expr->as<VariableNode>();
     const std::string &var_name = var_node->name;
-    if (!std::get<2>(scope->variables.at(var_name))) {
+    if (!scope->variables.at(var_name).is_mutable) {
         THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_name);
         return std::nullopt;
     }
@@ -1938,7 +1938,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    if (!std::get<2>(scope->variables.at(var_node->name))) {
+    if (!scope->variables.at(var_node->name).is_mutable) {
         THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }
@@ -2017,7 +2017,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     }
 
     // Check if the data variable we try to mutate is marked as immutable
-    if (!std::get<2>(scope->variables.at(var_node->name))) {
+    if (!scope->variables.at(var_node->name).is_mutable) {
         THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
         return std::nullopt;
     }

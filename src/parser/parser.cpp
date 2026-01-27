@@ -1042,8 +1042,8 @@ bool Parser::resolve_all_unknown_types() {
                 }
             }
             // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
-            for (auto &variable : function->scope.value()->variables) {
-                if (!file_namespace->resolve_type(std::get<0>(variable.second))) {
+            for (auto &[variable_name, variable] : function->scope.value()->variables) {
+                if (!file_namespace->resolve_type(variable.type)) {
                     return false;
                 }
             }

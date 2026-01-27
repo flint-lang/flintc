@@ -1274,7 +1274,7 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 return std::nullopt;
             }
             const auto *str_var = lhs_expr->as<VariableNode>();
-            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(str_var->name));
+            const unsigned int variable_decl_scope = scope->variables.at(str_var->name).scope_id;
             llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
             builder.CreateCall(append_str_fn, {variable_alloca, rhs});
             return lhs;
@@ -1309,7 +1309,7 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 return std::nullopt;
             }
             const auto *lhs_var = lhs_expr->as<VariableNode>();
-            const unsigned int variable_decl_scope = std::get<1>(scope->variables.at(lhs_var->name));
+            const unsigned int variable_decl_scope = scope->variables.at(lhs_var->name).scope_id;
             llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name);
             builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())});
             return lhs;

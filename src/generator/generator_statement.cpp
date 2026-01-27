@@ -219,19 +219,19 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(end_of_scope_block);
     // Get all variables of this scope that went out of scope
     auto variables = ctx.scope->get_unique_variables();
-    for (const auto &[var_name, var_info] : variables) {
+    for (const auto &[var_name, variable] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
         // Also check if the variable is a reference to another variable (like in variant switch branches), if it is dont free it
-        if (std::get<3>(var_info) || std::get<4>(var_info)) {
+        if (variable.is_fn_param || variable.is_reference) {
             continue;
         }
         // Check if the variable is returned within this scope, if it is we do not free it
-        const std::vector<unsigned int> &returned_scopes = std::get<5>(var_info);
+        const std::vector<unsigned int> &returned_scopes = variable.return_scope_ids;
         if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
             continue;
         }
         // Check if the variable is an alias type
-        std::shared_ptr<Type> var_type = std::get<0>(var_info);
+        std::shared_ptr<Type> var_type = variable.type;
         if (var_type->get_variation() == Type::Variation::ALIAS) {
             const auto *alias_type = var_type->as<AliasType>();
             var_type = alias_type->type;
@@ -242,7 +242,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             }
             case Type::Variation::ARRAY: {
                 const auto *array_type = var_type->as<ArrayType>();
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
                 llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), alloca, var_name + "_cleanup");
@@ -253,7 +253,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                 break;
             }
             case Type::Variation::DATA: {
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
                 if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
@@ -264,7 +264,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             }
             case Type::Variation::ENTITY: {
                 const auto *entity_type = var_type->as<EntityType>();
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), var_type).first;
                 for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
@@ -284,7 +284,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             case Type::Variation::ENUM:
                 break;
             case Type::Variation::ERROR_SET: {
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::StructType *error_type = type_map.at("type.flint.err");
                 llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
@@ -311,7 +311,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                     continue;
                 }
                 // Get the allocation of the variable
-                const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                 llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
                 llvm::Value *str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), alloca, var_name + "_cleanup");
@@ -327,7 +327,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             case Type::Variation::VARIANT: {
                 const auto *variant_type = var_type->as<VariantType>();
                 if (variant_type->is_err_variant) {
-                    const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                    const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                     llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                     llvm::StructType *error_type = type_map.at("type.flint.err");
                     llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
@@ -362,7 +362,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
                     // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
                     // to each type.
                     llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, "variant_" + var_name + "_free_merge");
-                    const std::string alloca_name = "s" + std::to_string(std::get<1>(var_info)) + "::" + var_name;
+                    const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                     llvm::Value *const alloca = ctx.allocations.at(alloca_name);
                     llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), var_type);
                     llvm::Value *variant_active_value_ptr = builder.CreateStructGEP( //
@@ -1057,7 +1057,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
         tuple_alloca = ctx.allocations.at(tuple_alloca_name);
         const auto tuple_var = for_node->definition_scope->variables.at(std::get<std::string>(for_node->iterators));
-        tuple_type = IR::get_type(ctx.parent->getParent(), std::get<0>(tuple_var)).first;
+        tuple_type = IR::get_type(ctx.parent->getParent(), tuple_var.type).first;
         llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
         IR::aligned_store(builder, builder.getInt64(0), idx_ptr);
     } else {
@@ -1197,7 +1197,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
                 return false;
             }
             const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
-            const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+            const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
             const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
             llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
             if (switch_value->getType()->isPointerTy()) {
@@ -1229,7 +1229,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
         return false;
     }
     const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
-    const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+    const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
     llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
@@ -1267,7 +1267,7 @@ bool Generator::Statement::generate_variant_switch_statement( //
         return false;
     }
     const auto *switcher_var_node = switch_statement->switcher->as<VariableNode>();
-    const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+    const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     // The switcher variable must be a variant type
     const auto *variant_type = switch_statement->switcher->type->as<VariantType>();
@@ -1619,7 +1619,7 @@ bool Generator::Statement::generate_declaration( //
     GenerationContext &ctx,                      //
     const DeclarationNode *declaration_node      //
 ) {
-    const unsigned int scope_id = std::get<1>(ctx.scope->variables.at(declaration_node->name));
+    const unsigned int scope_id = ctx.scope->variables.at(declaration_node->name).scope_id;
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
 
@@ -1756,8 +1756,8 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         return false;
     }
     // Get the allocation of the lhs
-    const std::shared_ptr<Type> variable_type = std::get<0>(ctx.scope->variables.at(assignment_node->name));
-    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(assignment_node->name));
+    const std::shared_ptr<Type> &variable_type = ctx.scope->variables.at(assignment_node->name).type;
+    const unsigned int variable_decl_scope = ctx.scope->variables.at(assignment_node->name).scope_id;
     llvm::Value *const lhs = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     // If its a group type we have to handle it differently than when its a single value
@@ -1901,7 +1901,7 @@ bool Generator::Statement::generate_group_assignment( //
 
     unsigned int elem_idx = 0;
     for (const auto &assign : group_assignment->assignees) {
-        const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(assign.second));
+        const unsigned int var_decl_scope = ctx.scope->variables.at(assign.second).scope_id;
         const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + assign.second;
         llvm::Value *const alloca = ctx.allocations.at(var_name);
         llvm::Value *elem_value = expression.value().at(elem_idx);
@@ -1935,7 +1935,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         return false;
     }
     llvm::Value *expr_val = expression.value().front();
-    const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(data_field_assignment->var_name));
+    const unsigned int var_decl_scope = ctx.scope->variables.at(data_field_assignment->var_name).scope_id;
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
     llvm::Value *const var_alloca = ctx.allocations.at(var_name);
 
@@ -2066,7 +2066,7 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(grouped_field_assignment->var_name));
+    const unsigned int var_decl_scope = ctx.scope->variables.at(grouped_field_assignment->var_name).scope_id;
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
     llvm::Value *const var_alloca = ctx.allocations.at(var_name);
 
@@ -2165,13 +2165,13 @@ bool Generator::Statement::generate_array_assignment( //
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
     }
     // Get the array value
-    const unsigned int var_decl_scope = std::get<1>(ctx.scope->variables.at(array_assignment->variable_name));
+    const unsigned int var_decl_scope = ctx.scope->variables.at(array_assignment->variable_name).scope_id;
     const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
     llvm::Value *const array_alloca = ctx.allocations.at(var_name);
     llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first->getPointerTo();
     // Check if this is a function parameter - if so, use it directly without loading
     llvm::Value *array_ptr;
-    if (std::get<3>(ctx.scope->variables.at(array_assignment->variable_name))) {
+    if (ctx.scope->variables.at(array_assignment->variable_name).is_fn_param) {
         // It's a function parameter (or enhanced for loop variable), use the alloca directly
         array_ptr = array_alloca;
     } else {
@@ -2461,7 +2461,7 @@ bool Generator::Statement::generate_unary_op_statement( //
         return false;
     }
     const auto *var_node = unary_op->operand->as<VariableNode>();
-    const unsigned int scope_id = std::get<1>(ctx.scope->variables.at(var_node->name));
+    const unsigned int scope_id = ctx.scope->variables.at(var_node->name).scope_id;
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
 

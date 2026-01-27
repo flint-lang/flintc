@@ -331,7 +331,7 @@ std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> &scop
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
                 return std::nullopt;
             }
-            return VariableNode(name, std::get<0>(scope->variables.at(name)));
+            return VariableNode(name, scope->variables.at(name).type);
         }
     }
     return var;

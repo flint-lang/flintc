@@ -329,11 +329,11 @@ llvm::Value *Generator::Expression::generate_variable( //
             if (ctx.scope->variables.find(arg.getName().str()) != ctx.scope->variables.end()) {
                 auto var = ctx.scope->variables.at(arg.getName().str());
                 const auto variation = variable_node->type->get_variation();
-                if ((primitives.find(std::get<0>(var)->to_string()) != primitives.end() && !std::get<2>(var)) // is immutable primitive
-                    || variation == Type::Variation::ARRAY                                                    // is array type
-                    || variable_node->type->to_string() == "str"                                              // is string type
-                    || variation == Type::Variation::ENUM                                                     // is enum type
-                    || variation == Type::Variation::DATA                                                     // is data type
+                if ((primitives.find(var.type->to_string()) != primitives.end() && !var.is_mutable) // is immutable primitive
+                    || variation == Type::Variation::ARRAY                                          // is array type
+                    || variable_node->type->to_string() == "str"                                    // is string type
+                    || variation == Type::Variation::ENUM                                           // is enum type
+                    || variation == Type::Variation::DATA                                           // is data type
                 ) {
                     return &arg;
                 }
@@ -347,7 +347,7 @@ llvm::Value *Generator::Expression::generate_variable( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }
-    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+    const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     // The variable is a "function parameter" when it's the context of the ehnhanced for loop, for example. It's set to a function paramter
     // in all the cases where we want to return the pointer to the allocation directly instead of loading it, but this only holds true when
@@ -355,8 +355,8 @@ llvm::Value *Generator::Expression::generate_variable( //
     // still need to load them even when it's a function parameter. This also does not count when the function parameter is mutable. If we
     // have a mutable primitive typed function parameter then a local version of it is allocated in the functions scope, which means we
     // still need to load that value before returning it.
-    if (std::get<3>(ctx.scope->variables.at(variable_node->name))         // is function parameter
-        && !std::get<2>(ctx.scope->variables.at(variable_node->name))     // is not mutable
+    if (ctx.scope->variables.at(variable_node->name).is_fn_param          // is function parameter
+        && !ctx.scope->variables.at(variable_node->name).is_mutable       // is not mutable
         && variable_node->type->get_variation() != Type::Variation::TUPLE // Is not of type tuple
     ) {
         return variable;
@@ -1844,7 +1844,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         return std::nullopt;
     }
     const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
-    const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+    const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
@@ -1968,7 +1968,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         return std::nullopt;
     }
     const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
-    const unsigned int switcher_scope_id = std::get<1>(ctx.scope->variables.at(switcher_var_node->name));
+    const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
@@ -2823,7 +2823,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
 ) {
     const auto *var_type = extraction->base_expr->type->as<VariantType>();
     const auto *variable_node = extraction->base_expr->as<VariableNode>();
-    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+    const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     const auto *result_type_ptr = extraction->type->as<OptionalType>();
     const std::shared_ptr<Type> &extract_type_ptr = result_type_ptr->base_type;
@@ -2878,7 +2878,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
 ) {
     const auto *var_type = unwrap->base_expr->type->as<VariantType>();
     const auto *variable_node = unwrap->base_expr->as<VariableNode>();
-    const unsigned int variable_decl_scope = std::get<1>(ctx.scope->variables.at(variable_node->name));
+    const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).first;
     llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).first;
