@@ -222,7 +222,11 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     for (const auto &[var_name, variable] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
         // Also check if the variable is a reference to another variable (like in variant switch branches), if it is dont free it
-        if (variable.is_fn_param || variable.is_reference) {
+        // Data types are always "freed" beacause they are managed by DIMA thus need to call the `release` function of DIMA
+        // Always skip if it's a pseudo-variable like `flint.return_type`, this variable does not really exist outside of compile-time so we
+        // never allocate nor free it
+        const bool is_data = variable.type->get_variation() != Type::Variation::DATA;
+        if (variable.is_pseudo_variable || ((variable.is_fn_param || variable.is_reference) && is_data)) {
             continue;
         }
         // Check if the variable is returned within this scope, if it is we do not free it
@@ -255,8 +259,14 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             case Type::Variation::DATA: {
                 const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
                 llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), var_type).first;
-                if (!generate_data_cleanup(builder, ctx, base_type, alloca, var_type)) {
+                llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), var_type).first;
+                llvm::Value *data_ptr = nullptr;
+                if (variable.is_fn_param) {
+                    data_ptr = alloca;
+                } else {
+                    data_ptr = IR::aligned_load(builder, data_type->getPointerTo(), alloca, "data." + var_type->to_string() + ".ptr");
+                }
+                if (!generate_data_cleanup(builder, ctx, data_type, data_ptr, var_type)) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }
@@ -439,13 +449,11 @@ bool Generator::Statement::generate_data_cleanup( //
     llvm::IRBuilder<> &builder,                   //
     GenerationContext &ctx,                       //
     llvm::Type *base_type,                        //
-    llvm::Value *const alloca,                    //
+    llvm::Value *const data_ptr,                  //
     const std::shared_ptr<Type> &data_type        //
 ) {
     size_t field_id = 0;
     const DataNode *data_node = data_type->as<DataType>()->data_node;
-    auto type = IR::get_type(ctx.parent->getParent(), data_type);
-    llvm::Value *data_ptr = IR::aligned_load(builder, type.first->getPointerTo(), alloca, "data." + data_type->to_string() + ".ptr");
     for (const auto &field : data_node->fields) {
         const std::shared_ptr<Type> &field_type = std::get<1>(field);
         const auto field_variation = field_type->get_variation();

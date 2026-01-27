@@ -50,6 +50,11 @@ class Scope {
         /// @var `return_scope_ids`
         /// @brief A list of all scope id's the variable is returned as it's value, if any
         std::vector<unsigned int> return_scope_ids = {};
+
+        /// @var `is_pseudo_variable`
+        /// @brief Whether this variable is a pseudo-variable, for example like the `flint.return_type` variable used to have access to a
+        /// function's return type within the generator functions without a reference to the function node itself
+        bool is_pseudo_variable = false;
     };
 
     /// @function `get_parent`

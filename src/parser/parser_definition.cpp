@@ -230,7 +230,14 @@ std::optional<FunctionNode> Parser::create_function(                            
     } else {
         return_type = return_types.front();
     }
-    body_scope.value()->add_variable("flint.return_type", {.type = return_type, .scope_id = 0, .is_mutable = false, .is_fn_param = true});
+    body_scope.value()->add_variable("flint.return_type",
+        {
+            .type = return_type,
+            .scope_id = 0,
+            .is_mutable = false,
+            .is_fn_param = true,
+            .is_pseudo_variable = true,
+        });
 
     // Add the parameters to the list of variables
     for (const auto &param : parameters) {
@@ -805,6 +812,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
             .scope_id = 0,
             .is_mutable = false,
             .is_fn_param = true,
+            .is_pseudo_variable = true,
         });
 
     // Check if this test already exists within this file
