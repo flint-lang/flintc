@@ -863,6 +863,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::BasicBlock *needs_relocation_block = llvm::BasicBlock::Create(context, "needs_relocation", release_fn);
     llvm::BasicBlock *loop_condition_block = llvm::BasicBlock::Create(context, "loop_condition", release_fn);
     llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", release_fn);
+    llvm::BasicBlock *loop_postcondition_block = llvm::BasicBlock::Create(context, "loop_postcondition", release_fn);
     llvm::BasicBlock *realloc_block = llvm::BasicBlock::Create(context, "realloc_block", release_fn);
 
     builder->SetInsertPoint(entry_block);
@@ -931,7 +932,11 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *new_size_m1 = builder->CreateSub(new_size_value, builder->getInt64(1), "new_size_m1");
     llvm::Value *check_block_ptr = builder->CreateGEP(dima_block_type->getPointerTo(), blocks_ptr, new_size_m1, "check_block_ptr");
     llvm::Value *block_is_null = builder->CreateICmpEQ(check_block_ptr, block_nullptr, "block_is_null");
-    builder->CreateCondBr(block_is_null, realloc_block, loop_condition_block);
+    builder->CreateCondBr(block_is_null, realloc_block, loop_postcondition_block);
+
+    builder->SetInsertPoint(loop_postcondition_block);
+    IR::aligned_store(*builder, new_size_m1, new_size);
+    builder->CreateBr(loop_condition_block);
 
     builder->SetInsertPoint(realloc_block);
     new_size_value = IR::aligned_load(*builder, builder->getInt64Ty(), new_size, "new_size_value");
