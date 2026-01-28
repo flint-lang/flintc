@@ -800,15 +800,12 @@ unsigned int Generator::Allocation::calculate_type_alignment(llvm::Type *type) {
     // Default alignment
     unsigned int alignment = 8;
 
-    // Check if the type is a vector type
     if (type->isVectorTy()) {
         // For vector types, always use the alignment of the base element of the vector
         llvm::VectorType *vectorType = llvm::cast<llvm::VectorType>(type);
         llvm::Type *elemType = vectorType->getElementType();
         alignment = calculate_type_alignment(elemType);
-    }
-    // Check if the type is a struct type
-    else if (type->isStructTy()) {
+    } else if (type->isStructTy()) {
         llvm::StructType *structType = llvm::cast<llvm::StructType>(type);
 
         // For struct types, calculate the maximum alignment needed by any of its elements
@@ -816,11 +813,19 @@ unsigned int Generator::Allocation::calculate_type_alignment(llvm::Type *type) {
             llvm::Type *elemType = structType->getElementType(i);
             alignment = std::max(alignment, calculate_type_alignment(elemType));
         }
-    }
-    // For array types, check the element type
-    else if (type->isArrayTy()) {
+    } else if (type->isArrayTy()) {
+        // For array types, check the element type
         llvm::Type *elemType = type->getArrayElementType();
         alignment = calculate_type_alignment(elemType);
+    } else if (type->isIntegerTy()) {
+        // For integer types check the bit width
+        alignment = type->getIntegerBitWidth() / 8;
+        if (alignment == 0) {
+            alignment = 1;
+        }
+    } else if (type->isFloatTy()) {
+        // For float types the alignment is 4
+        alignment = 4;
     }
 
     return alignment;
