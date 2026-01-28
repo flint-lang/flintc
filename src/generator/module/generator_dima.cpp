@@ -710,7 +710,6 @@ void Generator::Module::DIMA::generate_allocate_function( //
     llvm::Value *head_default_value_ptr = builder->CreateStructGEP(              //
         dima_head_type, head_value, HEAD_DEFAULT_VALUE, "head_default_value_ptr" //
     );
-    llvm::Value *arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_value, SLOT_ARC, "slot_arc_ptr");
     llvm::Value *head_default_value = IR::aligned_load(                                              //
         *builder, builder->getInt8Ty()->getPointerTo(), head_default_value_ptr, "head_default_value" //
     );
