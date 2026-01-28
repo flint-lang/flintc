@@ -14,6 +14,14 @@ class DataType : public Type {
         return Variation::DATA;
     }
 
+    bool is_freeable() const override {
+        return true;
+    }
+
+    Hash get_hash() const override {
+        return data_node->file_hash;
+    }
+
     bool equals(const std::shared_ptr<Type> &other) const override {
         if (other->get_variation() != Variation::DATA) {
             return false;

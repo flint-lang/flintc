@@ -1115,6 +1115,47 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     return data_types;
 }
 
+std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
+    std::vector<std::shared_ptr<Type>> freeable_types;
+    std::vector<std::string> collected_types;
+
+    // Go through all core Modules and collect all freeable types they provide
+    for (const auto &[module_name, module_namespace] : core_namespaces) {
+        for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+            if (!type->is_freeable()) {
+                continue;
+            }
+            if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+                freeable_types.emplace_back(type);
+                collected_types.emplace_back(type->to_string());
+            }
+        }
+    }
+    // Go through all instances of the parser and collect all freeable types from all instances
+    for (const auto &instance : Parser::instances) {
+        for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
+            if (!type->is_freeable()) {
+                continue;
+            }
+            if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+                freeable_types.emplace_back(type);
+                collected_types.emplace_back(type->to_string());
+            }
+        }
+    }
+    // Go through all public types and collect all freable types
+    for (const auto &[type_string, type] : Type::types) {
+        if (!type->is_freeable()) {
+            continue;
+        }
+        if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+            freeable_types.emplace_back(type);
+            collected_types.emplace_back(type->to_string());
+        }
+    }
+    return freeable_types;
+}
+
 bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Func Modules");
 

@@ -1125,36 +1125,6 @@ class Generator {
             GenerationContext &ctx                       //
         );
 
-        /// @function `generate_array_cleanup`
-        /// @brief Generates the instructions to celar up arrays to prevent any memory leaks
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `arr_ptr` The pointer to the allocated array which needs to be freed
-        /// @param `array_type` The type of the array to free
-        /// @return `bool` Whether geenrating the cleanup instrctuonst was successful
-        [[nodiscard]] static bool generate_array_cleanup( //
-            llvm::IRBuilder<> &builder,                   //
-            llvm::Value *arr_ptr,                         //
-            const ArrayType *array_type                   //
-        );
-
-        /// @function `generate_data_cleanup`
-        /// @brief Generates the instructions to clear up nested data correctly to prevent any memory leaks
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `ctx` The context of the data cleanup generation
-        /// @param `base_type` The base data type which is cleaned up
-        /// @param `alloca` The pointer to the allocation of the data
-        /// @param `data_type` The type of the data to free
-        /// @return `bool` Whether generating the cleanup instructions was successful
-        [[nodiscard]] static bool generate_data_cleanup( //
-            llvm::IRBuilder<> &builder,                  //
-            GenerationContext &ctx,                      //
-            llvm::Type *base_type,                       //
-            llvm::Value *const alloca,                   //
-            const std::shared_ptr<Type> &data_type       //
-        );
-
         /// @function `generate_return_statement`
         /// @brief Generates the return statement from the given ReturnNode
         ///
@@ -2228,6 +2198,64 @@ class Generator {
         static void generate_get_err_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
     };
 
+    /// @class `Memory`
+    /// @brief The class which contains the generation functions and pointer to the functions for memory-related operations in Flint
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Memory {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Memory() = delete;
+
+        /// @var `memory_functions`
+        /// @brief Map containing references to all memory functions
+        ///
+        /// @details
+        /// - **Key** `std::string_view` - The name of the function
+        /// - **Value** `llvm::Function *` - The reference to the genereated function
+        ///
+        /// @attention The functions are nullpointers until the `generate_memory_functions` function is called
+        /// @attention The map is not being cleared after the program module has been generated
+        static inline std::unordered_map<std::string_view, llvm::Function *> memory_functions = {
+            {"free", nullptr},
+            {"clone", nullptr},
+        };
+
+        /// @function `generate_memory_functions`
+        /// @brief Generates all the error functions used for memory-related operations in Flint
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the functions are generated in
+        static void generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_free_value`
+        /// @brief Generates the IR code to free the given type, this is a helper because it's needed at a few places
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which to generate the freeing of the given value
+        /// @param `value` The value to free properly and orderly-correct
+        /// @param `type` The type of the value to free
+        static void generate_free_value(      //
+            llvm::IRBuilder<> *const builder, //
+            llvm::Module *const module,       //
+            llvm::Value *const value,         //
+            const std::shared_ptr<Type> &type //
+        );
+
+        /// @function `generate_free_function`
+        /// @brief Generates the `free` function used to free values at runtime
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        static void generate_free_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `generate_clone_function`
+        /// @brief Generates the `clone` function used to clone values at runtime
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        static void generate_clone_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+    };
+
     /// @class 'Module'
     /// @brief The class which holds all other module sub-classes
     /// @note This class cannot be initialized and all functions within this class are static
@@ -2654,7 +2682,6 @@ class Generator {
                 {"access_arr_val", nullptr},
                 {"assign_arr_at", nullptr},
                 {"assign_arr_val_at", nullptr},
-                {"free_arr", nullptr},
                 {"get_arr_slice_1d", nullptr},
                 {"get_arr_slice", nullptr},
             };
@@ -2730,14 +2757,6 @@ class Generator {
             /// @param `module` The LLVM Module the `assign_arr_val_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_assign_arr_val_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /// @function `generate_free_arr_function`
-            /// @brief Generates the builtin hidded `free_arr` function
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `free_arr` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_free_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_get_arr_slice_1d_function`
             /// @brief Generates the builtin hidden `get_arr_slice_1d` function
@@ -2895,6 +2914,18 @@ class Generator {
             /// @brief Generates all the slot, block and head types of all data types of all files
             static void generate_types();
 
+            /// @function `generate_init_heads_function`
+            /// @brief Generates the `init_heads` function to initialize all dima heads at program startup
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `init_heads` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `init_heads` function or to only generate it's declaration
+            static void generate_init_heads_function( //
+                llvm::IRBuilder<> *builder,           //
+                llvm::Module *module,                 //
+                const bool only_declarations = true   //
+            );
+
             /// @function `generate_get_block_capacity_function`
             /// @brief Generates the `get_block_capacity` function to initialize all dima heads at program startup
             ///
@@ -2906,18 +2937,6 @@ class Generator {
                 llvm::IRBuilder<> *builder,                   //
                 llvm::Module *module,                         //
                 const bool only_declarations = true           //
-            );
-
-            /// @function `generate_init_heads_function`
-            /// @brief Generates the `init_heads` function to initialize all dima heads at program startup
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `init_heads` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `init_heads` function or to only generate it's declaration
-            static void generate_init_heads_function( //
-                llvm::IRBuilder<> *builder,           //
-                llvm::Module *module,                 //
-                const bool only_declarations = true   //
             );
 
             /// @function `generate_create_block_function`

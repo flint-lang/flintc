@@ -225,8 +225,10 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         // Data types are always "freed" beacause they are managed by DIMA thus need to call the `release` function of DIMA
         // Always skip if it's a pseudo-variable like `flint.return_type`, this variable does not really exist outside of compile-time so we
         // never allocate nor free it
-        const bool is_data = variable.type->get_variation() != Type::Variation::DATA;
-        if (variable.is_pseudo_variable || ((variable.is_fn_param || variable.is_reference) && is_data)) {
+        if (variable.is_pseudo_variable) {
+            continue;
+        }
+        if (!variable.type->is_freeable()) {
             continue;
         }
         // Check if the variable is returned within this scope, if it is we do not free it
@@ -240,181 +242,23 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             const auto *alias_type = var_type->as<AliasType>();
             var_type = alias_type->type;
         }
-        switch (var_type->get_variation()) {
-            case Type::Variation::ALIAS: {
-                assert(false);
-            }
-            case Type::Variation::ARRAY: {
-                const auto *array_type = var_type->as<ArrayType>();
-                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-                llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), alloca, var_name + "_cleanup");
-                if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return false;
-                }
-                break;
-            }
-            case Type::Variation::DATA: {
-                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), var_type).first;
-                llvm::Value *data_ptr = nullptr;
-                if (variable.is_fn_param) {
-                    data_ptr = alloca;
-                } else {
-                    data_ptr = IR::aligned_load(builder, data_type->getPointerTo(), alloca, "data." + var_type->to_string() + ".ptr");
-                }
-                if (!generate_data_cleanup(builder, ctx, data_type, data_ptr, var_type)) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return false;
-                }
-                break;
-            }
-            case Type::Variation::ENTITY: {
-                const auto *entity_type = var_type->as<EntityType>();
-                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), var_type).first;
-                for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
-                    const auto &data_node = entity_type->entity_node->data_modules.at(i);
-                    const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                    const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
-                    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), data_type).first;
-                    const std::string data_type_str = data_type->to_string();
-                    llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, alloca, i, "field_" + data_type_str + "_ptr");
-                    if (!generate_data_cleanup(builder, ctx, base_type, field_ptr, data_type)) {
-                        THROW_BASIC_ERR(ERR_GENERATING);
-                        return false;
-                    }
-                }
-                break;
-            }
-            case Type::Variation::ENUM:
-                break;
-            case Type::Variation::ERROR_SET: {
-                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::StructType *error_type = type_map.at("type.flint.err");
-                llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-                llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
-                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
-                free_call->setMetadata("comment",
-                    llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from error '" + var_name + "'")));
-                break;
-            }
-            case Type::Variation::FUNC:
-                break;
-            case Type::Variation::GROUP:
-                break;
-            case Type::Variation::MULTI:
-                break;
-            case Type::Variation::OPTIONAL:
-                break;
-            case Type::Variation::POINTER:
-                break;
-            case Type::Variation::PRIMITIVE: {
-                const auto *primitive_type = var_type->as<PrimitiveType>();
-                if (primitive_type->type_name != "str") {
-                    continue;
-                }
-                // Get the allocation of the variable
-                const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-                llvm::Value *str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), alloca, var_name + "_cleanup");
-                builder.CreateCall(c_functions.at(FREE), {str_ptr});
-                break;
-            }
-            case Type::Variation::RANGE:
-                break;
-            case Type::Variation::TUPLE:
-                break;
-            case Type::Variation::UNKNOWN:
-                break;
-            case Type::Variation::VARIANT: {
-                const auto *variant_type = var_type->as<VariantType>();
-                if (variant_type->is_err_variant) {
-                    const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                    llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                    llvm::StructType *error_type = type_map.at("type.flint.err");
-                    llvm::Value *err_message_ptr = builder.CreateStructGEP(error_type, alloca, 2, "err_message_ptr");
-                    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-                    llvm::Value *err_message = IR::aligned_load(builder, str_type, err_message_ptr, "err_message");
-                    llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {err_message});
-                    free_call->setMetadata("comment",
-                        llvm::MDNode::get(context, llvm::MDString ::get(context, "Clear error message from variant '" + var_name + "'")));
-                } else {
-                    std::map<size_t, llvm::BasicBlock *> possible_value_blocks;
-                    const auto &possible_types = variant_type->get_possible_types();
-                    for (size_t i = 0; i < possible_types.size(); i++) {
-                        // Check if the type is complex, if it is then we need to free it
-                        const auto &possible_type = possible_types[i];
-                        auto type_info = IR::get_type(ctx.parent->getParent(), possible_type.second);
-                        const bool is_complex =                                                    //
-                            (type_info.second.first || possible_type.second->to_string() == "str") //
-                            // TODO: When DIMA works then data, entity etc types will be complex too and need to be freed as well here
-                            && possible_type.second->get_variation() != Type::Variation::DATA;
-                        if (is_complex) {
-                            // Add a basic block in which this complex type will be freed
-                            llvm::BasicBlock *free_block = llvm::BasicBlock::Create(                                                    //
-                                context, "variant_" + var_name + "_free_" + std::to_string(i) + "_" + possible_type.second->to_string() //
-                            );
-                            possible_value_blocks[i] = free_block;
-                        }
-                    }
-                    if (possible_value_blocks.empty()) {
-                        // If there are no complex values inside the variant then we do not need to free anything
-                        break;
-                    }
-                    // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
-                    // to each type.
-                    llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, "variant_" + var_name + "_free_merge");
-                    const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-                    llvm::Value *const alloca = ctx.allocations.at(alloca_name);
-                    llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), var_type);
-                    llvm::Value *variant_active_value_ptr = builder.CreateStructGEP( //
-                        variant_struct_type, alloca, 0, "variant_active_value_ptr"   //
-                    );
-                    llvm::Value *variant_active_value = IR::aligned_load(                              //
-                        builder, builder.getInt8Ty(), variant_active_value_ptr, "variant_active_value" //
-                    );
-                    llvm::SwitchInst *active_value_switch = builder.CreateSwitch(variant_active_value, variant_free_merge_block);
-
-                    // Now generate the content of each block, get the value of the variant and free the value in it
-                    for (auto &[value_id, value_block] : possible_value_blocks) {
-                        active_value_switch->addCase(builder.getInt8(value_id), value_block);
-                        value_block->insertInto(ctx.parent);
-                        builder.SetInsertPoint(value_block);
-                        IR::generate_debug_print( //
-                            &builder, ctx.parent->getParent(),
-                            "Freeing variant '" + var_name + "' with value_id of '" + std::to_string(value_id) + "'", {} //
-                        );
-                        llvm::Value *variant_value_ptr = builder.CreateStructGEP(variant_struct_type, alloca, 1, "variant_value_ptr");
-                        const auto &variant_type_ptr = possible_types.at(value_id).second;
-                        auto value_type = IR::get_type(ctx.parent->getParent(), variant_type_ptr);
-                        const bool is_ptr = value_type.second.first;
-                        llvm::Value *variant_value = IR::aligned_load(                                                                //
-                            builder, is_ptr ? value_type.first->getPointerTo() : value_type.first, variant_value_ptr, "variant_value" //
-                        );
-                        const bool is_dima_managed = variant_type->get_variation() == Type::Variation::DATA;
-                        if (is_dima_managed) {
-                            llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
-                            builder.CreateCall(dima_release_fn, {variant_value});
-                        } else {
-                            llvm::Function *free_fn = c_functions.at(FREE);
-                            builder.CreateCall(free_fn, {variant_value});
-                        }
-                        builder.CreateBr(variant_free_merge_block);
-                    }
-
-                    variant_free_merge_block->insertInto(ctx.parent);
-                    builder.SetInsertPoint(variant_free_merge_block);
-                }
-                break;
-            }
+        // Free the variable by simply calling the `memory.free` function
+        const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
+        llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+        llvm::Value *variable_value = alloca;
+        std::pair<llvm::Type *, std::pair<bool, bool>> variable_type = IR::get_type(ctx.parent->getParent(), var_type);
+        const bool base_is_array = var_type->get_variation() == Type::Variation::ARRAY;
+        const bool base_is_str = var_type->to_string() == "str";
+        if ((variable_type.second.first || base_is_array || base_is_str) && !variable.is_fn_param) {
+            llvm::Type *type_to_load = variable_type.second.first ? variable_type.first->getPointerTo() : variable_type.first;
+            variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
+        }
+        if (var_type->get_variation() == Type::Variation::DATA) {
+            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+            builder.CreateCall(release_fn, {Module::DIMA::get_head(var_type), variable_value});
+        } else {
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            builder.CreateCall(free_fn, {variable_value, builder.getInt32(var_type->get_id())});
         }
     }
     builder.CreateBr(merge_block);
@@ -425,59 +269,6 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         // the blocks
         prev_terminator->moveBeforePreserving(*merge_block, merge_block->end());
     }
-    return true;
-}
-
-bool Generator::Statement::generate_array_cleanup(llvm::IRBuilder<> &builder, llvm::Value *arr_ptr, const ArrayType *array_type) {
-    // Now get the complexity of the array
-    size_t complexity = 0;
-    while (true) {
-        if (array_type->type->get_variation() == Type::Variation::ARRAY) {
-            complexity++;
-            array_type = array_type->type->as<ArrayType>();
-            continue;
-        } else if (array_type->type->to_string() == "str") {
-            complexity++;
-        }
-        break;
-    }
-    builder.CreateCall(Module::Array::array_manip_functions.at("free_arr"), {arr_ptr, builder.getInt64(complexity)});
-    return true;
-}
-
-bool Generator::Statement::generate_data_cleanup( //
-    llvm::IRBuilder<> &builder,                   //
-    GenerationContext &ctx,                       //
-    llvm::Type *base_type,                        //
-    llvm::Value *const data_ptr,                  //
-    const std::shared_ptr<Type> &data_type        //
-) {
-    size_t field_id = 0;
-    const DataNode *data_node = data_type->as<DataType>()->data_node;
-    for (const auto &field : data_node->fields) {
-        const std::shared_ptr<Type> &field_type = std::get<1>(field);
-        const auto field_variation = field_type->get_variation();
-        if (field_variation == Type::Variation::DATA) {
-            llvm::Type *new_base_type = IR::get_type(ctx.parent->getParent(), field_type).first;
-            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
-            if (!generate_data_cleanup(builder, ctx, new_base_type, field_ptr, field_type)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        } else if (field_variation == Type::Variation::ARRAY) {
-            const auto *array_type = field_type->as<ArrayType>();
-            llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-            llvm::Value *field_ptr = builder.CreateStructGEP(base_type, data_ptr, field_id);
-            llvm::Value *arr_ptr = IR::aligned_load(builder, arr_type->getPointerTo(), field_ptr);
-            if (!generate_array_cleanup(builder, arr_ptr, array_type)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
-        }
-        field_id++;
-    }
-    llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
-    builder.CreateCall(dima_release_fn, {Module::DIMA::get_head(data_type), data_ptr});
     return true;
 }
 

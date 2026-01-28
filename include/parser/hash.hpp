@@ -75,7 +75,7 @@ struct Hash {
     /// @param `input` The string to hash to a small 8-byte string
     /// @return `std::array<char, 8>` The hash consisting of 8 characters from 61 possible characters (A-Z, a-z, 1-9)
     static std::array<char, 8> string_to_hash(const std::string &input) {
-        char hash[8];
+        char hash[8] = {'0', '0', '0', '0', '0', '0', '0', '0'};
         fip_create_hash(hash, input.data());
         std::array<char, 8> hash_arr;
         for (size_t i = 0; i < 8; i++) {

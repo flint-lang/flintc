@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/hash.hpp"
 #include "type.hpp"
 
 #include <memory>
@@ -13,6 +14,14 @@ class OptionalType : public Type {
 
     Variation get_variation() const override {
         return Variation::OPTIONAL;
+    }
+
+    bool is_freeable() const override {
+        return base_type->is_freeable();
+    }
+
+    Hash get_hash() const override {
+        return base_type->get_hash();
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {

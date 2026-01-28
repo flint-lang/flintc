@@ -14,6 +14,14 @@ class EntityType : public Type {
         return Variation::ENTITY;
     }
 
+    bool is_freeable() const override {
+        return true;
+    }
+
+    Hash get_hash() const override {
+        return entity_node->file_hash;
+    }
+
     bool equals(const std::shared_ptr<Type> &other) const override {
         if (other->get_variation() != Variation::ENTITY) {
             return false;

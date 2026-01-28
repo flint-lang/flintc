@@ -1,6 +1,21 @@
 use Core.print
 
-use "nonexistent.ft"
+data Position:
+	i32 x;
+	i32 y;
+	Position(x, y);
+
+data MyData:
+	Position pos;
+	f32x2 speed;
+	MyData(pos, speed);
+
+def move(mut MyData d):
+	d.pos.(x, y) = d.pos.(x, y) + (i32(d.speed.x), i32(d.speed.y));
 
 def main():
-	print("Wahoo\n");
+	pos := Position(10, 20);
+	d := MyData(pos, f32x2(3, 5));
+	print($"pos = ({d.pos.x}, {d.pos.y})\n");
+	move(d);
+	print($"pos = ({d.pos.x}, {d.pos.y})\n");

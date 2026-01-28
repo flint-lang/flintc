@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/hash.hpp"
 #include "type.hpp"
 
 #include <memory>
@@ -14,6 +15,14 @@ class AliasType : public Type {
 
     Variation get_variation() const override {
         return Variation::ALIAS;
+    }
+
+    bool is_freeable() const override {
+        return type->is_freeable();
+    }
+
+    Hash get_hash() const override {
+        return type->get_hash();
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {

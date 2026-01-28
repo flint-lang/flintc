@@ -7,6 +7,9 @@
 #include <string>
 #include <unordered_map>
 
+// Forward-declaration of the hash to prevent circular dependencies
+struct Hash;
+
 /// @class `Type`
 /// @brief This is the base class of all types, but it cannot be initialized directly. Instead, its just a base type from which all explicit
 /// types extend from.
@@ -59,6 +62,35 @@ class Type {
     /// @return `bool` Whether the types are equal
     virtual bool equals(const std::shared_ptr<Type> &other) const = 0;
 
+    /// @function `is_freeable`
+    /// @brief Whether this type is freeable, e.g. if freeing it needs special-case handling (for example for data, entities etc)
+    ///
+    /// @return `bool` Whether this type is freeable
+    virtual bool is_freeable() const = 0;
+
+    /// @function `get_hash`
+    /// @brief Returns the hash of the file this type was defined in. If it's a type which is possible to be placed at global scope, for
+    /// example like `str[]` or all other primitive types, then the Hash will be empty, e.g. "00000000". The `get_hash` function is needed
+    /// to properly get / generate the unique type ID of every type in the `get_id` function
+    ///
+    /// @return `Hash` The hash of the file this type was defined in
+    virtual Hash get_hash() const = 0;
+
+    /// @function `to_string`
+    /// @brief Returns the string representation of the type
+    ///
+    /// @return `std::strint` The string representation of this type
+    virtual std::string to_string() const = 0;
+
+    /// @function `get_type_string`
+    /// @brief Returns the type string of the type used as the key for the `type_map`. It is placed here because the key building logic was
+    /// scattered and duplicated across the codebase, which made it easy to introduce mismatches to get / set the types in the type map
+    ///
+    /// @param `is_return_type` Whether this type is used as a return type, in that case the created string differs
+    /// @return `std::string` The string key of the `type_map` of the generator. It is also needed to make the whole type map approach more
+    /// robust in terms of same-named types from different files
+    virtual std::string get_type_string(const bool is_return_type = false) const = 0;
+
     /// @function `as`
     /// @brief Casts this type to the requested type, but the requested type must be a child type of this class
     template <typename T> std::enable_if_t<std::is_base_of_v<Type, T> && !std::is_same_v<Type, T>, const T *> inline as() const {
@@ -83,20 +115,11 @@ class Type {
 #endif
     }
 
-    /// @function `to_string`
-    /// @brief Returns the string representation of the type
+    /// @function `get_id`
+    /// @brief Get the unique id of this type used for a lot of type-related operations (for example freeing, cloning etc)
     ///
-    /// @return `std::strint` The string representation of this type
-    virtual std::string to_string() const = 0;
-
-    /// @function `get_type_string`
-    /// @brief Returns the type string of the type used as the key for the `type_map`. It is placed here because the key building logic was
-    /// scattered and duplicated across the codebase, which made it easy to introduce mismatches to get / set the types in the type map
-    ///
-    /// @param `is_return_type` Whether this type is used as a return type, in that case the created string differs
-    /// @return `std::string` The string key of the `type_map` of the generator. It is also needed to make the whole type map approach more
-    /// robust in terms of same-named types from different files
-    virtual std::string get_type_string(const bool is_return_type = false) const = 0;
+    /// @return `uint32_t` The unique ID of this type
+    uint32_t get_id() const;
 
     /// @function `init_types`
     /// @brief Initializes all primitive types to be ready to be used

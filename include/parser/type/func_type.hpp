@@ -14,6 +14,15 @@ class FuncType : public Type {
         return Variation::FUNC;
     }
 
+    bool is_freeable() const override {
+        // TODO: Is it though?
+        return true;
+    }
+
+    Hash get_hash() const override {
+        return func_node->file_hash;
+    }
+
     bool equals(const std::shared_ptr<Type> &other) const override {
         if (other->get_variation() != Variation::DATA) {
             return false;

@@ -1,6 +1,7 @@
 #pragma once
 
-#include "parser/type/type.hpp"
+#include "parser/hash.hpp"
+#include "type.hpp"
 
 /// @class `RangeType`
 /// @brief Represents range types
@@ -11,6 +12,14 @@ class RangeType : public Type {
 
     Variation get_variation() const override {
         return Variation::RANGE;
+    }
+
+    bool is_freeable() const override {
+        return false;
+    }
+
+    Hash get_hash() const override {
+        return Hash(std::string(""));
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {

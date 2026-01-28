@@ -251,8 +251,14 @@ class Parser {
     /// @function `get_all_data_types`
     /// @brief Collects and returns all data types from all files
     ///
-    /// @¶eturn `std::vector<std::shared_ptr<Type>>` A list of all data types of all files
+    /// @return `std::vector<std::shared_ptr<Type>>` A list of all data types of all files
     static std::vector<std::shared_ptr<Type>> get_all_data_types();
+
+    /// @function `get_all_freeable_types`
+    /// @brief Collects and returns all freeable types from all files
+    ///
+    /// @return `std::vector<std::shared_ptr<Type>>` A list of all freeable types of all files
+    static std::vector<std::shared_ptr<Type>> get_all_freeable_types();
 
     /// @function `parse_all_open_func_modules`
     /// @brief Parses all still open func module bodies

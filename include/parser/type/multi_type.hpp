@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/hash.hpp"
 #include "type.hpp"
 
 #include <string>
@@ -14,6 +15,14 @@ class MultiType : public Type {
 
     Variation get_variation() const override {
         return Variation::MULTI;
+    }
+
+    bool is_freeable() const override {
+        return false;
+    }
+
+    Hash get_hash() const override {
+        return Hash(std::string(""));
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {

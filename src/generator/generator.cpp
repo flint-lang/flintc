@@ -294,6 +294,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate the error functions to get the error types and value strings from errors, which also enables error to string castability
     Error::generate_error_functions(builder.get(), module.get());
 
+    // Generate the memory functions to be able to clone / free things
+    Memory::generate_memory_functions(builder.get(), module.get());
+
     if (!is_test) {
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());

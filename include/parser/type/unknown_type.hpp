@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/hash.hpp"
 #include "type.hpp"
 
 /// @class `UnknownType`
@@ -11,6 +12,14 @@ class UnknownType : public Type {
 
     Variation get_variation() const override {
         return Variation::UNKNOWN;
+    }
+
+    bool is_freeable() const override {
+        return false;
+    }
+
+    Hash get_hash() const override {
+        return Hash(std::string(""));
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {

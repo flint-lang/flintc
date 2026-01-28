@@ -9,6 +9,10 @@
 #include <optional>
 #include <string>
 
+uint32_t Type::get_id() const {
+    return get_hash().get_type_id_from_str(to_string());
+}
+
 void Type::init_types() {
     std::shared_ptr<Type> i32_type = get_primitive_type("i32");
     get_primitive_type("u32");

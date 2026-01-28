@@ -14,6 +14,14 @@ class EnumType : public Type {
         return Variation::ENUM;
     }
 
+    bool is_freeable() const override {
+        return false;
+    }
+
+    Hash get_hash() const override {
+        return enum_node->file_hash;
+    }
+
     bool equals(const std::shared_ptr<Type> &other) const override {
         if (other->get_variation() != Variation::ENUM) {
             return false;
