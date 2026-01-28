@@ -93,9 +93,10 @@ static constexpr uint8_t BLOCK_FIRST_FREE_SLOT_ID = 4;
 static constexpr uint8_t BLOCK_SLOTS = 5;
 
 static constexpr uint8_t HEAD_DEFAULT_VALUE = 0;
-static constexpr uint8_t HEAD_TYPE_SIZE = 1;
-static constexpr uint8_t HEAD_BLOCK_COUNT = 2;
-static constexpr uint8_t HEAD_BLOCKS = 3;
+static constexpr uint8_t HEAD_TYPE_ID = 1;
+static constexpr uint8_t HEAD_TYPE_SIZE = 2;
+static constexpr uint8_t HEAD_BLOCK_COUNT = 3;
+static constexpr uint8_t HEAD_BLOCKS = 4;
 
 void Generator::Module::DIMA::generate_types() {
     if (type_map.find("type.dima.slot") == type_map.end()) {
@@ -129,6 +130,7 @@ void Generator::Module::DIMA::generate_types() {
         type_map["type.dima.head"] = IR::create_struct_type("type.dima.head",
             {
                 llvm::Type::getInt8Ty(context)->getPointerTo(),     // char* default_value
+                llvm::Type::getInt32Ty(context),                    // u32 type_id
                 llvm::Type::getInt64Ty(context),                    // u64 type_size
                 llvm::Type::getInt64Ty(context),                    // u64 block_count
                 llvm::ArrayType::get(block_type->getPointerTo(), 0) // dima_block_t* blocks[]
@@ -190,6 +192,9 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         // Allocate enough memory for the head, the default value for now is just zero-allocated which means that the whole default head
         // structure can simply be zero-initialized and still be correct
         llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + data_node->name);
+        // Store the type id in the head
+        llvm::Value *type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
+        IR::aligned_store(*builder, builder->getInt32(data_type->get_id()), type_id_ptr);
         // Store the type size in the head
         llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
@@ -879,6 +884,10 @@ void Generator::Module::DIMA::generate_release_function( //
 
     builder->SetInsertPoint(release_slot_block);
     llvm::Value *head = IR::aligned_load(*builder, dima_head_type->getPointerTo(), arg_head_ref, "head");
+    llvm::Value *type_id_ptr = builder->CreateStructGEP(dima_head_type, head, HEAD_TYPE_ID, "type_id_ptr");
+    llvm::Value *type_id = IR::aligned_load(*builder, builder->getInt32Ty(), type_id_ptr, "type_id");
+    llvm::Function *memory_free_fn = Memory::memory_functions.at("free");
+    builder->CreateCall(memory_free_fn, {slot_ptr, type_id});
     llvm::Value *block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_BLOCK_ID, "block_id_ptr");
     llvm::Value *block_id = IR::aligned_load(*builder, builder->getInt16Ty(), block_id_ptr, "block_id");
     llvm::Value *blocks_ptr = builder->CreateStructGEP(dima_head_type, head, HEAD_BLOCKS, "blocks_ptr");

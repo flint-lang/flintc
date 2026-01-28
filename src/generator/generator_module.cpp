@@ -93,6 +93,7 @@ bool Generator::Module::generate_module(     //
             break;
         case BuiltinLibrary::TIME: {
             Builtin::generate_c_functions(module.get());
+            Memory::generate_memory_functions(builder.get(), module.get(), true);
             DIMA::generate_dima_functions(builder.get(), module.get(), true, true);
             generate_dima_heads(module.get(), "time");
             Time::generate_time_functions(builder.get(), module.get(), false);
@@ -102,6 +103,7 @@ bool Generator::Module::generate_module(     //
         }
         case BuiltinLibrary::DIMA:
             Builtin::generate_c_functions(module.get());
+            Memory::generate_memory_functions(builder.get(), module.get(), true);
             DIMA::generate_dima_functions(builder.get(), module.get(), true);
             break;
     }

@@ -2225,7 +2225,8 @@ class Generator {
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
-        static void generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declarations` Whether to only generate the declarations for the functions
+        static void generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = false);
 
         /// @function `generate_free_value`
         /// @brief Generates the IR code to free the given type, this is a helper because it's needed at a few places
@@ -2246,14 +2247,16 @@ class Generator {
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the function is generated in
-        static void generate_free_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declatations` Whether to only generate the declaration for the `free` function
+        static void generate_free_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_clone_function`
         /// @brief Generates the `clone` function used to clone values at runtime
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the function is generated in
-        static void generate_clone_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @param `only_declatations` Whether to only generate the declaration for the `clone` function
+        static void generate_clone_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
     };
 
     /// @class 'Module'

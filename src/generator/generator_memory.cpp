@@ -4,9 +4,9 @@
 
 const std::string prefix = "flint.";
 
-void Generator::Memory::generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    generate_free_function(builder, module);
-    generate_clone_function(builder, module);
+void Generator::Memory::generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    generate_free_function(builder, module, only_declarations);
+    generate_clone_function(builder, module, only_declarations);
 }
 
 void Generator::Memory::generate_free_value( //
@@ -240,7 +240,8 @@ void Generator::Memory::generate_free_value( //
 
 void Generator::Memory::generate_free_function( //
     llvm::IRBuilder<> *builder,                 //
-    llvm::Module *module                        //
+    llvm::Module *module,                       //
+    const bool only_declarations                //
 ) {
     llvm::FunctionType *free_value_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            // Returns void
@@ -257,6 +258,9 @@ void Generator::Memory::generate_free_function( //
         module                                              //
     );
     memory_functions["free"] = free_value_fn;
+    if (only_declarations) {
+        return;
+    }
 
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", free_value_fn);
     llvm::BasicBlock *default_block = llvm::BasicBlock::Create(context, "default", free_value_fn);
@@ -297,6 +301,10 @@ void Generator::Memory::generate_free_function( //
     builder->CreateUnreachable();
 }
 
-void Generator::Memory::generate_clone_function([[maybe_unused]] llvm::IRBuilder<> *builder, [[maybe_unused]] llvm::Module *module) {
+void Generator::Memory::generate_clone_function(  //
+    [[maybe_unused]] llvm::IRBuilder<> *builder,  //
+    [[maybe_unused]] llvm::Module *module,        //
+    [[maybe_unused]] const bool only_declarations //
+) {
     // THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
 }
