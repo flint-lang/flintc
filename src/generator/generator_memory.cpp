@@ -196,10 +196,32 @@ void Generator::Memory::generate_free_value( //
             builder->SetInsertPoint(merge_block);
             break;
         }
-        case Type::Variation::TUPLE:
-            // TODO: Implement freeing of tuple logic
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type->as<TupleType>();
+            llvm::Type *const tuple_struct_type = IR::get_type(module, type).first;
+            for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                const std::shared_ptr<Type> &elem_type = tuple_type->types.at(i);
+                if (!elem_type->is_freeable()) {
+                    continue;
+                }
+                auto elem_type_pair = IR::get_type(module, elem_type);
+                llvm::Value *elem_ptr = builder->CreateStructGEP(tuple_struct_type, value, i, "elem_ptr");
+                const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
+                const bool elem_is_str = elem_type->to_string() == "str";
+                if (elem_type_pair.second.first || elem_is_array || elem_is_str) {
+                    elem_ptr = IR::aligned_load(*builder, elem_type_pair.first->getPointerTo(), elem_ptr, "elem");
+                }
+                if (elem_type->get_variation() == Type::Variation::DATA) {
+                    // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
+                    llvm::Value *dima_head = Module::DIMA::get_head(elem_type);
+                    llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
+                    builder->CreateCall(dima_release_fn, {dima_head, elem_ptr});
+                } else {
+                    builder->CreateCall(memory_functions.at("free"), {elem_ptr, builder->getInt32(elem_type->get_id())});
+                }
+            }
             break;
+        }
         case Type::Variation::VARIANT:
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {
@@ -545,10 +567,29 @@ void Generator::Memory::generate_clone_value( //
             builder->SetInsertPoint(merge_block);
             break;
         }
-        case Type::Variation::TUPLE:
-            // TODO: Implement freeing of tuple logic
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type->as<TupleType>();
+            llvm::Type *const tuple_struct_type = IR::get_type(module, type).first;
+            for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                const std::shared_ptr<Type> &elem_type = tuple_type->types.at(i);
+                auto elem_type_pair = IR::get_type(module, elem_type);
+                llvm::Value *src_elem_ptr = builder->CreateStructGEP(tuple_struct_type, src, i, "src_elem_ptr");
+                llvm::Value *dest_elem_ptr = builder->CreateStructGEP(tuple_struct_type, dest, i, "dest_elem_ptr");
+                if (!elem_type->is_freeable()) {
+                    assert(!elem_type_pair.second.first);
+                    llvm::Value *elem_size = builder->getInt64(Allocation::get_type_size(module, elem_type_pair.first));
+                    builder->CreateCall(c_functions.at(MEMCPY), {dest_elem_ptr, src_elem_ptr, elem_size});
+                    continue;
+                }
+                const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
+                const bool elem_is_str = elem_type->to_string() == "str";
+                if (elem_type_pair.second.first || elem_is_array || elem_is_str) {
+                    src_elem_ptr = IR::aligned_load(*builder, elem_type_pair.first->getPointerTo(), src_elem_ptr, "src_elem");
+                }
+                builder->CreateCall(memory_functions.at("clone"), {src_elem_ptr, dest_elem_ptr, builder->getInt32(elem_type->get_id())});
+            }
             break;
+        }
         case Type::Variation::VARIANT:
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {

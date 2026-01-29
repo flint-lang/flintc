@@ -36,3 +36,5 @@ def main():
 
 	str param = "Double Free?\n";
 	str_param(param);
+
+    data<i32, f32, str> tuple = (3, 2.2, "hello!");
