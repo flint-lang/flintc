@@ -439,7 +439,9 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     llvm::Value *slot_flags_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_FLAGS, "slot_flags_ptr");
     llvm::Value *slot_flags = IR::aligned_load(*builder, builder->getInt16Ty(), slot_flags_ptr, "slot_flags");
     llvm::Value *is_empty = builder->CreateICmpEQ(slot_flags, builder->getInt16(static_cast<uint16_t>(Flags::UNUSED)), "is_empty");
-    builder->CreateCondBr(is_empty, slot_unused_block, loop_merge_block);
+    llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+    IR::aligned_store(*builder, i_p1, i);
+    builder->CreateCondBr(is_empty, slot_unused_block, loop_cond_block);
 
     builder->SetInsertPoint(slot_unused_block);
     IR::aligned_store(*builder, builder->getInt16(static_cast<uint16_t>(Flags::OCCUPIED)), slot_flags_ptr);
@@ -449,7 +451,6 @@ void Generator::Module::DIMA::generate_allocate_in_block_function( //
     llvm::Value *block_used = IR::aligned_load(*builder, builder->getInt64Ty(), block_used_ptr, "block_used");
     llvm::Value *block_used_p1 = builder->CreateAdd(block_used, builder->getInt64(1), "block_used_p1");
     IR::aligned_store(*builder, block_used_p1, block_used_ptr);
-    llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
     llvm::Value *i_p1_ge_cap = builder->CreateICmpUGE(i_p1, capacity, "i_p1_ge_cap");
     llvm::Value *new_first_free_slot = builder->CreateSelect(i_p1_ge_cap, builder->getInt64(0), i_p1, "new_first_free_slot");
     IR::aligned_store(*builder, new_first_free_slot, first_free_slot_ptr);
