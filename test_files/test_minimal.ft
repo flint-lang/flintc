@@ -18,7 +18,6 @@ def main():
 	d := MyData(pos, f32x2(3, 5));
 	MyData d2 = d;
 	Position? p = none;
-	print("assigning d2.pos to p...\n");
 	p = d2.pos;
 	print($"p = ({p!.x}, {p!.y})\n");
 	print($"pos = ({pos.x}, {pos.y})\n");
@@ -28,3 +27,6 @@ def main():
 	print($"p = ({p!.x}, {p!.y})\n");
 	print($"pos = ({pos.x}, {pos.y})\n");
 	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
+
+	str? flags = str("Hi there\n");
+	print(flags!);
