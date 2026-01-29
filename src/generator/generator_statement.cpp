@@ -1533,17 +1533,12 @@ bool Generator::Statement::generate_declaration( //
         if (!is_initializer && !is_opt_literal) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared
-            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable...", {});
             const std::shared_ptr<Type> lhs_type = declaration_node->type;
             llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
-            IR::generate_debug_print(                                                                                  //
-                &builder, ctx.parent->getParent(), "Calling flint.clone(%p, %p, %u)...", {expression, alloca, type_id} //
-            );
             builder.CreateCall(clone_fn, {expression, alloca, type_id});
             return true;
         }
-        IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable with inializer...", {});
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the variable
     llvm::StoreInst *store = IR::aligned_store(builder, expression, alloca);
@@ -1689,11 +1684,6 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         return true;
     }
     if (assignment_node->type->is_freeable()) {
-        IR::generate_debug_print(&builder, ctx.parent->getParent(), "Assigning freeable...", {});
-        const bool is_opt_literal =                                                                 //
-            assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL         //
-            && assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-            && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
         const bool is_initializer = assignment_node->expression->get_variation() == ExpressionNode::Variation::INITIALIZER;
         // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
         const std::shared_ptr<Type> lhs_type = assignment_node->type;
@@ -1704,7 +1694,6 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs, "data_ptr");
             auto data_head = Module::DIMA::get_head(lhs_type);
             llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Calling dima.release(%p, %p)...", {data_head, data_ptr});
             builder.CreateCall(release_fn, {data_head, data_ptr});
         } else {
             // We need to call the `flint.free` function on the lhs before assigning anything to it
@@ -1715,9 +1704,6 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
-            IR::generate_debug_print(                                                                               //
-                &builder, ctx.parent->getParent(), "Calling flint.clone(%p, %p, %u)...", {expression, lhs, type_id} //
-            );
             builder.CreateCall(clone_fn, {expression, lhs, type_id});
             if (assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL) {
                 // We need to free the expression, being a temporary value allocated on the heap
