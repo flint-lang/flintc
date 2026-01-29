@@ -153,10 +153,49 @@ void Generator::Memory::generate_free_value( //
             builder->CreateCall(free_fn, {value});
             break;
         }
-        case Type::Variation::OPTIONAL:
-            // TODO: Implement freeing of optional logic
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::OPTIONAL: {
+            const auto *optional_type = type->as<OptionalType>();
+            assert(optional_type->base_type->is_freeable());
+            // We check if the optional holds a value and only if it does then we free anything. This means that we need a basic block for
+            // the freeing code and if it does not hold a value then we simply skip it
+            llvm::BasicBlock *current_block = builder->GetInsertBlock();
+            llvm::BasicBlock *has_value_block = llvm::BasicBlock::Create(             //
+                context, type->to_string() + "_has_value", current_block->getParent() //
+            );
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(             //
+                context, type->to_string() + "_merge", current_block->getParent() //
+            );
+            llvm::Type *opt_struct_type = IR::get_type(module, type).first;
+
+            // Check if the optional holds a value
+            builder->SetInsertPoint(current_block);
+            llvm::Value *has_value_ptr = builder->CreateStructGEP(opt_struct_type, value, 0, "has_value_ptr");
+            llvm::Value *has_value = IR::aligned_load(*builder, builder->getInt1Ty(), has_value_ptr, "has_value");
+            builder->CreateCondBr(has_value, has_value_block, merge_block);
+
+            // Now we get the type of the value contained in the optional and call `flint.free` and pass that loaded value to the function
+            builder->SetInsertPoint(has_value_block);
+            llvm::Value *opt_value_ptr = builder->CreateStructGEP(opt_struct_type, value, 1, "opt_value_ptr");
+            auto base_type_pair = IR::get_type(module, optional_type->base_type);
+            llvm::Value *opt_value = opt_value_ptr;
+            const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
+            const bool base_is_str = optional_type->base_type->to_string() == "str";
+            if (base_type_pair.second.first || base_is_array || base_is_str) {
+                opt_value = IR::aligned_load(*builder, base_type_pair.first->getPointerTo(), opt_value_ptr, "opt_value");
+            }
+            if (optional_type->base_type->get_variation() == Type::Variation::DATA) {
+                // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
+                llvm::Value *dima_head = Module::DIMA::get_head(optional_type->base_type);
+                llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
+                builder->CreateCall(dima_release_fn, {dima_head, opt_value});
+            } else {
+                builder->CreateCall(memory_functions.at("free"), {opt_value, builder->getInt32(optional_type->base_type->get_id())});
+            }
+            builder->CreateBr(merge_block);
+
+            builder->SetInsertPoint(merge_block);
             break;
+        }
         case Type::Variation::TUPLE:
             // TODO: Implement freeing of tuple logic
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -410,7 +449,6 @@ void Generator::Memory::generate_clone_value( //
                     // We simply copy the field from src to dest
                     const size_t field_size = Allocation::get_type_size(module, field_type_ptr);
                     builder->CreateCall(c_functions.at(MEMCPY), {field_dest_ptr, field_src, builder->getInt64(field_size)});
-                    continue;
                 }
             }
             IR::aligned_store(*builder, new_data_ptr, dest);
@@ -458,10 +496,55 @@ void Generator::Memory::generate_clone_value( //
             IR::aligned_store(*builder, new_str, dest);
             break;
         }
-        case Type::Variation::OPTIONAL:
-            // TODO: Implement freeing of optional logic
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::OPTIONAL: {
+            const auto *optional_type = type->as<OptionalType>();
+            assert(optional_type->base_type->is_freeable());
+            // We check if the optional holds a value and only if it does then we clone anything. This means that we need a basic block for
+            // the cloning code and if it does not hold a value then we store `none` in the value
+            llvm::BasicBlock *current_block = builder->GetInsertBlock();
+            llvm::BasicBlock *has_value_block = llvm::BasicBlock::Create(             //
+                context, type->to_string() + "_has_value", current_block->getParent() //
+            );
+            llvm::BasicBlock *has_no_value_block = llvm::BasicBlock::Create(             //
+                context, type->to_string() + "_has_no_value", current_block->getParent() //
+            );
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(             //
+                context, type->to_string() + "_merge", current_block->getParent() //
+            );
+            llvm::Type *opt_struct_type = IR::get_type(module, type).first;
+
+            // Check if the optional holds a value
+            builder->SetInsertPoint(current_block);
+            llvm::Value *has_value_ptr = builder->CreateStructGEP(opt_struct_type, src, 0, "has_value_ptr");
+            llvm::Value *has_value = IR::aligned_load(*builder, builder->getInt1Ty(), has_value_ptr, "has_value");
+            builder->CreateCondBr(has_value, has_value_block, has_no_value_block);
+
+            // Now we get the type of the value contained in the optional and call `flint.clone` and pass that loaded value to the function
+            builder->SetInsertPoint(has_value_block);
+            llvm::Value *opt_value_ptr = builder->CreateStructGEP(opt_struct_type, src, 1, "opt_value_ptr");
+            auto base_type_pair = IR::get_type(module, optional_type->base_type);
+            llvm::Value *opt_value = opt_value_ptr;
+            const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
+            const bool base_is_str = optional_type->base_type->to_string() == "str";
+            if (base_type_pair.second.first || base_is_array || base_is_str) {
+                opt_value = IR::aligned_load(*builder, base_type_pair.first->getPointerTo(), opt_value_ptr, "opt_value");
+            }
+            llvm::Value *dest_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 1, "dest_value_ptr");
+            llvm::Function *clone_fn = memory_functions.at("clone");
+            builder->CreateCall(clone_fn, {opt_value, dest_value_ptr, builder->getInt32(optional_type->base_type->get_id())});
+            llvm::Value *dest_has_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 0, "dest_has_value_ptr");
+            IR::aligned_store(*builder, builder->getInt1(true), dest_has_value_ptr);
+            builder->CreateBr(merge_block);
+
+            // Just store the default-value of the optional type at the destination
+            builder->SetInsertPoint(has_no_value_block);
+            llvm::Value *default_value = IR::get_default_value_of_type(opt_struct_type);
+            IR::aligned_store(*builder, default_value, dest);
+            builder->CreateBr(merge_block);
+
+            builder->SetInsertPoint(merge_block);
             break;
+        }
         case Type::Variation::TUPLE:
             // TODO: Implement freeing of tuple logic
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -528,8 +611,8 @@ void Generator::Memory::generate_clone_value( //
                         builder->CreateCall(dima_release_fn, {dima_head, src});
                     } else {
                         builder->CreateCall(memory_functions.at("free"), {variant_value, builder->getInt32(variant_type_ptr->get_id())});
-                        builder->CreateBr(variant_free_merge_block);
                     }
+                    builder->CreateBr(variant_free_merge_block);
                 }
 
                 variant_free_merge_block->insertInto(prev_block->getParent());

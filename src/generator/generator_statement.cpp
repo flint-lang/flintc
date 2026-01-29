@@ -1525,8 +1525,12 @@ bool Generator::Statement::generate_declaration( //
         expression = Module::String::generate_string_declaration(builder, expression, initializer);
     }
     if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
+        const bool is_opt_literal =                                                                           //
+            declaration_node->initializer.value()->type->get_variation() == Type::Variation::OPTIONAL         //
+            && declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+            && declaration_node->initializer.value()->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
         const bool is_initializer = declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::INITIALIZER;
-        if (!is_initializer) {
+        if (!is_initializer && !is_opt_literal) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared
             IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable...", {});
@@ -1541,7 +1545,7 @@ bool Generator::Statement::generate_declaration( //
         }
         IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable with inializer...", {});
     }
-    // If it's an initializer or not complex we can directly store it in the variable
+    // If it's an initializer, not complex or an opt literal we can directly store it in the variable
     llvm::StoreInst *store = IR::aligned_store(builder, expression, alloca);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store the actual val of '" + declaration_node->name + "'")));
@@ -1597,56 +1601,53 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     } else if (variable_type->get_variation() == Type::Variation::OPTIONAL) {
         const auto *optional_type = variable_type->as<OptionalType>();
         llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), variable_type, false);
-        if (optional_type->base_type->to_string() == "str") {
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
-            llvm::Value *actual_str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), var_value_ptr, "actual_str_ptr");
-            builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
-        }
-        // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
-        // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-        // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a
-        // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
-        // whether the LLVM type of the expression's type matches our expected optional type
-        const bool types_match = expr.value().front()->getType() == var_type;
-        const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
-        if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
-            // Get the pointer to the i1 element of the optional variable and set it to 1
-            llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
-            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), var_has_value_ptr);
-            store->setMetadata("comment",
-                llvm::MDNode::get(context,
-                    llvm::MDString::get(context, "Set 'has_value' property of optional '" + assignment_node->name + "' to 1")));
+        if (!optional_type->is_freeable()) {
+            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead to a
+            // double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just checking
+            // whether the LLVM type of the expression's type matches our expected optional type
+            const bool types_match = expr.value().front()->getType() == var_type;
+            const TypeCastNode *rhs_cast = dynamic_cast<const TypeCastNode *>(assignment_node->expression.get());
+            if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
+                // Get the pointer to the i1 element of the optional variable and set it to 1
+                llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
+                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), var_has_value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Set 'has_value' property of optional '" + assignment_node->name + "' to 1")));
 
-            // Check if the base type is complex
-            auto base_type_info = IR::get_type(ctx.parent->getParent(), optional_type->base_type);
-            llvm::Type *base_type = base_type_info.first;
-            const bool is_complex = base_type_info.second.first;
-            const bool is_dima_managed = optional_type->base_type->get_variation() == Type::Variation::DATA;
-            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
-            if (is_complex) {
-                // For complex types, allocate memory and store a pointer
-                llvm::Value *type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), base_type));
-                llvm::Value *allocated_memory = nullptr;
-                if (is_dima_managed) {
-                    llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-                    allocated_memory = builder.CreateCall(                                                                           //
-                        dima_allocate_fn, Module::DIMA::get_head(optional_type->base_type), assignment_node->name + "allocated_data" //
-                    );
-                } else {
-                    allocated_memory = builder.CreateCall(                                            //
-                        c_functions.at(MALLOC), {type_size}, assignment_node->name + "allocated_data" //
-                    );
-                }
-                IR::aligned_store(builder, expr.value().front(), allocated_memory);
-                store = IR::aligned_store(builder, allocated_memory, var_value_ptr);
-            } else {
-                // For simple types, store the value directly
+                // The base type definitely is not complex, so we can just store the base value directly
+                llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, lhs, 1, assignment_node->name + "value_ptr");
                 store = IR::aligned_store(builder, expr.value().front(), var_value_ptr);
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
+                return true;
             }
-            store->setMetadata("comment",
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
-            return true;
+        } else {
+            // We need to store the `expression`, which is just the value of the optional struct, temporarily somewhere, for now it is
+            // stored on the heap. We then free that temporary value after the `flint.clone` call. The problem is that the `flint.clone`
+            // function expects a pointer to the opt struct but the `expression` is just the optional value itself. If the rhs is a none
+            // literal, however, we need to store the whole expression in that temporary memory on the heap since then it's not the actual
+            // value of the optional but the whole structure
+            // TODO: Not store that temporary value on the heap if possible
+            llvm::Function *malloc_fn = c_functions.at(MALLOC);
+            llvm::Value *opt_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), var_type));
+            llvm::Value *temporary = builder.CreateCall(malloc_fn, {opt_type_size}, "TEMP_assign_" + variable_type->to_string());
+            const bool is_opt_literal =                                                                 //
+                assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL         //
+                && assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+            if (is_opt_literal) {
+                IR::aligned_store(builder, expr.value().front(), temporary);
+            } else {
+                llvm::Value *has_value_ptr = builder.CreateStructGEP(var_type, temporary, 0, "has_value_ptr");
+                IR::aligned_store(builder, builder.getInt1(true), has_value_ptr);
+                llvm::Value *value_ptr = builder.CreateStructGEP(var_type, temporary, 1, "value_ptr");
+                IR::aligned_store(builder, expr.value().front(), value_ptr);
+            }
+            expr.value().front() = temporary;
         }
     } else if (assignment_node->type->get_variation() == Type::Variation::VARIANT) {
         const auto *var_type = assignment_node->type->as<VariantType>();
@@ -1689,6 +1690,10 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     }
     if (assignment_node->type->is_freeable()) {
         IR::generate_debug_print(&builder, ctx.parent->getParent(), "Assigning freeable...", {});
+        const bool is_opt_literal =                                                                 //
+            assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL         //
+            && assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+            && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
         const bool is_initializer = assignment_node->expression->get_variation() == ExpressionNode::Variation::INITIALIZER;
         // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
         const std::shared_ptr<Type> lhs_type = assignment_node->type;
@@ -1702,10 +1707,9 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             IR::generate_debug_print(&builder, ctx.parent->getParent(), "Calling dima.release(%p, %p)...", {data_head, data_ptr});
             builder.CreateCall(release_fn, {data_head, data_ptr});
         } else {
-            // We need to call the `flint.free` function on the lhs expression before assigning anything to it
+            // We need to call the `flint.free` function on the lhs before assigning anything to it
             llvm::Function *free_fn = Memory::memory_functions.at("free");
-            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Calling flint.free(%p, %u)...", {expression, type_id});
-            builder.CreateCall(free_fn, {expression, type_id});
+            builder.CreateCall(free_fn, {lhs, type_id});
         }
         if (!is_initializer) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
@@ -1715,10 +1719,15 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 &builder, ctx.parent->getParent(), "Calling flint.clone(%p, %p, %u)...", {expression, lhs, type_id} //
             );
             builder.CreateCall(clone_fn, {expression, lhs, type_id});
+            if (assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL) {
+                // We need to free the expression, being a temporary value allocated on the heap
+                // TODO: Not locate that temporary on the heap if possible
+                builder.CreateCall(c_functions.at(FREE), {expression});
+            }
             return true;
         }
     }
-    // If it's an initializer or not complex we can directly store it in the lhs of the assignment
+    // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
     llvm::StoreInst *store = IR::aligned_store(builder, expression, lhs);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
