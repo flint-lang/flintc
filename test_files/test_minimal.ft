@@ -16,6 +16,10 @@ def move(mut MyData d):
 def main():
 	pos := Position(10, 20);
 	d := MyData(pos, f32x2(3, 5));
-	print($"pos = ({d.pos.x}, {d.pos.y})\n");
+	MyData d2 = d;
+	print($"pos = ({pos.x}, {pos.y})\n");
+	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
+	print("moving...\n");
 	move(d);
-	print($"pos = ({d.pos.x}, {d.pos.y})\n");
+	print($"pos = ({pos.x}, {pos.y})\n");
+	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");

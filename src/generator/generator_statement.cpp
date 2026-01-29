@@ -15,7 +15,6 @@
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
@@ -69,7 +68,7 @@ bool Generator::Statement::generate_statement(      //
             return generate_declaration(builder, ctx, node);
         }
         case StatementNode::Variation::DO_WHILE: {
-            [[maybe_unused]] const auto *node = statement->as<DoWhileNode>();
+            const auto *node = statement->as<DoWhileNode>();
             return generate_do_while_loop(builder, ctx, node);
         }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
@@ -1525,6 +1524,24 @@ bool Generator::Statement::generate_declaration( //
         }
         expression = Module::String::generate_string_declaration(builder, expression, initializer);
     }
+    if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
+        const bool is_initializer = declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::INITIALIZER;
+        if (!is_initializer) {
+            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
+            // variable we declared
+            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable...", {});
+            const std::shared_ptr<Type> lhs_type = declaration_node->type;
+            llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            IR::generate_debug_print(                                                                                  //
+                &builder, ctx.parent->getParent(), "Calling flint.clone(%p, %p, %u)...", {expression, alloca, type_id} //
+            );
+            builder.CreateCall(clone_fn, {expression, alloca, type_id});
+            return true;
+        }
+        IR::generate_debug_print(&builder, ctx.parent->getParent(), "Declaring freeable with inializer...", {});
+    }
+    // If it's an initializer or not complex we can directly store it in the variable
     llvm::StoreInst *store = IR::aligned_store(builder, expression, alloca);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store the actual val of '" + declaration_node->name + "'")));
@@ -1669,11 +1686,42 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             Module::String::generate_string_assignment(builder, lhs, assignment_node->expression.get(), expression);
         }
         return true;
-    } else {
-        llvm::StoreInst *store = IR::aligned_store(builder, expression, lhs);
-        store->setMetadata("comment",
-            llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
     }
+    if (assignment_node->type->is_freeable()) {
+        IR::generate_debug_print(&builder, ctx.parent->getParent(), "Assigning freeable...", {});
+        const bool is_initializer = assignment_node->expression->get_variation() == ExpressionNode::Variation::INITIALIZER;
+        // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
+        const std::shared_ptr<Type> lhs_type = assignment_node->type;
+        llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
+        if (lhs_type->get_variation() == Type::Variation::DATA) {
+            // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
+            // however, which means we first need to load the data pointer from it
+            llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs, "data_ptr");
+            auto data_head = Module::DIMA::get_head(lhs_type);
+            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Calling dima.release(%p, %p)...", {data_head, data_ptr});
+            builder.CreateCall(release_fn, {data_head, data_ptr});
+        } else {
+            // We need to call the `flint.free` function on the lhs expression before assigning anything to it
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            IR::generate_debug_print(&builder, ctx.parent->getParent(), "Calling flint.free(%p, %u)...", {expression, type_id});
+            builder.CreateCall(free_fn, {expression, type_id});
+        }
+        if (!is_initializer) {
+            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
+            // variable we assign the value to
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            IR::generate_debug_print(                                                                               //
+                &builder, ctx.parent->getParent(), "Calling flint.clone(%p, %p, %u)...", {expression, lhs, type_id} //
+            );
+            builder.CreateCall(clone_fn, {expression, lhs, type_id});
+            return true;
+        }
+    }
+    // If it's an initializer or not complex we can directly store it in the lhs of the assignment
+    llvm::StoreInst *store = IR::aligned_store(builder, expression, lhs);
+    store->setMetadata("comment",
+        llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
     return true;
 }
 

@@ -1732,60 +1732,19 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 llvm::Value *expr_val = expr_result.value().front();
                 llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
-                // We need to check whether the given initializer value is a complex type in of itself, if it is we need to allocate space
-                // for it and store it there
                 const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
-                switch (elem_type->get_variation()) {
-                    default:
-                        IR::aligned_store(builder, expr_val, field_ptr);
-                        break;
-                    case Type::Variation::DATA: {
-                        // For data types, the memory has already been allocated using DIMA, so we can just use the expression's pointer
-                        // directly
-                        // TODO: Once a proper lifetime-system is implemented we would need to copy the DIMA data and free the temporaries
-                        // etc. but that's not implemented yet. Also, once a proper lifetime-system is implemented we would need to check
-                        // whether the initializer itself is a temporary and in that case not copy it but just take ownership of it
-                        // llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                        // llvm::Value *field_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                        // llvm::Value *field_alloca = builder.CreateCall(                                 //
-                        //     dima_allocate_fn, {data_head}, "initializer_" + std::to_string(i) + "_data" //
-                        // );
-                        // // Copy the field value to the allocated memory
-                        // builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, field_size});
-
-                        // Store the pointer to the complex data in the parent structure
-                        IR::aligned_store(builder, expr_val, field_ptr);
-                        break;
-                    }
-                    case Type::Variation::ARRAY: {
-                        // For arrays we first need to find out how large the source array is
-                        const auto *array_type = elem_type->as<ArrayType>();
-                        llvm::Type *field_type = IR::get_type(ctx.parent->getParent(), elem_type).first;
-                        auto arr_elem_type = IR::get_type(ctx.parent->getParent(), array_type->type);
-                        llvm::Value *struct_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), field_type));
-                        llvm::Value *dimensionality_ptr = builder.CreateStructGEP(field_type, field_ptr, 0, "dimensionality_ptr");
-                        llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt32Ty(), dimensionality_ptr, "dimensionality");
-                        llvm::Value *dim_lengths_size = builder.CreateMul(dimensionality, builder.getInt64(8), "dim_lengths_size");
-                        llvm::Function *get_arr_len_fn = Module::Array::array_manip_functions.at("get_arr_len");
-                        llvm::Value *array_len_count = builder.CreateCall(get_arr_len_fn, {expr_val}, "array_len_count");
-                        llvm::Value *arr_elem_size = builder.getInt64(                                                               //
-                            arr_elem_type.second.first ? 8 : Allocation::get_type_size(ctx.parent->getParent(), arr_elem_type.first) //
-                        );
-                        llvm::Value *array_len_bytes = builder.CreateMul(array_len_count, arr_elem_size, "array_len_bytes");
-                        llvm::Value *array_size = builder.CreateAdd(struct_size, dim_lengths_size);
-                        array_size = builder.CreateAdd(array_size, array_len_bytes);
-
-                        llvm::Value *field_alloca = builder.CreateCall(                                        //
-                            c_functions.at(MALLOC), {array_size}, "initializer_" + std::to_string(i) + "_data" //
-                        );
-                        // Copy the array to the allocated memory
-                        builder.CreateCall(c_functions.at(MEMCPY), {field_alloca, expr_val, array_size});
-
-                        // Store the pointer to the array in the parent structure
-                        IR::aligned_store(builder, field_alloca, field_ptr);
-                        break;
-                    }
+                const auto &arg_expr = initializer->args.at(i);
+                const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
+                // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
+                // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
+                if (!elem_type->is_freeable() || is_initializer) {
+                    IR::aligned_store(builder, expr_val, field_ptr);
+                    continue;
                 }
+                // It's a complex type and needs to be cloned
+                llvm::Value *type_id = builder.getInt32(elem_type->get_id());
+                llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+                builder.CreateCall(clone_fn, {expr_val, field_ptr, type_id});
             }
             return std::vector<llvm::Value *>{data_ptr};
         }

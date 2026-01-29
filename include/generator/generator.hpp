@@ -46,7 +46,6 @@
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
-#include "parser/type/array_type.hpp"
 #include "resolver/resolver.hpp"
 
 #include <llvm/IR/IRBuilder.h>
@@ -2229,7 +2228,7 @@ class Generator {
         static void generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = false);
 
         /// @function `generate_free_value`
-        /// @brief Generates the IR code to free the given type, this is a helper because it's needed at a few places
+        /// @brief Generates the IR code to free the given type
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which to generate the freeing of the given value
@@ -2249,6 +2248,25 @@ class Generator {
         /// @param `module` The module in which the function is generated in
         /// @param `only_declatations` Whether to only generate the declaration for the `free` function
         static void generate_free_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+        /// @function `generate_clone_value`
+        /// @brief Generates the IR code to clone the given type
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which to generate the cloning of the given value
+        /// @param `src` The value to clone properly and orderly-correct
+        /// @param `dest` The place where to store the cloned value after cloning it. This is needed because of things like variants or
+        /// tuples, which potentially need to be cloned as well but are not heap-allocated, so there needs to already exist memory for them
+        /// to be placed at. Because of this we need to pass a pointer to the clone function instead of recieving a generic pointer from it
+        /// @param `type` The type of the value to clone
+        /// @return `llvm::Value *` A pointer to the cloned value
+        static void generate_clone_value(     //
+            llvm::IRBuilder<> *const builder, //
+            llvm::Module *const module,       //
+            llvm::Value *const src,           //
+            llvm::Value *const dest,          //
+            const std::shared_ptr<Type> &type //
+        );
 
         /// @function `generate_clone_function`
         /// @brief Generates the `clone` function used to clone values at runtime
