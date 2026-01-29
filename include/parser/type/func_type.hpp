@@ -15,8 +15,8 @@ class FuncType : public Type {
     }
 
     bool is_freeable() const override {
-        // TODO: Is it though?
-        return true;
+        // TODO: Make it freeable once func-modules-as-variables are implemented
+        return false;
     }
 
     Hash get_hash() const override {
