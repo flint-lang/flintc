@@ -284,8 +284,8 @@ void Generator::Memory::generate_free_value( //
                         builder->CreateCall(dima_release_fn, {dima_head, value});
                     } else {
                         builder->CreateCall(memory_functions.at("free"), {variant_value, builder->getInt32(variant_type_ptr->get_id())});
-                        builder->CreateBr(variant_free_merge_block);
                     }
+                    builder->CreateBr(variant_free_merge_block);
                 }
 
                 variant_free_merge_block->insertInto(prev_block->getParent());
