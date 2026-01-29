@@ -13,6 +13,9 @@ data MyData:
 def move(mut MyData d):
 	d.pos.(x, y) = d.pos.(x, y) + (i32(d.speed.x), i32(d.speed.y));
 
+def str_param(str param):
+	print(param);
+
 def main():
 	pos := Position(10, 20);
 	d := MyData(pos, f32x2(3, 5));
@@ -30,3 +33,6 @@ def main():
 
 	str? flags = str("Hi there\n");
 	print(flags!);
+
+	str param = "Double Free?\n";
+	str_param(param);
