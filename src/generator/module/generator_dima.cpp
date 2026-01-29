@@ -888,7 +888,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *type_id_ptr = builder->CreateStructGEP(dima_head_type, head, HEAD_TYPE_ID, "type_id_ptr");
     llvm::Value *type_id = IR::aligned_load(*builder, builder->getInt32Ty(), type_id_ptr, "type_id");
     llvm::Function *memory_free_fn = Memory::memory_functions.at("free");
-    builder->CreateCall(memory_free_fn, {slot_ptr, type_id});
+    builder->CreateCall(memory_free_fn, {arg_value, type_id});
     llvm::Value *block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_BLOCK_ID, "block_id_ptr");
     llvm::Value *block_id = IR::aligned_load(*builder, builder->getInt16Ty(), block_id_ptr, "block_id");
     llvm::Value *blocks_ptr = builder->CreateStructGEP(dima_head_type, head, HEAD_BLOCKS, "blocks_ptr");
