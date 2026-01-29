@@ -5,6 +5,7 @@ use "wiki/beginners_guide/functions.ft"
 use "wiki/beginners_guide/data.ft"
 use "wiki/beginners_guide/arrays.ft"
 use "wiki/beginners_guide/imports.ft"
+use "wiki/beginners_guide/entities.ft"
 use "wiki/beginners_guide/interop.ft"
 
 use "wiki/intermediates_guide/optionals.ft"
