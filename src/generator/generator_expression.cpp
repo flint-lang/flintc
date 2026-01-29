@@ -1735,9 +1735,13 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
                 const auto &arg_expr = initializer->args.at(i);
                 const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
+                const bool is_opt_literal =                                              //
+                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
+                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
-                if (!elem_type->is_freeable() || is_initializer) {
+                if (!elem_type->is_freeable() || is_initializer || is_opt_literal) {
                     IR::aligned_store(builder, expr_val, field_ptr);
                     continue;
                 }
