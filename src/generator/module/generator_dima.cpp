@@ -342,7 +342,7 @@ void Generator::Module::DIMA::generate_create_block_function( //
     llvm::Value *slot_allocation_size = builder->CreateMul(slot_size, arg_capacity, "slot_allocation_size");
     llvm::Value *allocation_size = builder->CreateAdd(builder->getInt64(dima_block_size), slot_allocation_size, "allocation_size");
     llvm::Value *allocated_block = builder->CreateCall(malloc_fn, {allocation_size}, "allocated_block");
-    llvm::Value *block_type_size_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, BLOCK_SLOTS, "block_slots_ptr");
+    llvm::Value *block_type_size_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, BLOCK_TYPE_SIZE, "block_type_size_ptr");
     IR::aligned_store(*builder, arg_type_size, block_type_size_ptr);
     llvm::Value *block_capacity_ptr = builder->CreateStructGEP(dima_block_type, allocated_block, BLOCK_CAPACITY, "block_capacity_ptr");
     IR::aligned_store(*builder, arg_capacity, block_capacity_ptr);
@@ -875,6 +875,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(-dima_slot_size), "slot_ptr");
     llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_ARC, "slot_arc_ptr");
     llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getInt32Ty(), slot_arc_ptr, "slot_arc");
+    IR::generate_debug_print(builder, module, "dima.release.entry arc=%llu", {slot_arc});
     llvm::Value *slot_arc_m1 = builder->CreateSub(slot_arc, builder->getInt32(1), "slot_arc_m1");
     IR::aligned_store(*builder, slot_arc_m1, slot_arc_ptr);
     llvm::Value *slot_arc_m1_gt_0 = builder->CreateICmpUGT(slot_arc_m1, builder->getInt32(0), "slot_arc_m1_gt_0");
