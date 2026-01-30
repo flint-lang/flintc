@@ -137,9 +137,10 @@ bool Generator::Statement::generate_statement(      //
     __builtin_unreachable();
 }
 
-bool Generator::Statement::clear_garbage(                                                                        //
-    llvm::IRBuilder<> &builder,                                                                                  //
-    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage //
+bool Generator::Statement::clear_garbage(                                                                         //
+    llvm::IRBuilder<> &builder,                                                                                   //
+    std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+    const unsigned int depth                                                                                      //
 ) {
     if (garbage.empty()) {
         return true;
@@ -148,6 +149,10 @@ bool Generator::Statement::clear_garbage(                                       
         std::cout << YELLOW << "[Debug Info] Garbage information:\n" << DEFAULT;
     }
     for (auto &[key, value] : garbage) {
+        if (key <= depth) {
+            // Skip garbage at a higher depth than the requested depth
+            continue;
+        }
         if (DEBUG_MODE) {
             std::cout << "-- Level " << key << " garbage:\n";
         }

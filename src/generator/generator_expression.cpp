@@ -3463,6 +3463,10 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
         llvm::Value *rhs_val = rhs[0];
 
         llvm::BasicBlock *rhs_end_block = builder.GetInsertBlock();
+        // Clear all garbage so far before branching to the merge block
+        if (!Statement::clear_garbage(builder, garbage, expr_depth)) {
+            return std::nullopt;
+        }
         builder.CreateBr(merge_block);
 
         // Create PHI node in merge block
@@ -3697,6 +3701,36 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
     llvm::Value *lhs,                                                          //
     llvm::Value *rhs                                                           //
 ) {
+    const auto &check_for_string_lit_garbage = [lhs, rhs, bin_op_node, &garbage, expr_depth]() {
+        if (bin_op_node->left->type->to_string() == "str") {
+            const bool left_is_literal =                                                       //
+                bin_op_node->left->get_variation() == ExpressionNode::Variation::LITERAL       //
+                || (bin_op_node->left->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                       && bin_op_node->right->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL);
+            if (left_is_literal) {
+                if (garbage.find(expr_depth) == garbage.end()) {
+                    std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{bin_op_node->left->type, lhs}};
+                    garbage[expr_depth] = std::move(vec);
+                } else {
+                    garbage.at(expr_depth).emplace_back(bin_op_node->left->type, lhs);
+                }
+            }
+        }
+        if (bin_op_node->right->type->to_string() == "str") {
+            const bool right_is_literal =                                                       //
+                bin_op_node->right->get_variation() == ExpressionNode::Variation::LITERAL       //
+                || (bin_op_node->right->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                       && bin_op_node->right->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL);
+            if (right_is_literal) {
+                if (garbage.find(expr_depth) == garbage.end()) {
+                    std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{bin_op_node->right->type, rhs}};
+                    garbage[expr_depth] = std::move(vec);
+                } else {
+                    garbage.at(expr_depth).emplace_back(bin_op_node->right->type, rhs);
+                }
+            }
+        }
+    };
     switch (bin_op_node->operator_token) {
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -3713,6 +3747,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Module::String::generate_string_addition(builder, //
                     ctx.scope, ctx.allocations,                          //
                     garbage, expr_depth + 1,                             //
@@ -3795,6 +3830,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Logical::generate_string_cmp_lt(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
@@ -3809,6 +3845,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Logical::generate_string_cmp_gt(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
@@ -3823,6 +3860,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Logical::generate_string_cmp_le(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
@@ -3837,6 +3875,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Logical::generate_string_cmp_ge(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             break;
@@ -3853,6 +3892,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             } else if (type_str == "str") {
+                check_for_string_lit_garbage();
                 return Logical::generate_string_cmp_eq(builder, lhs, bin_op_node->left, rhs, bin_op_node->right);
             }
             switch (bin_op_node->left->type->get_variation()) {
@@ -3988,7 +4028,6 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     }
                     // Both sides are "real" variant types
                     return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
-                    break;
                 }
             }
             break;
@@ -4002,7 +4041,6 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
             return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
-            break;
         }
         case TOK_AND:
         case TOK_OR:

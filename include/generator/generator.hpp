@@ -1096,10 +1096,13 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `depth` The depth at which to clear the garbage at. Clears the garbage up to that expression depth and no further than
+        /// this level, for example for clearing garbage in an expression and not at the statement-level
         /// @return `bool` Whether the code generation of the garbage cleanup was successful
-        [[nodiscard]] static bool clear_garbage(                                                                         //
-            llvm::IRBuilder<> &builder,                                                                                  //
-            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage //
+        [[nodiscard]] static bool clear_garbage(                                                                          //
+            llvm::IRBuilder<> &builder,                                                                                   //
+            std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
+            const unsigned int depth = 0                                                                                  //
         );
 
         /// @function `generate_body`
