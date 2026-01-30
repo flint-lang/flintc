@@ -160,29 +160,12 @@ bool Generator::Statement::clear_garbage(                                       
             if (DEBUG_MODE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            const auto type_variation = type->get_variation();
-            if (type_variation == Type::Variation::PRIMITIVE) {
-                const auto *primitive_type = type->as<PrimitiveType>();
-                if (primitive_type->type_name == "str") {
-                    llvm::Function *free_fn = c_functions.at(FREE);
-                    llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val});
-                    free_call->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString ::get(context, "Clear garbage of type 'str', depth " + std::to_string(key))));
-                } else {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return false;
-                }
-            } else if (type_variation == Type::Variation::ARRAY) {
-                const auto *array_type = type->as<ArrayType>();
-                // For now, we dont allow jagged arrays. If we would add jagged arrays we would need a recursive tip-to-root freeing system
-                // here, but for now we keep it simple
-                llvm::CallInst *free_call = builder.CreateCall(c_functions.at(FREE), {llvm_val});
-                free_call->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString ::get(context,
-                            "Clear garbage of type '" + array_type->to_string() + "', depth " + std::to_string(key))));
-            }
+            assert(type->is_freeable());
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val, builder.getInt32(type->get_id())});
+            free_call->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString ::get(context, "Clear garbage of type '" + type->to_string() + "', depth " + std::to_string(key))));
         }
     }
     if (DEBUG_MODE) {
