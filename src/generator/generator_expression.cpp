@@ -1259,6 +1259,48 @@ Generator::group_mapping Generator::Expression::generate_call( //
         }
         args.emplace_back(expr_val);
     }
+    // Now that we have generated all arguments check which need to be freed after the call, e.g. which garbage we collected
+    for (size_t i = 0; i < call_node->function->parameters.size(); i++) {
+        const auto &[param_type, param_name, is_mutable] = call_node->function->parameters.at(i);
+        if (!param_type->is_freeable()) {
+            continue;
+        }
+        // We only need to free garbage which is a "producer", so things like variables etc do *not* need to be freed
+        const auto &arg = call_node->arguments.at(i).first;
+        const ExpressionNode::Variation arg_variation = arg->get_variation();
+        const Type::Variation arg_type_variation = arg->type->get_variation();
+        const std::string &arg_type_str = arg->type->to_string();
+        const bool is_initializer = arg_variation == ExpressionNode::Variation::INITIALIZER;
+        const bool is_array_initializer = arg_variation == ExpressionNode::Variation::ARRAY_INITIALIZER;
+        const bool is_fn_return = arg_variation == ExpressionNode::Variation::CALL;
+        const bool is_string_interpolation = arg_variation == ExpressionNode::Variation::STRING_INTERPOLATION;
+        const bool is_slice =                                        //
+            arg_variation == ExpressionNode::Variation::ARRAY_ACCESS //
+            && (arg_type_variation == Type::Variation::ARRAY || arg_type_str == "str");
+        const bool is_string_literal =                                                              //
+            arg_type_str == "str"                                                                   //
+            && arg_variation == ExpressionNode::Variation::TYPE_CAST                                //
+            && arg->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
+            && std::holds_alternative<LitStr>(arg->as<TypeCastNode>()->expr->as<LiteralNode>()->value);
+        if (is_initializer || is_array_initializer || is_fn_return || is_string_interpolation || is_slice || is_string_literal) {
+            if (garbage.find(0) == garbage.end()) {
+                std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{param_type, args.at(i)}};
+                garbage[0] = std::move(vec);
+            } else {
+                // Check if the garbage already contains the parameter value
+                bool already_contains_param = false;
+                for (const auto &[t, v] : garbage.at(0)) {
+                    if (t->equals(arg->type) && v == args.at(i)) {
+                        already_contains_param = true;
+                        break;
+                    }
+                }
+                if (!already_contains_param) {
+                    garbage.at(0).emplace_back(param_type, args.at(i));
+                }
+            }
+        }
+    }
 
     llvm::Function *func_decl = nullptr;
     enum class FunctionOrigin { INTERN, EXTERN, BUILTIN };
@@ -1490,6 +1532,11 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::Value *err_var = ctx.allocations.at(call_err_name);
     IR::aligned_store(builder, err_val, err_var);
 
+    // Clear all garbage of temporary parameters
+    if (!Statement::clear_garbage(builder, garbage)) {
+        return std::nullopt;
+    }
+
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
         generate_rethrow(builder, ctx, call_node);
@@ -1541,11 +1588,6 @@ Generator::group_mapping Generator::Expression::generate_call( //
             function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
         );
         return_value.emplace_back(elem_value);
-    }
-
-    // Finally, clear all garbage
-    if (!Statement::clear_garbage(builder, garbage)) {
-        return std::nullopt;
     }
     return return_value;
 }
