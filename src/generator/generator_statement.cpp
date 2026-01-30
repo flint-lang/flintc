@@ -1531,15 +1531,20 @@ bool Generator::Statement::generate_declaration( //
     }
     if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
         const ExpressionNode::Variation initializer_variaiton = declaration_node->initializer.value()->get_variation();
-        const bool is_opt_literal =                                                                   //
-            declaration_node->initializer.value()->type->get_variation() == Type::Variation::OPTIONAL //
-            && initializer_variaiton == ExpressionNode::Variation::TYPE_CAST                          //
+        const Type::Variation initializer_type_variation = declaration_node->initializer.value()->type->get_variation();
+        const std::string &initializer_type_str = declaration_node->initializer.value()->type->to_string();
+        const bool is_opt_literal =                                          //
+            initializer_type_variation == Type::Variation::OPTIONAL          //
+            && initializer_variaiton == ExpressionNode::Variation::TYPE_CAST //
             && declaration_node->initializer.value()->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
         const bool is_initializer = initializer_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = initializer_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = initializer_variaiton == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = initializer_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation) {
+        const bool is_slice =                                                //
+            initializer_variaiton == ExpressionNode::Variation::ARRAY_ACCESS //
+            && (initializer_type_variation == Type::Variation::ARRAY || initializer_type_str == "str");
+        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared. However, function returns, array initializers, initializers, optional none literals and string
             // interpolation expressions  do not need to be cloned, as they all *produce* something themselves
@@ -1710,15 +1715,20 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             builder.CreateCall(free_fn, {lhs, type_id});
         }
         const ExpressionNode::Variation expression_variaiton = assignment_node->expression->get_variation();
-        const bool is_opt_literal =                                                         //
-            assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL //
-            && expression_variaiton == ExpressionNode::Variation::TYPE_CAST                 //
+        const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
+        const std::string &expression_type_str = assignment_node->expression->type->to_string();
+        const bool is_opt_literal =                                         //
+            expression_type_variation == Type::Variation::OPTIONAL          //
+            && expression_variaiton == ExpressionNode::Variation::TYPE_CAST //
             && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
         const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = expression_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation) {
+        const bool is_slice =                                               //
+            expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS //
+            && (expression_type_variation == Type::Variation::ARRAY || expression_type_str == "str");
+        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");

@@ -1739,9 +1739,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
                     && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
                     && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+                const bool is_slice =                                                    //
+                    arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS //
+                    && (arg_expr->type->get_variation() == Type::Variation::ARRAY || arg_expr->type->to_string() == "str");
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
-                if (!elem_type->is_freeable() || is_initializer || is_opt_literal) {
+                if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice) {
                     IR::aligned_store(builder, expr_val, field_ptr);
                     continue;
                 }
