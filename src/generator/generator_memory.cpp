@@ -80,6 +80,8 @@ void Generator::Memory::generate_free_value( //
                 llvm::Function *free_fn = memory_functions.at("free");
                 builder->CreateCall(free_fn, {arr_value, builder->getInt32(array_type->type->get_id())});
             }
+            llvm::Value *idx_value_p1 = builder->CreateAdd(idx_value, builder->getInt64(1), "idx_value_p1");
+            IR::aligned_store(*builder, idx_value_p1, idx);
             builder->CreateBr(loop_cond_block);
 
             builder->SetInsertPoint(loop_merge_block);
@@ -437,6 +439,8 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *new_arr_value_ptr = builder->CreateGEP(elem_type, new_value_ptr, idx_value, "new_arr_value_ptr");
             llvm::Function *clone_fn = memory_functions.at("clone");
             builder->CreateCall(clone_fn, {arr_value, new_arr_value_ptr, builder->getInt32(array_type->type->get_id())});
+            llvm::Value *idx_value_p1 = builder->CreateAdd(idx_value, builder->getInt64(1), "idx_value_p1");
+            IR::aligned_store(*builder, idx_value_p1, idx);
             builder->CreateBr(loop_cond_block);
 
             builder->SetInsertPoint(loop_merge_block);
