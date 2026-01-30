@@ -300,18 +300,54 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
         }
 
         // Then, save all values of the return_value in the return struct
-        for (size_t i = 0; i < return_value.value().size(); i++) {
-            llvm::Value *value_ptr = builder.CreateStructGEP( //
-                return_struct_type,                           //
-                return_struct,                                //
-                i + 1,                                        //
-                "ret_val_" + std::to_string(i)                //
-            );
-            llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().at(i), value_ptr);
-            value_store->setMetadata("comment",
-                llvm::MDNode::get(context,
-                    llvm::MDString::get(context,
-                        "Store result " + std::to_string(i) + " in return '" + return_struct->getName().str() + "'")));
+        if (return_value.value().size() == 1) {
+            llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "ret_val");
+            if (return_node->return_value.value()->type->is_freeable()                                              //
+                && return_node->return_value.value()->type->get_variation() != Type::Variation::DATA                //
+                && return_node->return_value.value()->get_variation() == ExpressionNode::Variation::VARIABLE        //
+                && ctx.scope->variables.at(return_node->return_value.value()->as<VariableNode>()->name).is_fn_param //
+            ) {
+                // Clone the value from the return value directly into the value_ptr
+                llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+                llvm::Value *type_id = builder.getInt32(return_node->return_value.value()->type->get_id());
+                builder.CreateCall(clone_fn, {return_value.value().front(), value_ptr, type_id});
+            } else {
+                llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().front(), value_ptr);
+                value_store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context, "Store result in return '" + return_struct->getName().str() + "'")));
+            }
+        } else {
+            // As there are multiple values being returned we need to check if the the return expression is a group expression
+            std::vector<std::unique_ptr<ExpressionNode>> *exprs = nullptr;
+            if (return_node->return_value.value()->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION) {
+                exprs = &return_node->return_value.value()->as<GroupExpressionNode>()->expressions;
+            }
+            for (size_t i = 0; i < return_value.value().size(); i++) {
+                llvm::Value *value_ptr = builder.CreateStructGEP( //
+                    return_struct_type,                           //
+                    return_struct,                                //
+                    i + 1,                                        //
+                    "ret_val_" + std::to_string(i)                //
+                );
+                // If this return value is a variable, is freeable and is a function parameter then we clone it into the return value
+                if (exprs != nullptr                                                               //
+                    && exprs->at(i)->type->is_freeable()                                           //
+                    && exprs->at(i)->type->get_variation() != Type::Variation::DATA                //
+                    && exprs->at(i)->get_variation() == ExpressionNode::Variation::VARIABLE        //
+                    && ctx.scope->variables.at(exprs->at(i)->as<VariableNode>()->name).is_fn_param //
+                ) {
+                    // Clone the value from the return values directly into the value_ptr
+                    llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+                    builder.CreateCall(clone_fn, {return_value.value().at(i), value_ptr, builder.getInt32(exprs->at(i)->type->get_id())});
+                    continue;
+                }
+                llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().at(i), value_ptr);
+                value_store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
+                            "Store result " + std::to_string(i) + " in return '" + return_struct->getName().str() + "'")));
+            }
         }
     }
 
