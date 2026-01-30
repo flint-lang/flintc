@@ -149,7 +149,7 @@ bool Generator::Statement::clear_garbage(                                       
         std::cout << YELLOW << "[Debug Info] Garbage information:\n" << DEFAULT;
     }
     for (auto &[key, value] : garbage) {
-        if (key <= depth) {
+        if (key < depth) {
             // Skip garbage at a higher depth than the requested depth
             continue;
         }
