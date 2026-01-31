@@ -1250,8 +1250,11 @@ Generator::group_mapping Generator::Expression::generate_call( //
             llvm::Value *temp_opt = ctx.allocations.at(alloca_name);
             IR::aligned_store(builder, expr_val, temp_opt);
             expr_val = temp_opt;
-        } else if (param_type->get_variation() == Type::Variation::DATA && arg_type->get_variation() == Type::Variation::DATA) {
-            // Call `dima.retain` to increment the ARC before passing the argument to the function
+        } else if (param_type->get_variation() == Type::Variation::DATA //
+            && arg_type->get_variation() == Type::Variation::DATA       //
+            && !call_node->function->is_extern                          //
+        ) {
+            // Call `dima.retain` to increment the ARC before passing the argument to the function only if the function is not extern
             llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
             llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {expr_val});
             retain_call->setMetadata("comment",
