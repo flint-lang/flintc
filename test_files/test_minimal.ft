@@ -48,11 +48,13 @@ def main():
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 	// This works fine
 	Func f = e1;
+	f.move(i32x2(5, 5));
 	// apply_move_operation(f, i32x2(5, 5));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 
 	e2 := Entity2(Data(10, 20), Data2(30, 3));
 	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
-	// f = e2;
+	f = e2;
+	f.move(i32x2(5, 5));
 	// apply_move_operation(f, i32x2(5, 5));
 	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
