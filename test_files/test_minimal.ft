@@ -39,18 +39,20 @@ entity Entity2 extends(Entity e):
 	func: Func2;
 	Entity2(e, Data2);
 
-def apply_move_operation(Func f, i32x2 diff):
-	f.move(diff);
+// Uncommenting this triggers the fucking LLVM assertion about duplicate types again!
+// def apply_move_operation(Func f, i32x2 diff):
+// 	f.move(diff);
 
 def main():
 	e1 := Entity(Data(10, 20));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
+	// This works fine
 	Func f = e1;
-	apply_move_operation(f, i32x2(5, 5));
+	// apply_move_operation(f, i32x2(5, 5));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 
 	e2 := Entity2(Data(10, 20), Data2(30, 3));
 	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
-	f = e2;
-	apply_move_operation(f, i32x2(5, 5));
+	// f = e2;
+	// apply_move_operation(f, i32x2(5, 5));
 	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");

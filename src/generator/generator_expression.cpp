@@ -1209,7 +1209,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
         // should only effect array types, as data and strings are handled differently
         const bool is_not_arr = arg.first->type->get_variation() != Type::Variation::ARRAY;
         const bool is_not_entity = arg.first->type->get_variation() != Type::Variation::ENTITY;
-        const bool is_reference = arg.second && is_not_arr && is_not_entity;
+        const bool is_not_func = arg.first->type->get_variation() != Type::Variation::FUNC;
+        const bool is_reference = arg.second && is_not_arr && is_not_entity && is_not_func;
         group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1611,9 +1612,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         case Type::Variation::FUNC:
-            // TODO: Add instanced calls for func modules
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
+            [[fallthrough]];
         case Type::Variation::ENTITY:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node));
     }
@@ -2626,6 +2625,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "err_field_val"));
             return values;
         }
+        case Type::Variation::FUNC: {
+            std::vector<llvm::Value *> values;
+            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "func_data_ptr"));
+            return values;
+        }
         case Type::Variation::TUPLE: {
             std::vector<llvm::Value *> values;
             values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "tuple_field_val"));
@@ -3108,6 +3112,28 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             llvm::Function *cast_fn = Module::TypeCast::typecast_functions.at(from_type_str + "_to_str");
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
         }
+    } else if (from_type->get_variation() == Type::Variation::ENTITY && to_type->get_variation() == Type::Variation::FUNC) {
+        // We "cast" an entity to a func module by extracting the required data of the func module from the entity and storing it in the
+        // func module. Whenever we extract and store a data value from the entity to the func module we call `dima.retain` on that value
+        // first for proper ARC-tracking
+        llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+        const EntityNode *entity_node = from_type->as<EntityType>()->entity_node;
+        const FuncNode *func_node = to_type->as<FuncType>()->func_node;
+        llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+        for (size_t i = 0; i < func_node->required_data.size(); i++) {
+            const DataNode *data_node = func_node->required_data.at(i).first->as<DataType>()->data_node;
+            size_t idx = 0;
+            for (; idx < entity_node->data_modules.size(); idx++) {
+                const DataNode *data_ptr = entity_node->data_modules.at(idx);
+                if (data_ptr == data_node) {
+                    break;
+                }
+            }
+            llvm::Value *ext_data = builder.CreateExtractValue(expr, idx, "extracted_data_" + std::to_string(idx));
+            builder.CreateCall(retain_fn, {ext_data});
+            func_value = builder.CreateInsertValue(func_value, ext_data, i, "func_value__insert_" + std::to_string(i));
+        }
+        return func_value;
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");

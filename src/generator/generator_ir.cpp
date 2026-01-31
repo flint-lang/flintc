@@ -531,9 +531,30 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return {llvm::Type::getInt32Ty(context), {false, false}};
         case Type::Variation::ERROR_SET:
             return {type_map.at("type.flint.err"), {false, true}};
-        case Type::Variation::FUNC:
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            break;
+        case Type::Variation::FUNC: {
+            const auto *func_type = type->as<FuncType>();
+            // Check if it's a known func type
+            const std::string type_str = func_type->get_type_string();
+            if (type_map.find(type_str) != type_map.end()) {
+                return {type_map.at(type_str), {false, false}};
+            }
+            // Check if the func type even requires any data. If it does not then it's type cannot be created
+            // TODO: Once CTDTs exist this check is no longer required as then any function could be linked to / hooked into any other
+            // function and the call is determined at runtime via a vtable-like system. But until this is implemented all
+            // func-modules-as-interfaces are static and compile-time known which means they need at least one required data to even be a
+            // valid type, since a struct with no members would crash llvm
+            if (func_type->func_node->required_data.empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return {nullptr, {false, false}};
+            }
+            // Create the func type, it's just a struct containing pointers to the defined data
+            std::vector<llvm::Type *> field_types;
+            for (const auto &[data_type, accessor_name] : func_type->func_node->required_data) {
+                field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
+            }
+            type_map[type_str] = IR::create_struct_type(type_str, field_types);
+            return {type_map.at(type_str), {false, false}};
+        }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             const std::string type_str = group_type->get_type_string();
