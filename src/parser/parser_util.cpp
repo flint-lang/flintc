@@ -695,9 +695,19 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
                 break;
             }
-            case Type::Variation::FUNC:
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return std::nullopt;
+            case Type::Variation::FUNC: {
+                const FuncNode *func_node = var_type->as<FuncType>()->func_node;
+                for (const auto &function : func_node->functions) {
+                    // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
+                    const std::string fn_name = function->name.substr(func_node->name.size() + 1);
+                    if (fn_name != function_name) {
+                        continue;
+                    }
+                    functions.emplace_back(function);
+                    func_nodes.emplace(func_node);
+                }
+                break;
+            }
         }
         instance_variable = std::make_unique<VariableNode>(std::move(variable_node.value()));
     } else {
@@ -747,39 +757,69 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     if (is_instance_call) {
         assert(func_nodes.size() == 1);
         assert(instance_variable.has_value());
-        assert(instance_variable.value()->type->get_variation() == Type::Variation::ENTITY);
-        const FuncNode *func_node = *func_nodes.begin();
-        const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
-        for (size_t i = func_node->required_data.size(); i > 0; i--) {
-            // Get the index of the required data in the entity
-            const auto &required_data_type = func_node->required_data.at(i - 1).first;
-            const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
-            size_t idx = 0;
-            for (const auto &data_node : entity_node->data_modules) {
-                if (data_node == required_data_node) {
-                    break;
-                }
-                idx++;
-            }
-            if (idx == entity_node->data_modules.size()) {
-                // The data node is not present in the entity type
+        switch (instance_variable.value()->type->get_variation()) {
+            default:
+                // Instance call on non-supported instance variable type
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
+            case Type::Variation::ENTITY: {
+                const FuncNode *func_node = *func_nodes.begin();
+                const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
+                for (size_t i = func_node->required_data.size(); i > 0; i--) {
+                    // Get the index of the required data in the entity
+                    const auto &required_data_type = func_node->required_data.at(i - 1).first;
+                    const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
+                    size_t idx = 0;
+                    for (const auto &data_node : entity_node->data_modules) {
+                        if (data_node == required_data_node) {
+                            break;
+                        }
+                        idx++;
+                    }
+                    if (idx == entity_node->data_modules.size()) {
+                        // The data node is not present in the entity type
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                        instance_variable.value()->as<VariableNode>()->name,                    //
+                        instance_variable.value()->type                                         //
+                    );
+                    std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
+                        file_hash,                                                               //
+                        base_expr,                                                               //
+                        std::nullopt,                                                            // Entity fields have no name
+                        idx,               // The index of the data in the entity struct
+                        required_data_type //
+                    );
+                    arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
+                    argument_types.insert(argument_types.begin(), required_data_type);
+                    arg_start_id++;
+                }
+                break;
             }
-            std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
-                instance_variable.value()->as<VariableNode>()->name,                    //
-                instance_variable.value()->type                                         //
-            );
-            std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
-                file_hash,                                                               //
-                base_expr,                                                               //
-                std::nullopt,                                                            // Entity fields have no name
-                idx,                                                                     // The index of the data in the entity struct
-                required_data_type                                                       //
-            );
-            arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
-            argument_types.insert(argument_types.begin(), required_data_type);
-            arg_start_id++;
+            case Type::Variation::FUNC: {
+                const FuncNode *func_node = *func_nodes.begin();
+                for (size_t i = func_node->required_data.size(); i > 0; i--) {
+                    // The indices of the required data are the same as the func module itself
+                    const auto &required_data_type = func_node->required_data.at(i - 1).first;
+                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                        instance_variable.value()->as<VariableNode>()->name,                    //
+                        instance_variable.value()->type                                         //
+                    );
+                    std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
+                        file_hash,                                                               //
+                        base_expr,                                                               //
+                        std::nullopt,                                                            // Func fields have no name
+                        i - 1,                                                                   // The index of the data in the func struct
+                        required_data_type                                                       //
+                    );
+                    arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
+                    argument_types.insert(argument_types.begin(), required_data_type);
+                    arg_start_id++;
+                }
+                break;
+            }
         }
     }
     // Check if the argument count does match the parameter count
