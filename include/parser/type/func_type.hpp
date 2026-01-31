@@ -24,7 +24,7 @@ class FuncType : public Type {
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {
-        if (other->get_variation() != Variation::DATA) {
+        if (other->get_variation() != Variation::FUNC) {
             return false;
         }
         const FuncType *const other_type = other->as<FuncType>();
