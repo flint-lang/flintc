@@ -239,9 +239,9 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         llvm::Value *const alloca = ctx.allocations.at(alloca_name);
         llvm::Value *variable_value = alloca;
         std::pair<llvm::Type *, std::pair<bool, bool>> variable_type = IR::get_type(ctx.parent->getParent(), var_type);
-        const bool base_is_array = var_type->get_variation() == Type::Variation::ARRAY;
-        const bool base_is_str = var_type->to_string() == "str";
-        if ((variable_type.second.first || base_is_array || base_is_str) && !variable.is_fn_param) {
+        const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY;
+        const bool var_is_str = var_type->to_string() == "str";
+        if ((variable_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
             llvm::Type *type_to_load = variable_type.second.first ? variable_type.first->getPointerTo() : variable_type.first;
             variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
         }
@@ -1724,19 +1724,32 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     }
     if (assignment_node->type->is_freeable()) {
         // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
-        const std::shared_ptr<Type> lhs_type = assignment_node->type;
+        std::shared_ptr<Type> lhs_type = assignment_node->type;
+        if (lhs_type->get_variation() == Type::Variation::ALIAS) {
+            const auto *alias_type = lhs_type->as<AliasType>();
+            lhs_type = alias_type->type;
+        }
+        llvm::Value *lhs_value = lhs;
+        std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
+        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY;
+        const bool var_is_str = lhs_type->to_string() == "str";
+        const auto &variable = ctx.scope->variables.at(assignment_node->name);
+        if ((var_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
+            llvm::Type *type_to_load = var_type.second.first ? var_type.first->getPointerTo() : var_type.first;
+            lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
+        }
         llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
         if (lhs_type->get_variation() == Type::Variation::DATA) {
             // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
             // however, which means we first need to load the data pointer from it
-            llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs, "data_ptr");
+            // llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs_value, "data_ptr");
             auto data_head = Module::DIMA::get_head(lhs_type);
             llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-            builder.CreateCall(release_fn, {data_head, data_ptr});
+            builder.CreateCall(release_fn, {data_head, lhs_value});
         } else {
             // We need to call the `flint.free` function on the lhs before assigning anything to it
             llvm::Function *free_fn = Memory::memory_functions.at("free");
-            builder.CreateCall(free_fn, {lhs, type_id});
+            builder.CreateCall(free_fn, {lhs_value, type_id});
         }
         const ExpressionNode::Variation expression_variaiton = assignment_node->expression->get_variation();
         const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
