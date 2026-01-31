@@ -46,6 +46,7 @@
 #include "error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
 #include "error_types/parsing/definitions/import/err_use_clausel_not_at_top_level.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
+#include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
 
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"

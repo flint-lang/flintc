@@ -6,7 +6,7 @@
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
-#include "parser/ast/expressions/instance_call_node_expression.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -15,6 +15,7 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -749,6 +750,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     }
     assert(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
+        assert(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+        const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
+        if (scope->variables.find(instance_var->name) == scope->variables.end()) {
+            // Instance call on nonexistent instance variable
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!scope->variables.at(instance_var->name).is_mutable) {
+            // Instance calls on constant instance variables are not allowed
+            THROW_ERR(ErrExprCallOnConstInstance, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, instance_var->name);
+            return std::nullopt;
+        }
         std::unique_ptr<InstanceCallNodeExpression> instance_call_node = std::make_unique<InstanceCallNodeExpression>( //
             ret->function,                                                                                             //
             ret->args,                                                                                                 //
