@@ -1565,9 +1565,16 @@ bool Generator::Statement::generate_declaration( //
         const bool is_array_initializer = initializer_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = initializer_variaiton == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = initializer_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        const bool is_slice =                                                //
-            initializer_variaiton == ExpressionNode::Variation::ARRAY_ACCESS //
-            && (initializer_type_variation == Type::Variation::ARRAY || initializer_type_str == "str");
+        bool is_slice = false;
+        if (initializer_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
+            const auto *arg_arr_access = declaration_node->initializer.value()->as<ArrayAccessNode>();
+            for (const auto &index : arg_arr_access->indexing_expressions) {
+                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                    is_slice = true;
+                    break;
+                }
+            }
+        }
         if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared. However, function returns, array initializers, initializers, optional none literals and string
@@ -1762,9 +1769,16 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = expression_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        const bool is_slice =                                               //
-            expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS //
-            && (expression_type_variation == Type::Variation::ARRAY || expression_type_str == "str");
+        bool is_slice = false;
+        if (expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
+            const auto *arg_arr_access = assignment_node->expression->as<ArrayAccessNode>();
+            for (const auto &index : arg_arr_access->indexing_expressions) {
+                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                    is_slice = true;
+                    break;
+                }
+            }
+        }
         if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to

@@ -1271,15 +1271,21 @@ Generator::group_mapping Generator::Expression::generate_call( //
         // We only need to free garbage which is a "producer", so things like variables etc do *not* need to be freed
         const auto &arg = call_node->arguments.at(i).first;
         const ExpressionNode::Variation arg_variation = arg->get_variation();
-        const Type::Variation arg_type_variation = arg->type->get_variation();
         const std::string &arg_type_str = arg->type->to_string();
         const bool is_initializer = arg_variation == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = arg_variation == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = arg_variation == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = arg_variation == ExpressionNode::Variation::STRING_INTERPOLATION;
-        const bool is_slice =                                        //
-            arg_variation == ExpressionNode::Variation::ARRAY_ACCESS //
-            && (arg_type_variation == Type::Variation::ARRAY || arg_type_str == "str");
+        bool is_slice = false;
+        if (arg_variation == ExpressionNode::Variation::ARRAY_ACCESS) {
+            const auto *arg_arr_access = arg->as<ArrayAccessNode>();
+            for (const auto &index : arg_arr_access->indexing_expressions) {
+                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                    is_slice = true;
+                    break;
+                }
+            }
+        }
         const bool is_string_literal =                                                              //
             arg_type_str == "str"                                                                   //
             && arg_variation == ExpressionNode::Variation::TYPE_CAST                                //
@@ -1784,9 +1790,16 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
                     && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
                     && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
-                const bool is_slice =                                                    //
-                    arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS //
-                    && (arg_expr->type->get_variation() == Type::Variation::ARRAY || arg_expr->type->to_string() == "str");
+                bool is_slice = false;
+                if (arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS) {
+                    const auto *arg_arr_access = arg_expr->as<ArrayAccessNode>();
+                    for (const auto &index : arg_arr_access->indexing_expressions) {
+                        if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                            is_slice = true;
+                            break;
+                        }
+                    }
+                }
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
                 if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice) {
