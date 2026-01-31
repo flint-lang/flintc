@@ -243,6 +243,25 @@ Parser::CastDirection Parser::check_primitive_castability( //
         return CastDirection::not_castable();
     }
 
+    // Check if one side is an entity and the other side is a func module and if the func module is contained within the entity type
+    if (lhs_type->get_variation() == Type::Variation::ENTITY && rhs_type->get_variation() == Type::Variation::FUNC) {
+        EntityNode *lhs_ent = lhs_type->as<EntityType>()->entity_node;
+        FuncNode *rhs_func = rhs_type->as<FuncType>()->func_node;
+        for (const auto &func_module_ptr : lhs_ent->func_modules) {
+            if (rhs_func == func_module_ptr) {
+                return CastDirection::lhs_to_rhs();
+            }
+        }
+    } else if (lhs_type->get_variation() == Type::Variation::FUNC && rhs_type->get_variation() == Type::Variation::ENTITY) {
+        FuncNode *lhs_func = lhs_type->as<FuncType>()->func_node;
+        EntityNode *rhs_ent = rhs_type->as<EntityType>()->entity_node;
+        for (const auto &func_module_ptr : rhs_ent->func_modules) {
+            if (lhs_func == func_module_ptr) {
+                return CastDirection::rhs_to_lhs();
+            }
+        }
+    }
+
     bool lhs_to_rhs_allowed = false;
     bool rhs_to_lhs_allowed = false;
     if (is_implicit) {
