@@ -1079,6 +1079,7 @@ std::optional<DataAccessNode> Parser::create_data_access( //
     }
 
     return DataAccessNode(                      //
+        file_hash,                              //
         std::get<0>(field_access_base.value()), // base_expr
         std::get<1>(field_access_base.value()), // field_name
         std::get<2>(field_access_base.value()), // field_id
@@ -1466,7 +1467,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         auto &field_name = std::get<1>(field_access_base.value());
         auto &field_id = std::get<2>(field_access_base.value());
         auto &field_type = std::get<3>(field_access_base.value());
-        return std::make_unique<DataAccessNode>(opt_unwrap, field_name, field_id, field_type);
+        return std::make_unique<DataAccessNode>(file_hash, opt_unwrap, field_name, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;

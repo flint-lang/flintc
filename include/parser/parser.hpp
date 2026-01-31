@@ -1575,6 +1575,19 @@ class Parser {
         std::optional<std::unique_ptr<ExpressionNode>> &rhs              //
     );
 
+    /// @function `create_data_field_assignment_shorthand`
+    /// @brief Creates a DataFieldAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the data field assignment shorthand is defined
+    /// @param `tokens` The list of tokens representing the data field assignment node
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
+    /// @return `std::optional<DataFieldAssignmentNode>` The created DataFieldAssignmentNode, nullopt if its creation failed
+    std::optional<DataFieldAssignmentNode> create_data_field_assignment_shorthand( //
+        std::shared_ptr<Scope> &scope,                                             //
+        const token_slice &tokens,                                                 //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs                        //
+    );
+
     /// @function `create_grouped_data_field_assignment`
     /// @brief Creates a GroupedDataFieldAssignmentNode from the given tokens
     ///

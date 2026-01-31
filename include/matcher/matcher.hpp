@@ -869,6 +869,7 @@ class Matcher {
         sequence({token(TOK_LEFT_PAREN), until_right_paren, assignment_shorthand_operator}) //
     );
     static const inline PatternPtr data_field_assignment = sequence({data_access, token(TOK_EQUAL)});
+    static const inline PatternPtr data_field_assignment_shorthand = sequence({data_access, assignment_shorthand_operator});
     static const inline PatternPtr grouped_data_assignment = sequence({grouped_data_access, token(TOK_EQUAL)});
     static const inline PatternPtr grouped_data_assignment_shorthand = sequence({grouped_data_access, assignment_shorthand_operator});
     static const inline PatternPtr array_assignment = sequence({array_access, token(TOK_EQUAL)});

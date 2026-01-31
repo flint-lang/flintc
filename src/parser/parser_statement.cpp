@@ -1823,7 +1823,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
-    PROFILE_CUMULATIVE("Parser::create_data_field_assignment");
+    PROFILE_CUMULATIVE("Parser::create_unary_op_statement");
     auto unary_op_values = create_unary_op_base(_ctx_, scope, tokens);
     if (!unary_op_values.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1841,6 +1841,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     const token_slice &tokens,                                               //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                      //
 ) {
+    PROFILE_CUMULATIVE("Parser::create_data_field_assignment");
     // Everything up to the equals sign is the lhs of the assignment
     token_slice tokens_mut = tokens;
     token_slice lhs_tokens = {tokens.first, tokens.first};
@@ -1891,6 +1892,110 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
 
     return DataFieldAssignmentNode(             //
         base_expr->type,                        // data_type
+        var_name,                               // var_name
+        std::get<1>(field_access_base.value()), // field_name
+        std::get<2>(field_access_base.value()), // field_id
+        field_type,                             // field_type
+        expression.value()                      //
+    );
+}
+
+std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shorthand( //
+    std::shared_ptr<Scope> &scope,                                                     //
+    const token_slice &tokens,                                                         //
+    std::optional<std::unique_ptr<ExpressionNode>> &rhs                                //
+) {
+    PROFILE_CUMULATIVE("Parser::create_data_field_assignment");
+    // Everything up to the equals sign is the lhs of the assignment
+    token_slice tokens_mut = tokens;
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    while (!Matcher::token_match(lhs_tokens.second->token, Matcher::assignment_shorthand_operator)) {
+        lhs_tokens.second++;
+        tokens_mut.first++;
+    }
+    auto field_access_base = create_field_access_base(_ctx_, scope, lhs_tokens);
+    if (!field_access_base.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // The data field base expression should be a variable expression
+    const auto &node = std::get<0>(field_access_base.value());
+    if (node->get_variation() != ExpressionNode::Variation::VARIABLE) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const auto *var_node = node->as<VariableNode>();
+
+    // Get the operation of the assignment shorthand
+    Token operation = TOK_EOF;
+    switch (tokens_mut.first->token) {
+        case TOK_PLUS_EQUALS:
+            operation = TOK_PLUS;
+            break;
+        case TOK_MINUS_EQUALS:
+            operation = TOK_MINUS;
+            break;
+        case TOK_MULT_EQUALS:
+            operation = TOK_MULT;
+            break;
+        case TOK_DIV_EQUALS:
+            operation = TOK_DIV;
+            break;
+        default:
+            assert(false);
+            break;
+    }
+    tokens_mut.first++;
+
+    // The rest of the tokens is the expression to parse
+    std::optional<std::unique_ptr<ExpressionNode>> expression;
+    if (rhs.has_value()) {
+        expression = std::move(rhs.value());
+    } else {
+        expression = create_expression(_ctx_, scope, tokens_mut);
+    }
+    if (!expression.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    const std::string &var_name = var_node->name;
+    if (!scope->variables.at(var_name).is_mutable) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_name);
+        return std::nullopt;
+    }
+
+    // Check if the data variable we try to mutate is marked as immutable
+    if (!scope->variables.at(var_node->name).is_mutable) {
+        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
+        return std::nullopt;
+    }
+
+    // Create the lhs of the binary op of the right side, which is the data field access
+    const std::shared_ptr<Type> &base_expr_type = std::get<0>(field_access_base.value())->type;
+    std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<DataAccessNode>( //
+        file_hash,                                                                //
+        std::get<0>(field_access_base.value()),                                   // base_expr
+        std::get<1>(field_access_base.value()),                                   // field_name
+        std::get<2>(field_access_base.value()),                                   // field_id
+        std::get<3>(field_access_base.value())                                    // field_type
+    );
+
+    const auto &field_type = std::get<3>(field_access_base.value());
+    if (!check_castability(field_type, expression.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, field_type, expression.value()->type);
+        return std::nullopt;
+    }
+    expression = std::make_unique<BinaryOpNode>( //
+        operation,                               //
+        binop_lhs,                               //
+        expression.value(),                      //
+        binop_lhs->type,                         //
+        true                                     //
+    );
+
+    return DataFieldAssignmentNode(             //
+        base_expr_type,                         // data_type
         var_name,                               // var_name
         std::get<1>(field_access_base.value()), // field_name
         std::get<2>(field_access_base.value()), // field_id
@@ -2032,15 +2137,14 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         std::get<3>(grouped_field_access_base.value())                                   // field_types
     );
 
+    // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
+    // the assignment
     const auto &field_types = std::get<3>(grouped_field_access_base.value());
     const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
     if (!check_castability(group_type, expression.value())) {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
         return std::nullopt;
     }
-
-    // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
-    // the assignment
     expression = std::make_unique<BinaryOpNode>( //
         operation,                               //
         binop_lhs,                               //
@@ -2389,6 +2493,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment)) {
         std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment(scope, tokens, rhs);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment_shorthand)) {
+        std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

@@ -1,40 +1,51 @@
 use Core.print
 
-data Position:
+data Data:
 	i32 x;
 	i32 y;
-	Position(x, y);
+	Data(x, y);
 
-data MyData:
-	Position pos;
-	f32x2 speed;
-	MyData(pos, speed);
+func Func requires(Data d):
+	def move(i32x2 diff):
+		d.(x, y) += diff.(x, y);
 
-def move(mut MyData d):
-	d.pos.(x, y) = d.pos.(x, y) + (i32(d.speed.x), i32(d.speed.y));
+	def get_x() -> i32:
+		return d.x;
 
-def str_param(str param):
-	print(param);
+	def get_y() -> i32:
+		return d.y;
+
+entity Entity:
+	data: Data;
+	func: Func;
+	Entity(Data);
+
+data Data2:
+	i32 z;
+	i32 speed;
+	Data2(z, speed);
+
+func Func2 requires(Data d, Data2 d2):
+	def move2(f32x3 direction):
+		f32x3 diff = direction * f32(d2.speed);
+		d.(x, y) += (i32(diff.x), i32(diff.y));
+		d2.z += i32(diff.z);
+
+	def get_z() -> i32:
+		return d2.z;
+
+entity Entity2 extends(Entity e):
+	data: Data2;
+	func: Func2;
+	Entity2(e, Data2);
 
 def main():
-	pos := Position(10, 20);
-	d := MyData(pos, f32x2(3, 5));
-	MyData d2 = d;
-	Position? p = none;
-	p = d2.pos;
-	print($"p = ({p!.x}, {p!.y})\n");
-	print($"pos = ({pos.x}, {pos.y})\n");
-	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
-	print("moving...\n");
-	move(d);
-	print($"p = ({p!.x}, {p!.y})\n");
-	print($"pos = ({pos.x}, {pos.y})\n");
-	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
+	e1 := Entity(Data(10, 20));
+	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
+	e1.move(i32x2(5, 5));
+	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 
-	str? flags = str("Hi there\n");
-	print(flags!);
-
-	str param = "Double Free?\n";
-	str_param(param);
-
-    data<i32, f32, str> tuple = (3, 2.2, "hello!");
+	e2 := Entity2(Data(10, 20), Data2(30, 3));
+	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
+	e2.move(i32x2(5, 5));
+	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");

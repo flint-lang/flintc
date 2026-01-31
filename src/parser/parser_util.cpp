@@ -771,6 +771,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 instance_variable.value()->type                                         //
             );
             std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
+                file_hash,                                                               //
                 base_expr,                                                               //
                 std::nullopt,                                                            // Entity fields have no name
                 idx,                                                                     // The index of the data in the entity struct

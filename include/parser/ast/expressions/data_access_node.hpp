@@ -9,11 +9,13 @@
 class DataAccessNode : public ExpressionNode {
   public:
     DataAccessNode(                                   //
+        const Hash &hash,                             //
         std::unique_ptr<ExpressionNode> &base_expr,   //
         const std::optional<std::string> &field_name, //
         const unsigned int field_id,                  //
         const std::shared_ptr<Type> &field_type       //
         ) :
+        ExpressionNode(hash),
         base_expr(std::move(base_expr)),
         field_name(field_name),
         field_id(field_id) {
