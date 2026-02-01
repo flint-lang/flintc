@@ -48,6 +48,18 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
     }
     assert(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
+        assert(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+        const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
+        if (scope->variables.find(instance_var->name) == scope->variables.end()) {
+            // Instance call on nonexistent instance variable
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (!scope->variables.at(instance_var->name).is_mutable) {
+            // Instance calls on constant instance variables are not allowed
+            THROW_ERR(ErrExprCallOnConstInstance, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, instance_var->name);
+            return std::nullopt;
+        }
         std::unique_ptr<InstanceCallNodeStatement> instance_call_node = std::make_unique<InstanceCallNodeStatement>( //
             ret->function, ret->args, ret->function->error_types, ret->type, ret->instance_variable.value()          //
         );

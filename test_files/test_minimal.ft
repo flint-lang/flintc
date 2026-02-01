@@ -47,7 +47,7 @@ def main():
 	e1 := Entity(Data(10, 20));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 	// This works fine
-	Func f = e1;
+	const Func f = e1;
 	f.move(i32x2(5, 5));
 	// apply_move_operation(f, i32x2(5, 5));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
