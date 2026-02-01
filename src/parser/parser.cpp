@@ -1608,7 +1608,11 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             node.parser = &parser;
             node.entity = entity;
             node.body = std::move(body);
-            for (const auto &[parent_type, accessor_name] : entity->parent_entities) {
+            for (auto &[parent_type, accessor_name] : entity->parent_entities) {
+                if (parent_type->get_variation() == Type::Variation::UNKNOWN) {
+                    const std::string &unknown_type_str = parent_type->as<UnknownType>()->type_str;
+                    parent_type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type_str).value();
+                }
                 const EntityNode *parent_entity = parent_type->as<EntityType>()->entity_node;
                 const std::string parent_key = parent_entity->file_hash.to_string() + "." + parent_entity->name;
                 node.parents.emplace_back(parent_key);

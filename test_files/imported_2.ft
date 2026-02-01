@@ -8,13 +8,5 @@ data DVec3:
 	i32 z;
 	DVec3(x, y, z);
 
-// Uncommenting this line throws the assertion in llvm!
-// So the bug seems to be when using an entity type in a different file from the one it came from...
-// We will see what the problem *really* is all about...
-// TODO: It is still unclear why this function crashes the compiler, it seems to have something to
-// do with the fact that it's a circular dependency, but why do entity types with circles represent
-// a problem at all? This needs further investigations, i will open up an issue on GH for this. For
-// now i will not fix it because i simply was unable to locate where it possibly could even come
-// from. I did not find *any* clues on where this problem comes from and how to possibly fix it.
-def somefn(MyEntity e):
+def somefn(mut MyEntity e):
 	e.print();
