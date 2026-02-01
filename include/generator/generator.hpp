@@ -3865,6 +3865,11 @@ class Generator {
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string_view, llvm::Function *> time_functions = {
                 {"now", nullptr},
+                {"duration", nullptr},
+                {"sleep_duration", nullptr},
+                {"sleep_time", nullptr},
+                {"as_unit", nullptr},
+                {"from", nullptr},
             };
 
             /// @var `time_data_types`
@@ -3876,6 +3881,16 @@ class Generator {
             ///
             /// @attention This map will be empty until the `generate_types` function is called
             static inline std::unordered_map<std::string, llvm::StructType *> time_data_types;
+
+            /// @var `time_dima_heads`
+            /// @brief Map containing references to all dima heads of all time data types
+            ///
+            /// @details
+            /// - **Key** `std::string` - The name of the data type
+            /// - **Value** `llvm::GlobalVariable *` - The reference to the global variable, marked as externally available
+            ///
+            /// @attention This map will be empty until the `generate_types` function is called
+            static inline std::unordered_map<std::string, llvm::GlobalVariable *> time_dima_heads;
 
             /// @var `time_platform_functions`
             /// @brief Maps the names of platform-specific functions needed inside the module to the function declaration

@@ -22,6 +22,14 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
     const auto &data_types = core_module_data_types.at("time");
     for (const data_type &type : data_types) {
         const std::string type_name(std::get<0>(type));
+
+        // Get the global variable to the DIMA head
+        const std::string head_var_str = hash.to_string() + ".dima.head.data." + type_name;
+        llvm::GlobalVariable *dima_head_variable = module->getGlobalVariable(head_var_str);
+        assert(time_dima_heads.find(head_var_str) == time_dima_heads.end());
+        time_dima_heads[type_name] = dima_head_variable;
+
+        // Create the struct type
         const std::vector<data_field> &fields = std::get<1>(type);
         if (time_data_types.find(type_name) != time_data_types.end()) {
             continue;
@@ -44,7 +52,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
         for (const std::string_view &value : value_views) {
             enum_values.emplace_back(value);
         }
-        IR::generate_enum_value_strings(module, prefix, enum_name, enum_values);
+        IR::generate_enum_value_strings(module, prefix.substr(0, prefix.size() - 1), enum_name, enum_values);
     }
 }
 
@@ -196,7 +204,6 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     //     return stamp;
     // }
     llvm::StructType *timestamp_type = time_data_types.at("TimeStamp");
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *now_type = llvm::FunctionType::get( //
         timestamp_type->getPointerTo(),                     // Return type: TimeStamp*
@@ -270,9 +277,10 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
 
 #endif
 
-    // Allocate TimeStamp on heap: malloc(sizeof(TimeStamp))
-    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, timestamp_type));
-    llvm::Value *timestamp_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "timestamp_ptr");
+    // Allocate TimeStamp using dima.allocate(dima.head.TimeStamp)
+    auto *timestamp_head = time_dima_heads.at("TimeStamp");
+    llvm::Function *dima_allocate = DIMA::dima_functions.at("allocate");
+    llvm::Value *timestamp_ptr = builder->CreateCall(dima_allocate, {timestamp_head}, "timestamp_ptr");
 
     // Set the value field: stamp->value = stamp_value
     llvm::Value *value_ptr = builder->CreateStructGEP(timestamp_type, timestamp_ptr, 0, "value_ptr");
@@ -285,7 +293,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
 void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // Duration *duration(TimeStamp *t1, TimeStamp *t2) {
-    //     Duration *d = (Duration *)malloc(sizeof(Duration));
+    //     Duration *d = (Duration *)dima_allocate(dima.head.Duration);
     //     // Handle both forward and backward time differences
     //     if (t2->value >= t1->value) {
     //         d->value = t2->value - t1->value;
@@ -296,7 +304,6 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
     // }
     llvm::StructType *timestamp_type = time_data_types.at("TimeStamp");
     llvm::StructType *duration_type = time_data_types.at("Duration");
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *duration_fn_type = llvm::FunctionType::get( //
         duration_type->getPointerTo(),                              // Return type: Duration*
@@ -360,13 +367,20 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
     diff_value->addIncoming(forward_diff, forward_block);
     diff_value->addIncoming(backward_diff, backward_block);
 
-    // Allocate Duration on heap: malloc(sizeof(Duration))
-    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, duration_type));
-    llvm::Value *duration_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "duration_ptr");
+    // Allocate Duration using dima.allocate(dima.head.Duration)
+    auto *duration_head = time_dima_heads.at("Duration");
+    llvm::Function *dima_allocate = DIMA::dima_functions.at("allocate");
+    llvm::Value *duration_ptr = builder->CreateCall(dima_allocate, {duration_head}, "duration_ptr");
 
     // Set the value field: d->value = diff_value
     llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
     IR::aligned_store(*builder, diff_value, duration_value_ptr);
+
+    // Call release on both function parameters of type TimeStamp
+    auto *timestamp_head = time_dima_heads.at("TimeStamp");
+    llvm::Function *dima_release = DIMA::dima_functions.at("release");
+    builder->CreateCall(dima_release, {timestamp_head, arg_t1});
+    builder->CreateCall(dima_release, {timestamp_head, arg_t2});
 
     // Return the pointer to the heap-allocated Duration
     builder->CreateRet(duration_ptr);
@@ -474,6 +488,11 @@ void Generator::Module::Time::generate_sleep_duration_function( //
     builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(timespec_type->getPointerTo())});
 #endif
 
+    // Call dima.release on the duration argument
+    auto *duration_head = time_dima_heads.at("Duration");
+    llvm::Function *dima_release = DIMA::dima_functions.at("release");
+    builder->CreateCall(dima_release, {duration_head, arg_d});
+
     builder->CreateRetVoid();
 }
 
@@ -580,24 +599,25 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     ns_value->addIncoming(ns_s, case_s_block);
     ns_value->addIncoming(ns_default, default_block);
 
-    // Allocate Duration with DIMA
+    // Allocate Duration using dima.allocate(dima.head.Duration)
+    auto *duration_head = time_dima_heads.at("Duration");
     llvm::Function *dima_allocate_fn = DIMA::dima_functions.at("allocate");
-    const Namespace *time_namespace = Resolver::get_namespace_from_hash(hash);
-    const auto duration_type_ptr = time_namespace->get_type_from_str("Duration").value();
-    llvm::Value *duration_ptr = builder->CreateCall(dima_allocate_fn, {DIMA::get_head(duration_type_ptr)}, "duration_ptr");
+    llvm::Value *duration_ptr = builder->CreateCall(dima_allocate_fn, {duration_head}, "duration_ptr");
 
     // Set d->value = ns_value
     llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
     IR::aligned_store(*builder, ns_value, duration_value_ptr);
+
+    // Call `dima.retain` before the `sleep_duration` function
+    llvm::Function *dima_retain_fn = DIMA::dima_functions.at("retain");
+    builder->CreateCall(dima_retain_fn, {duration_ptr});
 
     // Call sleep_duration(&d)
     builder->CreateCall(sleep_duration_fn, {duration_ptr});
 
     // Free the duration
     llvm::Function *dima_release_fn = DIMA::dima_functions.at("release");
-    const std::string head_key = hash.to_string() + ".Duration";
-    llvm::GlobalVariable *data_head = Module::DIMA::dima_heads.at(head_key);
-    builder->CreateCall(dima_release_fn, {data_head, duration_ptr});
+    builder->CreateCall(dima_release_fn, {duration_head, duration_ptr});
 
     builder->CreateRetVoid();
 }
@@ -650,6 +670,7 @@ void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *build
     llvm::BasicBlock *case_ms_block = llvm::BasicBlock::Create(context, "case_ms", as_unit_fn);
     llvm::BasicBlock *case_s_block = llvm::BasicBlock::Create(context, "case_s", as_unit_fn);
     llvm::BasicBlock *default_block = llvm::BasicBlock::Create(context, "default", as_unit_fn);
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", as_unit_fn);
 
     // Entry block: load d->value and create switch
     builder->SetInsertPoint(entry_block);
@@ -665,32 +686,48 @@ void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *build
     // Case NS: return (double)d->value
     builder->SetInsertPoint(case_ns_block);
     llvm::Value *result_ns = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "result_ns");
-    builder->CreateRet(result_ns);
+    builder->CreateBr(merge_block);
 
     // Case US: return (double)d->value / 1000.0
     builder->SetInsertPoint(case_us_block);
     llvm::Value *d_value_f64_us = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_us");
     llvm::Value *result_us =
         builder->CreateFDiv(d_value_f64_us, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000.0), "result_us");
-    builder->CreateRet(result_us);
+    builder->CreateBr(merge_block);
 
     // Case MS: return (double)d->value / 1000000.0
     builder->SetInsertPoint(case_ms_block);
     llvm::Value *d_value_f64_ms = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_ms");
     llvm::Value *result_ms =
         builder->CreateFDiv(d_value_f64_ms, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000000.0), "result_ms");
-    builder->CreateRet(result_ms);
+    builder->CreateBr(merge_block);
 
     // Case S: return (double)d->value / 1000000000.0
     builder->SetInsertPoint(case_s_block);
     llvm::Value *d_value_f64_s = builder->CreateUIToFP(d_value, llvm::Type::getDoubleTy(context), "d_value_f64_s");
     llvm::Value *result_s =
         builder->CreateFDiv(d_value_f64_s, llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 1000000000.0), "result_s");
-    builder->CreateRet(result_s);
+    builder->CreateBr(merge_block);
 
     // Default: return 0.0 (invalid unit)
     builder->SetInsertPoint(default_block);
-    builder->CreateRet(llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 0.0));
+    llvm::Value *default_value = llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), 0.0);
+    builder->CreateBr(merge_block);
+
+    // Merge: select the correct value depending on which block we come from, release the input argument and return the value
+    builder->SetInsertPoint(merge_block);
+    llvm::PHINode *return_value = builder->CreatePHI(builder->getDoubleTy(), 5);
+    return_value->addIncoming(result_ns, case_ns_block);
+    return_value->addIncoming(result_us, case_us_block);
+    return_value->addIncoming(result_ms, case_ms_block);
+    return_value->addIncoming(result_s, case_s_block);
+    return_value->addIncoming(default_value, default_block);
+
+    // Release the duration argument of the call before returning
+    auto *duration_head = time_dima_heads.at("Duration");
+    llvm::Function *dima_release = DIMA::dima_functions.at("release");
+    builder->CreateCall(dima_release, {duration_head, arg_d});
+    builder->CreateRet(return_value);
 }
 
 void Generator::Module::Time::generate_from_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
@@ -717,7 +754,6 @@ void Generator::Module::Time::generate_from_function(llvm::IRBuilder<> *builder,
     //     return d;
     // }
     llvm::StructType *duration_type = time_data_types.at("Duration");
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *from_type = llvm::FunctionType::get( //
         duration_type->getPointerTo(),                       // Return type: Duration*
@@ -756,9 +792,10 @@ void Generator::Module::Time::generate_from_function(llvm::IRBuilder<> *builder,
     // Entry block: allocate Duration and create switch
     builder->SetInsertPoint(entry_block);
 
-    // Allocate Duration on heap: malloc(sizeof(Duration))
-    llvm::Value *malloc_size = builder->getInt64(Allocation::get_type_size(module, duration_type));
-    llvm::Value *duration_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "duration_ptr");
+    // Allocate Duration using dima.allocate(dima.head.Duration)
+    auto *duration_head = time_dima_heads.at("Duration");
+    llvm::Function *dima_allocate_fn = DIMA::dima_functions.at("allocate");
+    llvm::Value *duration_ptr = builder->CreateCall(dima_allocate_fn, {duration_head}, "duration_ptr");
 
     llvm::SwitchInst *switch_inst = builder->CreateSwitch(arg_u, default_block, 4);
     switch_inst->addCase(builder->getInt32(0), case_ns_block); // TIME_UNIT_NS = 0

@@ -273,6 +273,8 @@ void Generator::Module::DIMA::generate_get_block_capacity_function( //
     llvm::Value *ctg_plus_9 = builder->CreateAdd(cap_times_gf, builder->getInt64(9), "ctg_plus_9");
     llvm::Value *new_capacity = builder->CreateUDiv(ctg_plus_9, builder->getInt64(10), "new_capacity");
     IR::aligned_store(*builder, new_capacity, capacity);
+    llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+    IR::aligned_store(*builder, i_p1, i);
     builder->CreateBr(loop_cond_block);
 
     builder->SetInsertPoint(merge_block);
@@ -554,12 +556,16 @@ void Generator::Module::DIMA::generate_allocate_function( //
     llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", allocate_fn);
     llvm::BasicBlock *loop_body_block_not_null_block = llvm::BasicBlock::Create(context, "loop_body_block_not_null", allocate_fn);
     llvm::BasicBlock *loop_body_block_not_full_block = llvm::BasicBlock::Create(context, "loop_body_block_full", allocate_fn);
+    llvm::BasicBlock *loop_postcondition_block = llvm::BasicBlock::Create(context, "loop_postcondition", allocate_fn);
     llvm::BasicBlock *loop_merge_block = llvm::BasicBlock::Create(context, "loop_merge", allocate_fn);
 
     llvm::BasicBlock *create_block_inline_block = llvm::BasicBlock::Create(context, "create_block_inline", allocate_fn);
     llvm::BasicBlock *search_free_loop_condition_block = llvm::BasicBlock::Create(context, "search_free_loop_condition", allocate_fn);
     llvm::BasicBlock *search_free_loop_body_block = llvm::BasicBlock::Create(context, "search_free_loop_body", allocate_fn);
     llvm::BasicBlock *search_free_loop_empty_found_block = llvm::BasicBlock::Create(context, "search_free_loop_empty_found", allocate_fn);
+    llvm::BasicBlock *search_free_loop_postcondition_block = llvm::BasicBlock::Create( //
+        context, "search_free_loop_postcondition", allocate_fn                         //
+    );
     llvm::BasicBlock *create_block_inline_merge_block = llvm::BasicBlock::Create(context, "create_block_inline_merge", allocate_fn);
 
     llvm::BasicBlock *create_new_block_block = llvm::BasicBlock::Create(context, "create_new_block", allocate_fn);
@@ -621,7 +627,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
             llvm::Value *block_ptr = builder->CreateGEP(dima_block_type->getPointerTo(), blocks_ptr, {block_idx}, "block_ptr");
             llvm::Value *block = IR::aligned_load(*builder, dima_block_type->getPointerTo(), block_ptr, "block");
             llvm::Value *block_null = builder->CreateICmpEQ(block, block_nullptr, "block_null");
-            builder->CreateCondBr(block_null, loop_condition_block, loop_body_block_not_null_block, IR::generate_weights(1, 100));
+            builder->CreateCondBr(block_null, loop_postcondition_block, loop_body_block_not_null_block, IR::generate_weights(1, 100));
 
             builder->SetInsertPoint(loop_body_block_not_null_block);
             llvm::Value *block_used_ptr = builder->CreateStructGEP(dima_block_type, block, BLOCK_USED, "block_used_ptr");
@@ -629,7 +635,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
             llvm::Value *block_capacity_ptr = builder->CreateStructGEP(dima_block_type, block, BLOCK_CAPACITY, "block_capacity_ptr");
             llvm::Value *block_capacity = IR::aligned_load(*builder, builder->getInt64Ty(), block_capacity_ptr, "block_capacity");
             llvm::Value *is_block_full = builder->CreateICmpEQ(block_used, block_capacity, "is_block_full");
-            builder->CreateCondBr(is_block_full, loop_condition_block, loop_body_block_not_full_block, IR::generate_weights(1, 100));
+            builder->CreateCondBr(is_block_full, loop_postcondition_block, loop_body_block_not_full_block, IR::generate_weights(1, 100));
 
             builder->SetInsertPoint(loop_body_block_not_full_block);
             llvm::Value *slot_ptr_value = builder->CreateCall(allocate_in_block_fn, {block}, "slot_ptr_value");
@@ -640,6 +646,11 @@ void Generator::Module::DIMA::generate_allocate_function( //
             llvm::Value *block_id_i16 = builder->CreateTrunc(block_idx, builder->getInt16Ty(), "block_id_i16");
             IR::aligned_store(*builder, block_id_i16, slot_ptr_block_id_ptr);
             builder->CreateBr(loop_merge_block);
+
+            builder->SetInsertPoint(loop_postcondition_block);
+            llvm::Value *i_m1 = builder->CreateSub(i_value, builder->getInt64(1), "i_m1");
+            IR::aligned_store(*builder, i_m1, i);
+            builder->CreateBr(loop_condition_block);
         }
     }
     builder->SetInsertPoint(loop_merge_block);
@@ -665,20 +676,25 @@ void Generator::Module::DIMA::generate_allocate_function( //
             llvm::Value *block_ptr = builder->CreateGEP(dima_block_type->getPointerTo(), blocks_ptr, block_idx, "block_ptr");
             llvm::Value *block = IR::aligned_load(*builder, dima_block_type->getPointerTo(), block_ptr, "block");
             llvm::Value *block_is_null = builder->CreateICmpEQ(block, block_nullptr, "block_is_null");
-            builder->CreateCondBr(                                                                                         //
-                block_is_null, search_free_loop_body_block, search_free_loop_condition_block, IR::generate_weights(1, 100) //
+            builder->CreateCondBr(                                                                                                    //
+                block_is_null, search_free_loop_empty_found_block, search_free_loop_postcondition_block, IR::generate_weights(1, 100) //
             );
 
             builder->SetInsertPoint(search_free_loop_empty_found_block);
             llvm::Value *block_capacity = builder->CreateCall(get_block_capacity_fn, {block_idx}, "block_capacity");
             llvm::Value *created_block = builder->CreateCall(create_block_fn, {type_size, block_capacity}, "created_block");
             IR::aligned_store(*builder, created_block, block_ptr);
-            llvm::Value *slot_ptr = builder->CreateCall(allocate_in_block_fn, {block}, "slot_ptr");
+            llvm::Value *slot_ptr = builder->CreateCall(allocate_in_block_fn, {created_block}, "slot_ptr");
             IR::aligned_store(*builder, slot_ptr, slot_alloca);
             llvm::Value *slot_block_id_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_BLOCK_ID, "slot_block_id_ptr");
             llvm::Value *block_id_i16 = builder->CreateTrunc(block_idx, builder->getInt16Ty(), "block_id_i16");
             IR::aligned_store(*builder, block_id_i16, slot_block_id_ptr);
             builder->CreateBr(create_block_inline_merge_block);
+
+            builder->SetInsertPoint(search_free_loop_postcondition_block);
+            llvm::Value *i_m1 = builder->CreateSub(i_value, builder->getInt64(1), "i_m1");
+            IR::aligned_store(*builder, i_m1, i);
+            builder->CreateBr(search_free_loop_condition_block);
         }
     }
 
@@ -697,6 +713,11 @@ void Generator::Module::DIMA::generate_allocate_function( //
         IR::aligned_store(*builder, new_head, arg_head_ref);
         llvm::Value *block_capacity = builder->CreateCall(get_block_capacity_fn, {head_block_count}, "block_capacity");
         llvm::Value *new_block = builder->CreateCall(create_block_fn, {type_size, block_capacity}, "new_block");
+        llvm::Value *new_blocks_ptr = builder->CreateStructGEP(dima_head_type, new_head, HEAD_BLOCKS, "new_blocks_ptr");
+        llvm::Value *new_block_slot_ptr = builder->CreateGEP(                                         //
+            dima_block_type->getPointerTo(), new_blocks_ptr, {head_block_count}, "new_block_slot_ptr" //
+        );
+        IR::aligned_store(*builder, new_block, new_block_slot_ptr);
         llvm::Value *new_head_block_count_ptr = builder->CreateStructGEP(          //
             dima_head_type, new_head, HEAD_BLOCK_COUNT, "new_head_block_count_ptr" //
         );
@@ -875,6 +896,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(-dima_slot_size), "slot_ptr");
     llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_ARC, "slot_arc_ptr");
     llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getInt32Ty(), slot_arc_ptr, "slot_arc");
+    IR::generate_debug_print(builder, module, "dima.release.entry head=%p arc=%llu", {arg_head_ref, slot_arc});
     llvm::Value *slot_arc_m1 = builder->CreateSub(slot_arc, builder->getInt32(1), "slot_arc_m1");
     IR::aligned_store(*builder, slot_arc_m1, slot_arc_ptr);
     llvm::Value *slot_arc_m1_gt_0 = builder->CreateICmpUGT(slot_arc_m1, builder->getInt32(0), "slot_arc_m1_gt_0");
