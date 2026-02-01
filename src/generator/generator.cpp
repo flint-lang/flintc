@@ -252,54 +252,18 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Force the addition of the 'type.flint.err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
-    // Generate all the print module functions
-    Module::Print::generate_print_functions(builder.get(), module.get());
-
-    // Generate all the "hidden" string helper functions
+    // Generate all the internal helper functions
     Module::String::generate_string_manip_functions(builder.get(), module.get());
-
-    // Generate all the read module functions
-    Module::Read::generate_read_functions(builder.get(), module.get());
-
-    // Generate all the "hidden" typecast helper functions
     Module::TypeCast::generate_typecast_functions(builder.get(), module.get());
-
-    // Generate all the "hidden" arithmetic helper functions
     Module::Arithmetic::generate_arithmetic_functions(builder.get(), module.get());
-
-    // Gneerate all the "hidden" array helper functions
     Module::Array::generate_array_manip_functions(builder.get(), module.get());
-
-    // Generate all the assert module functions
-    Module::Assert::generate_assert_functions(builder.get(), module.get());
-
-    // Generate all the filesystem module functions
-    Module::FileSystem::generate_filesystem_functions(builder.get(), module.get());
-
-    // Generate all the env module functions
-    Module::Env::generate_env_functions(builder.get(), module.get());
-
-    // Generate all the system module functions
-    Module::System::generate_system_functions(builder.get(), module.get());
-
-    // Generate all the math module functions
-    Module::Math::generate_math_functions(builder.get(), module.get());
-
-    // Generate all the time module functions
-    Module::Time::generate_time_functions(builder.get(), module.get());
-
-    // Generate all the "hidden" dima functions
     Module::DIMA::generate_dima_functions(builder.get(), module.get(), false);
-
-    // Generate the error functions to get the error types and value strings from errors, which also enables error to string castability
     Error::generate_error_functions(builder.get(), module.get());
-
-    // Generate the memory functions to be able to clone / free things
     Memory::generate_memory_functions(builder.get(), module.get());
-
-    if (!is_test) {
-        // Generate main function in the main module
-        Builtin::generate_builtin_main(builder.get(), module.get());
+    if (is_test) {
+        // The 'time' module is *always* required when building a program with the `--test` flag because of the builtin performance test
+        // runners
+        Module::Time::generate_time_functions(nullptr, module.get(), true);
     }
 
     if (PRINT_FILE_IR) {
@@ -307,12 +271,6 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                   << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
                   << std::endl;
     }
-
-    // for (const auto &func : main_module[0]->getFunctionList()) {
-    //     std::cout << "FuncName: " << func.getName().str() << std::endl;
-    // }
-
-    llvm::Linker linker(*module);
 
     // Start with the tips of the dependency graph and then work towards the root node. First, get all tips of the graph:
     std::vector<std::weak_ptr<DepNode>> tips;
@@ -372,8 +330,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             // Generate the IR code from the given FileNode
             Namespace *file_namespace = Resolver::get_namespace_from_hash(shared_tip->file_hash);
             FileNode *file = file_namespace->file_node;
-            std::optional<std::unique_ptr<llvm::Module>> file_module = generate_file_ir(shared_tip, *file, is_test);
-            if (!file_module.has_value()) {
+            if (!generate_file_ir(module.get(), shared_tip, *file, is_test)) {
                 return std::nullopt;
             }
 
@@ -381,27 +338,15 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             Resolver::file_generation_finished(shared_tip->file_hash);
 
             if (DEBUG_MODE) {
-                if (!verify_module(file_module.value().get())) {
-                    THROW_BASIC_ERR(ERR_LINKING);
+                if (!verify_module(module.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
             }
 
             if (PRINT_FILE_IR) {
-                std::cout << " -------- " << file_module.value()->getName().str() << " -------- \n"
-                          << resolve_ir_comments(get_module_ir_string(file_module.value().get())) << "\n ---------------- \n"
-                          << std::endl;
-            }
-
-            // Link the generated module in the main module
-            if (linker.linkInModule(std::move(file_module.value()))) {
-                THROW_BASIC_ERR(ERR_LINKING);
-                return std::nullopt;
-            }
-
-            if (PRINT_FILE_IR) {
-                std::cout << " -------- main module after linking -------- \n"
-                          << resolve_ir_comments(get_module_ir_string(main_module.front())) << "\n ---------------- \n"
+                std::cout << " -------- " << module->getName().str() << " -------- \n"
+                          << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
                           << std::endl;
             }
         }
@@ -434,14 +379,16 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // Generate the entry point of the program when in test mode
         Builtin::generate_builtin_test(builder.get(), module.get());
     } else {
-        // Connect the call from the main module to the actual main function declared by the user
+        // Ensure that the user has defined a main function, called `_main`. This function is *not* mangled
         llvm::Function *main_function = module->getFunction("_main");
         if (main_function == nullptr) {
             // No main function defined
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        main_call_array[0]->getCalledOperandUse().set(main_function);
+
+        // Generate main function in the main module
+        Builtin::generate_builtin_main(builder.get(), module.get());
     }
 
     // Verify and emit the module
@@ -458,42 +405,67 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     return module;
 }
 
-std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
-    const std::shared_ptr<DepNode> &dep_node,                             //
-    FileNode &file,                                                       //
-    const bool is_test                                                    //
-) {
+bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<DepNode> &dep_node, FileNode &file, const bool is_test) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
-    std::unique_ptr<llvm::Module> module = std::make_unique<llvm::Module>(dep_node->file_name, context);
-
-    // Declare all the core functions that are used in every file nonetheless
-    Builtin::generate_c_functions(module.get());
-    Module::Arithmetic::generate_arithmetic_functions(nullptr, module.get(), true);
-    Module::Array::generate_array_manip_functions(nullptr, module.get(), true);
-    Module::String::generate_string_manip_functions(nullptr, module.get(), true);
-    Module::TypeCast::generate_typecast_functions(nullptr, module.get(), true);
-    Module::DIMA::generate_heads(module.get());
 
     for (auto &imported_core_module : file.imported_core_modules) {
         const std::string &core_module_name = imported_core_module.first;
         if (core_module_name == "print") {
-            Module::Print::generate_print_functions(nullptr, module.get(), true);
+            static bool print_added = false;
+            if (!print_added) {
+                Module::Print::generate_print_functions(nullptr, module, true);
+                print_added = true;
+            }
         } else if (core_module_name == "read") {
-            Module::Read::generate_read_functions(nullptr, module.get(), true);
+            static bool read_added = false;
+            if (!read_added) {
+                Module::Read::generate_read_functions(nullptr, module, true);
+                read_added = true;
+            }
         } else if (core_module_name == "assert") {
-            Module::Assert::generate_assert_functions(nullptr, module.get(), true);
+            static bool assert_added = false;
+            if (!assert_added) {
+                Module::Assert::generate_assert_functions(nullptr, module, true);
+                assert_added = true;
+            }
         } else if (core_module_name == "filesystem") {
-            Module::FileSystem::generate_filesystem_functions(nullptr, module.get(), true);
+            static bool filesystem_added = false;
+            if (!filesystem_added) {
+                Module::FileSystem::generate_filesystem_functions(nullptr, module, true);
+                filesystem_added = true;
+            }
         } else if (core_module_name == "env") {
-            Module::Env::generate_env_functions(nullptr, module.get(), true);
+            static bool env_added = false;
+            if (!env_added) {
+                Module::Env::generate_env_functions(nullptr, module, true);
+                env_added = true;
+            }
         } else if (core_module_name == "system") {
-            Module::System::generate_system_functions(nullptr, module.get(), true);
+            static bool system_added = false;
+            if (!system_added) {
+                Module::System::generate_system_functions(nullptr, module, true);
+                system_added = true;
+            }
         } else if (core_module_name == "math") {
-            Module::Math::generate_math_functions(nullptr, module.get(), true);
+            static bool math_added = false;
+            if (!math_added) {
+                Module::Math::generate_math_functions(nullptr, module, true);
+                math_added = true;
+            }
         } else if (core_module_name == "parse") {
-            Module::Parse::generate_parse_functions(nullptr, module.get(), true);
+            static bool parse_added = false;
+            if (!parse_added) {
+                Module::Parse::generate_parse_functions(nullptr, module, true);
+                parse_added = true;
+            }
         } else if (core_module_name == "time") {
-            Module::Time::generate_time_functions(nullptr, module.get(), true);
+            // The 'time' module is *always* required when building a program with the `--test` flag because of the builtin performance test
+            // runners
+            static bool time_added = is_test;
+            if (!time_added) {
+                Module::Time::generate_time_functions(nullptr, module, true);
+                time_added = true;
+            }
         }
     }
     // Forward declare all functions from all files where this file has a weak reference to
@@ -501,7 +473,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
         if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
             std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
             Namespace *file_namespace = Resolver::get_namespace_from_hash(weak_dep.lock()->file_hash);
-            IR::generate_forward_declarations(module.get(), *file_namespace->file_node);
+            IR::generate_forward_declarations(module, *file_namespace->file_node);
         }
     }
 
@@ -513,7 +485,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             auto *function_node = node->as<FunctionNode>();
             // Create a forward declaration for the function only if it is not the main function!
             if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(module.get(), function_node);
+                llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
                 if (function_node->mangle_id.has_value()) {
                     assert(!function_node->is_extern);
@@ -524,7 +496,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                     if (extern_functions.find(function_node->name) != extern_functions.end()) {
                         // The extern definition is only allowed to be written once in the project
                         THROW_ERR(ErrExternDuplicateFunction, ERR_GENERATING, function_node, extern_functions.at(function_node->name));
-                        return std::nullopt;
+                        return false;
                     }
                     extern_functions.emplace(function_node->name, function_node);
                     file_function_names.at(file.file_name).emplace_back(function_node->name);
@@ -539,8 +511,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     // Forward-declare all extern functions only if the extern function was not defined in this file
     for (const auto &[fn_name, fn_node] : extern_functions) {
         if (module->getFunction(fn_name) == nullptr) {
-            llvm::FunctionType *function_type = Function::generate_function_type(module.get(), fn_node);
-            llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_node->name, module.get());
+            llvm::FunctionType *function_type = Function::generate_function_type(module, fn_node);
+            llvm::Function::Create(function_type, llvm::Function::ExternalLinkage, fn_node->name, module);
         }
     }
     function_names = file_function_names.at(file.file_name);
@@ -557,8 +529,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                 if (is_test && function_node->name == "_main") {
                     continue;
                 }
-                if (!Function::generate_function(module.get(), function_node, file.imported_core_modules)) {
-                    return std::nullopt;
+                if (!Function::generate_function(module, function_node, file.imported_core_modules)) {
+                    return false;
                 }
                 // No return statement found despite the signature requires return OR
                 // Rerutn statement found but the signature has no return type defined (basically a simple xnor between the two booleans)
@@ -577,11 +549,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                     continue;
                 }
                 std::optional<llvm::Function *> test_function = Function::generate_test_function( //
-                    module.get(), test_node, file.imported_core_modules                           //
+                    module, test_node, file.imported_core_modules                                 //
                 );
                 if (!test_function.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
+                    return false;
                 }
                 if (tests.count(test_node->file_hash) == 0) {
                     tests[test_node->file_hash].emplace_back(test_node, test_function.value()->getName().str());
@@ -592,7 +564,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
             }
             case DefinitionNode::Variation::ENUM: {
                 const auto *enum_node = node->as<EnumNode>();
-                IR::generate_enum_value_strings(module.get(), enum_node->file_hash.to_string(), enum_node->name, enum_node->values);
+                IR::generate_enum_value_strings(module, enum_node->file_hash.to_string(), enum_node->name, enum_node->values);
                 break;
             }
         }
@@ -643,7 +615,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
                 } else {
                     std::cerr << "Failed to write broken_module.ll: " << ec.message() << "\n";
                 }
-                return std::nullopt;
+                return false;
             }
             call->getCalledOperandUse().set(actual_function);
         }
@@ -652,7 +624,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_file_ir( //
     // function_mangle_ids.clear();
     function_names.clear();
 
-    return module;
+    return true;
 }
 
 std::string Generator::get_module_ir_string(const llvm::Module *module) {

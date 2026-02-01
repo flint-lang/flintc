@@ -105,15 +105,12 @@ class Generator {
     /// @function `generate_file_ir`
     /// @brief Generates the llvm IR code for a single file and saves it into a llvm module
     ///
+    /// @param `module` The module in which to emit the file IR code in
     /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
-    /// @return `std::unique_ptr<llvm::Module>` A pointer containing the generated file module, nullopt if code generation failed
-    static std::optional<std::unique_ptr<llvm::Module>> generate_file_ir( //
-        const std::shared_ptr<DepNode> &dep_node,                         //
-        FileNode &file,                                                   //
-        const bool is_test                                                //
-    );
+    /// @return `bool` Whether the file IR was generated correctly
+    static bool generate_file_ir(llvm::Module *module, const std::shared_ptr<DepNode> &dep_node, FileNode &file, const bool is_test);
 
     /// @function `get_module_ir_string`
     /// @brief Generates the IR code of the given Module and returns it as a string
@@ -311,23 +308,12 @@ class Generator {
     /// the function the call references, not only its name
     static inline std::unordered_map<std::string, std::vector<std::string>> file_function_names;
 
-    /// @var `main_call_array`
-    /// @brief Holds a reference to the call of the user-defined main function from within the builtin main function
-    ///
-    /// This array of size 1 exists because a static variable is needed to reference the call instruction. If the pointer to the call
-    /// instruction itself would have been made static, very weird things start to happen as the pointer seemingly "changes" its reference
-    /// its pointing to. This is the reason the pointer, the value of this static construct, is being wrapped in an array of size 1. It
-    /// introduces minimal overhead and only acts as a static "container" in this case, to store the pointer to the call instruction calling
-    /// the user-defined main function from within the builtin main function.
-    static inline std::array<llvm::CallInst *, 1> main_call_array;
-
     /// @var `main_module`
     /// @brief Holds a static reference to the main module
     ///
-    /// This array of size 1 exists because of the same reasons as why 'main_call_array' exists. It holds the reference to the main
-    /// module, which means that every function can reference the main module if needed without the main module needed to explicitely be
-    /// passed around through many functions which dont use it annyways. It is actually much more efficient to have this reference inside an
-    /// static array than to pass it around unnecessarily.
+    /// This array of size 1 holds the reference to the main module, which means that every function can reference the main module if needed
+    /// without the main module needed to explicitely be passed around through many functions which dont use it annyways. It is much more
+    /// efficient to have this reference inside an static array than to pass it around unnecessarily.
     static inline std::array<llvm::Module *, 1> main_module;
 
     /// @var `tests`

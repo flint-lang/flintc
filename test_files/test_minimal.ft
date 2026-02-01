@@ -20,9 +20,9 @@ entity Entity:
 	func: Func;
 	Entity(Data);
 
-// Uncommenting this triggers the fucking LLVM assertion about duplicate types again!
-// def apply_move_operation(Func f, i32x2 diff):
-// 	f.move(diff);
+// Uncommenting this triggers the LLVM assertion about duplicate types again...
+def apply(mut Func f):
+	f.move(i32x2(5, 5));
 
 def move(mut Entity e):
 	e.move(i32x2(5, 5));
@@ -35,8 +35,9 @@ def main():
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
 	init(e1);
 	move(e1);
+
+	Func f = e1;
+	apply(f);
+	f.move(i32x2(5, 5));
+
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
-	// This works fine
-	// Func f = e1;
-	// f.move(i32x2(5, 5));
-	// apply_move_operation(f, i32x2(5, 5));

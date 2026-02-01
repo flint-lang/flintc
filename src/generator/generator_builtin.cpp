@@ -25,10 +25,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         "_main", parameters, return_types, error_types, scope, std::nullopt //
     );
 
-    // Create the declaration of the custom main function
+    // Get the custom user-defined main function
     llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("i32"));
-    llvm::FunctionType *custom_main_type = Function::generate_function_type(module, &function_node);
-    llvm::FunctionCallee custom_main_callee = module->getOrInsertFunction(function_node.name, custom_main_type);
+    llvm::Function *custom_main_function = module->getFunction(function_node.name);
+    assert(custom_main_function != nullptr);
 
     llvm::FunctionType *main_type = nullptr;
     if (Parser::main_function_has_args) {
@@ -138,12 +138,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_exit_block);
-        llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {arr_ptr});
-        main_call_array[0] = main_call;
+        llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {arr_ptr});
         IR::aligned_store(*builder, main_call, main_ret);
     } else {
-        llvm::CallInst *main_call = builder->CreateCall(custom_main_callee, {});
-        main_call_array[0] = main_call;
+        llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {});
         IR::aligned_store(*builder, main_call, main_ret);
     }
 

@@ -11,8 +11,7 @@ enum ErrorType {
     ERR_ANALYZING = 4,
     ERR_SCOPE = 5,
     ERR_GENERATING = 6,
-    ERR_LINKING = 7,
-    ERR_FIP = 8,
+    ERR_FIP = 7,
 };
 
 static const std::unordered_map<ErrorType, std::string_view> error_type_names = {
@@ -22,6 +21,5 @@ static const std::unordered_map<ErrorType, std::string_view> error_type_names = 
     {ERR_SCOPE, "Scope Error"},
     {ERR_ANALYZING, "Analyzing Error"},
     {ERR_GENERATING, "Generation Error"},
-    {ERR_LINKING, "Link Error"},
     {ERR_FIP, "FIP Error"},
 };
