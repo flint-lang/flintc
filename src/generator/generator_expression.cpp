@@ -1208,9 +1208,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
         // variable as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour
         // should only effect array types, as data and strings are handled differently
         const bool is_not_arr = arg.first->type->get_variation() != Type::Variation::ARRAY;
-        const bool is_not_entity = arg.first->type->get_variation() != Type::Variation::ENTITY;
-        const bool is_not_func = arg.first->type->get_variation() != Type::Variation::FUNC;
-        const bool is_reference = arg.second && is_not_arr && is_not_entity && is_not_func;
+        const bool is_reference = arg.second && is_not_arr;
         group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
         if (!expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);

@@ -20,41 +20,23 @@ entity Entity:
 	func: Func;
 	Entity(Data);
 
-data Data2:
-	i32 z;
-	i32 speed;
-	Data2(z, speed);
-
-func Func2 requires(Data d, Data2 d2):
-	def move2(f32x3 direction):
-		f32x3 diff = direction * f32(d2.speed);
-		d.(x, y) += (i32(diff.x), i32(diff.y));
-		d2.z += i32(diff.z);
-
-	def get_z() -> i32:
-		return d2.z;
-
-entity Entity2 extends(Entity e):
-	data: Data2;
-	func: Func2;
-	Entity2(e, Data2);
-
 // Uncommenting this triggers the fucking LLVM assertion about duplicate types again!
 // def apply_move_operation(Func f, i32x2 diff):
 // 	f.move(diff);
 
+def move(mut Entity e):
+	e.move(i32x2(5, 5));
+
+def init(mut Entity e):
+	e = Entity(Data(20, 10));
+
 def main():
 	e1 := Entity(Data(10, 20));
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
-	// This works fine
-	const Func f = e1;
-	f.move(i32x2(5, 5));
-	// apply_move_operation(f, i32x2(5, 5));
+	init(e1);
+	move(e1);
 	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
-
-	e2 := Entity2(Data(10, 20), Data2(30, 3));
-	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
-	f = e2;
-	f.move(i32x2(5, 5));
+	// This works fine
+	// Func f = e1;
+	// f.move(i32x2(5, 5));
 	// apply_move_operation(f, i32x2(5, 5));
-	print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");

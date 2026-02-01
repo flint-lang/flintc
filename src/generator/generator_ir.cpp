@@ -515,7 +515,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Check if it's a known entity type
             const std::string type_str = entity_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {false, false}};
+                return {type_map.at(type_str), {false, true}};
             }
             // Create the entity type, it's just a struct containing pointers to the entities' defined data
             std::vector<llvm::Type *> field_types;
@@ -525,7 +525,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {false, false}};
+            return {type_map.at(type_str), {false, true}};
         }
         case Type::Variation::ENUM:
             return {llvm::Type::getInt32Ty(context), {false, false}};
@@ -536,7 +536,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Check if it's a known func type
             const std::string type_str = func_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {false, false}};
+                return {type_map.at(type_str), {false, true}};
             }
             // Check if the func type even requires any data. If it does not then it's type cannot be created
             // TODO: Once CTDTs exist this check is no longer required as then any function could be linked to / hooked into any other
@@ -545,7 +545,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // valid type, since a struct with no members would crash llvm
             if (func_type->func_node->required_data.empty()) {
                 THROW_BASIC_ERR(ERR_GENERATING);
-                return {nullptr, {false, false}};
+                return {nullptr, {false, true}};
             }
             // Create the func type, it's just a struct containing pointers to the defined data
             std::vector<llvm::Type *> field_types;
@@ -553,7 +553,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {false, false}};
+            return {type_map.at(type_str), {false, true}};
         }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
