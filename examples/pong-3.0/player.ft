@@ -1,0 +1,61 @@
+use Core.print
+
+use "raylib.ft"
+use "ball.ft"
+
+data DPlayer:
+	i32x2 size;
+	// The position of the player is the center of the rectangle
+	f32x2 pos;
+	f32 speed;
+	DColor color;
+	DPlayer(size, pos, speed, color);
+
+func FPlayer requires(DPlayer player):
+	def draw():
+		// We need to claculate the rendering position by the player position through offsetting it by half the
+		// width and the height of the player
+		i32 render_pos_x = i32(player.pos.x) - (player.size.x / 2);
+		i32 render_pos_y = i32(player.pos.y) - (player.size.y / 2);
+		DRectangle rec = DRectangle(render_pos_x, render_pos_y, player.size.x, player.size.y);
+		DrawRectangleRounded(rec, 0.8, 0, player.color);
+
+	def get_x() -> f32:
+		return player.pos.x;
+	
+	def clamp_position():
+		if player.pos.y - f32(player.size.y / 2) < 10.0:
+			player.pos = f32x2(player.pos.x, f32(player.size.y / 2) + 10.0);
+		else if player.pos.y + f32(player.size.y / 2) > f32(GetScreenHeight() - 10):
+			player.pos = f32x2(player.pos.x, GetScreenHeight() - player.size.y / 2 - 10);
+	
+	def update(f32 delta):
+		if IsKeyDown(265): // 265 is the KEY_UP key in Raylib
+			player.pos = player.pos - (0.0, player.speed * delta);
+		if IsKeyDown(264): // 264 is the KEY_DOWN key in Raylib
+			player.pos = player.pos + (0.0, player.speed * delta);
+		FPlayer.clamp_position(player);
+		player.pos = (f32(GetScreenWidth() - player.size.x / 2 - 10), player.pos.y);
+
+	def reset():
+		player.pos = f32x2(GetScreenWidth() - player.size.x / 2 - 10, GetScreenHeight() / 2);
+
+	def collides_with(mut Ball ball) -> bool:
+		const bool below = ball.get_y() > player.pos.y + f32(player.size.y / 2) + ball.get_radius() / 2.0;
+		const bool above = ball.get_y() < player.pos.y - f32(player.size.y / 2) - ball.get_radius() / 2.0;
+		if below or above:
+			return false;
+
+		f32 x_player = player.pos.x;
+		f32 x_ball = ball.get_x();
+		x_player -= f32(player.size.x / 2);
+		x_ball += ball.get_radius();
+		if x_ball > x_player:
+			return true;
+
+		return false;
+
+entity Player:
+	data: DPlayer;
+	func: FPlayer;
+	Player(DPlayer);

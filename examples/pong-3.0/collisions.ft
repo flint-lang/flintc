@@ -1,0 +1,29 @@
+use Core.print
+
+use "player.ft"
+use "cpu.ft"
+use "ball.ft"
+
+enum GameState:
+	RUNNING, P1_WON, P2_WON;
+
+def check_collisions(mut Ball ball, mut Cpu cpu, mut Player player) -> GameState:
+	// Check for collisions of the ball with the cpu
+	if cpu.cpu_collides_with(ball):
+		print("Collided with P1!\n");
+		ball.reflect_v();
+		return GameState.RUNNING;
+
+	// Check for collisions of the ball with the player
+	if player.collides_with(ball):
+		print("Collided with P2!\n");
+		ball.reflect_v();
+		return GameState.RUNNING;
+
+	// Check if the ball passed one of the players
+	if ball.passed_cpu(cpu):
+		return GameState.P2_WON;
+	if ball.passed_player(player):
+		return GameState.P1_WON;
+	
+	return GameState.RUNNING;

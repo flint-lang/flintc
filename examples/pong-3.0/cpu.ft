@@ -1,0 +1,37 @@
+use "raylib.ft"
+use "player.ft"
+use "ball.ft"
+
+func FCpu requires(DPlayer player):
+	def cpu_update(f32 ball_y, f32 delta):
+		if player.pos.y - 10.0 > ball_y:
+			player.pos = player.pos - (0.0, player.speed * delta);
+		else if player.pos.y + 10.0 < ball_y:
+			player.pos = player.pos + (0.0, player.speed * delta);
+		FPlayer.clamp_position(player);
+
+	def cpu_reset():
+		player.pos = f32x2(10 + player.size.x / 2, GetScreenHeight() / 2);
+
+	def cpu_collides_with(mut Ball ball) -> bool:
+		const bool below = ball.get_y() > player.pos.y + f32(player.size.y / 2) + ball.get_radius() / 2.0;
+		const bool above = ball.get_y() < player.pos.y - f32(player.size.y / 2) - ball.get_radius() / 2.0;
+		if below or above:
+			return false;
+
+		f32 x_player = player.pos.x;
+		f32 x_ball = ball.get_x();
+		x_player += f32(player.size.x / 2);
+		x_ball -= ball.get_radius();
+		if x_ball < x_player:
+			return true;
+
+		return false;
+
+entity Cpu extends(Player p):
+	data;
+	func: FCpu;
+	// link:
+	// 	FPlayer::reset -> FCpu::reset,
+	// 	FPlayer::collides_with -> FCpu::collides_with;
+	Cpu(p);

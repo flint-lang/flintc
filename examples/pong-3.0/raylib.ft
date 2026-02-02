@@ -1,0 +1,36 @@
+data DColor:
+	u8 r;
+	u8 g;
+	u8 b;
+	u8 a;
+	DColor(r, g, b, a);
+
+data DRectangle:
+	f32 x;
+	f32 y;
+	f32 width;
+	f32 height;
+	DRectangle(x, y, width, height);
+
+extern def InitWindow(mut i32 width, mut i32 height, str title);
+extern def WindowShouldClose() -> bool;
+extern def CloseWindow();
+extern def GetScreenHeight() -> i32;
+extern def GetScreenWidth() -> i32;
+
+extern def SetTargetFPS(mut i32 fps);
+extern def SetConfigFlags(mut u32 flags);
+
+extern def BeginDrawing();
+extern def EndDrawing();
+extern def ClearBackground(mut DColor color);
+
+extern def DrawCircle(mut i32 centerX, mut i32 centerY, mut f32 radius, mut DColor color);
+extern def DrawRectangle(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut DColor color);
+extern def DrawRectangleRounded(mut DRectangle rec, mut f32 roundness, mut i32 segments, mut DColor color);
+extern def DrawLine(mut i32 startPosX, mut i32 startPosY, mut i32 endPosX, mut i32 endPosY, mut DColor color);
+extern def DrawText(str text, mut i32 posX, mut i32 posY, mut i32 fontSize, mut DColor color);
+
+extern def IsKeyDown(mut i32 key) -> bool;
+
+extern def GetRandomValue(mut i32 min, mut i32 max) -> i32;
