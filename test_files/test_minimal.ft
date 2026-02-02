@@ -5,39 +5,8 @@ data Data:
 	i32 y;
 	Data(x, y);
 
-func Func requires(Data d):
-	def move(i32x2 diff):
-		d.(x, y) += diff.(x, y);
-
-	def get_x() -> i32:
-		return d.x;
-
-	def get_y() -> i32:
-		return d.y;
-
-entity Entity:
-	data: Data;
-	func: Func;
-	Entity(Data);
-
-// Uncommenting this triggers the LLVM assertion about duplicate types again...
-def apply(mut Func f):
-	f.move(i32x2(5, 5));
-
-def move(mut Entity e):
-	e.move(i32x2(5, 5));
-
-def init(mut Entity e):
-	e = Entity(Data(20, 10));
-
 def main():
-	e1 := Entity(Data(10, 20));
-	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
-	init(e1);
-	move(e1);
-
-	Func f = e1;
-	apply(f);
-	f.move(i32x2(5, 5));
-
-	print($"e1.(x, y) = ({e1.get_x()}, {e1.get_y()})\n");
+	for (_, _) in 0..10_000_000:
+		Data d = Data(10, 20);
+		if d.x > 5:
+			continue;

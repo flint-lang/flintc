@@ -3,7 +3,7 @@
 #include "statement_node.hpp"
 
 /// class `ContinueNode`
-/// @brief Represents break statements
+/// @brief Represents continue statements
 class ContinueNode : public StatementNode {
   public:
     // constructor

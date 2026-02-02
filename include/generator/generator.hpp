@@ -328,6 +328,11 @@ class Generator {
     /// @brief The last basic blocks to loop back to, its a list to not need to update them for nested loops
     static inline std::vector<llvm::BasicBlock *> last_looparound_blocks;
 
+    /// @var `last_loop_scopes`
+    /// @brief The last scopes of loops needed for continue and break statements to generate the end of scope (freeing of stuff) for that
+    /// loop's scope
+    static inline std::vector<std::shared_ptr<Scope>> last_loop_scopes;
+
     /// @var `last_loop_merge_blocks`
     /// @brief The last basic block to merge to, its a list in order to not needing to update the merge block after every nested loop
     /// statement

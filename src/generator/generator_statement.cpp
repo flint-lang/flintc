@@ -17,7 +17,6 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
-#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -44,9 +43,26 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<AssignmentNode>();
             return generate_assignment(builder, ctx, node);
         }
-        case StatementNode::Variation::BREAK:
+        case StatementNode::Variation::BREAK: {
+            const auto old_scope = ctx.scope;
+            const auto &loop_scope = last_loop_scopes.back();
+            while (ctx.scope != loop_scope) {
+                // Generate the end of scope of all nested scopes we are in, like nested if statements for example
+                if (!generate_end_of_scope(builder, ctx)) {
+                    return false;
+                }
+                assert(ctx.scope->parent_scope != nullptr);
+                ctx.scope = ctx.scope->parent_scope;
+            }
+            assert(ctx.scope == loop_scope);
+            ctx.scope = loop_scope;
+            if (!generate_end_of_scope(builder, ctx)) {
+                return false;
+            }
             builder.CreateBr(last_loop_merge_blocks.back());
+            ctx.scope = old_scope;
             return true;
+        }
         case StatementNode::Variation::CALL: {
             const auto *node = statement->as<CallNodeStatement>();
             group_mapping gm = Expression::generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
@@ -56,9 +72,26 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<CatchNode>();
             return generate_catch_statement(builder, ctx, node);
         }
-        case StatementNode::Variation::CONTINUE:
+        case StatementNode::Variation::CONTINUE: {
+            const auto old_scope = ctx.scope;
+            const auto &loop_scope = last_loop_scopes.back();
+            while (ctx.scope != loop_scope) {
+                // Generate the end of scope of all nested scopes we are in, like nested if statements for example
+                if (!generate_end_of_scope(builder, ctx)) {
+                    return false;
+                }
+                assert(ctx.scope->parent_scope != nullptr);
+                ctx.scope = ctx.scope->parent_scope;
+            }
+            assert(ctx.scope == loop_scope);
+            ctx.scope = loop_scope;
+            if (!generate_end_of_scope(builder, ctx)) {
+                return false;
+            }
             builder.CreateBr(last_looparound_blocks.back());
+            ctx.scope = old_scope;
             return true;
+        }
         case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<DataFieldAssignmentNode>();
             return generate_data_field_assignment(builder, ctx, node);
@@ -185,10 +218,14 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
         return false;
     }
 
-    // Only generate end of scope if the last statement was not a return or throw statement
+    // Only generate end of scope if the last statement was not a return, throw, break or continue statement
     const auto last_variation = ctx.scope->body.back()->get_variation();
-    if (ctx.scope->parent_scope != nullptr && last_variation != StatementNode::Variation::RETURN &&
-        last_variation != StatementNode::Variation::THROW) {
+    if (ctx.scope->parent_scope != nullptr                      //
+        && last_variation != StatementNode::Variation::RETURN   //
+        && last_variation != StatementNode::Variation::THROW    //
+        && last_variation != StatementNode::Variation::BREAK    //
+        && last_variation != StatementNode::Variation::CONTINUE //
+    ) {
         success &= generate_end_of_scope(builder, ctx);
     }
     return success;
@@ -609,6 +646,7 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
     last_looparound_blocks.emplace_back(do_while_blocks[1]);
     do_while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
     last_loop_merge_blocks.emplace_back(do_while_blocks[2]);
+    last_loop_scopes.emplace_back(do_while_node->scope);
 
     builder.SetInsertPoint(pred_block);
     llvm::BranchInst *init_do_while_br = builder.CreateBr(do_while_blocks[0]);
@@ -649,6 +687,7 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
 
     last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    last_loop_scopes.pop_back();
     return true;
 }
 
@@ -664,6 +703,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", ctx.parent);
     while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
     last_loop_merge_blocks.emplace_back(while_blocks[2]);
+    last_loop_scopes.emplace_back(while_node->scope);
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
     builder.SetInsertPoint(pred_block);
@@ -708,6 +748,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     builder.SetInsertPoint(while_blocks[2]);
     last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    last_loop_scopes.pop_back();
     return true;
 }
 
@@ -733,6 +774,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     // Create the merge block but don't add it to the parent function yet
     for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
     last_loop_merge_blocks.emplace_back(for_blocks[3]);
+    last_loop_scopes.emplace_back(ctx.scope);
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
     builder.SetInsertPoint(pred_block);
@@ -790,6 +832,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     ctx.scope = current_scope;
     last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    last_loop_scopes.pop_back();
     builder.SetInsertPoint(for_blocks[3]);
     return true;
 }
@@ -807,6 +850,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     // Create the merge block but don't add it to the parent function yet
     for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
     last_loop_merge_blocks.emplace_back(for_blocks[3]);
+    last_loop_scopes.emplace_back(for_node->body);
 
     // Generate the iterable expression
     builder.SetInsertPoint(pred_block);
@@ -988,6 +1032,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(for_blocks[3]);
     last_looparound_blocks.pop_back();
     last_loop_merge_blocks.pop_back();
+    last_loop_scopes.pop_back();
     return true;
 }
 

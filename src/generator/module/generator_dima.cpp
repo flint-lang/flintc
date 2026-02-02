@@ -896,7 +896,6 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_value, builder->getInt64(-dima_slot_size), "slot_ptr");
     llvm::Value *slot_arc_ptr = builder->CreateStructGEP(dima_slot_type, slot_ptr, SLOT_ARC, "slot_arc_ptr");
     llvm::Value *slot_arc = IR::aligned_load(*builder, builder->getInt32Ty(), slot_arc_ptr, "slot_arc");
-    IR::generate_debug_print(builder, module, "dima.release.entry head=%p arc=%llu", {arg_head_ref, slot_arc});
     llvm::Value *slot_arc_m1 = builder->CreateSub(slot_arc, builder->getInt32(1), "slot_arc_m1");
     IR::aligned_store(*builder, slot_arc_m1, slot_arc_ptr);
     llvm::Value *slot_arc_m1_gt_0 = builder->CreateICmpUGT(slot_arc_m1, builder->getInt32(0), "slot_arc_m1_gt_0");
