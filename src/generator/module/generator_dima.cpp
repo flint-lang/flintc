@@ -918,6 +918,7 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::Value *block_used_ptr = builder->CreateStructGEP(dima_block_type, block, BLOCK_USED, "block_used_ptr");
     llvm::Value *block_used = IR::aligned_load(*builder, builder->getInt64Ty(), block_used_ptr, "block_used");
     llvm::Value *block_used_m1 = builder->CreateSub(block_used, builder->getInt64(1), "block_used_m1");
+    IR::aligned_store(*builder, block_used_m1, block_used_ptr);
     llvm::Value *type_size_ptr = builder->CreateStructGEP(dima_block_type, block, BLOCK_TYPE_SIZE, "type_size_ptr");
     llvm::Value *type_size = IR::aligned_load(*builder, builder->getInt64Ty(), type_size_ptr, "type_size");
     llvm::Value *slot_size = builder->CreateAdd(builder->getInt64(dima_slot_size), type_size, "slot_size");
