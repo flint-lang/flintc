@@ -195,6 +195,12 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
 }
 
 bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, GenerationContext &ctx) {
+    // Get all variables of this scope that went out of scope
+    auto variables = ctx.scope->get_unique_variables();
+    if (variables.empty()) {
+        // Do not generate any branches if no variables went out of scope and need to be freed
+        return true;
+    }
     llvm::BasicBlock *prev_block = builder.GetInsertBlock();
     llvm::Instruction *prev_terminator = prev_block->getTerminator();
     llvm::BasicBlock *end_of_scope_block = llvm::BasicBlock::Create(               //
@@ -204,8 +210,6 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     builder.SetInsertPoint(prev_block);
     builder.CreateBr(end_of_scope_block);
     builder.SetInsertPoint(end_of_scope_block);
-    // Get all variables of this scope that went out of scope
-    auto variables = ctx.scope->get_unique_variables();
     for (const auto &[var_name, variable] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
         // Also check if the variable is a reference to another variable (like in variant switch branches), if it is dont free it
