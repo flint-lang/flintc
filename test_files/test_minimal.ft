@@ -1,4 +1,5 @@
 use Core.print
+use Core.time
 
 data Data:
 	i32 x;
@@ -6,7 +7,15 @@ data Data:
 	Data(x, y);
 
 def main():
+	TimeStamp last_frame = now();
+	TimeStamp current_frame = now();
+	u32 target_fps = 60;
+	f32 target_frametime = 1 / f32(target_fps);
 	for (_, _) in 0..10_000_000:
-		Data d = Data(10, 20);
-		if d.x > 5:
+		current_frame = now();
+		Duration frame_duration = duration(last_frame, current_frame);
+		f32 delta = f32(as_unit(frame_duration, TimeUnit.S));
+		if delta < target_frametime:
 			continue;
+		print($"delta = {delta}\n");
+		last_frame = now();

@@ -1251,9 +1251,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
             expr_val = temp_opt;
         } else if (param_type->get_variation() == Type::Variation::DATA //
             && arg_type->get_variation() == Type::Variation::DATA       //
-            && !call_node->function->is_extern                          //
         ) {
-            // Call `dima.retain` to increment the ARC before passing the argument to the function only if the function is not extern
+            // Call `dima.retain` to increment the ARC before passing the argument to the function
             llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
             llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {expr_val});
             retain_call->setMetadata("comment",
@@ -1489,6 +1488,24 @@ Generator::group_mapping Generator::Expression::generate_call( //
             assert(std::get<2>(std::get<1>(builtin_function.value()).front()).empty());
             func_decl = Module::Time::time_functions.at(fn_name);
             return_value.emplace_back(builder.CreateCall(func_decl, args));
+            for (size_t i = 0; i < call_node->arguments.size(); i++) {
+                const auto &arg = call_node->arguments[i];
+                if (arg.first->type->get_variation() != Type::Variation::DATA) {
+                    continue;
+                }
+                if (call_node->arguments.at(i).first->type->get_variation() != Type::Variation::DATA) {
+                    continue;
+                }
+                // Call `dima.release` to decrement the ARC after the function call
+                llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+                auto data_head = Module::DIMA::get_head(arg.first->type);
+                llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, args.at(i)});
+                release_call->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
+                            "Calling 'release' on arg " + std::to_string(i) + " after calling function '" + call_node->function->name +
+                                "'")));
+            }
             return return_value;
         } else {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1522,6 +1539,25 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // Store function result
     llvm::Value *res_var = ctx.allocations.at(call_ret_name);
     IR::aligned_store(builder, call, res_var);
+
+    // Call 'dima.release' on the retained function arguments
+    for (size_t i = 0; i < call_node->arguments.size(); i++) {
+        const auto &arg = call_node->arguments[i];
+        if (arg.first->type->get_variation() != Type::Variation::DATA) {
+            continue;
+        }
+        if (call_node->arguments.at(i).first->type->get_variation() != Type::Variation::DATA) {
+            continue;
+        }
+        // Call `dima.release` to decrement the ARC after the function call
+        llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+        auto data_head = Module::DIMA::get_head(arg.first->type);
+        llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, args.at(i)});
+        release_call->setMetadata("comment",
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
+                    "Calling 'release' on arg " + std::to_string(i) + " after calling function '" + call_node->function->name + "'")));
+    }
 
     // Extract and store error value
     llvm::StructType *return_type = static_cast<llvm::StructType *>(IR::add_and_or_get_type(ctx.parent->getParent(), call_node->type));

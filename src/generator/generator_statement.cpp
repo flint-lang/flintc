@@ -259,9 +259,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         if (!variable.type->is_freeable()) {
             continue;
         }
-        if (variable.is_fn_param && variable.type->get_variation() != Type::Variation::DATA) {
-            // Only free variables which are no function parameters except that parameter is of type data, then we still call the
-            // `dima.release` function as usual
+        if (variable.is_fn_param) {
+            // Only free variables which are no function parameters
             continue;
         }
         // Check if the variable is returned within this scope, if it is we do not free it

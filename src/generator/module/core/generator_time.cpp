@@ -376,12 +376,6 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
     llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
     IR::aligned_store(*builder, diff_value, duration_value_ptr);
 
-    // Call release on both function parameters of type TimeStamp
-    auto *timestamp_head = time_dima_heads.at("TimeStamp");
-    llvm::Function *dima_release = DIMA::dima_functions.at("release");
-    builder->CreateCall(dima_release, {timestamp_head, arg_t1});
-    builder->CreateCall(dima_release, {timestamp_head, arg_t2});
-
     // Return the pointer to the heap-allocated Duration
     builder->CreateRet(duration_ptr);
 }
@@ -487,12 +481,6 @@ void Generator::Module::Time::generate_sleep_duration_function( //
     // Call nanosleep(&ts, NULL)
     builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(timespec_type->getPointerTo())});
 #endif
-
-    // Call dima.release on the duration argument
-    auto *duration_head = time_dima_heads.at("Duration");
-    llvm::Function *dima_release = DIMA::dima_functions.at("release");
-    builder->CreateCall(dima_release, {duration_head, arg_d});
-
     builder->CreateRetVoid();
 }
 
@@ -608,10 +596,6 @@ void Generator::Module::Time::generate_sleep_time_function(llvm::IRBuilder<> *bu
     llvm::Value *duration_value_ptr = builder->CreateStructGEP(duration_type, duration_ptr, 0, "duration_value_ptr");
     IR::aligned_store(*builder, ns_value, duration_value_ptr);
 
-    // Call `dima.retain` before the `sleep_duration` function
-    llvm::Function *dima_retain_fn = DIMA::dima_functions.at("retain");
-    builder->CreateCall(dima_retain_fn, {duration_ptr});
-
     // Call sleep_duration(&d)
     builder->CreateCall(sleep_duration_fn, {duration_ptr});
 
@@ -722,11 +706,6 @@ void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *build
     return_value->addIncoming(result_ms, case_ms_block);
     return_value->addIncoming(result_s, case_s_block);
     return_value->addIncoming(default_value, default_block);
-
-    // Release the duration argument of the call before returning
-    auto *duration_head = time_dima_heads.at("Duration");
-    llvm::Function *dima_release = DIMA::dima_functions.at("release");
-    builder->CreateCall(dima_release, {duration_head, arg_d});
     builder->CreateRet(return_value);
 }
 
