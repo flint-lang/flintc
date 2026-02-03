@@ -801,6 +801,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         return;
     }
 
+    // Init DIMA
+    llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
+    builder->CreateCall(dima_init_heads_fn, {});
+
     // Create the counter to count how many tests have failed
     llvm::AllocaInst *counter = builder->CreateAlloca( //
         llvm::Type::getInt32Ty(context),               //
