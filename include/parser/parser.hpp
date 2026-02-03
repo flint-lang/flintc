@@ -21,7 +21,6 @@
 
 #include "ast/statements/array_assignment_node.hpp"
 #include "ast/statements/assignment_node.hpp"
-#include "ast/statements/call_node_statement.hpp"
 #include "ast/statements/data_field_assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
 #include "ast/statements/enhanced_for_loop_node.hpp"
@@ -1233,20 +1232,26 @@ class Parser {
     /// @brief Creates an IfNode from the given if chain
     ///
     /// @param `scope` The scope in which the if statement is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `if_chain` The list of token pairs representing the if statement chain
     /// @return `std::optional<std::unique_ptr<IfNode>>` An optional unique pointer to the created IfNode
-    std::optional<std::unique_ptr<IfNode>> create_if(std::shared_ptr<Scope> &scope,
-        std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain);
+    std::optional<std::unique_ptr<IfNode>> create_if(                    //
+        std::shared_ptr<Scope> &scope,                                   //
+        const unsigned int scope_segment,                                //
+        std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain //
+    );
 
     /// @function `create_do_while_loop`
     /// @brief Creates a DoWhileNode from the given definition and body tokens inside the given scope
     ///
     /// @param `scope` The scope in which the do-while loop is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `condition_line` The list of tokens representing the end of the scope and the condition
     /// @param `body` The list of tokens representing the loop body
     /// @return `std::optional<std::unique_ptr<DoWhileNode>>` An optional unique pointer to the created DoWhileNode
     std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop( //
         std::shared_ptr<Scope> &scope,                                //
+        const unsigned int scope_segment,                             //
         const token_slice &condition_line,                            //
         const std::vector<Line> &body                                 //
     );
@@ -1255,11 +1260,13 @@ class Parser {
     /// @brief Creates a WhileNode from the given definition and body tokens inside the given scope
     ///
     /// @param `scope` The scope in which the while loop is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The list of tokens representing the while loop definition
     /// @param `body` The list of tokens representing the while loop body
     /// @return `std::optional<std::unique_ptr<WhileNode>>` An optional unique pointer to the created WhileNode
     std::optional<std::unique_ptr<WhileNode>> create_while_loop( //
         std::shared_ptr<Scope> &scope,                           //
+        const unsigned int scope_segment,                        //
         const token_slice &definition,                           //
         const std::vector<Line> &body                            //
     );
@@ -1268,21 +1275,28 @@ class Parser {
     /// @brief Creates a ForLoopNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the for loop is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The list of tokens representing the for loop definition
     /// @param `body` The list of tokens representing the for loop body
     /// @return `std::optional<std::unique_ptr<ForLoopNode>>` An optional unique pointer to the created ForLoopNode
-    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop(std::shared_ptr<Scope> &scope, const token_slice &definition,
-        const std::vector<Line> &body);
+    std::optional<std::unique_ptr<ForLoopNode>> create_for_loop( //
+        std::shared_ptr<Scope> &scope,                           //
+        const unsigned int scope_segment,                        //
+        const token_slice &definition,                           //
+        const std::vector<Line> &body                            //
+    );
 
     /// @function `create_enh_for_loop`
     /// @brief Creates an enhanced ForLoopNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the enhanced for loop is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The list of tokens representing the enhanced for loop definition
     /// @param `body` The list of tokens representing the enhanced for loop body
     /// @return `std::optional<std::unique_ptr<EnhForLoopNode>>` An optional unique pointer to the created enhanced ForLoopNode
     std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
         std::shared_ptr<Scope> &scope,                                  //
+        const unsigned int scope_segment,                               //
         const token_slice &definition,                                  //
         const std::vector<Line> &body                                   //
     );
@@ -1291,6 +1305,7 @@ class Parser {
     /// @brief Creates the body of a single switch branch and then creates the whole branch and adds it to the list of s or e branches
     ///
     /// @param `scope` The scope in which the switch statement / expression is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `match_expressions` The list of the match expressions which, when matched, this branch will be executed
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
@@ -1305,6 +1320,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_switch_branch_body(                                      //
         std::shared_ptr<Scope> &scope,                                   //
+        const unsigned int scope_segment,                                //
         std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
         std::vector<SSwitchBranch> &s_branches,                          //
         std::vector<ESwitchBranch> &e_branches,                          //
@@ -1319,6 +1335,7 @@ class Parser {
     /// @brief Creates the branches of a general switch, e.g. a switch where the switched-on values can be expressions (like integer types)
     ///
     /// @param `scope` The scope in which the switch statement / expression is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
     /// @param `body` The body of the whole switch
@@ -1330,6 +1347,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_switch_branches(                    //
         std::shared_ptr<Scope> &scope,              //
+        const unsigned int scope_segment,           //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1342,6 +1360,7 @@ class Parser {
     /// statement or an expression
     ///
     /// @param `scope` The scope in which the switch statement / expression switching on the enum value is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
     /// @param `body` The body of the whole switch
@@ -1354,6 +1373,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_enum_switch_branches(               //
         std::shared_ptr<Scope> &scope,              //
+        const unsigned int scope_segment,           //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1367,6 +1387,7 @@ class Parser {
     /// statement or an expression
     ///
     /// @param `scope` The scope in which the switch statement / expression switching on the enum value is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
     /// @param `body` The body of the whole switch
@@ -1379,6 +1400,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_error_switch_branches(              //
         std::shared_ptr<Scope> &scope,              //
+        const unsigned int scope_segment,           //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1392,6 +1414,7 @@ class Parser {
     /// statement or an expression
     ///
     /// @param `scope` The scope in which the switch statement / expression switching on the optional value is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
     /// @param `body` The body of the whole switch
@@ -1404,6 +1427,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_optional_switch_branches(           //
         std::shared_ptr<Scope> &scope,              //
+        const unsigned int scope_segment,           //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1417,6 +1441,7 @@ class Parser {
     /// statement or an expression
     ///
     /// @param `scope` The scope in which the switch statement / expression switching on the variant value is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `s_branches` The list of all statement branches
     /// @param `e_branches` The list of all expression branches
     /// @param `body` The body of the whole switch
@@ -1429,6 +1454,7 @@ class Parser {
     /// @attention The `e_branches` vector will be modified and filled with the branches of the switch expression
     bool create_variant_switch_branches(            //
         std::shared_ptr<Scope> &scope,              //
+        const unsigned int scope_segment,           //
         std::vector<SSwitchBranch> &s_branches,     //
         std::vector<ESwitchBranch> &e_branches,     //
         const std::vector<Line> &body,              //
@@ -1441,11 +1467,13 @@ class Parser {
     /// @brief Creates an switch statement from the given list of tokens
     ///
     /// @param `scope` The scope in which the switch statement is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The list of tokens representing the switch statements definition
     /// @param `body` The list of lines representing the switch statements entire body
     /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created statement
     std::optional<std::unique_ptr<StatementNode>> create_switch_statement( //
         std::shared_ptr<Scope> &scope,                                     //
+        const unsigned int scope_segment,                                  //
         const token_slice &definition,                                     //
         const std::vector<Line> &body                                      //
     );
@@ -1454,6 +1482,7 @@ class Parser {
     /// @brief Creates a CatchNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the catch block is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The list of tokens representing the catch block definition
     /// @param `body` The list of tokens representing the catch blocks body
     /// @param `statements` The vector of unique pointers to the created statement nodes
@@ -1465,6 +1494,7 @@ class Parser {
     /// catch node itself. This is why the reference to the statements list has to be provided.
     std::optional<std::unique_ptr<CatchNode>> create_catch(     //
         std::shared_ptr<Scope> &scope,                          //
+        const unsigned int scope_segment,                       //
         const token_slice &definition,                          //
         const std::vector<Line> &body,                          //
         std::vector<std::unique_ptr<StatementNode>> &statements //
@@ -1533,6 +1563,7 @@ class Parser {
     /// @note A group declaration is _always_ inferred and cannot be not inferred
     std::optional<GroupDeclarationNode> create_group_declaration( //
         std::shared_ptr<Scope> &scope,                            //
+        const unsigned int scope_segment,                         //
         const token_slice &tokens,                                //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs       //
     );
@@ -1548,6 +1579,7 @@ class Parser {
     /// @return `std::optional<DeclarationNode>` An optional DeclarationNode, if creation was sucessfull
     std::optional<DeclarationNode> create_declaration(      //
         std::shared_ptr<Scope> &scope,                      //
+        const unsigned int scope_segment,                   //
         const token_slice &tokens,                          //
         const bool is_inferred,                             //
         const bool has_rhs,                                 //
@@ -1639,6 +1671,7 @@ class Parser {
     /// @brief Creates a StatementNode from the given list of tokens
     ///
     /// @param `scope` The scope in which the statement is defined
+    /// @param `scope_segment` The segment of the current scope, needed for scope-creation and variable-creation
     /// @param `tokens` The list of tokens representing the statement
     /// @param `rhs` The rhs of the statement, which possibly is already parsed
     /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created StatementNode
@@ -1647,6 +1680,7 @@ class Parser {
     /// parsing errors and returns nullopt if the statement cannot be parsed.
     std::optional<std::unique_ptr<StatementNode>> create_statement(       //
         std::shared_ptr<Scope> &scope,                                    //
+        const unsigned int scope_segment,                                 //
         const token_slice &tokens,                                        //
         std::optional<std::unique_ptr<ExpressionNode>> rhs = std::nullopt //
     );
@@ -1655,6 +1689,7 @@ class Parser {
     /// @brief Creates the AST of a scoped statement like if, loops, catch, switch, etc.
     ///
     /// @param `scope` The scope in which the scoped statement is defined
+    /// @param `scope_segment` The segment of the current scope we are in
     /// @param `definition` The token list containing all the definition tokens
     /// @param `body` The token list containing all body tokens
     /// @param `statements` A reference to the list of all currently parserd statements
@@ -1666,6 +1701,7 @@ class Parser {
     /// parsing and adding the catch node itself. This is why the reference to the statements list has to be provided.
     std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
         std::shared_ptr<Scope> &scope,                                     //
+        const unsigned int scope_segment,                                  //
         std::vector<Line>::const_iterator &line_it,                        //
         const std::vector<Line> &body,                                     //
         std::vector<std::unique_ptr<StatementNode>> &statements            //

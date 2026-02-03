@@ -144,7 +144,7 @@ bool Generator::Function::generate_function(                                    
     }
 
     // Generate all instructions of the functions body
-    GenerationContext ctx{function, function_node->scope.value(), allocations, imported_core_modules};
+    GenerationContext ctx{function, function_node->scope.value(), 0, allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {
         return false;
     }
@@ -195,7 +195,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         return std::nullopt;
     }
     // Normally generate the tests body
-    GenerationContext ctx{test_function, test_node->scope, allocations, imported_core_modules};
+    GenerationContext ctx{test_function, test_node->scope, 0, allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {
         return std::nullopt;
     }

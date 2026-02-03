@@ -196,6 +196,10 @@ class Generator {
         /// @brief The scope the generation happens in
         std::shared_ptr<Scope> scope;
 
+        /// @var `scope_segment`
+        /// @brief The segment of the scope we are in right now
+        unsigned int scope_segment;
+
         /// @var `allocations`
         /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
         std::unordered_map<std::string, llvm::Value *const> allocations;

@@ -234,6 +234,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         {
             .type = return_type,
             .scope_id = 0,
+            .scope_segment = 0,
             .is_mutable = false,
             .is_fn_param = true,
             .is_pseudo_variable = true,
@@ -245,6 +246,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                 {
                     .type = std::get<0>(param),
                     .scope_id = body_scope.value()->scope_id,
+                    .scope_segment = 0,
                     .is_mutable = std::get<2>(param),
                     .is_fn_param = true,
                 }) //
@@ -810,6 +812,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
         {
             .type = Type::get_primitive_type("void"),
             .scope_id = 0,
+            .scope_segment = 0,
             .is_mutable = false,
             .is_fn_param = true,
             .is_pseudo_variable = true,

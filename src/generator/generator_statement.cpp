@@ -46,11 +46,14 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::BREAK: {
             const auto old_scope = ctx.scope;
             const auto &loop_scope = last_loop_scopes.back();
+            // A break is always at the end of the scope
+            ctx.scope_segment = UINT32_MAX;
             while (ctx.scope != loop_scope) {
                 // Generate the end of scope of all nested scopes we are in, like nested if statements for example
                 if (!generate_end_of_scope(builder, ctx)) {
                     return false;
                 }
+                ctx.scope_segment = ctx.scope->parent_scope_segment;
                 assert(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
@@ -75,11 +78,14 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::CONTINUE: {
             const auto old_scope = ctx.scope;
             const auto &loop_scope = last_loop_scopes.back();
+            // A continue is always at the end of the scope
+            ctx.scope_segment = UINT32_MAX;
             while (ctx.scope != loop_scope) {
                 // Generate the end of scope of all nested scopes we are in, like nested if statements for example
                 if (!generate_end_of_scope(builder, ctx)) {
                     return false;
                 }
+                ctx.scope_segment = ctx.scope->parent_scope_segment;
                 assert(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
@@ -220,6 +226,8 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
 
     // Only generate end of scope if the last statement was not a return, throw, break or continue statement
     const auto last_variation = ctx.scope->body.back()->get_variation();
+    // Set the scope segment to uint max to clear everything contained in this scope
+    ctx.scope_segment = UINT32_MAX;
     if (ctx.scope->parent_scope != nullptr                      //
         && last_variation != StatementNode::Variation::RETURN   //
         && last_variation != StatementNode::Variation::THROW    //
@@ -233,20 +241,16 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
 
 bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, GenerationContext &ctx) {
     // Get all variables of this scope that went out of scope
-    auto variables = ctx.scope->get_unique_variables();
+    auto variables = ctx.scope->get_unique_variables(ctx.scope_segment);
     if (variables.empty()) {
         // Do not generate any branches if no variables went out of scope and need to be freed
         return true;
     }
     llvm::BasicBlock *prev_block = builder.GetInsertBlock();
     llvm::Instruction *prev_terminator = prev_block->getTerminator();
-    llvm::BasicBlock *end_of_scope_block = llvm::BasicBlock::Create(               //
-        context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
-    );
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
-    builder.SetInsertPoint(prev_block);
-    builder.CreateBr(end_of_scope_block);
-    builder.SetInsertPoint(end_of_scope_block);
+    llvm::BasicBlock *end_of_scope_block = nullptr;
+    llvm::BasicBlock *merge_block = nullptr;
+    bool blocks_created = false;
     for (const auto &[var_name, variable] : variables) {
         // Check if the variable is a function parameter, if it is, dont free it
         // Also check if the variable is a reference to another variable (like in variant switch branches), if it is dont free it
@@ -267,6 +271,17 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         const std::vector<unsigned int> &returned_scopes = variable.return_scope_ids;
         if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
             continue;
+        }
+        // If the blocks have not been created yet, create them
+        if (!blocks_created) {
+            end_of_scope_block = llvm::BasicBlock::Create(                                 //
+                context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
+            );
+            merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
+            builder.SetInsertPoint(prev_block);
+            builder.CreateBr(end_of_scope_block);
+            builder.SetInsertPoint(end_of_scope_block);
+            blocks_created = true;
         }
         // Check if the variable is an alias type
         std::shared_ptr<Type> var_type = variable.type;
@@ -292,6 +307,10 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             llvm::Function *free_fn = Memory::memory_functions.at("free");
             builder.CreateCall(free_fn, {variable_value, builder.getInt32(var_type->get_id())});
         }
+    }
+    if (!blocks_created) {
+        // There were no variables which *actually* needed to be freed, so we can just return since we have not emitted any IR code
+        return true;
     }
     builder.CreateBr(merge_block);
     merge_block->insertInto(ctx.parent);
@@ -392,10 +411,21 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
     }
 
     // Clean up the function's scope before returning
+    const auto old_scope = ctx.scope;
+    // A break is always at the end of the scope
+    ctx.scope_segment = UINT32_MAX;
+    while (ctx.scope->parent_scope != nullptr) {
+        // Generate the end of scope of all nested scopes we are in, like nested if statements for example
+        if (!generate_end_of_scope(builder, ctx)) {
+            return false;
+        }
+        ctx.scope_segment = ctx.scope->parent_scope_segment;
+        ctx.scope = ctx.scope->parent_scope;
+    }
     if (!generate_end_of_scope(builder, ctx)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    ctx.scope = old_scope;
 
     // Generate the return instruction with the evaluated value
     llvm::LoadInst *return_struct_val = IR::aligned_load(builder, return_struct_type, return_struct, "ret_val");
@@ -430,10 +460,22 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    // Clean up the function's scope before throwing
+    const auto old_scope = ctx.scope;
+    // A break is always at the end of the scope
+    ctx.scope_segment = UINT32_MAX;
+    while (ctx.scope->parent_scope != nullptr) {
+        // Generate the end of scope of all nested scopes we are in, like nested if statements for example
+        if (!generate_end_of_scope(builder, ctx)) {
+            return false;
+        }
+        ctx.scope_segment = ctx.scope->parent_scope_segment;
+        ctx.scope = ctx.scope->parent_scope;
+    }
     if (!generate_end_of_scope(builder, ctx)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    ctx.scope = old_scope;
 
     // Go through all of the return types and check if there is a string value under them, create an empty string for those
     std::vector<std::shared_ptr<Type>> return_types;

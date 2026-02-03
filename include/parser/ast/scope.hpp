@@ -15,17 +15,23 @@ class Scope {
   public:
     Scope() = default;
 
-    explicit Scope(std::shared_ptr<Scope> parent) :
-        parent_scope(parent) {
+    explicit Scope(std::shared_ptr<Scope> parent, const unsigned int parent_scope_segment) :
+        parent_scope(parent),
+        parent_scope_segment(parent_scope_segment) {
         clone_variables(parent);
     }
 
-    explicit Scope(std::vector<std::unique_ptr<StatementNode>> body, std::shared_ptr<Scope> parent = nullptr) :
+    explicit Scope(                                       //
+        std::vector<std::unique_ptr<StatementNode>> body, //
+        std::shared_ptr<Scope> parent = nullptr,          //
+        const unsigned int parent_scope_segment = 0       //
+        ) :
         body(std::move(body)),
-        parent_scope(parent) {}
+        parent_scope(parent),
+        parent_scope_segment(parent_scope_segment) {}
 
     /// @type `Variable`
-    /// @brief A simple
+    /// @brief A simple struct contianing all information needed for tracking a variable's declaration
     struct Variable {
         /// @var `type`
         /// @brief The type of the variable
@@ -34,6 +40,10 @@ class Scope {
         /// @var `scope_id`
         /// @brief The scope the variable was declared in
         unsigned int scope_id;
+
+        /// @var `scope_segment`
+        /// @brief The segment of the scope the variable was declared in
+        unsigned int scope_segment;
 
         /// @var `is_mutable`
         /// @brief Whether this variable is mutable
@@ -114,19 +124,24 @@ class Scope {
         return variables.at(var_name).type;
     }
 
-    /// @function `gen_unique_variables`
+    /// @function `get_unique_variables`
     /// @brief Returns all variable definitions which are unique to this scope, and not present in the parent scope. This function is used
     /// for easy handling for variables when they go out of scope
     ///
-    /// @return `std::unordered_map<std::string, std::tuple<std::string, unsigned int, bool, bool, bool, std::vector<unsigned int>>>` The
-    /// variable map thats unique to this scope
-    std::unordered_map<std::string, Variable> get_unique_variables() const {
-        if (parent_scope == nullptr) {
-            return variables;
-        }
+    /// @return `std::unordered_map<std::string, Variable>` The variable map thats unique to this scope
+    std::unordered_map<std::string, Variable> get_unique_variables(const unsigned int segment) const {
         auto unique_variables = variables;
-        for (const auto &variable : parent_scope->variables) {
-            unique_variables.erase(variable.first);
+        if (parent_scope != nullptr) {
+            for (const auto &variable : parent_scope->variables) {
+                unique_variables.erase(variable.first);
+            }
+        }
+        for (auto it = unique_variables.begin(); it != unique_variables.end();) {
+            if (it->second.scope_segment > segment) {
+                it = unique_variables.erase(it);
+            } else {
+                ++it;
+            }
         }
         return unique_variables;
     }
@@ -142,6 +157,10 @@ class Scope {
     /// @var `parent_scope`
     /// @brief The parent scope of this scope
     std::shared_ptr<Scope> parent_scope{nullptr};
+
+    /// @var `parent_scope_segment`
+    /// @brief The scope segment of the parent scope after which this scope started
+    unsigned int parent_scope_segment{0};
 
     /// @var `variable`
     /// @brief All the variables visible within this scope
