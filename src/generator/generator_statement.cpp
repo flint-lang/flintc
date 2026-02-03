@@ -884,8 +884,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     // Create the basic blocks for the condition check, the loop body and the merge block
     std::array<llvm::BasicBlock *, 4> for_blocks{};
     // Create then condition block and the body of the loop
-    for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond", ctx.parent);
-    for_blocks[1] = llvm::BasicBlock::Create(context, "for_body", ctx.parent);
+    for_blocks[0] = llvm::BasicBlock::Create(context, "for_cond");
+    for_blocks[1] = llvm::BasicBlock::Create(context, "for_body");
     for_blocks[2] = llvm::BasicBlock::Create(context, "looparound");
     last_looparound_blocks.emplace_back(for_blocks[2]);
     // Create the merge block but don't add it to the parent function yet
@@ -991,6 +991,9 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         // The second element will be handled later
     }
     builder.CreateBr(for_blocks[0]);
+
+    for_blocks[0]->insertInto(ctx.parent);
+    for_blocks[1]->insertInto(ctx.parent);
 
     // Create the condition
     builder.SetInsertPoint(for_blocks[0]);
