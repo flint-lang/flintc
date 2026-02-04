@@ -264,6 +264,8 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // The 'time' module is *always* required when building a program with the `--test` flag because of the builtin performance test
         // runners
         Module::Time::generate_time_functions(nullptr, module.get(), true);
+        // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
+        Module::System::generate_system_functions(nullptr, module.get(), true);
     }
 
     if (PRINT_FILE_IR) {
@@ -441,7 +443,8 @@ bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<Dep
                 env_added = true;
             }
         } else if (core_module_name == "system") {
-            static bool system_added = false;
+            // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
+            static bool system_added = is_test;
             if (!system_added) {
                 Module::System::generate_system_functions(nullptr, module, true);
                 system_added = true;

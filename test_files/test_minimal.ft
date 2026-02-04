@@ -1,5 +1,20 @@
+use Core.assert
 use Core.print
 use Core.system
+
+#test_output_always
+test "Always printing output":
+	print("Wahooo\n");
+	print("Wololololo\n");
+
+test "You should see nothing":
+	print("Wahooo\n");
+	print("Wololololo\n");
+
+test "You should see this output":
+	print("Wahooo\n");
+	print("Wololololo\n");
+	assert(false);
 
 def main():
 	start_capture();

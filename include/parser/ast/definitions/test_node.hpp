@@ -31,8 +31,9 @@ class TestNode : public DefinitionNode {
     /// @var `consumable_annotations`
     /// @brief The annotations consumable by this statement node
     static const inline std::unordered_set<AnnotationKind> consumable_annotations = {
-        AnnotationKind::TEST_SHOULD_FAIL,
+        AnnotationKind::TEST_OUTPUT_ALWAYS,
         AnnotationKind::TEST_PERFORMANCE,
+        AnnotationKind::TEST_SHOULD_FAIL,
     };
 
     Variation get_variation() const override {

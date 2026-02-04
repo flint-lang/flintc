@@ -951,14 +951,21 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     size_t i = 0;
     for (const auto &[file_hash, test_list] : sorted_tests) {
         // Print which file we are currently at
-        llvm::Value *success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
-        llvm::Value *success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
-        llvm::Value *fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
-        llvm::Value *perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
+        llvm::Value *const success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
+        llvm::Value *const success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
+        llvm::Value *const fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
+        llvm::Value *const fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
+        llvm::Value *const perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
+        llvm::Value *const perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
+        llvm::Value *const output_begin_fmt_middle = IR::generate_const_string(module, " │   ├─ Captured Output Begin\n");
+        llvm::Value *const output_line_fmt_middle = IR::generate_const_string(module, " │   │ %.*s\n");
+        llvm::Value *const output_end_fmt_middle = IR::generate_const_string(module, " │   └─ Captured Output End\n");
+        llvm::Value *const output_begin_fmt_end = IR::generate_const_string(module, "     ├─ Captured Output Begin\n");
+        llvm::Value *const output_line_fmt_end = IR::generate_const_string(module, "     │ %.*s\n");
+        llvm::Value *const output_end_fmt_end = IR::generate_const_string(module, "     └─ Captured Output End\n");
+
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
-        llvm::Value *file_name_value = IR::generate_const_string(module, (i == 0 ? "" : "\n") + file_path + ":\n");
+        llvm::Value *const file_name_value = IR::generate_const_string(module, (i == 0 ? "" : "\n") + file_path + ":\n");
         i++;
         builder->CreateCall(c_functions.at(PRINTF), //
             {file_name_value}                       //
@@ -973,16 +980,34 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         }
 
         // Run all tests and print whether they succeeded
+        llvm::Function *printf_fn = c_functions.at(PRINTF);
         size_t index = 0;
         for (const auto &[test_node, test_function_name] : test_list) {
             const bool is_end = index + 1 == test_list.size();
-            llvm::Value *success_fmt = is_end ? success_fmt_end : success_fmt_middle;
-            llvm::Value *fail_fmt = is_end ? fail_fmt_end : fail_fmt_middle;
-            llvm::Value *perf_fmt = is_end ? perf_fmt_end : perf_fmt_middle;
-            llvm::BasicBlock *current_block = builder->GetInsertBlock();
-            llvm::BasicBlock *succeed_block = llvm::BasicBlock::Create(context, "test_success", main_function);
-            llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(context, "test_fail", main_function);
-            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", main_function);
+            const bool is_perf_test = test_node->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
+            llvm::Value *const success_fmt = is_end ? success_fmt_end : success_fmt_middle;
+            llvm::Value *const fail_fmt = is_end ? fail_fmt_end : fail_fmt_middle;
+            llvm::Value *const perf_fmt = is_end ? perf_fmt_end : perf_fmt_middle;
+
+            const bool is_output_end = is_end && !is_perf_test;
+            llvm::Value *const output_begin_fmt = is_output_end ? output_begin_fmt_end : output_begin_fmt_middle;
+            llvm::Value *const output_line_fmt = is_output_end ? output_line_fmt_end : output_line_fmt_middle;
+            llvm::Value *const output_end_fmt = is_output_end ? output_end_fmt_end : output_end_fmt_middle;
+
+            llvm::BasicBlock *const current_block = builder->GetInsertBlock();
+            llvm::BasicBlock *const succeed_block = llvm::BasicBlock::Create(context, "test_success", main_function);
+            llvm::BasicBlock *const fail_block = llvm::BasicBlock::Create(context, "test_fail", main_function);
+            llvm::BasicBlock *const print_output_block = llvm::BasicBlock::Create(context, "print_output", main_function);
+            llvm::BasicBlock *const print_output_loop_cond_block = llvm::BasicBlock::Create( //
+                context, "print_output_loop_cond", main_function                             //
+            );
+            llvm::BasicBlock *const print_output_loop_body_block = llvm::BasicBlock::Create( //
+                context, "print_output_loop_body", main_function                             //
+            );
+            llvm::BasicBlock *const print_output_loop_merge_block = llvm::BasicBlock::Create( //
+                context, "print_output_loop_merge", main_function                             //
+            );
+            llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", main_function);
             builder->SetInsertPoint(current_block);
 
             // Get the actual test function
@@ -995,7 +1020,10 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             // Print the tests name
             llvm::Value *test_name_value = IR::generate_const_string(module, test_node->name);
 
-            const bool is_perf_test = test_node->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
+            // Start capturing the output
+            llvm::Function *start_capture_fn = Module::System::system_functions.at("start_capture");
+            builder->CreateCall(start_capture_fn, {});
+
             if (is_perf_test) {
                 // Store the current time in the test_start allocation
                 llvm::Function *time_now_fn = Module::Time::time_functions.at("now");
@@ -1016,6 +1044,11 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 llvm::Value *now = builder->CreateCall(time_now_fn, {}, "end_val");
                 IR::aligned_store(*builder, now, perf_end_point);
             }
+
+            // Get the captured output
+            llvm::Function *end_capture_fn = Module::System::system_functions.at("end_capture_lines");
+            llvm::Value *captured_output = builder->CreateCall(end_capture_fn, {}, "captured_output");
+
             llvm::Value *err_ptr = builder->CreateStructGEP(test_function->getReturnType(), test_alloca, 0, "test_err_ptr");
             llvm::Value *err_value = IR::aligned_load(*builder, //
                 llvm::Type::getInt32Ty(context),                //
@@ -1028,27 +1061,62 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             // Branch to the succeed block or the fail block depending on the condition
             if (test_node->contains_annotation(AnnotationKind::TEST_SHOULD_FAIL)) {
                 // If the test is supposed to fail then the condition must be flipped
-                builder->CreateCondBr(comparison, fail_block, succeed_block);
-            } else {
-                builder->CreateCondBr(comparison, succeed_block, fail_block);
+                comparison = builder->CreateNot(comparison, "not_errcmp");
             }
+            builder->CreateCondBr(comparison, succeed_block, fail_block);
 
             builder->SetInsertPoint(succeed_block);
-            builder->CreateCall(c_functions.at(PRINTF),                         //
-                {success_fmt, builder->getInt32(longest_name), test_name_value} //
-            );
-            builder->CreateBr(merge_block);
+            builder->CreateCall(printf_fn, {success_fmt, builder->getInt32(longest_name), test_name_value});
+            // Check if we need to print the output
+            const bool is_always_output = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+            if (is_always_output) {
+                builder->CreateBr(print_output_block);
+            } else {
+                builder->CreateBr(merge_block);
+            }
 
             builder->SetInsertPoint(fail_block);
-            builder->CreateCall(c_functions.at(PRINTF),                      //
-                {fail_fmt, builder->getInt32(longest_name), test_name_value} //
-            );
+            builder->CreateCall(printf_fn, {fail_fmt, builder->getInt32(longest_name), test_name_value});
             // Increment the fail counter only if the test has failed
             llvm::LoadInst *counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_val");
             llvm::Value *new_counter_value = builder->CreateCall(                                                    //
                 Module::Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
             );
             IR::aligned_store(*builder, new_counter_value, counter);
+            builder->CreateBr(print_output_block);
+
+            builder->SetInsertPoint(print_output_block);
+            // Print the captured output
+            builder->CreateCall(printf_fn, {output_begin_fmt});
+            llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
+            IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+            llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+            llvm::Value *line_count_ptr = builder->CreateStructGEP(str_type, captured_output, 1, "line_count_ptr");
+            llvm::Value *line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_ptr, "line_count");
+            llvm::Value *line_iter_start_ptr = builder->CreateGEP(                                    //
+                str_type->getPointerTo(), line_count_ptr, builder->getInt64(1), "line_iter_start_ptr" //
+            );
+            builder->CreateBr(print_output_loop_cond_block);
+
+            builder->SetInsertPoint(print_output_loop_cond_block);
+            llvm::Value *i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+            llvm::Value *i_lt_line_count = builder->CreateICmpULT(i_value, line_count, "i_lt_line_count");
+            builder->CreateCondBr(i_lt_line_count, print_output_loop_body_block, print_output_loop_merge_block);
+
+            builder->SetInsertPoint(print_output_loop_body_block);
+            llvm::Value *line_iter_ptr = builder->CreateGEP(str_type->getPointerTo(), line_iter_start_ptr, i_value, "line_iter_ptr");
+            llvm::Value *line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
+            llvm::Value *line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
+            llvm::Value *line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
+            llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty());
+            llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
+            builder->CreateCall(printf_fn, {output_line_fmt, line_len_i32, line_value});
+            llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+            IR::aligned_store(*builder, i_p1, i_alloca);
+            builder->CreateBr(print_output_loop_cond_block);
+
+            builder->SetInsertPoint(print_output_loop_merge_block);
+            builder->CreateCall(printf_fn, {output_end_fmt});
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(merge_block);
@@ -1065,8 +1133,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
                 llvm::Function *time_as_unit_fn = Module::Time::time_functions.at("as_unit");
                 llvm::Value *as_unit = builder->CreateCall(time_as_unit_fn, {duration, builder->getInt32(2)}, "as_unit");
-                builder->CreateCall(c_functions.at(PRINTF), {perf_fmt, as_unit});
+                builder->CreateCall(printf_fn, {perf_fmt, as_unit});
             }
+            // Fre the captured output
+            const auto array_type = Type::get_type_from_str("str[]").value();
+            llvm::Value *type_id = builder->getInt32(array_type->get_id());
+            builder->CreateCall(Memory::memory_functions.at("free"), {captured_output, type_id});
             index++;
         }
     }
