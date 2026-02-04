@@ -5,9 +5,36 @@ static const Hash hash(std::string("system"));
 static const std::string prefix = hash.to_string() + ".system.";
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    if (!only_declarations) {
+        llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
+        system_variables["stdout"] = module->getGlobalVariable("stdout");
+        if (system_variables.at("stdout") == nullptr) {
+            system_variables["stdout"] = new llvm::GlobalVariable(                            //
+                *module, ptr_ty, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stdout" //
+            );
+        }
+        system_variables["stderr"] = module->getGlobalVariable("stderr");
+        if (system_variables.at("stderr") == nullptr) {
+            system_variables["stderr"] = new llvm::GlobalVariable(                            //
+                *module, ptr_ty, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stderr" //
+            );
+        }
+        llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+        system_variables["orig_stdout_fd"] = new llvm::GlobalVariable(                                             //
+            *module, i32_ty, false, llvm::GlobalVariable::InternalLinkage, builder->getInt32(-1), "orig_stdout_fd" //
+        );
+        system_variables["orig_stderr_fd"] = new llvm::GlobalVariable(                                             //
+            *module, i32_ty, false, llvm::GlobalVariable::InternalLinkage, builder->getInt32(-1), "orig_stderr_fd" //
+        );
+        system_variables["capture_file"] = new llvm::GlobalVariable(                                                              //
+            *module, ptr_ty, false, llvm::GlobalVariable::InternalLinkage, llvm::ConstantPointerNull::get(ptr_ty), "capture_file" //
+        );
+    }
     generate_system_command_function(builder, module, only_declarations);
     generate_get_cwd_function(builder, module, only_declarations);
     generate_get_path_function(builder, module, only_declarations);
+    generate_start_capture_function(builder, module, only_declarations);
+    generate_end_capture_function(builder, module, only_declarations);
 }
 
 void Generator::Module::System::generate_system_command_function( //
@@ -631,4 +658,279 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     // Final return
     llvm::Value *result = builder->CreateCall(init_str_fn, {buffer, final_buffer_len}, "result");
     builder->CreateRet(result);
+}
+
+void Generator::Module::System::generate_start_capture_function( //
+    llvm::IRBuilder<> *builder,                                  //
+    llvm::Module *module,                                        //
+    const bool only_declarations                                 //
+) {
+    // THE C IMPLEMENTATION:
+    // void start_capture(void) {
+    //     if (capture_file != NULL) {
+    //         // Already capturing; ignore or handle error
+    //         return;
+    //     }
+    //
+    //     // Flush existing buffers
+    //     fflush(stdout);
+    //     fflush(stderr);
+    //
+    //     // Save original fds
+    //     orig_stdout_fd = dup(fileno(stdout));
+    //     orig_stderr_fd = dup(fileno(stderr));
+    //
+    //     // Create temp file for capture
+    //     capture_file = tmpfile();
+    //     if (capture_file == NULL) {
+    //         // Handle error (e.g., perror("tmpfile")); for now, abort capture
+    //         orig_stdout_fd = -1;
+    //         orig_stderr_fd = -1;
+    //         return;
+    //     }
+    //
+    //     // Redirect stdout to capture file
+    //     dup2(fileno(capture_file), fileno(stdout));
+    //
+    //     // Redirect stderr to stdout (unifies and preserves order)
+    //     dup2(fileno(stdout), fileno(stderr));
+    // }
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
+    llvm::Function *const dup_fn = c_functions.at(DUP);
+    llvm::Function *const fileno_fn = c_functions.at(FILENO);
+    llvm::Function *const tmpfile_fn = c_functions.at(TMPFILE);
+    llvm::Function *const dup2_fn = c_functions.at(DUP2);
+
+    llvm::GlobalVariable *const stdout_gv = system_variables.at("stdout");
+    llvm::GlobalVariable *const stderr_gv = system_variables.at("stderr");
+    llvm::GlobalVariable *const orig_stdout_fd_gv = system_variables.at("orig_stdout_fd");
+    llvm::GlobalVariable *const orig_stderr_fd_gv = system_variables.at("orig_stderr_fd");
+    llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
+
+    llvm::FunctionType *const start_capture_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
+    llvm::Function *const start_capture_fn = llvm::Function::Create( //
+        start_capture_type,                                          //
+        llvm::Function::ExternalLinkage,                             //
+        prefix + "start_capture",                                    //
+        module                                                       //
+    );
+    system_functions["start_capture"] = start_capture_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Create the basic blocks for the function
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", start_capture_fn);
+    llvm::BasicBlock *const already_capturing_block = llvm::BasicBlock::Create(context, "already_capturing", start_capture_fn);
+    llvm::BasicBlock *const flush_block = llvm::BasicBlock::Create(context, "flush", start_capture_fn);
+    llvm::BasicBlock *const tmpfile_null_block = llvm::BasicBlock::Create(context, "tmpfile_null", start_capture_fn);
+    llvm::BasicBlock *const redirect_block = llvm::BasicBlock::Create(context, "redirect", start_capture_fn);
+
+    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
+    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+
+    // Entry: Check if already capturing (capture_file != NULL)
+    builder->SetInsertPoint(entry_block);
+    llvm::Type *capture_file_ptr_ty = capture_file_gv->getValueType();
+    llvm::Value *capture_file = IR::aligned_load(*builder, capture_file_ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *is_capturing = builder->CreateICmpNE(capture_file, null_ptr, "is_capturing");
+    builder->CreateCondBr(is_capturing, already_capturing_block, flush_block);
+
+    // Already capturing: return
+    builder->SetInsertPoint(already_capturing_block);
+    builder->CreateRetVoid();
+
+    // Flush stdout and stderr
+    builder->SetInsertPoint(flush_block);
+    llvm::Value *stdout_ptr = builder->CreateLoad(ptr_ty, stdout_gv, "stdout_load");
+    llvm::Value *stderr_ptr = builder->CreateLoad(ptr_ty, stderr_gv, "stderr_load");
+    builder->CreateCall(fflush_fn, {stdout_ptr});
+    builder->CreateCall(fflush_fn, {stderr_ptr});
+
+    // Save original fds
+    llvm::Value *stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
+    llvm::Value *orig_stdout = builder->CreateCall(dup_fn, {stdout_fileno}, "orig_stdout");
+    builder->CreateStore(orig_stdout, orig_stdout_fd_gv);
+
+    llvm::Value *stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
+    llvm::Value *orig_stderr = builder->CreateCall(dup_fn, {stderr_fileno}, "orig_stderr");
+    builder->CreateStore(orig_stderr, orig_stderr_fd_gv);
+
+    // Create temp file
+    llvm::Value *temp_file = builder->CreateCall(tmpfile_fn, {}, "temp_file");
+    builder->CreateStore(temp_file, capture_file_gv);
+
+    // Check if temp_file == NULL
+    llvm::Value *is_null = builder->CreateICmpEQ(temp_file, null_ptr, "tmpfile_is_null");
+    builder->CreateCondBr(is_null, tmpfile_null_block, redirect_block);
+
+    // tmpfile null: set orig fds to -1, return
+    builder->SetInsertPoint(tmpfile_null_block);
+    llvm::Value *neg_one = builder->getInt32(-1);
+    builder->CreateStore(neg_one, orig_stdout_fd_gv);
+    builder->CreateStore(neg_one, orig_stderr_fd_gv);
+    builder->CreateRetVoid();
+
+    // Redirect
+    builder->SetInsertPoint(redirect_block);
+    llvm::Value *capture_fileno = builder->CreateCall(fileno_fn, {temp_file}, "capture_fileno");
+    llvm::Value *new_stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "new_stdout_fileno");
+    builder->CreateCall(dup2_fn, {capture_fileno, new_stdout_fileno});
+
+    llvm::Value *new_stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "new_stderr_fileno");
+    builder->CreateCall(dup2_fn, {new_stdout_fileno, new_stderr_fileno});
+    builder->CreateRetVoid();
+}
+
+void Generator::Module::System::generate_end_capture_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // str *end_capture(void) {
+    //     if (capture_file == NULL) {
+    //         // Not capturing; return empty string
+    //         return create_str(0);
+    //     }
+    //
+    //     // Flush buffers to ensure all output is in the file
+    //     fflush(stdout);
+    //     fflush(stderr);
+    //
+    //     // Restore original fds
+    //     dup2(orig_stdout_fd, fileno(stdout));
+    //     dup2(orig_stderr_fd, fileno(stderr));
+    //     close(orig_stdout_fd);
+    //     close(orig_stderr_fd);
+    //     orig_stdout_fd = -1;
+    //     orig_stderr_fd = -1;
+    //
+    //     // Rewind and read the capture file
+    //     rewind(capture_file);
+    //     str *captured = create_str(0);
+    //     char buffer[4096];
+    //     size_t bytes_read;
+    //     while ((bytes_read = fread(buffer, 1, sizeof(buffer), capture_file)) > 0) {
+    //         append_lit(&captured, buffer, bytes_read);
+    //     }
+    //
+    //     // Clean up
+    //     fclose(capture_file);
+    //     capture_file = NULL;
+    //
+    //     return captured;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
+    llvm::Function *const dup2_fn = c_functions.at(DUP2);
+    llvm::Function *const fileno_fn = c_functions.at(FILENO);
+    llvm::Function *const close_fn = c_functions.at(CLOSE);
+    llvm::Function *const rewind_fn = c_functions.at(REWIND);
+    llvm::Function *const fread_fn = c_functions.at(FREAD);
+    llvm::Function *const fclose_fn = c_functions.at(FCLOSE);
+
+    llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
+    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
+
+    llvm::GlobalVariable *const stdout_gv = system_variables.at("stdout");
+    llvm::GlobalVariable *const stderr_gv = system_variables.at("stderr");
+    llvm::GlobalVariable *const orig_stdout_fd_gv = system_variables.at("orig_stdout_fd");
+    llvm::GlobalVariable *const orig_stderr_fd_gv = system_variables.at("orig_stderr_fd");
+    llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
+
+    llvm::FunctionType *const end_capture_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::Function *const end_capture_fn = llvm::Function::Create( //
+        end_capture_type,                                          //
+        llvm::Function::ExternalLinkage,                           //
+        prefix + "end_capture",                                    //
+        module                                                     //
+    );
+    system_functions["end_capture"] = end_capture_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
+    llvm::IntegerType *const i32_ty = builder->getInt32Ty();
+    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+    llvm::ConstantInt *const neg_one = builder->getInt32(-1);
+    llvm::ConstantInt *const zero_i64 = builder->getInt64(0);
+    llvm::ConstantInt *const one_i64 = builder->getInt64(1);
+    llvm::ConstantInt *const buffer_size = builder->getInt64(4096);
+
+    // Create the basic blocks for the function
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", end_capture_fn);
+    llvm::BasicBlock *const not_capturing_block = llvm::BasicBlock::Create(context, "not_capturing", end_capture_fn);
+    llvm::BasicBlock *const flush_block = llvm::BasicBlock::Create(context, "flush", end_capture_fn);
+    llvm::BasicBlock *const restore_block = llvm::BasicBlock::Create(context, "restore", end_capture_fn);
+    llvm::BasicBlock *const read_loop_header = llvm::BasicBlock::Create(context, "read_loop_header", end_capture_fn);
+    llvm::BasicBlock *const read_loop_body = llvm::BasicBlock::Create(context, "read_loop_body", end_capture_fn);
+    llvm::BasicBlock *const read_loop_exit = llvm::BasicBlock::Create(context, "read_loop_exit", end_capture_fn);
+
+    // Entry: Check if capturing (capture_file != NULL)
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *capture_file = IR::aligned_load(*builder, ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
+    builder->CreateCondBr(is_null, not_capturing_block, flush_block);
+
+    // Not capturing: return empty str
+    builder->SetInsertPoint(not_capturing_block);
+    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {zero_i64}, "empty_str");
+    builder->CreateRet(empty_str);
+
+    // Flush stdout and stderr
+    builder->SetInsertPoint(flush_block);
+    llvm::Value *stdout_ptr = IR::aligned_load(*builder, ptr_ty, stdout_gv, "stdout_load");
+    llvm::Value *stderr_ptr = IR::aligned_load(*builder, ptr_ty, stderr_gv, "stderr_load");
+    builder->CreateCall(fflush_fn, {stdout_ptr});
+    builder->CreateCall(fflush_fn, {stderr_ptr});
+    builder->CreateBr(restore_block);
+
+    // Restore original fds and clean up orig fds
+    builder->SetInsertPoint(restore_block);
+    llvm::Value *orig_stdout_fd = builder->CreateLoad(i32_ty, orig_stdout_fd_gv, "orig_stdout_fd_load");
+    llvm::Value *stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
+    builder->CreateCall(dup2_fn, {orig_stdout_fd, stdout_fileno});
+
+    llvm::Value *orig_stderr_fd = builder->CreateLoad(i32_ty, orig_stderr_fd_gv, "orig_stderr_fd_load");
+    llvm::Value *stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
+    builder->CreateCall(dup2_fn, {orig_stderr_fd, stderr_fileno});
+
+    builder->CreateCall(close_fn, {orig_stdout_fd});
+    builder->CreateCall(close_fn, {orig_stderr_fd});
+
+    builder->CreateStore(neg_one, orig_stdout_fd_gv);
+    builder->CreateStore(neg_one, orig_stderr_fd_gv);
+
+    // Rewind capture_file
+    builder->CreateCall(rewind_fn, {capture_file});
+
+    // Create empty captured str
+    llvm::AllocaInst *captured_alloca = builder->CreateAlloca(ptr_ty, 0, nullptr, "captured_alloca");
+    llvm::Value *captured = builder->CreateCall(create_str_fn, {zero_i64}, "captured");
+    IR::aligned_store(*builder, captured, captured_alloca);
+
+    // Allocate buffer
+    llvm::AllocaInst *buffer = builder->CreateAlloca(builder->getInt8Ty(), buffer_size, "buffer");
+
+    builder->CreateBr(read_loop_header);
+
+    // Read loop header: bytes_read = fread(buffer, 1, 4096, capture_file)
+    builder->SetInsertPoint(read_loop_header);
+    llvm::Value *bytes_read = builder->CreateCall(fread_fn, {buffer, one_i64, buffer_size, capture_file}, "bytes_read");
+    llvm::Value *read_gt_zero = builder->CreateICmpUGT(bytes_read, zero_i64, "read_gt_zero");
+    builder->CreateCondBr(read_gt_zero, read_loop_body, read_loop_exit);
+
+    // Read loop body: append_lit(&captured, buffer, bytes_read)
+    builder->SetInsertPoint(read_loop_body);
+    builder->CreateCall(append_lit_fn, {captured_alloca, buffer, bytes_read});
+    builder->CreateBr(read_loop_header);
+
+    // Read loop exit: fclose, set capture_file = NULL, ret captured
+    builder->SetInsertPoint(read_loop_exit);
+    builder->CreateCall(fclose_fn, {capture_file});
+    builder->CreateStore(null_ptr, capture_file_gv);
+    captured = IR::aligned_load(*builder, ptr_ty, captured_alloca, "captured_ret");
+    builder->CreateRet(captured);
 }

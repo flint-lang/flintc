@@ -183,6 +183,12 @@ class Generator {
         {CFunction::LABS, nullptr},
         {CFunction::FABSF, nullptr},
         {CFunction::FABS, nullptr},
+        {CFunction::FFLUSH, nullptr},
+        {CFunction::TMPFILE, nullptr},
+        {CFunction::DUP, nullptr},
+        {CFunction::DUP2, nullptr},
+        {CFunction::FILENO, nullptr},
+        {CFunction::CLOSE, nullptr},
     };
 
     /// @struct `GenerationContext`
@@ -3820,6 +3826,28 @@ class Generator {
                 {"system_command", nullptr},
                 {"get_cwd", nullptr},
                 {"get_path", nullptr},
+                {"start_capture", nullptr},
+                {"end_capture", nullptr},
+            };
+
+            /// @var `system_variables`
+            /// @brief Map containing references to all global system variables
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the global variable
+            /// - **Value** `llvm::GlobalVariable *` - The reference to the global variable
+            ///
+            /// @attention The global variables are nullpointers until the `generate_system_functions` function is called
+            /// @attention The variables are only filled when the `generate_system_function` function is called with it's
+            /// `only_declarations` argument set to `false`, e.g. the global variables are purely `system.o`-internal and are not beign
+            /// emitted in user-code IR. The user does not even know that these even exist
+            /// @attention The map is not being cleared after the program module has been generated
+            static inline std::unordered_map<std::string_view, llvm::GlobalVariable *> system_variables = {
+                {"stdout", nullptr},
+                {"stderr", nullptr},
+                {"orig_stdout_fd", nullptr},
+                {"orig_stderr_fd", nullptr},
+                {"capture_file", nullptr},
             };
 
             /// @function `generate_system_functions`
@@ -3853,6 +3881,22 @@ class Generator {
             /// @param `module` The LLVM Module the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_get_path_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_start_capture_function`
+            /// @brief Function to generate the `start_capture` system function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_start_capture_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_end_capture_function`
+            /// @brief Function to generate the `end_capture` system function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_end_capture_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
         };
 
         /// @class `Time`

@@ -132,6 +132,14 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{{"str", "path"}}, {"str"}, {}}, // The single version of the 'get_path' function
                 }},
+            {"start_capture", // The 'start_capture' function
+                {
+                    {{}, {}, {}}, // The single version of the 'start_capture' function
+                }},
+            {"end_capture", // The 'end_capture' function
+                {
+                    {{}, {"str"}, {}}, // The single version of the 'end_capture' function
+                }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
         {
@@ -396,6 +404,12 @@ enum CFunction {
     LABS,
     FABSF,
     FABS,
+    FFLUSH,
+    TMPFILE,
+    DUP,
+    DUP2,
+    FILENO,
+    CLOSE,
 };
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {

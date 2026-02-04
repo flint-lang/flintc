@@ -715,6 +715,105 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *fabs_fn = llvm::Function::Create(fabs_type, llvm::Function::ExternalLinkage, "fabs", module);
         c_functions[FABS] = fabs_fn;
     }
+    // fflush
+    {
+        llvm::FunctionType *fflush_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // return i32
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo() // FILE* stream
+            },                                                 //
+            false                                              // No vaarg
+        );
+        llvm::Function *fflush_fn = llvm::Function::Create(fflush_type, llvm::Function::ExternalLinkage, "fflush", module);
+        c_functions[FFLUSH] = fflush_fn;
+    }
+    // tmpfile
+    {
+        llvm::FunctionType *tmpfile_type = llvm::FunctionType::get( //
+            llvm::Type::getInt8Ty(context)->getPointerTo(),         // FILE*
+            {},                                                     //
+            false                                                   // No vaarg
+        );
+        llvm::Function *tmpfile_fn = llvm::Function::Create(tmpfile_type, llvm::Function::ExternalLinkage, "tmpfile", module);
+        c_functions[TMPFILE] = tmpfile_fn;
+    }
+    // dup
+    {
+        llvm::FunctionType *dup_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                    // return i32
+            {
+                llvm::Type::getInt32Ty(context), // i32 fildes
+            },                                   //
+            false                                // No vaarg
+        );
+        llvm::Function *dup_fn = llvm::Function::Create(dup_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_dup",
+#else
+            "dup",
+#endif
+            module //
+        );
+        c_functions[DUP] = dup_fn;
+    }
+    // dup2
+    {
+        llvm::FunctionType *dup2_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                     // return i32
+            {
+                llvm::Type::getInt32Ty(context), // i32 fildes
+                llvm::Type::getInt32Ty(context), // i32 fildes2
+            },                                   //
+            false                                // No vaarg
+        );
+        llvm::Function *dup2_fn = llvm::Function::Create(dup2_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_dup2",
+#else
+            "dup2",
+#endif
+            module //
+        );
+        c_functions[DUP2] = dup2_fn;
+    }
+    // fileno
+    {
+        llvm::FunctionType *fileno_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // return i32
+            {
+                llvm::Type::getInt8Ty(context)->getPointerTo(), // FILE* stream
+            },                                                  //
+            false                                               // No vaarg
+        );
+        llvm::Function *fileno_fn = llvm::Function::Create(fileno_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_fileno",
+#else
+            "fileno",
+#endif
+            module //
+        );
+        c_functions[FILENO] = fileno_fn;
+    }
+    // close
+    {
+        llvm::FunctionType *close_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                      // return i32
+            {
+                llvm::Type::getInt32Ty(context), // i32 fildes
+            },                                   //
+            false                                // No vaarg
+        );
+        llvm::Function *close_fn = llvm::Function::Create(close_type, llvm::Function::ExternalLinkage,
+#ifdef __WIN32__
+            "_close",
+#else
+            "close",
+#endif
+            module //
+        );
+        c_functions[CLOSE] = close_fn;
+    }
 }
 
 bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
@@ -761,6 +860,18 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[LABS] = module->getFunction("labs");
     c_functions[FABSF] = module->getFunction("fabsf");
     c_functions[FABS] = module->getFunction("fabs");
+    c_functions[FFLUSH] = module->getFunction("fflush");
+    c_functions[TMPFILE] = module->getFunction("tmpfile");
+#ifdef __WIN32__
+    c_functions[DUP] = module->getFunction("_dup");
+    c_functions[DUP2] = module->getFunction("_dup2");
+    c_functions[FILENO] = module->getFunction("_fileno");
+#else
+    c_functions[DUP] = module->getFunction("dup");
+    c_functions[DUP2] = module->getFunction("dup2");
+    c_functions[FILENO] = module->getFunction("fileno");
+#endif
+    c_functions[CLOSE] = module->getFunction("close");
     for (auto &c_function : c_functions) {
         if (c_function.second == nullptr) {
             return false;
