@@ -992,10 +992,12 @@ void Generator::Module::String::generate_get_str_slice_function( //
     //         // Print error to tell a oob-slicing attempt was done and clamp to the src len
     //         // Because slicing is technically an array operation, the array OOB options apply here
     //         // So this could be a hard crash, silent, unsafe or verbose
+    //         real_to = src->len;
     //     }
     //     if (from == real_to) {
-    //         // If real_to is equal to from, this block hard crashes no matter the setting, as we
-    //         // would now handle with an explicit 'x..x' range, which is not allowed, since the range does not contain a single element
+    //         // The range does not contain a single element, which means we simply
+    //         // return an empty string
+    //         return fclib_str_create(0);
     //     }
     //     size_t real_from = from;
     //     if (from > real_to) {
@@ -1110,9 +1112,8 @@ void Generator::Module::String::generate_get_str_slice_function( //
         builder->CreateCondBr(is_range_empty, range_empty_block, range_empty_merge_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(range_empty_block);
-        llvm::Value *msg = IR::generate_const_string(module, "Cannot get empty slice %lu..%lu from string\n");
-        builder->CreateCall(printf_fn, {msg, arg_from, real_to});
-        builder->CreateUnreachable();
+        llvm::Value *empty_string = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_string");
+        builder->CreateRet(empty_string);
 
         builder->SetInsertPoint(range_empty_merge_block);
     }
