@@ -957,12 +957,14 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         llvm::Value *const fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
         llvm::Value *const perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
         llvm::Value *const perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
-        llvm::Value *const output_begin_fmt_middle = IR::generate_const_string(module, " │   ├─ Captured Output Begin\n");
-        llvm::Value *const output_line_fmt_middle = IR::generate_const_string(module, " │   │ %.*s\n");
-        llvm::Value *const output_end_fmt_middle = IR::generate_const_string(module, " │   └─ Captured Output End\n");
-        llvm::Value *const output_begin_fmt_end = IR::generate_const_string(module, "     ├─ Captured Output Begin\n");
-        llvm::Value *const output_line_fmt_end = IR::generate_const_string(module, "     │ %.*s\n");
-        llvm::Value *const output_end_fmt_end = IR::generate_const_string(module, "     └─ Captured Output End\n");
+        llvm::Value *const output_begin_fmt_middle = IR::generate_const_string(module, " │   ├─ Output ─");
+        llvm::Value *const output_line_fmt_middle = IR::generate_const_string(module, " │   │ %.*s%*s│\n");
+        llvm::Value *const output_end_fmt_middle = IR::generate_const_string(module, " │   └──────────");
+        llvm::Value *const output_end_fmt_middle_2 = IR::generate_const_string(module, " │   ├──────────");
+        llvm::Value *const output_begin_fmt_end = IR::generate_const_string(module, "     ├─ Output ─");
+        llvm::Value *const output_line_fmt_end = IR::generate_const_string(module, "     │ %.*s%*s│\n");
+        llvm::Value *const output_end_fmt_end = IR::generate_const_string(module, "     └──────────");
+        llvm::Value *const output_end_fmt_end_2 = IR::generate_const_string(module, "     ├──────────");
 
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *const file_name_value = IR::generate_const_string(module, (i == 0 ? "" : "\n") + file_path + ":\n");
@@ -988,16 +990,34 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             llvm::Value *const success_fmt = is_end ? success_fmt_end : success_fmt_middle;
             llvm::Value *const fail_fmt = is_end ? fail_fmt_end : fail_fmt_middle;
             llvm::Value *const perf_fmt = is_end ? perf_fmt_end : perf_fmt_middle;
-
-            const bool is_output_end = is_end && !is_perf_test;
-            llvm::Value *const output_begin_fmt = is_output_end ? output_begin_fmt_end : output_begin_fmt_middle;
-            llvm::Value *const output_line_fmt = is_output_end ? output_line_fmt_end : output_line_fmt_middle;
-            llvm::Value *const output_end_fmt = is_output_end ? output_end_fmt_end : output_end_fmt_middle;
+            llvm::Value *const output_begin_fmt = is_end ? output_begin_fmt_end : output_begin_fmt_middle;
+            llvm::Value *const output_line_fmt = is_end ? output_line_fmt_end : output_line_fmt_middle;
+            llvm::Value *const output_end_fmt = is_end                       //
+                ? (is_perf_test ? output_end_fmt_end_2 : output_end_fmt_end) //
+                : (is_perf_test ? output_end_fmt_middle_2 : output_end_fmt_middle);
 
             llvm::BasicBlock *const current_block = builder->GetInsertBlock();
             llvm::BasicBlock *const succeed_block = llvm::BasicBlock::Create(context, "test_success", main_function);
             llvm::BasicBlock *const fail_block = llvm::BasicBlock::Create(context, "test_fail", main_function);
             llvm::BasicBlock *const print_output_block = llvm::BasicBlock::Create(context, "print_output", main_function);
+            llvm::BasicBlock *const find_longest_line_cond_block = llvm::BasicBlock::Create( //
+                context, "find_longest_line_cond", main_function                             //
+            );
+            llvm::BasicBlock *const find_longest_line_body_block = llvm::BasicBlock::Create( //
+                context, "find_longest_line_body", main_function                             //
+            );
+            llvm::BasicBlock *const find_longest_line_merge_block = llvm::BasicBlock::Create( //
+                context, "find_longest_line_merge", main_function                             //
+            );
+            llvm::BasicBlock *const output_begin_m_cond_block = llvm::BasicBlock::Create( //
+                context, "output_begin_m_cond", main_function                             //
+            );
+            llvm::BasicBlock *const output_begin_m_body_block = llvm::BasicBlock::Create( //
+                context, "output_begin_m_body", main_function                             //
+            );
+            llvm::BasicBlock *const output_begin_m_merge_block = llvm::BasicBlock::Create( //
+                context, "output_begin_m_merge", main_function                             //
+            );
             llvm::BasicBlock *const print_output_loop_cond_block = llvm::BasicBlock::Create( //
                 context, "print_output_loop_cond", main_function                             //
             );
@@ -1006,6 +1026,15 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             );
             llvm::BasicBlock *const print_output_loop_merge_block = llvm::BasicBlock::Create( //
                 context, "print_output_loop_merge", main_function                             //
+            );
+            llvm::BasicBlock *const output_end_m_cond_block = llvm::BasicBlock::Create( //
+                context, "output_end_m_cond", main_function                             //
+            );
+            llvm::BasicBlock *const output_end_m_body_block = llvm::BasicBlock::Create( //
+                context, "output_end_m_body", main_function                             //
+            );
+            llvm::BasicBlock *const output_end_m_merge_block = llvm::BasicBlock::Create( //
+                context, "output_end_m_merge", main_function                             //
             );
             llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", main_function);
             builder->SetInsertPoint(current_block);
@@ -1086,8 +1115,6 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->CreateBr(print_output_block);
 
             builder->SetInsertPoint(print_output_block);
-            // Print the captured output
-            builder->CreateCall(printf_fn, {output_begin_fmt});
             llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
             IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
             llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
@@ -1096,27 +1123,100 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             llvm::Value *line_iter_start_ptr = builder->CreateGEP(                                    //
                 str_type->getPointerTo(), line_count_ptr, builder->getInt64(1), "line_iter_start_ptr" //
             );
-            builder->CreateBr(print_output_loop_cond_block);
+            llvm::AllocaInst *const longest_line = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "longest_line");
+            IR::aligned_store(*builder, builder->getInt64(0), longest_line);
+            builder->CreateBr(find_longest_line_cond_block);
 
-            builder->SetInsertPoint(print_output_loop_cond_block);
+            builder->SetInsertPoint(find_longest_line_cond_block);
             llvm::Value *i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
             llvm::Value *i_lt_line_count = builder->CreateICmpULT(i_value, line_count, "i_lt_line_count");
-            builder->CreateCondBr(i_lt_line_count, print_output_loop_body_block, print_output_loop_merge_block);
+            builder->CreateCondBr(i_lt_line_count, find_longest_line_body_block, find_longest_line_merge_block);
 
-            builder->SetInsertPoint(print_output_loop_body_block);
+            builder->SetInsertPoint(find_longest_line_body_block);
             llvm::Value *line_iter_ptr = builder->CreateGEP(str_type->getPointerTo(), line_iter_start_ptr, i_value, "line_iter_ptr");
             llvm::Value *line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
             llvm::Value *line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
             llvm::Value *line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
-            llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty());
-            llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
-            builder->CreateCall(printf_fn, {output_line_fmt, line_len_i32, line_value});
+            llvm::Value *curr_longest_line = IR::aligned_load(*builder, builder->getInt64Ty(), longest_line, "curr_longest_line");
+            llvm::Value *curr_line_gt_longest = builder->CreateICmpUGT(line_len, curr_longest_line, "curr_line_gt_longest");
+            llvm::Value *new_longest_line = builder->CreateSelect(curr_line_gt_longest, line_len, curr_longest_line, "new_longest_line");
+            IR::aligned_store(*builder, new_longest_line, longest_line);
             llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+            IR::aligned_store(*builder, i_p1, i_alloca);
+            builder->CreateBr(find_longest_line_cond_block);
+
+            builder->SetInsertPoint(find_longest_line_merge_block);
+            llvm::Value *const longest_line_value = IR::aligned_load(*builder, builder->getInt64Ty(), longest_line, "longest_line_value");
+            llvm::Value *const longest_line_value_p1 = builder->CreateAdd(        //
+                longest_line_value, builder->getInt64(1), "longest_line_value_p1" //
+            );
+            builder->CreateCall(printf_fn, {output_begin_fmt});
+            // Now after '├─ Output ─' has been printed we need to print N '─' symbols where N is the longest line - 8, clamped at 0. The
+            // "minimal" line width is 8, so that's the minimal "contianer size"
+            // After the '─' symbols we need to print one '┐' symbol. The printing of the '─' symbols is done in a loop, yet another one
+            llvm::Value *longest_line_gt_8 = builder->CreateICmpUGT(longest_line_value, builder->getInt64(8), "longest_line_gt_8");
+            llvm::Value *longest_line_m8 = builder->CreateSub(longest_line_value, builder->getInt64(8), "longest_line_m8");
+            llvm::Value *m_to_print = builder->CreateSelect(longest_line_gt_8, longest_line_m8, builder->getInt64(0), "m_to_print");
+            IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+            builder->CreateBr(output_begin_m_cond_block);
+
+            builder->SetInsertPoint(output_begin_m_cond_block);
+            i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+            llvm::Value *i_lt_mtp = builder->CreateICmpULT(i_value, m_to_print, "i_lt_mtp");
+            builder->CreateCondBr(i_lt_mtp, output_begin_m_body_block, output_begin_m_merge_block);
+
+            builder->SetInsertPoint(output_begin_m_body_block);
+            llvm::Value *const minus_symbol_string = IR::generate_const_string(module, "─");
+            builder->CreateCall(printf_fn, {minus_symbol_string});
+            i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+            IR::aligned_store(*builder, i_p1, i_alloca);
+            builder->CreateBr(output_begin_m_cond_block);
+
+            builder->SetInsertPoint(output_begin_m_merge_block);
+            llvm::Value *const right_upper_corner_symbol_string = IR::generate_const_string(module, "┐\n");
+            builder->CreateCall(printf_fn, {right_upper_corner_symbol_string});
+            IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+            builder->CreateBr(print_output_loop_cond_block);
+
+            builder->SetInsertPoint(print_output_loop_cond_block);
+            i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+            i_lt_line_count = builder->CreateICmpULT(i_value, line_count, "i_lt_line_count");
+            builder->CreateCondBr(i_lt_line_count, print_output_loop_body_block, print_output_loop_merge_block);
+
+            builder->SetInsertPoint(print_output_loop_body_block);
+            line_iter_ptr = builder->CreateGEP(str_type->getPointerTo(), line_iter_start_ptr, i_value, "line_iter_ptr");
+            line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
+            line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
+            line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
+            llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
+            llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
+            llvm::Value *const empty_string = IR::generate_const_string(module, "");
+            llvm::Value *space_count = builder->CreateSub(longest_line_value_p1, line_len, "space_count");
+            llvm::Value *space_count_i32 = builder->CreateTrunc(space_count, builder->getInt32Ty(), "space_count_i32");
+            builder->CreateCall(printf_fn, {output_line_fmt, line_len_i32, line_value, space_count_i32, empty_string});
+            i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
             IR::aligned_store(*builder, i_p1, i_alloca);
             builder->CreateBr(print_output_loop_cond_block);
 
             builder->SetInsertPoint(print_output_loop_merge_block);
             builder->CreateCall(printf_fn, {output_end_fmt});
+            IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+            builder->CreateBr(output_end_m_cond_block);
+
+            builder->SetInsertPoint(output_end_m_cond_block);
+            i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+            i_lt_mtp = builder->CreateICmpULT(i_value, m_to_print, "i_lt_mtp");
+            builder->CreateCondBr(i_lt_mtp, output_end_m_body_block, output_end_m_merge_block);
+
+            builder->SetInsertPoint(output_end_m_body_block);
+            builder->CreateCall(printf_fn, {minus_symbol_string});
+            i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
+            IR::aligned_store(*builder, i_p1, i_alloca);
+            builder->CreateBr(output_end_m_cond_block);
+
+            builder->SetInsertPoint(output_end_m_merge_block);
+            llvm::Value *const right_lower_corner_symbol_string = IR::generate_const_string(module, "┘\n");
+            builder->CreateCall(printf_fn, {right_lower_corner_symbol_string});
             builder->CreateBr(merge_block);
 
             builder->SetInsertPoint(merge_block);

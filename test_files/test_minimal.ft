@@ -1,6 +1,5 @@
 use Core.assert
 use Core.print
-use Core.system
 
 #test_output_always
 test "Always printing output":
@@ -11,23 +10,11 @@ test "You should see nothing":
 	print("Wahooo\n");
 	print("Wololololo\n");
 
+#test_performance
 test "You should see this output":
-	print("Wahooo\n");
-	print("Wololololo\n");
+	print("Yeah this test will fail\n");
+	print("ERROR: no just kidding\n");
 	assert(false);
 
 def main():
-	start_capture();
-	for (i, _) in 0..10:
-		print($"line {i}\n");
-	str capture = end_capture();
-	print($"capture = \"{capture}\"\n");
-	
-
-	start_capture();
-	for (i, _) in 0..10:
-		print($"line {i}\n");
-	str[] lines = end_capture_lines();
-	print($"line_count: {lines.len}\n");
-	for (i, line) in lines:
-		print($"lines[{i}] | {line}\n");
+	print("Compile with the '--test' flag!\n");
