@@ -140,6 +140,10 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{}, {"str"}, {}}, // The single version of the 'end_capture' function
                 }},
+            {"end_capture_lines", // The 'end_capture_lines' function
+                {
+                    {{}, {"str[]"}, {}}, // The single version of the 'end_capture' function
+                }},
         }},  // End of the 'system' module
     {"math", // The 'math' module
         {

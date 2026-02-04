@@ -4,6 +4,15 @@ use Core.system
 def main():
 	start_capture();
 	for (i, _) in 0..10:
-		print($"iteration {i}\n");
+		print($"line {i}\n");
 	str capture = end_capture();
 	print($"capture = \"{capture}\"\n");
+	
+
+	start_capture();
+	for (i, _) in 0..10:
+		print($"line {i}\n");
+	str[] lines = end_capture_lines();
+	print($"line_count: {lines.len}\n");
+	for (i, line) in lines:
+		print($"lines[{i}] | {line}\n");

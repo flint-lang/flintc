@@ -35,6 +35,7 @@ void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *bui
     generate_get_path_function(builder, module, only_declarations);
     generate_start_capture_function(builder, module, only_declarations);
     generate_end_capture_function(builder, module, only_declarations);
+    generate_end_capture_lines_function(builder, module, only_declarations);
 }
 
 void Generator::Module::System::generate_system_command_function( //
@@ -933,4 +934,254 @@ void Generator::Module::System::generate_end_capture_function( //
     builder->CreateStore(null_ptr, capture_file_gv);
     captured = IR::aligned_load(*builder, ptr_ty, captured_alloca, "captured_ret");
     builder->CreateRet(captured);
+}
+
+void Generator::Module::System::generate_end_capture_lines_function( //
+    llvm::IRBuilder<> *builder,                                      //
+    llvm::Module *module,                                            //
+    const bool only_declarations                                     //
+) {
+    // THE C IMPLEMENTATION:
+    // str *system_end_capture_lines(void) {
+    //     // Union type to be able to bitcast a pointer to an integer
+    //     typedef union ptr_bitcast_t {
+    //         str *ptr;
+    //         size_t bits;
+    //     } ptr_bitcast_t;
+    //
+    //     size_t line_count = 0;
+    //     if (capture_file == NULL) {
+    //         // Not capturing; return empty array
+    //         return create_arr(1, sizeof(str *), &line_count);
+    //     }
+    //
+    //     // End the capture and get it as a single string
+    //     str *captured_buffer = system_end_capture();
+    //     // Check how many lines there are in the captured buffer
+    //     size_t last_newline = 0;
+    //     char *const captured_buffer_value = captured_buffer->value;
+    //     for (size_t i = 0; i < captured_buffer->len; i++) {
+    //         if (captured_buffer_value[i] == '\n') {
+    //             line_count++;
+    //             last_newline = i;
+    //         }
+    //     }
+    //     const bool contains_trailing_line = last_newline + 1 < captured_buffer->len;
+    //     if (contains_trailing_line) {
+    //         line_count++;
+    //     }
+    //     // Create the output array
+    //     str *output_array = create_arr(1, sizeof(str *), &line_count);
+    //     // Go through the buffer and create new strings and store them in the output
+    //     // array
+    //     size_t output_id = 0;
+    //     size_t line_start = 0;
+    //     for (size_t i = 0; i < captured_buffer->len; i++) {
+    //         if (captured_buffer_value[i] == '\n') {
+    //             str *line_string = get_str_slice(output_buffer, line_start, i);
+    //             ptr_bitcast_t cast = (ptr_bitcast_t){.ptr = line_string};
+    //             assign_arr_val_at(output_array, sizeof(str *), &output_id, cast.bits);
+    //             line_start = i + 1;
+    //             output_id++;
+    //         }
+    //     }
+    //     if (contains_trailing_line) {
+    //         str *line_string = get_str_slice(output_buffer, line_start, captured_buffer->len);
+    //         ptr_bitcast_t cast = (ptr_bitcast_t){.ptr = line_string};
+    //         assign_arr_val_at(output_array, sizeof(str *), &output_id, cast.bits);
+    //     }
+    //     free(captured_buffer);
+    //     return output_array;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Function *const free_fn = c_functions.at(FREE);
+
+    llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
+    llvm::Function *const end_capture_fn = system_functions.at("end_capture");
+    llvm::Function *const assign_arr_val_at_fn = Array::array_manip_functions.at("assign_arr_val_at");
+    llvm::Function *const get_str_slice_fn = String::string_manip_functions.at("get_str_slice");
+
+    llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
+
+    llvm::FunctionType *const end_capture_lines_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::Function *const end_capture_lines_fn = llvm::Function::Create( //
+        end_capture_lines_type,                                          //
+        llvm::Function::ExternalLinkage,                                 //
+        prefix + "end_capture_lines",                                    //
+        module                                                           //
+    );
+    system_functions["end_capture_lines"] = end_capture_lines_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
+    llvm::Type *const i64_ty = builder->getInt64Ty();
+    llvm::Type *const i8_ty = builder->getInt8Ty();
+    llvm::Constant *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+    llvm::Constant *const zero_i64 = builder->getInt64(0);
+    llvm::Constant *const one_i64 = builder->getInt64(1);
+    llvm::Constant *const sizeof_ptr = builder->getInt64(Allocation::get_type_size(module, ptr_ty));
+    llvm::Constant *const newline_const = builder->getInt8('\n');
+
+    // Create the basic blocks for the function
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", end_capture_lines_fn);
+    llvm::BasicBlock *not_capturing_block = llvm::BasicBlock::Create(context, "not_capturing", end_capture_lines_fn);
+    llvm::BasicBlock *capture_block = llvm::BasicBlock::Create(context, "capture", end_capture_lines_fn);
+    llvm::BasicBlock *count_loop_cond_block = llvm::BasicBlock::Create(context, "count_loop_cond", end_capture_lines_fn);
+    llvm::BasicBlock *count_loop_body_block = llvm::BasicBlock::Create(context, "count_loop_body", end_capture_lines_fn);
+    llvm::BasicBlock *count_newline_block = llvm::BasicBlock::Create(context, "count_newline", end_capture_lines_fn);
+    llvm::BasicBlock *count_loop_continue_block = llvm::BasicBlock::Create(context, "count_loop_continue", end_capture_lines_fn);
+    llvm::BasicBlock *count_loop_exit_block = llvm::BasicBlock::Create(context, "count_loop_exit", end_capture_lines_fn);
+    llvm::BasicBlock *create_array_block = llvm::BasicBlock::Create(context, "create_array", end_capture_lines_fn);
+    llvm::BasicBlock *assign_loop_cond_block = llvm::BasicBlock::Create(context, "assign_loop_cond", end_capture_lines_fn);
+    llvm::BasicBlock *assign_loop_body_block = llvm::BasicBlock::Create(context, "assign_loop_body", end_capture_lines_fn);
+    llvm::BasicBlock *assign_newline_block = llvm::BasicBlock::Create(context, "assign_newline", end_capture_lines_fn);
+    llvm::BasicBlock *assign_loop_continue_block = llvm::BasicBlock::Create(context, "assign_loop_continue", end_capture_lines_fn);
+    llvm::BasicBlock *assign_loop_exit_block = llvm::BasicBlock::Create(context, "assign_loop_exit", end_capture_lines_fn);
+    llvm::BasicBlock *trailing_assign_block = llvm::BasicBlock::Create(context, "trailing_assign", end_capture_lines_fn);
+    llvm::BasicBlock *cleanup_block = llvm::BasicBlock::Create(context, "cleanup", end_capture_lines_fn);
+
+    // Entry: Check if capturing (capture_file != NULL)
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *capture_file = IR::aligned_load(*builder, ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
+    builder->CreateCondBr(is_null, not_capturing_block, capture_block);
+
+    // Not capturing: return create_arr(1, sizeof_ptr, &0)
+    builder->SetInsertPoint(not_capturing_block);
+    llvm::AllocaInst *zero_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "zero_count_alloca");
+    builder->CreateStore(zero_i64, zero_count_alloca);
+    llvm::Value *empty_arr = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, zero_count_alloca}, "empty_arr");
+    builder->CreateRet(empty_arr);
+
+    // Capture: call end_capture
+    builder->SetInsertPoint(capture_block);
+    llvm::Value *captured_buffer = builder->CreateCall(end_capture_fn, {}, "captured_buffer");
+
+    // Alloca line_count = 0, last_newline = 0, count_i = 0
+    llvm::AllocaInst *line_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_count_alloca");
+    builder->CreateStore(zero_i64, line_count_alloca);
+    llvm::AllocaInst *last_newline_alloca = builder->CreateAlloca(i64_ty, nullptr, "last_newline_alloca");
+    builder->CreateStore(zero_i64, last_newline_alloca);
+    llvm::AllocaInst *count_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "count_i_alloca");
+    builder->CreateStore(zero_i64, count_i_alloca);
+
+    // Load len
+    llvm::Value *buffer_len_ptr = builder->CreateStructGEP(str_type, captured_buffer, 0, "buffer_len_ptr");
+    llvm::Value *buffer_len = IR::aligned_load(*builder, i64_ty, buffer_len_ptr, "buffer_len");
+
+    // captured_buffer_value = getelementptr to value[0]
+    llvm::Value *buffer_value_ptr = builder->CreateStructGEP(str_type, captured_buffer, 1, "buffer_value_ptr");
+
+    builder->CreateBr(count_loop_cond_block);
+
+    // Count loop cond: i < len
+    builder->SetInsertPoint(count_loop_cond_block);
+    llvm::Value *count_i = IR::aligned_load(*builder, i64_ty, count_i_alloca, "count_i");
+    llvm::Value *count_cond = builder->CreateICmpULT(count_i, buffer_len, "count_cond");
+    builder->CreateCondBr(count_cond, count_loop_body_block, count_loop_exit_block);
+
+    // Count loop body
+    builder->SetInsertPoint(count_loop_body_block);
+    llvm::Value *char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, count_i, "char_ptr");
+    llvm::Value *curr_char = IR::aligned_load(*builder, i8_ty, char_ptr, "curr_char");
+    llvm::Value *is_newline = builder->CreateICmpEQ(curr_char, newline_const, "is_newline");
+    builder->CreateCondBr(is_newline, count_newline_block, count_loop_continue_block);
+
+    // Count newline
+    builder->SetInsertPoint(count_newline_block);
+    llvm::Value *line_count_load = IR::aligned_load(*builder, i64_ty, line_count_alloca, "line_count_load");
+    llvm::Value *line_count_inc = builder->CreateAdd(line_count_load, one_i64, "line_count_inc");
+    builder->CreateStore(line_count_inc, line_count_alloca);
+    builder->CreateStore(count_i, last_newline_alloca);
+    builder->CreateBr(count_loop_continue_block);
+
+    // Count loop continue
+    builder->SetInsertPoint(count_loop_continue_block);
+    llvm::Value *next_i_count = builder->CreateAdd(count_i, one_i64, "next_i_count");
+    builder->CreateStore(next_i_count, count_i_alloca);
+    builder->CreateBr(count_loop_cond_block);
+
+    // Count loop exit: check trailing
+    builder->SetInsertPoint(count_loop_exit_block);
+    llvm::Value *last_newline = IR::aligned_load(*builder, i64_ty, last_newline_alloca, "last_newline_load");
+    llvm::Value *last_newline_p1 = builder->CreateAdd(last_newline, builder->getInt64(1), "last_newline_p1");
+    llvm::Value *has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "has_trailing");
+    line_count_load = IR::aligned_load(*builder, i64_ty, line_count_alloca, "line_count_load");
+    llvm::Value *line_count_inc_trailing = builder->CreateAdd(line_count_load, one_i64, "line_count_inc_trailing");
+    llvm::Value *line_count_final = builder->CreateSelect(has_trailing, line_count_inc_trailing, line_count_load, "line_count_final");
+    builder->CreateStore(line_count_final, line_count_alloca);
+    builder->CreateBr(create_array_block);
+
+    // Create array
+    builder->SetInsertPoint(create_array_block);
+    llvm::Value *output_array = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, line_count_alloca}, "output_array");
+
+    // Alloca output_id = 0, line_start = 0, assign_i = 0
+    llvm::AllocaInst *output_id_alloca = builder->CreateAlloca(i64_ty, nullptr, "output_id_alloca");
+    builder->CreateStore(zero_i64, output_id_alloca);
+    llvm::AllocaInst *line_start_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_start_alloca");
+    builder->CreateStore(zero_i64, line_start_alloca);
+    llvm::AllocaInst *assign_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "assign_i_alloca");
+    builder->CreateStore(zero_i64, assign_i_alloca);
+
+    builder->CreateBr(assign_loop_cond_block);
+
+    // Assign loop cond: i < len
+    builder->SetInsertPoint(assign_loop_cond_block);
+    llvm::Value *assign_i = IR::aligned_load(*builder, i64_ty, assign_i_alloca, "assign_i");
+    llvm::Value *assign_cond = builder->CreateICmpULT(assign_i, buffer_len, "assign_cond");
+    builder->CreateCondBr(assign_cond, assign_loop_body_block, assign_loop_exit_block);
+
+    // Assign loop body
+    builder->SetInsertPoint(assign_loop_body_block);
+    llvm::Value *assign_char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, assign_i, "assign_char_ptr");
+    llvm::Value *assign_curr_char = IR::aligned_load(*builder, i8_ty, assign_char_ptr, "assign_curr_char");
+    llvm::Value *assign_is_newline = builder->CreateICmpEQ(assign_curr_char, newline_const, "assign_is_newline");
+    builder->CreateCondBr(assign_is_newline, assign_newline_block, assign_loop_continue_block);
+
+    // Assign newline
+    builder->SetInsertPoint(assign_newline_block);
+    llvm::Value *line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "line_start_load");
+    llvm::Value *line_string = builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "line_string");
+    llvm::Value *line_string_bits = builder->CreatePtrToInt(line_string, i64_ty, "line_string_bits");
+    llvm::AllocaInst *output_id_ptr = builder->CreateAlloca(i64_ty, nullptr, "output_id_ptr");
+    llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
+    builder->CreateStore(output_id_load, output_id_ptr);
+    builder->CreateCall(assign_arr_val_at_fn, {output_array, sizeof_ptr, output_id_ptr, line_string_bits});
+    llvm::Value *next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");
+    builder->CreateStore(next_output_id, output_id_alloca);
+    llvm::Value *assign_i_p1 = builder->CreateAdd(assign_i, builder->getInt64(1), "assign_i_p1");
+    builder->CreateStore(assign_i_p1, line_start_alloca);
+    builder->CreateBr(assign_loop_continue_block);
+
+    // Assign loop continue
+    builder->SetInsertPoint(assign_loop_continue_block);
+    llvm::Value *next_i_assign = builder->CreateAdd(assign_i, one_i64, "next_i_assign");
+    builder->CreateStore(next_i_assign, assign_i_alloca);
+    builder->CreateBr(assign_loop_cond_block);
+
+    // Assign loop exit: check trailing
+    builder->SetInsertPoint(assign_loop_exit_block);
+    last_newline_p1 = builder->CreateAdd(last_newline, builder->getInt64(1), "last_newline_p1");
+    llvm::Value *final_has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "final_has_trailing");
+    builder->CreateCondBr(final_has_trailing, trailing_assign_block, cleanup_block);
+
+    // Trailing assign
+    builder->SetInsertPoint(trailing_assign_block);
+    llvm::Value *trailing_line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "trailing_line_start_load");
+    llvm::Value *trailing_line_string =
+        builder->CreateCall(get_str_slice_fn, {captured_buffer, trailing_line_start, buffer_len}, "trailing_line_string");
+    llvm::Value *trailing_bits = builder->CreatePtrToInt(trailing_line_string, i64_ty, "trailing_bits");
+    llvm::AllocaInst *trailing_id_ptr = builder->CreateAlloca(i64_ty, nullptr, "trailing_id_ptr");
+    llvm::Value *trailing_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "trailing_id_load");
+    builder->CreateStore(trailing_id_load, trailing_id_ptr);
+    builder->CreateCall(assign_arr_val_at_fn, {output_array, sizeof_ptr, trailing_id_ptr, trailing_bits});
+    builder->CreateBr(cleanup_block);
+
+    // Cleanup: free captured_buffer, ret output_array
+    builder->SetInsertPoint(cleanup_block);
+    builder->CreateCall(free_fn, {captured_buffer});
+    builder->CreateRet(output_array);
 }

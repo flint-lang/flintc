@@ -3828,6 +3828,7 @@ class Generator {
                 {"get_path", nullptr},
                 {"start_capture", nullptr},
                 {"end_capture", nullptr},
+                {"end_capture_lines", nullptr},
             };
 
             /// @var `system_variables`
@@ -3897,6 +3898,14 @@ class Generator {
             /// @param `module` The LLVM Module the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_end_capture_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_end_capture_lines_function`
+            /// @brief Function to generate the `end_capture_lines` system function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_end_capture_lines_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
         };
 
         /// @class `Time`
