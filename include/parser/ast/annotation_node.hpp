@@ -7,6 +7,7 @@
 /// @brief An enum of all possible annotation kinds there are
 enum class AnnotationKind {
     TEST_OUTPUT_ALWAYS, // #test_output_always usable on `TestNode`s
+    TEST_OUTPUT_NEVER,  // #test_output_never usable on `TestNode`s
     TEST_PERFORMANCE,   // #test_performance usable on `TestNode`s
     TEST_SHOULD_FAIL,   // #test_should_fail usable on `TestNode`s
 };
@@ -15,6 +16,7 @@ enum class AnnotationKind {
 /// @brief A map mapping strings to the correnct annotaiton kind enum
 static const inline std::unordered_map<std::string_view, AnnotationKind> annotation_map = {
     {"test_output_always", AnnotationKind::TEST_OUTPUT_ALWAYS},
+    {"test_output_never", AnnotationKind::TEST_OUTPUT_NEVER},
     {"test_performance", AnnotationKind::TEST_PERFORMANCE},
     {"test_should_fail", AnnotationKind::TEST_SHOULD_FAIL},
 };
@@ -23,6 +25,7 @@ static const inline std::unordered_map<std::string_view, AnnotationKind> annotat
 /// @brief The reverse of the `annotation_map`, mapping the annotation kind enums to the strings views
 static const inline std::unordered_map<AnnotationKind, std::string_view> annotation_map_rev = {
     {AnnotationKind::TEST_OUTPUT_ALWAYS, "test_output_always"},
+    {AnnotationKind::TEST_OUTPUT_NEVER, "test_output_never"},
     {AnnotationKind::TEST_PERFORMANCE, "test_performance"},
     {AnnotationKind::TEST_SHOULD_FAIL, "test_should_fail"},
 };

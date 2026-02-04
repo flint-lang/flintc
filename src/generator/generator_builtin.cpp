@@ -1097,8 +1097,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             builder->SetInsertPoint(succeed_block);
             builder->CreateCall(printf_fn, {success_fmt, builder->getInt32(longest_name), test_name_value});
             // Check if we need to print the output
-            const bool is_always_output = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-            if (is_always_output) {
+            const bool test_output_always = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+            if (test_output_always) {
                 builder->CreateBr(print_output_block);
             } else {
                 builder->CreateBr(merge_block);
@@ -1112,7 +1112,12 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 Module::Arithmetic::arithmetic_functions.at("i32_safe_add"), {counter_value, one}, "new_counter_val" //
             );
             IR::aligned_store(*builder, new_counter_value, counter);
-            builder->CreateBr(print_output_block);
+            const bool test_output_never = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            if (test_output_never) {
+                builder->CreateBr(merge_block);
+            } else {
+                builder->CreateBr(print_output_block);
+            }
 
             builder->SetInsertPoint(print_output_block);
             llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
