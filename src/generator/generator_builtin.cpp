@@ -1155,6 +1155,11 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             llvm::Value *const longest_line_value_p1 = builder->CreateAdd(        //
                 longest_line_value, builder->getInt64(1), "longest_line_value_p1" //
             );
+            llvm::Value *const min_width = builder->getInt64(9);
+            llvm::Value *longest_line_lt_min_width = builder->CreateICmpULT(longest_line_value_p1, min_width, "longest_line_lt_min_width");
+            llvm::Value *const output_width = builder->CreateSelect(                        //
+                longest_line_lt_min_width, min_width, longest_line_value_p1, "output_width" //
+            );
             builder->CreateCall(printf_fn, {output_begin_fmt});
             // Now after '├─ Output ─' has been printed we need to print N '─' symbols where N is the longest line - 8, clamped at 0. The
             // "minimal" line width is 8, so that's the minimal "contianer size"
@@ -1196,7 +1201,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
             llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
             llvm::Value *const empty_string = IR::generate_const_string(module, "");
-            llvm::Value *space_count = builder->CreateSub(longest_line_value_p1, line_len, "space_count");
+            llvm::Value *space_count = builder->CreateSub(output_width, line_len, "space_count");
             llvm::Value *space_count_i32 = builder->CreateTrunc(space_count, builder->getInt32Ty(), "space_count_i32");
             builder->CreateCall(printf_fn, {output_line_fmt, line_len_i32, line_value, space_count_i32, empty_string});
             i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
