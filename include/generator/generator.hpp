@@ -592,6 +592,16 @@ class Generator {
         /// @return `bool` Whether all functions were able to be refreshed
         static bool refresh_c_functions(llvm::Module *module);
 
+        /// @function `generate_execute_test_function`
+        /// @brief Generates the `execute_test` function which is a wrapper around running a test, printing it's output etc. All the good
+        /// stuff. It has been created because without it the code duplication levels were kinda insane. With it, the IR code of tests now
+        /// is roughly 80% smaller, leading to way faster builds and compilations for the `--test` flag
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `execute_test` function is being generated in
+        /// @return `llvm::Function *` The generated `execute_test` function
+        static llvm::Function *generate_execute_test_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
         /// @function `generate_builtin_test`
         /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled
         ///
