@@ -17,46 +17,71 @@ def starts_with(str string, str check) -> bool:
 		print("\n");
 	return is_ok;
 
+/// @brief Tests the given test file, a test succeeds if it's exit code is 0
+///
+/// @param `test_dir` The directory the test needs to be tested in
+/// @param `file_name` The test file to test
+def test_test(str test_dir, str file_name):
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{test_dir}");
+	str test_file = $"{normalized_path}/{file_name}";
+	str out_file = $"{normalized_path}/test";
+	(exit_code, output) := system_command($"flintc --file {test_file} --test --out {out_file}");
+	if exit_code != 0:
+		print(output);
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command(get_path($"{normalized_path}/test"));
+	if exit_code != 0:
+		print(output);
+	assert(exit_code == 0);
+
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is expected to have the given expected output.
 ///
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the compiled program
-def test_file_ok(str file, str expected_output):
+def test_file_ok(str file, str? expected_output):
 	(exit_code, output) := system_command($"flintc --file {file}");
 	if exit_code != 0:
-		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
+		print($"Unexpected compiler exit_code: {exit_code}\n");
 	assert(exit_code == 0);
 	if output != "":
-		print($"UNEXPECTED_CMP: output = '{output}'\n");
+		print($"Unexpected compiler output: '{output}'\n");
 	assert(output == "");
 	(exit_code, output) = system_command("./main");
 	if exit_code != 0:
-		print($"UNEXPECTED_EXE: exit_code = {exit_code}\n");
+		print($"Unexpected 'main' exit_code: {exit_code}\n");
 	assert(exit_code == 0);
-	if output != expected_output:
-		print($"UNEXPECTED_EXE: output = '{output}'\n");
-		print($"EXPECTED_EXE: output = '{expected_output}'\n");
-	assert(output == expected_output);
+	if expected_output == none:
+		return;
+	if output != expected_output!:
+		print($"Unexpected output:\n'{output}'\n");
+		print($"Expected output:\n'{expected_output!}'\n");
+	assert(output == expected_output!);
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is expected to have the given expected output.
 ///
 /// @param `path` The path in which to compile and execute the program
 /// @param `file` The file to compile
-/// @param `expected_output` The expected output of the compiled program
-def test_file_ok_in(str path, str file, str expected_output):
+/// @param `expected_output` The expected output of the compiled program, if this is 'none'
+///                          then the output is not checked, only the exit code of the
+///                          program is checked
+def test_file_ok_in(str path, str file, str? expected_output):
     cwd := get_cwd();
     normalized_path := get_path($"{cwd}/{path}");
 	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file}");
 	assert(exit_code == 0);
 	assert(output == "");
-	(exit_code, output) = system_command($"cd {cwd}/{path} && {get_path("./main")}");
+	(exit_code, output) = system_command($"cd {normalized_path} && {get_path("./main")}");
 	assert(exit_code == 0);
-	if output != expected_output:
+	if expected_output == none:
+		return;
+	if output != expected_output!:
 		print($"UNEXPECTED_EXE: output = '{output}'\n");
-		print($"EXPECTED_EXE: output = '{expected_output}'\n");
-	assert(output == expected_output);
+		print($"EXPECTED_EXE: output = '{expected_output!}'\n");
+	assert(output == expected_output!);
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is not executed.

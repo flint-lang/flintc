@@ -1,0 +1,10 @@
+use Core.assert
+
+test "0. if 'true'":
+	if true:
+		return;
+	assert(false);
+
+test "1. if 'false'":
+	if false:
+		assert(false);

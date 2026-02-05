@@ -1,19 +1,31 @@
-use "spec/variables_and_types/primitives.ft"
-use "spec/variables_and_types/inferred.ft"
-use "spec/variables_and_types/operators.ft"
-use "spec/variables_and_types/strings.ft"
-use "spec/variables_and_types/casting.ft"
+use "../utils.ft"
 
-use "spec/functions/tests.ft"
+test "variables_and_types/primitive":
+	test_test("tests/spec/variables_and_types", "primitives.ft");
 
-// use "spec/array.ft"
-// use "spec/data.ft"
-// use "spec/enum.ft"
-// use "spec/error.ft"
-// use "spec/loops.ft"
-// use "spec/multi_types.ft"
-// use "spec/optional.ft"
-// use "spec/read.ft"
-// use "spec/str.ft"
-// use "spec/switch.ft"
-// use "spec/variant.ft"
+test "variables_and_types/inferred":
+	test_test("tests/spec/variables_and_types", "inferred.ft");
+
+test "variables_and_types/operators":
+	test_test("tests/spec/variables_and_types", "operators.ft");
+
+test "variables_and_types/strings":
+	test_test("tests/spec/variables_and_types", "strings.ft");
+
+test "variables_and_types/casting":
+	test_test("tests/spec/variables_and_types", "casting.ft");
+
+test "control_flow/primitive":
+	test_test("tests/spec/control_flow", "if.ft");
+
+// test "control_flow/loops":
+// 	test_test("tests/spec/control_flow", "loops.ft");
+// 
+// test "control_flow/enums":
+// 	test_test("tests/spec/control_flow", "enums.ft");
+// 
+// test "control_flow/switch":
+// 	test_test("tests/spec/control_flow", "switch.ft");
+
+test "functions/tests":
+	test_test("tests/spec/functions", "tests.ft");

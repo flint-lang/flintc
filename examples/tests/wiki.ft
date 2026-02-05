@@ -1,13 +1,37 @@
-use "wiki/beginners_guide/basics.ft"
-use "wiki/beginners_guide/variables_and_types.ft"
-use "wiki/beginners_guide/control_flow.ft"
-use "wiki/beginners_guide/functions.ft"
-use "wiki/beginners_guide/data.ft"
-use "wiki/beginners_guide/arrays.ft"
-use "wiki/beginners_guide/imports.ft"
-use "wiki/beginners_guide/entities.ft"
-use "wiki/beginners_guide/interop.ft"
+use "../utils.ft"
 
-use "wiki/intermediates_guide/optionals.ft"
-use "wiki/intermediates_guide/variants.ft"
-use "wiki/intermediates_guide/error_sets.ft"
+test "beginners_guide/basics":
+	test_test("tests/wiki/beginners_guide", "basics.ft");
+
+test "beginners_guide/variables_and_types.ft":
+	test_test("tests/wiki/beginners_guide", "variables_and_types.ft");
+
+test "beginners_guide/control_flow":
+	test_test("tests/wiki/beginners_guide", "control_flow.ft");
+
+test "beginners_guide/functions":
+	test_test("tests/wiki/beginners_guide", "functions.ft");
+
+test "beginners_guide/data":
+	test_test("tests/wiki/beginners_guide", "data.ft");
+
+test "beginners_guide/arrays":
+	test_test("tests/wiki/beginners_guide", "arrays.ft");
+
+test "beginners_guide/imports":
+	test_test("tests/wiki/beginners_guide", "imports.ft");
+
+test "beginners_guide/entities":
+	test_test("tests/wiki/beginners_guide", "entities.ft");
+
+test "beginners_guide/interop":
+	test_test("tests/wiki/beginners_guide", "interop.ft");
+
+test "intermediates_guide/optionals":
+	test_test("tests/wiki/intermediates_guide", "optionals.ft");
+
+test "intermediates_guide/variants":
+	test_test("tests/wiki/intermediates_guide", "variants.ft");
+
+test "intermediates_guide/error_sets":
+	test_test("tests/wiki/intermediates_guide", "error_sets.ft");
