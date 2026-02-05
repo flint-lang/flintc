@@ -978,7 +978,9 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     //     size_t line_start = 0;
     //     for (size_t i = 0; i < captured_buffer->len; i++) {
     //         if (captured_buffer_value[i] == '\n') {
-    //             str *line_string = get_str_slice(output_buffer, line_start, i);
+    //             str *line_string = i == line_start                   //
+    //                 ? create_str(0)                                  //
+    //                 : get_str_slice(captured_buffer, line_start, i); //
     //             ptr_bitcast_t cast = (ptr_bitcast_t){.ptr = line_string};
     //             assign_arr_val_at(output_array, sizeof(str *), &output_id, cast.bits);
     //             line_start = i + 1;
@@ -999,6 +1001,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
     llvm::Function *const end_capture_fn = system_functions.at("end_capture");
     llvm::Function *const assign_arr_val_at_fn = Array::array_manip_functions.at("assign_arr_val_at");
+    llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const get_str_slice_fn = String::string_manip_functions.at("get_str_slice");
 
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
@@ -1025,22 +1028,25 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::Constant *const newline_const = builder->getInt8('\n');
 
     // Create the basic blocks for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", end_capture_lines_fn);
-    llvm::BasicBlock *not_capturing_block = llvm::BasicBlock::Create(context, "not_capturing", end_capture_lines_fn);
-    llvm::BasicBlock *capture_block = llvm::BasicBlock::Create(context, "capture", end_capture_lines_fn);
-    llvm::BasicBlock *count_loop_cond_block = llvm::BasicBlock::Create(context, "count_loop_cond", end_capture_lines_fn);
-    llvm::BasicBlock *count_loop_body_block = llvm::BasicBlock::Create(context, "count_loop_body", end_capture_lines_fn);
-    llvm::BasicBlock *count_newline_block = llvm::BasicBlock::Create(context, "count_newline", end_capture_lines_fn);
-    llvm::BasicBlock *count_loop_continue_block = llvm::BasicBlock::Create(context, "count_loop_continue", end_capture_lines_fn);
-    llvm::BasicBlock *count_loop_exit_block = llvm::BasicBlock::Create(context, "count_loop_exit", end_capture_lines_fn);
-    llvm::BasicBlock *create_array_block = llvm::BasicBlock::Create(context, "create_array", end_capture_lines_fn);
-    llvm::BasicBlock *assign_loop_cond_block = llvm::BasicBlock::Create(context, "assign_loop_cond", end_capture_lines_fn);
-    llvm::BasicBlock *assign_loop_body_block = llvm::BasicBlock::Create(context, "assign_loop_body", end_capture_lines_fn);
-    llvm::BasicBlock *assign_newline_block = llvm::BasicBlock::Create(context, "assign_newline", end_capture_lines_fn);
-    llvm::BasicBlock *assign_loop_continue_block = llvm::BasicBlock::Create(context, "assign_loop_continue", end_capture_lines_fn);
-    llvm::BasicBlock *assign_loop_exit_block = llvm::BasicBlock::Create(context, "assign_loop_exit", end_capture_lines_fn);
-    llvm::BasicBlock *trailing_assign_block = llvm::BasicBlock::Create(context, "trailing_assign", end_capture_lines_fn);
-    llvm::BasicBlock *cleanup_block = llvm::BasicBlock::Create(context, "cleanup", end_capture_lines_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", end_capture_lines_fn);
+    llvm::BasicBlock *const not_capturing_block = llvm::BasicBlock::Create(context, "not_capturing", end_capture_lines_fn);
+    llvm::BasicBlock *const capture_block = llvm::BasicBlock::Create(context, "capture", end_capture_lines_fn);
+    llvm::BasicBlock *const count_loop_cond_block = llvm::BasicBlock::Create(context, "count_loop_cond", end_capture_lines_fn);
+    llvm::BasicBlock *const count_loop_body_block = llvm::BasicBlock::Create(context, "count_loop_body", end_capture_lines_fn);
+    llvm::BasicBlock *const count_newline_block = llvm::BasicBlock::Create(context, "count_newline", end_capture_lines_fn);
+    llvm::BasicBlock *const count_loop_continue_block = llvm::BasicBlock::Create(context, "count_loop_continue", end_capture_lines_fn);
+    llvm::BasicBlock *const count_loop_exit_block = llvm::BasicBlock::Create(context, "count_loop_exit", end_capture_lines_fn);
+    llvm::BasicBlock *const create_array_block = llvm::BasicBlock::Create(context, "create_array", end_capture_lines_fn);
+    llvm::BasicBlock *const assign_loop_cond_block = llvm::BasicBlock::Create(context, "assign_loop_cond", end_capture_lines_fn);
+    llvm::BasicBlock *const assign_loop_body_block = llvm::BasicBlock::Create(context, "assign_loop_body", end_capture_lines_fn);
+    llvm::BasicBlock *const assign_newline_block = llvm::BasicBlock::Create(context, "assign_newline", end_capture_lines_fn);
+    llvm::BasicBlock *const empty_line_block = llvm::BasicBlock::Create(context, "empty_line", end_capture_lines_fn);
+    llvm::BasicBlock *const slice_line_block = llvm::BasicBlock::Create(context, "slice_line", end_capture_lines_fn);
+    llvm::BasicBlock *const line_select_block = llvm::BasicBlock::Create(context, "line_select", end_capture_lines_fn);
+    llvm::BasicBlock *const assign_loop_continue_block = llvm::BasicBlock::Create(context, "assign_loop_continue", end_capture_lines_fn);
+    llvm::BasicBlock *const assign_loop_exit_block = llvm::BasicBlock::Create(context, "assign_loop_exit", end_capture_lines_fn);
+    llvm::BasicBlock *const trailing_assign_block = llvm::BasicBlock::Create(context, "trailing_assign", end_capture_lines_fn);
+    llvm::BasicBlock *const cleanup_block = llvm::BasicBlock::Create(context, "cleanup", end_capture_lines_fn);
 
     // Entry: Check if capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
@@ -1144,7 +1150,21 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     // Assign newline
     builder->SetInsertPoint(assign_newline_block);
     llvm::Value *line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "line_start_load");
-    llvm::Value *line_string = builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "line_string");
+    llvm::Value *is_line_empty = builder->CreateICmpEQ(assign_i, line_start, "is_line_empty");
+    builder->CreateCondBr(is_line_empty, empty_line_block, slice_line_block);
+
+    builder->SetInsertPoint(empty_line_block);
+    llvm::Value *empty_line_string = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_line_string");
+    builder->CreateBr(line_select_block);
+
+    builder->SetInsertPoint(slice_line_block);
+    llvm::Value *slice_line_string = builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "slice_line_string");
+    builder->CreateBr(line_select_block);
+
+    builder->SetInsertPoint(line_select_block);
+    llvm::PHINode *line_string = builder->CreatePHI(str_type->getPointerTo(), 2, "line_string");
+    line_string->addIncoming(empty_line_string, empty_line_block);
+    line_string->addIncoming(slice_line_string, slice_line_block);
     llvm::Value *line_string_bits = builder->CreatePtrToInt(line_string, i64_ty, "line_string_bits");
     llvm::AllocaInst *output_id_ptr = builder->CreateAlloca(i64_ty, nullptr, "output_id_ptr");
     llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
