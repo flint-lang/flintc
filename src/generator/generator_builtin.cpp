@@ -1145,6 +1145,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::BasicBlock *const output_end_m_merge_block = llvm::BasicBlock::Create( //
         context, "output_end_m_merge", exec_fn                                   //
     );
+    llvm::BasicBlock *const check_perf_print_block = llvm::BasicBlock::Create(context, "check_perf_print", exec_fn);
     llvm::BasicBlock *const perf_print_results_block = llvm::BasicBlock::Create(context, "perf_print_result", exec_fn);
     llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", exec_fn);
 
@@ -1203,11 +1204,11 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
 
     builder->SetInsertPoint(succeed_block);
     builder->CreateCall(printf_fn, {arg_success_fmt, arg_longest_name, arg_test_name_value});
-    builder->CreateCondBr(arg_output_always, print_output_block, merge_block);
+    builder->CreateCondBr(arg_output_always, print_output_block, check_perf_print_block);
 
     builder->SetInsertPoint(fail_block);
     builder->CreateCall(printf_fn, {arg_fail_fmt, arg_longest_name, arg_test_name_value});
-    builder->CreateCondBr(arg_output_never, merge_block, print_output_block);
+    builder->CreateCondBr(arg_output_never, check_perf_print_block, print_output_block);
 
     builder->SetInsertPoint(print_output_block);
     llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
@@ -1320,6 +1321,9 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     builder->SetInsertPoint(output_end_m_merge_block);
     llvm::Value *const right_lower_corner_symbol_string = IR::generate_const_string(module, "┘\n");
     builder->CreateCall(printf_fn, {right_lower_corner_symbol_string});
+    builder->CreateBr(check_perf_print_block);
+
+    builder->SetInsertPoint(check_perf_print_block);
     builder->CreateCondBr(arg_is_perf_test, perf_print_results_block, merge_block);
 
     builder->SetInsertPoint(perf_print_results_block);
