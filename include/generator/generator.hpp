@@ -592,6 +592,20 @@ class Generator {
         /// @return `bool` Whether all functions were able to be refreshed
         static bool refresh_c_functions(llvm::Module *module);
 
+        /// @function `generate_visible_width_function`
+        /// @brief Generates the `visible_width` function which is used to count the *visible* characters inside a given line. It is used
+        /// because of unicode characters and ascii escape sequences for colors for terminals. If a line, for example, contains a character
+        /// like `│` or `─` then this single visible unicode character are actually multiple bytes under the hood. Flint itself is not
+        /// unicode-aware yet but it does not need to. Just the test runner needs to be unicode-aware. This is needed to draw the box around
+        /// the output of a test in the correct size. Otherwise the `│` characters at the very end of the box (right hand side) are
+        /// *somewhere*, entirely dependant on how many unicode and hidden characters the "longest" line (line with the most bytes)
+        /// contains. This function will fix this issue.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `visible_width` function is being generated in
+        /// @return `llvm::Function *` The generated `visible_width` function
+        static llvm::Function *generate_visible_width_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
         /// @function `generate_execute_test_function`
         /// @brief Generates the `execute_test` function which is a wrapper around running a test, printing it's output etc. All the good
         /// stuff. It has been created because without it the code duplication levels were kinda insane. With it, the IR code of tests now

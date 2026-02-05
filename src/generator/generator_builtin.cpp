@@ -880,7 +880,173 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     return true;
 }
 
+llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    // Types
+    llvm::Type *i8_type = builder->getInt8Ty();
+    llvm::Type *i32_type = builder->getInt32Ty();
+    llvm::Type *i64_type = builder->getInt64Ty();
+    llvm::PointerType *ptr_type = llvm::PointerType::get(context, 0);
+
+    // visible_width(char* str, i64 len) -> i64
+    llvm::FunctionType *visible_width_type = llvm::FunctionType::get(i64_type, { ptr_type, i64_type }, false);
+    llvm::Function *visible_width_fn = llvm::Function::Create(visible_width_type, llvm::Function::ExternalLinkage, "visible_width", module);
+
+    // Get the function arguments
+    llvm::Argument *arg_str =visible_width_fn->arg_begin();
+    arg_str->setName("str");
+    llvm::Argument *arg_len =visible_width_fn->arg_begin() + 1;
+    arg_len->setName("len");
+
+    // Create all blocks of the function
+    llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", visible_width_fn);
+    llvm::BasicBlock *loop_cond = llvm::BasicBlock::Create(context, "loop_cond", visible_width_fn);
+    llvm::BasicBlock *load_char = llvm::BasicBlock::Create(context, "load_char", visible_width_fn);
+    llvm::BasicBlock *handle_esc = llvm::BasicBlock::Create(context, "handle_esc", visible_width_fn);
+    llvm::BasicBlock *handle_esc_after = llvm::BasicBlock::Create(context, "handle_esc_after", visible_width_fn);
+    llvm::BasicBlock *csi_loop = llvm::BasicBlock::Create(context, "csi_loop", visible_width_fn);
+    llvm::BasicBlock *csi_check = llvm::BasicBlock::Create(context, "csi_check", visible_width_fn);
+    llvm::BasicBlock *csi_continue = llvm::BasicBlock::Create(context, "csi_continue", visible_width_fn);
+    llvm::BasicBlock *csi_non_final = llvm::BasicBlock::Create(context, "csi_non_final", visible_width_fn);
+    llvm::BasicBlock *csi_exit = llvm::BasicBlock::Create(context, "csi_exit", visible_width_fn);
+    llvm::BasicBlock *ascii_case = llvm::BasicBlock::Create(context, "ascii_case", visible_width_fn);
+    llvm::BasicBlock *non_ascii_case = llvm::BasicBlock::Create(context, "non_ascii_case", visible_width_fn);
+    llvm::BasicBlock *inc_and_back = llvm::BasicBlock::Create(context, "inc_and_back", visible_width_fn);
+    llvm::BasicBlock *ret_block = llvm::BasicBlock::Create(context, "ret", visible_width_fn);
+
+    // entry: allocas, init, branch to loop_cond
+    builder->SetInsertPoint(entry);
+    llvm::AllocaInst *idx_alloc = builder->CreateAlloca(i64_type, nullptr, "i");
+    llvm::AllocaInst *count_alloc = builder->CreateAlloca(i64_type, nullptr, "count");
+    builder->CreateStore(llvm::ConstantInt::get(i64_type, 0), idx_alloc);
+    builder->CreateStore(llvm::ConstantInt::get(i32_type, 0), count_alloc);
+    builder->CreateBr(loop_cond);
+
+    // loop_cond: if i < len -> load_char else ret
+    builder->SetInsertPoint(loop_cond);
+    llvm::Value *i_val = builder->CreateLoad(i64_type, idx_alloc, "i_val");
+    llvm::Value *loop_cond_val = builder->CreateICmpULT(i_val, arg_len, "loopcond");
+    builder->CreateCondBr(loop_cond_val, load_char, ret_block);
+
+    // load_char: ch = str[i]; if ESC -> handle_esc else ascii_case
+    builder->SetInsertPoint(load_char);
+    llvm::Value *char_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, i_val, "char_ptr");
+    llvm::Value *char_byte = builder->CreateLoad(i8_type, char_ptr, "ch");
+    llvm::Value *esc_val = llvm::ConstantInt::get(i8_type, 27);
+    llvm::Value *is_esc = builder->CreateICmpEQ(char_byte, esc_val, "is_esc");
+    builder->CreateCondBr(is_esc, handle_esc, ascii_case);
+
+    // handle_esc: check i+1 < len -> handle_esc_after or inc_and_back
+    builder->SetInsertPoint(handle_esc);
+    llvm::Value *i_p1 = builder->CreateAdd(i_val, llvm::ConstantInt::get(i64_type, 1), "i_p1");
+    llvm::Value *next_in_bounds = builder->CreateICmpULT(i_p1, arg_len, "next_in_bounds");
+    builder->CreateCondBr(next_in_bounds, handle_esc_after, inc_and_back);
+
+    // handle_esc_after: check if next char == '[' -> csi_loop else inc_and_back
+    builder->SetInsertPoint(handle_esc_after);
+    llvm::Value *next_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, i_p1, "next_ptr");
+    llvm::Value *next_byte = builder->CreateLoad(i8_type, next_ptr, "next_byte");
+    llvm::Value *bracket_val = llvm::ConstantInt::get(i8_type, '[');
+    llvm::Value *is_bracket = builder->CreateICmpEQ(next_byte, bracket_val, "is_bracket");
+    builder->CreateCondBr(is_bracket, csi_loop, inc_and_back);
+
+    // csi_loop: j = i + 2; branch to csi_check
+    builder->SetInsertPoint(csi_loop);
+    llvm::AllocaInst *j_alloc = builder->CreateAlloca(i64_type, nullptr, "j");
+    llvm::Value *j_init = builder->CreateAdd(i_val, llvm::ConstantInt::get(i64_type, 2), "j_init");
+    builder->CreateStore(j_init, j_alloc);
+    builder->CreateBr(csi_check);
+
+    // csi_check: if j < len -> csi_continue else csi_exit
+    builder->SetInsertPoint(csi_check);
+    llvm::Value *j_val = builder->CreateLoad(i64_type, j_alloc, "j_val");
+    llvm::Value *j_in_bounds = builder->CreateICmpULT(j_val, arg_len, "j_in_bounds");
+    builder->CreateCondBr(j_in_bounds, csi_continue, csi_exit);
+
+    // csi_continue: load byte; if final (0x40..0x7E) -> csi_exit else csi_non_final
+    builder->SetInsertPoint(csi_continue);
+    llvm::Value *csi_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, j_val, "csi_ptr");
+    llvm::Value *csi_byte = builder->CreateLoad(i8_type, csi_ptr, "csi_byte");
+    llvm::Value *csi_byte_u = builder->CreateZExt(csi_byte, builder->getInt32Ty(), "csi_byte_u");
+    llvm::Value *ge40 = builder->CreateICmpUGE(csi_byte_u, llvm::ConstantInt::get(builder->getInt32Ty(), 0x40), "ge40");
+    llvm::Value *le7E = builder->CreateICmpULE(csi_byte_u, llvm::ConstantInt::get(builder->getInt32Ty(), 0x7E), "le7E");
+    llvm::Value *is_final = builder->CreateAnd(ge40, le7E, "is_final");
+    builder->CreateCondBr(is_final, csi_exit, csi_non_final);
+
+    // csi_non_final: j = j + 1; store; branch to csi_check
+    builder->SetInsertPoint(csi_non_final);
+    llvm::Value *j_next = builder->CreateAdd(j_val, llvm::ConstantInt::get(i64_type, 1), "j_next");
+    builder->CreateStore(j_next, j_alloc);
+    builder->CreateBr(csi_check);
+
+    // csi_exit: set i := j + 1; continue outer loop
+    builder->SetInsertPoint(csi_exit);
+    llvm::Value *j_final = builder->CreateLoad(i64_type, j_alloc, "j_final");
+    llvm::Value *i_after_csi = builder->CreateAdd(j_final, llvm::ConstantInt::get(i64_type, 1), "i_after_csi");
+    builder->CreateStore(i_after_csi, idx_alloc);
+    builder->CreateBr(loop_cond);
+
+    // ascii_case: if (ch & 0x80) == 0 -> inc_and_back else non_ascii_case
+    builder->SetInsertPoint(ascii_case);
+    llvm::Value *char_u32 = builder->CreateZExt(char_byte, builder->getInt32Ty(), "byte_u32");
+    llvm::Value *mask_128 = llvm::ConstantInt::get(builder->getInt32Ty(), 0x80);
+    llvm::Value *and_res = builder->CreateAnd(char_u32, mask_128, "and128");
+    llvm::Value *is_ascii = builder->CreateICmpEQ(and_res, llvm::ConstantInt::get(builder->getInt32Ty(), 0), "is_ascii");
+    builder->CreateCondBr(is_ascii, inc_and_back, non_ascii_case);
+
+    // non_ascii_case: determine UTF-8 lead length, advance i, count++
+    builder->SetInsertPoint(non_ascii_case);
+    llvm::Value *mask_e0 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xE0);
+    llvm::Value *mask_f0 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xF0);
+    llvm::Value *mask_f8 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xF8);
+    llvm::Value *lead2 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xC0);
+    llvm::Value *lead3 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xE0);
+    llvm::Value *lead4 = llvm::ConstantInt::get(builder->getInt32Ty(), 0xF0);
+
+    llvm::Value *b_and_e0 = builder->CreateAnd(char_u32, mask_e0, "b_and_e0");
+    llvm::Value *is_2 = builder->CreateICmpEQ(b_and_e0, lead2, "is_2");
+    llvm::Value *b_and_f0 = builder->CreateAnd(char_u32, mask_f0, "b_and_f0");
+    llvm::Value *is_3 = builder->CreateICmpEQ(b_and_f0, lead3, "is_3");
+    llvm::Value *b_and_f8 = builder->CreateAnd(char_u32, mask_f8, "b_and_f8");
+    llvm::Value *is_4 = builder->CreateICmpEQ(b_and_f8, lead4, "is_4");
+
+    llvm::Value *advance2 = llvm::ConstantInt::get(i64_type, 2);
+    llvm::Value *advance3 = llvm::ConstantInt::get(i64_type, 3);
+    llvm::Value *advance4 = llvm::ConstantInt::get(i64_type, 4);
+    llvm::Value *advance1 = llvm::ConstantInt::get(i64_type, 1);
+
+    llvm::Value *adv_tmp = builder->CreateSelect(is_4, advance4, advance1, "adv_tmp1");
+    llvm::Value *adv_tmp2 = builder->CreateSelect(is_3, advance3, adv_tmp, "adv_tmp2");
+    llvm::Value *advance_final = builder->CreateSelect(is_2, advance2, adv_tmp2, "advance_final");
+
+    // increment visible-count by 1
+    llvm::Value *cnt_now = builder->CreateLoad(i64_type, count_alloc, "cnt_now");
+    llvm::Value *cnt_inc = builder->CreateAdd(cnt_now, builder->getInt64(1), "cnt_inc");
+    builder->CreateStore(cnt_inc, count_alloc);
+
+    // i = i + advance_final
+    llvm::Value *i_new = builder->CreateAdd(i_val, advance_final, "i_new");
+    builder->CreateStore(i_new, idx_alloc);
+    builder->CreateBr(loop_cond);
+
+    // inc_and_back: ascii path: count++, i++
+    builder->SetInsertPoint(inc_and_back);
+    llvm::Value *cnt = builder->CreateLoad(i64_type, count_alloc, "cnt");
+    llvm::Value *cntp = builder->CreateAdd(cnt, builder->getInt64(1), "cntp");
+    builder->CreateStore(cntp, count_alloc);
+    llvm::Value *i_next = builder->CreateAdd(i_val, builder->getInt64(1), "i_next");
+    builder->CreateStore(i_next, idx_alloc);
+    builder->CreateBr(loop_cond);
+
+    // ret: return count
+    builder->SetInsertPoint(ret_block);
+    llvm::Value *final_cnt = builder->CreateLoad(i64_type, count_alloc, "final_cnt");
+    builder->CreateRet(final_cnt);
+
+    return visible_width_fn;
+}
+
 llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
+    llvm::Function *visible_width_fn = generate_visible_width_function(builder, module);
     llvm::PointerType *ptr_type = llvm::PointerType::get(context, 0);
     llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
     llvm::Type *i1_type = llvm::Type::getInt1Ty(context);
@@ -1066,9 +1232,11 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::Value *line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
     llvm::Value *line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
     llvm::Value *line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
+    llvm::Value *line_value_ptr = builder->CreateStructGEP(str_type, line_iter, 1, "line_value_ptr");
+    llvm::Value *visible_line_len = builder->CreateCall(visible_width_fn, {line_value_ptr, line_len}, "visible_line_len");
     llvm::Value *curr_longest_line = IR::aligned_load(*builder, builder->getInt64Ty(), longest_line, "curr_longest_line");
-    llvm::Value *curr_line_gt_longest = builder->CreateICmpUGT(line_len, curr_longest_line, "curr_line_gt_longest");
-    llvm::Value *new_longest_line = builder->CreateSelect(curr_line_gt_longest, line_len, curr_longest_line, "new_longest_line");
+    llvm::Value *curr_line_gt_longest = builder->CreateICmpUGT(visible_line_len, curr_longest_line, "curr_line_gt_longest");
+    llvm::Value *new_longest_line = builder->CreateSelect(curr_line_gt_longest, visible_line_len, curr_longest_line, "new_longest_line");
     IR::aligned_store(*builder, new_longest_line, longest_line);
     llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
     IR::aligned_store(*builder, i_p1, i_alloca);
@@ -1125,7 +1293,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
     llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
     llvm::Value *const empty_string = IR::generate_const_string(module, "");
-    llvm::Value *space_count = builder->CreateSub(output_width, line_len, "space_count");
+    llvm::Value *visible_len_print = builder->CreateCall(visible_width_fn, {line_value, line_len}, "visible_len_print");
+    llvm::Value *space_count = builder->CreateSub(output_width, visible_len_print, "space_count");
     llvm::Value *space_count_i32 = builder->CreateTrunc(space_count, builder->getInt32Ty(), "space_count_i32");
     builder->CreateCall(printf_fn, {arg_output_line_fmt, line_len_i32, line_value, space_count_i32, empty_string});
     i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
