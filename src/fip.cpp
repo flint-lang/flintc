@@ -17,31 +17,68 @@ fip_master_state_t master_state;
 
 #include <iostream>
 
-std::filesystem::path FIP::get_fip_path() {
-#ifdef __WIN32__
-    const char *local_appdata = std::getenv("LOCALAPPDATA");
-    if (local_appdata == nullptr) {
-        return std::filesystem::path();
-    }
-    const std::filesystem::path fip_path = std::filesystem::path(local_appdata) / "fip";
-#else
-    const char *home = std::getenv("HOME");
-    if (home == nullptr) {
-        return std::filesystem::path();
-    }
-    std::filesystem::path home_path = std::filesystem::path(home);
-    const std::filesystem::path fip_path = home_path / ".local" / "share" / "fip";
-#endif
-    // Check if the fip path exists, if not create directories, like `mkdir -p`
-    try {
-        if (!std::filesystem::exists(fip_path)) {
-            std::filesystem::create_directories(fip_path);
+// Helper: Split string by delimiter (':' on Unix, ';' on Windows)
+std::vector<std::string> split_path(const std::string &path, const char delimiter) {
+    std::vector<std::string> parts;
+    auto start = path.begin();
+    auto it = path.begin();
+    for (; it != path.end(); ++it) {
+        if (*it == delimiter) {
+            parts.emplace_back(start, it);
+            start = std::next(it);
         }
-        return fip_path;
-    } catch (const std::filesystem::filesystem_error &e) {
-        std::cerr << "Error: Could not create fip path: '" << fip_path.string() << "'" << std::endl;
-        return std::filesystem::path();
     }
+    if (start != it) {
+        parts.emplace_back(start, it);
+    }
+    return parts;
+}
+
+std::optional<std::filesystem::path> get_full_path_of_module(const std::string &command) {
+    const char *path_env = std::getenv("PATH");
+    if (!path_env) {
+        return std::nullopt;
+    }
+
+    const std::string path_str(path_env);
+#ifdef __WIN32__
+    const std::vector<std::string> dirs = split_path(path_str, ';');
+#else
+    const std::vector<std::string> dirs = split_path(path_str, ':');
+#endif
+
+    for (const std::string &dir : dirs) {
+        std::filesystem::path full_path = dir;
+        full_path = full_path / command;
+
+        // On Windows, append .exe if not already present
+#ifdef __WIN32__
+        if (command.substr(command.size() - 4) != ".exe") {
+            full_path += ".exe";
+        }
+#endif
+
+        if (access(full_path.string().data(), X_OK) == 0) {
+            return full_path;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::filesystem::path> FIP::get_fip_path() {
+    // The fip path can be found be going through the main file's directories up further and further until we reach the current working
+    // directory. The first directory up from the `main_file_path` which contains a `.fip` directory will be the fip path (including the
+    // `.fip` directory of course)
+    const std::filesystem::path cwd = std::filesystem::current_path();
+    std::filesystem::path dir_to_search = std::filesystem::is_directory(main_file_path) ? main_file_path : main_file_path.parent_path();
+    while (dir_to_search != cwd.parent_path()) {
+        if (std::filesystem::exists(dir_to_search / ".fip")) {
+            return dir_to_search / ".fip";
+        } else {
+            return std::nullopt;
+        }
+    }
+    return std::nullopt;
 }
 
 bool FIP::init() {
@@ -54,22 +91,26 @@ bool FIP::init() {
     is_active = true;
 
     // Parse the config file (fip.toml)
-    fip_master_config_t config_file = fip_master_load_config();
+    const std::optional<std::filesystem::path> fip_path = get_fip_path();
+    if (!fip_path.has_value()) {
+        is_active = false;
+        return false;
+    }
+    const std::string fip_config_path_string = (fip_path.value() / "config" / "fip.toml").string();
+    fip_master_config_t config_file = fip_master_load_config(fip_config_path_string.data());
     bool needs_shutdown = true;
     if (config_file.ok) {
         // Next we check whether there are any active modules in the config file, if there are not then we can shut down
         if (config_file.enabled_count > 0) {
-            // Now we check if all of the enabled modules even exist in the `.local/share/fip/modules/` path. If an enabled module does not
-            // exist then we report it and shut down too. If all exist, however, we stay active
+            // Now we check if all of the enabled modules even exist in the PATH. If an enabled module does not  exist then we report it and
+            // shut down too. If all exist, however, we stay active
             needs_shutdown = false;
             for (uint8_t i = 0; i < config_file.enabled_count; i++) {
-                std::filesystem::path module_path = get_fip_path() / "modules";
                 std::string module = std::string(config_file.enabled_modules[i]);
 #ifdef __WIN32__
                 module += ".exe";
 #endif
-                module_path /= module;
-                if (!std::filesystem::exists(module_path)) {
+                if (!get_full_path_of_module(module).has_value()) {
                     needs_shutdown = true;
                     break;
                 }
@@ -88,8 +129,8 @@ bool FIP::init() {
     for (uint8_t i = 0; i < config_file.enabled_count; i++) {
         const char *mod = config_file.enabled_modules[i];
         fip_print(0, FIP_INFO, "Starting the %s module...", mod);
-        const std::filesystem::path module_path = get_fip_path() / "modules" / std::string(mod);
-        fip_spawn_interop_module(&modules, module_path.string().data());
+        const std::filesystem::path module_path = get_full_path_of_module(std::string(mod)).value();
+        fip_spawn_interop_module(&modules, fip_path.value().parent_path().string().data(), module_path.string().data());
     }
 
     // Initialize the master

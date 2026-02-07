@@ -71,10 +71,10 @@ class FIP {
     static inline std::vector<fake_function> resolved_functions;
 
     /// @function `get_fip_path`
-    /// @brief Returns the path to the 'fip' directory in which all modules are placed for example (in the 'modules' subdirectory)
+    /// @brief Returns the path to the '.fip' directory in which all cofigurations and cache of fip is contained
     ///
-    /// @return `std::filesystem::path` The path to the fip directory
-    static std::filesystem::path get_fip_path();
+    /// @return `std::optional<std::filesystem::path>` The path to the .fip directory, nullopt if there was no .fip dir found
+    static std::optional<std::filesystem::path> get_fip_path();
 
     /// @function `init`
     /// @brief Initializes the FIP and does whatever needs to be done at the FIP setup stage

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 #ifdef DEBUG_BUILD
 constexpr inline bool DEBUG_MODE = true;
 #else
@@ -83,3 +85,5 @@ extern OptionalUnwrapMode opt_unwrap_mode;
 
 enum class VariantUnwrapMode : unsigned int { CRASH = 0, UNSAFE = 1 };
 extern VariantUnwrapMode var_unwrap_mode;
+
+extern std::filesystem::path main_file_path;

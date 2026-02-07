@@ -46,6 +46,7 @@ void parser_cleanup() {
         Profiler::profile_stack.pop();
     }
     Profiler::active_tasks.clear();
+    FIP::shutdown();
 }
 
 std::optional<FileNode *> LspServer::parse_program(const std::string &source_file_path, const std::optional<std::string> &file_content) {
@@ -68,6 +69,11 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     if (!core_modules_initialized) {
         Parser::init_core_modules();
         core_modules_initialized = true;
+    }
+    // Start FIP. The "main" file is the current source file
+    main_file_path = source_file_path;
+    if (!FIP::init()) {
+        return std::nullopt;
     }
     std::optional<FileNode *> file;
     if (file_content.has_value()) {

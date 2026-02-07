@@ -4,6 +4,7 @@
 #include "fip.hpp"
 #include "globals.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <string>
 
@@ -11,6 +12,8 @@
 #include <fcntl.h> // _O_BINARY
 #include <io.h>    // _setmode, _fileno
 #endif
+
+std::filesystem::path main_file_path;
 
 void print_help() {
     std::cout << "Usage: fls [OPTIONS]\n\n"                                                       //
@@ -53,10 +56,6 @@ int main(int argc, char *argv[]) {
     _setmode(_fileno(stdin), _O_BINARY);
 #endif
 
-    // Start FIP
-    if (!FIP::init()) {
-        return 1;
-    }
     // Create and run the LSP server
     LspServer::run();
 

@@ -22,6 +22,8 @@
 #include <memory>
 #include <string>
 
+std::filesystem::path main_file_path;
+
 /// @function `generate_program`
 /// @brief Generates the whole program from a given source file
 ///
@@ -262,6 +264,8 @@ int main(int argc, char *argv[]) {
         std::cout << "fip " << FIP_MAJOR << "." << FIP_MINOR << "." << FIP_PATCH << std::endl;
         return 0;
     }
+
+    main_file_path = clp.source_file_path;
 
     Profiler::start_task("ALL");
     auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
