@@ -79,8 +79,17 @@ class FIP {
     /// @function `init`
     /// @brief Initializes the FIP and does whatever needs to be done at the FIP setup stage
     ///
+    /// @param `file_hash` The file in which FIP is being initialized (FIP is initialized on the first extern function found)
+    /// @param `line` The line the first extern function is located at
+    /// @param `column` The column of the first extern function
+    /// @param `length` The length of the first extern function
     /// @return `bool` Whether initialization failed
-    static bool init();
+    static bool init(              //
+        const Hash &file_hash,     //
+        const unsigned int line,   //
+        const unsigned int column, //
+        const unsigned int length  //
+    );
 
     /// @function `shutdown`
     /// @brief Shuts down the FIP and sends the kill messages to all interop modules

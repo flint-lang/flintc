@@ -70,11 +70,8 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         Parser::init_core_modules();
         core_modules_initialized = true;
     }
-    // Start FIP. The "main" file is the current source file
+    // Set the "main" file to the current source file being parsed
     main_file_path = source_file_path;
-    if (!FIP::init()) {
-        return std::nullopt;
-    }
     std::optional<FileNode *> file;
     if (file_content.has_value()) {
         file = Parser::create(file_path, file_content.value())->parse();

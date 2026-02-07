@@ -321,9 +321,13 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     fn.value().length = definition.second->column - definition.first->column;
     // "Delete" the scope of the function, it is not needed for declarations
     fn.value().scope = std::nullopt;
-    // Now check whether the FIP provides the searched for function in any of it's modules
+    // Now check whether the FIP provides the searched for function in any of it's modules. We only print the error that the function was
+    // unable to be resolved if the FIP is active, if the FIP is not active then the problem is not that the problem has not been found but
+    // that FIP has not been able to be started / initialized properly
     if (!FIP::resolve_function(&fn.value())) {
-        THROW_ERR(ErrExternFnNotFound, ERR_PARSING, &fn.value());
+        if (FIP::is_active) {
+            THROW_ERR(ErrExternFnNotFound, ERR_PARSING, &fn.value());
+        }
         return std::nullopt;
     }
     return fn;

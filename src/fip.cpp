@@ -81,7 +81,12 @@ std::optional<std::filesystem::path> FIP::get_fip_path() {
     return std::nullopt;
 }
 
-bool FIP::init() {
+bool FIP::init(                //
+    const Hash &file_hash,     //
+    const unsigned int line,   //
+    const unsigned int column, //
+    const unsigned int length  //
+) {
     PROFILE_SCOPE("FIP init");
     if (is_active) {
         // Initializing an active FIP is considered an error case as this should not happen, but it's a me-problem, not a user problem
@@ -94,6 +99,7 @@ bool FIP::init() {
     const std::optional<std::filesystem::path> fip_path = get_fip_path();
     if (!fip_path.has_value()) {
         is_active = false;
+        THROW_ERR(ErrNoFipDirectoryFound, ERR_PARSING, file_hash, line, column, length);
         return false;
     }
     const std::string fip_config_path_string = (fip_path.value() / "config" / "fip.toml").string();
@@ -295,7 +301,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     PROFILE_CUMULATIVE("FIP::resolve_function");
     if (!is_active) {
         // Try to initialize the FIP if it's not running yet
-        if (!init()) {
+        if (!init(function->file_hash, function->line, function->column, function->length)) {
             // Initialization failed for some reason
             return false;
         }

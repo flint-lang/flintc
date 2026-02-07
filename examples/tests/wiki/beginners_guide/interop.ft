@@ -3,7 +3,7 @@ use "../../../utils.ft"
 test "0_crash":
 	str path = "tests/wiki/beginners_guide/interop/0_crash";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ Defined 'extern' function without the FIP running and active\n└─ Check your configs in '.fip/config/' to see if there are any problems with it\n");
+	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ No '.fip' directory found\n├─ To be able to interop with extern code you need the FIP set up\n└─ For further information look at 'https://flint-lang.github.io/v0.3.1-core/beginners_guide/11_interop/2_defining.html'\n");
 
 test "1_still_crash":
 	str path = "tests/wiki/beginners_guide/interop/1_still_crash";
