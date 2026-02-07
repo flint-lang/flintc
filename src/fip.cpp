@@ -75,7 +75,7 @@ std::optional<std::filesystem::path> FIP::get_fip_path() {
         if (std::filesystem::exists(dir_to_search / ".fip")) {
             return dir_to_search / ".fip";
         } else {
-            return std::nullopt;
+            dir_to_search = dir_to_search.parent_path();
         }
     }
     return std::nullopt;
