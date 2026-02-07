@@ -47,10 +47,10 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
     const auto &enum_types = core_module_enum_types.at("time");
     for (const enum_type &type : enum_types) {
         const std::string enum_name(std::get<0>(type));
-        const std::vector<std::string_view> &value_views = std::get<1>(type);
-        std::vector<std::string> enum_values;
-        for (const std::string_view &value : value_views) {
-            enum_values.emplace_back(value);
+        const std::vector<std::pair<std::string_view, unsigned int>> &value_views = std::get<1>(type);
+        std::vector<std::pair<std::string, unsigned int>> enum_values;
+        for (const auto &[value_tag, value] : value_views) {
+            enum_values.emplace_back(value_tag, value);
         }
         IR::generate_enum_value_strings(module, prefix.substr(0, prefix.size() - 1), enum_name, enum_values);
     }

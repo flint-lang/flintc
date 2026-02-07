@@ -1891,7 +1891,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     const std::string value((tokens_mut.first + 2)->lexme);
                     const auto &values = enum_type->enum_node->values;
-                    if (std::find(values.begin(), values.end(), value) == values.end()) {
+                    bool value_exists = false;
+                    for (const auto &[v, i] : values) {
+                        if (v == value) {
+                            value_exists = true;
+                            break;
+                        }
+                    }
+                    if (!value_exists) {
                         // Unsupported enum value
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
@@ -1973,8 +1980,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     return std::nullopt;
                 }
                 const std::string value(tok_it->lexme);
-                if (std::find(enum_values.begin(), enum_values.end(), value) == enum_values.end()) {
-                    // Unsupported enum value
+                bool enum_contains_tag = false;
+                for (size_t i = 0; i < enum_values.size(); i++) {
+                    if (enum_values.at(i).first == value) {
+                        enum_contains_tag = true;
+                        break;
+                    }
+                }
+                if (!enum_contains_tag) {
+                    // Enum tag not part of the enum values
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }

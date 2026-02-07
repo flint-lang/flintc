@@ -693,7 +693,7 @@ bool Parser::create_enum_switch_branches(       //
     // identifier can only be used once in the switch. If there exists a default branch (the else keyword) then it is not allowed that all
     // other enum values are matched, as the else branch would then effectively become unreachable.
     std::vector<std::string> matched_enum_values;
-    const std::vector<std::string> &enum_values = enum_node->values;
+    const std::vector<std::pair<std::string, unsigned int>> &enum_values = enum_node->values;
     bool is_default_present = false;
     matched_enum_values.reserve(enum_values.size());
     for (auto line_it = body.begin(); line_it != body.end();) {
@@ -724,16 +724,22 @@ bool Parser::create_enum_switch_branches(       //
                 match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
             } else {
                 const std::string enum_value(match_tokens.first->lexme);
-                std::vector<std::string>::const_iterator enum_id = std::find(          //
-                    matched_enum_values.begin(), matched_enum_values.end(), enum_value //
+                const std::vector<std::string>::const_iterator matched_enum_id = std::find( //
+                    matched_enum_values.begin(), matched_enum_values.end(), enum_value      //
                 );
-                if (enum_id != matched_enum_values.end()) {
+                if (matched_enum_id != matched_enum_values.end()) {
                     // Duplicate branch enum
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                enum_id = std::find(enum_values.begin(), enum_values.end(), enum_value);
-                if (enum_id == enum_values.end()) {
+                bool enum_contains_tag = false;
+                for (size_t i = 0; i < enum_values.size(); i++) {
+                    if (enum_values.at(i).first == enum_value) {
+                        enum_contains_tag = true;
+                        break;
+                    }
+                }
+                if (!enum_contains_tag) {
                     // Enum value not part of the enum values
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
@@ -754,7 +760,7 @@ bool Parser::create_enum_switch_branches(       //
                     return false;
                 }
                 const std::string enum_value(it->lexme);
-                std::vector<std::string>::const_iterator enum_id = std::find(          //
+                const std::vector<std::string>::const_iterator enum_id = std::find(    //
                     matched_enum_values.begin(), matched_enum_values.end(), enum_value //
                 );
                 if (enum_id != matched_enum_values.end()) {
@@ -762,8 +768,14 @@ bool Parser::create_enum_switch_branches(       //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                enum_id = std::find(enum_values.begin(), enum_values.end(), enum_value);
-                if (enum_id == enum_values.end()) {
+                bool enum_contains_tag = false;
+                for (size_t i = 0; i < enum_values.size(); i++) {
+                    if (enum_values.at(i).first == enum_value) {
+                        enum_contains_tag = true;
+                        break;
+                    }
+                }
+                if (!enum_contains_tag) {
                     // Enum value not part of the enum values
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;

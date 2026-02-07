@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <string>
 
 std::optional<FunctionNode> Parser::create_function(                            //
     const token_slice &definition,                                              //
@@ -583,7 +584,7 @@ LinkNode Parser::create_link(const token_slice &tokens) {
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_enum");
     std::string name;
-    std::vector<std::string> values;
+    std::vector<std::pair<std::string, unsigned int>> values;
 
     for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
         if (def_it->token == TOK_ENUM && (def_it + 1)->token == TOK_IDENTIFIER) {
@@ -594,8 +595,29 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
 
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
         if (body_it->token == TOK_IDENTIFIER) {
+            // Check if this tag has already been used
+            for (const auto &[t, v] : values) {
+                if (t == body_it->lexme) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+            }
+            const std::string tag(body_it->lexme);
+            unsigned int value = values.empty() ? 0 : values.back().second + 1;
+            if ((body_it + 1)->token == TOK_EQUAL && (body_it + 2)->token == TOK_INT_VALUE) {
+                value = std::stoi(std::string((body_it + 2)->lexme));
+                // Check if this value has already been used
+                for (const auto &[t, v] : values) {
+                    if (v == value) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                }
+                // Skip the tag and the =, so body_it now points at the integer value
+                body_it += 2;
+            }
             if ((body_it + 1)->token == TOK_COMMA) {
-                values.emplace_back(body_it->lexme);
+                values.emplace_back(tag, value);
             } else if ((body_it + 1)->token == TOK_SEMICOLON) {
                 if ((body_it + 2)->token != TOK_EOL) {
                     // There are more values following in the same line, so the ; is actually a wrong token and should be a , instead
@@ -604,7 +626,7 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
                     );
                     return std::nullopt;
                 }
-                values.emplace_back(body_it->lexme);
+                values.emplace_back(tag, value);
                 break;
             } else {
                 const std::vector<Token> expected = {TOK_COMMA, TOK_SEMICOLON};

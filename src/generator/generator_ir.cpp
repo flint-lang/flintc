@@ -754,11 +754,11 @@ llvm::Value *Generator::IR::generate_const_string(llvm::Module *module, const st
     return string_global;
 }
 
-bool Generator::IR::generate_enum_value_strings( //
-    llvm::Module *module,                        //
-    const std::string &hash,                     //
-    const std::string &enum_name,                //
-    const std::vector<std::string> &enum_values  //
+bool Generator::IR::generate_enum_value_strings(                         //
+    llvm::Module *module,                                                //
+    const std::string &hash,                                             //
+    const std::string &enum_name,                                        //
+    const std::vector<std::pair<std::string, unsigned int>> &enum_values //
 ) {
     // Generate the type name array for later typecast lookups
     // Create individual string constants
@@ -771,7 +771,7 @@ bool Generator::IR::generate_enum_value_strings( //
 
     for (size_t i = 0; i < enum_values.size(); ++i) {
         // Create the string constant data
-        llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_values[i], true);
+        llvm::Constant *string_data = llvm::ConstantDataArray::getString(context, enum_values[i].first, true);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"

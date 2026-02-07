@@ -1,8 +1,21 @@
 use Core.print
+use Core.assert
 
-extern def add(mut i32* lhs, mut i32 rhs);
+enum MyEnum:
+	VAL1 = 0,
+	VAL2,
+	VAL3,
+	VAL4 = 4,
+	VAL5 = 8;
 
 def main():
-	i32 x = 10;
-	add(&x, 5);
-	print($"x = {x}\n");
+	print($"i32(MyEnum.VAL1) = {i32(MyEnum.VAL1)}\n");
+	assert(i32(MyEnum.VAL1) == 0);
+	print($"i32(MyEnum.VAL2) = {i32(MyEnum.VAL2)}\n");
+	assert(i32(MyEnum.VAL2) == 1);
+	print($"i32(MyEnum.VAL3) = {i32(MyEnum.VAL3)}\n");
+	assert(i32(MyEnum.VAL3) == 2);
+	print($"i32(MyEnum.VAL4) = {i32(MyEnum.VAL4)}\n");
+	assert(i32(MyEnum.VAL4) == 4);
+	print($"i32(MyEnum.VAL5) = {i32(MyEnum.VAL5)}\n");
+	assert(i32(MyEnum.VAL5) == 8);

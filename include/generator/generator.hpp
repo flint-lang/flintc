@@ -506,11 +506,11 @@ class Generator {
         /// @param `enum_name` The name of the enum (e.g. it's type)
         /// @param `enum_values` The values of the enum to generate the global strings from
         /// @return `bool` Whether generating the global strings was successful
-        static bool generate_enum_value_strings(        //
-            llvm::Module *module,                       //
-            const std::string &hash,                    //
-            const std::string &enum_name,               //
-            const std::vector<std::string> &enum_values //
+        static bool generate_enum_value_strings(                                 //
+            llvm::Module *module,                                                //
+            const std::string &hash,                                             //
+            const std::string &enum_name,                                        //
+            const std::vector<std::pair<std::string, unsigned int>> &enum_values //
         );
 
         /// @function `generate_err_value`

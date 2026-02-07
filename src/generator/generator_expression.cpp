@@ -256,10 +256,14 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         const auto &enum_values = enum_type->enum_node->values;
         std::vector<llvm::Value *> values;
         for (const auto &value : lit_enum.values) {
-            const auto value_it = std::find(enum_values.begin(), enum_values.end(), value);
+            auto value_it = enum_values.begin();
+            for (; value_it != enum_values.end(); ++value_it) {
+                if (value_it->first == value) {
+                    break;
+                }
+            }
             assert(value_it != enum_values.end());
-            const unsigned int enum_id = std::distance(enum_values.begin(), value_it);
-            values.emplace_back(builder.getInt32(enum_id));
+            values.emplace_back(builder.getInt32(value_it->second));
         }
         return values;
     }

@@ -55,9 +55,9 @@ void Parser::init_core_modules() {
             for (const auto &[enum_name_view, enum_values] : core_module_enum_types.at(module_name)) {
                 const std::string enum_name(enum_name_view);
                 assert(types.find(enum_name) == types.end());
-                std::vector<std::string> values;
-                for (const auto &enum_value : enum_values) {
-                    values.emplace_back(enum_value);
+                std::vector<std::pair<std::string, unsigned int>> values;
+                for (const auto &[enum_tag, enum_value] : enum_values) {
+                    values.emplace_back(enum_tag, enum_value);
                 }
                 std::unique_ptr<DefinitionNode> enum_node = std::make_unique<EnumNode>( //
                     core_namespace->namespace_hash, 0, 0, 0, enum_name, values          //

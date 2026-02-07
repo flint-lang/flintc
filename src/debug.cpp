@@ -1489,7 +1489,7 @@ namespace Debug {
                 bool is_last = i + 1 == enum_node.values.size();
                 TreeBits value_bits = bits.child(indent_lvl, is_last);
                 Local::print_header(indent_lvl, value_bits, "Enum Value " + std::to_string(i) + " ");
-                std::cout << enum_node.values[i] << std::endl;
+                std::cout << enum_node.values[i].first << " = " << enum_node.values[i].second << std::endl;
             }
         }
 

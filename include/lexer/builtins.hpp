@@ -325,7 +325,7 @@ static const inline std::unordered_map<std::string_view, std::vector<error_set>>
 /// @brief The type representation of an enum:
 ///     The name of the enum type
 ///     All values the enum could have
-using enum_type = std::pair<std::string_view, std::vector<std::string_view>>;
+using enum_type = std::pair<std::string_view, std::vector<std::pair<std::string_view, unsigned int>>>;
 
 /// @var `core_module_enum_types`
 /// @brief A map containing all core modules and maps each module to all enum types it provides
@@ -333,7 +333,7 @@ static const inline std::unordered_map<std::string_view, std::vector<enum_type>>
     {
         "time", // The 'time' module
         {
-            {"TimeUnit", {"NS", "US", "MS", "S"}}, // The 'TimeUnit' enum type
+            {"TimeUnit", {{"NS", 0}, {"US", 1}, {"MS", 2}, {"S", 3}}}, // The 'TimeUnit' enum type
         },
     }, // End of the 'time' module
 };
