@@ -8,14 +8,11 @@ enum MyEnum:
 	VAL4 = 4,
 	VAL5 = 8;
 
+extern def print_enum(MyEnum e);
+
 def main():
-	print($"i32(MyEnum.VAL1) = {i32(MyEnum.VAL1)}\n");
-	assert(i32(MyEnum.VAL1) == 0);
-	print($"i32(MyEnum.VAL2) = {i32(MyEnum.VAL2)}\n");
-	assert(i32(MyEnum.VAL2) == 1);
-	print($"i32(MyEnum.VAL3) = {i32(MyEnum.VAL3)}\n");
-	assert(i32(MyEnum.VAL3) == 2);
-	print($"i32(MyEnum.VAL4) = {i32(MyEnum.VAL4)}\n");
-	assert(i32(MyEnum.VAL4) == 4);
-	print($"i32(MyEnum.VAL5) = {i32(MyEnum.VAL5)}\n");
-	assert(i32(MyEnum.VAL5) == 8);
+	print_enum(MyEnum.VAL1);
+	print_enum(MyEnum.VAL2);
+	print_enum(MyEnum.VAL3);
+	print_enum(MyEnum.VAL4);
+	print_enum(MyEnum.VAL5);

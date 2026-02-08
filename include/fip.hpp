@@ -60,7 +60,7 @@ class FIP {
 
     /// @var `buffer`
     /// @brief The message buffer of FIP
-    static inline char buffer[FIP_MSG_SIZE];
+    alignas(alignof(size_t)) static inline char buffer[FIP_MSG_SIZE];
 
     /// @var `message`
     /// @brief The message which will be re-used for all FIP communications

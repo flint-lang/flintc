@@ -293,6 +293,21 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             }
             return true;
         }
+        case Type::Variation::ENUM: {
+            const auto *type = src->as<EnumType>();
+            const EnumNode *enum_node = type->enum_node;
+            dest->type = FIP_TYPE_ENUM;
+            // TODO: For now all enums in Flint are i32
+            dest->u.enum_t.bit_width = 32;
+            dest->u.enum_t.is_signed = true;
+            assert(enum_node->values.size() <= 255);
+            dest->u.enum_t.value_count = type->enum_node->values.size();
+            dest->u.enum_t.values = static_cast<size_t *>(malloc(sizeof(size_t) * dest->u.enum_t.value_count));
+            for (size_t i = 0; i < enum_node->values.size(); i++) {
+                dest->u.enum_t.values[i] = enum_node->values.at(i).second;
+            }
+            return true;
+        }
     }
 }
 
