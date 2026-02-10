@@ -1,3 +1,2 @@
-compiler = "clang"
-sources = ["/usr/include/raylib.h"]
-compile_flags = ["-g"]
+[raylib]
+headers = ["/usr/include/raylib.h"]

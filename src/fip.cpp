@@ -2,9 +2,9 @@
 #include "fip.hpp"
 
 #ifdef DEBUG_BUILD
-fip_log_level_t LOG_LEVEL = FIP_DEBUG;
+fip_log_level_e LOG_LEVEL = FIP_DEBUG;
 #else
-fip_log_level_t LOG_LEVEL = FIP_ERROR;
+fip_log_level_e LOG_LEVEL = FIP_ERROR;
 #endif
 fip_master_state_t master_state;
 

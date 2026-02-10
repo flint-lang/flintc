@@ -1,3 +1,4 @@
-compiler = "clang"
+[c]
+headers = ["test_files/extern.h"]
 sources = ["test_files/extern.h"]
-compile_flags = ["-g"]
+command = ["clang", "-x", "c", "-c", "__SOURCES__", "-g", "-o", "__OUTPUT__"]
