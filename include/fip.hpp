@@ -32,6 +32,7 @@ extern "C" {
 #include <vector>
 
 class FunctionNode;
+class ImportNode;
 
 /// @class `FIP`
 /// @brief Class to namespace and handle all FIP-related functionality
@@ -111,6 +112,35 @@ class FIP {
     /// @param `function` The function definition to resolve
     /// @return `bool` Whether the function symbol could be resolved
     static bool resolve_function(FunctionNode *function);
+
+    /// @function `resolve_module_import`
+    /// @brief Resolves a given module import of structure `use Fip.module` and checks if the given `module` is present in any of the
+    /// modules present in FIP. It then checks whether that module's `.ft` file in the `.fip/bindings` dir has already been generated. If it
+    /// has not been generated then the file is being generated and the `import`s path is changed from `Fip.module` to the relative path to
+    /// the `.fip/bindings/module.ft` file. This means that the `Fip.module` import also can be aliased like any other "normal" import.
+    ///
+    /// @param `import` The Fip import to resolve
+    /// @return `bool` Whether the Fip import could be resolved
+    static bool resolve_module_import(ImportNode *import);
+
+    /// @function `generate_bindings_file`
+    /// @brief Generates a bindings file from a list of signatures
+    ///
+    /// @param `list` The list of signatures from which to generate the bindings file from
+    /// @param `module_tag` The module tag from which to generate the bidings file
+    /// @return `bool` Whether the bindings file was generated successfully
+    ///
+    /// @note This function frees the contents of the list as it goes, so the list will be "empty" after the call
+    static bool generate_bindings_file(fip_sig_list_t *list, const std::string &module_tag);
+
+    /// @function `generate_fip_type`
+    /// @brief Generates the given fip type and appends it to the given file in-line without adding any new lines in it
+    ///
+    /// @param `type` The type to generate to the file
+    /// @param `file` The file to append the generated type to
+    ///
+    /// @note This function frees the passed-in type by calling `fip_free_type`
+    static void generate_fip_type(fip_type_t *type, std::ofstream &file);
 
     /// @function `send_compile_request`
     /// @brief Sends the compile request to all interop modules, meaning that they now can start compiling their respective source files

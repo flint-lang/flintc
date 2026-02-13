@@ -1,0 +1,37 @@
+#pragma once
+
+#include "colors.hpp"
+#include "error/error_types/base_error.hpp"
+
+class ErrUnknownModuleTag : public BaseError {
+  public:
+    ErrUnknownModuleTag(               //
+        const ErrorType error_type,    //
+        const Hash &file_hash,         //
+        const unsigned int line,       //
+        const unsigned int column,     //
+        const unsigned int length,     //
+        const std::string &module_name //
+        ) :
+        BaseError(error_type, file_hash, line, column, length),
+        module_name(module_name) {}
+
+    [[nodiscard]]
+    std::string to_string() const override {
+        std::ostringstream oss;
+        oss << BaseError::to_string() << "├─ Extern module tag 'Fip." << YELLOW << module_name << DEFAULT
+            << "' not found in any of the active interop modules\n";
+        oss << "└─ Check your configs in '" << CYAN << ".fip/config/" << DEFAULT << "' to see if the module tag is different";
+        return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Extern module tag '" + module_name + "' does not exist in any IM";
+        return d;
+    }
+
+  private:
+    std::string module_name;
+};

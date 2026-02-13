@@ -1,14 +1,4 @@
-use Core.print
-use Core.assert
-
-enum MyEnum:
-	VAL1 = 0,
-	VAL2,
-	VAL3,
-	VAL4 = 4,
-	VAL5 = 8;
-
-extern def print_enum(MyEnum e);
+use Fip.c
 
 def main():
 	print_enum(MyEnum.VAL1);

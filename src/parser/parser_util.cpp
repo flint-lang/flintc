@@ -76,6 +76,10 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                     THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
                     return false;
                 }
+            } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
+                if (!FIP::resolve_module_import(&import_node.value())) {
+                    return false;
+                }
             }
         }
         std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());

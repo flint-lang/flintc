@@ -1,5 +1,11 @@
 #include <stdio.h>
 
+struct MyStruct {
+    int x;
+    float y;
+    size_t z;
+};
+
 enum MyEnum {
     VAL1 = 0,
     VAL2 = 1,

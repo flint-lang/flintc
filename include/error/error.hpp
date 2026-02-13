@@ -47,7 +47,10 @@
 #include "error_types/parsing/definitions/import/err_use_clausel_not_at_top_level.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
+#include "error_types/parsing/fip/err_ambiguous_module_tag.hpp"
 #include "error_types/parsing/fip/err_no_fip_directory_found.hpp"
+#include "error_types/parsing/fip/err_unknown_module_tag.hpp"
+#include "error_types/parsing/fip/err_use_without_fip.hpp"
 
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"

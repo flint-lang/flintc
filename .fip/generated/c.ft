@@ -1,0 +1,17 @@
+data MyStruct:
+	i32 x;
+	f32 y;
+	u64 z;
+	MyStruct(x, y, z);
+
+enum MyEnum:
+	VAL1 = 0,
+	VAL2 = 1,
+	VAL3 = 2,
+	VAL4 = 4,
+	VAL5 = 8;
+
+extern def print_enum(const MyEnum e);
+
+extern def add(mut i32* lhs, mut i32 rhs);
+
