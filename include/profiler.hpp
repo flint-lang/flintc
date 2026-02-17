@@ -192,7 +192,7 @@ class Profiler {
         }
 
         // Format the duration with color (optional) and arrow to task name
-        std::string formatted_duration = format_with_separator(duration.count(), '.') + " " + std::string(unit) + " " + Debug::HOR + "> " +
+        std::string formatted_duration = format_with_separator(duration.count(), '_') + " " + std::string(unit) + " " + Debug::HOR + "> " +
             Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END;
 
         // Print node with duration
