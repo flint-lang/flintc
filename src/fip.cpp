@@ -551,6 +551,56 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
             }
             case FIP_SYM_DATA: {
                 const fip_sig_data_t *const d = &list->sigs[i].sig.data;
+                // Check if the data could be a multi-type instead, emit a type alias for that case
+                if (d->value_types[0].type == FIP_TYPE_PRIMITIVE) {
+                    bool is_multitype = true;
+                    const fip_type_prim_e prim_type = d->value_types[0].u.prim;
+                    for (size_t j = 1; j < d->value_count; j++) {
+                        if (d->value_types[j].type != FIP_TYPE_PRIMITIVE) {
+                            is_multitype = false;
+                            break;
+                        }
+                        if (d->value_types[j].u.prim != prim_type) {
+                            is_multitype = false;
+                            break;
+                        }
+                    }
+                    if (is_multitype &&             //
+                        (prim_type == FIP_U8        //
+                            || prim_type == FIP_I32 //
+                            || prim_type == FIP_I64 //
+                            || prim_type == FIP_F32 //
+                            || prim_type == FIP_F64 //
+                            )                       //
+                    ) {
+                        std::string type_str;
+                        bool is_valid = true;
+                        switch (prim_type) {
+                            default:
+                                break;
+                            case FIP_U8:
+                                type_str = "u8x";
+                                break;
+                            case FIP_I32:
+                                type_str = "i32x";
+                                break;
+                            case FIP_I64:
+                                type_str = "i64x";
+                                break;
+                            case FIP_F32:
+                                type_str = "f32x";
+                                break;
+                            case FIP_F64:
+                                type_str = "f64x";
+                                break;
+                        }
+                        type_str += std::to_string(d->value_count);
+                        if (is_valid && !type_str.empty() && Type::get_type_from_str(type_str).has_value()) {
+                            file << "type " << d->name << " " << type_str << "\n\n";
+                            break;
+                        }
+                    }
+                }
                 file << "data " << d->name << ":\n";
                 for (size_t j = 0; j < d->value_count; j++) {
                     file << "\t";
