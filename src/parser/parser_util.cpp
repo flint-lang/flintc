@@ -130,7 +130,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 
     std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);
     if (body_lines.empty()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, tokens);
         return false;
     }
     if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
@@ -265,11 +265,6 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
             }
         }
         ++it;
-    }
-
-    if (body_lines.empty()) {
-        THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, tokens);
-        std::exit(EXIT_FAILURE);
     }
 
     return body_lines;
