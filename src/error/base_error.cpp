@@ -63,7 +63,10 @@ std::string BaseError::to_string() const {
     const unsigned int offset = indent_lvl * Lexer::TAB_SIZE;
     line_string << DEFAULT << std::string(err_line.substr(0, column - 1 - offset));
     line_string << RED_UNDERLINE << std::string(err_line.substr(column - 1 - offset, length));
-    line_string << DEFAULT << std::string(err_line.substr(column - 1 - offset + length));
+    line_string << DEFAULT;
+    if (err_line.size() > column - 1 - offset + length) {
+        line_string << DEFAULT << std::string(err_line.substr(column - 1 - offset + length));
+    }
     lines_to_print.push(line_string.str());
     line_string.str("");
     line_string.clear();
