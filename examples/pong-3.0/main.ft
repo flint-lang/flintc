@@ -29,7 +29,6 @@ def main():
 	flags += 64; // Enable Vsync
 	SetConfigFlags(flags);
 	InitWindow(screen.x, screen.y, "Pong-3.0");
-	SetTargetFPS(60);
 
 	// Objects
 	i32x2 player_size = (24, 120);
@@ -43,16 +42,7 @@ def main():
 	u32 player_score = 0;
 	u32 cpu_score = 0;
 	TimeStamp last_frame = now();
-	TimeStamp current_frame = now();
-	u32 target_fps = 60;
-	f32 target_frametime = 1 / f32(target_fps);
 	while not WindowShouldClose():
-		current_frame = now();
-		Duration frame_duration = duration(last_frame, current_frame);
-		f32 delta = f32(as_unit(frame_duration, TimeUnit.S));
-		if delta < target_frametime:
-			continue;
-
 		screen = (GetScreenWidth(), GetScreenHeight());
 		BeginDrawing();
 		ClearBackground(dark_green);
@@ -60,6 +50,10 @@ def main():
 		DrawCircle(screen.x / 2, screen.y / 2, 150.0, light_green);
 
 		// Update the game objects
+		TimeStamp current_frame = now();
+		Duration frame_duration = duration(last_frame, current_frame);
+		f32 delta = f32(as_unit(frame_duration, TimeUnit.S));
+		last_frame = current_frame;
 		p1.cpu_update(ball.get_y(), delta);
 		p2.update(delta);
 		ball.update(delta);
@@ -85,6 +79,5 @@ def main():
 		DrawText(str(cpu_score), screen.x / 4, 20, 60, white);
 		DrawText(str(player_score), (screen.x * 3) / 4, 20, 60, white);
 		EndDrawing();
-		last_frame = now();
 
 	CloseWindow();
