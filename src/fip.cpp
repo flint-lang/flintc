@@ -528,7 +528,11 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                         file << "const ";
                     }
                     generate_fip_type(&f->args[j].type, file);
-                    file << " " << f->args[j].name;
+                    if (keywords.find(f->args[j].name) != keywords.end()) {
+                        file << " _" << f->args[j].name;
+                    } else {
+                        file << " " << f->args[j].name;
+                    }
                 }
                 file << ")";
                 if (f->rets_len > 0) {
@@ -546,7 +550,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 if (f->rets_len > 1) {
                     file << ")";
                 }
-                file << ";\n\n";
+                file << ";\n";
                 break;
             }
             case FIP_SYM_DATA: {
@@ -596,7 +600,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                         }
                         type_str += std::to_string(d->value_count);
                         if (is_valid && !type_str.empty() && Type::get_type_from_str(type_str).has_value()) {
-                            file << "type " << d->name << " " << type_str << "\n\n";
+                            file << "type " << d->name << " " << type_str << "\n";
                             break;
                         }
                     }
@@ -605,7 +609,11 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 for (size_t j = 0; j < d->value_count; j++) {
                     file << "\t";
                     generate_fip_type(&d->value_types[j], file);
-                    file << " " << d->value_names[j] << ";\n";
+                    if (keywords.find(d->value_names[j]) != keywords.end()) {
+                        file << " _" << d->value_names[j] << ";\n";
+                    } else {
+                        file << " " << d->value_names[j] << ";\n";
+                    }
                     fip_free_type(&d->value_types[j]);
                 }
                 file << "\t" << d->name << "(";
@@ -613,11 +621,14 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                     if (j > 0) {
                         file << ", ";
                     }
-                    file << d->value_names[j];
+                    if (keywords.find(d->value_names[j]) != keywords.end()) {
+                        file << "_" << d->value_names[j];
+                    } else {
+                        file << d->value_names[j];
+                    }
                     free(d->value_names[j]);
                 }
-                file << ");\n";
-                file << "\n";
+                file << ");\n\n";
                 free(d->value_types);
                 free(d->value_names);
                 break;
@@ -651,7 +662,7 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
         case FIP_TYPE_PRIMITIVE:
             switch (type->u.prim) {
                 case FIP_VOID:
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    file << "void";
                     break;
                 case FIP_U8:
                     file << "u8";
