@@ -292,8 +292,8 @@ static std::string get_token_name(Token token) {
             return "CHAR_VALUE";
         case TOK_INT_VALUE:
             return "INT_VALUE";
-        case TOK_FLINT_VALUE:
-            return "FLINT_VALUE";
+        case TOK_FLOAT_VALUE:
+            return "FLOAT_VALUE";
         case TOK_INDENT:
             return "\\t";
         case TOK_EOL:

@@ -325,7 +325,7 @@ class Matcher {
         // literals
         {TOK_STR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_STR_VALUE)},
         {TOK_INT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_INT_VALUE)},
-        {TOK_FLINT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_FLINT_VALUE)},
+        {TOK_FLOAT_VALUE, std::make_shared<TokenTypeMatcher>(TOK_FLOAT_VALUE)},
         {TOK_CHAR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_CHAR_VALUE)},
 
         // builtin values
@@ -530,7 +530,7 @@ class Matcher {
         token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)  //
     });
     static const inline PatternPtr literal = one_of({
-        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLINT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
+        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
         token(TOK_NONE) //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});

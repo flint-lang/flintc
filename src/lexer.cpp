@@ -416,7 +416,7 @@ bool Lexer::number() {
         while (is_digit(peek_next()) || peek_next() == '_') {
             advance(false);
         }
-        add_token(TOK_FLINT_VALUE);
+        add_token(TOK_FLOAT_VALUE);
     } else {
         add_token(TOK_INT_VALUE);
     }

@@ -142,7 +142,7 @@ enum Token {
     // literals
     TOK_STR_VALUE,
     TOK_INT_VALUE,
-    TOK_FLINT_VALUE,
+    TOK_FLOAT_VALUE,
     TOK_CHAR_VALUE,
 
     // builtin values

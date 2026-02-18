@@ -421,7 +421,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     }
 
     std::string lexme(tok->lexme);
-    if (tok->token == TOK_FLINT_VALUE || tok->token == TOK_INT_VALUE) {
+    if (tok->token == TOK_FLOAT_VALUE || tok->token == TOK_INT_VALUE) {
         // Erase all '_' characters from the literal
         lexme.erase(std::remove(lexme.begin(), lexme.end(), '_'), lexme.end());
     }
@@ -446,7 +446,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 LitValue lit_val = LitInt{.value = lit_int};
                 return LiteralNode(lit_val, file_node_ptr->file_namespace->get_type_from_str("int").value());
             }
-            case TOK_FLINT_VALUE: {
+            case TOK_FLOAT_VALUE: {
                 APFloat lit_float = APFloat(lexme);
                 lit_float.is_negative = front_token == TOK_MINUS;
                 LitValue lit_val = LitFloat{.value = lit_float};
