@@ -708,6 +708,11 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
             break;
         case FIP_TYPE_STRUCT: {
             const fip_type_struct_t *s = &type->u.struct_t;
+            const size_t type_len = strlen(s->name);
+            if (type_len > 0) {
+                file << s->name;
+                break;
+            }
             file << "data<";
             for (size_t i = 0; i < s->field_count; i++) {
                 if (i > 0) {
@@ -726,19 +731,19 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
             const size_t type_len = strlen(e->name);
             if (type_len > 0) {
                 file << e->name;
-            } else {
-                file << "enum(";
-                file << (e->is_signed ? "i" : "u");
-                file << std::to_string(e->bit_width);
-                file << "){";
-                for (size_t i = 0; i < e->value_count; i++) {
-                    if (i > 0) {
-                        file << ", ";
-                    }
-                    file << e->values[i];
-                }
-                file << "}";
+                break;
             }
+            file << "enum(";
+            file << (e->is_signed ? "i" : "u");
+            file << std::to_string(e->bit_width);
+            file << "){";
+            for (size_t i = 0; i < e->value_count; i++) {
+                if (i > 0) {
+                    file << ", ";
+                }
+                file << e->values[i];
+            }
+            file << "}";
             break;
         }
     }

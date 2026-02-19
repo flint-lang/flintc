@@ -1,4 +1,8 @@
-use Core.print
+use Fip.raylib
+use Core.time
 
 def main():
-print("This is not indented correctly.\n");
+	InitWindow(800, 600, "test");
+	BeginDrawing();
+	sleep(1, TimeUnit.S);
+	BeginDrawing();
