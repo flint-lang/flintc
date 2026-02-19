@@ -13,7 +13,7 @@ test "1_comments.ft":
 test "2_wrong_indentation.ft":
 	str path = "tests/wiki/beginners_guide/basics";
 	str file = "2_wrong_indentation.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/basics/2_wrong_indentation.ft:4:1\n└─┬┤E0000│\n4 │ print(\"This is not indented correctly.\\n\");\n┌─┴─┘\n└─ Expected a body after the : from the line above\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/basics/2_wrong_indentation.ft:3:11\n└─┬┤E0000│\n3 │ def main():\n┌─┴───────────┘\n└─ Expected a body after the :\n");
 
 test "3_correct_indentation.ft":
 	str path = "tests/wiki/beginners_guide/basics";
