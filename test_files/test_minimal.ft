@@ -1,8 +1,21 @@
-use Fip.raylib
-use Core.time
+use Core.print
 
 def main():
-	InitWindow(800, 600, "test");
-	BeginDrawing();
-	sleep(1, TimeUnit.S);
-	BeginDrawing();
+	u8 v0 = 80;
+	print($"{v0}\n");
+	print("Hello there 0!\n");
+
+	u64 u = 321_230;
+	print($"u = {u}\n");
+
+	i8 v1 = -10;
+	print($"{v1}\n");
+	print("Hello there 1!\n");
+	
+	u16 v2 = 22366;
+	print($"{v2}\n");
+	print("Hello there 2!\n");
+
+	i16 v3 = -5658;
+	print($"{v3}\n");
+	print("Hello there 3!\n");

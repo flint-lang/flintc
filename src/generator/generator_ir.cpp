@@ -614,11 +614,17 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                     default:
                         THROW_BASIC_ERR(ERR_GENERATING);
                         return {nullptr, {false, false}};
-                    case TOK_I32:
+                    case TOK_U8:
+                    case TOK_I8:
+                        return {llvm::Type::getInt8Ty(context), {false, false}};
+                    case TOK_U16:
+                    case TOK_I16:
+                        return {llvm::Type::getInt16Ty(context), {false, false}};
                     case TOK_U32:
+                    case TOK_I32:
                         return {llvm::Type::getInt32Ty(context), {false, false}};
-                    case TOK_I64:
                     case TOK_U64:
+                    case TOK_I64:
                         return {llvm::Type::getInt64Ty(context), {false, false}};
                     case TOK_F32:
                         return {llvm::Type::getFloatTy(context), {false, false}};
@@ -627,8 +633,6 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                     case TOK_FLINT:
                         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                         return {nullptr, {false, false}};
-                    case TOK_U8:
-                        return {llvm::Type::getInt8Ty(context), {false, false}};
                     case TOK_STR: {
                         if (is_extern) {
                             // If it's an extern call we pass in the c_str

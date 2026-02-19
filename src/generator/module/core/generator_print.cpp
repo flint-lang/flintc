@@ -4,13 +4,16 @@ static const Hash hash(std::string("print"));
 static const std::string prefix = hash.to_string() + ".print.";
 
 void Generator::Module::Print::generate_print_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
-    generate_print_function(builder, module, only_declarations, "i32", "%d");
-    generate_print_function(builder, module, only_declarations, "i64", "%ld");
-    generate_print_function(builder, module, only_declarations, "u32", "%u");
-    generate_print_function(builder, module, only_declarations, "u64", "%lu");
-    generate_print_function(builder, module, only_declarations, "f32", "%f");
-    generate_print_function(builder, module, only_declarations, "f64", "%lf");
-    generate_print_function(builder, module, only_declarations, "u8", "%c");
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::U, 8);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::I, 8);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::U, 16);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::I, 16);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::U, 32);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::I, 32);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::U, 64);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::I, 64);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::F, 32);
+    generate_print_function(builder, module, only_declarations, PrimitivePrintType::F, 64);
     generate_print_str_lit_function(builder, module, only_declarations);
     generate_print_str_var_function(builder, module, only_declarations);
     generate_print_bool_function(builder, module, only_declarations);
@@ -20,23 +23,47 @@ void Generator::Module::Print::generate_print_function( //
     llvm::IRBuilder<> *builder,                         //
     llvm::Module *module,                               //
     const bool only_declarations,                       //
-    const std::string &type,                            //
-    const std::string &format                           //
+    const PrimitivePrintType type,                      //
+    const size_t N                                      //
 ) {
+    assert(N <= 64);
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get(         //
-        llvm::Type::getVoidTy(context),                               // return void
-        {IR::get_type(module, Type::get_primitive_type(type)).first}, // takes type
-        false                                                         // no vararg
+    llvm::Type *arg_type = nullptr;
+    char prefix_char = 'i';
+    switch (type) {
+        case PrimitivePrintType::I:
+            prefix_char = 'i';
+            arg_type = llvm::Type::getIntNTy(context, N);
+            break;
+        case PrimitivePrintType::U:
+            prefix_char = 'u';
+            arg_type = llvm::Type::getIntNTy(context, N);
+            break;
+        case PrimitivePrintType::F:
+            prefix_char = 'f';
+            if (N == 32) {
+                arg_type = llvm::Type::getFloatTy(context);
+            } else if (N == 64) {
+                arg_type = llvm::Type::getDoubleTy(context);
+            } else {
+                assert(false);
+            }
+            break;
+    }
+    llvm::FunctionType *print_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                       // return void
+        {arg_type},                                           // takes type
+        false                                                 // no vararg
     );
     // Create the print_X function
+    const std::string type_str = prefix_char + std::to_string(N);
     llvm::Function *print_function = llvm::Function::Create( //
         print_type,                                          //
         llvm::Function::ExternalLinkage,                     //
-        prefix + type,                                       //
+        prefix + type_str,                                   //
         module                                               //
     );
-    print_functions[type] = print_function;
+    print_functions[type_str] = print_function;
     if (only_declarations) {
         return;
     }
@@ -52,12 +79,34 @@ void Generator::Module::Print::generate_print_function( //
 
     // Convert it to fit the correct format printf expects
     llvm::Value *arg = print_function->getArg(0);
-    if (type == "f32") {
-        arg = TypeCast::f32_to_f64(*builder, arg);
-    } else if (type == "i64") {
-        arg = builder->CreateSExtOrTrunc(arg, llvm::Type::getInt64Ty(context));
-    } else if (type == "u64") {
-        arg = builder->CreateZExtOrTrunc(arg, llvm::Type::getInt64Ty(context));
+    std::string format = "";
+    switch (type) {
+        case PrimitivePrintType::I:
+            if (N <= 32) {
+                format = "%i";
+                arg = builder->CreateSExtOrTrunc(arg, llvm::Type::getInt32Ty(context));
+            } else if (N <= 64) {
+                format = "%li";
+                arg = builder->CreateSExtOrTrunc(arg, llvm::Type::getInt64Ty(context));
+            }
+            break;
+        case PrimitivePrintType::U:
+            if (N <= 32) {
+                format = "%u";
+                arg = builder->CreateZExtOrTrunc(arg, llvm::Type::getInt32Ty(context));
+            } else if (N <= 64) {
+                format = "%lu";
+                arg = builder->CreateZExtOrTrunc(arg, llvm::Type::getInt64Ty(context));
+            }
+            break;
+        case PrimitivePrintType::F:
+            if (N == 32) {
+                format = "%f";
+                // arg = TypeCast::f32_to_f64(*builder, arg);
+            } else if (N == 64) {
+                format = "%d";
+            }
+            break;
     }
 
     // Call printf with format string and argument
@@ -150,7 +199,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
 
     llvm::Value *str_len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "str_len_ptr");
     llvm::Value *str_len = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), str_len_ptr, "str_len");
-    llvm::Value *str_len_val = TypeCast::i64_to_i32(*builder, str_len);
+    llvm::Value *str_len_val = TypeCast::uN_to_iN_trunc(*builder, str_len, 32);
 
     llvm::Value *str_val_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "str_val_ptr");
 

@@ -37,9 +37,12 @@ const std::vector<CompletionItem> CompletionData::types_ = {
     {"anyerror", CompletionItemKind::TypeParameter, "Any error type", "anyerror", false},
 
     // Integer types
-    {"u8", CompletionItemKind::TypeParameter, "8-bit unsigned integer", "u8", false},
+    {"i8", CompletionItemKind::TypeParameter, "8-bit signed integer", "i8", false},
+    {"i16", CompletionItemKind::TypeParameter, "16-bit signed integer", "i16", false},
     {"i32", CompletionItemKind::TypeParameter, "32-bit signed integer", "i32", false},
     {"i64", CompletionItemKind::TypeParameter, "64-bit signed integer", "i64", false},
+    {"u8", CompletionItemKind::TypeParameter, "8-bit unsigned integer", "u8", false},
+    {"u16", CompletionItemKind::TypeParameter, "16-bit unsigned integer", "u16", false},
     {"u32", CompletionItemKind::TypeParameter, "32-bit unsigned integer", "u32", false},
     {"u64", CompletionItemKind::TypeParameter, "64-bit unsigned integer", "u64", false},
 

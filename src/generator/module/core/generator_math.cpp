@@ -13,60 +13,72 @@ void Generator::Module::Math::generate_math_functions(llvm::IRBuilder<> *builder
     math_functions["sqrt_f32"] = c_functions.at(SQRTF);
     math_functions["sqrt_f64"] = c_functions.at(SQRT);
 
+    llvm::IntegerType *i8_type = llvm::Type::getInt8Ty(context);
+    generate_abs_iN_function(builder, module, only_declarations, 8);
+    llvm::IntegerType *i16_type = llvm::Type::getInt16Ty(context);
+    generate_abs_iN_function(builder, module, only_declarations, 16);
     llvm::IntegerType *i32_type = llvm::Type::getInt32Ty(context);
-    generate_abs_int_function(builder, module, only_declarations, i32_type, "i32");
+    generate_abs_iN_function(builder, module, only_declarations, 32);
     llvm::IntegerType *i64_type = llvm::Type::getInt64Ty(context);
-    generate_abs_int_function(builder, module, only_declarations, i64_type, "i64");
+    generate_abs_iN_function(builder, module, only_declarations, 64);
     math_functions["abs_f32"] = c_functions.at(FABSF);
     math_functions["abs_f64"] = c_functions.at(FABS);
 
     llvm::Type *f32_type = llvm::Type::getFloatTy(context);
     llvm::Type *f64_type = llvm::Type::getDoubleTy(context);
+    generate_min_function(builder, module, only_declarations, i8_type, "u8");
+    generate_min_function(builder, module, only_declarations, i8_type, "i8");
+    generate_min_function(builder, module, only_declarations, i16_type, "u16");
+    generate_min_function(builder, module, only_declarations, i16_type, "i16");
     generate_min_function(builder, module, only_declarations, i32_type, "u32");
-    generate_min_function(builder, module, only_declarations, i64_type, "u64");
     generate_min_function(builder, module, only_declarations, i32_type, "i32");
+    generate_min_function(builder, module, only_declarations, i64_type, "u64");
     generate_min_function(builder, module, only_declarations, i64_type, "i64");
     generate_fmin_function(builder, module, only_declarations, f32_type, "f32");
     generate_fmin_function(builder, module, only_declarations, f64_type, "f64");
 
+    generate_max_function(builder, module, only_declarations, i8_type, "u8");
+    generate_max_function(builder, module, only_declarations, i8_type, "i8");
+    generate_max_function(builder, module, only_declarations, i16_type, "u16");
+    generate_max_function(builder, module, only_declarations, i16_type, "i16");
     generate_max_function(builder, module, only_declarations, i32_type, "u32");
-    generate_max_function(builder, module, only_declarations, i64_type, "u64");
     generate_max_function(builder, module, only_declarations, i32_type, "i32");
+    generate_max_function(builder, module, only_declarations, i64_type, "u64");
     generate_max_function(builder, module, only_declarations, i64_type, "i64");
     generate_fmax_function(builder, module, only_declarations, f32_type, "f32");
     generate_fmax_function(builder, module, only_declarations, f64_type, "f64");
 }
 
-void Generator::Module::Math::generate_abs_int_function( //
-    llvm::IRBuilder<> *builder,                          //
-    llvm::Module *module,                                //
-    const bool only_declarations,                        //
-    llvm::IntegerType *type,                             //
-    const std::string &name                              //
+void Generator::Module::Math::generate_abs_iN_function( //
+    llvm::IRBuilder<> *builder,                         //
+    llvm::Module *module,                               //
+    const bool only_declarations,                       //
+    const size_t N                                      //
 ) {
     llvm::Function *abs_fn = nullptr;
-    if (type->getBitWidth() == 32) {
+    if (N <= 32) {
         abs_fn = c_functions.at(ABS);
-    } else if (type->getBitWidth() == 64) {
+    } else if (N <= 64) {
         abs_fn = c_functions.at(LABS);
     } else {
         assert(false);
     }
 
     // Create function type
+    llvm::IntegerType *const intN_t = llvm::IntegerType::getIntNTy(context, N);
     llvm::FunctionType *abs_int_type = llvm::FunctionType::get( //
-        type,                                                   // return iX
-        {type},                                                 //  iX x
+        intN_t,                                                 // return iX
+        {intN_t},                                               //  iX x
         false                                                   // no vaarg
     );
     // Create the function
+    const std::string fn_name = "abs_i" + std::to_string(N);
     llvm::Function *abs_int_fn = llvm::Function::Create( //
         abs_int_type,                                    //
         llvm::Function::ExternalLinkage,                 //
-        prefix + "abs_" + name,                          //
+        prefix + fn_name,                                //
         module                                           //
     );
-    const std::string fn_name = "abs_" + name;
     math_functions[fn_name] = abs_int_fn;
     if (only_declarations) {
         return;
@@ -83,20 +95,23 @@ void Generator::Module::Math::generate_abs_int_function( //
 
     builder->SetInsertPoint(entry_block);
 
-    llvm::Value *int_min = llvm::ConstantInt::get(                                                   //
-        builder->getIntNTy(type->getBitWidth()), llvm::APInt::getSignedMinValue(type->getBitWidth()) //
-    );
+    llvm::Value *int_min = llvm::ConstantInt::get(builder->getIntNTy(N), llvm::APInt::getSignedMinValue(N));
     llvm::Value *is_min = builder->CreateICmpEQ(int_min, arg_x);
     builder->CreateCondBr(is_min, is_min_block, merge_block, IR::generate_weights(1, 100));
 
     builder->SetInsertPoint(is_min_block);
-    llvm::Value *int_max = llvm::ConstantInt::get(                                                   //
-        builder->getIntNTy(type->getBitWidth()), llvm::APInt::getSignedMaxValue(type->getBitWidth()) //
-    );
+    llvm::Value *int_max = llvm::ConstantInt::get(builder->getIntNTy(N), llvm::APInt::getSignedMaxValue(N));
     builder->CreateRet(int_max);
 
     builder->SetInsertPoint(merge_block);
-    llvm::Value *abs_value = builder->CreateCall(abs_fn, {arg_x}, "abs_val");
+    llvm::Value *arg_x_ext = arg_x;
+    if (N != 32 && N != 64) {
+        arg_x_ext = builder->CreateSExt(arg_x, builder->getIntNTy(N < 32 ? 32 : 64), "arg_x_ext");
+    }
+    llvm::Value *abs_value = builder->CreateCall(abs_fn, {arg_x_ext}, "abs_val");
+    if (N != 32 && N != 64) {
+        abs_value = builder->CreateTrunc(abs_value, builder->getIntNTy(N), "abs_val_i" + std::to_string(N));
+    }
     builder->CreateRet(abs_value);
 }
 

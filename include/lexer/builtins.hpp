@@ -29,13 +29,16 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
         {
             {"print", // The 'print' function
                 {
-                    {{{"i32", "value"}}, {"void"}, {}},                // The 'i32' argument overload of the 'print' function
-                    {{{"i64", "value"}}, {"void"}, {}},                // The 'i64' argument overload of the 'print' function
+                    {{{"u8", "value"}}, {"void"}, {}},                 // The 'u8' argument overload of the 'print' function
+                    {{{"i8", "value"}}, {"void"}, {}},                 // The 'i8' argument overload of the 'print' function
+                    {{{"u16", "value"}}, {"void"}, {}},                // The 'u16' argument overload of the 'print' function
+                    {{{"i16", "value"}}, {"void"}, {}},                // The 'i16' argument overload of the 'print' function
                     {{{"u32", "value"}}, {"void"}, {}},                // The 'u32' argument overload of the 'print' function
+                    {{{"i32", "value"}}, {"void"}, {}},                // The 'i32' argument overload of the 'print' function
                     {{{"u64", "value"}}, {"void"}, {}},                // The 'u64' argument overload of the 'print' function
+                    {{{"i64", "value"}}, {"void"}, {}},                // The 'i64' argument overload of the 'print' function
                     {{{"f32", "value"}}, {"void"}, {}},                // The 'f32' argument overload of the 'print' function
                     {{{"f64", "value"}}, {"void"}, {}},                // The 'f64' argument overload of the 'print' function
-                    {{{"u8", "value"}}, {"void"}, {}},                 // The 'u8' argument overload of the 'print' function
                     {{{"str", "value"}}, {"void"}, {}},                // The 'str' argument overload of the 'print' function
                     {{{"type.flint.str.lit", "value"}}, {"void"}, {}}, // The 'str' literal argument overload of the 'print' function
                     {{{"bool", "value"}}, {"void"}, {}},               // The 'bool' argument overload of the 'print' function
@@ -47,21 +50,21 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{}, {"str"}, {}}, // The single version of the 'read_str' function
                 }},
-            {"read_i32", // The 'read_i32' function
-                {
-                    {{}, {"i32"}, {"ErrRead"}}, // The single version of the 'read_i32' function
-                }},
-            {"read_i64", // The 'read_i64' function
-                {
-                    {{}, {"i64"}, {"ErrRead"}}, // The single version of the 'read_i64' function
-                }},
             {"read_u32", // The 'read_u32' function
                 {
                     {{}, {"u32"}, {"ErrRead"}}, // The single version of the 'read_u32' function
                 }},
+            {"read_i32", // The 'read_i32' function
+                {
+                    {{}, {"i32"}, {"ErrRead"}}, // The single version of the 'read_i32' function
+                }},
             {"read_u64", // The 'read_u64' function
                 {
                     {{}, {"u64"}, {"ErrRead"}}, // The single version of the 'read_u64' function
+                }},
+            {"read_i64", // The 'read_i64' function
+                {
+                    {{}, {"i64"}, {"ErrRead"}}, // The single version of the 'read_i64' function
                 }},
             {"read_f32", // The 'read_f32' function
                 {
@@ -164,6 +167,8 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 }},
             {"abs", // The 'abs' function
                 {
+                    {{{"i8", "value"}}, {"i8"}, {}},   // The 'i8' overload of the 'abs' function
+                    {{{"i16", "value"}}, {"i16"}, {}}, // The 'i16' overload of the 'abs' function
                     {{{"i32", "value"}}, {"i32"}, {}}, // The 'i32' overload of the 'abs' function
                     {{{"i64", "value"}}, {"i64"}, {}}, // The 'i64' overload of the 'abs' function
                     {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
@@ -171,20 +176,28 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 }},
             {"min", // The 'min' function
                 {
+                    {{{"u8", "value1"}, {"u8", "value2"}}, {"u8"}, {}},    // The 'u8' overload of the 'min' function
+                    {{{"i8", "value1"}, {"i8", "value2"}}, {"i8"}, {}},    // The 'i8' overload of the 'min' function
+                    {{{"u16", "value1"}, {"u16", "value2"}}, {"u16"}, {}}, // The 'u16' overload of the 'min' function
+                    {{{"i16", "value1"}, {"i16", "value2"}}, {"i16"}, {}}, // The 'i16' overload of the 'min' function
                     {{{"u32", "value1"}, {"u32", "value2"}}, {"u32"}, {}}, // The 'u32' overload of the 'min' function
-                    {{{"i32", "value1"}, {"i32", "value2"}}, {"i32"}, {}}, // The 'i32' overload of the 'min' function
-                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'min' function
                     {{{"u64", "value1"}, {"u64", "value2"}}, {"u64"}, {}}, // The 'u64' overload of the 'min' function
+                    {{{"i32", "value1"}, {"i32", "value2"}}, {"i32"}, {}}, // The 'i32' overload of the 'min' function
                     {{{"i64", "value1"}, {"i64", "value2"}}, {"i64"}, {}}, // The 'i64' overload of the 'min' function
+                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'min' function
                     {{{"f64", "value1"}, {"f64", "value2"}}, {"f64"}, {}}, // The 'f64' overload of the 'min' function
                 }},
             {"max", // The 'max' function
                 {
+                    {{{"u8", "value1"}, {"u8", "value2"}}, {"u8"}, {}},    // The 'u8' overload of the 'max' function
+                    {{{"i8", "value1"}, {"i8", "value2"}}, {"i8"}, {}},    // The 'i8' overload of the 'max' function
+                    {{{"u16", "value1"}, {"u16", "value2"}}, {"u16"}, {}}, // The 'u16' overload of the 'max' function
+                    {{{"i16", "value1"}, {"i16", "value2"}}, {"i16"}, {}}, // The 'i16' overload of the 'max' function
                     {{{"u32", "value1"}, {"u32", "value2"}}, {"u32"}, {}}, // The 'u32' overload of the 'max' function
                     {{{"i32", "value1"}, {"i32", "value2"}}, {"i32"}, {}}, // The 'i32' overload of the 'max' function
-                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'max' function
                     {{{"u64", "value1"}, {"u64", "value2"}}, {"u64"}, {}}, // The 'u64' overload of the 'max' function
                     {{{"i64", "value1"}, {"i64", "value2"}}, {"i64"}, {}}, // The 'i64' overload of the 'max' function
+                    {{{"f32", "value1"}, {"f32", "value2"}}, {"f32"}, {}}, // The 'f32' overload of the 'max' function
                     {{{"f64", "value1"}, {"f64", "value2"}}, {"f64"}, {}}, // The 'f64' overload of the 'max' function
                 }},
         }},   // End of the 'math' module
@@ -194,21 +207,33 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 {
                     {{{"str", "input"}}, {"u8"}, {"ErrParse"}}, // The single version of the 'parse_u8' function
                 }},
-            {"parse_i32", // The 'parse_i32' function
+            {"parse_i8", // The 'parse_i8' function
                 {
-                    {{{"str", "input"}}, {"i32"}, {"ErrParse"}}, // The single version of the 'parse_i32' function
+                    {{{"str", "input"}}, {"i8"}, {"ErrParse"}}, // The single version of the 'parse_i8' function
                 }},
-            {"parse_i64", // The 'parse_i64' function
+            {"parse_u16", // The 'parse_u16' function
                 {
-                    {{{"str", "input"}}, {"i64"}, {"ErrParse"}}, // The single version of the 'parse_i64' function
+                    {{{"str", "input"}}, {"u16"}, {"ErrParse"}}, // The single version of the 'parse_u16' function
+                }},
+            {"parse_i16", // The 'parse_i16' function
+                {
+                    {{{"str", "input"}}, {"i16"}, {"ErrParse"}}, // The single version of the 'parse_i16' function
                 }},
             {"parse_u32", // The 'parse_u32' function
                 {
                     {{{"str", "input"}}, {"u32"}, {"ErrParse"}}, // The single version of the 'parse_u32' function
                 }},
+            {"parse_i32", // The 'parse_i32' function
+                {
+                    {{{"str", "input"}}, {"i32"}, {"ErrParse"}}, // The single version of the 'parse_i32' function
+                }},
             {"parse_u64", // The 'parse_u64' function
                 {
                     {{{"str", "input"}}, {"u64"}, {"ErrParse"}}, // The single version of the 'parse_u64' function
+                }},
+            {"parse_i64", // The 'parse_i64' function
+                {
+                    {{{"str", "input"}}, {"i64"}, {"ErrParse"}}, // The single version of the 'parse_i64' function
                 }},
             {"parse_f32", // The 'parse_f32' function
                 {
@@ -418,17 +443,20 @@ enum CFunction {
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
     {"type.flint.str.lit", {"str"}},
-    {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
-    {"i32", {"str", "u8", "i64", "f32", "f64", "u32", "u64"}},
-    {"i64", {"str", "u8", "i32", "f32", "f64", "u32", "u64"}},
-    {"u32", {"str", "u8", "i32", "i64", "f32", "f64", "u64"}},
-    {"u64", {"str", "u8", "i32", "i64", "f32", "f64", "u32"}},
-    {"float", {"str", "u8", "i32", "i64", "u32", "u64", "f32", "f64"}},
-    {"f32", {"str", "i32", "i64", "f64", "u32", "u64"}},
-    {"f64", {"str", "i32", "i64", "f32", "u32", "u64"}},
-    {"u8", {"bool8", "str", "i32", "i64", "u32", "u64"}},
-    {"bool", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
-    {"bool8", {"str", "u8"}},
+    {"int", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"u8", {"bool8", "str", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"i8", {"bool8", "str", "u8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"u16", {"str", "u8", "i8", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"i16", {"str", "u8", "i8", "u16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"u32", {"str", "u8", "i8", "u16", "i16", "i32", "u64", "i64", "f32", "f64"}},
+    {"i32", {"str", "u8", "i8", "u16", "i16", "u32", "u64", "i64", "f32", "f64"}},
+    {"u64", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "i64", "f32", "f64"}},
+    {"i64", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "f32", "f64"}},
+    {"float", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"f32", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f64"}},
+    {"f64", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32"}},
+    {"bool", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"bool8", {"str", "u8", "i8"}},
     {"u8x2", {"str"}},
     {"u8x3", {"str"}},
     {"u8x4", {"str"}},
@@ -451,16 +479,19 @@ static const inline std::unordered_map<std::string_view, std::vector<std::string
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_implicit_casting_table = {
     {"type.flint.str.lit", {"str"}},
-    {"int", {"str", "u8", "u32", "u64", "i32", "i64", "f32", "f64"}},
-    {"i32", {"str", "i64", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
-    {"i64", {"str", "i64x2", "i64x3", "i64x4"}},
+    {"int", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"u8", {"str", "bool8", "u16", "i16", "u32", "i32", "f32", "u64", "i64", "f64", "u8x2", "u8x3", "u8x4", "u8x8"}},
+    {"i8", {"str", "bool8", "i16", "i32", "i64", "f32", "f64"}},
+    {"u16", {"str", "u32", "i32", "u64", "i64", "f32", "f64"}},
+    {"i16", {"str", "i32", "i64", "f32", "f64"}},
     {"u32", {"str", "i64", "u64", "f32", "f64"}},
+    {"i32", {"str", "i64", "f64", "i32x2", "i32x3", "i32x4", "i32x8"}},
     {"u64", {"str"}},
+    {"i64", {"str", "i64x2", "i64x3", "i64x4"}},
     {"float", {"str", "f32", "f64"}},
     {"f32", {"str", "f64", "f32x2", "f32x3", "f32x4", "f32x8"}},
     {"f64", {"str", "f64x2", "f64x3", "f64x4"}},
     {"bool", {"str"}},
-    {"u8", {"str", "bool8", "u32", "i32", "f32", "u64", "i64", "f64", "u8x2", "u8x3", "u8x4", "u8x8"}},
     {"bool8", {"u8", "str"}},
     {"(u8, u8)", {"u8x2"}},
     {"(u8, u8, u8)", {"u8x3"}},

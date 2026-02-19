@@ -149,15 +149,23 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         const APInt lit_int = std::get<LitInt>(literal_node->value).value;
         const std::string lit_type = literal_node->type->to_string();
         if (lit_type == "u8") {
-            const std::optional<unsigned char> lit_val = lit_int.to_uN<unsigned char>();
+            const std::optional<uint8_t> lit_val = lit_int.to_uN<uint8_t>();
             if (!lit_val.has_value()) {
                 // Could not convert the literal to an u8, maybe it's too big or negative?
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "u16") {
+            const std::optional<uint16_t> lit_val = lit_int.to_uN<uint16_t>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an u16, maybe it's too big or negative?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), false)};
         } else if (lit_type == "u32") {
-            const std::optional<unsigned int> lit_val = lit_int.to_uN<unsigned int>();
+            const std::optional<uint32_t> lit_val = lit_int.to_uN<uint32_t>();
             if (!lit_val.has_value()) {
                 // Could not convert the literal to an u32, maybe it's too big or negative?
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -165,15 +173,31 @@ Generator::group_mapping Generator::Expression::generate_literal( //
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), false)};
         } else if (lit_type == "u64") {
-            const std::optional<unsigned long> lit_val = lit_int.to_uN<unsigned long>();
+            const std::optional<uint64_t> lit_val = lit_int.to_uN<uint64_t>();
             if (!lit_val.has_value()) {
                 // Could not convert the literal to an u64, maybe it's too big or negative?
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "i8") {
+            const std::optional<int8_t> lit_val = lit_int.to_iN<int8_t>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an i8, maybe it's too big or too small?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
+        } else if (lit_type == "i16") {
+            const std::optional<int16_t> lit_val = lit_int.to_iN<int16_t>();
+            if (!lit_val.has_value()) {
+                // Could not convert the literal to an i16, maybe it's too big or too small?
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), true)};
         } else if (lit_type == "i32") {
-            const std::optional<int> lit_val = lit_int.to_iN<int>();
+            const std::optional<int32_t> lit_val = lit_int.to_iN<int32_t>();
             if (!lit_val.has_value()) {
                 // Could not convert the literal to an i32, maybe it's too big or too small?
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -181,7 +205,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), true)};
         } else if (lit_type == "i64") {
-            const std::optional<long> lit_val = lit_int.to_iN<long>();
+            const std::optional<int64_t> lit_val = lit_int.to_iN<int64_t>();
             if (!lit_val.has_value()) {
                 // Could not convert the literal to an i64, maybe it's too big or too small?
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -217,7 +241,9 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         } else if (lit_type == "f64") {
             const double lit_val = lit_float.to_fN<double>();
             return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), lit_val)};
-        } else if (lit_type == "u8" || lit_type == "u32" || lit_type == "u64" || lit_type == "i32" || lit_type == "i64") {
+        } else if (lit_type == "u8" || lit_type == "u16" || lit_type == "u32" || lit_type == "u64" //
+            || lit_type == "i8" || lit_type == "i16" || lit_type == "i32" || lit_type == "i64"     //
+        ) {
             // This can only happen when the float literal is cast to a different type, so when writing 'i32(3.3)'
             // It is unclear whether this actually should be a compile-time error, since everything after the comma is stripped annyway
             // TODO: Figure out whether this should be a compile-time error (with a message like "write integer literals directly ffs") or
@@ -3172,96 +3198,223 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             func_value = builder.CreateInsertValue(func_value, ext_data, i, "func_value__insert_" + std::to_string(i));
         }
         return func_value;
-    } else if (from_type_str == "i32") {
+    } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
-            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
-        } else if (to_type_str == "u8") {
-            return Module::TypeCast::i32_to_u8(builder, expr);
+            // Create a new string of size 1 and set its first byte to the char
+            llvm::Value *str_value = builder.CreateCall(                                                   //
+                Module::String::string_manip_functions.at("create_str"), {builder.getInt64(1)}, "char_val" //
+            );
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+            llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
+            IR::aligned_store(builder, expr, val_ptr);
+            return str_value;
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::uN_to_iN_same(builder, expr);
+        } else if (to_type_str == "u16") {
+            return builder.CreateZExt(expr, builder.getInt16Ty());
+        } else if (to_type_str == "i16") {
+            return builder.CreateSExt(expr, builder.getInt16Ty());
         } else if (to_type_str == "u32") {
-            return Module::TypeCast::i32_to_u32(builder, expr);
-        } else if (to_type_str == "i64") {
-            return Module::TypeCast::i32_to_i64(builder, expr);
+            return builder.CreateZExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "i32") {
+            return builder.CreateSExt(expr, builder.getInt32Ty());
         } else if (to_type_str == "u64") {
-            return Module::TypeCast::i32_to_u64(builder, expr);
+            return builder.CreateZExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
         } else if (to_type_str == "f32") {
-            return Module::TypeCast::i32_to_f32(builder, expr);
+            return Module::TypeCast::uN_to_f32(builder, expr);
         } else if (to_type_str == "f64") {
-            return Module::TypeCast::i32_to_f64(builder, expr);
+            return Module::TypeCast::uN_to_f64(builder, expr);
+        } else if (to_type_str == "bool8") {
+            return expr;
+        }
+    } else if (from_type_str == "i8") {
+        if (to_type_str == "str") {
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i8_to_str"), {expr}, "i8_to_str_res");
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::iN_to_uN_same(builder, expr);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return builder.CreateSExt(expr, builder.getInt16Ty());
+        } else if (to_type_str == "u32") {
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 32);
+        } else if (to_type_str == "i32") {
+            return builder.CreateSExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "u64") {
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 64);
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "f32") {
+            return Module::TypeCast::iN_to_f32(builder, expr);
+        } else if (to_type_str == "f64") {
+            return Module::TypeCast::iN_to_f64(builder, expr);
+        } else if (to_type_str == "bool8") {
+            return expr;
+        }
+    } else if (from_type_str == "u16") {
+        if (to_type_str == "str") {
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("u16_to_str"), {expr}, "u16_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::uN_to_iN_same(builder, expr);
+        } else if (to_type_str == "u32") {
+            return builder.CreateZExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "i32") {
+            return builder.CreateSExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "u64") {
+            return builder.CreateZExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "f32") {
+            return Module::TypeCast::uN_to_f32(builder, expr);
+        } else if (to_type_str == "f64") {
+            return Module::TypeCast::uN_to_f64(builder, expr);
+        } else if (to_type_str == "bool8") {
+            return expr;
+        }
+    } else if (from_type_str == "i16") {
+        if (to_type_str == "str") {
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i16_to_str"), {expr}, "i16_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::iN_to_uN_same(builder, expr);
+        } else if (to_type_str == "u32") {
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 32);
+        } else if (to_type_str == "i32") {
+            return builder.CreateSExt(expr, builder.getInt32Ty());
+        } else if (to_type_str == "u64") {
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 64);
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
+        } else if (to_type_str == "f32") {
+            return Module::TypeCast::iN_to_f32(builder, expr);
+        } else if (to_type_str == "f64") {
+            return Module::TypeCast::iN_to_f64(builder, expr);
+        } else if (to_type_str == "bool8") {
+            return expr;
         }
     } else if (from_type_str == "u32") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u32_to_str"), {expr}, "u32_to_str_res");
         } else if (to_type_str == "u8") {
-            return Module::TypeCast::u32_to_u8(builder, expr);
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 16);
         } else if (to_type_str == "i32") {
-            return Module::TypeCast::u32_to_i32(builder, expr);
+            return Module::TypeCast::uN_to_iN_same(builder, expr);
+        } else if (to_type_str == "u64") {
+            return builder.CreateZExt(expr, builder.getInt64Ty());
         } else if (to_type_str == "i64") {
-            return Module::TypeCast::u32_to_i64(builder, expr);
-        } else if (to_type_str == "u64") {
-            return Module::TypeCast::u32_to_u64(builder, expr);
+            return builder.CreateSExt(expr, builder.getInt64Ty());
         } else if (to_type_str == "f32") {
-            return Module::TypeCast::u32_to_f32(builder, expr);
+            return Module::TypeCast::uN_to_f32(builder, expr);
         } else if (to_type_str == "f64") {
-            return Module::TypeCast::u32_to_f64(builder, expr);
+            return Module::TypeCast::uN_to_f64(builder, expr);
         }
-    } else if (from_type_str == "i64") {
+    } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
-            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
         } else if (to_type_str == "u8") {
-            return Module::TypeCast::i64_to_u8(builder, expr);
-        } else if (to_type_str == "i32") {
-            return Module::TypeCast::i64_to_i32(builder, expr);
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 16);
         } else if (to_type_str == "u32") {
-            return Module::TypeCast::i64_to_u32(builder, expr);
+            return Module::TypeCast::iN_to_uN_same(builder, expr);
         } else if (to_type_str == "u64") {
-            return Module::TypeCast::i64_to_u64(builder, expr);
+            return Module::TypeCast::iN_to_uN_ext(builder, expr, 64);
+        } else if (to_type_str == "i64") {
+            return builder.CreateSExt(expr, builder.getInt64Ty());
         } else if (to_type_str == "f32") {
-            return Module::TypeCast::i64_to_f32(builder, expr);
+            return Module::TypeCast::iN_to_f32(builder, expr);
         } else if (to_type_str == "f64") {
-            return Module::TypeCast::i64_to_f64(builder, expr);
+            return Module::TypeCast::iN_to_f64(builder, expr);
         }
     } else if (from_type_str == "u64") {
         if (to_type_str == "str") {
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("u64_to_str"), {expr}, "u64_to_str_res");
         } else if (to_type_str == "u8") {
-            return Module::TypeCast::u64_to_u8(builder, expr);
-        } else if (to_type_str == "i32") {
-            return Module::TypeCast::u64_to_i32(builder, expr);
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 16);
         } else if (to_type_str == "u32") {
-            return Module::TypeCast::u64_to_u32(builder, expr);
+            return Module::TypeCast::uN_to_uN_trunc(builder, expr, 32);
+        } else if (to_type_str == "i32") {
+            return Module::TypeCast::uN_to_iN_trunc(builder, expr, 32);
         } else if (to_type_str == "i64") {
-            return Module::TypeCast::u64_to_i64(builder, expr);
+            return Module::TypeCast::uN_to_iN_same(builder, expr);
         } else if (to_type_str == "f32") {
-            return Module::TypeCast::u64_to_f32(builder, expr);
+            return Module::TypeCast::uN_to_f32(builder, expr);
         } else if (to_type_str == "f64") {
-            return Module::TypeCast::u64_to_f64(builder, expr);
+            return Module::TypeCast::uN_to_f64(builder, expr);
         }
-    } else if (from_type_str == "f32") {
+    } else if (from_type_str == "i64") {
         if (to_type_str == "str") {
-            return builder.CreateCall(Module::TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
-        } else if (to_type_str == "i32") {
-            return Module::TypeCast::f32_to_i32(builder, expr);
+            return builder.CreateCall(Module::TypeCast::typecast_functions.at("i64_to_str"), {expr}, "i64_to_str_res");
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 16);
         } else if (to_type_str == "u32") {
-            return Module::TypeCast::f32_to_u32(builder, expr);
-        } else if (to_type_str == "i64") {
-            return Module::TypeCast::f32_to_i64(builder, expr);
+            return Module::TypeCast::iN_to_uN_trunc(builder, expr, 32);
+        } else if (to_type_str == "i32") {
+            return Module::TypeCast::iN_to_iN_trunc(builder, expr, 32);
         } else if (to_type_str == "u64") {
-            return Module::TypeCast::f32_to_u64(builder, expr);
+            return Module::TypeCast::iN_to_uN_same(builder, expr);
+        } else if (to_type_str == "f32") {
+            return Module::TypeCast::iN_to_f32(builder, expr);
         } else if (to_type_str == "f64") {
+            return Module::TypeCast::iN_to_f64(builder, expr);
+        }
+    } else if (from_type_str == "f32" || from_type_str == "f64") {
+        if (to_type_str == "str") {
+            if (from_type_str == "f32") {
+                return builder.CreateCall(Module::TypeCast::typecast_functions.at("f32_to_str"), {expr}, "f32_to_str_res");
+            } else {
+                return builder.CreateCall(Module::TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
+            }
+        } else if (to_type_str == "u8") {
+            return Module::TypeCast::fN_to_uN(builder, expr, 8);
+        } else if (to_type_str == "i8") {
+            return Module::TypeCast::fN_to_iN(builder, expr, 8);
+        } else if (to_type_str == "u16") {
+            return Module::TypeCast::fN_to_uN(builder, expr, 16);
+        } else if (to_type_str == "i16") {
+            return Module::TypeCast::fN_to_iN(builder, expr, 16);
+        } else if (to_type_str == "u32") {
+            return Module::TypeCast::fN_to_uN(builder, expr, 32);
+        } else if (to_type_str == "i32") {
+            return Module::TypeCast::fN_to_iN(builder, expr, 32);
+        } else if (to_type_str == "u64") {
+            return Module::TypeCast::fN_to_uN(builder, expr, 64);
+        } else if (to_type_str == "i64") {
+            return Module::TypeCast::fN_to_iN(builder, expr, 64);
+        } else if (from_type_str == "f32" && to_type_str == "f64") {
             return Module::TypeCast::f32_to_f64(builder, expr);
-        }
-    } else if (from_type_str == "f64") {
-        if (to_type_str == "str") {
-            return builder.CreateCall(Module::TypeCast::typecast_functions.at("f64_to_str"), {expr}, "f64_to_str_res");
-        } else if (to_type_str == "i32") {
-            return Module::TypeCast::f64_to_i32(builder, expr);
-        } else if (to_type_str == "u32") {
-            return Module::TypeCast::f64_to_u32(builder, expr);
-        } else if (to_type_str == "i64") {
-            return Module::TypeCast::f64_to_i64(builder, expr);
-        } else if (to_type_str == "u64") {
-            return Module::TypeCast::f64_to_u64(builder, expr);
-        } else if (to_type_str == "f32") {
+        } else if (from_type_str == "f64" && to_type_str == "f32") {
             return Module::TypeCast::f64_to_f32(builder, expr);
         }
     } else if (from_type_str == "bool") {
@@ -3269,12 +3422,18 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool_to_str"), {expr}, "bool_to_str_res");
         } else if (to_type_str == "u8") {
             return builder.CreateSelect(expr, builder.getInt8(1), builder.getInt8(0), "bool_to_u8");
+        } else if (to_type_str == "i8") {
+            return builder.CreateSelect(expr, builder.getInt8(1), builder.getInt8(0), "bool_to_i8");
+        } else if (to_type_str == "u16") {
+            return builder.CreateSelect(expr, builder.getInt16(1), builder.getInt16(0), "bool_to_u16");
+        } else if (to_type_str == "i16") {
+            return builder.CreateSelect(expr, builder.getInt16(1), builder.getInt16(0), "bool_to_i16");
         } else if (to_type_str == "u32") {
             return builder.CreateSelect(expr, builder.getInt32(1), builder.getInt32(0), "bool_to_u32");
-        } else if (to_type_str == "u64") {
-            return builder.CreateSelect(expr, builder.getInt64(1), builder.getInt64(0), "bool_to_u64");
         } else if (to_type_str == "i32") {
             return builder.CreateSelect(expr, builder.getInt32(1), builder.getInt32(0), "bool_to_i32");
+        } else if (to_type_str == "u64") {
+            return builder.CreateSelect(expr, builder.getInt64(1), builder.getInt64(0), "bool_to_u64");
         } else if (to_type_str == "i64") {
             return builder.CreateSelect(expr, builder.getInt64(1), builder.getInt64(0), "bool_to_i64");
         } else if (to_type_str == "f32") {
@@ -3291,27 +3450,6 @@ llvm::Value *Generator::Expression::generate_type_cast( //
                 llvm::ConstantFP::get(builder.getDoubleTy(), 0.0), //
                 "bool_to_f64"                                      //
             );
-        }
-    } else if (from_type_str == "u8") {
-        if (to_type_str == "str") {
-            // Create a new string of size 1 and set its first byte to the char
-            llvm::Value *str_value = builder.CreateCall(                                                   //
-                Module::String::string_manip_functions.at("create_str"), {builder.getInt64(1)}, "char_val" //
-            );
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-            llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
-            IR::aligned_store(builder, expr, val_ptr);
-            return str_value;
-        } else if (to_type_str == "i32") {
-            return builder.CreateSExt(expr, builder.getInt32Ty());
-        } else if (to_type_str == "i64") {
-            return builder.CreateSExt(expr, builder.getInt64Ty());
-        } else if (to_type_str == "u32") {
-            return builder.CreateZExt(expr, builder.getInt32Ty());
-        } else if (to_type_str == "u64") {
-            return builder.CreateZExt(expr, builder.getInt64Ty());
-        } else if (to_type_str == "bool8") {
-            return expr;
         }
     } else if (from_type_str == "void?") {
         // The 'none' literal
@@ -3861,7 +3999,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateAdd(lhs, rhs, "add_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64"    //
+                || type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64" //
+            ) {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_add"), {lhs, rhs}, "safe_add_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFAdd(lhs, rhs, "faddtmp");
@@ -3883,7 +4023,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateSub(lhs, rhs, "sub_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64"    //
+                || type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64" //
+            ) {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_sub"), {lhs, rhs}, "safe_sub_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFSub(lhs, rhs, "fsubtmp");
@@ -3896,7 +4038,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             if (overflow_mode == ArithmeticOverflowMode::UNSAFE && lhs->getType()->isIntegerTy()) {
                 return builder.CreateMul(lhs, rhs, "mul_res");
             }
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64"    //
+                || type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64" //
+            ) {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mul"), {lhs, rhs}, "safe_mul_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFMul(lhs, rhs, "fmultmp");
@@ -3906,14 +4050,14 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_DIV:
-            if (type_str == "i32" || type_str == "i64") {
-                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
-                    ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
-                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateUDiv(lhs, rhs, "udiv_res")         //
                     : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_udiv_res");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateSDiv(lhs, rhs, "sdiv_res")         //
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_div"), {lhs, rhs}, "safe_sdiv_res");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFDiv(lhs, rhs, "fdivtmp");
             } else if (type_str == "flint") {
@@ -3922,7 +4066,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_POW:
-            if (type_str == "i32" || type_str == "i64" || type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64"    //
+                || type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64" //
+            ) {
                 return builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_pow"), {lhs, rhs}, "pow_res");
             } else if (type_str == "f32") {
                 return builder.CreateCall(c_functions.at(POWF), {lhs, rhs}, "powf_res");
@@ -3931,21 +4077,21 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_MOD:
-            if (type_str == "i32" || type_str == "i64") {
-                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
-                    ? builder.CreateSRem(lhs, rhs, "srem_res")         //
-                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mod"), {lhs, rhs}, "safe_smod_res");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return overflow_mode == ArithmeticOverflowMode::UNSAFE //
                     ? builder.CreateURem(lhs, rhs, "urem_res")         //
                     : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mod"), {lhs, rhs}, "safe_umod_res");
+            } else if (type_str == "i8" || type_str == "u16" || type_str == "i32" || type_str == "i64") {
+                return overflow_mode == ArithmeticOverflowMode::UNSAFE //
+                    ? builder.CreateSRem(lhs, rhs, "srem_res")         //
+                    : builder.CreateCall(Module::Arithmetic::arithmetic_functions.at(type_str + "_safe_mod"), {lhs, rhs}, "safe_smod_res");
             }
             break;
         case TOK_LESS:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpULT(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSLT(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOLT(lhs, rhs, "fcmptmp");
             } else if (type_str == "flint") {
@@ -3957,10 +4103,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_GREATER:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpUGT(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSGT(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOGT(lhs, rhs, "fcmptmp");
             } else if (type_str == "flint") {
@@ -3972,10 +4118,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_LESS_EQUAL:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpULE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSLE(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOLE(lhs, rhs, "fcmptmp");
             } else if (type_str == "flint") {
@@ -3987,10 +4133,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_GREATER_EQUAL:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpUGE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpSGE(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOGE(lhs, rhs, "fcmptmp");
             } else if (type_str == "flint") {
@@ -4002,10 +4148,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_EQUAL_EQUAL:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpEQ(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpEQ(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpOEQ(lhs, rhs, "fcmptmp");
             } else if (type_str == "bool") {
@@ -4079,10 +4225,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             }
             break;
         case TOK_NOT_EQUAL:
-            if (type_str == "i32" || type_str == "i64") {
-                return builder.CreateICmpNE(lhs, rhs, "icmptmp");
-            } else if (type_str == "u32" || type_str == "u64" || type_str == "u8") {
+            if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
                 return builder.CreateICmpNE(lhs, rhs, "ucmptmp");
+            } else if (type_str == "i8" || type_str == "i16" || type_str == "i32" || type_str == "i64") {
+                return builder.CreateICmpNE(lhs, rhs, "icmptmp");
             } else if (type_str == "f32" || type_str == "f64") {
                 return builder.CreateFCmpONE(lhs, rhs, "fcmptmp");
             } else if (type_str == "bool") {

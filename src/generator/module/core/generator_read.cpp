@@ -869,10 +869,10 @@ void Generator::Module::Read::generate_read_f64_function(llvm::IRBuilder<> *buil
 void Generator::Module::Read::generate_read_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_getline_function(builder, module, only_declarations);
     generate_read_str_function(builder, module, only_declarations);
-    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i32"));
-    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i64"));
     generate_read_uint_function(builder, module, only_declarations, Type::get_primitive_type("u32"));
+    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i32"));
     generate_read_uint_function(builder, module, only_declarations, Type::get_primitive_type("u64"));
+    generate_read_int_function(builder, module, only_declarations, Type::get_primitive_type("i64"));
     generate_read_f32_function(builder, module, only_declarations);
     generate_read_f64_function(builder, module, only_declarations);
 }

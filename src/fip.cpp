@@ -668,7 +668,7 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
                     file << "u8";
                     break;
                 case FIP_U16:
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    file << "u16";
                     break;
                 case FIP_U32:
                     file << "u32";
@@ -677,10 +677,10 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
                     file << "u64";
                     break;
                 case FIP_I8:
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    file << "i8";
                     break;
                 case FIP_I16:
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    file << "i16";
                     break;
                 case FIP_I32:
                     file << "i32";

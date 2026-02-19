@@ -14,18 +14,22 @@ uint32_t Type::get_id() const {
 }
 
 void Type::init_types() {
-    std::shared_ptr<Type> i32_type = get_primitive_type("i32");
+    std::shared_ptr<Type> u8_type = get_primitive_type("u8");
+    get_primitive_type("i8");
+    get_primitive_type("u16");
+    get_primitive_type("i16");
     get_primitive_type("u32");
-    std::shared_ptr<Type> i64_type = get_primitive_type("i64");
+    std::shared_ptr<Type> i32_type = get_primitive_type("i32");
     get_primitive_type("u64");
+    std::shared_ptr<Type> i64_type = get_primitive_type("i64");
     std::shared_ptr<Type> f32_type = get_primitive_type("f32");
     std::shared_ptr<Type> f64_type = get_primitive_type("f64");
+
     std::shared_ptr<Type> bool_type = get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
     get_primitive_type("type.flint.str.lit");
     std::shared_ptr<Type> void_type = get_primitive_type("void");
     add_type(std::make_shared<OptionalType>(void_type));
-    std::shared_ptr<Type> u8_type = get_primitive_type("u8");
     get_primitive_type("anyerror");
     get_primitive_type("int");
     get_primitive_type("float");

@@ -13,24 +13,18 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
     llvm::IntegerType *i64_type = llvm::Type::getInt64Ty(context);
     // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
     if (overflow_mode != ArithmeticOverflowMode::UNSAFE) {
-        // i32 functions
-        generate_int_safe_add(builder, module, only_declarations, i32_type, "i32");
-        generate_int_safe_sub(builder, module, only_declarations, i32_type, "i32");
-        generate_int_safe_mul(builder, module, only_declarations, i32_type, "i32");
-        generate_int_safe_div(builder, module, only_declarations, i32_type, "i32");
-        generate_int_safe_mod(builder, module, only_declarations, i32_type, "i32", true);
-        // i64 functions
-        generate_int_safe_add(builder, module, only_declarations, i64_type, "i64");
-        generate_int_safe_sub(builder, module, only_declarations, i64_type, "i64");
-        generate_int_safe_mul(builder, module, only_declarations, i64_type, "i64");
-        generate_int_safe_div(builder, module, only_declarations, i64_type, "i64");
-        generate_int_safe_mod(builder, module, only_declarations, i64_type, "i64", true);
         // u8 functions
         generate_uint_safe_add(builder, module, only_declarations, i8_type, "u8");
         generate_uint_safe_sub(builder, module, only_declarations, i8_type, "u8");
         generate_uint_safe_mul(builder, module, only_declarations, i8_type, "u8");
         generate_uint_safe_div(builder, module, only_declarations, i8_type, "u8");
         generate_int_safe_mod(builder, module, only_declarations, i8_type, "u8", false);
+        // u16 functions
+        generate_uint_safe_add(builder, module, only_declarations, i8_type, "u16");
+        generate_uint_safe_sub(builder, module, only_declarations, i8_type, "u16");
+        generate_uint_safe_mul(builder, module, only_declarations, i8_type, "u16");
+        generate_uint_safe_div(builder, module, only_declarations, i8_type, "u16");
+        generate_int_safe_mod(builder, module, only_declarations, i8_type, "u16", false);
         // u32 functions
         generate_uint_safe_add(builder, module, only_declarations, i32_type, "u32");
         generate_uint_safe_sub(builder, module, only_declarations, i32_type, "u32");
@@ -43,6 +37,51 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
         generate_uint_safe_mul(builder, module, only_declarations, i64_type, "u64");
         generate_uint_safe_div(builder, module, only_declarations, i64_type, "u64");
         generate_int_safe_mod(builder, module, only_declarations, i64_type, "u64", false);
+        // i8 functions
+        generate_int_safe_add(builder, module, only_declarations, i32_type, "i8");
+        generate_int_safe_sub(builder, module, only_declarations, i32_type, "i8");
+        generate_int_safe_mul(builder, module, only_declarations, i32_type, "i8");
+        generate_int_safe_div(builder, module, only_declarations, i32_type, "i8");
+        generate_int_safe_mod(builder, module, only_declarations, i32_type, "i8", true);
+        // i16 functions
+        generate_int_safe_add(builder, module, only_declarations, i32_type, "i16");
+        generate_int_safe_sub(builder, module, only_declarations, i32_type, "i16");
+        generate_int_safe_mul(builder, module, only_declarations, i32_type, "i16");
+        generate_int_safe_div(builder, module, only_declarations, i32_type, "i16");
+        generate_int_safe_mod(builder, module, only_declarations, i32_type, "i16", true);
+        // i32 functions
+        generate_int_safe_add(builder, module, only_declarations, i32_type, "i32");
+        generate_int_safe_sub(builder, module, only_declarations, i32_type, "i32");
+        generate_int_safe_mul(builder, module, only_declarations, i32_type, "i32");
+        generate_int_safe_div(builder, module, only_declarations, i32_type, "i32");
+        generate_int_safe_mod(builder, module, only_declarations, i32_type, "i32", true);
+        // i64 functions
+        generate_int_safe_add(builder, module, only_declarations, i64_type, "i64");
+        generate_int_safe_sub(builder, module, only_declarations, i64_type, "i64");
+        generate_int_safe_mul(builder, module, only_declarations, i64_type, "i64");
+        generate_int_safe_div(builder, module, only_declarations, i64_type, "i64");
+        generate_int_safe_mod(builder, module, only_declarations, i64_type, "i64", true);
+
+        // TODO: u8x2 functions
+        // generate_uint_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "u8x2");
+        // generate_uint_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "u8x2");
+        // generate_uint_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "u8x2");
+        // generate_uint_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "u8x2");
+        // TODO: u8x3 functions
+        // generate_uint_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "u8x3");
+        // generate_uint_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "u8x3");
+        // generate_uint_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "u8x3");
+        // generate_uint_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 3, false), 3, "u8x3");
+        // TODO: u8x4 functions
+        // generate_uint_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "u8x4");
+        // generate_uint_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "u8x4");
+        // generate_uint_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "u8x4");
+        // generate_uint_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 4, false), 4, "u8x4");
+        // TODO: u8x8 functions
+        // generate_uint_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "u8x8");
+        // generate_uint_vector_safe_sub(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "u8x8");
+        // generate_uint_vector_safe_mul(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "u8x8");
+        // generate_uint_vector_safe_div(builder, module, only_declarations, llvm::VectorType::get(i32_type, 8, false), 8, "u8x8");
 
         // i32x2 functions
         generate_int_vector_safe_add(builder, module, only_declarations, llvm::VectorType::get(i32_type, 2, false), 2, "i32x2");

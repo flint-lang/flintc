@@ -846,8 +846,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     if (expression.value()->type->get_variation() == Type::Variation::ENUM) {
         if (to_type_string == "str") {
             return std::make_unique<TypeCastNode>(to_type, expression.value());
-        } else if (to_type_string == "i32" || to_type_string == "u32" || to_type_string == "i64" || to_type_string == "u64" ||
-            to_type_string == "u8") {
+        } else if (to_type_string == "u8" || to_type_string == "u16" || to_type_string == "u32" || to_type_string == "u64" //
+            || to_type_string == "i8" || to_type_string == "i16" || to_type_string == "i32" || to_type_string == "i64"     //
+        ) {
             return std::make_unique<TypeCastNode>(to_type, expression.value());
         }
     }

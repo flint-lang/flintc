@@ -2370,23 +2370,17 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_arithmetic_functions` function is called
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string, llvm::Function *> arithmetic_functions = {
-                // Signed Integer Types
-                {"i32_safe_add", nullptr},
-                {"i32_safe_sub", nullptr},
-                {"i32_safe_mul", nullptr},
-                {"i32_safe_div", nullptr},
-                {"i32_pow", nullptr},
-                {"i64_safe_add", nullptr},
-                {"i64_safe_sub", nullptr},
-                {"i64_safe_mul", nullptr},
-                {"i64_safe_div", nullptr},
-                {"i64_pow", nullptr},
                 // Unsigned Integer Types
                 {"u8_safe_add", nullptr},
                 {"u8_safe_sub", nullptr},
                 {"u8_safe_mul", nullptr},
                 {"u8_safe_div", nullptr},
                 {"u8_pow", nullptr},
+                {"u16_safe_add", nullptr},
+                {"u16_safe_sub", nullptr},
+                {"u16_safe_mul", nullptr},
+                {"u16_safe_div", nullptr},
+                {"u16_pow", nullptr},
                 {"u32_safe_add", nullptr},
                 {"u32_safe_sub", nullptr},
                 {"u32_safe_mul", nullptr},
@@ -2397,6 +2391,47 @@ class Generator {
                 {"u64_safe_mul", nullptr},
                 {"u64_safe_div", nullptr},
                 {"u64_pow", nullptr},
+                // Signed Integer Types
+                {"i8_safe_add", nullptr},
+                {"i8_safe_sub", nullptr},
+                {"i8_safe_mul", nullptr},
+                {"i8_safe_div", nullptr},
+                {"i8_pow", nullptr},
+                {"i16_safe_add", nullptr},
+                {"i16_safe_sub", nullptr},
+                {"i16_safe_mul", nullptr},
+                {"i16_safe_div", nullptr},
+                {"i16_pow", nullptr},
+                {"i32_safe_add", nullptr},
+                {"i32_safe_sub", nullptr},
+                {"i32_safe_mul", nullptr},
+                {"i32_safe_div", nullptr},
+                {"i32_pow", nullptr},
+                {"i64_safe_add", nullptr},
+                {"i64_safe_sub", nullptr},
+                {"i64_safe_mul", nullptr},
+                {"i64_safe_div", nullptr},
+                {"i64_pow", nullptr},
+                // TODO: Unsigned Multi Types of length 2
+                // {"u8x2_safe_add", nullptr},
+                // {"u8x2_safe_sub", nullptr},
+                // {"u8x2_safe_mul", nullptr},
+                // {"u8x2_safe_div", nullptr},
+                // TODO: Unsigned Multi Types of length 3
+                // {"u8x3_safe_add", nullptr},
+                // {"u8x3_safe_sub", nullptr},
+                // {"u8x3_safe_mul", nullptr},
+                // {"u8x3_safe_div", nullptr},
+                // TODO: Unsigned Multi Types of length 4
+                // {"u8x4_safe_add", nullptr},
+                // {"u8x4_safe_sub", nullptr},
+                // {"u8x4_safe_mul", nullptr},
+                // {"u8x4_safe_div", nullptr},
+                // TODO: Unsigned Multi Types of length 8
+                // {"u8x8_safe_add", nullptr},
+                // {"u8x8_safe_sub", nullptr},
+                // {"u8x8_safe_mul", nullptr},
+                // {"u8x8_safe_div", nullptr},
                 // Signed Multi Types of length 2
                 {"i32x2_safe_add", nullptr},
                 {"i32x2_safe_sub", nullptr},
@@ -3269,20 +3304,18 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
             static void generate_math_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
-            /// @function `generate_abs_int_function`
-            /// @brief Generates the 'abs' function for the given integer type
+            /// @function `generate_abs_iN_function`
+            /// @brief Generates the 'abs' function for a signed integer type of bit width N
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the 'abs' function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            /// @param `type` The integer type for which to generate the 'abs' function
-            /// @param `name` The name of the type for which to generate the 'abs' function for
-            static void generate_abs_int_function( //
-                llvm::IRBuilder<> *builder,        //
-                llvm::Module *module,              //
-                const bool only_declarations,      //
-                llvm::IntegerType *type,           //
-                const std::string &name            //
+            /// @param `N` The bit width of which to generate the abs_iN function with
+            static void generate_abs_iN_function( //
+                llvm::IRBuilder<> *builder,       //
+                llvm::Module *module,             //
+                const bool only_declarations,     //
+                const size_t N                    //
             );
 
             /// @function `generate_min_function`
@@ -3462,18 +3495,25 @@ class Generator {
             /// @attention The print functions are nullpointers until the `generate_builtin_prints` function is called
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string_view, llvm::Function *> print_functions = {
-                {"i32", nullptr},
-                {"i64", nullptr},
+                {"u8", nullptr},
+                {"i8", nullptr},
+                {"u16", nullptr},
+                {"i16", nullptr},
                 {"u32", nullptr},
+                {"i32", nullptr},
                 {"u64", nullptr},
+                {"i64", nullptr},
                 {"f32", nullptr},
                 {"f64", nullptr},
                 {"flint", nullptr},
-                {"u8", nullptr},
                 {"str", nullptr},
                 {"type.flint.str.lit", nullptr},
                 {"bool", nullptr},
             };
+
+            /// @enum `PrimitivePrintType`
+            /// @brief The type of print function to create, e.g. signed unsigned or floating point
+            enum class PrimitivePrintType { I, U, F };
 
             /// @function `generate_print_functions`
             /// @brief Generates the builtin 'print()' function and its overloaded versions to utilize C IO calls of the IO C stdlib
@@ -3490,13 +3530,13 @@ class Generator {
             /// @param `module` The LLVM Module the print function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `type` The type of variable this print function expects
-            /// @param `format` The C format string for the specified type (%i or %d for example)
+            /// @param `N` The bit width of the generated print parameter the function expects
             static void generate_print_function( //
                 llvm::IRBuilder<> *builder,      //
                 llvm::Module *module,            //
                 const bool only_declarations,    //
-                const std::string &type,         //
-                const std::string &format        //
+                const PrimitivePrintType type,   //
+                const size_t N                   //
             );
 
             /// @function `generate_print_str_lit_function`
@@ -4089,10 +4129,13 @@ class Generator {
             static inline std::unordered_map<std::string, llvm::Function *> typecast_functions = {
                 {"count_digits", nullptr},
                 {"u8_to_str", nullptr},
-                {"i32_to_str", nullptr},
+                {"i8_to_str", nullptr},
+                {"u16_to_str", nullptr},
+                {"i16_to_str", nullptr},
                 {"u32_to_str", nullptr},
-                {"i64_to_str", nullptr},
+                {"i32_to_str", nullptr},
                 {"u64_to_str", nullptr},
+                {"i64_to_str", nullptr},
                 {"f32_to_str", nullptr},
                 {"f64_to_str", nullptr},
                 {"bool_to_str", nullptr},
@@ -4126,6 +4169,140 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
             static void generate_typecast_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
+            /// @function `iN_to_uN_ext`
+            /// @brief Generates the extension from an iN integer to an uN integer, where the bit width of the target integer must be
+            /// greater than the bit width of the expr type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an unsigned value
+            /// @param `N` The target bit width to cast to
+            /// @return `llvm::Value *` The cast expression
+            static llvm::Value *iN_to_uN_ext(llvm::IRBuilder<> &builder, llvm::Value *const expr, const size_t N);
+
+            /// @function `uN_to_uN_trunc`
+            /// @brief Generates the truncation of an uN integer to an uN integer type where the bit width of the target integer must be
+            /// below the bit width of the expr type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an smaller unsigned value
+            /// @param `N` The target bit width to cast to
+            /// @return `llvm::Value *` The cast expression
+            static llvm::Value *uN_to_uN_trunc(llvm::IRBuilder<> &builder, llvm::Value *const expr, const size_t N);
+
+            /// @function `uN_to_iN_trunc`
+            /// @brief Generates the truncation of an uN integer to an iN integer type where the bit width of the target integer must be
+            /// below the bit width of the expr type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an smaller signed value
+            /// @param `N` The target bit width to cast to
+            /// @return `llvm::Value *` The cast expression
+            static llvm::Value *uN_to_iN_trunc(llvm::IRBuilder<> &builder, llvm::Value *const expr, const size_t N);
+
+            /// @function `iN_to_iN_trunc`
+            /// @brief Generates the truncation of an iN integer to an iN integer type where the bit width of the target integer must be
+            /// below the bit width of the expr type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an smaller signed value
+            /// @param `N` The target bit width to cast to
+            /// @return `llvm::Value *` The cast expression
+            static llvm::Value *iN_to_iN_trunc(llvm::IRBuilder<> &builder, llvm::Value *const expr, const size_t N);
+
+            /// @function `iN_to_uN_trunc`
+            /// @brief Generates the truncation of an iN integer to an uN integer type where the bit width of the target integer must be
+            /// below the bit width of the expr type
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an smaller signed value
+            /// @param `N` The target bit width to cast to
+            /// @return `llvm::Value *` The cast expression
+            static llvm::Value *iN_to_uN_trunc(llvm::IRBuilder<> &builder, llvm::Value *const expr, const size_t N);
+
+            /// @function `uN_to_iN_same`
+            /// @brief Generates a cast from an uN value to an iN value where both integer types must have the same bit width, e.g. the
+            /// output value has the same bit width as the input value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to a signed integer
+            /// @return `llvm::Value *` The cast integer value
+            static llvm::Value *uN_to_iN_same(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `uN_to_iN_same`
+            /// @brief Generates a cast from an iN value to an uN value where both integer types must have the same bit width, e.g. the
+            /// output value has the same bit width as the input value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The expression to cast to an usigned integer
+            /// @return `llvm::Value *` The cast integer value
+            static llvm::Value *iN_to_uN_same(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `uN_to_f32`
+            /// @brief Generates a cast from a given unsigned integer value to a f32 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The unsigned integer expression to cast to a f32
+            /// @return `llvm::Value *` The cast f32 value
+            static llvm::Value *uN_to_f32(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `iN_to_f32`
+            /// @brief Generates a cast from a given signed integer value to a f32 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The signed integer expression to cast to a f32
+            /// @return `llvm::Value *` The cast f32 value
+            static llvm::Value *iN_to_f32(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `uN_to_f64`
+            /// @brief Generates a cast from a given unsigned integer value to a f64 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The unsigned integer expression to cast to a f64
+            /// @return `llvm::Value *` The cast f64 value
+            static llvm::Value *uN_to_f64(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `uN_to_f64`
+            /// @brief Generates a cast from a given signed integer value to a f64 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `expr` The signed integer expression to cast to a f64
+            /// @return `llvm::Value *` The cast f64 value
+            static llvm::Value *iN_to_f64(llvm::IRBuilder<> &builder, llvm::Value *const expr);
+
+            /// @function `fN_to_iN`
+            /// @brief Converts a fN value to an signed integer value of N bytes. The bit size of the floating point value does not need to
+            /// be N, but the resulting signed integer will have a size of N bytes.
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `float_value` The floating point value to convert
+            /// @return `llvm::Value *` The converted iN value
+            static llvm::Value *fN_to_iN(llvm::IRBuilder<> &builder, llvm::Value *float_value, const size_t N);
+
+            /// @function `fN_to_uN`
+            /// @brief Converts a fN value to an unsigned integer value of N bytes. The bit size of the floating point value does not need
+            /// to be N, but the resulting unsigned integer will have a size of N bytes.
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `float_value` The floating point value to convert
+            /// @return `llvm::Value *` The converted uN value
+            static llvm::Value *fN_to_uN(llvm::IRBuilder<> &builder, llvm::Value *float_value, const size_t N);
+
+            /// @function `f32_to_f64`
+            /// @brief Converts a f32 value to a f64 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `float_value` The f32 value to convert
+            /// @return `llvm::Value *` The converted f64 value
+            static llvm::Value *f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
+
+            /// @function `f64_to_f32`
+            /// @brief Converts a f64 value to a f32 value
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `double_value` The f64 value to convert
+            /// @return `llvm::Value *` The converted f32 value
+            static llvm::Value *f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
+
             /// @function `generate_count_digits_function`
             /// @brief Function to generate the `count_digits` helper function, used for to-string casting
             ///
@@ -4142,7 +4319,7 @@ class Generator {
             static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_multitype_to_str`
-            /// @brief Generates the `typeXwidth_to_str` function which is used to convert multitype values to str values
+            /// @brief Generates the `<type>x<width>_to_str` function which is used to convert multitype values to str values
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module in which the function is generated in
@@ -4157,9 +4334,23 @@ class Generator {
                 const size_t width                 //
             );
 
-            /**************************************************************************************************************************************
-             * @region `MultiTypes`
-             *************************************************************************************************************************************/
+            /// @function `generate_uN_to_str`
+            /// @brief Generates the `u<N>_to_str` function used to cast unsigned integers to strings
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module in which the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `N` The bit width of the unsigned integer to cast to a string
+            static void generate_uN_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations, const size_t N);
+
+            /// @function `generate_iN_to_str`
+            /// @brief Generates the `i<N>_to_str` function used to cast signed integers to strings
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module in which the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `N` The bit width of the signed integer to cast to a string
+            static void generate_iN_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations, const size_t N);
 
             /// @function `generate_bool8_to_str_function`
             /// @brief Generates the function with which conversions of the bool8 to string variables take place
@@ -4169,302 +4360,6 @@ class Generator {
             /// @return `llvm::Value *` The converted u8 value
             static void generate_bool8_to_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
-            /**************************************************************************************************************************************
-             * @region `U8`
-             *************************************************************************************************************************************/
-
-            /// @function `generate_u8_to_str`
-            /// @brief Generates the `u8_to_str` function which is used to convert u8 values to str values (the u8 number, not the u8 char)
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module in which the function is generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_u8_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `I32`
-             *************************************************************************************************************************************/
-
-            /// @function `i32_to_u8`
-            /// @brief Converts a i32 value to an u8 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i32 value to convert
-            /// @return `llvm::Value *` The converted u8 value
-            static llvm::Value *i32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i32_to_u32`
-            /// @brief Converts an i32 value to a u32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i32 value to convert
-            /// @return `llvm::Value *` The converted u32 value
-            static llvm::Value *i32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i32_to_i64`
-            /// @brief Converts an i32 value to an i64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i32 value to convert
-            /// @return `llvm::Value *` The converted i64 value
-            static llvm::Value *i32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i32_to_u64`
-            /// @brief Converts an i32 value to a u64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i32 value to convert
-            /// @return `llvm::Value *` The converted u64 value
-            static llvm::Value *i32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i32_to_f32`
-            /// @brief Converts a i32 value to a f32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The int value to convert
-            /// @return `llvm::Value *` The converted f32 value
-            static llvm::Value *i32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i32_to_f64`
-            /// @brief Converts an i32 value to a f64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i32 value to convert
-            /// @return `llvm::Value *` The converted f64 value
-            static llvm::Value *i32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `generate_i32_to_str`
-            /// @brief Generates the `i32_to_str` function which is used to convert i32 values to str values
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module in which the function is generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_i32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `U32`
-             *************************************************************************************************************************************/
-
-            /// @function `u32_to_u8`
-            /// @brief Converts a u32 value to an u8 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted u8 value
-            static llvm::Value *u32_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u32_to_i32`
-            /// @brief Converts a u32 value to an i32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted i32 value
-            static llvm::Value *u32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u32_to_i64`
-            /// @brief Converts a u32 value to an i64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted i64 value
-            static llvm::Value *u32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u32_to_u64`
-            /// @brief Converts a u32 value to a u64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted u64 value
-            static llvm::Value *u32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u32_to_f32`
-            /// @brief Converts a u32 value to a f32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted f32 value
-            static llvm::Value *u32_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u32_to_f64`
-            /// @brief Converts a u32 value to a f64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u32 value to convert
-            /// @return `llvm::Value *` The converted f64 value
-            static llvm::Value *u32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `generate_u32_to_str`
-            /// @brief Generates the `u32_to_str` function which is used to convert u32 values to str values
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module in which the function is generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_u32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `I64`
-             *************************************************************************************************************************************/
-
-            /// @function `i64_to_u8`
-            /// @brief Converts an i64 value to an u8 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted u8 value
-            static llvm::Value *i64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i64_to_i32`
-            /// @brief Converts an i64 value to an i32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted i32 value
-            static llvm::Value *i64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i64_to_u32`
-            /// @brief Converts an i64 value to a u32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted u32 value
-            static llvm::Value *i64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i64_to_u64`
-            /// @brief Converts an i64 value to a u64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted u64 value
-            static llvm::Value *i64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i64_to_f32`
-            /// @brief Converts an i64 value to a f32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted f32 value
-            static llvm::Value *i64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `i64_to_f64`
-            /// @brief Converts an i64 value to a f64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The i64 value to convert
-            /// @return `llvm::Value *` The converted f64 value
-            static llvm::Value *i64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `generate_i64_to_str`
-            /// @brief Generates the `i64_to_str` function which is used to convert i64 values to str values
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module in which the function is generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_i64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `U64`
-             *************************************************************************************************************************************/
-
-            /// @function `u64_to_u8`
-            /// @brief Converts a u64 value to an u8 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted u8 value
-            static llvm::Value *u64_to_u8(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u64_to_i32`
-            /// @brief Converts a u64 value to an i32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted i32 value
-            static llvm::Value *u64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u64_to_u32`
-            /// @brief Converts a u64 value to a u32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted u32 value
-            static llvm::Value *u64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u64_to_i64`
-            /// @brief Converts a u64 value to an i64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted i64 value
-            static llvm::Value *u64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u64_to_f32`
-            /// @brief Converts a u64 value to a f32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted f32 value
-            static llvm::Value *u64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `u64_to_f64`
-            /// @brief Converts a u64 value to a f64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `int_value` The u64 value to convert
-            /// @return `llvm::Value *` The converted f64 value
-            static llvm::Value *u64_to_f64(llvm::IRBuilder<> &builder, llvm::Value *int_value);
-
-            /// @function `generate_u64_to_str`
-            /// @brief Generates the `u64_to_str` function which is used to convert u64 values to str values
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module in which the function is generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_u64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `F32`
-             *************************************************************************************************************************************/
-
-            /// @function `f32_to_i32`
-            /// @brief Converts a f32 value to an i32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `float_value` The f32 value to convert
-            /// @return `llvm::Value *` The converted i32 value
-            static llvm::Value *f32_to_i32(llvm::IRBuilder<> &builder, llvm::Value *float_value);
-
-            /// @function `f32_to_u32`
-            /// @brief Converts a f32 value to a u32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `float_value` The f32 value to convert
-            /// @return `llvm::Value *` The converted u32 value
-            static llvm::Value *f32_to_u32(llvm::IRBuilder<> &builder, llvm::Value *float_value);
-
-            /// @function `f32_to_i64`
-            /// @brief Converts a f32 value to an i64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `float_value` The f32 value to convert
-            /// @return `llvm::Value *` The converted i64 value
-            static llvm::Value *f32_to_i64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
-
-            /// @function `f32_to_u64`
-            /// @brief Converts a f32 value to a u64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `float_value` The f32 value to convert
-            /// @return `llvm::Value *` The converted u64 value
-            static llvm::Value *f32_to_u64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
-
-            /// @function `f32_to_f64`
-            /// @brief Converts a f32 value to a f64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `float_value` The f32 value to convert
-            /// @return `llvm::Value *` The converted f64 value
-            static llvm::Value *f32_to_f64(llvm::IRBuilder<> &builder, llvm::Value *float_value);
-
             /// @function `generate_f32_to_str`
             /// @brief Generates the `f32_to_str` function which is used to convert f32 values to str values
             ///
@@ -4472,50 +4367,6 @@ class Generator {
             /// @param `module` The LLVM Module in which the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_f32_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /**************************************************************************************************************************************
-             * @region `F64`
-             *************************************************************************************************************************************/
-
-            /// @function `f64_to_i32`
-            /// @brief Converts a f64 value to an i32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `double_value` The f64 value to convert
-            /// @return `llvm::Value *` The converted i32 value
-            static llvm::Value *f64_to_i32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
-
-            /// @function `f64_to_u32`
-            /// @brief Converts a f64 value to a u32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `double_value` The f64 value to convert
-            /// @return `llvm::Value *` The converted u32 value
-            static llvm::Value *f64_to_u32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
-
-            /// @function `f64_to_i64`
-            /// @brief Converts a f64 value to an i64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `double_value` The f64 value to convert
-            /// @return `llvm::Value *` The converted i64 value
-            static llvm::Value *f64_to_i64(llvm::IRBuilder<> &builder, llvm::Value *double_value);
-
-            /// @function `f64_to_u64`
-            /// @brief Converts a f64 value to a u64 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `double_value` The f64 value to convert
-            /// @return `llvm::Value *` The converted u64 value
-            static llvm::Value *f64_to_u64(llvm::IRBuilder<> &builder, llvm::Value *double_value);
-
-            /// @function `f64_to_f32`
-            /// @brief Converts a f64 value to a f32 value
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `double_value` The f64 value to convert
-            /// @return `llvm::Value *` The converted f32 value
-            static llvm::Value *f64_to_f32(llvm::IRBuilder<> &builder, llvm::Value *double_value);
 
             /// @function `generate_f64_to_str`
             /// @brief Generates the `f64_to_str` function which is used to convert f64 values to str values
