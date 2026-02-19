@@ -505,6 +505,8 @@ bool FIP::resolve_module_import(ImportNode *import) {
 }
 
 bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module_tag) {
+    PROFILE_SCOPE("FIP generate bindings file '" + module_tag + ".ft'");
+    PROFILE_CUMULATIVE("FIP::generate_bindings_file");
     const std::filesystem::path fip_path = get_fip_path().value();
     const std::filesystem::path generated_dir = fip_path / "generated";
     if (!std::filesystem::exists(generated_dir)) {

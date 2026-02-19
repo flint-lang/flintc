@@ -544,7 +544,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         if (arguments[i].first->type->to_string() == "type.flint.str.lit") {
             arguments[i].first = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), arguments[i].first);
         }
-        argument_types.emplace_back(arguments[i].first->type);
+        if (arguments[i].first->type->get_variation() == Type::Variation::ALIAS) {
+            argument_types.emplace_back(arguments[i].first->type->as<AliasType>()->type);
+        } else {
+            argument_types.emplace_back(arguments[i].first->type);
+        }
     }
 
     // Check if it's an initializer

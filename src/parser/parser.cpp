@@ -1036,6 +1036,25 @@ bool Parser::resolve_all_unknown_types() {
             switch (definition->get_variation()) {
                 default:
                     break;
+                case DefinitionNode::Variation::FUNCTION: {
+                    auto *function_node = definition->as<FunctionNode>();
+                    if (!function_node->is_extern) {
+                        break;
+                    }
+                    // Resolve all argument and return type aliases
+                    for (auto &param : function_node->parameters) {
+                        if (!file_namespace->resolve_type(std::get<0>(param))) {
+                            return false;
+                        }
+                    }
+                    // Resolve all return types of the function
+                    for (auto &ret : function_node->return_types) {
+                        if (!file_namespace->resolve_type(ret)) {
+                            return false;
+                        }
+                    }
+                    break;
+                }
                 case DefinitionNode::Variation::VARIANT: {
                     auto *variant_node = definition->as<VariantNode>();
                     for (auto &type : variant_node->possible_types) {
