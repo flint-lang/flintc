@@ -138,9 +138,11 @@ class FIP {
     ///
     /// @param `type` The type to generate to the file
     /// @param `file` The file to append the generated type to
+    /// @param `is_fn_type` Whether the type to resolve is contained inside a function or inside a other defintiion, for example a data type
+    /// definition
     ///
     /// @note This function frees the passed-in type by calling `fip_free_type`
-    static void generate_fip_type(fip_type_t *type, std::ofstream &file);
+    static void generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is_fn_type);
 
     /// @function `send_compile_request`
     /// @brief Sends the compile request to all interop modules, meaning that they now can start compiling their respective source files

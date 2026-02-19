@@ -19,6 +19,12 @@ fip_master_state_t master_state;
 #include <filesystem>
 #include <fstream>
 
+/// @var `generated_types`
+/// @brief A small map used to map all the types which have been generated up until now. This is needed for function parameters or type
+///        definitions, to detect whether to emit pointers or not. Data is stored as a pointer in Flint anyways so in a data type definition
+///        a value does not need to be typed as a `Data*` but should be typed just as `Data` instead
+static std::unordered_map<std::string, Type::Variation> generated_types;
+
 // Helper: Split string by delimiter (':' on Unix, ';' on Windows)
 std::vector<std::string> split_path(const std::string &path, const char delimiter) {
     std::vector<std::string> parts;
@@ -527,7 +533,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                     } else {
                         file << "const ";
                     }
-                    generate_fip_type(&f->args[j].type, file);
+                    generate_fip_type(&f->args[j].type, file, true);
                     if (keywords.find(f->args[j].name) != keywords.end()) {
                         file << " _" << f->args[j].name;
                     } else {
@@ -545,7 +551,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                     if (j > 0) {
                         file << ", ";
                     }
-                    generate_fip_type(&f->rets[j], file);
+                    generate_fip_type(&f->rets[j], file, true);
                 }
                 if (f->rets_len > 1) {
                     file << ")";
@@ -603,12 +609,13 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                             file << "type " << d->name << " " << type_str << "\n";
                             break;
                         }
+                        generated_types[d->name] = Type::Variation::MULTI;
                     }
                 }
                 file << "data " << d->name << ":\n";
                 for (size_t j = 0; j < d->value_count; j++) {
                     file << "\t";
-                    generate_fip_type(&d->value_types[j], file);
+                    generate_fip_type(&d->value_types[j], file, false);
                     if (keywords.find(d->value_names[j]) != keywords.end()) {
                         file << " _" << d->value_names[j] << ";\n";
                     } else {
@@ -631,6 +638,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 file << ");\n\n";
                 free(d->value_types);
                 free(d->value_names);
+                generated_types[d->name] = Type::Variation::DATA;
                 break;
             }
             case FIP_SYM_ENUM: {
@@ -648,6 +656,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 file << "\n";
                 free(e->tags);
                 free(e->values);
+                generated_types[e->name] = Type::Variation::ENUM;
                 break;
             }
         }
@@ -657,7 +666,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
     return true;
 }
 
-void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
+void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is_fn_type) {
     switch (type->type) {
         case FIP_TYPE_PRIMITIVE:
             switch (type->u.prim) {
@@ -703,8 +712,20 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
             }
             break;
         case FIP_TYPE_PTR:
-            generate_fip_type(type->u.ptr.base_type, file);
-            file << "*";
+            if (type->u.ptr.base_type->type == FIP_TYPE_PTR) {
+                generate_fip_type(type->u.ptr.base_type->u.ptr.base_type, file, is_fn_type);
+                file << "[]";
+            } else if (type->u.ptr.base_type->type == FIP_TYPE_PRIMITIVE && type->u.ptr.base_type->u.prim == FIP_VOID) {
+                // The `void*` type resolves to `u8[]` in Flint, for now
+                // TODO: How should we handle anyopaque pointers in Flint?
+                file << "u8[]";
+            } else if (is_fn_type) {
+                generate_fip_type(type->u.ptr.base_type, file, is_fn_type);
+                file << "*";
+            } else {
+                // Just emit the base type itself and nothing more
+                generate_fip_type(type->u.ptr.base_type, file, is_fn_type);
+            }
             break;
         case FIP_TYPE_STRUCT: {
             const fip_type_struct_t *s = &type->u.struct_t;
@@ -718,7 +739,7 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file) {
                 if (i > 0) {
                     file << ", ";
                 }
-                generate_fip_type(&s->fields[i], file);
+                generate_fip_type(&s->fields[i], file, false);
             }
             file << ">";
             break;
