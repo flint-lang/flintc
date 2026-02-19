@@ -1,0 +1,14 @@
+use Core.print
+use Fip.c
+
+def main():
+	s1 := MyStruct(-112, 22.1, 33_302);
+	s2 := MyStruct(12, 17.9, 2_698);
+	add_structs(&s1, s2);
+	print($"s1.(x, y, z) = ({s1.x}, {s1.y}, {s1.z})\n");
+
+	print_enum(MyEnum.VAL3);
+
+	i32 x = 10;
+	add(&x, 22);
+	print($"x = {x}\n");

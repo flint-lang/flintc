@@ -1,0 +1,2 @@
+type Vector3 f32x3
+extern def vadd(const Vector3 v1, const Vector3 v2) -> Vector3;

@@ -1,0 +1,20 @@
+use Core.print
+use Fip.c as c
+use Fip.ex2 as e
+
+def main():
+	s1 := c.MyStruct(-112, 22.1, 33_302);
+	s2 := c.MyStruct(12, 17.9, 2_698);
+	c.add_structs(&s1, s2);
+	print($"s1.(x, y, z) = ({s1.x}, {s1.y}, {s1.z})\n");
+
+	c.print_enum(c.MyEnum.VAL3);
+
+	i32 x = 10;
+	c.add(&x, 22);
+	print($"x = {x}\n");
+
+	e.Vector3 v1 = (10.1, 20.2, 30.3);
+	e.Vector3 v2 = (20.1, 30.2, 40.3);
+	v3 := e.vadd(v1, v2);
+	print($"v3 = {v3}\n");
