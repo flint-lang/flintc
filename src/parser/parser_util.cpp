@@ -21,6 +21,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::add_next_main_node");
     token_slice definition_tokens = get_definition_tokens(tokens);
     tokens.first = definition_tokens.second;
+    // Make sure that `tokens.first` does not point at the `end` iterator because it's content is undefined
+    if (tokens.first == file_node_ptr->tokens.end()) {
+        tokens.first = std::prev(tokens.first);
+        assert(tokens.first->token == TOK_EOF);
+    }
     if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
         definition_tokens.second--;
     }
@@ -130,6 +135,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
 
     std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);
     if (body_lines.empty()) {
+        // TODO: This prints the same error twice which is... not pretty
+        // For example when writing `def main():` and the `print("Hello\n");` in the line below the error first is printed for the `def
+        // main():` line and then again for the `print("Hello\n");` line. We somehow need to print this error only if the current line we
+        // are at is valid at all, e.g. if it *should* have a body. In all other cases we should print a "Hey idk what the hell that line
+        // is" error (for example with the print line at top-level)
         THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, tokens);
         return false;
     }
@@ -238,7 +248,7 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
             tokens.first = it;
             continue;
         } else if (it->token == TOK_EOF) {
-            tokens.first = tokens.second;
+            tokens.first = it;
             if (current_line_start == it) {
                 break;
             }

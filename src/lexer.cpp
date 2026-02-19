@@ -64,7 +64,7 @@ token_list Lexer::scan() {
         }
     }
 
-    tokens.emplace_back(TOK_EOF, line, column, file_id, "EOF");
+    tokens.emplace_back(TOK_EOF, tokens.back().token == TOK_EOL ? line - 1 : line, column, file_id, "EOF");
     total_token_count += tokens.size();
 
     auto lexing_end = std::chrono::high_resolution_clock::now();
