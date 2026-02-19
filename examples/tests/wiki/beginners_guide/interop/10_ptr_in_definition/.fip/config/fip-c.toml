@@ -1,4 +1,4 @@
 [c]
-headers = ["data.h"]
-sources = ["data.h"]
-command = ["clang", "-x", "c", "-c", "__SOURCES__", "-o", "__OUTPUT__"]
+headers = ["data.c"]
+sources = ["data.c"]
+command = ["clang", "-c", "__SOURCES__", "-o", "__OUTPUT__"]

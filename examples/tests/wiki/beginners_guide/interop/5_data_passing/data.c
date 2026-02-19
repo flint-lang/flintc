@@ -1,6 +1,6 @@
 #include <stdbool.h>
 
-typedef struct {
+typedef struct MyData {
     int x, y;
     float speed;
     bool is_something;

@@ -1,4 +1,4 @@
 [c]
-headers = ["hello.h"]
-sources = ["hello.h"]
-command = ["gcc", "-x", "c", "-c", "__SOURCES__", "-o", "__OUTPUT__"]
+headers = ["hello.c"]
+sources = ["hello.c"]
+command = ["gcc", "-c", "__SOURCES__", "-o", "__OUTPUT__"]
