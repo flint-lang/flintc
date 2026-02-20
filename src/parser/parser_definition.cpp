@@ -35,9 +35,6 @@ std::optional<FunctionNode> Parser::create_function(                            
     auto tok_it = definition.first;
     // Parse everything before the parameters
     while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_LEFT_PAREN) {
-        if (tok_it->token == TOK_ALIGNED) {
-            is_aligned = true;
-        }
         if (tok_it->token == TOK_CONST) {
             is_const = true;
         }
@@ -336,29 +333,26 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
 
 std::optional<DataNode> Parser::create_data(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_data");
+    bool is_const = false;
     bool is_shared = false;
-    bool is_immutable = false;
-    bool is_aligned = false;
     std::string name;
 
     std::unordered_map<std::string, DataNode::Field> fields;
     std::vector<std::string> order;
 
-    for (auto def_it = definition.first; def_it != definition.second; ++def_it) {
-        if (def_it->token == TOK_SHARED) {
-            is_shared = true;
-        }
-        if (def_it->token == TOK_IMMUTABLE) {
-            is_immutable = true;
-            // immutable data is shared by default
-            is_shared = true;
-        }
-        if (def_it->token == TOK_ALIGNED) {
-            is_aligned = true;
-        }
-        if (def_it->token == TOK_DATA) {
-            name = (def_it + 1)->lexme;
-            break;
+    for (auto def_it = definition.first; def_it != definition.second && std::prev(def_it)->token != TOK_DATA; ++def_it) {
+        switch (def_it->token) {
+            default:
+                break;
+            case TOK_CONST:
+                is_const = true;
+                break;
+            case TOK_SHARED:
+                is_shared = true;
+                break;
+            case TOK_DATA:
+                name = (def_it + 1)->lexme;
+                break;
         }
     }
     std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
@@ -469,7 +463,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return DataNode(file_hash, line, column, length, is_shared, is_immutable, is_aligned, name, ordered_fields);
+    return DataNode(file_hash, line, column, length, is_const, is_shared, name, ordered_fields);
 }
 
 std::optional<FuncNode> Parser::create_func(const token_slice &definition) {

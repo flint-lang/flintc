@@ -164,8 +164,6 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     // data keywords
     {"data", TOK_DATA},
     {"shared", TOK_SHARED},
-    {"immutable", TOK_IMMUTABLE},
-    {"aligned", TOK_ALIGNED},
     // func keywords
     {"func", TOK_FUNC},
     {"requires", TOK_REQUIRES},
@@ -228,8 +226,6 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     // data keywords
     {TOK_DATA, "data"},
     {TOK_SHARED, "shared"},
-    {TOK_IMMUTABLE, "immutable"},
-    {TOK_ALIGNED, "aligned"},
     // func keywords
     {TOK_FUNC, "func"},
     {TOK_REQUIRES, "requires"},

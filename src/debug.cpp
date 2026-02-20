@@ -1408,11 +1408,8 @@ namespace Debug {
         //     Prints the content of the generated DataNode
         void print_data(unsigned int indent_lvl, TreeBits &bits, const DataNode &data) {
             Local::print_header(indent_lvl, bits, "Data ");
-            if (data.is_aligned) {
-                std::cout << "aligned ";
-            }
-            if (data.is_immutable) {
-                std::cout << "immutable ";
+            if (data.is_const) {
+                std::cout << "const ";
             }
             if (data.is_shared) {
                 std::cout << "shared ";

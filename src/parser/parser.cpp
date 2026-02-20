@@ -85,7 +85,7 @@ void Parser::init_core_modules() {
                 }
                 std::unique_ptr<DefinitionNode> data = std::make_unique<DataNode>( //
                     core_namespace->namespace_hash, 0, 0, 0,                       //
-                    false, false, false, data_type_name, fields                    //
+                    false, false, data_type_name, fields                           //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(data));
                 DataNode *const data_ptr = core_namespace->public_symbols.definitions.back()->as<DataNode>();

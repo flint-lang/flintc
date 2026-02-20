@@ -339,8 +339,6 @@ class Matcher {
         // data keywords
         {TOK_DATA, std::make_shared<TokenTypeMatcher>(TOK_DATA)},
         {TOK_SHARED, std::make_shared<TokenTypeMatcher>(TOK_SHARED)},
-        {TOK_IMMUTABLE, std::make_shared<TokenTypeMatcher>(TOK_IMMUTABLE)},
-        {TOK_ALIGNED, std::make_shared<TokenTypeMatcher>(TOK_ALIGNED)},
 
         // func keywords
         {TOK_FUNC, std::make_shared<TokenTypeMatcher>(TOK_FUNC)},
@@ -632,7 +630,7 @@ class Matcher {
     static const inline PatternPtr keyword_error = one_of({token(TOK_ERROR), token(TOK_THROW), token(TOK_CATCH)});
     static const inline PatternPtr keyword_variant = one_of({token(TOK_VARIANT), token(TOK_ENUM)});
     static const inline PatternPtr keyword_import = one_of({token(TOK_USE), token(TOK_AS)});
-    static const inline PatternPtr keyword_data = one_of({token(TOK_DATA), token(TOK_SHARED), token(TOK_IMMUTABLE), token(TOK_ALIGNED)});
+    static const inline PatternPtr keyword_data = one_of({token(TOK_DATA), token(TOK_SHARED)});
     static const inline PatternPtr keyword_func = one_of({token(TOK_FUNC), token(TOK_REQUIRES)});
     static const inline PatternPtr keyword_entity = one_of({token(TOK_ENTITY), token(TOK_EXTENDS), token(TOK_LINK)});
     static const inline PatternPtr keyword_threading = one_of({token(TOK_SPAWN), token(TOK_SYNC), token(TOK_LOCK)});
@@ -712,7 +710,7 @@ class Matcher {
         token(TOK_SEMICOLON)                     //
     });
     static const inline PatternPtr function_definition = sequence({
-        optional(token(TOK_ALIGNED)), optional(token(TOK_CONST)), token(TOK_DEF),               //
+        optional(token(TOK_CONST)), token(TOK_DEF),                                             //
         token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
             sequence({token(TOK_ARROW), group}),                        //
@@ -722,8 +720,8 @@ class Matcher {
         token(TOK_COLON)                                                //
     });
     static const inline PatternPtr data_definition = sequence({
-        optional(one_of({token(TOK_SHARED), token(TOK_IMMUTABLE)})), optional(token(TOK_ALIGNED)), //
-        token(TOK_DATA), token(TOK_IDENTIFIER), token(TOK_COLON)                                   //
+        optional(one_of({token(TOK_SHARED), token(TOK_CONST)})), //
+        token(TOK_DATA), token(TOK_IDENTIFIER), token(TOK_COLON) //
     });
     static const inline PatternPtr func_definition = sequence({
         token(TOK_FUNC), token(TOK_IDENTIFIER),                                                                                  //

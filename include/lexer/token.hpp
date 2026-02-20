@@ -156,8 +156,6 @@ enum Token {
     // data keywords
     TOK_DATA,
     TOK_SHARED,
-    TOK_IMMUTABLE,
-    TOK_ALIGNED,
 
     // func keywords
     TOK_FUNC,
