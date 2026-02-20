@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/definitions/definition_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/type/type.hpp"
 
 #include <string>
@@ -10,16 +11,32 @@
 /// @brief Represents data definitions
 class DataNode : public DefinitionNode {
   public:
-    explicit DataNode(                                                           //
-        const Hash &file_hash,                                                   //
-        const unsigned int line,                                                 //
-        const unsigned int column,                                               //
-        const unsigned int length,                                               //
-        const bool is_shared,                                                    //
-        const bool is_immutable,                                                 //
-        const bool is_aligned,                                                   //
-        const std::string &name,                                                 //
-        const std::vector<std::pair<std::string, std::shared_ptr<Type>>> &fields //
+    /// @struct `Field`
+    /// @brief Struct containing all information about a single field of a data node
+    struct Field {
+        /// @var `name`
+        /// @brief The name of the field
+        std::string name;
+
+        /// @var `type`
+        /// @brief The type of the field
+        std::shared_ptr<Type> type;
+
+        /// @var `initializer`
+        /// @brief The initializer, e.g. rhs of the field definition
+        std::optional<std::unique_ptr<ExpressionNode>> initializer;
+    };
+
+    explicit DataNode(             //
+        const Hash &file_hash,     //
+        const unsigned int line,   //
+        const unsigned int column, //
+        const unsigned int length, //
+        const bool is_shared,      //
+        const bool is_immutable,   //
+        const bool is_aligned,     //
+        const std::string &name,   //
+        std::vector<Field> &fields //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         is_shared(is_shared),
@@ -49,10 +66,6 @@ class DataNode : public DefinitionNode {
     std::string name;
 
     /// @var `fields`
-    /// @brief The fields of the data. This is a list of all field names, and the value is the field's type
-    ///
-    /// @details
-    ///     - The first value is the name of the field
-    ///     - The second value is the type of the field
-    std::vector<std::pair<std::string, std::shared_ptr<Type>>> fields;
+    /// @brief The fields of the data
+    std::vector<Field> fields;
 };

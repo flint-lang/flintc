@@ -1996,7 +1996,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         // Get the field type from the struct definition
         auto field_it = struct_data_type->data_node->fields.begin();
         std::advance(field_it, data_field_assignment->field_id);
-        const std::shared_ptr<Type> &field_type = field_it->second;
+        const std::shared_ptr<Type> &field_type = field_it->type;
 
         // Check if the field is an optional type
         if (field_type->get_variation() == Type::Variation::OPTIONAL) {

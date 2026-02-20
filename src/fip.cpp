@@ -283,7 +283,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
-                if (!convert_type(&dest->u.struct_t.fields[i], data_node->fields.at(i).second, true)) {
+                if (!convert_type(&dest->u.struct_t.fields[i], data_node->fields.at(i).type, true)) {
                     return false;
                 }
             }

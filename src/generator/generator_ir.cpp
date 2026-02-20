@@ -499,8 +499,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Now process the field types
             std::vector<llvm::Type *> field_types;
             for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
-                auto pair = get_type(module, field_it->second);
-                if (pair.second.first && field_it->second->get_variation() != Type::Variation::OPTIONAL) {
+                auto pair = get_type(module, field_it->type);
+                if (pair.second.first && field_it->type->get_variation() != Type::Variation::OPTIONAL) {
                     field_types.emplace_back(pair.first->getPointerTo());
                 } else {
                     field_types.emplace_back(pair.first);

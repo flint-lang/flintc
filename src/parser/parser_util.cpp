@@ -575,7 +575,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    const auto &field_type = std::get<1>(fields.at(i));
+                    const auto &field_type = fields.at(i).type;
                     if (!check_castability(field_type, arguments.at(i).first, false)) {
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, field_type, arg_type);
                         return std::nullopt;
@@ -1049,7 +1049,7 @@ Parser::create_field_access_base(     //
             // Check if the given field name exists in the data type
             field_id = 0;
             for (const auto &field : data_node->fields) {
-                if (std::get<0>(field) == field_name) {
+                if (field.name == field_name) {
                     break;
                 }
                 field_id++;
@@ -1058,7 +1058,7 @@ Parser::create_field_access_base(     //
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            const std::shared_ptr<Type> field_type = std::get<1>(data_node->fields.at(field_id));
+            const std::shared_ptr<Type> field_type = data_node->fields.at(field_id).type;
             return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
         }
         case Type::Variation::PRIMITIVE:
@@ -1257,10 +1257,10 @@ Parser::create_grouped_access_base(   //
             field_ids.resize(field_names.size());
             size_t field_id = 0;
             for (const auto &field : data_node->fields) {
-                const auto field_names_it = std::find(field_names.begin(), field_names.end(), std::get<0>(field));
+                const auto field_names_it = std::find(field_names.begin(), field_names.end(), field.name);
                 if (field_names_it != field_names.end()) {
                     const size_t group_id = std::distance(field_names.begin(), field_names_it);
-                    field_types[group_id] = std::get<1>(field);
+                    field_types[group_id] = field.type;
                     field_ids[group_id] = field_id;
                 }
                 field_id++;

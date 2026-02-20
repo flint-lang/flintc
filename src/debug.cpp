@@ -1422,7 +1422,7 @@ namespace Debug {
                 if (field_it != data.fields.begin()) {
                     std::cout << ", ";
                 }
-                std::cout << std::get<0>(*field_it);
+                std::cout << field_it->name;
             }
             std::cout << "):" << std::endl;
 
@@ -1431,7 +1431,16 @@ namespace Debug {
                 bool is_last = std::next(field) == data.fields.end();
                 TreeBits field_bits = bits.child(indent_lvl, is_last);
                 Local::print_header(indent_lvl, field_bits, "Field ");
-                std::cout << std::get<1>(*field)->to_string() << " " << std::get<0>(*field) << "\n";
+                std::cout << field->type->to_string() << " " << field->name << "\n";
+                if (field->initializer.has_value()) {
+                    TreeBits init_bits = field_bits.child(indent_lvl + 1, true);
+                    Local::print_header(indent_lvl + 1, init_bits, "Initializer ");
+                    std::cout << field->initializer.value()->type->to_string();
+                    std::cout << std::endl;
+
+                    TreeBits value_bits = field_bits.child(indent_lvl + 2, true);
+                    print_expression(indent_lvl + 2, value_bits, field->initializer.value());
+                }
             }
         }
 

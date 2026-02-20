@@ -81,7 +81,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                 Context local_ctx = ctx;
                 local_ctx.line = ctx.line + i + 1;
                 local_ctx.column = 4;
-                result = analyze_type(local_ctx, field.second);
+                result = analyze_type(local_ctx, field.type);
                 if (result != Result::OK) {
                     break;
                 }

@@ -94,29 +94,29 @@ void Generator::Memory::generate_free_value( //
             const auto *data_node = type->as<DataType>()->data_node;
             llvm::Type *data_type = IR::get_type(module, type).first;
             for (size_t i = 0; i < data_node->fields.size(); i++) {
-                const auto &[field_name, field_type] = data_node->fields.at(i);
-                if (!field_type->is_freeable()) {
+                const auto &field = data_node->fields.at(i);
+                if (!field.type->is_freeable()) {
                     continue;
                 }
-                llvm::Value *data_field_ptr = builder->CreateStructGEP(data_type, value, i, "data_field_ptr_" + field_name);
-                auto field_type_pair = IR::get_type(module, field_type);
+                llvm::Value *data_field_ptr = builder->CreateStructGEP(data_type, value, i, "data_field_ptr_" + field.name);
+                auto field_type_pair = IR::get_type(module, field.type);
                 llvm::Value *data_field = data_field_ptr;
-                const bool field_is_array = field_type->get_variation() == Type::Variation::ARRAY;
-                const bool field_is_str = field_type->to_string() == "str";
+                const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
+                const bool field_is_str = field.type->to_string() == "str";
                 if (field_type_pair.second.first || field_is_array || field_is_str) {
                     llvm::Type *field_type_ptr = field_type_pair.first->getPointerTo();
                     data_field = IR::aligned_load(                                           //
-                        *builder, field_type_ptr, data_field_ptr, "data_field_" + field_name //
+                        *builder, field_type_ptr, data_field_ptr, "data_field_" + field.name //
                     );
                 }
-                if (field_type->get_variation() == Type::Variation::DATA) {
+                if (field.type->get_variation() == Type::Variation::DATA) {
                     // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
-                    llvm::Value *dima_head = Module::DIMA::get_head(field_type);
+                    llvm::Value *dima_head = Module::DIMA::get_head(field.type);
                     llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
                     builder->CreateCall(dima_release_fn, {dima_head, data_field});
                 } else {
                     llvm::Function *free_fn = memory_functions.at("free");
-                    builder->CreateCall(free_fn, {data_field, builder->getInt32(field_type->get_id())});
+                    builder->CreateCall(free_fn, {data_field, builder->getInt32(field.type->get_id())});
                 }
             }
             break;
@@ -455,22 +455,22 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *data_head = Module::DIMA::get_head(type);
             llvm::Value *new_data_ptr = builder->CreateCall(dima_allocate_fn, {data_head}, "new_data_value");
             for (size_t i = 0; i < data_node->fields.size(); i++) {
-                const auto &[field_name, field_type] = data_node->fields.at(i);
-                llvm::Value *field_src_ptr = builder->CreateStructGEP(data_type, src, i, "src_data_field_ptr_" + field_name);
+                const auto &field = data_node->fields.at(i);
+                llvm::Value *field_src_ptr = builder->CreateStructGEP(data_type, src, i, "src_data_field_ptr_" + field.name);
                 llvm::Value *field_src = field_src_ptr;
-                auto field_type_pair = IR::get_type(module, field_type);
+                auto field_type_pair = IR::get_type(module, field.type);
                 llvm::Type *field_type_ptr = field_type_pair.first;
-                const bool field_is_array = field_type->get_variation() == Type::Variation::ARRAY;
-                const bool field_is_str = field_type->to_string() == "str";
+                const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
+                const bool field_is_str = field.type->to_string() == "str";
                 if (field_type_pair.second.first || field_is_array || field_is_str) {
                     field_type_ptr = field_type_ptr->getPointerTo();
-                    field_src = IR::aligned_load(*builder, field_type_ptr, field_src_ptr, "src_data_field_" + field_name);
+                    field_src = IR::aligned_load(*builder, field_type_ptr, field_src_ptr, "src_data_field_" + field.name);
                 }
-                llvm::Value *field_dest_ptr = builder->CreateStructGEP(data_type, new_data_ptr, i, "dest_data_field_ptr_" + field_name);
-                if (field_type->is_freeable()) {
+                llvm::Value *field_dest_ptr = builder->CreateStructGEP(data_type, new_data_ptr, i, "dest_data_field_ptr_" + field.name);
+                if (field.type->is_freeable()) {
                     // The field is more complex so it needs to be cloned as well
                     llvm::Function *clone_fn = memory_functions.at("clone");
-                    builder->CreateCall(clone_fn, {field_src, field_dest_ptr, builder->getInt32(field_type->get_id())});
+                    builder->CreateCall(clone_fn, {field_src, field_dest_ptr, builder->getInt32(field.type->get_id())});
                 } else {
                     // We simply copy the field from src to dest
                     const size_t field_size = Allocation::get_type_size(module, field_type_ptr);

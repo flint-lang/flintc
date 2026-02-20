@@ -73,11 +73,15 @@ void Parser::init_core_modules() {
                 const std::string data_type_name(std::get<0>(data_type));
                 assert(types.find(data_type_name) == types.end());
                 const auto &field_pairs = std::get<1>(data_type);
-                std::vector<std::pair<std::string, std::shared_ptr<Type>>> fields;
+                std::vector<DataNode::Field> fields;
                 for (const auto &[field_type_view, field_name_view] : field_pairs) {
                     std::optional<std::shared_ptr<Type>> field_type = core_namespace->get_type_from_str(std::string(field_type_view));
                     assert(field_type.has_value());
-                    fields.emplace_back(std::string(field_name_view), field_type.value());
+                    fields.emplace_back(DataNode::Field{
+                        .name = std::string(field_name_view),
+                        .type = field_type.value(),
+                        .initializer = std::nullopt,
+                    });
                 }
                 std::unique_ptr<DefinitionNode> data = std::make_unique<DataNode>( //
                     core_namespace->namespace_hash, 0, 0, 0,                       //
@@ -1067,7 +1071,7 @@ bool Parser::resolve_all_unknown_types() {
                 case DefinitionNode::Variation::DATA: {
                     auto *data_node = definition->as<DataNode>();
                     for (auto &field : data_node->fields) {
-                        if (!file_namespace->resolve_type(std::get<1>(field))) {
+                        if (!file_namespace->resolve_type(field.type)) {
                             return false;
                         }
                     }

@@ -2383,7 +2383,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                 const DataNode *data_node = data_type->data_node;
                 auto field_it = data_node->fields.begin();
                 while (field_it != data_node->fields.end()) {
-                    if (std::get<0>(*field_it) == field_name) {
+                    if (field_it->name == field_name) {
                         break;
                     }
                     ++field_it;
@@ -2393,7 +2393,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                     return std::nullopt;
                 }
                 size_t field_id = std::distance(data_node->fields.begin(), field_it);
-                const std::shared_ptr<Type> field_type = std::get<1>(*field_it);
+                const std::shared_ptr<Type> field_type = field_it->type;
                 return std::make_unique<StackedAssignmentNode>(base_expr.value(), field_name, field_id, field_type, rhs_expr.value());
             } else if (iterator->token == TOK_LEFT_PAREN) {
                 // It's a grouped assignment
@@ -2407,10 +2407,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(s
                         const std::string field_str(iterator->lexme);
                         bool field_found = false;
                         for (auto field_it = data_node->fields.begin(); field_it != data_node->fields.end(); ++field_it) {
-                            if (field_it->first == field_str) {
+                            if (field_it->name == field_str) {
                                 field_ids.emplace_back(std::distance(data_node->fields.begin(), field_it));
-                                field_names.emplace_back(field_it->first);
-                                field_types.emplace_back(field_it->second);
+                                field_names.emplace_back(field_it->name);
+                                field_types.emplace_back(field_it->type);
                                 field_found = true;
                                 break;
                             }

@@ -1,8 +1,13 @@
 use Fip.raylib
 use Core.time
 
+const data Globals:
+	Color RAYWHITE = (245, 245, 245, 255);
+
 def main():
 	InitWindow(800, 600, "test");
 	BeginDrawing();
+	// Color c = Globals.RAYWHITE;
+	// ClearBackground(c);
 	sleep(10, TimeUnit.S);
 	EndDrawing();
