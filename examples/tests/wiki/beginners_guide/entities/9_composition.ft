@@ -9,7 +9,7 @@ data Legs:
     u32 count; // How many legs we have
     f32 speed; // How fast we are able to run
     f32 height; // How high we are able to jump
-    Legs(count, speed);
+    Legs(count, speed, height);
 
 func Fly requires(Wings w):
     def fly():
