@@ -707,6 +707,13 @@ class Parser {
     /// @return `std::vector<Line>` The extracted next body lines
     std::vector<Line> get_body_lines(unsigned int definition_indentation, token_slice &tokens);
 
+    /// @function `collapse_types_in_slice`
+    /// @brief Collapses all types found within a given source slice
+    ///
+    /// @param `slice` The slice in which to collapse all types
+    /// @param `source` The source in which the slice views into, since we modify it we need it as a parameter
+    void collapse_types_in_slice(token_slice &slice, token_list &source);
+
     /// @function `collapse_types_in_lines`
     /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
     /// single type token instead. When deleting tokens from the source, all other Lines' ranges are updated automatically

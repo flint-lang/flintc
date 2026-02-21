@@ -280,94 +280,97 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
     return body_lines;
 }
 
-void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
-    PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
-    for (auto line : lines) {
-        token_list toks = clone_from_slice(line.tokens);
-        for (auto it = line.tokens.first; it != line.tokens.second;) {
-            // Erase all indentations within a line, which are not at the beginning of a line
-            if (it->token == TOK_INDENT) {
-                Line::delete_tokens(source, it, 1);
-                continue;
-            }
-            // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
-            // expensive matching logic needs to be run, so we can safely skip that token entirely
-            if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_IDENTIFIER) {
-                ++it;
-                continue;
-            }
-            // Collapse the whole alias chain to a single alias or to a single type
-            Namespace *alias_namespace = file_node_ptr->file_namespace.get();
-            // First check if the next token is an identifier and if it's a known import alias
-            if (it->token == TOK_IDENTIFIER && alias_namespace->get_namespace_from_alias(std::string(it->lexme)).has_value()) {
-                alias_namespace = alias_namespace->get_namespace_from_alias(std::string(it->lexme)).value();
-                *it = TokenContext(TOK_ALIAS, it->line, it->column, it->file_id, alias_namespace);
-                while (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
-                    // Check if the next two tokens are another alias, for example in the expression `a.b.call()` we collapse the alias
-                    // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` instead it will collapse to a single
-                    // `Type` instead, since we know which exact type from which file it targets
-                    std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias( //
-                        std::string((it + 2)->lexme)                                                             //
-                    );
-                    if (next_alias_namespace.has_value()) {
-                        it->alias_namespace = next_alias_namespace.value();
-                        alias_namespace = next_alias_namespace.value();
-                        // Delete the `.b` since we changed the import of `a` to point to the `b` namespace directly
-                        Line::delete_tokens(source, it + 1, 2);
-                    } else {
-                        break;
-                    }
+void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
+    for (auto it = slice.first; it != slice.second;) {
+        // Erase all indentations within a line, which are not at the beginning of a line
+        if (it->token == TOK_INDENT) {
+            Line::delete_tokens(source, it, 1);
+            continue;
+        }
+        // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
+        // expensive matching logic needs to be run, so we can safely skip that token entirely
+        if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_IDENTIFIER) {
+            ++it;
+            continue;
+        }
+        // Collapse the whole alias chain to a single alias or to a single type
+        Namespace *alias_namespace = file_node_ptr->file_namespace.get();
+        // First check if the next token is an identifier and if it's a known import alias
+        if (it->token == TOK_IDENTIFIER && alias_namespace->get_namespace_from_alias(std::string(it->lexme)).has_value()) {
+            alias_namespace = alias_namespace->get_namespace_from_alias(std::string(it->lexme)).value();
+            *it = TokenContext(TOK_ALIAS, it->line, it->column, it->file_id, alias_namespace);
+            while (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+                // Check if the next two tokens are another alias, for example in the expression `a.b.call()` we collapse the alias
+                // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` instead it will collapse to a single
+                // `Type` instead, since we know which exact type from which file it targets
+                std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias( //
+                    std::string((it + 2)->lexme)                                                             //
+                );
+                if (next_alias_namespace.has_value()) {
+                    it->alias_namespace = next_alias_namespace.value();
+                    alias_namespace = next_alias_namespace.value();
+                    // Delete the `.b` since we changed the import of `a` to point to the `b` namespace directly
+                    Line::delete_tokens(source, it + 1, 2);
+                } else {
+                    break;
                 }
-                // Check if it's an imported type from another namespaces. Types from other namespaces will *always* only be an
-                // `alias.identifier`, they can never be anything else since otherwise they would not be exportable.
-                if (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
-                    // Check if the type exists in the imported aliased namespace
-                    auto imported_type = alias_namespace->get_type_from_str(std::string((it + 2)->lexme));
-                    if (imported_type.has_value()) {
-                        *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, imported_type.value());
-                        Line::delete_tokens(source, it + 1, 2);
-                    }
-                }
-                ++it;
-                continue;
             }
-            // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
-            if (Matcher::tokens_start_with(token_slice{it, line.tokens.second}, Matcher::type)) {
-                // It's a type token
-                std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, line.tokens.second}, Matcher::type);
-                assert(type_range.has_value());
-                assert(type_range.value().first == 0);
-                if (type_range.value().second == 1) {
-                    // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
-                    // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
-                    if (it->token != TOK_TYPE) {
-                        // Types of size 1 always need to be an identifier if they are not already a type (primitives)
-                        assert(it->token == TOK_IDENTIFIER);
-                        std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
-                            std::string(it->lexme)                                                                    //
-                        );
-                        if (type.has_value()) {
-                            *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
-                        }
-                    }
-                } else if (it->token != TOK_IDENTIFIER ||
-                    file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value()) {
-                    // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
-                    // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
-                    // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
-                    // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
-                    auto type = file_node_ptr->file_namespace->get_type(token_slice{it, it + type_range.value().second});
-                    if (!type.has_value()) {
-                        std::exit(EXIT_FAILURE);
-                    }
-                    // Change this token to be a type token
-                    *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
-                    // Erase all the following type tokens from the tokens list
-                    Line::delete_tokens(source, it + 1, type_range.value().second - 1);
+            // Check if it's an imported type from another namespaces. Types from other namespaces will *always* only be an
+            // `alias.identifier`, they can never be anything else since otherwise they would not be exportable.
+            if (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+                // Check if the type exists in the imported aliased namespace
+                auto imported_type = alias_namespace->get_type_from_str(std::string((it + 2)->lexme));
+                if (imported_type.has_value()) {
+                    *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, imported_type.value());
+                    Line::delete_tokens(source, it + 1, 2);
                 }
             }
             ++it;
+            continue;
         }
+        // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
+        if (Matcher::tokens_start_with(token_slice{it, slice.second}, Matcher::type)) {
+            // It's a type token
+            std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, slice.second}, Matcher::type);
+            assert(type_range.has_value());
+            assert(type_range.value().first == 0);
+            if (type_range.value().second == 1) {
+                // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
+                // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
+                if (it->token != TOK_TYPE) {
+                    // Types of size 1 always need to be an identifier if they are not already a type (primitives)
+                    assert(it->token == TOK_IDENTIFIER);
+                    std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
+                        std::string(it->lexme)                                                                    //
+                    );
+                    if (type.has_value()) {
+                        *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
+                    }
+                }
+            } else if (it->token != TOK_IDENTIFIER ||
+                file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value()) {
+                // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
+                // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
+                // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
+                // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
+                auto type = file_node_ptr->file_namespace->get_type(token_slice{it, it + type_range.value().second});
+                if (!type.has_value()) {
+                    std::exit(EXIT_FAILURE);
+                }
+                // Change this token to be a type token
+                *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
+                // Erase all the following type tokens from the tokens list
+                Line::delete_tokens(source, it + 1, type_range.value().second - 1);
+            }
+        }
+        ++it;
+    }
+}
+
+void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
+    PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
+    for (auto line : lines) {
+        collapse_types_in_slice(line.tokens, source);
     }
 
     // Substitute all types aliases
