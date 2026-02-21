@@ -570,17 +570,34 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 auto &fields = data_node->fields;
                 // Now check if the initializer arguments are equal to the expected initializer fields
                 if (fields.size() != arguments.size()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                for (size_t i = 0; i < arguments.size(); i++) {
-                    std::shared_ptr<Type> arg_type = arguments[i].first->type;
-                    if (arg_type->get_variation() == Type::Variation::GROUP) {
+                    if (arguments.empty() || arguments.size() > 1 || arguments.front().first->type->to_string() != "type.flint.default") {
+                        // Mismatch between number of initializer values and expected field count
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
+                    // It's a single default-initializer for the entire data type, meaning that *all* fields need to be default-constructed
+                    assert(arguments.size() == 1);
+                    assert(arguments.front().first->type->to_string() == "type.flint.default");
+                    for (size_t i = 1; i < fields.size(); i++) {
+                        arguments.emplace_back(arguments.front().first->clone(), false);
+                    }
+                }
+                for (size_t i = 0; i < arguments.size(); i++) {
+                    std::shared_ptr<Type> arg_type = arguments[i].first->type;
+                    if (arg_type->to_string() == "type.flint.default") {
+                        // We need to insert the default-value of the nth argument of the data type at the place of the arguments before
+                        // continuing
+                        if (!data_node->fields.at(i).initializer.has_value()) {
+                            // Trying to default-construct a field of data which does not have a default-value set
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
+                        arguments[i].first.reset();
+                        arguments[i].first = data_node->fields.at(i).initializer.value()->clone();
+                        arg_type = arguments[i].first->type;
+                    }
                     const auto &field_type = fields.at(i).type;
-                    if (!check_castability(field_type, arguments.at(i).first, false)) {
+                    if (!check_castability(field_type, arguments[i].first, false)) {
                         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, field_type, arg_type);
                         return std::nullopt;
                     }

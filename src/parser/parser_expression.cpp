@@ -1725,9 +1725,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<VariableNode>(std::move(variable.value()));
         } else if (tokens_mut.first->token == TOK_UNDERSCORE) {
             if (!expected_type.has_value()) {
-                // Default node at a place where it's type cannot be inferred
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+                // Default node at a place where it's type cannot be inferred. This is fine because when used in initializers, for example,
+                // at the time we parse the initializer argument the type cannot be inferred as we do not know *what* we are initializing
+                // yet
+                return std::make_unique<DefaultNode>(Type::get_primitive_type("type.flint.default"));
             }
             return std::make_unique<DefaultNode>(expected_type.value());
         } else if (tokens_mut.first->token == TOK_TYPE) {

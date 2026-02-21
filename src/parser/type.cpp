@@ -28,6 +28,8 @@ void Type::init_types() {
     std::shared_ptr<Type> bool_type = get_primitive_type("bool");
     std::shared_ptr<Type> str_type = get_primitive_type("str");
     get_primitive_type("type.flint.str.lit");
+    // Type for unresolved default-expressions `_`
+    get_primitive_type("type.flint.default");
     std::shared_ptr<Type> void_type = get_primitive_type("void");
     add_type(std::make_shared<OptionalType>(void_type));
     get_primitive_type("anyerror");
