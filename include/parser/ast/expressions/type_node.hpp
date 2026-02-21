@@ -13,4 +13,8 @@ class TypeNode : public ExpressionNode {
     Variation get_variation() const override {
         return Variation::TYPE;
     }
+
+    std::unique_ptr<ExpressionNode> clone() const override {
+        return std::make_unique<TypeNode>(this->type);
+    }
 };

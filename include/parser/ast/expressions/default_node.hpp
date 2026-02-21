@@ -13,4 +13,8 @@ class DefaultNode : public ExpressionNode {
     Variation get_variation() const override {
         return Variation::DEFAULT;
     }
+
+    std::unique_ptr<ExpressionNode> clone() const override {
+        return std::make_unique<DefaultNode>(this->type);
+    }
 };

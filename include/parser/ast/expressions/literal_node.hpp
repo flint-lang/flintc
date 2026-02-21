@@ -85,6 +85,47 @@ class LiteralNode : public ExpressionNode {
         return Variation::LITERAL;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        LitValue value_clone;
+        if (std::holds_alternative<LitEnum>(value)) {
+            const auto &lit = std::get<LitEnum>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitError>(value)) {
+            const auto &lit = std::get<LitError>(value);
+            std::optional<std::unique_ptr<ExpressionNode>> message = std::nullopt;
+            if (lit.message.has_value()) {
+                message = lit.message.value()->clone();
+            }
+            value_clone = LitError{
+                .error_type = lit.error_type,
+                .value = lit.value,
+                .message = std::move(message),
+            };
+        } else if (std::holds_alternative<LitVariantTag>(value)) {
+            const auto &lit = std::get<LitVariantTag>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitOptional>(value)) {
+            const auto &lit = std::get<LitOptional>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitInt>(value)) {
+            const auto &lit = std::get<LitInt>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitFloat>(value)) {
+            const auto &lit = std::get<LitFloat>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitU8>(value)) {
+            const auto &lit = std::get<LitU8>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitBool>(value)) {
+            const auto &lit = std::get<LitBool>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitStr>(value)) {
+            const auto &lit = std::get<LitStr>(value);
+            value_clone = lit;
+        }
+        return std::make_unique<LiteralNode>(value_clone, this->type, is_folded);
+    }
+
     /// @var `value`
     /// @brief The literal value
     LitValue value;

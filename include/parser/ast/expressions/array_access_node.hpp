@@ -23,6 +23,15 @@ class ArrayAccessNode : public ExpressionNode {
         return Variation::ARRAY_ACCESS;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::vector<std::unique_ptr<ExpressionNode>> cloned_indexing_exprs;
+        for (auto &expr : indexing_expressions) {
+            cloned_indexing_exprs.emplace_back(expr->clone());
+        }
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        return std::make_unique<ArrayAccessNode>(base_expr_clone, this->type, cloned_indexing_exprs);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which the array elements are accessed
     std::unique_ptr<ExpressionNode> base_expr;

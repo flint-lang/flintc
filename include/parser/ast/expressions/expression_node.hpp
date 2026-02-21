@@ -63,6 +63,12 @@ class ExpressionNode : public ASTNode {
     /// @return `Variation` The variation of this expression node
     virtual Variation get_variation() const = 0;
 
+    /// @function `clone`
+    /// @brief Clones this expression by creating a new expression node from this one
+    ///
+    /// @return `std::unique_ptr<ExpressionNode>` The cloned expression
+    virtual std::unique_ptr<ExpressionNode> clone() const = 0;
+
     /// @function `as`
     /// @brief Casts this expression node to the requested type, but the requested type must be a child type of this class
     template <typename T>

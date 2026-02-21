@@ -33,6 +33,14 @@ class GroupExpressionNode : public ExpressionNode {
         return Variation::GROUP_EXPRESSION;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::vector<std::unique_ptr<ExpressionNode>> expressions_clone;
+        for (auto &expr : expressions) {
+            expressions_clone.emplace_back(expr->clone());
+        }
+        return std::make_unique<GroupExpressionNode>(this->file_hash, expressions_clone);
+    }
+
     /// @var `expressions`
     /// @brief All the expressions part of the group expression
     std::vector<std::unique_ptr<ExpressionNode>> expressions;

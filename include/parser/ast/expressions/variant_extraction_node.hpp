@@ -27,6 +27,11 @@ class VariantExtractionNode : public ExpressionNode {
         return Variation::VARIANT_EXTRACTION;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        return std::make_unique<VariantExtractionNode>(file_hash, base_expr_clone, extracted_type);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression which is accessed in the optional chain
     std::unique_ptr<ExpressionNode> base_expr;

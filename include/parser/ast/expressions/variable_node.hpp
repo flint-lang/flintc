@@ -17,6 +17,10 @@ class VariableNode : public ExpressionNode {
         return Variation::VARIABLE;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        return std::make_unique<VariableNode>(name, type);
+    }
+
     /// @var `name`
     /// @brief Name of the variable
     std::string name;

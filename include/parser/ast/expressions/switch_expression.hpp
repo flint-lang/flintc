@@ -1,5 +1,6 @@
 #pragma once
 
+#include "error/error.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/switch_base.hpp"
 
@@ -43,6 +44,11 @@ class SwitchExpression : public SwitchBase, public ExpressionNode {
 
     Variation get_variation() const override {
         return Variation::SWITCH_EXPRESSION;
+    }
+
+    std::unique_ptr<ExpressionNode> clone() const override {
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return nullptr;
     }
 
     /// @var `branches`

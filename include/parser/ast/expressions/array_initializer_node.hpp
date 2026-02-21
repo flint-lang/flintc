@@ -26,6 +26,15 @@ class ArrayInitializerNode : public ExpressionNode {
         return Variation::ARRAY_INITIALIZER;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::vector<std::unique_ptr<ExpressionNode>> cloned_length_exprs;
+        for (auto &expr : length_expressions) {
+            cloned_length_exprs.emplace_back(expr->clone());
+        }
+        std::unique_ptr<ExpressionNode> init_value = initializer_value->clone();
+        return std::make_unique<ArrayInitializerNode>(this->type, cloned_length_exprs, init_value);
+    }
+
     /// @var `element_type`
     /// @brief The type of a single array element
     std::shared_ptr<Type> element_type;

@@ -28,6 +28,12 @@ class BinaryOpNode : public ExpressionNode {
         return Variation::BINARY_OP;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> left_clone = left->clone();
+        std::unique_ptr<ExpressionNode> right_clone = right->clone();
+        return std::make_unique<BinaryOpNode>(operator_token, left_clone, right_clone, this->type, is_shorthand);
+    }
+
     // empty constructor
     BinaryOpNode() = default;
     // deconstructor

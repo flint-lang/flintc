@@ -59,6 +59,30 @@ class OptionalChainNode : public ExpressionNode {
         return Variation::OPTIONAL_CHAIN;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        ChainOperation operation_clone;
+        if (std::holds_alternative<ChainFieldAccess>(operation)) {
+            const auto &access = std::get<ChainFieldAccess>(operation);
+            operation_clone = access;
+
+        } else if (std::holds_alternative<ChainArrayAccess>(operation)) {
+            const auto &access = std::get<ChainArrayAccess>(operation);
+            std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
+            for (auto &indexing_expression : access.indexing_expressions) {
+                indexing_expressions.emplace_back(indexing_expression->clone());
+            }
+            operation_clone = ChainArrayAccess{
+                .indexing_expressions = std::move(indexing_expressions),
+            };
+        }
+        std::shared_ptr<Type> result_type = this->type;
+        if (is_toplevel_chain_node) {
+            result_type = this->type->as<OptionalType>()->base_type;
+        }
+        return std::make_unique<OptionalChainNode>(file_hash, base_expr_clone, is_toplevel_chain_node, operation_clone, result_type);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression which is accessed in the optional chain
     std::unique_ptr<ExpressionNode> base_expr;

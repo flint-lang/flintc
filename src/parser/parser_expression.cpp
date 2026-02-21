@@ -1886,6 +1886,31 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             switch (type->get_variation()) {
                 default:
                     break;
+                case Type::Variation::DATA: {
+                    [[maybe_unused]] const auto *data_type = type->as<DataType>();
+                    if (!data_type->data_node->is_const) {
+                        // Accessing fields from a type that's not const is not allowed
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    const std::string field_name((tokens_mut.first + 2)->lexme);
+                    const auto &fields = data_type->data_node->fields;
+                    auto field = fields.begin();
+                    for (; field != fields.end(); ++field) {
+                        if (field->name == field_name) {
+                            break;
+                        }
+                    }
+                    if (field == fields.end()) {
+                        // Accessing nonexistent field of global const data
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    assert(field->initializer.has_value());
+                    return field->initializer.value()->clone();
+                }
                 case Type::Variation::ENUM: {
                     const auto *enum_type = type->as<EnumType>();
                     assert((tokens_mut.first + 1)->token == TOK_DOT);

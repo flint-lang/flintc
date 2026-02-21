@@ -337,7 +337,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     bool is_shared = false;
     std::string name;
 
-    std::unordered_map<std::string, DataNode::Field> fields;
+    std::vector<DataNode::Field> fields;
     std::vector<std::string> order;
 
     for (auto def_it = definition.first; def_it != definition.second && std::prev(def_it)->token != TOK_DATA; ++def_it) {
@@ -362,6 +362,11 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
         for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
             if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
+                if (is_const || is_shared) {
+                    // Const and shared data is not allowed to have an initalizer
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
                 // It's the initializer
                 if (token_it->lexme != name) {
                     THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                              //
@@ -415,10 +420,12 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (fields.find(token_it_lexme) != fields.end()) {
-                    // Field name duplication
-                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash, token_it->line, token_it->column, token_it_lexme);
-                    return std::nullopt;
+                for (const auto &field : fields) {
+                    if (field.name == token_it_lexme) {
+                        // Field name duplication
+                        THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash, token_it->line, token_it->column, token_it_lexme);
+                        return std::nullopt;
+                    }
                 }
                 // Check if a ; follows, then it's a "normal" field, if a '=' follows then the default-value of the field will be evaluated.
                 // It will be evaluated as an expression and for `const` data the exact expression is just lazily copied to all places where
@@ -443,21 +450,40 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                         return std::nullopt;
                     }
                 }
-                fields[token_it_lexme] = DataNode::Field{
+                if (is_const && !field_initializer.has_value()) {
+                    // Every field must have an initializer if the data is const
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                fields.emplace_back(DataNode::Field{
                     .name = token_it_lexme,
                     .type = field_type.value(),
                     .initializer = std::move(field_initializer),
-                };
+                });
             }
         }
     }
 
     std::vector<DataNode::Field> ordered_fields;
     ordered_fields.resize(fields.size());
-    for (auto &field : fields) {
-        const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.first));
-        // TODO: This crashes when we have a field in the constructor that's not present in the field list of the data
-        ordered_fields[field_id] = std::move(field.second);
+    if (order.empty()) {
+        if (!is_const && !is_shared) {
+            // Empty order on data type whose constructor should contain values
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ordered_fields = std::move(fields);
+    } else {
+        if (order.size() != fields.size()) {
+            // Not all fields are part of the initializer, at least one is missing
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        for (auto &field : fields) {
+            const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.name));
+            // TODO: This crashes when we have a field in the constructor that's not present in the field list of the data
+            ordered_fields[field_id] = std::move(field);
+        }
     }
 
     const unsigned int line = definition.first->line;

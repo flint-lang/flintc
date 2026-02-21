@@ -21,6 +21,11 @@ class OptionalUnwrapNode : public ExpressionNode {
         return Variation::OPTIONAL_UNWRAP;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        return std::make_unique<OptionalUnwrapNode>(base_expr_clone);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which to access one field's value
     std::unique_ptr<ExpressionNode> base_expr;

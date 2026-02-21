@@ -17,6 +17,11 @@ class TypeCastNode : public ExpressionNode {
         return Variation::TYPE_CAST;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> expr_clone = expr->clone();
+        return std::make_unique<TypeCastNode>(type, expr_clone);
+    }
+
     /// @var `expr`
     /// @brief The expression of the type cast node
     std::unique_ptr<ExpressionNode> expr;

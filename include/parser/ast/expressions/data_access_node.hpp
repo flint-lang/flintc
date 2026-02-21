@@ -26,6 +26,11 @@ class DataAccessNode : public ExpressionNode {
         return Variation::DATA_ACCESS;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        return std::make_unique<DataAccessNode>(this->file_hash, base_expr_clone, field_name, field_id, this->type);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression from which to access one field's value
     std::unique_ptr<ExpressionNode> base_expr;

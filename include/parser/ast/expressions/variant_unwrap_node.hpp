@@ -15,6 +15,11 @@ class VariantUnwrapNode : public ExpressionNode {
         return Variation::VARIANT_UNWRAP;
     }
 
+    std::unique_ptr<ExpressionNode> clone() const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        return std::make_unique<VariantUnwrapNode>(base_expr_clone, type);
+    }
+
     /// @var `base_expr`
     /// @brief The base expression to unwrap
     std::unique_ptr<ExpressionNode> base_expr;
