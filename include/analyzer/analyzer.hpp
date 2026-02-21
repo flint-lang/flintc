@@ -11,6 +11,7 @@
 enum class ContextLevel {
     INTERNAL,
     EXTERNAL,
+    CONST_DATA,
     UNKNOWN,
 };
 

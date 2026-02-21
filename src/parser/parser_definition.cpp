@@ -355,10 +355,6 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 break;
         }
     }
-    std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
-    const Context data_context = Context{
-        .level = ContextLevel::INTERNAL,
-    };
     for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
         for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
             if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
@@ -427,9 +423,8 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                         return std::nullopt;
                     }
                 }
-                // Check if a ; follows, then it's a "normal" field, if a '=' follows then the default-value of the field will be evaluated.
-                // It will be evaluated as an expression and for `const` data the exact expression is just lazily copied to all places where
-                // the value is being used.
+                // Check if a ; follows, then it's a "normal" field, if a '=' follows then the field has a default value. It is parsed in
+                // the second phase of the parser.
                 token_it++;
                 if (token_it->token != TOK_SEMICOLON && token_it->token != TOK_EQUAL) {
                     // Unexpected token after field definition
@@ -437,20 +432,17 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                     return std::nullopt;
                 }
                 std::optional<std::unique_ptr<ExpressionNode>> field_initializer = std::nullopt;
+                std::optional<token_slice> field_initializer_tokens = std::nullopt;
                 if (token_it->token == TOK_EQUAL) {
                     // Get all tokens of the expression by simply moving the token until it points to a semicolon
                     ++token_it;
-                    token_slice initializer_tokens = {token_it, token_it};
+                    field_initializer_tokens = {token_it, token_it};
                     while (token_it->token != TOK_SEMICOLON) {
                         token_it++;
                     }
-                    initializer_tokens.second = token_it;
-                    field_initializer = create_expression(data_context, data_scope, initializer_tokens);
-                    if (!field_initializer.has_value()) {
-                        return std::nullopt;
-                    }
+                    field_initializer_tokens.value().second = token_it;
                 }
-                if (is_const && !field_initializer.has_value()) {
+                if (is_const && !field_initializer_tokens.has_value()) {
                     // Every field must have an initializer if the data is const
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -458,6 +450,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 fields.emplace_back(DataNode::Field{
                     .name = token_it_lexme,
                     .type = field_type.value(),
+                    .initializer_tokens = field_initializer_tokens,
                     .initializer = std::move(field_initializer),
                 });
             }

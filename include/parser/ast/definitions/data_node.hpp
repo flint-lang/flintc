@@ -3,6 +3,7 @@
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/type/type.hpp"
+#include "types.hpp"
 
 #include <string>
 #include <utility>
@@ -21,6 +22,10 @@ class DataNode : public DefinitionNode {
         /// @var `type`
         /// @brief The type of the field
         std::shared_ptr<Type> type;
+
+        /// @var `initializer_tokens`
+        /// @brief The tokens representing the initializer, needed for the two-phase parsing of data definitions
+        std::optional<token_slice> initializer_tokens;
 
         /// @var `initializer`
         /// @brief The initializer, e.g. rhs of the field definition

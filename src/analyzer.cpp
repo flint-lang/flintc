@@ -769,7 +769,7 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
         }
         case Type::Variation::POINTER: {
             // const auto *pointer_type = type_to_analyze->as<PointerType>();
-            if (ctx.level == ContextLevel::INTERNAL) {
+            if (ctx.level == ContextLevel::INTERNAL || ctx.level == ContextLevel::CONST_DATA) {
                 return Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT;
             }
             break;

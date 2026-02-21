@@ -2,9 +2,20 @@ use Core.print
 
 type Color u8x4
 
+data MyData:
+	i32 x = 10;
+	Color c = (10, 20, 30, 40);
+	Color c2 = Globals.WHITE;
+	MyData(x, c, c2);
+
 const data Globals:
 	Color WHITE = (245, 245, 245, 255);
 
 def main():
 	Color c = Globals.WHITE;
 	print($"c = {c}\n");
+
+	//d := MyData(_, _, _);
+	//print($"d.x = {d.x}\n");
+	//print($"d.c = {d.c}\n");
+	//print($"d.c2 = {d.c2}\n");

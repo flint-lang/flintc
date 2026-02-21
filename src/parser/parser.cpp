@@ -80,6 +80,7 @@ void Parser::init_core_modules() {
                     fields.emplace_back(DataNode::Field{
                         .name = std::string(field_name_view),
                         .type = field_type.value(),
+                        .initializer_tokens = std::nullopt,
                         .initializer = std::nullopt,
                     });
                 }
@@ -1199,6 +1200,76 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
         }
     }
     return freeable_types;
+}
+
+bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
+    PROFILE_SCOPE("Parse Open Data Modules");
+
+    // Define a task to process a single data module
+    auto process_function = [](Parser &parser, DataNode *data) -> bool {
+        PROFILE_SCOPE("Process data module '" + data->name + "'");
+        // Go through al default values of the data's fields and parse them
+        std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
+        const Context data_context = Context{
+            .level = data->is_const ? ContextLevel::CONST_DATA : ContextLevel::INTERNAL,
+        };
+        for (auto &field : data->fields) {
+            if (!field.initializer_tokens.has_value()) {
+                continue;
+            }
+            parser.collapse_types_in_slice(field.initializer_tokens.value(), parser.file_node_ptr->tokens);
+            field.initializer = parser.create_expression(data_context, data_scope, field.initializer_tokens.value());
+            if (!field.initializer.has_value()) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    // Collect all open data modules from all parsers and store them in two lists, the const ones and the non-const ones. We parse the const
+    // ones first
+    std::vector<std::pair<Parser &, DataNode *>> const_data;
+    std::vector<std::pair<Parser &, DataNode *>> nonconst_data;
+    for (auto &parser : instances) {
+        while (auto next = parser.get_next_open_data()) {
+            if (next.value()->is_const) {
+                const_data.emplace_back(parser, next.value());
+            } else {
+                nonconst_data.emplace_back(parser, next.value());
+            }
+        }
+    }
+
+    bool result = true;
+    if (parse_parallel) {
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Parse all const data first, then parse the non-const data
+        for (auto &[parser, data] : const_data) {
+            futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), data));
+        }
+        // Collect results from all const tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+        futures.clear();
+        for (auto &[parser, data] : nonconst_data) {
+            futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), data));
+        }
+        // Collect results from all nonconst tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
+        }
+    } else {
+        // Process data sequentially, first all const data then all nonconst dat
+        for (auto &[parser, data] : const_data) {
+            result = result && process_function(parser, data);
+        }
+        for (auto &[parser, data] : nonconst_data) {
+            result = result && process_function(parser, data);
+        }
+    }
+    return result;
 }
 
 bool Parser::parse_all_open_func_modules(const bool parse_parallel) {

@@ -163,6 +163,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!added_data.has_value()) {
             return false;
         }
+        add_open_data(added_data.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
         std::optional<FuncNode> func_node = create_func(definition_tokens);
         if (!func_node.has_value()) {

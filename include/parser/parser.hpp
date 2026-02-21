@@ -259,6 +259,13 @@ class Parser {
     /// @return `std::vector<std::shared_ptr<Type>>` A list of all freeable types of all files
     static std::vector<std::shared_ptr<Type>> get_all_freeable_types();
 
+    /// @function `parse_all_open_data_modules`
+    /// @brief Parses all still open data module "bodies"
+    ///
+    /// @param `parse_parallel` Whether to parse the open data modules in parallel
+    /// @return `bool` Whether all data modules were able to be parsed
+    static bool parse_all_open_data_modules(const bool parse_parallel);
+
     /// @function `parse_all_open_func_modules`
     /// @brief Parses all still open func module bodies
     ///
@@ -330,6 +337,10 @@ class Parser {
     /// @var `main_file_hash`
     /// @brief The hash of the file contianing the main function
     static inline Hash main_file_hash{std::string("")};
+
+    /// @var `open_data_list`
+    /// @brief The list of all open data modules which will be parsed in the second phase of the parser
+    std::vector<DataNode *> open_data_list{};
 
     /// @var `open_func_list`
     /// @brief The list of all open func modules which will be parsed in the second phase of the parser
@@ -540,6 +551,14 @@ class Parser {
         parsed_tests.emplace_back(test_node, file_name);
     }
 
+    /// @function `add_open_data`
+    /// @brief Adds a open data module to the list of all open data modules
+    ///
+    /// @param `open_data` A pointer to the open data module to add to the list
+    void add_open_data(DataNode *open_data) {
+        open_data_list.push_back(std::move(open_data));
+    }
+
     /// @function `add_open_func`
     /// @brief Adds a open func module to the list of all open func modules
     ///
@@ -568,6 +587,20 @@ class Parser {
     /// @attention This function takes ownership of the `open_function` parameter
     void add_open_function(std::pair<FunctionNode *, std::vector<Line>> &&open_function) {
         open_functions_list.push_back(std::move(open_function));
+    }
+
+    /// @function `get_next_open_data`
+    /// @brief Returns the next open data module to parse
+    ///
+    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func module to parse. Returns a nullopt if there
+    /// are no open funct modules left
+    std::optional<DataNode *> get_next_open_data() {
+        if (open_data_list.empty()) {
+            return std::nullopt;
+        }
+        DataNode *od = std::move(open_data_list.back());
+        open_data_list.pop_back();
+        return od;
     }
 
     /// @function `get_next_open_func`
