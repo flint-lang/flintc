@@ -1822,7 +1822,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         }
         return true;
     }
-    if (assignment_node->type->is_freeable()) {
+    if (assignment_node->type->is_freeable() && assignment_node->type->get_variation() != Type::Variation::OPAQUE) {
         // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
         std::shared_ptr<Type> lhs_type = assignment_node->type;
         if (lhs_type->get_variation() == Type::Variation::ALIAS) {
