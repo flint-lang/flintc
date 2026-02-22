@@ -561,6 +561,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // Check if it's an initializer
     const auto &name_token = is_func_module_call ? tokens.first + 2 : tokens.first;
     if (name_token->token == TOK_TYPE) {
+        if (name_token->type->get_variation() == Type::Variation::ALIAS) {
+            name_token->type = name_token->type->as<AliasType>()->type;
+        }
         switch (tokens.first->type->get_variation()) {
             default: {
                 [[maybe_unused]] const Type::Variation variation = name_token->type->get_variation();
