@@ -4158,6 +4158,7 @@ class Generator {
                 {"f64x2_to_str", nullptr},
                 {"f64x3_to_str", nullptr},
                 {"f64x4_to_str", nullptr},
+                {"opaque_to_str", nullptr},
             };
 
             /// @function `generate_typecast_functions`
@@ -4375,6 +4376,14 @@ class Generator {
             /// @param `module` The LLVM Module in which the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_f64_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_opaque_to_str`
+            /// @brief Generates the `opaque_to_str` function which is used to convert opaque values (pointers) to str values
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module in which the function is generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_opaque_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
         }; // subclass TypeCast
     }; // subclass Module
 };

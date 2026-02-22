@@ -3460,6 +3460,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     } else if (from_type_str == "void*") {
         // The 'null' literal
         return IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+    } else if (from_type->get_variation() == Type::Variation::OPAQUE && to_type_str == "str") {
+        // Casting an opaque value to a string
+        return builder.CreateCall(Module::TypeCast::typecast_functions.at("opaque_to_str"), {expr}, "opaque_to_str_res");
     }
     switch (to_type->get_variation()) {
         default:

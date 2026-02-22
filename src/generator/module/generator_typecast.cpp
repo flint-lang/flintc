@@ -40,6 +40,7 @@ void Generator::Module::TypeCast::generate_typecast_functions( //
     generate_multitype_to_str(builder, module, only_declarations, "f64", 2);
     generate_multitype_to_str(builder, module, only_declarations, "f64", 3);
     generate_multitype_to_str(builder, module, only_declarations, "f64", 4);
+    generate_opaque_to_str(builder, module, only_declarations);
 }
 
 llvm::Value *Generator::Module::TypeCast::iN_to_uN_ext( //
@@ -1366,4 +1367,73 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         // Return the string
         builder->CreateRet(result);
     }
+}
+
+void Generator::Module::TypeCast::generate_opaque_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // THE C IMPLEMENTATION:
+    // str *opaque_to_str(void *p) {
+    //     if (p == NULL) {
+    //         return init_str("null", 4);
+    //     }
+    //
+    //     // on a 64-bit platform print the pointer as hex, e.g. "0x0123456789abcdef"
+    //     // we'll use a local buffer and snprintf to produce the textual hex form
+    //     char buffer[24];
+    //     int len = snprintf(buffer, sizeof(buffer), "0x%llx", (unsigned long long)(uintptr_t)p);
+    //     return init_str(buffer, (int64_t)len);
+    // }
+    llvm::PointerType *const ptr_type = llvm::PointerType::get(context, 0);
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *const snprintf_fn = c_functions.at(SNPRINTF);
+
+    // Function type: str *opaque_to_str(ptr)
+    llvm::FunctionType *opaque_to_str_type = llvm::FunctionType::get( //
+        str_type->getPointerTo(),                                     // return: str*
+        {ptr_type},                                                   // argument: void* p
+        false                                                         // No vaarg
+    );
+    llvm::Function *opaque_to_str_fn = llvm::Function::Create(                                //
+        opaque_to_str_type, llvm::Function::ExternalLinkage, prefix + "opaque_to_str", module //
+    );
+    typecast_functions["opaque_to_str"] = opaque_to_str_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Basic blocks
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", opaque_to_str_fn);
+    llvm::BasicBlock *null_block = llvm::BasicBlock::Create(context, "null_case", opaque_to_str_fn);
+    llvm::BasicBlock *fmt_block = llvm::BasicBlock::Create(context, "fmt_case", opaque_to_str_fn);
+
+    // entry
+    builder->SetInsertPoint(entry_block);
+    llvm::Argument *arg_p = opaque_to_str_fn->arg_begin();
+    arg_p->setName("p");
+
+    // Compare with null
+    llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(ptr_type);
+    llvm::Value *is_null = builder->CreateICmpEQ(arg_p, nullpointer, "is_null");
+    builder->CreateCondBr(is_null, null_block, fmt_block);
+
+    builder->SetInsertPoint(null_block);
+    llvm::Value *null_str = IR::generate_const_string(module, "null");
+    llvm::Value *null_str_val = builder->CreateCall(init_str_fn, {null_str, builder->getInt64(4)}, "null_str_value");
+    builder->CreateRet(null_str_val);
+
+    // fmt case
+    builder->SetInsertPoint(fmt_block);
+    // allocate buffer[24]
+    llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 24), nullptr, "buffer");
+    // prepare format string "0x%llx"
+    llvm::Value *fmt_str = IR::generate_const_string(module, "0x%llx");
+    // convert pointer to integer (uintptr_t -> unsigned long long)
+    llvm::Value *ptr_as_i64 = builder->CreatePtrToInt(arg_p, builder->getInt64Ty(), "ptr_as_i64");
+    // call snprintf(buffer, 24, "0x%llx", (unsigned long long)ptr_as_i64)
+    llvm::CallInst *len = builder->CreateCall(snprintf_fn, {buffer, builder->getInt64(24), fmt_str, ptr_as_i64}, "len");
+    // extend to i64 for init_str
+    llvm::Value *len_i64 = builder->CreateZExt(len, builder->getInt64Ty(), "len_i64");
+    // call init_str(bufferr, len_i64)
+    llvm::Value *result = builder->CreateCall(init_str_fn, {buffer, len_i64}, "result");
+    builder->CreateRet(result);
 }

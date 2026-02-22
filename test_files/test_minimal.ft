@@ -10,8 +10,8 @@ data Container:
 
 def main():
 	c := Container(null, 0);
+	print($"c.value = {c.value}\n");
 	print($"c.len = {c.len}\n");
-	//print($"c.value = {c.value}\n");
 	//c := create();
 	//print($"c.len = {c.len}\n");
 	//destroy(&c);

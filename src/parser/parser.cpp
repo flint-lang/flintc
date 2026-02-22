@@ -233,6 +233,9 @@ Parser::CastDirection Parser::check_primitive_castability( //
     } else if (lhs_str == "str" && rhs_str == "anyerror") {
         // The 'anyerror' Error can be cast to an string too obviously
         return CastDirection::rhs_to_lhs();
+    } else if (lhs_str == "str" && rhs_type->get_variation() == Type::Variation::OPAQUE) {
+        // Any opaque type can be cast to a string, the string will either be `null` or `0x...`
+        return CastDirection::rhs_to_lhs();
     }
 
     // Check if one side is a pointer type and the other is opaque
