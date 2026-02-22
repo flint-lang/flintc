@@ -340,7 +340,11 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     std::vector<DataNode::Field> fields;
     std::vector<std::string> order;
 
-    for (auto def_it = definition.first; def_it != definition.second && std::prev(def_it)->token != TOK_DATA; ++def_it) {
+    for (                                                                                                    //
+        auto def_it = definition.first;                                                                      //
+        def_it != definition.second && (def_it == definition.first || std::prev(def_it)->token != TOK_DATA); //
+        ++def_it                                                                                             //
+    ) {
         switch (def_it->token) {
             default:
                 break;
