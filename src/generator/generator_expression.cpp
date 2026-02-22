@@ -4181,6 +4181,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     }
                     break;
                 }
+                case Type::Variation::OPAQUE: {
+                    if (bin_op_node->right->type->get_variation() == Type::Variation::OPAQUE) {
+                        return builder.CreateICmpEQ(lhs, rhs, "ptr_cmp");
+                    }
+                    break;
+                }
                 case Type::Variation::OPTIONAL: {
                     if (bin_op_node->right->type->get_variation() == Type::Variation::OPTIONAL) {
                         return generate_optional_cmp(builder, ctx, garbage, expr_depth, lhs, bin_op_node->left, rhs, bin_op_node->right,

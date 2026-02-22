@@ -1,12 +1,5 @@
 use Core.print
-
-data Container:
-	opaque value;
-	u64 len;
-	Container(value, len);
-
-extern def create() -> Container;
-extern def destroy(mut Container* c);
+use Fip.c
 
 def main():
 	c := Container(null, 0);
@@ -14,6 +7,9 @@ def main():
 	print($"c.len = {c.len}\n");
 
 	con := create();
-	print($"c.value = {con.value}\n");
+	if con.value == null:
+		print("c.value is null\n");
+	else:
+		print("c.value points to something\n");
 	print($"c.len = {con.len}\n");
 	destroy(&con);
