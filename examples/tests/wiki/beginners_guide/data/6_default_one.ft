@@ -7,4 +7,4 @@ data MyData:
 
 def main():
     MyData d = MyData(_, 20); // x uses the default value of 5
-    print($"d.x = {d.x}, d.y = {d.y}\n");
+    print($"d.(x, y) = ({d.x}, {d.y})\n");

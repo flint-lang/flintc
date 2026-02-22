@@ -30,14 +30,12 @@ test "5_decl_grouped_increment.ft":
 	str file = "5_decl_grouped_increment.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n");
 
-#test_should_fail
-test "[f]6_default_one.ft":
+test "6_default_one.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "6_default_one.ft";
 	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 20)\n");
 
-#test_should_fail
-test "[f]7_default_all.ft":
+test "7_default_all.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "7_default_all.ft";
 	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 7)\n");
