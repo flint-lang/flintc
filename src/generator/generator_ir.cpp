@@ -580,6 +580,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
             return {vector_type, {false, false}};
         }
+        case Type::Variation::OPAQUE:
+            return {llvm::PointerType::get(context, 0), {false, false}};
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             const std::string opt_str = type->get_type_string();
@@ -645,6 +647,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                         return {llvm::Type::getInt1Ty(context), {false, false}};
                     case TOK_VOID:
                         return {llvm::Type::getVoidTy(context), {false, false}};
+                    case TOK_OPAQUE:
+                        return {llvm::PointerType::get(context, 0), {false, false}};
                 }
             }
             break;

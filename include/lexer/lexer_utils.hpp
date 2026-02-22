@@ -161,6 +161,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"true", TOK_TRUE},
     {"false", TOK_FALSE},
     {"none", TOK_NONE},
+    {"null", TOK_NULL},
     // data keywords
     {"data", TOK_DATA},
     {"shared", TOK_SHARED},
@@ -223,6 +224,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     {TOK_TRUE, "true"},
     {TOK_FALSE, "false"},
     {TOK_NONE, "none"},
+    {TOK_NULL, "null"},
     // data keywords
     {TOK_DATA, "data"},
     {TOK_SHARED, "shared"},
@@ -279,6 +281,7 @@ static const std::unordered_map<std::string_view, Token> primitives = {
     {"f64x2", TOK_F64X2},
     {"f64x3", TOK_F64X3},
     {"f64x4", TOK_F64X4},
+    {"opaque", TOK_OPAQUE},
 };
 
 static std::string get_token_name(Token token) {

@@ -423,6 +423,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
         case Type::Variation::MULTI:
             // Multi types cannot contain type aliases
             break;
+        case Type::Variation::OPAQUE:
+            // Opaque types cannot contain other types
+            break;
         case Type::Variation::OPTIONAL: {
             auto *optional_type = type_to_resolve->as<OptionalType>();
             substitute_type_aliases(optional_type->base_type);

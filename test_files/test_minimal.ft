@@ -1,31 +1,17 @@
 use Core.print
 
-type Color u8x4
+//extern def create() -> Container;
+//extern def destroy(mut Container* c);
 
-data MyData:
-	i32 x = 10;
-	Color c = (10, 20, 30, 40);
-	Color c2 = Globals.WHITE;
-	MyData(x, c, c2);
-
-const data Globals:
-	Color WHITE = (245, 245, 245, 255);
+data Container:
+	opaque value;
+	u64 len;
+	Container(value, len);
 
 def main():
-	Color c = Globals.WHITE;
-	print($"c = {c}\n");
-
-	d0 := MyData(_);
-	print($"d0.x = {d0.x}\n");
-	print($"d0.c = {d0.c}\n");
-	print($"d0.c2 = {d0.c2}\n");
-
-	d1 := MyData(5, _);
-	print($"d1.x = {d1.x}\n");
-	print($"d1.c = {d1.c}\n");
-	print($"d1.c2 = {d1.c2}\n");
-
-	d2 := MyData(_, (40, 30, 20, 10), _);
-	print($"d2.x = {d2.x}\n");
-	print($"d2.c = {d2.c}\n");
-	print($"d2.c2 = {d2.c2}\n");
+	c := Container(null, 0);
+	print($"c.len = {c.len}\n");
+	//print($"c.value = {c.value}\n");
+	//c := create();
+	//print($"c.len = {c.len}\n");
+	//destroy(&c);

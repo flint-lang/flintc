@@ -273,6 +273,9 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     if (std::holds_alternative<LitU8>(literal_node->value)) {
         return std::vector<llvm::Value *>{builder.getInt8(std::get<LitU8>(literal_node->value).value)};
     }
+    if (std::holds_alternative<LitPtr>(literal_node->value)) {
+        return std::vector<llvm::Value *>{llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0))};
+    }
     if (std::holds_alternative<LitOptional>(literal_node->value)) {
         return std::vector<llvm::Value *>{builder.getInt1(false)};
     }
@@ -3453,6 +3456,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         }
     } else if (from_type_str == "void?") {
         // The 'none' literal
+        return IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+    } else if (from_type_str == "void*") {
+        // The 'null' literal
         return IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
     }
     switch (to_type->get_variation()) {

@@ -440,6 +440,13 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 LitValue lit_val = LitOptional{};
                 return LiteralNode(lit_val, opt_type.value());
             }
+            case TOK_NULL: {
+                std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
+                std::optional<std::shared_ptr<Type>> ptr_type = file_node_ptr->file_namespace->get_type_from_str("void*");
+                assert(ptr_type.has_value());
+                LitValue lit_val = LitPtr{};
+                return LiteralNode(lit_val, ptr_type.value());
+            }
             case TOK_INT_VALUE: {
                 APInt lit_int = APInt(lexme);
                 lit_int.is_negative = front_token == TOK_MINUS;

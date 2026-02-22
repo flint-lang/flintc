@@ -324,6 +324,7 @@ class Matcher {
         {TOK_F64X2, std::make_shared<TokenTypeMatcher>(TOK_F64X2)},
         {TOK_F64X3, std::make_shared<TokenTypeMatcher>(TOK_F64X3)},
         {TOK_F64X4, std::make_shared<TokenTypeMatcher>(TOK_F64X4)},
+        {TOK_OPAQUE, std::make_shared<TokenTypeMatcher>(TOK_OPAQUE)},
 
         // literals
         {TOK_STR_VALUE, std::make_shared<TokenTypeMatcher>(TOK_STR_VALUE)},
@@ -335,6 +336,7 @@ class Matcher {
         {TOK_TRUE, std::make_shared<TokenTypeMatcher>(TOK_TRUE)},
         {TOK_FALSE, std::make_shared<TokenTypeMatcher>(TOK_FALSE)},
         {TOK_NONE, std::make_shared<TokenTypeMatcher>(TOK_NONE)},
+        {TOK_NULL, std::make_shared<TokenTypeMatcher>(TOK_NULL)},
 
         // data keywords
         {TOK_DATA, std::make_shared<TokenTypeMatcher>(TOK_DATA)},
@@ -523,7 +525,7 @@ class Matcher {
     static const inline PatternPtr anytoken = std::make_shared<TokenTypeAnytoken>();
     static const inline PatternPtr type_prim = one_of({
         token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_I64), token(TOK_U64), //
-        token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL)                                             //
+        token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL), token(TOK_OPAQUE)                          //
     });
     static const inline PatternPtr type_prim_mult = one_of({
         token(TOK_BOOL8), token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),                                         //
@@ -532,7 +534,7 @@ class Matcher {
     });
     static const inline PatternPtr literal = one_of({
         token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
-        token(TOK_NONE) //
+        token(TOK_NONE), token(TOK_NULL) //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = one_of({

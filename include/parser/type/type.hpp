@@ -40,6 +40,7 @@ class Type {
         FUNC,
         GROUP,
         MULTI,
+        OPAQUE,
         OPTIONAL,
         POINTER,
         PRIMITIVE,

@@ -2,7 +2,9 @@
 
 #include "parser/type/array_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/opaque_type.hpp"
 #include "parser/type/optional_type.hpp"
+#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 
 #include <mutex>
@@ -32,6 +34,8 @@ void Type::init_types() {
     get_primitive_type("type.flint.default");
     std::shared_ptr<Type> void_type = get_primitive_type("void");
     add_type(std::make_shared<OptionalType>(void_type));
+    add_type(std::make_shared<PointerType>(void_type));
+    add_type(std::make_shared<OpaqueType>(std::nullopt));
     get_primitive_type("anyerror");
     get_primitive_type("int");
     get_primitive_type("float");

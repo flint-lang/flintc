@@ -141,6 +141,7 @@ enum Token {
     TOK_F64X2,
     TOK_F64X3,
     TOK_F64X4,
+    TOK_OPAQUE,
 
     // literals
     TOK_STR_VALUE,
@@ -152,6 +153,7 @@ enum Token {
     TOK_TRUE,
     TOK_FALSE,
     TOK_NONE,
+    TOK_NULL,
 
     // data keywords
     TOK_DATA,

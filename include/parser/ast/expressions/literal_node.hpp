@@ -33,6 +33,10 @@ struct LitVariantTag {
 /// @brief The structure representing optional literals ('none')
 struct LitOptional {};
 
+/// @struct `LitPtr`
+/// @brief The structure representing pointer literals (`null`)
+struct LitPtr {};
+
 /// @struct `LitInt`
 /// @brief The structure representing integer literals
 struct LitInt {
@@ -65,7 +69,7 @@ struct LitStr {
 
 /// @type `LitValue`
 /// @brief The type representing a literal value
-using LitValue = std::variant<LitEnum, LitError, LitVariantTag, LitOptional, LitInt, LitFloat, LitU8, LitBool, LitStr>;
+using LitValue = std::variant<LitEnum, LitError, LitVariantTag, LitOptional, LitPtr, LitInt, LitFloat, LitU8, LitBool, LitStr>;
 
 /// @class `LiteralNode`
 /// @brief Represents literal values
@@ -106,6 +110,9 @@ class LiteralNode : public ExpressionNode {
             value_clone = lit;
         } else if (std::holds_alternative<LitOptional>(value)) {
             const auto &lit = std::get<LitOptional>(value);
+            value_clone = lit;
+        } else if (std::holds_alternative<LitPtr>(value)) {
+            const auto &lit = std::get<LitPtr>(value);
             value_clone = lit;
         } else if (std::holds_alternative<LitInt>(value)) {
             const auto &lit = std::get<LitInt>(value);

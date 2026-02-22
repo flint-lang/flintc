@@ -762,14 +762,19 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
         }
         case Type::Variation::MULTI:
             break;
+        case Type::Variation::OPAQUE:
+            break;
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type_to_analyze->as<OptionalType>();
             result = analyze_type(ctx, optional_type->base_type);
             break;
         }
         case Type::Variation::POINTER: {
-            // const auto *pointer_type = type_to_analyze->as<PointerType>();
-            if (ctx.level == ContextLevel::INTERNAL || ctx.level == ContextLevel::CONST_DATA) {
+            // void* is allowed even in non-extern places because it's the type of the 'null' literal and cannot come up anywhere else in
+            // Flint, ever
+            if (type_to_analyze->to_string() != "void*"                                           //
+                && (ctx.level == ContextLevel::INTERNAL || ctx.level == ContextLevel::CONST_DATA) //
+            ) {
                 return Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT;
             }
             break;

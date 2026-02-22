@@ -5,6 +5,7 @@
 #include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
 #include "parser/type/alias_type.hpp"
+#include "parser/type/opaque_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
@@ -232,6 +233,13 @@ Parser::CastDirection Parser::check_primitive_castability( //
     } else if (lhs_str == "str" && rhs_str == "anyerror") {
         // The 'anyerror' Error can be cast to an string too obviously
         return CastDirection::rhs_to_lhs();
+    }
+
+    // Check if one side is a pointer type and the other is opaque
+    if (lhs_type->get_variation() == Type::Variation::OPAQUE && rhs_type->get_variation() == Type::Variation::POINTER) {
+        return CastDirection::rhs_to_lhs();
+    } else if (rhs_type->get_variation() == Type::Variation::OPAQUE && lhs_type->get_variation() == Type::Variation::POINTER) {
+        return CastDirection::lhs_to_rhs();
     }
 
     // Check if both sides are error variants and whether one error variant is the superset of the other one
@@ -860,6 +868,24 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             }
             expr = std::make_unique<TypeCastNode>(target_type, expr);
             return true;
+        }
+        case Type::Variation::OPAQUE: {
+            // Any named opaque can be cast to any unnamed opaque
+            // Any pointer can be cast to any opaque
+            const auto *opaque_type = target_type->as<OpaqueType>();
+            switch (expr->type->get_variation()) {
+                default:
+                    return false;
+                case Type::Variation::OPAQUE:
+                    if (opaque_type->name.has_value() || !expr->type->as<OpaqueType>()->name.has_value()) {
+                        return false;
+                    }
+                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    return true;
+                case Type::Variation::POINTER:
+                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    return true;
+            }
         }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = target_type->as<OptionalType>();
