@@ -69,8 +69,8 @@ def test_file_ok(str file, str? expected_output):
 ///                          then the output is not checked, only the exit code of the
 ///                          program is checked
 def test_file_ok_in(str path, str file, str? expected_output):
-    cwd := get_cwd();
-    normalized_path := get_path($"{cwd}/{path}");
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{path}");
 	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file}");
 	assert(exit_code == 0);
 	assert(output == "");
@@ -82,6 +82,39 @@ def test_file_ok_in(str path, str file, str? expected_output):
 		print($"UNEXPECTED_EXE: output = '{output}'\n");
 		print($"EXPECTED_EXE: output = '{expected_output!}'\n");
 	assert(output == expected_output!);
+
+/// @brief Compiles a given file and expects compilation to succeed. The compiled program
+///        is expected to start and end the given expected strings. This is mainly useful
+///        for programs which have a different output on different machines (like ptr hex
+///        values for example)
+///
+/// @param `path` The path in which to compile and execute the program
+/// @param `file` The file to compile
+/// @param `expected_output_start` The start of the expected output of the compiled program
+/// @param `expected_output_end` The end of the expected output of the compiled program
+def test_file_ok_in(str path, str file, str expected_output_start, str expected_output_end):
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{path}");
+	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command($"cd {normalized_path} && {get_path("./main")}");
+	assert(exit_code == 0);
+
+	if output.len < expected_output_start.len + expected_output_end.len:
+		print($"UNEXPECTED_EXE: output = '{output}'\n");
+		print($"EXPECTED_EXE: output(start..end) = '{expected_output_start}'\n..\n'{expected_output_end}'\n");
+	assert(output.len > expected_output_start.len + expected_output_end.len);
+
+	if output[0..expected_output_start.len] != expected_output_start:
+		print($"UNEXPECTED_EXE: output = '{output}'\n");
+		print($"EXPECTED_EXE: output(start..end) = '{expected_output_start}'\n..\n'{expected_output_end}'\n");
+	assert(output[0..expected_output_start.len] == expected_output_start);
+
+	if output[output.len - expected_output_end.len..] != expected_output_end:
+		print($"UNEXPECTED_EXE: output = '{output}'\n");
+		print($"EXPECTED_EXE: output(start..end) = '{expected_output_start}'\n..\n'{expected_output_end}'\n");
+	assert(output[output.len - expected_output_end.len..] == expected_output_end);
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is not executed.
@@ -103,8 +136,8 @@ def test_compiles(str file):
 /// @param `file` The file to compile
 /// @param `flags` Optional additional flags to compile with (for example `--flags="-lraylib"`)
 def test_compiles_in(str path, str file, str? flags):
-    cwd := get_cwd();
-    normalized_path := get_path($"{cwd}/{path}");
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{path}");
 	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file} {flags ?? ""}");
 	if exit_code != 0:
 		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
@@ -128,8 +161,8 @@ def test_file_fail(str file, str expected_output):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the failing compilation
 def test_file_fail_in(str path, str file, str expected_output):
-    cwd := get_cwd();
-    normalized_path := get_path($"{cwd}/{path}");
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{path}");
 	(exit_code, output) := system_command($"cd {normalized_path} && flintc --no-colors --file {file}");
 	assert(exit_code == 1);
 	assert(starts_with(output, expected_output));
@@ -145,7 +178,7 @@ def test_file_fail_in(str path, str file, str expected_output):
 def test_file_fail_in(u32 n, str path, str file, str expected_output):
 	assert(n >= 1);
 	cwd := get_cwd();
-    normalized_path := get_path($"{cwd}/{path}");
+	normalized_path := get_path($"{cwd}/{path}");
 	(exit_code, output) := system_command($"cd {normalized_path} && flintc --no-colors --file {file}");
 	assert(exit_code == 1);
 	u64 start_idx = 0;
