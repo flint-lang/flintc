@@ -570,16 +570,22 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 auto &fields = data_node->fields;
                 // Now check if the initializer arguments are equal to the expected initializer fields
                 if (fields.size() != arguments.size()) {
-                    if (arguments.empty() || arguments.size() > 1 || arguments.front().first->type->to_string() != "type.flint.default") {
+                    // If the last argument is a default node then *all* remaining fields will be default-constructed
+                    if (                                                                     //
+                        arguments.size() > fields.size()                                     //
+                        || arguments.empty()                                                 //
+                        || arguments.back().first->type->to_string() != "type.flint.default" //
+                    ) {
                         // Mismatch between number of initializer values and expected field count
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    // It's a single default-initializer for the entire data type, meaning that *all* fields need to be default-constructed
-                    assert(arguments.size() == 1);
-                    assert(arguments.front().first->type->to_string() == "type.flint.default");
-                    for (size_t i = 1; i < fields.size(); i++) {
-                        arguments.emplace_back(arguments.front().first->clone(), false);
+                    // It's a single default-initializer at the end of the initializer list, so we fill all remaining initializers with the
+                    // default initializer
+                    assert(arguments.size() >= 1);
+                    assert(arguments.back().first->type->to_string() == "type.flint.default");
+                    for (size_t i = arguments.size(); i < fields.size(); i++) {
+                        arguments.emplace_back(arguments.at(i - 1).first->clone(), false);
                     }
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {

@@ -15,12 +15,17 @@ def main():
 	Color c = Globals.WHITE;
 	print($"c = {c}\n");
 
-	d := MyData(_, _, _);
-	print($"d.x = {d.x}\n");
-	print($"d.c = {d.c}\n");
-	print($"d.c2 = {d.c2}\n");
+	d0 := MyData(_);
+	print($"d0.x = {d0.x}\n");
+	print($"d0.c = {d0.c}\n");
+	print($"d0.c2 = {d0.c2}\n");
 
-	d2 := MyData(_);
+	d1 := MyData(5, _);
+	print($"d1.x = {d1.x}\n");
+	print($"d1.c = {d1.c}\n");
+	print($"d1.c2 = {d1.c2}\n");
+
+	d2 := MyData(_, (40, 30, 20, 10), _);
 	print($"d2.x = {d2.x}\n");
 	print($"d2.c = {d2.c}\n");
 	print($"d2.c2 = {d2.c2}\n");
