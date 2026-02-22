@@ -41,6 +41,7 @@ unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
+OpaqueLeakMode opaque_leak_mode = OpaqueLeakMode::PRINT;
 OptionalUnwrapMode opt_unwrap_mode = OptionalUnwrapMode::CRASH;
 VariantUnwrapMode var_unwrap_mode = VariantUnwrapMode::CRASH;
 

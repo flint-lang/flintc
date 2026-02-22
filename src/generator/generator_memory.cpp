@@ -1,6 +1,9 @@
 #include "generator/generator.hpp"
 
+#include "globals.hpp"
 #include "parser/parser.hpp"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
 
 const std::string prefix = "flint.";
 
@@ -68,7 +71,8 @@ void Generator::Memory::generate_free_value( //
             llvm::Value *arr_value = arr_value_ptr;
             const bool base_is_array = array_type->type->get_variation() == Type::Variation::ARRAY;
             const bool base_is_str = array_type->type->to_string() == "str";
-            if (element_type_pair.second.first || base_is_array || base_is_str) {
+            const bool base_is_opaque = array_type->type->get_variation() == Type::Variation::OPAQUE;
+            if (element_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 arr_value = IR::aligned_load(*builder, element_type, arr_value_ptr, "arr_value");
             }
             if (array_type->type->get_variation() == Type::Variation::DATA) {
@@ -103,7 +107,8 @@ void Generator::Memory::generate_free_value( //
                 llvm::Value *data_field = data_field_ptr;
                 const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
                 const bool field_is_str = field.type->to_string() == "str";
-                if (field_type_pair.second.first || field_is_array || field_is_str) {
+                const bool field_is_opaque = field.type->get_variation() == Type::Variation::OPAQUE;
+                if (field_type_pair.second.first || field_is_array || field_is_str || field_is_opaque) {
                     llvm::Type *field_type_ptr = field_type_pair.first->getPointerTo();
                     data_field = IR::aligned_load(                                           //
                         *builder, field_type_ptr, data_field_ptr, "data_field_" + field.name //
@@ -155,6 +160,35 @@ void Generator::Memory::generate_free_value( //
             builder->CreateCall(free_fn, {value});
             break;
         }
+        case Type::Variation::OPAQUE: {
+            assert(opaque_leak_mode != OpaqueLeakMode::SILENT);
+            llvm::Function *const abort_fn = c_functions.at(ABORT);
+            llvm::Function *const printf_fn = c_functions.at(PRINTF);
+            llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0));
+
+            // We simply check if the opaque value is null, and if it is not then we throw an error and abort
+            llvm::BasicBlock *const curr_block = builder->GetInsertBlock();
+            llvm::BasicBlock *const opaque_leaks_block = llvm::BasicBlock::Create(context, "opaque_leaks", curr_block->getParent());
+            llvm::BasicBlock *const opaque_merge_block = llvm::BasicBlock::Create(context, "opaque_merge", curr_block->getParent());
+
+            builder->SetInsertPoint(curr_block);
+            llvm::Value *is_null = builder->CreateICmpEQ(value, nullpointer, "is_null");
+            builder->CreateCondBr(is_null, opaque_merge_block, opaque_leaks_block);
+
+            builder->SetInsertPoint(opaque_leaks_block);
+            llvm::Value *leak_msg = IR::generate_const_string(module, "Error: Leaking memory!\n");
+            builder->CreateCall(printf_fn, {leak_msg});
+            if (opaque_leak_mode == OpaqueLeakMode::CRASH) {
+                builder->CreateCall(abort_fn, {});
+                builder->CreateUnreachable();
+            } else {
+                assert(opaque_leak_mode == OpaqueLeakMode::PRINT);
+                builder->CreateBr(opaque_merge_block);
+            }
+
+            builder->SetInsertPoint(opaque_merge_block);
+            break;
+        }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             assert(optional_type->base_type->is_freeable());
@@ -182,7 +216,8 @@ void Generator::Memory::generate_free_value( //
             llvm::Value *opt_value = opt_value_ptr;
             const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
             const bool base_is_str = optional_type->base_type->to_string() == "str";
-            if (base_type_pair.second.first || base_is_array || base_is_str) {
+            const bool base_is_opaque = optional_type->base_type->get_variation() == Type::Variation::OPAQUE;
+            if (base_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 opt_value = IR::aligned_load(*builder, base_type_pair.first->getPointerTo(), opt_value_ptr, "opt_value");
             }
             if (optional_type->base_type->get_variation() == Type::Variation::DATA) {
@@ -210,7 +245,8 @@ void Generator::Memory::generate_free_value( //
                 llvm::Value *elem_ptr = builder->CreateStructGEP(tuple_struct_type, value, i, "elem_ptr");
                 const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
                 const bool elem_is_str = elem_type->to_string() == "str";
-                if (elem_type_pair.second.first || elem_is_array || elem_is_str) {
+                const bool elem_is_opaque = elem_type->get_variation() == Type::Variation::OPAQUE;
+                if (elem_type_pair.second.first || elem_is_array || elem_is_str || elem_is_opaque) {
                     elem_ptr = IR::aligned_load(*builder, elem_type_pair.first->getPointerTo(), elem_ptr, "elem");
                 }
                 if (elem_type->get_variation() == Type::Variation::DATA) {
@@ -274,7 +310,8 @@ void Generator::Memory::generate_free_value( //
                     llvm::Value *variant_value = variant_value_ptr;
                     const bool value_is_array = variant_type_ptr->get_variation() == Type::Variation::ARRAY;
                     const bool value_is_str = variant_type_ptr->to_string() == "str";
-                    if (value_type.second.first || value_is_array || value_is_str) {
+                    const bool value_is_opaque = variant_type_ptr->get_variation() == Type::Variation::OPAQUE;
+                    if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {
                         variant_value = IR::aligned_load(                                                  //
                             *builder, value_type.first->getPointerTo(), variant_value_ptr, "variant_value" //
                         );
@@ -433,7 +470,8 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *arr_value = arr_value_ptr;
             const bool base_is_array = array_type->type->get_variation() == Type::Variation::ARRAY;
             const bool base_is_str = array_type->type->to_string() == "str";
-            if (elem_type_pair.second.first || base_is_array || base_is_str) {
+            const bool base_is_opaque = array_type->type->get_variation() == Type::Variation::OPAQUE;
+            if (elem_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 arr_value = IR::aligned_load(*builder, elem_type, arr_value_ptr, "arr_value");
             }
             llvm::Value *new_arr_value_ptr = builder->CreateGEP(elem_type, new_value_ptr, idx_value, "new_arr_value_ptr");
@@ -462,7 +500,8 @@ void Generator::Memory::generate_clone_value( //
                 llvm::Type *field_type_ptr = field_type_pair.first;
                 const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
                 const bool field_is_str = field.type->to_string() == "str";
-                if (field_type_pair.second.first || field_is_array || field_is_str) {
+                const bool field_is_opaque = field.type->get_variation() == Type::Variation::OPAQUE;
+                if (field_type_pair.second.first || field_is_array || field_is_str || field_is_opaque) {
                     field_type_ptr = field_type_ptr->getPointerTo();
                     field_src = IR::aligned_load(*builder, field_type_ptr, field_src_ptr, "src_data_field_" + field.name);
                 }
@@ -522,6 +561,10 @@ void Generator::Memory::generate_clone_value( //
             IR::aligned_store(*builder, new_str, dest);
             break;
         }
+        case Type::Variation::OPAQUE: {
+            IR::aligned_store(*builder, src, dest);
+            break;
+        }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             assert(optional_type->base_type->is_freeable());
@@ -552,7 +595,8 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *opt_value = opt_value_ptr;
             const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
             const bool base_is_str = optional_type->base_type->to_string() == "str";
-            if (base_type_pair.second.first || base_is_array || base_is_str) {
+            const bool base_is_opaque = optional_type->base_type->get_variation() == Type::Variation::OPAQUE;
+            if (base_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 opt_value = IR::aligned_load(*builder, base_type_pair.first->getPointerTo(), opt_value_ptr, "opt_value");
             }
             llvm::Value *dest_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 1, "dest_value_ptr");
@@ -587,7 +631,8 @@ void Generator::Memory::generate_clone_value( //
                 }
                 const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
                 const bool elem_is_str = elem_type->to_string() == "str";
-                if (elem_type_pair.second.first || elem_is_array || elem_is_str) {
+                const bool elem_is_opaque = elem_type->get_variation() == Type::Variation::OPAQUE;
+                if (elem_type_pair.second.first || elem_is_array || elem_is_str || elem_is_opaque) {
                     src_elem_ptr = IR::aligned_load(*builder, elem_type_pair.first->getPointerTo(), src_elem_ptr, "src_elem");
                 }
                 builder->CreateCall(memory_functions.at("clone"), {src_elem_ptr, dest_elem_ptr, builder->getInt32(elem_type->get_id())});
@@ -644,7 +689,8 @@ void Generator::Memory::generate_clone_value( //
                     llvm::Value *variant_value = variant_value_ptr;
                     const bool value_is_array = variant_type_ptr->get_variation() == Type::Variation::ARRAY;
                     const bool value_is_str = variant_type_ptr->to_string() == "str";
-                    if (value_type.second.first || value_is_array || value_is_str) {
+                    const bool value_is_opaque = variant_type_ptr->get_variation() == Type::Variation::OPAQUE;
+                    if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {
                         variant_value = IR::aligned_load(                                                  //
                             *builder, value_type.first->getPointerTo(), variant_value_ptr, "variant_value" //
                         );

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "globals.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -17,7 +18,9 @@ class OpaqueType : public Type {
     }
 
     bool is_freeable() const override {
-        return false;
+        // Any opaque is "freeable" because of leak-detection logic. The value itself actually is *not* freed
+        // If the leak mode is silent then the code path for leak detection is never emitted at all
+        return opaque_leak_mode != OpaqueLeakMode::SILENT;
     }
 
     Hash get_hash() const override {

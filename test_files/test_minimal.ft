@@ -8,8 +8,10 @@ def main():
 
 	con := create();
 	if con.value == null:
-		print("c.value is null\n");
+		print("con.value is null\n");
 	else:
-		print("c.value points to something\n");
-	print($"c.len = {con.len}\n");
-	destroy(&con);
+		print("con.value points to something\n");
+	print($"con.len = {con.len}\n");
+	//destroy(&con);
+	if con.value == null:
+		print("con.value was properly freed\n");

@@ -581,7 +581,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return {vector_type, {false, false}};
         }
         case Type::Variation::OPAQUE:
-            return {llvm::PointerType::get(context, 0), {false, false}};
+            return {llvm::PointerType::get(context, 0), {false, true}};
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             const std::string opt_str = type->get_type_string();

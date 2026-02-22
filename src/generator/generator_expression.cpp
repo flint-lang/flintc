@@ -1866,9 +1866,10 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                         }
                     }
                 }
+                const bool is_opaque = arg_expr->type->get_variation() == Type::Variation::OPAQUE;
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
-                if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice) {
+                if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice || is_opaque) {
                     IR::aligned_store(builder, expr_val, field_ptr);
                     continue;
                 }
