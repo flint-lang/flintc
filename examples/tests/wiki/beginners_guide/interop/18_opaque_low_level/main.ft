@@ -1,0 +1,9 @@
+use Core.print
+use Fip.c
+
+def main():
+    opaque ptr = malloc(100);
+    if ptr != null:
+        print($"allocation of {100} bytes successful\n");
+    free(ptr);
+    print("freeing of ptr successful\n");

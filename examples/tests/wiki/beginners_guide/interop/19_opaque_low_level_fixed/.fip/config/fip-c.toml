@@ -1,0 +1,4 @@
+[c]
+headers = ["extern.c"]
+sources = ["extern.c"]
+command = ["gcc", "-c", "__SOURCES__", "-o", "__OUTPUT__"]

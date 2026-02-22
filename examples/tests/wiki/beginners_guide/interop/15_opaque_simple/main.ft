@@ -1,0 +1,12 @@
+use Core.print
+use Fip.c
+
+def main():
+    c := Container(null, 0);
+    print($"c.value = {c.value}\n");
+    print($"c.len = {c.len}\n");
+
+    con := create();
+    print($"con.value = {con.value}\n");
+    print($"con.len = {con.len}\n");
+    destroy(&con);

@@ -1,0 +1,16 @@
+use Core.print
+use Fip.c
+
+def main():
+    c := Container(null, 0);
+    print($"c.value = {c.value}\n");
+    print($"c.len = {c.len}\n");
+
+    con := create();
+    if con.value == null:
+        print("con.value is null\n");
+    else:
+        print("con.value points to something\n");
+    print($"con.len = {con.len}\n");
+    if con.value == null:
+        print("con.value was properly freed\n");

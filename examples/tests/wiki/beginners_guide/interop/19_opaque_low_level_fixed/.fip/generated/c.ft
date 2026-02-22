@@ -1,0 +1,2 @@
+extern def malloc(mut u64 n) -> opaque;
+extern def free(mut opaque ptr);
