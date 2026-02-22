@@ -302,6 +302,14 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             }
             return true;
         }
+        case Type::Variation::OPAQUE: {
+            dest->type = FIP_TYPE_PTR;
+            dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+            dest->u.ptr.base_type->type = FIP_TYPE_PRIMITIVE;
+            dest->u.ptr.base_type->is_mutable = true;
+            dest->u.ptr.base_type->u.prim = FIP_VOID;
+            return true;
+        }
         case Type::Variation::POINTER: {
             const auto *type = src->as<PointerType>();
             // A pointer type is essentially just the base type encoded but with a pointer type tag.
@@ -718,9 +726,8 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
                 generate_fip_type(type->u.ptr.base_type->u.ptr.base_type, file, is_fn_type);
                 file << "[]";
             } else if (type->u.ptr.base_type->type == FIP_TYPE_PRIMITIVE && type->u.ptr.base_type->u.prim == FIP_VOID) {
-                // The `void*` type resolves to `u8[]` in Flint, for now
-                // TODO: How should we handle anyopaque pointers in Flint?
-                file << "u8[]";
+                // The `void*` type resolves to `opaque` in Flint
+                file << "opaque";
             } else if (is_fn_type) {
                 generate_fip_type(type->u.ptr.base_type, file, is_fn_type);
                 file << "*";

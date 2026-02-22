@@ -1,17 +1,19 @@
 use Core.print
 
-//extern def create() -> Container;
-//extern def destroy(mut Container* c);
-
 data Container:
 	opaque value;
 	u64 len;
 	Container(value, len);
 
+extern def create() -> Container;
+extern def destroy(mut Container* c);
+
 def main():
 	c := Container(null, 0);
 	print($"c.value = {c.value}\n");
 	print($"c.len = {c.len}\n");
-	//c := create();
-	//print($"c.len = {c.len}\n");
-	//destroy(&c);
+
+	con := create();
+	print($"c.value = {con.value}\n");
+	print($"c.len = {con.len}\n");
+	destroy(&con);
