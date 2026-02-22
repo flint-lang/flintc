@@ -296,7 +296,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         std::pair<llvm::Type *, std::pair<bool, bool>> variable_type = IR::get_type(ctx.parent->getParent(), var_type);
         const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY;
         const bool var_is_str = var_type->to_string() == "str";
-        if ((variable_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
+        const bool var_is_opaque = var_type->get_variation() == Type::Variation::OPAQUE;
+        if ((variable_type.second.first || var_is_array || var_is_str || var_is_opaque) && !variable.is_fn_param) {
             llvm::Type *type_to_load = variable_type.second.first ? variable_type.first->getPointerTo() : variable_type.first;
             variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
         }
