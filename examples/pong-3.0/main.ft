@@ -26,10 +26,11 @@ def reset_objects(mut Ball ball, mut Cpu p1, mut Player p2):
 def main():
 	// Screen
 	i32x2 screen = (1280, 800);
-	u32 flags = 4; // Enable Screen Resizable mode
-	flags += 64; // Enable Vsync
+	u32 flags = u32(ConfigFlags.FLAG_WINDOW_RESIZABLE);
+	flags += u32(ConfigFlags.FLAG_VSYNC_HINT);
 	SetConfigFlags(flags);
 	InitWindow(screen.x, screen.y, "Pong-3.0");
+	SetTargetFPS(60);
 
 	// Objects
 	i32x2 player_size = (24, 120);
