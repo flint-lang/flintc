@@ -1,4 +1,5 @@
-use "raylib.ft"
+use Fip.raylib
+
 use "player.ft"
 use "ball.ft"
 

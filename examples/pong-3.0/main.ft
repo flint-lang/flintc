@@ -2,11 +2,21 @@ use Core.print
 use Core.math
 use Core.time
 
-use "raylib.ft"
+use Fip.raylib
+
 use "ball.ft"
 use "player.ft"
 use "cpu.ft"
 use "collisions.ft"
+
+const data Colors:
+	Color black = Color(0, 0, 0, 255);
+	Color white = Color(190, 190, 190, 255);
+	Color gray = Color(100, 100, 100, 255);
+	Color green = Color(38, 185, 154, 255);
+	Color dark_green = Color(20, 160, 133, 255);
+	Color light_green = Color(129, 204, 184, 255);
+	Color yellow = Color(243, 213, 91, 255);
 
 def reset_objects(mut Ball ball, mut Cpu p1, mut Player p2):
 	ball.reset();
@@ -14,15 +24,6 @@ def reset_objects(mut Ball ball, mut Cpu p1, mut Player p2):
 	p2.reset();
 
 def main():
-	// Colors
-	DColor black = DColor(u8(0), u8(0), u8(0), u8(255));
-	DColor white = DColor(u8(190), u8(190), u8(190), u8(255));
-	DColor gray = DColor(u8(100), u8(100), u8(100), u8(255));
-	DColor green = DColor(u8(38), u8(185), u8(154), u8(255));
-	DColor dark_green = DColor(u8(20), u8(160), u8(133), u8(255));
-	DColor light_green = DColor(u8(129), u8(204), u8(184), u8(255));
-	DColor yellow = DColor(u8(243), u8(213), u8(91), u8(255));
-
 	// Screen
 	i32x2 screen = (1280, 800);
 	u32 flags = 4; // Enable Screen Resizable mode
@@ -32,9 +33,9 @@ def main():
 
 	// Objects
 	i32x2 player_size = (24, 120);
-	Ball ball = Ball(DBall(f32x2(0, 0), f32x2(0, 0), 0.0, 20.0, yellow));
-	Cpu p1 = Cpu(DPlayer(player_size, f32x2(0, 0), 370.0, white));
-	Player p2 = Player(DPlayer(player_size, f32x2(0, 0), 370.0, white));
+	Ball ball = Ball(DBall(f32x2(0, 0), f32x2(0, 0), 0.0, 20.0));
+	Cpu p1 = Cpu(DPlayer(player_size, f32x2(0, 0), 370.0));
+	Player p2 = Player(DPlayer(player_size, f32x2(0, 0), 370.0));
 	reset_objects(ball, p1, p2);
 
 
@@ -45,9 +46,9 @@ def main():
 	while not WindowShouldClose():
 		screen = (GetScreenWidth(), GetScreenHeight());
 		BeginDrawing();
-		ClearBackground(dark_green);
-		DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, green);
-		DrawCircle(screen.x / 2, screen.y / 2, 150.0, light_green);
+		ClearBackground(Colors.dark_green);
+		DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, Colors.green);
+		DrawCircle(screen.x / 2, screen.y / 2, 150.0, Colors.light_green);
 
 		// Update the game objects
 		TimeStamp current_frame = now();
@@ -70,14 +71,14 @@ def main():
 			player_score++;
 
 		// Drawing stuff
-		DrawLine(screen.x / 2, 0, screen.x / 2, screen.y, white);
+		DrawLine(screen.x / 2, 0, screen.x / 2, screen.y, Colors.white);
 		ball.draw();
 		p1.draw();
 		p2.draw();
 
 		// Draw UI
-		DrawText(str(cpu_score), screen.x / 4, 20, 60, white);
-		DrawText(str(player_score), (screen.x * 3) / 4, 20, 60, white);
+		DrawText(str(cpu_score), screen.x / 4, 20, 60, Colors.white);
+		DrawText(str(player_score), (screen.x * 3) / 4, 20, 60, Colors.white);
 		EndDrawing();
 
 	CloseWindow();

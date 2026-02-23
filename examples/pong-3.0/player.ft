@@ -1,6 +1,8 @@
 use Core.print
 
-use "raylib.ft"
+use Fip.raylib
+
+use "main.ft"
 use "ball.ft"
 
 data DPlayer:
@@ -8,8 +10,7 @@ data DPlayer:
 	// The position of the player is the center of the rectangle
 	f32x2 pos;
 	f32 speed;
-	DColor color;
-	DPlayer(size, pos, speed, color);
+	DPlayer(size, pos, speed);
 
 func FPlayer requires(DPlayer player):
 	def draw():
@@ -17,8 +18,8 @@ func FPlayer requires(DPlayer player):
 		// width and the height of the player
 		i32 render_pos_x = i32(player.pos.x) - (player.size.x / 2);
 		i32 render_pos_y = i32(player.pos.y) - (player.size.y / 2);
-		DRectangle rec = DRectangle(render_pos_x, render_pos_y, player.size.x, player.size.y);
-		DrawRectangleRounded(rec, 0.8, 0, player.color);
+		Rectangle rec = Rectangle(render_pos_x, render_pos_y, player.size.x, player.size.y);
+		DrawRectangleRounded(rec, 0.8, 0, Colors.white);
 
 	def get_x() -> f32:
 		return player.pos.x;

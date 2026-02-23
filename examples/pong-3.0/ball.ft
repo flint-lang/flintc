@@ -1,6 +1,7 @@
 use Core.math
+use Fip.raylib
 
-use "raylib.ft"
+use "main.ft"
 use "player.ft"
 use "cpu.ft"
 
@@ -9,8 +10,7 @@ data DBall:
 	f32x2 dir;
 	f32 speed;
 	f32 radius;
-	DColor color;
-	DBall(pos, dir, speed, radius, color);
+	DBall(pos, dir, speed, radius);
 
 func FBall requires(DBall ball):
 	def get_x() -> f32:
@@ -23,7 +23,7 @@ func FBall requires(DBall ball):
 		return ball.radius;
 
 	def draw():
-		DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, ball.color);
+		DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, Colors.yellow);
 
 	def update(f32 delta):
 		ball.pos = ball.pos + ball.dir * (delta * ball.speed, delta * ball.speed);

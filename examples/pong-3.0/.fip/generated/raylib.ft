@@ -1,0 +1,991 @@
+type Vector2 f32x2
+type Vector3 f32x3
+type Vector4 f32x4
+data Matrix:
+	f32 m0;
+	f32 m4;
+	f32 m8;
+	f32 m12;
+	f32 m1;
+	f32 m5;
+	f32 m9;
+	f32 m13;
+	f32 m2;
+	f32 m6;
+	f32 m10;
+	f32 m14;
+	f32 m3;
+	f32 m7;
+	f32 m11;
+	f32 m15;
+	Matrix(m0, m4, m8, m12, m1, m5, m9, m13, m2, m6, m10, m14, m3, m7, m11, m15);
+
+type Color u8x4
+type Rectangle f32x4
+data Image:
+	opaque _data;
+	i32 width;
+	i32 height;
+	i32 mipmaps;
+	i32 format;
+	Image(_data, width, height, mipmaps, format);
+
+data Texture:
+	u32 id;
+	i32 width;
+	i32 height;
+	i32 mipmaps;
+	i32 format;
+	Texture(id, width, height, mipmaps, format);
+
+data RenderTexture:
+	u32 id;
+	Texture texture;
+	Texture depth;
+	RenderTexture(id, texture, depth);
+
+data NPatchInfo:
+	Rectangle source;
+	i32 left;
+	i32 top;
+	i32 right;
+	i32 bottom;
+	i32 layout;
+	NPatchInfo(source, left, top, right, bottom, layout);
+
+data GlyphInfo:
+	i32 value;
+	i32 offsetX;
+	i32 offsetY;
+	i32 advanceX;
+	Image image;
+	GlyphInfo(value, offsetX, offsetY, advanceX, image);
+
+data Font:
+	i32 baseSize;
+	i32 glyphCount;
+	i32 glyphPadding;
+	Texture texture;
+	Rectangle recs;
+	GlyphInfo glyphs;
+	Font(baseSize, glyphCount, glyphPadding, texture, recs, glyphs);
+
+data Camera3D:
+	Vector3 position;
+	Vector3 target;
+	Vector3 up;
+	f32 fovy;
+	i32 projection;
+	Camera3D(position, target, up, fovy, projection);
+
+data Camera2D:
+	Vector2 offset;
+	Vector2 target;
+	f32 rotation;
+	f32 zoom;
+	Camera2D(offset, target, rotation, zoom);
+
+data Mesh:
+	i32 vertexCount;
+	i32 triangleCount;
+	f32 vertices;
+	f32 texcoords;
+	f32 texcoords2;
+	f32 normals;
+	f32 tangents;
+	u8 colors;
+	u16 indices;
+	f32 animVertices;
+	f32 animNormals;
+	u8 boneIds;
+	f32 boneWeights;
+	Matrix boneMatrices;
+	i32 boneCount;
+	u32 vaoId;
+	u32 vboId;
+	Mesh(vertexCount, triangleCount, vertices, texcoords, texcoords2, normals, tangents, colors, indices, animVertices, animNormals, boneIds, boneWeights, boneMatrices, boneCount, vaoId, vboId);
+
+data Shader:
+	u32 id;
+	i32 locs;
+	Shader(id, locs);
+
+data MaterialMap:
+	Texture texture;
+	Color color;
+	f32 value;
+	MaterialMap(texture, color, value);
+
+data Transform:
+	Vector3 translation;
+	Vector4 rotation;
+	Vector3 scale;
+	Transform(translation, rotation, scale);
+
+data Ray:
+	Vector3 position;
+	Vector3 direction;
+	Ray(position, direction);
+
+data RayCollision:
+	bool hit;
+	f32 distance;
+	Vector3 point;
+	Vector3 normal;
+	RayCollision(hit, distance, point, normal);
+
+data BoundingBox:
+	Vector3 min;
+	Vector3 max;
+	BoundingBox(min, max);
+
+data Wave:
+	u32 frameCount;
+	u32 sampleRate;
+	u32 sampleSize;
+	u32 channels;
+	opaque _data;
+	Wave(frameCount, sampleRate, sampleSize, channels, _data);
+
+data FilePathList:
+	u32 capacity;
+	u32 count;
+	str paths;
+	FilePathList(capacity, count, paths);
+
+enum ConfigFlags:
+	FLAG_VSYNC_HINT = 64,
+	FLAG_FULLSCREEN_MODE = 2,
+	FLAG_WINDOW_RESIZABLE = 4,
+	FLAG_WINDOW_UNDECORATED = 8,
+	FLAG_WINDOW_HIDDEN = 128,
+	FLAG_WINDOW_MINIMIZED = 512,
+	FLAG_WINDOW_MAXIMIZED = 1024,
+	FLAG_WINDOW_UNFOCUSED = 2048,
+	FLAG_WINDOW_TOPMOST = 4096,
+	FLAG_WINDOW_ALWAYS_RUN = 256,
+	FLAG_WINDOW_TRANSPARENT = 16,
+	FLAG_WINDOW_HIGHDPI = 8192,
+	FLAG_WINDOW_MOUSE_PASSTHROUGH = 16384,
+	FLAG_BORDERLESS_WINDOWED_MODE = 32768,
+	FLAG_MSAA_4X_HINT = 32,
+	FLAG_INTERLACED_HINT = 65536;
+
+enum TraceLogLevel:
+	LOG_ALL = 0,
+	LOG_TRACE = 1,
+	LOG_DEBUG = 2,
+	LOG_INFO = 3,
+	LOG_WARNING = 4,
+	LOG_ERROR = 5,
+	LOG_FATAL = 6,
+	LOG_NONE = 7;
+
+enum KeyboardKey:
+	KEY_NULL = 0,
+	KEY_APOSTROPHE = 39,
+	KEY_COMMA = 44,
+	KEY_MINUS = 45,
+	KEY_PERIOD = 46,
+	KEY_SLASH = 47,
+	KEY_ZERO = 48,
+	KEY_ONE = 49,
+	KEY_TWO = 50,
+	KEY_THREE = 51,
+	KEY_FOUR = 52,
+	KEY_FIVE = 53,
+	KEY_SIX = 54,
+	KEY_SEVEN = 55,
+	KEY_EIGHT = 56,
+	KEY_NINE = 57,
+	KEY_SEMICOLON = 59,
+	KEY_EQUAL = 61,
+	KEY_A = 65,
+	KEY_B = 66,
+	KEY_C = 67,
+	KEY_D = 68,
+	KEY_E = 69,
+	KEY_F = 70,
+	KEY_G = 71,
+	KEY_H = 72,
+	KEY_I = 73,
+	KEY_J = 74,
+	KEY_K = 75,
+	KEY_L = 76,
+	KEY_M = 77,
+	KEY_N = 78,
+	KEY_O = 79,
+	KEY_P = 80,
+	KEY_Q = 81,
+	KEY_R = 82,
+	KEY_S = 83,
+	KEY_T = 84,
+	KEY_U = 85,
+	KEY_V = 86,
+	KEY_W = 87,
+	KEY_X = 88,
+	KEY_Y = 89,
+	KEY_Z = 90,
+	KEY_LEFT_BRACKET = 91,
+	KEY_BACKSLASH = 92,
+	KEY_RIGHT_BRACKET = 93,
+	KEY_GRAVE = 96,
+	KEY_SPACE = 32,
+	KEY_ESCAPE = 256,
+	KEY_ENTER = 257,
+	KEY_TAB = 258,
+	KEY_BACKSPACE = 259,
+	KEY_INSERT = 260,
+	KEY_DELETE = 261,
+	KEY_RIGHT = 262,
+	KEY_LEFT = 263,
+	KEY_DOWN = 264,
+	KEY_UP = 265,
+	KEY_PAGE_UP = 266,
+	KEY_PAGE_DOWN = 267,
+	KEY_HOME = 268,
+	KEY_END = 269,
+	KEY_CAPS_LOCK = 280,
+	KEY_SCROLL_LOCK = 281,
+	KEY_NUM_LOCK = 282,
+	KEY_PRINT_SCREEN = 283,
+	KEY_PAUSE = 284,
+	KEY_F1 = 290,
+	KEY_F2 = 291,
+	KEY_F3 = 292,
+	KEY_F4 = 293,
+	KEY_F5 = 294,
+	KEY_F6 = 295,
+	KEY_F7 = 296,
+	KEY_F8 = 297,
+	KEY_F9 = 298,
+	KEY_F10 = 299,
+	KEY_F11 = 300,
+	KEY_F12 = 301,
+	KEY_LEFT_SHIFT = 340,
+	KEY_LEFT_CONTROL = 341,
+	KEY_LEFT_ALT = 342,
+	KEY_LEFT_SUPER = 343,
+	KEY_RIGHT_SHIFT = 344,
+	KEY_RIGHT_CONTROL = 345,
+	KEY_RIGHT_ALT = 346,
+	KEY_RIGHT_SUPER = 347,
+	KEY_KB_MENU = 348,
+	KEY_KP_0 = 320,
+	KEY_KP_1 = 321,
+	KEY_KP_2 = 322,
+	KEY_KP_3 = 323,
+	KEY_KP_4 = 324,
+	KEY_KP_5 = 325,
+	KEY_KP_6 = 326,
+	KEY_KP_7 = 327,
+	KEY_KP_8 = 328,
+	KEY_KP_9 = 329,
+	KEY_KP_DECIMAL = 330,
+	KEY_KP_DIVIDE = 331,
+	KEY_KP_MULTIPLY = 332,
+	KEY_KP_SUBTRACT = 333,
+	KEY_KP_ADD = 334,
+	KEY_KP_ENTER = 335,
+	KEY_KP_EQUAL = 336,
+	KEY_BACK = 4,
+	KEY_MENU = 5,
+	KEY_VOLUME_UP = 24,
+	KEY_VOLUME_DOWN = 25;
+
+enum MouseButton:
+	MOUSE_BUTTON_LEFT = 0,
+	MOUSE_BUTTON_RIGHT = 1,
+	MOUSE_BUTTON_MIDDLE = 2,
+	MOUSE_BUTTON_SIDE = 3,
+	MOUSE_BUTTON_EXTRA = 4,
+	MOUSE_BUTTON_FORWARD = 5,
+	MOUSE_BUTTON_BACK = 6;
+
+enum MouseCursor:
+	MOUSE_CURSOR_DEFAULT = 0,
+	MOUSE_CURSOR_ARROW = 1,
+	MOUSE_CURSOR_IBEAM = 2,
+	MOUSE_CURSOR_CROSSHAIR = 3,
+	MOUSE_CURSOR_POINTING_HAND = 4,
+	MOUSE_CURSOR_RESIZE_EW = 5,
+	MOUSE_CURSOR_RESIZE_NS = 6,
+	MOUSE_CURSOR_RESIZE_NWSE = 7,
+	MOUSE_CURSOR_RESIZE_NESW = 8,
+	MOUSE_CURSOR_RESIZE_ALL = 9,
+	MOUSE_CURSOR_NOT_ALLOWED = 10;
+
+enum GamepadButton:
+	GAMEPAD_BUTTON_UNKNOWN = 0,
+	GAMEPAD_BUTTON_LEFT_FACE_UP = 1,
+	GAMEPAD_BUTTON_LEFT_FACE_RIGHT = 2,
+	GAMEPAD_BUTTON_LEFT_FACE_DOWN = 3,
+	GAMEPAD_BUTTON_LEFT_FACE_LEFT = 4,
+	GAMEPAD_BUTTON_RIGHT_FACE_UP = 5,
+	GAMEPAD_BUTTON_RIGHT_FACE_RIGHT = 6,
+	GAMEPAD_BUTTON_RIGHT_FACE_DOWN = 7,
+	GAMEPAD_BUTTON_RIGHT_FACE_LEFT = 8,
+	GAMEPAD_BUTTON_LEFT_TRIGGER_1 = 9,
+	GAMEPAD_BUTTON_LEFT_TRIGGER_2 = 10,
+	GAMEPAD_BUTTON_RIGHT_TRIGGER_1 = 11,
+	GAMEPAD_BUTTON_RIGHT_TRIGGER_2 = 12,
+	GAMEPAD_BUTTON_MIDDLE_LEFT = 13,
+	GAMEPAD_BUTTON_MIDDLE = 14,
+	GAMEPAD_BUTTON_MIDDLE_RIGHT = 15,
+	GAMEPAD_BUTTON_LEFT_THUMB = 16,
+	GAMEPAD_BUTTON_RIGHT_THUMB = 17;
+
+enum GamepadAxis:
+	GAMEPAD_AXIS_LEFT_X = 0,
+	GAMEPAD_AXIS_LEFT_Y = 1,
+	GAMEPAD_AXIS_RIGHT_X = 2,
+	GAMEPAD_AXIS_RIGHT_Y = 3,
+	GAMEPAD_AXIS_LEFT_TRIGGER = 4,
+	GAMEPAD_AXIS_RIGHT_TRIGGER = 5;
+
+enum MaterialMapIndex:
+	MATERIAL_MAP_ALBEDO = 0,
+	MATERIAL_MAP_METALNESS = 1,
+	MATERIAL_MAP_NORMAL = 2,
+	MATERIAL_MAP_ROUGHNESS = 3,
+	MATERIAL_MAP_OCCLUSION = 4,
+	MATERIAL_MAP_EMISSION = 5,
+	MATERIAL_MAP_HEIGHT = 6,
+	MATERIAL_MAP_CUBEMAP = 7,
+	MATERIAL_MAP_IRRADIANCE = 8,
+	MATERIAL_MAP_PREFILTER = 9,
+	MATERIAL_MAP_BRDF = 10;
+
+enum ShaderLocationIndex:
+	SHADER_LOC_VERTEX_POSITION = 0,
+	SHADER_LOC_VERTEX_TEXCOORD01 = 1,
+	SHADER_LOC_VERTEX_TEXCOORD02 = 2,
+	SHADER_LOC_VERTEX_NORMAL = 3,
+	SHADER_LOC_VERTEX_TANGENT = 4,
+	SHADER_LOC_VERTEX_COLOR = 5,
+	SHADER_LOC_MATRIX_MVP = 6,
+	SHADER_LOC_MATRIX_VIEW = 7,
+	SHADER_LOC_MATRIX_PROJECTION = 8,
+	SHADER_LOC_MATRIX_MODEL = 9,
+	SHADER_LOC_MATRIX_NORMAL = 10,
+	SHADER_LOC_VECTOR_VIEW = 11,
+	SHADER_LOC_COLOR_DIFFUSE = 12,
+	SHADER_LOC_COLOR_SPECULAR = 13,
+	SHADER_LOC_COLOR_AMBIENT = 14,
+	SHADER_LOC_MAP_ALBEDO = 15,
+	SHADER_LOC_MAP_METALNESS = 16,
+	SHADER_LOC_MAP_NORMAL = 17,
+	SHADER_LOC_MAP_ROUGHNESS = 18,
+	SHADER_LOC_MAP_OCCLUSION = 19,
+	SHADER_LOC_MAP_EMISSION = 20,
+	SHADER_LOC_MAP_HEIGHT = 21,
+	SHADER_LOC_MAP_CUBEMAP = 22,
+	SHADER_LOC_MAP_IRRADIANCE = 23,
+	SHADER_LOC_MAP_PREFILTER = 24,
+	SHADER_LOC_MAP_BRDF = 25,
+	SHADER_LOC_VERTEX_BONEIDS = 26,
+	SHADER_LOC_VERTEX_BONEWEIGHTS = 27,
+	SHADER_LOC_BONE_MATRICES = 28;
+
+enum ShaderUniformDataType:
+	SHADER_UNIFORM_FLOAT = 0,
+	SHADER_UNIFORM_VEC2 = 1,
+	SHADER_UNIFORM_VEC3 = 2,
+	SHADER_UNIFORM_VEC4 = 3,
+	SHADER_UNIFORM_INT = 4,
+	SHADER_UNIFORM_IVEC2 = 5,
+	SHADER_UNIFORM_IVEC3 = 6,
+	SHADER_UNIFORM_IVEC4 = 7,
+	SHADER_UNIFORM_SAMPLER2D = 8;
+
+enum ShaderAttributeDataType:
+	SHADER_ATTRIB_FLOAT = 0,
+	SHADER_ATTRIB_VEC2 = 1,
+	SHADER_ATTRIB_VEC3 = 2,
+	SHADER_ATTRIB_VEC4 = 3;
+
+enum PixelFormat:
+	PIXELFORMAT_UNCOMPRESSED_GRAYSCALE = 1,
+	PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA = 2,
+	PIXELFORMAT_UNCOMPRESSED_R5G6B5 = 3,
+	PIXELFORMAT_UNCOMPRESSED_R8G8B8 = 4,
+	PIXELFORMAT_UNCOMPRESSED_R5G5B5A1 = 5,
+	PIXELFORMAT_UNCOMPRESSED_R4G4B4A4 = 6,
+	PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 = 7,
+	PIXELFORMAT_UNCOMPRESSED_R32 = 8,
+	PIXELFORMAT_UNCOMPRESSED_R32G32B32 = 9,
+	PIXELFORMAT_UNCOMPRESSED_R32G32B32A32 = 10,
+	PIXELFORMAT_UNCOMPRESSED_R16 = 11,
+	PIXELFORMAT_UNCOMPRESSED_R16G16B16 = 12,
+	PIXELFORMAT_UNCOMPRESSED_R16G16B16A16 = 13,
+	PIXELFORMAT_COMPRESSED_DXT1_RGB = 14,
+	PIXELFORMAT_COMPRESSED_DXT1_RGBA = 15,
+	PIXELFORMAT_COMPRESSED_DXT3_RGBA = 16,
+	PIXELFORMAT_COMPRESSED_DXT5_RGBA = 17,
+	PIXELFORMAT_COMPRESSED_ETC1_RGB = 18,
+	PIXELFORMAT_COMPRESSED_ETC2_RGB = 19,
+	PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA = 20,
+	PIXELFORMAT_COMPRESSED_PVRT_RGB = 21,
+	PIXELFORMAT_COMPRESSED_PVRT_RGBA = 22,
+	PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA = 23,
+	PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA = 24;
+
+enum TextureFilter:
+	TEXTURE_FILTER_POINT = 0,
+	TEXTURE_FILTER_BILINEAR = 1,
+	TEXTURE_FILTER_TRILINEAR = 2,
+	TEXTURE_FILTER_ANISOTROPIC_4X = 3,
+	TEXTURE_FILTER_ANISOTROPIC_8X = 4,
+	TEXTURE_FILTER_ANISOTROPIC_16X = 5;
+
+enum TextureWrap:
+	TEXTURE_WRAP_REPEAT = 0,
+	TEXTURE_WRAP_CLAMP = 1,
+	TEXTURE_WRAP_MIRROR_REPEAT = 2,
+	TEXTURE_WRAP_MIRROR_CLAMP = 3;
+
+enum CubemapLayout:
+	CUBEMAP_LAYOUT_AUTO_DETECT = 0,
+	CUBEMAP_LAYOUT_LINE_VERTICAL = 1,
+	CUBEMAP_LAYOUT_LINE_HORIZONTAL = 2,
+	CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR = 3,
+	CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE = 4;
+
+enum FontType:
+	FONT_DEFAULT = 0,
+	FONT_BITMAP = 1,
+	FONT_SDF = 2;
+
+enum BlendMode:
+	BLEND_ALPHA = 0,
+	BLEND_ADDITIVE = 1,
+	BLEND_MULTIPLIED = 2,
+	BLEND_ADD_COLORS = 3,
+	BLEND_SUBTRACT_COLORS = 4,
+	BLEND_ALPHA_PREMULTIPLY = 5,
+	BLEND_CUSTOM = 6,
+	BLEND_CUSTOM_SEPARATE = 7;
+
+enum Gesture:
+	GESTURE_NONE = 0,
+	GESTURE_TAP = 1,
+	GESTURE_DOUBLETAP = 2,
+	GESTURE_HOLD = 4,
+	GESTURE_DRAG = 8,
+	GESTURE_SWIPE_RIGHT = 16,
+	GESTURE_SWIPE_LEFT = 32,
+	GESTURE_SWIPE_UP = 64,
+	GESTURE_SWIPE_DOWN = 128,
+	GESTURE_PINCH_IN = 256,
+	GESTURE_PINCH_OUT = 512;
+
+enum CameraMode:
+	CAMERA_CUSTOM = 0,
+	CAMERA_FREE = 1,
+	CAMERA_ORBITAL = 2,
+	CAMERA_FIRST_PERSON = 3,
+	CAMERA_THIRD_PERSON = 4;
+
+enum CameraProjection:
+	CAMERA_PERSPECTIVE = 0,
+	CAMERA_ORTHOGRAPHIC = 1;
+
+enum NPatchLayout:
+	NPATCH_NINE_PATCH = 0,
+	NPATCH_THREE_PATCH_VERTICAL = 1,
+	NPATCH_THREE_PATCH_HORIZONTAL = 2;
+
+extern def InitWindow(mut i32 width, mut i32 height, const str title);
+extern def CloseWindow();
+extern def WindowShouldClose() -> bool;
+extern def IsWindowReady() -> bool;
+extern def IsWindowFullscreen() -> bool;
+extern def IsWindowHidden() -> bool;
+extern def IsWindowMinimized() -> bool;
+extern def IsWindowMaximized() -> bool;
+extern def IsWindowFocused() -> bool;
+extern def IsWindowResized() -> bool;
+extern def IsWindowState(mut u32 flag) -> bool;
+extern def SetWindowState(mut u32 flags);
+extern def ClearWindowState(mut u32 flags);
+extern def ToggleFullscreen();
+extern def ToggleBorderlessWindowed();
+extern def MaximizeWindow();
+extern def MinimizeWindow();
+extern def RestoreWindow();
+extern def SetWindowIcon(mut Image image);
+extern def SetWindowIcons(mut Image* images, mut i32 count);
+extern def SetWindowTitle(const str title);
+extern def SetWindowPosition(mut i32 x, mut i32 y);
+extern def SetWindowMonitor(mut i32 monitor);
+extern def SetWindowMinSize(mut i32 width, mut i32 height);
+extern def SetWindowMaxSize(mut i32 width, mut i32 height);
+extern def SetWindowSize(mut i32 width, mut i32 height);
+extern def SetWindowOpacity(mut f32 opacity);
+extern def SetWindowFocused();
+extern def GetWindowHandle() -> opaque;
+extern def GetScreenWidth() -> i32;
+extern def GetScreenHeight() -> i32;
+extern def GetRenderWidth() -> i32;
+extern def GetRenderHeight() -> i32;
+extern def GetMonitorCount() -> i32;
+extern def GetCurrentMonitor() -> i32;
+extern def GetMonitorPosition(mut i32 monitor) -> Vector2;
+extern def GetMonitorWidth(mut i32 monitor) -> i32;
+extern def GetMonitorHeight(mut i32 monitor) -> i32;
+extern def GetMonitorPhysicalWidth(mut i32 monitor) -> i32;
+extern def GetMonitorPhysicalHeight(mut i32 monitor) -> i32;
+extern def GetMonitorRefreshRate(mut i32 monitor) -> i32;
+extern def GetWindowPosition() -> Vector2;
+extern def GetWindowScaleDPI() -> Vector2;
+extern def GetMonitorName(mut i32 monitor) -> str;
+extern def SetClipboardText(const str text);
+extern def GetClipboardText() -> str;
+extern def GetClipboardImage() -> Image;
+extern def EnableEventWaiting();
+extern def DisableEventWaiting();
+extern def ShowCursor();
+extern def HideCursor();
+extern def IsCursorHidden() -> bool;
+extern def EnableCursor();
+extern def DisableCursor();
+extern def IsCursorOnScreen() -> bool;
+extern def ClearBackground(mut Color color);
+extern def BeginDrawing();
+extern def EndDrawing();
+extern def BeginMode2D(mut Camera2D camera);
+extern def EndMode2D();
+extern def BeginMode3D(mut Camera3D camera);
+extern def EndMode3D();
+extern def BeginTextureMode(mut RenderTexture target);
+extern def EndTextureMode();
+extern def BeginShaderMode(mut Shader shader);
+extern def EndShaderMode();
+extern def BeginBlendMode(mut i32 mode);
+extern def EndBlendMode();
+extern def BeginScissorMode(mut i32 x, mut i32 y, mut i32 width, mut i32 height);
+extern def EndScissorMode();
+extern def EndVrStereoMode();
+extern def LoadShader(const str vsFileName, const str fsFileName) -> Shader;
+extern def LoadShaderFromMemory(const str vsCode, const str fsCode) -> Shader;
+extern def IsShaderValid(mut Shader shader) -> bool;
+extern def GetShaderLocation(mut Shader shader, const str uniformName) -> i32;
+extern def GetShaderLocationAttrib(mut Shader shader, const str attribName) -> i32;
+extern def SetShaderValue(mut Shader shader, mut i32 locIndex, const opaque value, mut i32 uniformType);
+extern def SetShaderValueV(mut Shader shader, mut i32 locIndex, const opaque value, mut i32 uniformType, mut i32 count);
+extern def SetShaderValueMatrix(mut Shader shader, mut i32 locIndex, mut Matrix mat);
+extern def SetShaderValueTexture(mut Shader shader, mut i32 locIndex, mut Texture texture);
+extern def UnloadShader(mut Shader shader);
+extern def GetScreenToWorldRay(mut Vector2 position, mut Camera3D camera) -> Ray;
+extern def GetScreenToWorldRayEx(mut Vector2 position, mut Camera3D camera, mut i32 width, mut i32 height) -> Ray;
+extern def GetWorldToScreen(mut Vector3 position, mut Camera3D camera) -> Vector2;
+extern def GetWorldToScreenEx(mut Vector3 position, mut Camera3D camera, mut i32 width, mut i32 height) -> Vector2;
+extern def GetWorldToScreen2D(mut Vector2 position, mut Camera2D camera) -> Vector2;
+extern def GetScreenToWorld2D(mut Vector2 position, mut Camera2D camera) -> Vector2;
+extern def GetCameraMatrix(mut Camera3D camera) -> Matrix;
+extern def GetCameraMatrix2D(mut Camera2D camera) -> Matrix;
+extern def SetTargetFPS(mut i32 fps);
+extern def GetFrameTime() -> f32;
+extern def GetTime() -> f64;
+extern def GetFPS() -> i32;
+extern def SwapScreenBuffer();
+extern def PollInputEvents();
+extern def WaitTime(mut f64 seconds);
+extern def SetRandomSeed(mut u32 seed);
+extern def GetRandomValue(mut i32 min, mut i32 max) -> i32;
+extern def LoadRandomSequence(mut u32 count, mut i32 min, mut i32 max) -> i32*;
+extern def UnloadRandomSequence(mut i32* sequence);
+extern def TakeScreenshot(const str fileName);
+extern def SetConfigFlags(mut u32 flags);
+extern def OpenURL(const str url);
+extern def TraceLog(mut i32 logLevel, const str text);
+extern def SetTraceLogLevel(mut i32 logLevel);
+extern def MemAlloc(mut u32 size) -> opaque;
+extern def MemRealloc(mut opaque ptr, mut u32 size) -> opaque;
+extern def MemFree(mut opaque ptr);
+extern def LoadFileData(const str fileName, mut i32* dataSize) -> u8*;
+extern def UnloadFileData(mut u8* _data);
+extern def SaveFileData(const str fileName, mut opaque _data, mut i32 dataSize) -> bool;
+extern def ExportDataAsCode(const u8* _data, mut i32 dataSize, const str fileName) -> bool;
+extern def LoadFileText(const str fileName) -> str;
+extern def UnloadFileText(mut str text);
+extern def SaveFileText(const str fileName, mut str text) -> bool;
+extern def FileExists(const str fileName) -> bool;
+extern def DirectoryExists(const str dirPath) -> bool;
+extern def IsFileExtension(const str fileName, const str ext) -> bool;
+extern def GetFileLength(const str fileName) -> i32;
+extern def GetFileExtension(const str fileName) -> str;
+extern def GetFileName(const str filePath) -> str;
+extern def GetFileNameWithoutExt(const str filePath) -> str;
+extern def GetDirectoryPath(const str filePath) -> str;
+extern def GetPrevDirectoryPath(const str dirPath) -> str;
+extern def GetWorkingDirectory() -> str;
+extern def GetApplicationDirectory() -> str;
+extern def MakeDirectory(const str dirPath) -> i32;
+extern def ChangeDirectory(const str dir) -> bool;
+extern def IsPathFile(const str path) -> bool;
+extern def IsFileNameValid(const str fileName) -> bool;
+extern def LoadDirectoryFiles(const str dirPath) -> FilePathList;
+extern def LoadDirectoryFilesEx(const str basePath, const str filter, mut bool scanSubdirs) -> FilePathList;
+extern def UnloadDirectoryFiles(mut FilePathList files);
+extern def IsFileDropped() -> bool;
+extern def LoadDroppedFiles() -> FilePathList;
+extern def UnloadDroppedFiles(mut FilePathList files);
+extern def GetFileModTime(const str fileName) -> i64;
+extern def CompressData(const u8* _data, mut i32 dataSize, mut i32* compDataSize) -> u8*;
+extern def DecompressData(const u8* compData, mut i32 compDataSize, mut i32* dataSize) -> u8*;
+extern def EncodeDataBase64(const u8* _data, mut i32 dataSize, mut i32* outputSize) -> str;
+extern def DecodeDataBase64(const u8* _data, mut i32* outputSize) -> u8*;
+extern def ComputeCRC32(mut u8* _data, mut i32 dataSize) -> u32;
+extern def ComputeMD5(mut u8* _data, mut i32 dataSize) -> u32*;
+extern def ComputeSHA1(mut u8* _data, mut i32 dataSize) -> u32*;
+extern def SetAutomationEventBaseFrame(mut i32 frame);
+extern def StartAutomationEventRecording();
+extern def StopAutomationEventRecording();
+extern def IsKeyPressed(mut i32 key) -> bool;
+extern def IsKeyPressedRepeat(mut i32 key) -> bool;
+extern def IsKeyDown(mut i32 key) -> bool;
+extern def IsKeyReleased(mut i32 key) -> bool;
+extern def IsKeyUp(mut i32 key) -> bool;
+extern def GetKeyPressed() -> i32;
+extern def GetCharPressed() -> i32;
+extern def SetExitKey(mut i32 key);
+extern def IsGamepadAvailable(mut i32 gamepad) -> bool;
+extern def GetGamepadName(mut i32 gamepad) -> str;
+extern def IsGamepadButtonPressed(mut i32 gamepad, mut i32 button) -> bool;
+extern def IsGamepadButtonDown(mut i32 gamepad, mut i32 button) -> bool;
+extern def IsGamepadButtonReleased(mut i32 gamepad, mut i32 button) -> bool;
+extern def IsGamepadButtonUp(mut i32 gamepad, mut i32 button) -> bool;
+extern def GetGamepadButtonPressed() -> i32;
+extern def GetGamepadAxisCount(mut i32 gamepad) -> i32;
+extern def GetGamepadAxisMovement(mut i32 gamepad, mut i32 axis) -> f32;
+extern def SetGamepadMappings(const str mappings) -> i32;
+extern def SetGamepadVibration(mut i32 gamepad, mut f32 leftMotor, mut f32 rightMotor, mut f32 duration);
+extern def IsMouseButtonPressed(mut i32 button) -> bool;
+extern def IsMouseButtonDown(mut i32 button) -> bool;
+extern def IsMouseButtonReleased(mut i32 button) -> bool;
+extern def IsMouseButtonUp(mut i32 button) -> bool;
+extern def GetMouseX() -> i32;
+extern def GetMouseY() -> i32;
+extern def GetMousePosition() -> Vector2;
+extern def GetMouseDelta() -> Vector2;
+extern def SetMousePosition(mut i32 x, mut i32 y);
+extern def SetMouseOffset(mut i32 offsetX, mut i32 offsetY);
+extern def SetMouseScale(mut f32 scaleX, mut f32 scaleY);
+extern def GetMouseWheelMove() -> f32;
+extern def GetMouseWheelMoveV() -> Vector2;
+extern def SetMouseCursor(mut i32 cursor);
+extern def GetTouchX() -> i32;
+extern def GetTouchY() -> i32;
+extern def GetTouchPosition(mut i32 index) -> Vector2;
+extern def GetTouchPointId(mut i32 index) -> i32;
+extern def GetTouchPointCount() -> i32;
+extern def SetGesturesEnabled(mut u32 flags);
+extern def IsGestureDetected(mut u32 gesture) -> bool;
+extern def GetGestureDetected() -> i32;
+extern def GetGestureHoldDuration() -> f32;
+extern def GetGestureDragVector() -> Vector2;
+extern def GetGestureDragAngle() -> f32;
+extern def GetGesturePinchVector() -> Vector2;
+extern def GetGesturePinchAngle() -> f32;
+extern def UpdateCamera(mut Camera3D* camera, mut i32 mode);
+extern def UpdateCameraPro(mut Camera3D* camera, mut Vector3 movement, mut Vector3 rotation, mut f32 zoom);
+extern def SetShapesTexture(mut Texture texture, mut Rectangle source);
+extern def GetShapesTexture() -> Texture;
+extern def GetShapesTextureRectangle() -> Rectangle;
+extern def DrawPixel(mut i32 posX, mut i32 posY, mut Color color);
+extern def DrawPixelV(mut Vector2 position, mut Color color);
+extern def DrawLine(mut i32 startPosX, mut i32 startPosY, mut i32 endPosX, mut i32 endPosY, mut Color color);
+extern def DrawLineV(mut Vector2 startPos, mut Vector2 endPos, mut Color color);
+extern def DrawLineEx(mut Vector2 startPos, mut Vector2 endPos, mut f32 thick, mut Color color);
+extern def DrawLineStrip(const Vector2* points, mut i32 pointCount, mut Color color);
+extern def DrawLineBezier(mut Vector2 startPos, mut Vector2 endPos, mut f32 thick, mut Color color);
+extern def DrawCircle(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color color);
+extern def DrawCircleSector(mut Vector2 center, mut f32 radius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
+extern def DrawCircleSectorLines(mut Vector2 center, mut f32 radius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
+extern def DrawCircleGradient(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color inner, mut Color outer);
+extern def DrawCircleV(mut Vector2 center, mut f32 radius, mut Color color);
+extern def DrawCircleLines(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color color);
+extern def DrawCircleLinesV(mut Vector2 center, mut f32 radius, mut Color color);
+extern def DrawEllipse(mut i32 centerX, mut i32 centerY, mut f32 radiusH, mut f32 radiusV, mut Color color);
+extern def DrawEllipseLines(mut i32 centerX, mut i32 centerY, mut f32 radiusH, mut f32 radiusV, mut Color color);
+extern def DrawRing(mut Vector2 center, mut f32 innerRadius, mut f32 outerRadius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
+extern def DrawRingLines(mut Vector2 center, mut f32 innerRadius, mut f32 outerRadius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
+extern def DrawRectangle(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color color);
+extern def DrawRectangleV(mut Vector2 position, mut Vector2 size, mut Color color);
+extern def DrawRectangleRec(mut Rectangle rec, mut Color color);
+extern def DrawRectanglePro(mut Rectangle rec, mut Vector2 origin, mut f32 rotation, mut Color color);
+extern def DrawRectangleGradientV(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color top, mut Color bottom);
+extern def DrawRectangleGradientH(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color left, mut Color right);
+extern def DrawRectangleGradientEx(mut Rectangle rec, mut Color topLeft, mut Color bottomLeft, mut Color topRight, mut Color bottomRight);
+extern def DrawRectangleLines(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color color);
+extern def DrawRectangleLinesEx(mut Rectangle rec, mut f32 lineThick, mut Color color);
+extern def DrawRectangleRounded(mut Rectangle rec, mut f32 roundness, mut i32 segments, mut Color color);
+extern def DrawRectangleRoundedLines(mut Rectangle rec, mut f32 roundness, mut i32 segments, mut Color color);
+extern def DrawRectangleRoundedLinesEx(mut Rectangle rec, mut f32 roundness, mut i32 segments, mut f32 lineThick, mut Color color);
+extern def DrawTriangle(mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
+extern def DrawTriangleLines(mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
+extern def DrawTriangleFan(const Vector2* points, mut i32 pointCount, mut Color color);
+extern def DrawTriangleStrip(const Vector2* points, mut i32 pointCount, mut Color color);
+extern def DrawPoly(mut Vector2 center, mut i32 sides, mut f32 radius, mut f32 rotation, mut Color color);
+extern def DrawPolyLines(mut Vector2 center, mut i32 sides, mut f32 radius, mut f32 rotation, mut Color color);
+extern def DrawPolyLinesEx(mut Vector2 center, mut i32 sides, mut f32 radius, mut f32 rotation, mut f32 lineThick, mut Color color);
+extern def DrawSplineLinear(const Vector2* points, mut i32 pointCount, mut f32 thick, mut Color color);
+extern def DrawSplineBasis(const Vector2* points, mut i32 pointCount, mut f32 thick, mut Color color);
+extern def DrawSplineCatmullRom(const Vector2* points, mut i32 pointCount, mut f32 thick, mut Color color);
+extern def DrawSplineBezierQuadratic(const Vector2* points, mut i32 pointCount, mut f32 thick, mut Color color);
+extern def DrawSplineBezierCubic(const Vector2* points, mut i32 pointCount, mut f32 thick, mut Color color);
+extern def DrawSplineSegmentLinear(mut Vector2 p1, mut Vector2 p2, mut f32 thick, mut Color color);
+extern def DrawSplineSegmentBasis(mut Vector2 p1, mut Vector2 p2, mut Vector2 p3, mut Vector2 p4, mut f32 thick, mut Color color);
+extern def DrawSplineSegmentCatmullRom(mut Vector2 p1, mut Vector2 p2, mut Vector2 p3, mut Vector2 p4, mut f32 thick, mut Color color);
+extern def DrawSplineSegmentBezierQuadratic(mut Vector2 p1, mut Vector2 c2, mut Vector2 p3, mut f32 thick, mut Color color);
+extern def DrawSplineSegmentBezierCubic(mut Vector2 p1, mut Vector2 c2, mut Vector2 c3, mut Vector2 p4, mut f32 thick, mut Color color);
+extern def GetSplinePointLinear(mut Vector2 startPos, mut Vector2 endPos, mut f32 t) -> Vector2;
+extern def GetSplinePointBasis(mut Vector2 p1, mut Vector2 p2, mut Vector2 p3, mut Vector2 p4, mut f32 t) -> Vector2;
+extern def GetSplinePointCatmullRom(mut Vector2 p1, mut Vector2 p2, mut Vector2 p3, mut Vector2 p4, mut f32 t) -> Vector2;
+extern def GetSplinePointBezierQuad(mut Vector2 p1, mut Vector2 c2, mut Vector2 p3, mut f32 t) -> Vector2;
+extern def GetSplinePointBezierCubic(mut Vector2 p1, mut Vector2 c2, mut Vector2 c3, mut Vector2 p4, mut f32 t) -> Vector2;
+extern def CheckCollisionRecs(mut Rectangle rec1, mut Rectangle rec2) -> bool;
+extern def CheckCollisionCircles(mut Vector2 center1, mut f32 radius1, mut Vector2 center2, mut f32 radius2) -> bool;
+extern def CheckCollisionCircleRec(mut Vector2 center, mut f32 radius, mut Rectangle rec) -> bool;
+extern def CheckCollisionCircleLine(mut Vector2 center, mut f32 radius, mut Vector2 p1, mut Vector2 p2) -> bool;
+extern def CheckCollisionPointRec(mut Vector2 point, mut Rectangle rec) -> bool;
+extern def CheckCollisionPointCircle(mut Vector2 point, mut Vector2 center, mut f32 radius) -> bool;
+extern def CheckCollisionPointTriangle(mut Vector2 point, mut Vector2 p1, mut Vector2 p2, mut Vector2 p3) -> bool;
+extern def CheckCollisionPointLine(mut Vector2 point, mut Vector2 p1, mut Vector2 p2, mut i32 threshold) -> bool;
+extern def CheckCollisionPointPoly(mut Vector2 point, const Vector2* points, mut i32 pointCount) -> bool;
+extern def CheckCollisionLines(mut Vector2 startPos1, mut Vector2 endPos1, mut Vector2 startPos2, mut Vector2 endPos2, mut Vector2* collisionPoint) -> bool;
+extern def GetCollisionRec(mut Rectangle rec1, mut Rectangle rec2) -> Rectangle;
+extern def LoadImage(const str fileName) -> Image;
+extern def LoadImageRaw(const str fileName, mut i32 width, mut i32 height, mut i32 format, mut i32 headerSize) -> Image;
+extern def LoadImageAnim(const str fileName, mut i32* frames) -> Image;
+extern def LoadImageAnimFromMemory(const str fileType, const u8* fileData, mut i32 dataSize, mut i32* frames) -> Image;
+extern def LoadImageFromMemory(const str fileType, const u8* fileData, mut i32 dataSize) -> Image;
+extern def LoadImageFromTexture(mut Texture texture) -> Image;
+extern def LoadImageFromScreen() -> Image;
+extern def IsImageValid(mut Image image) -> bool;
+extern def UnloadImage(mut Image image);
+extern def ExportImage(mut Image image, const str fileName) -> bool;
+extern def ExportImageToMemory(mut Image image, const str fileType, mut i32* fileSize) -> u8*;
+extern def ExportImageAsCode(mut Image image, const str fileName) -> bool;
+extern def GenImageColor(mut i32 width, mut i32 height, mut Color color) -> Image;
+extern def GenImageGradientLinear(mut i32 width, mut i32 height, mut i32 direction, mut Color start, mut Color end) -> Image;
+extern def GenImageGradientRadial(mut i32 width, mut i32 height, mut f32 density, mut Color inner, mut Color outer) -> Image;
+extern def GenImageGradientSquare(mut i32 width, mut i32 height, mut f32 density, mut Color inner, mut Color outer) -> Image;
+extern def GenImageChecked(mut i32 width, mut i32 height, mut i32 checksX, mut i32 checksY, mut Color col1, mut Color col2) -> Image;
+extern def GenImageWhiteNoise(mut i32 width, mut i32 height, mut f32 factor) -> Image;
+extern def GenImagePerlinNoise(mut i32 width, mut i32 height, mut i32 offsetX, mut i32 offsetY, mut f32 scale) -> Image;
+extern def GenImageCellular(mut i32 width, mut i32 height, mut i32 tileSize) -> Image;
+extern def GenImageText(mut i32 width, mut i32 height, const str text) -> Image;
+extern def ImageCopy(mut Image image) -> Image;
+extern def ImageFromImage(mut Image image, mut Rectangle rec) -> Image;
+extern def ImageFromChannel(mut Image image, mut i32 selectedChannel) -> Image;
+extern def ImageText(const str text, mut i32 fontSize, mut Color color) -> Image;
+extern def ImageTextEx(mut Font font, const str text, mut f32 fontSize, mut f32 spacing, mut Color tint) -> Image;
+extern def ImageFormat(mut Image* image, mut i32 newFormat);
+extern def ImageToPOT(mut Image* image, mut Color fill);
+extern def ImageCrop(mut Image* image, mut Rectangle crop);
+extern def ImageAlphaCrop(mut Image* image, mut f32 threshold);
+extern def ImageAlphaClear(mut Image* image, mut Color color, mut f32 threshold);
+extern def ImageAlphaMask(mut Image* image, mut Image alphaMask);
+extern def ImageAlphaPremultiply(mut Image* image);
+extern def ImageBlurGaussian(mut Image* image, mut i32 blurSize);
+extern def ImageKernelConvolution(mut Image* image, const f32* kernel, mut i32 kernelSize);
+extern def ImageResize(mut Image* image, mut i32 newWidth, mut i32 newHeight);
+extern def ImageResizeNN(mut Image* image, mut i32 newWidth, mut i32 newHeight);
+extern def ImageResizeCanvas(mut Image* image, mut i32 newWidth, mut i32 newHeight, mut i32 offsetX, mut i32 offsetY, mut Color fill);
+extern def ImageMipmaps(mut Image* image);
+extern def ImageDither(mut Image* image, mut i32 rBpp, mut i32 gBpp, mut i32 bBpp, mut i32 aBpp);
+extern def ImageFlipVertical(mut Image* image);
+extern def ImageFlipHorizontal(mut Image* image);
+extern def ImageRotate(mut Image* image, mut i32 degrees);
+extern def ImageRotateCW(mut Image* image);
+extern def ImageRotateCCW(mut Image* image);
+extern def ImageColorTint(mut Image* image, mut Color color);
+extern def ImageColorInvert(mut Image* image);
+extern def ImageColorGrayscale(mut Image* image);
+extern def ImageColorContrast(mut Image* image, mut f32 contrast);
+extern def ImageColorBrightness(mut Image* image, mut i32 brightness);
+extern def ImageColorReplace(mut Image* image, mut Color color, mut Color replace);
+extern def LoadImageColors(mut Image image) -> Color*;
+extern def LoadImagePalette(mut Image image, mut i32 maxPaletteSize, mut i32* colorCount) -> Color*;
+extern def UnloadImageColors(mut Color* colors);
+extern def UnloadImagePalette(mut Color* colors);
+extern def GetImageAlphaBorder(mut Image image, mut f32 threshold) -> Rectangle;
+extern def GetImageColor(mut Image image, mut i32 x, mut i32 y) -> Color;
+extern def ImageClearBackground(mut Image* dst, mut Color color);
+extern def ImageDrawPixel(mut Image* dst, mut i32 posX, mut i32 posY, mut Color color);
+extern def ImageDrawPixelV(mut Image* dst, mut Vector2 position, mut Color color);
+extern def ImageDrawLine(mut Image* dst, mut i32 startPosX, mut i32 startPosY, mut i32 endPosX, mut i32 endPosY, mut Color color);
+extern def ImageDrawLineV(mut Image* dst, mut Vector2 start, mut Vector2 end, mut Color color);
+extern def ImageDrawLineEx(mut Image* dst, mut Vector2 start, mut Vector2 end, mut i32 thick, mut Color color);
+extern def ImageDrawCircle(mut Image* dst, mut i32 centerX, mut i32 centerY, mut i32 radius, mut Color color);
+extern def ImageDrawCircleV(mut Image* dst, mut Vector2 center, mut i32 radius, mut Color color);
+extern def ImageDrawCircleLines(mut Image* dst, mut i32 centerX, mut i32 centerY, mut i32 radius, mut Color color);
+extern def ImageDrawCircleLinesV(mut Image* dst, mut Vector2 center, mut i32 radius, mut Color color);
+extern def ImageDrawRectangle(mut Image* dst, mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color color);
+extern def ImageDrawRectangleV(mut Image* dst, mut Vector2 position, mut Vector2 size, mut Color color);
+extern def ImageDrawRectangleRec(mut Image* dst, mut Rectangle rec, mut Color color);
+extern def ImageDrawRectangleLines(mut Image* dst, mut Rectangle rec, mut i32 thick, mut Color color);
+extern def ImageDrawTriangle(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
+extern def ImageDrawTriangleEx(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color c1, mut Color c2, mut Color c3);
+extern def ImageDrawTriangleLines(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
+extern def ImageDrawTriangleFan(mut Image* dst, mut Vector2* points, mut i32 pointCount, mut Color color);
+extern def ImageDrawTriangleStrip(mut Image* dst, mut Vector2* points, mut i32 pointCount, mut Color color);
+extern def ImageDraw(mut Image* dst, mut Image src, mut Rectangle srcRec, mut Rectangle dstRec, mut Color tint);
+extern def ImageDrawText(mut Image* dst, const str text, mut i32 posX, mut i32 posY, mut i32 fontSize, mut Color color);
+extern def ImageDrawTextEx(mut Image* dst, mut Font font, const str text, mut Vector2 position, mut f32 fontSize, mut f32 spacing, mut Color tint);
+extern def LoadTexture(const str fileName) -> Texture;
+extern def LoadTextureFromImage(mut Image image) -> Texture;
+extern def LoadTextureCubemap(mut Image image, mut i32 layout) -> Texture;
+extern def LoadRenderTexture(mut i32 width, mut i32 height) -> RenderTexture;
+extern def IsTextureValid(mut Texture texture) -> bool;
+extern def UnloadTexture(mut Texture texture);
+extern def IsRenderTextureValid(mut RenderTexture target) -> bool;
+extern def UnloadRenderTexture(mut RenderTexture target);
+extern def UpdateTexture(mut Texture texture, const opaque pixels);
+extern def UpdateTextureRec(mut Texture texture, mut Rectangle rec, const opaque pixels);
+extern def GenTextureMipmaps(mut Texture* texture);
+extern def SetTextureFilter(mut Texture texture, mut i32 filter);
+extern def SetTextureWrap(mut Texture texture, mut i32 wrap);
+extern def DrawTexture(mut Texture texture, mut i32 posX, mut i32 posY, mut Color tint);
+extern def DrawTextureV(mut Texture texture, mut Vector2 position, mut Color tint);
+extern def DrawTextureEx(mut Texture texture, mut Vector2 position, mut f32 rotation, mut f32 scale, mut Color tint);
+extern def DrawTextureRec(mut Texture texture, mut Rectangle source, mut Vector2 position, mut Color tint);
+extern def DrawTexturePro(mut Texture texture, mut Rectangle source, mut Rectangle dest, mut Vector2 origin, mut f32 rotation, mut Color tint);
+extern def DrawTextureNPatch(mut Texture texture, mut NPatchInfo nPatchInfo, mut Rectangle dest, mut Vector2 origin, mut f32 rotation, mut Color tint);
+extern def ColorIsEqual(mut Color col1, mut Color col2) -> bool;
+extern def Fade(mut Color color, mut f32 alpha) -> Color;
+extern def ColorToInt(mut Color color) -> i32;
+extern def ColorNormalize(mut Color color) -> Vector4;
+extern def ColorFromNormalized(mut Vector4 normalized) -> Color;
+extern def ColorToHSV(mut Color color) -> Vector3;
+extern def ColorFromHSV(mut f32 hue, mut f32 saturation, mut f32 value) -> Color;
+extern def ColorTint(mut Color color, mut Color tint) -> Color;
+extern def ColorBrightness(mut Color color, mut f32 factor) -> Color;
+extern def ColorContrast(mut Color color, mut f32 contrast) -> Color;
+extern def ColorAlpha(mut Color color, mut f32 alpha) -> Color;
+extern def ColorAlphaBlend(mut Color dst, mut Color src, mut Color tint) -> Color;
+extern def ColorLerp(mut Color color1, mut Color color2, mut f32 factor) -> Color;
+extern def GetColor(mut u32 hexValue) -> Color;
+extern def GetPixelColor(mut opaque srcPtr, mut i32 format) -> Color;
+extern def SetPixelColor(mut opaque dstPtr, mut Color color, mut i32 format);
+extern def GetPixelDataSize(mut i32 width, mut i32 height, mut i32 format) -> i32;
+extern def GetFontDefault() -> Font;
+extern def LoadFont(const str fileName) -> Font;
+extern def LoadFontEx(const str fileName, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount) -> Font;
+extern def LoadFontFromImage(mut Image image, mut Color key, mut i32 firstChar) -> Font;
+extern def LoadFontFromMemory(const str fileType, const u8* fileData, mut i32 dataSize, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount) -> Font;
+extern def IsFontValid(mut Font font) -> bool;
+extern def LoadFontData(const u8* fileData, mut i32 dataSize, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount, mut i32 _type) -> GlyphInfo*;
+extern def GenImageFontAtlas(const GlyphInfo* glyphs, mut Rectangle[] glyphRecs, mut i32 glyphCount, mut i32 fontSize, mut i32 padding, mut i32 packMethod) -> Image;
+extern def UnloadFontData(mut GlyphInfo* glyphs, mut i32 glyphCount);
+extern def UnloadFont(mut Font font);
+extern def ExportFontAsCode(mut Font font, const str fileName) -> bool;
+extern def DrawFPS(mut i32 posX, mut i32 posY);
+extern def DrawText(const str text, mut i32 posX, mut i32 posY, mut i32 fontSize, mut Color color);
+extern def DrawTextEx(mut Font font, const str text, mut Vector2 position, mut f32 fontSize, mut f32 spacing, mut Color tint);
+extern def DrawTextPro(mut Font font, const str text, mut Vector2 position, mut Vector2 origin, mut f32 rotation, mut f32 fontSize, mut f32 spacing, mut Color tint);
+extern def DrawTextCodepoint(mut Font font, mut i32 codepoint, mut Vector2 position, mut f32 fontSize, mut Color tint);
+extern def DrawTextCodepoints(mut Font font, const i32* codepoints, mut i32 codepointCount, mut Vector2 position, mut f32 fontSize, mut f32 spacing, mut Color tint);
+extern def SetTextLineSpacing(mut i32 spacing);
+extern def MeasureText(const str text, mut i32 fontSize) -> i32;
+extern def MeasureTextEx(mut Font font, const str text, mut f32 fontSize, mut f32 spacing) -> Vector2;
+extern def GetGlyphIndex(mut Font font, mut i32 codepoint) -> i32;
+extern def GetGlyphInfo(mut Font font, mut i32 codepoint) -> GlyphInfo;
+extern def GetGlyphAtlasRec(mut Font font, mut i32 codepoint) -> Rectangle;
+extern def LoadUTF8(const i32* codepoints, mut i32 length) -> str;
+extern def UnloadUTF8(mut str text);
+extern def LoadCodepoints(const str text, mut i32* count) -> i32*;
+extern def UnloadCodepoints(mut i32* codepoints);
+extern def GetCodepointCount(const str text) -> i32;
+extern def GetCodepoint(const str text, mut i32* codepointSize) -> i32;
+extern def GetCodepointNext(const str text, mut i32* codepointSize) -> i32;
+extern def GetCodepointPrevious(const str text, mut i32* codepointSize) -> i32;
+extern def CodepointToUTF8(mut i32 codepoint, mut i32* utf8Size) -> str;
+extern def TextCopy(mut str dst, const str src) -> i32;
+extern def TextIsEqual(const str text1, const str text2) -> bool;
+extern def TextLength(const str text) -> u32;
+extern def TextFormat(const str text) -> str;
+extern def TextSubtext(const str text, mut i32 position, mut i32 length) -> str;
+extern def TextReplace(const str text, const str replace, const str by) -> str;
+extern def TextInsert(const str text, const str insert, mut i32 position) -> str;
+extern def TextJoin(const str* textList, mut i32 count, const str delimiter) -> str;
+extern def TextSplit(const str text, mut i8 delimiter, mut i32* count) -> str*;
+extern def TextAppend(mut str text, const str append, mut i32* position);
+extern def TextFindIndex(const str text, const str find) -> i32;
+extern def TextToUpper(const str text) -> str;
+extern def TextToLower(const str text) -> str;
+extern def TextToPascal(const str text) -> str;
+extern def TextToSnake(const str text) -> str;
+extern def TextToCamel(const str text) -> str;
+extern def TextToInteger(const str text) -> i32;
+extern def TextToFloat(const str text) -> f32;
+extern def DrawLine3D(mut Vector3 startPos, mut Vector3 endPos, mut Color color);
+extern def DrawPoint3D(mut Vector3 position, mut Color color);
+extern def DrawCircle3D(mut Vector3 center, mut f32 radius, mut Vector3 rotationAxis, mut f32 rotationAngle, mut Color color);
+extern def DrawTriangle3D(mut Vector3 v1, mut Vector3 v2, mut Vector3 v3, mut Color color);
+extern def DrawTriangleStrip3D(const Vector3* points, mut i32 pointCount, mut Color color);
+extern def DrawCube(mut Vector3 position, mut f32 width, mut f32 height, mut f32 length, mut Color color);
+extern def DrawCubeV(mut Vector3 position, mut Vector3 size, mut Color color);
+extern def DrawCubeWires(mut Vector3 position, mut f32 width, mut f32 height, mut f32 length, mut Color color);
+extern def DrawCubeWiresV(mut Vector3 position, mut Vector3 size, mut Color color);
+extern def DrawSphere(mut Vector3 centerPos, mut f32 radius, mut Color color);
+extern def DrawSphereEx(mut Vector3 centerPos, mut f32 radius, mut i32 rings, mut i32 slices, mut Color color);
+extern def DrawSphereWires(mut Vector3 centerPos, mut f32 radius, mut i32 rings, mut i32 slices, mut Color color);
+extern def DrawCylinder(mut Vector3 position, mut f32 radiusTop, mut f32 radiusBottom, mut f32 height, mut i32 slices, mut Color color);
+extern def DrawCylinderEx(mut Vector3 startPos, mut Vector3 endPos, mut f32 startRadius, mut f32 endRadius, mut i32 sides, mut Color color);
+extern def DrawCylinderWires(mut Vector3 position, mut f32 radiusTop, mut f32 radiusBottom, mut f32 height, mut i32 slices, mut Color color);
+extern def DrawCylinderWiresEx(mut Vector3 startPos, mut Vector3 endPos, mut f32 startRadius, mut f32 endRadius, mut i32 sides, mut Color color);
+extern def DrawCapsule(mut Vector3 startPos, mut Vector3 endPos, mut f32 radius, mut i32 slices, mut i32 rings, mut Color color);
+extern def DrawCapsuleWires(mut Vector3 startPos, mut Vector3 endPos, mut f32 radius, mut i32 slices, mut i32 rings, mut Color color);
+extern def DrawPlane(mut Vector3 centerPos, mut Vector2 size, mut Color color);
+extern def DrawRay(mut Ray ray, mut Color color);
+extern def DrawGrid(mut i32 slices, mut f32 spacing);
+extern def DrawBoundingBox(mut BoundingBox box, mut Color color);
+extern def DrawBillboard(mut Camera3D camera, mut Texture texture, mut Vector3 position, mut f32 scale, mut Color tint);
+extern def DrawBillboardRec(mut Camera3D camera, mut Texture texture, mut Rectangle source, mut Vector3 position, mut Vector2 size, mut Color tint);
+extern def DrawBillboardPro(mut Camera3D camera, mut Texture texture, mut Rectangle source, mut Vector3 position, mut Vector3 up, mut Vector2 size, mut Vector2 origin, mut f32 rotation, mut Color tint);
+extern def UploadMesh(mut Mesh* mesh, mut bool dynamic);
+extern def UpdateMeshBuffer(mut Mesh mesh, mut i32 index, const opaque _data, mut i32 dataSize, mut i32 offset);
+extern def UnloadMesh(mut Mesh mesh);
+extern def GetMeshBoundingBox(mut Mesh mesh) -> BoundingBox;
+extern def GenMeshTangents(mut Mesh* mesh);
+extern def ExportMesh(mut Mesh mesh, const str fileName) -> bool;
+extern def ExportMeshAsCode(mut Mesh mesh, const str fileName) -> bool;
+extern def GenMeshPoly(mut i32 sides, mut f32 radius) -> Mesh;
+extern def GenMeshPlane(mut f32 width, mut f32 length, mut i32 resX, mut i32 resZ) -> Mesh;
+extern def GenMeshCube(mut f32 width, mut f32 height, mut f32 length) -> Mesh;
+extern def GenMeshSphere(mut f32 radius, mut i32 rings, mut i32 slices) -> Mesh;
+extern def GenMeshHemiSphere(mut f32 radius, mut i32 rings, mut i32 slices) -> Mesh;
+extern def GenMeshCylinder(mut f32 radius, mut f32 height, mut i32 slices) -> Mesh;
+extern def GenMeshCone(mut f32 radius, mut f32 height, mut i32 slices) -> Mesh;
+extern def GenMeshTorus(mut f32 radius, mut f32 size, mut i32 radSeg, mut i32 sides) -> Mesh;
+extern def GenMeshKnot(mut f32 radius, mut f32 size, mut i32 radSeg, mut i32 sides) -> Mesh;
+extern def GenMeshHeightmap(mut Image heightmap, mut Vector3 size) -> Mesh;
+extern def GenMeshCubicmap(mut Image cubicmap, mut Vector3 cubeSize) -> Mesh;
+extern def CheckCollisionSpheres(mut Vector3 center1, mut f32 radius1, mut Vector3 center2, mut f32 radius2) -> bool;
+extern def CheckCollisionBoxes(mut BoundingBox box1, mut BoundingBox box2) -> bool;
+extern def CheckCollisionBoxSphere(mut BoundingBox box, mut Vector3 center, mut f32 radius) -> bool;
+extern def GetRayCollisionSphere(mut Ray ray, mut Vector3 center, mut f32 radius) -> RayCollision;
+extern def GetRayCollisionBox(mut Ray ray, mut BoundingBox box) -> RayCollision;
+extern def GetRayCollisionMesh(mut Ray ray, mut Mesh mesh, mut Matrix transform) -> RayCollision;
+extern def GetRayCollisionTriangle(mut Ray ray, mut Vector3 p1, mut Vector3 p2, mut Vector3 p3) -> RayCollision;
+extern def GetRayCollisionQuad(mut Ray ray, mut Vector3 p1, mut Vector3 p2, mut Vector3 p3, mut Vector3 p4) -> RayCollision;
+extern def InitAudioDevice();
+extern def CloseAudioDevice();
+extern def IsAudioDeviceReady() -> bool;
+extern def SetMasterVolume(mut f32 volume);
+extern def GetMasterVolume() -> f32;
+extern def LoadWave(const str fileName) -> Wave;
+extern def LoadWaveFromMemory(const str fileType, const u8* fileData, mut i32 dataSize) -> Wave;
+extern def IsWaveValid(mut Wave wave) -> bool;
+extern def UnloadWave(mut Wave wave);
+extern def ExportWave(mut Wave wave, const str fileName) -> bool;
+extern def ExportWaveAsCode(mut Wave wave, const str fileName) -> bool;
+extern def WaveCopy(mut Wave wave) -> Wave;
+extern def WaveCrop(mut Wave* wave, mut i32 initFrame, mut i32 finalFrame);
+extern def WaveFormat(mut Wave* wave, mut i32 sampleRate, mut i32 sampleSize, mut i32 channels);
+extern def LoadWaveSamples(mut Wave wave) -> f32*;
+extern def UnloadWaveSamples(mut f32* samples);
+extern def SetAudioStreamBufferSizeDefault(mut i32 size);
