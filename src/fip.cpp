@@ -221,6 +221,8 @@ void FIP::shutdown() {
 #endif
     fip_master_cleanup();
     fip_terminate_all_slaves(&modules); // Fallback cleanup
+    generated_types.clear();
+    resolved_functions.clear();
 
     fip_print(0, FIP_INFO, "Master shutting down");
     is_active = false;
