@@ -981,6 +981,12 @@ bool Parser::resolve_all_imports() {
     PROFILE_CUMULATIVE("Parser::resolve_all_imports");
     for (const auto &instance : instances) {
         const auto &file_namespace = instance.file_node_ptr->file_namespace;
+#ifdef FLINT_LSP
+        // Skip every file that's not the main file
+        if (file_namespace->file_path != main_file_path) {
+            continue;
+        }
+#endif
         const auto &imports = file_namespace->public_symbols.imports;
         for (const auto &import : imports) {
             Namespace *imported_namespace = nullptr;
