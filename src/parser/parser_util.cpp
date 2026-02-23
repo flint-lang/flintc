@@ -129,7 +129,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!function_node.has_value()) {
             return false;
         }
-        file_node.add_function(function_node.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node.add_function(function_node.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return false;
+        }
+        add_open_function({added_function.value(), {}});
         return true;
     }
 

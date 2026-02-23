@@ -1122,15 +1122,19 @@ bool Parser::resolve_all_unknown_types() {
                     return false;
                 }
             }
-            // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
-            for (auto &[variable_name, variable] : function->scope.value()->variables) {
-                if (!file_namespace->resolve_type(variable.type)) {
-                    return false;
-                }
-            }
             // Resolve all return types of the function
             for (auto &ret : function->return_types) {
                 if (!file_namespace->resolve_type(ret)) {
+                    return false;
+                }
+            }
+            // Don't check local variables since extern functions don't have a body
+            if (function->is_extern) {
+                continue;
+            }
+            // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
+            for (auto &[variable_name, variable] : function->scope.value()->variables) {
+                if (!file_namespace->resolve_type(variable.type)) {
                     return false;
                 }
             }
@@ -1851,6 +1855,18 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     // Define a task to process a single function
     auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
         PROFILE_SCOPE("Process function '" + function->name + "'");
+        if (function->is_extern) {
+            // Check whether the FIP provides the searched for function in any of it's modules. We only print the error that the function
+            // was unable to be resolved if the FIP is active, if the FIP is not active then the problem is not that the problem has not
+            // been found but that FIP has not been able to be started / initialized properly
+            if (!FIP::resolve_function(function)) {
+                if (FIP::is_active) {
+                    THROW_ERR(ErrExternFnNotFound, ERR_PARSING, function);
+                }
+                return false;
+            }
+            return true;
+        }
         // First, refine all the body lines
         parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
         if (DEBUG_MODE) {
