@@ -509,7 +509,6 @@ void Generator::Expression::convert_type_to_ext( //
             // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
             // A vector type of size 3 is split into a two-component vector type + a scalar value
             // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
             const std::string base_type_str = multi_type->base_type->to_string();
             if (base_type_str == "f64" || base_type_str == "i64") {
                 for (size_t i = 0; i < multi_type->width; i++) {
@@ -517,7 +516,10 @@ void Generator::Expression::convert_type_to_ext( //
                 }
                 return;
             } else if (multi_type->width == 2) {
-                if (base_type_str == "i32") {
+                if (base_type_str == "u8") {
+                    // We need to pack the two u8 values as one i16
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt16Ty()));
+                } else if (base_type_str == "i32") {
                     // We need to pack the two i32s as one i64
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
                 } else {
@@ -525,37 +527,45 @@ void Generator::Expression::convert_type_to_ext( //
                 }
                 return;
             } else if (multi_type->width == 3) {
+                if (base_type_str == "u8") {
+                    // We can simply cast the u8x3 to a i24 value
+                    args.emplace_back(builder.CreateBitCast(value, builder.getIntNTy(24)));
+                    return;
+                }
                 // Extract the first two elements as a vector type
-                llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(0));
-                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(1));
-                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+                llvm::Value *first_two = builder.CreateShuffleVector(value, {0, 1});
                 if (base_type_str == "i32") {
                     // Pack the two i32s as one i64
-                    args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+                    args.emplace_back(builder.CreateBitCast(first_two, builder.getInt64Ty()));
                 } else {
-                    args.emplace_back(vec2);
+                    args.emplace_back(first_two);
                 }
                 // Extract the third value as a scalar element
                 llvm::Value *third = builder.CreateExtractElement(value, builder.getInt64(2));
                 args.emplace_back(third);
                 return;
             }
+            if (base_type_str == "u8") {
+                // Since all following multi-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
+                // the argument list
+                if (multi_type->width == 4) {
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt32Ty()));
+                } else if (multi_type->width == 8) {
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
+                } else {
+                    assert(false);
+                }
+                return;
+            }
+
             // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
             // numbers
-            llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-            for (size_t i = 0; i < multi_type->width; i += 2) {
-                llvm::Value *first = builder.CreateExtractElement(value, builder.getInt64(i));
-                llvm::Value *second = builder.CreateExtractElement(value, builder.getInt64(i + 1));
-                llvm::Value *vec2 = llvm::UndefValue::get(vec2_type);
-                vec2 = builder.CreateInsertElement(vec2, first, builder.getInt64(0));
-                vec2 = builder.CreateInsertElement(vec2, second, builder.getInt64(1));
+            for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 2) {
+                llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1});
                 if (base_type_str == "i32") {
-                    args.emplace_back(builder.CreateBitCast(vec2, builder.getInt64Ty()));
+                    args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
                 } else {
-                    args.emplace_back(vec2);
+                    args.emplace_back(next_shuffle);
                 }
             }
             return;
@@ -824,13 +834,21 @@ void Generator::Expression::convert_type_from_ext( //
                 }
                 value = result_vec;
             } else if (multi_type->width == 2) {
-                if (base_type_str == "i32") {
+                if (base_type_str == "u8") {
+                    // Value returned as `i16` value
+                    value = builder.CreateBitCast(value, target_vector_type);
+                } else if (base_type_str == "i32") {
                     value = builder.CreateBitCast(value, vec2_i32);
                 } else {
                     // vec2 is returned as <2 x T> directly for floats - no conversion needed
                     return;
                 }
             } else if (multi_type->width == 3) {
+                if (base_type_str == "u8") {
+                    // Value returned as `i24` value
+                    value = builder.CreateBitCast(value, target_vector_type);
+                    return;
+                }
                 // vec3 is returned as { <2 x T>, T } struct from extern calls
                 assert(value->getType()->isStructTy());
 
@@ -856,6 +874,11 @@ void Generator::Expression::convert_type_from_ext( //
 
                 value = result_vec;
             } else {
+                if (base_type_str == "u8") {
+                    // Value returned as `i32` value (u8x4) or `i64` value (u8x8)
+                    value = builder.CreateBitCast(value, target_vector_type);
+                    return;
+                }
                 // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
                 assert(value->getType()->isStructTy());
                 llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
