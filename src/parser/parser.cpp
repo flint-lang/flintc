@@ -1315,7 +1315,7 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Func Modules");
 
     // Define a task to process a single func module
-    auto process_function = [](Parser &parser, FuncNode *func, std::vector<Line> &body) -> bool {
+    auto process_function = [](Parser &parser, FuncNode *func, std::vector<Line> body) -> bool {
         PROFILE_SCOPE("Process func module '" + func->name + "'");
         // First, refine all the body lines
         parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
@@ -1394,7 +1394,7 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
             while (auto next = parser.get_next_open_func()) {
                 auto &[func, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), func, std::ref(body)));
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), func, body));
             }
         }
         // Collect results from all tasks
@@ -1406,7 +1406,7 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_func()) {
                 auto &[func, body] = next.value();
-                result = result && process_function(parser, func, std::ref(body));
+                result = result && process_function(parser, func, body);
             }
         }
     }
@@ -1417,7 +1417,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Entities");
 
     // Define a task to process a single entity
-    auto process_function = [](Parser &parser, EntityNode *entity, std::vector<Line> &body) -> bool {
+    auto process_function = [](Parser &parser, EntityNode *entity, std::vector<Line> body) -> bool {
         PROFILE_SCOPE("Process entity '" + entity->name + "'");
         // Go through all extended entities and resolve all unknown types and ensure that the extended entities are entities at all
         for (auto &parent_entity : entity->parent_entities) {
@@ -1779,7 +1779,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
                 // Enqueue a task for each node
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(*node.parser), node.entity, std::ref(node.body)));
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(*node.parser), node.entity, node.body));
                 // We set the processed state in here for correctness of later code
                 node.processed = true;
                 // Collect all the keys for the next iteration. We only mark those entities whose parents have fully been parsed, if any
@@ -1853,7 +1853,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Functions");
 
     // Define a task to process a single function
-    auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> &body) -> bool {
+    auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> body) -> bool {
         PROFILE_SCOPE("Process function '" + function->name + "'");
         if (function->is_extern) {
             // Check whether the FIP provides the searched for function in any of it's modules. We only print the error that the function
@@ -1893,7 +1893,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
             while (auto next = parser.get_next_open_function()) {
                 auto &[function, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, std::ref(body)));
+                futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), function, body));
             }
         }
         // Collect results from all tasks
@@ -1905,7 +1905,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_function()) {
                 auto &[function, body] = next.value();
-                result = result && process_function(parser, function, std::ref(body));
+                result = result && process_function(parser, function, body);
             }
         }
     }
@@ -1916,7 +1916,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     PROFILE_SCOPE("Parse Open Tests");
 
     // Define a task to process a single test
-    auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> &body) -> bool {
+    auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> body) -> bool {
         PROFILE_SCOPE("Process test '" + test->name + "'");
         // First, refine all the body lines
         parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
@@ -1943,7 +1943,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
             while (auto next = parser.get_next_open_test()) {
                 auto &[test, body] = next.value();
                 // Enqueue a task for each function
-                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, std::ref(body)));
+                futures.emplace_back(thread_pool.enqueue(process_test, std::ref(parser), test, body));
             }
         }
         // Collect results from all tasks
@@ -1955,7 +1955,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         for (auto &parser : Parser::instances) {
             while (auto next = parser.get_next_open_test()) {
                 auto &[test, body] = next.value();
-                result = result && process_test(parser, test, std::ref(body));
+                result = result && process_test(parser, test, body);
             }
         }
     }
