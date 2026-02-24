@@ -1242,7 +1242,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
 }
 
 bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
-    PROFILE_SCOPE("Parse Open Data Modules");
+    PROFILE_THREADED_SCOPE("Parse Open Data Modules", parse_parallel);
 
     // Define a task to process a single data module
     auto process_function = [](Parser &parser, DataNode *data) -> bool {
@@ -1312,7 +1312,7 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
 }
 
 bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
-    PROFILE_SCOPE("Parse Open Func Modules");
+    PROFILE_THREADED_SCOPE("Parse Open Func Modules", parse_parallel);
 
     // Define a task to process a single func module
     auto process_function = [](Parser &parser, FuncNode *func, std::vector<Line> body) -> bool {
@@ -1414,7 +1414,7 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
 }
 
 bool Parser::parse_all_open_entities(const bool parse_parallel) {
-    PROFILE_SCOPE("Parse Open Entities");
+    PROFILE_THREADED_SCOPE("Parse Open Entities", parse_parallel);
 
     // Define a task to process a single entity
     auto process_function = [](Parser &parser, EntityNode *entity, std::vector<Line> body) -> bool {
@@ -1850,7 +1850,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
 }
 
 bool Parser::parse_all_open_functions(const bool parse_parallel) {
-    PROFILE_SCOPE("Parse Open Functions");
+    PROFILE_THREADED_SCOPE("Parse Open Functions", parse_parallel);
 
     // Define a task to process a single function
     auto process_function = [](Parser &parser, FunctionNode *function, std::vector<Line> body) -> bool {
@@ -1913,7 +1913,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
 }
 
 bool Parser::parse_all_open_tests(const bool parse_parallel) {
-    PROFILE_SCOPE("Parse Open Tests");
+    PROFILE_THREADED_SCOPE("Parse Open Tests", parse_parallel);
 
     // Define a task to process a single test
     auto process_test = [](Parser &parser, TestNode *test, std::vector<Line> body) -> bool {

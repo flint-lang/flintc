@@ -7,8 +7,10 @@
 #include <iomanip>
 
 std::vector<std::shared_ptr<ProfileNode>> Profiler::root_nodes;
-std::stack<std::shared_ptr<ProfileNode>> Profiler::profile_stack;
-std::map<std::string, std::shared_ptr<ProfileNode>> Profiler::active_tasks;
+thread_local std::stack<std::shared_ptr<ProfileNode>> Profiler::profile_stack;
+thread_local std::map<std::string, std::shared_ptr<ProfileNode>> Profiler::active_tasks;
+thread_local std::shared_ptr<ProfileNode> Profiler::threaded_scope_node;
+thread_local bool Profiler::in_threaded_scope = false;
 thread_local std::stack<CumulativeProfiler *> CumulativeProfiler::cumulative_stack;
 
 ScopeProfiler Profiler::start_scope(const std::string &task_name) {
@@ -28,6 +30,7 @@ void Profiler::start_task(const std::string &task, const bool special_task) {
     active_tasks[task] = node;
 
     if (special_task) {
+        std::lock_guard<std::mutex> lock(profiler_mutex);
         profiling_durations.emplace(task, node.get());
     }
 
@@ -37,7 +40,10 @@ void Profiler::start_task(const std::string &task, const bool special_task) {
         current->children.push_back(node);
     } else {
         // No parent, this is a root node
-        root_nodes.push_back(node);
+        {
+            std::lock_guard<std::mutex> lock(profiler_mutex);
+            root_nodes.push_back(node);
+        }
     }
 
     // Push this node onto the stack
@@ -86,7 +92,7 @@ void Profiler::print_results(TimeUnit unit) {
 }
 
 uint64_t Profiler::calibrate_profiler_overhead(size_t iterations) {
-    if (calibrating) {
+    if (calibrating.load()) {
         return 0; // Prevent recursion
     }
     calibrating = true;
@@ -103,7 +109,7 @@ uint64_t Profiler::calibrate_profiler_overhead(size_t iterations) {
     }
     auto end = std::chrono::high_resolution_clock::now();
 
-    calibrating = false;
+    calibrating.store(false);
 
     // Calculate average overhead per profiler instance
     uint64_t total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -118,10 +124,10 @@ uint64_t Profiler::calibrate_profiler_overhead(size_t iterations) {
 }
 
 uint64_t Profiler::get_profiler_overhead() {
-    if (profiler_overhead_ns == 0 && !calibrating) {
+    if (profiler_overhead_ns.load() == 0 && !calibrating.load()) {
         profiler_overhead_ns = calibrate_profiler_overhead();
     }
-    return profiler_overhead_ns;
+    return profiler_overhead_ns.load();
 }
 
 void Profiler::record_cumulative(const std::string &key, uint64_t exclusive_ns, uint64_t inclusive_ns) {
@@ -130,6 +136,7 @@ void Profiler::record_cumulative(const std::string &key, uint64_t exclusive_ns, 
     uint64_t corrected_exclusive = exclusive_ns > overhead ? exclusive_ns - overhead : 0;
     uint64_t corrected_inclusive = inclusive_ns > overhead ? inclusive_ns - overhead : 0;
 
+    std::lock_guard<std::mutex> lock(profiler_mutex);
     auto &stats = cumulative_stats[key];
     stats.name = key;
     stats.call_count++;
@@ -141,6 +148,8 @@ void Profiler::print_cumulative_stats(const std::string &sort_by) {
     if (!DEBUG_MODE) {
         return;
     }
+
+    std::lock_guard<std::mutex> lock(profiler_mutex);
 
     if (cumulative_stats.empty()) {
         std::cout << "No cumulative profiling data available.\n";
@@ -199,5 +208,5 @@ void Profiler::print_cumulative_stats(const std::string &sort_by) {
     std::cout << std::string(132, '-') << "\n";
     std::cout << "Total Exclusive: " << format_with_separator(grand_total / 1000) << " µs across "
               << format_with_separator(stats_vec.size()) << " unique keys\n";
-    std::cout << "Note: Profiler overhead of " << profiler_overhead_ns << " ns has been subtracted from all measurements\n\n";
+    std::cout << "Note: Profiler overhead of " << profiler_overhead_ns.load() << " ns has been subtracted from all measurements\n\n";
 }

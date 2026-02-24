@@ -12,17 +12,23 @@
 
 #include "debug.hpp"
 
+#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <stack>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 /// @typedef `TimePoint`
 /// @brief Alias for a high-resolution time point.
 using TimePoint = std::chrono::high_resolution_clock::time_point;
+
+// Forward declarations
+class ThreadedScopeProfiler;
 
 /// @struct ProfileNode
 /// @brief Represents a node in the profiling tree.
@@ -31,13 +37,15 @@ struct ProfileNode {
     TimePoint start;                                    ///< Start time of the task.
     TimePoint end;                                      ///< End time of the task.
     std::vector<std::shared_ptr<ProfileNode>> children; ///< Child profiling nodes.
+    bool is_threaded = false;                           ///< Whether this node represents a threaded scope.
 
     /// @brief Constructor for a profile node
     /// @param name Name of the task
     explicit ProfileNode(std::string name) :
         name(std::move(name)),
         start(std::chrono::high_resolution_clock::now()),
-        end{} {}
+        end{},
+        is_threaded(false) {}
 };
 
 /// @struct CumulativeStats
@@ -59,8 +67,9 @@ struct CumulativeStats {
     }
 };
 
-class ScopeProfiler;      ///< Forward declaration.
-class CumulativeProfiler; ///< Forward declaration.
+class ScopeProfiler;         ///< Forward declaration.
+class ThreadedScopeProfiler; ///< Forward declaration.
+class CumulativeProfiler;    ///< Forward declaration.
 
 /// @class Profiler
 /// @brief Provides static methods for task profiling.
@@ -120,6 +129,7 @@ class Profiler {
 
     /// @brief Clears all cumulative statistics
     static void clear_cumulative_stats() {
+        std::lock_guard<std::mutex> lock(profiler_mutex);
         cumulative_stats.clear();
     }
 
@@ -192,8 +202,10 @@ class Profiler {
         }
 
         // Format the duration with color (optional) and arrow to task name
-        std::string formatted_duration = format_with_separator(duration.count(), '_') + " " + std::string(unit) + " " + Debug::HOR + "> " +
-            Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END;
+        // Threaded scopes are shown in GREY to distinguish them from regular scopes
+        std::string node_color = node->is_threaded ? GREY : "";
+        std::string formatted_duration = node_color + format_with_separator(duration.count(), '_') + " " + std::string(unit) + " " +
+            Debug::HOR + "> " + Debug::TextFormat::BOLD_START + node->name + Debug::TextFormat::BOLD_END + DEFAULT;
 
         // Print node with duration
         std::cout << line_prefix << formatted_duration << "\n";
@@ -214,24 +226,62 @@ class Profiler {
         return profile_stack.empty() ? nullptr : profile_stack.top();
     }
 
-    // Stores root profiling nodes
+    /// @brief Checks if we're currently in a threaded scope
+    static bool is_in_threaded_scope() {
+        return threaded_scope_node != nullptr;
+    }
+
+    /// @brief Gets the current threaded scope parent node
+    static std::shared_ptr<ProfileNode> get_threaded_scope_node() {
+        return threaded_scope_node;
+    }
+
+    /// @brief Sets the threaded scope parent node
+    static void set_threaded_scope_node(std::shared_ptr<ProfileNode> node) {
+        threaded_scope_node = node;
+    }
+
+    /// @brief Collects all root nodes from all threads and moves them under the threaded scope parent
+    static void collect_threaded_roots(std::shared_ptr<ProfileNode> parent) {
+        std::lock_guard<std::mutex> lock(profiler_mutex);
+        if (!root_nodes.empty()) {
+            for (const auto &node : root_nodes) {
+                parent->children.push_back(node);
+            }
+            root_nodes.clear();
+        }
+    }
+
+    // Stores root profiling nodes (shared across all threads, protected by mutex for writes)
     static std::vector<std::shared_ptr<ProfileNode>> root_nodes;
 
-    // Profiling stack to track nested calls
-    static std::stack<std::shared_ptr<ProfileNode>> profile_stack;
+    // Profiling stack to track nested calls (thread-local)
+    static thread_local std::stack<std::shared_ptr<ProfileNode>> profile_stack;
 
-    // Map for quick lookup when using manual start_task/end_task
-    static std::map<std::string, std::shared_ptr<ProfileNode>> active_tasks;
+    // Map for quick lookup when using manual start_task/end_task (thread-local)
+    static thread_local std::map<std::string, std::shared_ptr<ProfileNode>> active_tasks;
+
+    // Parent node for threaded scope (thread-local, set when PROFILE_THREADED_SCOPE is active)
+    static thread_local std::shared_ptr<ProfileNode> threaded_scope_node;
+
+    // Flag indicating whether the current scope should collect roots as threaded
+    static thread_local bool in_threaded_scope;
+
+    /// @brief Mutex to protect shared profiler state (protected so nested classes can access it)
+    static inline std::mutex profiler_mutex;
+
+    /// @brief Mutex to protect thread-local roots collection for threaded scopes
+    static inline std::mutex threaded_roots_mutex;
 
   private:
-    /// @brief Map of cumulative statistics by key
+    /// @brief Map of cumulative statistics by key (protected by profiler_mutex)
     static inline std::unordered_map<std::string, CumulativeStats> cumulative_stats;
 
-    /// @brief Cached profiler overhead in nanoseconds (0 = not calibrated)
-    static inline uint64_t profiler_overhead_ns = 0;
+    /// @brief Cached profiler overhead in nanoseconds (0 = not calibrated) (atomic for thread-safe access)
+    static inline std::atomic<uint64_t> profiler_overhead_ns{0};
 
-    /// @brief Flag to prevent infinite recursion during calibration
-    static inline bool calibrating = false;
+    /// @brief Flag to prevent infinite recursion during calibration (atomic for thread-safe access)
+    static inline std::atomic<bool> calibrating{false};
 };
 
 /// @class ScopeProfiler
@@ -250,7 +300,10 @@ class ScopeProfiler {
             current->children.push_back(node);
         } else {
             // No parent, this is a root node
-            Profiler::root_nodes.push_back(node);
+            {
+                std::lock_guard<std::mutex> lock(Profiler::profiler_mutex);
+                Profiler::root_nodes.push_back(node);
+            }
         }
 
         // Push this node onto the stack
@@ -288,6 +341,122 @@ class ScopeProfiler {
     std::shared_ptr<ProfileNode> node; ///< Node representing this profile in the tree.
 };
 
+/// @class ThreadedScopeProfiler
+/// @brief RAII-based class for marking regions where parallel work happens.
+/// All profilers created within this scope (on any thread) will be collected
+/// as children of this scope's node.
+class ThreadedScopeProfiler {
+  public:
+    /// @brief Constructs a `ThreadedScopeProfiler` with conditional threaded behavior
+    /// @param scope_name Name of the scope
+    /// @param is_threaded If true, enables threaded scope behavior; if false, acts like a regular scope
+    explicit ThreadedScopeProfiler(std::string scope_name, bool is_threaded = true) :
+        scope_name(std::move(scope_name)),
+        is_threaded_scope(is_threaded) {
+        if (!is_threaded_scope) {
+            // Behave like a regular ScopeProfiler
+            node = std::make_shared<ProfileNode>(this->scope_name);
+            auto current = Profiler::current_node();
+            if (current) {
+                current->children.push_back(node);
+            } else {
+                std::lock_guard<std::mutex> lock(Profiler::profiler_mutex);
+                Profiler::root_nodes.push_back(node);
+            }
+            Profiler::profile_stack.push(node);
+            return;
+        }
+        // Create the parent node for all threaded work
+        node = std::make_shared<ProfileNode>(this->scope_name);
+        node->is_threaded = true;
+
+        // Add to parent if we have one
+        auto current = Profiler::current_node();
+        if (current) {
+            current->children.push_back(node);
+        } else {
+            // No parent, this is a root node
+            std::lock_guard<std::mutex> lock(Profiler::profiler_mutex);
+            Profiler::root_nodes.push_back(node);
+        }
+
+        // Push this node onto the main stack
+        Profiler::profile_stack.push(node);
+
+        // Mark that we're entering a threaded scope
+        previous_threaded_scope = Profiler::threaded_scope_node;
+        previous_in_threaded = Profiler::in_threaded_scope;
+        Profiler::threaded_scope_node = node;
+        Profiler::in_threaded_scope = true;
+
+        // Save the root nodes count at start (we'll collect any new ones later)
+        root_nodes_at_start = Profiler::root_nodes.size();
+    }
+
+    /// @brief Destructs the `ThreadedScopeProfiler` and collects all thread-local roots
+    ~ThreadedScopeProfiler() {
+        if (!node)
+            return; // Safety check
+
+        if (!is_threaded_scope) {
+            // Regular scope cleanup (like ScopeProfiler)
+            node->end = std::chrono::high_resolution_clock::now();
+            if (!Profiler::profile_stack.empty() && Profiler::profile_stack.top() == node) {
+                Profiler::profile_stack.pop();
+            }
+            return;
+        }
+
+        // Threaded scope cleanup
+
+        // Restore previous threaded scope state
+        Profiler::threaded_scope_node = previous_threaded_scope;
+        Profiler::in_threaded_scope = previous_in_threaded;
+
+        // Collect all root nodes that were added during threaded execution
+        // These are the results from worker threads
+        {
+            std::lock_guard<std::mutex> lock(Profiler::profiler_mutex);
+            // Move any new root nodes created during threaded execution to be children of this scope
+            for (size_t i = root_nodes_at_start; i < Profiler::root_nodes.size(); ++i) {
+                node->children.push_back(Profiler::root_nodes[i]);
+            }
+            // Erase the collected nodes from root_nodes
+            if (root_nodes_at_start < Profiler::root_nodes.size()) {
+                Profiler::root_nodes.erase(Profiler::root_nodes.begin() + root_nodes_at_start, Profiler::root_nodes.end());
+            }
+        }
+
+        // Set end time
+        node->end = std::chrono::high_resolution_clock::now();
+
+        // Pop from stack only if this is the top node
+        if (!Profiler::profile_stack.empty() && Profiler::profile_stack.top() == node) {
+            Profiler::profile_stack.pop();
+        }
+    }
+
+    /// @brief Deleted copy constructor
+    ThreadedScopeProfiler(const ThreadedScopeProfiler &) = delete;
+
+    /// @brief Deleted copy assignment operator
+    ThreadedScopeProfiler &operator=(const ThreadedScopeProfiler &) = delete;
+
+    /// @brief Default move constructor
+    ThreadedScopeProfiler(ThreadedScopeProfiler &&) = default;
+
+    /// @brief Deleted move assignment operator
+    ThreadedScopeProfiler &operator=(ThreadedScopeProfiler &&) = delete;
+
+  private:
+    std::string scope_name;                               ///< Name of the threaded scope
+    std::shared_ptr<ProfileNode> node;                    ///< Node representing this threaded scope
+    std::shared_ptr<ProfileNode> previous_threaded_scope; ///< Previous threaded scope (for nesting)
+    bool previous_in_threaded;                            ///< Previous value of in_threaded_scope flag
+    size_t root_nodes_at_start;                           ///< Number of root nodes when scope started
+    bool is_threaded_scope;                               ///< Whether this scope should use threaded behavior
+};
+
 /// @class CumulativeProfiler
 /// @brief RAII-based class for cumulative profiling with exclusive time tracking
 class CumulativeProfiler {
@@ -323,6 +492,8 @@ class CumulativeProfiler {
         }
         // Push ourselves onto the stack
         cumulative_stack.push(this);
+
+        // Note: calibration profilers bypass the normal profiler overhead tracking
     }
 
     /// @brief Destructs the `CumulativeProfiler` and records the measurement
@@ -397,6 +568,20 @@ class CumulativeProfiler {
 #define PROFILE_SCOPE(name) ScopeProfiler CONCAT(sp_, __LINE__)(name)
 #else
 #define PROFILE_SCOPE(name) ((void)0)
+#endif
+
+/// @def PROFILE_THREADED_SCOPE(name, parse_parallel)
+/// @brief Macro for marking a region where parallel work may happen.
+/// If parse_parallel is true, all profilers created within this scope (on any thread)
+/// will be collected as children of this scope's node.
+/// If parse_parallel is false, behaves as a regular PROFILE_SCOPE (no threaded collection).
+/// @param name Name of the scope
+/// @param parse_parallel Boolean flag indicating if parallel work will occur
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
+#ifdef DEBUG_BUILD
+#define PROFILE_THREADED_SCOPE(name, parse_parallel) ThreadedScopeProfiler CONCAT(tsp_, __LINE__)(name, parse_parallel)
+#else
+#define PROFILE_THREADED_SCOPE(name, parse_parallel) ((void)0)
 #endif
 
 /// @def PROFILE_CUMULATIVE(key)

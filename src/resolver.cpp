@@ -49,6 +49,7 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
         if (run_in_parallel) {
             any_failed = process_dependencies_parallel(open_dependencies, next_dependencies, depth);
         } else {
+            PROFILE_SCOPE("Process Dependencies");
             // Run single-threaded
             for (const auto &[open_dep_hash, deps] : open_dependencies) {
                 // For all the dependencies of said file
@@ -123,6 +124,7 @@ bool Resolver::process_dependencies_parallel(                             //
     std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
     const uint64_t depth                                                  //
 ) {
+    PROFILE_THREADED_SCOPE("Process Dependencies", true);
     // Parse current level's files in parallel
     std::vector<std::future<bool>> futures;
     futures.reserve(open_dependencies.size());
