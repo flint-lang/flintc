@@ -613,8 +613,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             token.line = tok->line;
             token.column += tok->column + it->first + 1;
         }
-        std::vector<Line> lines = std::vector<Line>{Line(0, {expr_tokens.begin(), expr_tokens.end()})};
-        collapse_types_in_lines(lines, expr_tokens);
+        token_slice expr_slice = {expr_tokens.begin(), expr_tokens.end()};
+        collapse_types_in_slice(expr_slice, expr_tokens);
         token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
         if (expr_tokens.back().token == TOK_EOF) {
             expr_tokens_slice.second--;

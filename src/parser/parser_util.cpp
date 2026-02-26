@@ -1,19 +1,19 @@
 #include "analyzer/analyzer.hpp"
+#include "debug.hpp"
+#include "error/error.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
-
-#include "debug.hpp"
-#include "error/error.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "profiler.hpp"
+#include "single_executor_guard.hpp"
 
 #include <algorithm>
 
@@ -286,6 +286,7 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
 }
 
 void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
+    ASSERT_ST
     for (auto it = slice.first; it != slice.second;) {
         // Erase all indentations within a line, which are not at the beginning of a line
         if (it->token == TOK_INDENT) {
