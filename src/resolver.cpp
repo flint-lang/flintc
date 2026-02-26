@@ -96,7 +96,7 @@ void Resolver::get_dependency_graph_tips(const std::shared_ptr<DepNode> &dep_nod
 
 void Resolver::clear() {
     std::lock_guard<std::mutex> lock_dep_map(dependency_map_mutex);
-    std::lock_guard<std::mutex> lock_namespace_map(namespace_map_mutex);
+    std::lock_guard<std::shared_mutex> lock_namespace_map(namespace_map_mutex);
     std::lock_guard<std::mutex> lock_mod_map(generated_files_mutex);
 
     dependency_map.clear();
@@ -115,7 +115,7 @@ bool Resolver::generated_files_contain(const Hash &file_hash) {
 }
 
 Namespace *Resolver::get_namespace_from_hash(const Hash &file_hash) {
-    std::lock_guard<std::mutex> lock(namespace_map_mutex);
+    std::lock_guard<std::shared_mutex> lock(namespace_map_mutex);
     return namespace_map.at(file_hash);
 }
 

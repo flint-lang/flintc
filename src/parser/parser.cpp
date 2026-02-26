@@ -170,7 +170,7 @@ std::optional<FileNode *> Parser::parse() {
     PROFILE_SCOPE("Parse file '" + file.filename().string() + "'");
     file_node_ptr = std::make_unique<FileNode>(file);
     {
-        std::lock_guard<std::mutex> lock(Resolver::namespace_map_mutex);
+        std::lock_guard<std::shared_mutex> lock(Resolver::namespace_map_mutex);
         assert(Resolver::namespace_map.find(file_node_ptr->file_namespace->namespace_hash) == Resolver::namespace_map.end());
         Resolver::namespace_map.emplace(file_node_ptr->file_namespace->namespace_hash, file_node_ptr->file_namespace.get());
     }

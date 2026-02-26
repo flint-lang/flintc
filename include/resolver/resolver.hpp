@@ -76,7 +76,7 @@ class Resolver {
 
     /// @var `namesapce_map_mutex`
     /// @brief A mutex for the `namespace_map` variable, to make accessing the `namespace_map` thread-safe
-    static inline std::mutex namespace_map_mutex;
+    static inline std::shared_mutex namespace_map_mutex;
 
     /// @var `max_graph_depth`
     /// @brief Number to determine the maximum depth of the graph when resolving the file dependencies
