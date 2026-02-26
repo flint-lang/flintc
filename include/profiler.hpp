@@ -463,12 +463,15 @@ class CumulativeProfiler {
   public:
     /// @brief Constructs a `CumulativeProfiler` and starts timing
     /// @param key Identifier for this measurement
-    explicit CumulativeProfiler(std::string key) :
-        key(std::move(key)),
-        start(std::chrono::high_resolution_clock::now()),
-        paused_duration_ns(0),
-        is_paused(false),
-        is_calibration(false) {
+    explicit CumulativeProfiler(const std::string &key) {
+        if (!PRINT_CUMULATIVE_PROFILE_RESULTS) {
+            return;
+        }
+        this->key = key;
+        start = std::chrono::high_resolution_clock::now();
+        paused_duration_ns = 0;
+        is_paused = false;
+        is_calibration = false;
         // Pause the parent profiler if any
         if (!cumulative_stack.empty()) {
             cumulative_stack.top()->pause();
@@ -480,12 +483,15 @@ class CumulativeProfiler {
     /// @brief Special constructor for calibration (doesn't record results)
     /// @param key Identifier for this measurement
     /// @param calibration_flag Must be true to use this constructor
-    explicit CumulativeProfiler(std::string key, bool calibration_flag) :
-        key(std::move(key)),
-        start(std::chrono::high_resolution_clock::now()),
-        paused_duration_ns(0),
-        is_paused(false),
-        is_calibration(calibration_flag) {
+    explicit CumulativeProfiler(const std::string &key, const bool calibration_flag) {
+        if (!PRINT_CUMULATIVE_PROFILE_RESULTS) {
+            return;
+        }
+        this->key = key;
+        start = std::chrono::high_resolution_clock::now();
+        paused_duration_ns = 0;
+        is_paused = false;
+        is_calibration = calibration_flag;
         // Pause the parent profiler if any
         if (!cumulative_stack.empty()) {
             cumulative_stack.top()->pause();
@@ -498,6 +504,9 @@ class CumulativeProfiler {
 
     /// @brief Destructs the `CumulativeProfiler` and records the measurement
     ~CumulativeProfiler() {
+        if (!PRINT_CUMULATIVE_PROFILE_RESULTS) {
+            return;
+        }
         // Pop ourselves from the stack
         if (!cumulative_stack.empty() && cumulative_stack.top() == this) {
             cumulative_stack.pop();
