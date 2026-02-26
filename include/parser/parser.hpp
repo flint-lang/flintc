@@ -1,7 +1,8 @@
 #pragma once
 
+#include "analyzer/analyzer.hpp"
 #include "matcher/matcher.hpp"
-#include "parser/ast/statements/do_while_node.hpp"
+#include "parser/line.hpp"
 #include "types.hpp"
 
 #include "ast/annotation_node.hpp"
@@ -23,6 +24,7 @@
 #include "ast/statements/assignment_node.hpp"
 #include "ast/statements/data_field_assignment_node.hpp"
 #include "ast/statements/declaration_node.hpp"
+#include "ast/statements/do_while_node.hpp"
 #include "ast/statements/enhanced_for_loop_node.hpp"
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/group_assignment_node.hpp"
@@ -35,7 +37,6 @@
 #include "ast/statements/unary_op_statement.hpp"
 #include "ast/statements/while_node.hpp"
 
-#include "analyzer/analyzer.hpp"
 #include "ast/expressions/array_access_node.hpp"
 #include "ast/expressions/array_initializer_node.hpp"
 #include "ast/expressions/data_access_node.hpp"
@@ -47,9 +48,8 @@
 #include "ast/expressions/switch_expression.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
 #include "ast/expressions/variable_node.hpp"
-#include "ast/statements/catch_node.hpp"
+#include "ast/expressions/variant_extraction_node.hpp"
 #include "ast/statements/throw_node.hpp"
-#include "parser/ast/expressions/variant_extraction_node.hpp"
 
 #include "type/multi_type.hpp"
 
