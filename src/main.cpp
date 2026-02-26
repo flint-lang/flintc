@@ -135,6 +135,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     }
     if (DEBUG_MODE && NO_GENERATION) {
         sp.~ScopeProfiler();
+        FIP::shutdown();
         Profiler::end_task("ALL");
         if (PRINT_PROFILE_RESULTS) {
             Profiler::print_results(Profiler::TimeUnit::MICS);
