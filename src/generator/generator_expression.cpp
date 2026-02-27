@@ -3536,10 +3536,46 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
         }
         assert(to_type_str == "str");
+        // TODO: Create a global `flint.to_string` function with a type id parameter and pointer to the value being printed to reduce
+        // code-duplication of casting enums to strings, as this is very messy for large enums
         const EnumNode *enum_node = from_enum_type->enum_node;
         const std::string enum_name_arrays_map_key = enum_node->file_hash.to_string() + "." + enum_node->name;
         llvm::GlobalVariable *name_array = enum_name_arrays_map.at(enum_name_arrays_map_key);
-        llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
+
+        // Create basic blocks for switch
+        llvm::BasicBlock *const previous_block = builder.GetInsertBlock();
+        llvm::BasicBlock *const default_block = llvm::BasicBlock::Create(context, "default", previous_block->getParent());
+        llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge");
+
+        // Create switch on expr (the enum value)
+        builder.SetInsertPoint(previous_block);
+        llvm::SwitchInst *sw = builder.CreateSwitch(expr, default_block);
+
+        // Add cases for each enum member
+        std::vector<llvm::BasicBlock *> case_blocks;
+        for (size_t i = 0; i < enum_node->values.size(); i++) {
+            const auto &[name, value] = enum_node->values.at(i);
+            case_blocks.emplace_back(llvm::BasicBlock::Create(context, "case_" + name, previous_block->getParent()));
+            sw->addCase(llvm::ConstantInt::get(builder.getInt32Ty(), value), case_blocks.back());
+
+            builder.SetInsertPoint(case_blocks.back());
+            builder.CreateBr(merge_block);
+        }
+
+        // Default case (invalid enum value): unreachable for now
+        builder.SetInsertPoint(default_block);
+        builder.CreateUnreachable();
+
+        // Merge block: load mapped index
+        merge_block->insertInto(previous_block->getParent());
+        builder.SetInsertPoint(merge_block);
+        llvm::PHINode *mapped_index = builder.CreatePHI(builder.getInt32Ty(), enum_node->values.size(), "mapped_index");
+        for (size_t i = 0; i < enum_node->values.size(); i++) {
+            mapped_index->addIncoming(builder.getInt32(i), case_blocks.at(i));
+        }
+
+        // Use mapped_index for GEP
+        llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {mapped_index}, "name_str_ptr");
         llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
         llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
         llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
