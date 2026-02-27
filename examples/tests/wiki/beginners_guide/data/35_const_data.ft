@@ -1,0 +1,7 @@
+use Core.print
+
+const data Globals:
+	i32 x = 10;
+
+def main():
+	print($"x = {Globals.x}\n");

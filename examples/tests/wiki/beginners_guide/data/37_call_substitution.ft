@@ -1,0 +1,11 @@
+use Core.print
+
+def print_addition(i32 x, i32 y) -> i32:
+	print($"{x} + {y} = {x + y}\n");
+	return x + y;
+
+const data Globals:
+	i32 x = print_addition(10, 20);
+
+def main():
+	print($"x = {Globals.x}\n");

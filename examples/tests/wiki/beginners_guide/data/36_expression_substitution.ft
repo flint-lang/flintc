@@ -1,0 +1,16 @@
+use Core.print
+
+data MyData:
+	i32 x = 4;
+	f32 y = 3.14;
+	str s = "Hi there!";
+	MyData(x, y, s);
+
+const data Globals:
+	i32 x = 10;
+	MyData md = MyData(10, 38.2, "Hello 2");
+
+def main():
+	print($"x = {Globals.x}\n");
+	md := Globals.md;
+	print($"md.(x, y, s) = ({md.x}, {md.y}, \"{md.s}\")\n");

@@ -174,3 +174,18 @@ test "34_prim_type_alias.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "34_prim_type_alias.ft";
 	test_file_ok($"{path}/{file}", "i: -10, f: 3.5\n");
+
+test "35_const_data.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "35_const_data.ft";
+	test_file_ok($"{path}/{file}", "x = 10\n");
+
+test "36_expression_substitution.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "36_expression_substitution.ft";
+	test_file_ok($"{path}/{file}", "x = 10\nmd.(x, y, s) = (10, 38.200001, \"Hello 2\")\n");
+
+test "37_call_substitution.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "37_call_substitution.ft";
+	test_file_ok($"{path}/{file}", "10 + 20 = 30\nx = 30\n");
