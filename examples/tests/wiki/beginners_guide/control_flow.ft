@@ -118,14 +118,24 @@ test "22_enum_operation.ft":
 	str file = "22_enum_operation.ft";
 	test_file_ok($"{path}/{file}", "container.(a, b, c) = (-10, 22.5, 889)\ncontainer.(a, b, c) = (-7, 25.9, 892)\ncontainer.(a, b, c) = (-49, 186.479996, 6244)\ncontainer.(a, b, c) = (-71, 164.37999, 6222)\ncontainer.(a, b, c) = (-11, 23.823187, 1037)\n");
 
-test "23_switch_cmp.ft":
+test "23_enum_to_str.ft":
 	str path = "tests/wiki/beginners_guide/control_flow";
-	str file = "23_switch_cmp.ft";
+	str file = "23_enum_to_str.ft";
+	test_file_ok($"{path}/{file}", "e = VAL1, id = 0\ne = VAL2, id = 1\ne = VAL3, id = 2\n");
+
+test "24_enum_set_values.ft":
+	str path = "tests/wiki/beginners_guide/control_flow";
+	str file = "24_enum_set_values.ft";
+	test_file_ok($"{path}/{file}", "e = VAL1, id = 1\ne = VAL2, id = 2\ne = VAL3, id = 4\n");
+
+test "25_switch_cmp.ft":
+	str path = "tests/wiki/beginners_guide/control_flow";
+	str file = "25_switch_cmp.ft";
 	test_file_ok($"{path}/{file}", "is bigger\n");
 
-test "24_switch_fallthrough.c":
+test "26_switch_fallthrough.c":
 	str path = "tests/wiki/beginners_guide/control_flow";
-	str file = "24_switch_fallthrough.c";
+	str file = "26_switch_fallthrough.c";
 	(exit_code, output) := system_command($"clang {path}/{file} -o main");
 	assert(exit_code == 0);
 	assert(output == "");
@@ -133,9 +143,9 @@ test "24_switch_fallthrough.c":
 	assert(exit_code == 0);
 	assert(output == "is val1\nis val2\nis val3\n");
 
-test "25_switch_break.c":
+test "27_switch_break.c":
 	str path = "tests/wiki/beginners_guide/control_flow";
-	str file = "25_switch_break.c";
+	str file = "27_switch_break.c";
 	(exit_code, output) := system_command($"clang {path}/{file} -o main");
 	assert(exit_code == 0);
 	assert(output == "");
@@ -144,12 +154,12 @@ test "25_switch_break.c":
 	assert(output == "is val1\n");
 
 #test_should_fail
-test "[f]26_switch_fallthrough.ft":
+test "[f]28_switch_fallthrough.ft":
 	str path = "tests/wiki/beginners_guide/control_flow";
-	str file = "26_switch_fallthrough.ft";
+	str file = "28_switch_fallthrough.ft";
 	test_file_ok($"{path}/{file}", "is val1\nis val2\n");
 
-test "27_switch_expression.ft":
+test "29_switch_expression.ft":
 	str path = "tests/wiki/beginners_guide/control_flow";
-	str file = "27_switch_expression.ft";
+	str file = "29_switch_expression.ft";
 	test_file_ok($"{path}/{file}", "result = 1\n");
