@@ -3536,7 +3536,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateTrunc(expr, builder.getInt8Ty(), "num_cast_u8");
         }
         assert(to_type_str == "str");
-        llvm::GlobalVariable *name_array = enum_name_arrays_map.at(from_enum_type->enum_node->name);
+        const EnumNode *enum_node = from_enum_type->enum_node;
+        const std::string enum_name_arrays_map_key = enum_node->file_hash.to_string() + "." + enum_node->name;
+        llvm::GlobalVariable *name_array = enum_name_arrays_map.at(enum_name_arrays_map_key);
         llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {expr}, "name_str_ptr");
         llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
         llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
