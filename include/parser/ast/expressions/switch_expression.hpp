@@ -46,7 +46,7 @@ class SwitchExpression : public SwitchBase, public ExpressionNode {
         return Variation::SWITCH_EXPRESSION;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return nullptr;
     }

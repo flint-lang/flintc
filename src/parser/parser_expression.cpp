@@ -1917,7 +1917,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     assert(field->initializer.has_value());
-                    return field->initializer.value()->clone();
+                    return field->initializer.value()->clone(scope->scope_id);
                 }
                 case Type::Variation::ENUM: {
                     const auto *enum_type = type->as<EnumType>();

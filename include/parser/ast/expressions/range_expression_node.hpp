@@ -33,9 +33,9 @@ class RangeExpressionNode : public ExpressionNode {
         return Variation::RANGE_EXPRESSION;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
-        std::unique_ptr<ExpressionNode> lower_bound_clone = lower_bound->clone();
-        std::unique_ptr<ExpressionNode> upper_bound_clone = upper_bound->clone();
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
+        std::unique_ptr<ExpressionNode> lower_bound_clone = lower_bound->clone(scope_id);
+        std::unique_ptr<ExpressionNode> upper_bound_clone = upper_bound->clone(scope_id);
         return std::make_unique<RangeExpressionNode>(file_hash, lower_bound_clone, upper_bound_clone);
     }
 

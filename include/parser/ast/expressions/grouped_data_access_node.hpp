@@ -36,8 +36,8 @@ class GroupedDataAccessNode : public ExpressionNode {
         return Variation::GROUPED_DATA_ACCESS;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
-        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
         const std::vector<std::shared_ptr<Type>> &field_types = this->type->as<GroupType>()->types;
         return std::make_unique<GroupedDataAccessNode>(this->file_hash, base_expr_clone, field_names, field_ids, field_types);
     }

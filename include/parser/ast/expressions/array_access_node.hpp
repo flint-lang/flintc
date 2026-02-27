@@ -23,12 +23,12 @@ class ArrayAccessNode : public ExpressionNode {
         return Variation::ARRAY_ACCESS;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> cloned_indexing_exprs;
         for (auto &expr : indexing_expressions) {
-            cloned_indexing_exprs.emplace_back(expr->clone());
+            cloned_indexing_exprs.emplace_back(expr->clone(scope_id));
         }
-        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
         return std::make_unique<ArrayAccessNode>(base_expr_clone, this->type, cloned_indexing_exprs);
     }
 

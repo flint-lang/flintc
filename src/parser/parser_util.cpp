@@ -596,7 +596,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     assert(arguments.size() >= 1);
                     assert(arguments.back().first->type->to_string() == "type.flint.default");
                     for (size_t i = arguments.size(); i < fields.size(); i++) {
-                        arguments.emplace_back(arguments.at(i - 1).first->clone(), false);
+                        arguments.emplace_back(arguments.at(i - 1).first->clone(scope->scope_id), false);
                     }
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {
@@ -610,7 +610,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                             return std::nullopt;
                         }
                         arguments[i].first.reset();
-                        arguments[i].first = data_node->fields.at(i).initializer.value()->clone();
+                        arguments[i].first = data_node->fields.at(i).initializer.value()->clone(scope->scope_id);
                         arg_type = arguments[i].first->type;
                     }
                     const auto &field_type = fields.at(i).type;

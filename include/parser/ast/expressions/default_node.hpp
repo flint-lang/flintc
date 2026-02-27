@@ -14,7 +14,7 @@ class DefaultNode : public ExpressionNode {
         return Variation::DEFAULT;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
         return std::make_unique<DefaultNode>(this->type);
     }
 };

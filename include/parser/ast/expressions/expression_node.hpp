@@ -66,8 +66,9 @@ class ExpressionNode : public ASTNode {
     /// @function `clone`
     /// @brief Clones this expression by creating a new expression node from this one
     ///
+    /// @brief `scope_id` The ID of the scope in which we clone the expression into
     /// @return `std::unique_ptr<ExpressionNode>` The cloned expression
-    virtual std::unique_ptr<ExpressionNode> clone() const = 0;
+    virtual std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const = 0;
 
     /// @function `as`
     /// @brief Casts this expression node to the requested type, but the requested type must be a child type of this class

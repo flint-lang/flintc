@@ -25,12 +25,12 @@ class InstanceCallNodeExpression : public InstanceCallNodeBase, public Expressio
         return Variation::INSTANCE_CALL;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments_clone;
         for (auto &[arg, is_reference] : arguments) {
-            arguments_clone.emplace_back(arg->clone(), is_reference);
+            arguments_clone.emplace_back(arg->clone(scope_id), is_reference);
         }
-        std::unique_ptr<ExpressionNode> instance_variable_clone = instance_variable->clone();
+        std::unique_ptr<ExpressionNode> instance_variable_clone = instance_variable->clone(scope_id);
         return std::make_unique<InstanceCallNodeExpression>(                                      //
             function, arguments_clone, error_types, ExpressionNode::type, instance_variable_clone //
         );

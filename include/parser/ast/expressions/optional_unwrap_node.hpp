@@ -21,8 +21,8 @@ class OptionalUnwrapNode : public ExpressionNode {
         return Variation::OPTIONAL_UNWRAP;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
-        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
         return std::make_unique<OptionalUnwrapNode>(base_expr_clone);
     }
 

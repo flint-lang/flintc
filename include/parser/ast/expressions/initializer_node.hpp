@@ -18,10 +18,10 @@ class InitializerNode : public ExpressionNode {
         return Variation::INITIALIZER;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> args_clone;
         for (auto &arg : args) {
-            args_clone.emplace_back(arg->clone());
+            args_clone.emplace_back(arg->clone(scope_id));
         }
         return std::make_unique<InitializerNode>(this->type, args_clone);
     }

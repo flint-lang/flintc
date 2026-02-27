@@ -19,8 +19,8 @@ class UnaryOpExpression : public UnaryOpBase, public ExpressionNode {
         return Variation::UNARY_OP;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
-        std::unique_ptr<ExpressionNode> operand_clone = operand->clone();
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
+        std::unique_ptr<ExpressionNode> operand_clone = operand->clone(scope_id);
         return std::make_unique<UnaryOpExpression>(operator_token, operand_clone, is_left);
     }
 

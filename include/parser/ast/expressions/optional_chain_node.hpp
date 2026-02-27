@@ -59,8 +59,8 @@ class OptionalChainNode : public ExpressionNode {
         return Variation::OPTIONAL_CHAIN;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
-        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone();
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
+        std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
         ChainOperation operation_clone;
         if (std::holds_alternative<ChainFieldAccess>(operation)) {
             const auto &access = std::get<ChainFieldAccess>(operation);
@@ -70,7 +70,7 @@ class OptionalChainNode : public ExpressionNode {
             const auto &access = std::get<ChainArrayAccess>(operation);
             std::vector<std::unique_ptr<ExpressionNode>> indexing_expressions;
             for (auto &indexing_expression : access.indexing_expressions) {
-                indexing_expressions.emplace_back(indexing_expression->clone());
+                indexing_expressions.emplace_back(indexing_expression->clone(scope_id));
             }
             operation_clone = ChainArrayAccess{
                 .indexing_expressions = std::move(indexing_expressions),

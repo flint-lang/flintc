@@ -89,7 +89,7 @@ class LiteralNode : public ExpressionNode {
         return Variation::LITERAL;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         LitValue value_clone;
         if (std::holds_alternative<LitEnum>(value)) {
             const auto &lit = std::get<LitEnum>(value);
@@ -98,7 +98,7 @@ class LiteralNode : public ExpressionNode {
             const auto &lit = std::get<LitError>(value);
             std::optional<std::unique_ptr<ExpressionNode>> message = std::nullopt;
             if (lit.message.has_value()) {
-                message = lit.message.value()->clone();
+                message = lit.message.value()->clone(scope_id);
             }
             value_clone = LitError{
                 .error_type = lit.error_type,

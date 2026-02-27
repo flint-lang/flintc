@@ -16,7 +16,7 @@ class SwitchMatchNode : public ExpressionNode {
         return Variation::SWITCH_MATCH;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
         return std::make_unique<SwitchMatchNode>(this->type, name, id);
     }
 

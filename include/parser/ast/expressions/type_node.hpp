@@ -14,7 +14,7 @@ class TypeNode : public ExpressionNode {
         return Variation::TYPE;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
         return std::make_unique<TypeNode>(this->type);
     }
 };

@@ -26,12 +26,12 @@ class ArrayInitializerNode : public ExpressionNode {
         return Variation::ARRAY_INITIALIZER;
     }
 
-    std::unique_ptr<ExpressionNode> clone() const override {
+    std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> cloned_length_exprs;
         for (auto &expr : length_expressions) {
-            cloned_length_exprs.emplace_back(expr->clone());
+            cloned_length_exprs.emplace_back(expr->clone(scope_id));
         }
-        std::unique_ptr<ExpressionNode> init_value = initializer_value->clone();
+        std::unique_ptr<ExpressionNode> init_value = initializer_value->clone(scope_id);
         return std::make_unique<ArrayInitializerNode>(this->type, cloned_length_exprs, init_value);
     }
 
