@@ -90,6 +90,8 @@ def main():
 
 Build and run example using `flintc --file main.ft --flags="-lraylib"`
 
+<img width="800" height="451" alt="2026-02-28-202945_hyprshot" src="https://github.com/user-attachments/assets/44eff36d-dc44-46c0-890e-bf367a732a17" />
+
 You need `raylib` installed on your system for this example to compile and run correctly.
 
 ## Installation
