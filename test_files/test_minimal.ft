@@ -1,14 +1,21 @@
-use Core.print
+use Fip.raylib as rl
 
-enum MyEnum:
-	VAL1 = 1,
-	VAL2 = 2,
-	VAL3 = 4;
+const data Globals:
+	str window_name = "Raylib Example";
+	str message = "Hello from Raylib!";
+	u32 width = 1280;
+	u32 height = 720;
+	u32 font_size = 60;
+
+const data Colors:
+	u8x4 background = u8x4(245, 245, 245, 255);
+	u8x4 text = u8x4(45, 45, 45, 255);
 
 def main():
-	MyEnum e = MyEnum.VAL1;
-	print($"e = {e}, id = {i32(e)}\n");
-	e = MyEnum.VAL2;
-	print($"e = {e}, id = {i32(e)}\n");
-	e = MyEnum.VAL3;
-	print($"e = {e}, id = {i32(e)}\n");
+	rl.InitWindow(Globals.width, Globals.height, Globals.window_name);
+	while not rl.WindowShouldClose():
+		rl.BeginDrawing();
+		rl.ClearBackground(Colors.background);
+		rl.DrawText(Globals.message, 100, 200, Globals.font_size, Colors.text);
+		rl.EndDrawing();
+	rl.CloseWindow();
