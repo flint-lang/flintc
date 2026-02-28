@@ -18,6 +18,7 @@ extern "C" {
 #include "fip.h"
 #undef ERROR
 #undef OPTIONAL
+#undef OPAQUE
 #pragma GCC diagnostic pop
 
 #ifdef __cplusplus

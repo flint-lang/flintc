@@ -70,6 +70,7 @@
 #include <windows.h>
 #undef ERROR
 #undef OPTIONAL
+#undef OPAQUE
 #endif
 
 namespace Debug {
