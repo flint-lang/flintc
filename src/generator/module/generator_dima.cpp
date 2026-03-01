@@ -50,6 +50,9 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
     llvm::ConstantPointerNull *nullpointer = llvm::ConstantPointerNull::get(head_type->getPointerTo());
     for (const auto &data_type : data_types) {
         const DataNode *data_node = data_type->as<DataType>()->data_node;
+        if (data_node->is_const || data_node->is_shared) {
+            continue;
+        }
         const std::string head_var_str = data_node->file_hash.to_string() + ".dima.head.data." + data_node->name;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"
@@ -169,6 +172,9 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
     for (const auto &data_type : data_types) {
         const DataNode *data_node = data_type->as<DataType>()->data_node;
+        if (data_node->is_const || data_node->is_shared) {
+            continue;
+        }
         const std::string block_name = "init_data_" + data_node->name;
         llvm::StructType *data_struct_type = IR::add_and_or_get_type(module, data_type, false);
         const size_t data_type_size = Allocation::get_type_size(module, data_struct_type);
