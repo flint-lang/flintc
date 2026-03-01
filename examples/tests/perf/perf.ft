@@ -1,0 +1,15 @@
+use Core.print
+use Core.system
+
+error ErrFetching:
+	failed_to_fetch;
+
+def main():
+	(exit_code, output) := system_command(get_path($"{get_cwd()}/fetch.sh"));
+	if exit_code != 0:
+		throw ErrFetching.failed_to_fetch;
+	start_capture();
+	print(output);
+	str[] tags = end_capture_lines();
+	for (i, tag) in tags:
+		print($"tags[{i}] = {tag}\n");
