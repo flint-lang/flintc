@@ -15,7 +15,7 @@ class DataType : public Type {
     }
 
     bool is_freeable() const override {
-        return true;
+        return !data_node->is_const && !data_node->is_shared;
     }
 
     Hash get_hash() const override {

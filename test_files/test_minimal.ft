@@ -1,20 +1,7 @@
 use Core.print
-use Core.system
 
-error MyError:
-	e1;
+const data Globals:
+	float pi = 3.141592653589793238462643383279;
 
 def main():
-	start_capture();
-	print("Hello 1\n");
-	print("Hello 2\n");
-	print("Hello 3\n");
-	print("Hello 4\n");
-	str[] lines = end_capture_lines();
-
-	for (i, line) in lines:
-		print($"lines[{i}] = {line}\n");
-		if false:
-			return;
-		if false:
-			throw MyError.e1;
+	print($"pi = {Globals.pi}\n");
