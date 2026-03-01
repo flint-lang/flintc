@@ -1,21 +1,20 @@
-use Fip.raylib as rl
+use Core.print
+use Core.system
 
-const data Globals:
-	str window_name = "Raylib Example";
-	str message = "Hello from Raylib!";
-	u32 width = 1280;
-	u32 height = 720;
-	u32 font_size = 60;
-
-const data Colors:
-	u8x4 background = u8x4(245, 245, 245, 255);
-	u8x4 text = u8x4(45, 45, 45, 255);
+error MyError:
+	e1;
 
 def main():
-	rl.InitWindow(Globals.width, Globals.height, Globals.window_name);
-	while not rl.WindowShouldClose():
-		rl.BeginDrawing();
-		rl.ClearBackground(Colors.background);
-		rl.DrawText(Globals.message, 100, 200, Globals.font_size, Colors.text);
-		rl.EndDrawing();
-	rl.CloseWindow();
+	start_capture();
+	print("Hello 1\n");
+	print("Hello 2\n");
+	print("Hello 3\n");
+	print("Hello 4\n");
+	str[] lines = end_capture_lines();
+
+	for (i, line) in lines:
+		print($"lines[{i}] = {line}\n");
+		if false:
+			return;
+		if false:
+			throw MyError.e1;

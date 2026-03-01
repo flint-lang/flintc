@@ -267,6 +267,10 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             // Only free variables which are no function parameters
             continue;
         }
+        if (variable.is_reference) {
+            // Variable does not need to be freed as it's an iterable, for example
+            continue;
+        }
         // Check if the variable is returned within this scope, if it is we do not free it
         const std::vector<unsigned int> &returned_scopes = variable.return_scope_ids;
         if (std::find(returned_scopes.begin(), returned_scopes.end(), ctx.scope->scope_id) != returned_scopes.end()) {
