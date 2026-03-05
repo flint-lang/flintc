@@ -948,10 +948,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     };
 }
 
-std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::create_unary_op_base( //
-    const Context &ctx,                                                                               //
-    std::shared_ptr<Scope> &scope,                                                                    //
-    const token_slice &tokens                                                                         //
+std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
+    const Context &ctx,                                                   //
+    std::shared_ptr<Scope> &scope,                                        //
+    const token_slice &tokens                                             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_unary_op_base");
     token_slice tokens_mut = tokens;
@@ -993,16 +993,18 @@ std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> Parser::
     if (!expression.has_value()) {
         return std::nullopt;
     }
-
-    return std::make_tuple(operator_token, std::move(expression.value()), is_left);
+    return CreateUnaryOpBaseRet{
+        .operation = operator_token,
+        .base_expr = std::move(expression.value()),
+        .is_left = is_left,
+    };
 }
 
-std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
-Parser::create_field_access_base(     //
-    const Context &ctx,               //
-    std::shared_ptr<Scope> &scope,    //
-    const token_slice &tokens,        //
-    const bool has_inbetween_operator //
+std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base( //
+    const Context &ctx,                                                           //
+    std::shared_ptr<Scope> &scope,                                                //
+    const token_slice &tokens,                                                    //
+    const bool has_inbetween_operator                                             //
 ) {
     PROFILE_CUMULATIVE("Parser::creaet_field_access_base");
     // We actually start at the end of the tokens and first check if it's a named access or an unnamed access, like a tuple access and
@@ -1057,7 +1059,12 @@ Parser::create_field_access_base(     //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u64"));
+        return CreateFieldAccessBaseRet{
+            .base_expr = std::move(base_expr.value()),
+            .field_name = field_name,
+            .field_id = 0,
+            .field_type = Type::get_primitive_type("u64"),
+        };
     }
     switch (base_type->get_variation()) {
         default:
@@ -1078,9 +1085,19 @@ Parser::create_field_access_base(     //
                 if (!file_node_ptr->file_namespace->add_type(group_type)) {
                     group_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
                 }
-                return std::make_tuple(std::move(base_expr.value()), field_name, 1, group_type);
+                return CreateFieldAccessBaseRet{
+                    .base_expr = std::move(base_expr.value()),
+                    .field_name = field_name,
+                    .field_id = 1,
+                    .field_type = group_type,
+                };
             }
-            return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("u64"));
+            return CreateFieldAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_name = field_name,
+                .field_id = 1,
+                .field_type = Type::get_primitive_type("u64"),
+            };
         }
         case Type::Variation::DATA: {
             const DataNode *data_node = base_type->as<DataType>()->data_node;
@@ -1097,7 +1114,12 @@ Parser::create_field_access_base(     //
                 return std::nullopt;
             }
             const std::shared_ptr<Type> field_type = data_node->fields.at(field_id).type;
-            return std::make_tuple(std::move(base_expr.value()), field_name, field_id, field_type);
+            return CreateFieldAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_name = field_name,
+                .field_id = field_id,
+                .field_type = field_type,
+            };
         }
         case Type::Variation::PRIMITIVE:
             if (base_type->to_string() != "anyerror") {
@@ -1106,11 +1128,26 @@ Parser::create_field_access_base(     //
             [[fallthrough]];
         case Type::Variation::ERROR_SET:
             if (field_name == "type_id") {
-                return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u32"));
+                return CreateFieldAccessBaseRet{
+                    .base_expr = std::move(base_expr.value()),
+                    .field_name = field_name,
+                    .field_id = 0,
+                    .field_type = Type::get_primitive_type("u32"),
+                };
             } else if (field_name == "value_id") {
-                return std::make_tuple(std::move(base_expr.value()), field_name, 1, Type::get_primitive_type("u32"));
+                return CreateFieldAccessBaseRet{
+                    .base_expr = std::move(base_expr.value()),
+                    .field_name = field_name,
+                    .field_id = 1,
+                    .field_type = Type::get_primitive_type("u32"),
+                };
             } else if (field_name == "message") {
-                return std::make_tuple(std::move(base_expr.value()), field_name, 2, Type::get_primitive_type("str"));
+                return CreateFieldAccessBaseRet{
+                    .base_expr = std::move(base_expr.value()),
+                    .field_name = field_name,
+                    .field_id = 2,
+                    .field_type = Type::get_primitive_type("str"),
+                };
             }
             break;
         case Type::Variation::MULTI: {
@@ -1123,12 +1160,12 @@ Parser::create_field_access_base(     //
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            return std::make_tuple(           //
-                std::move(base_expr.value()), // Base Expression
-                std::get<0>(access.value()),  // Name of the accessed field
-                std::get<1>(access.value()),  // ID of the accessed field
-                multi_type->base_type         // Type of the accessed field
-            );
+            return CreateFieldAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_name = std::get<0>(access.value()),
+                .field_id = std::get<1>(access.value()),
+                .field_type = multi_type->base_type,
+            };
         }
         case Type::Variation::TUPLE: {
             const auto *tuple_type = base_type->as<TupleType>();
@@ -1138,11 +1175,21 @@ Parser::create_field_access_base(     //
                 return std::nullopt;
             }
             const std::shared_ptr<Type> field_type = tuple_type->types.at(field_id);
-            return std::make_tuple(std::move(base_expr.value()), std::nullopt, field_id, field_type);
+            return CreateFieldAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_name = std::nullopt,
+                .field_id = field_id,
+                .field_type = field_type,
+            };
         }
         case Type::Variation::VARIANT:
             if (field_name == "active_type") {
-                return std::make_tuple(std::move(base_expr.value()), field_name, 0, Type::get_primitive_type("u8"));
+                return CreateFieldAccessBaseRet{
+                    .base_expr = std::move(base_expr.value()),
+                    .field_name = field_name,
+                    .field_id = 0,
+                    .field_type = Type::get_primitive_type("u8"),
+                };
             }
             break;
     }
@@ -1212,13 +1259,11 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
     }
 }
 
-std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
-    std::vector<std::shared_ptr<Type>>>>
-Parser::create_grouped_access_base(   //
-    const Context &ctx,               //
-    std::shared_ptr<Scope> &scope,    //
-    const token_slice &tokens,        //
-    const bool has_inbetween_operator //
+std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_base( //
+    const Context &ctx,                                                               //
+    std::shared_ptr<Scope> &scope,                                                    //
+    const token_slice &tokens,                                                        //
+    const bool has_inbetween_operator                                                 //
 ) {
     PROFILE_CUMULATIVE("Parser::create_grouped_access_base");
     // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
@@ -1303,7 +1348,12 @@ Parser::create_grouped_access_base(   //
                 }
                 field_id++;
             }
-            return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
+            return CreateGroupedAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_names = field_names,
+                .field_ids = field_ids,
+                .field_types = field_types,
+            };
         }
         case Type::Variation::MULTI: {
             const auto *multi_type = base_type->as<MultiType>();
@@ -1320,7 +1370,12 @@ Parser::create_grouped_access_base(   //
                 field_types.emplace_back(multi_type->base_type);
                 field_ids.emplace_back(std::get<1>(access.value()));
             }
-            return std::make_tuple(std::move(base_expr.value()), access_field_names, field_ids, field_types);
+            return CreateGroupedAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_names = access_field_names,
+                .field_ids = field_ids,
+                .field_types = field_types,
+            };
         }
         case Type::Variation::TUPLE: {
             const auto *tuple_type = base_type->as<TupleType>();
@@ -1335,7 +1390,12 @@ Parser::create_grouped_access_base(   //
                 field_types.emplace_back(tuple_type->types.at(field_id));
                 field_ids.emplace_back(field_id);
             }
-            return std::make_tuple(std::move(base_expr.value()), field_names, field_ids, field_types);
+            return CreateGroupedAccessBaseRet{
+                .base_expr = std::move(base_expr.value()),
+                .field_names = field_names,
+                .field_ids = field_ids,
+                .field_types = field_types,
+            };
         }
     }
     THROW_BASIC_ERR(ERR_PARSING);

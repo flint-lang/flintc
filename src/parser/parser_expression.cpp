@@ -351,11 +351,11 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    Token &token = std::get<0>(unary_op_values.value());
-    std::unique_ptr<ExpressionNode> &expression = std::get<1>(unary_op_values.value());
-    bool is_left = std::get<2>(unary_op_values.value());
-    UnaryOpExpression un_op(token, expression, is_left);
-    if (token == TOK_EXCLAMATION) {
+    Token operation = unary_op_values.value().operation;
+    std::unique_ptr<ExpressionNode> &base_expr = unary_op_values.value().base_expr;
+    bool is_left = unary_op_values.value().is_left;
+    UnaryOpExpression un_op(operation, base_expr, is_left);
+    if (operation == TOK_EXCLAMATION) {
         if (is_left) {
             // The ! operator is only allowed on the right of the expression
             THROW_BASIC_ERR(ERR_PARSING);
@@ -374,7 +374,7 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
         }
         // Set the type of the unary op to the base type of the optional, as the unwrap will return the base type of it
         un_op.type = optional_type->base_type;
-    } else if (token == TOK_BIT_AND) {
+    } else if (operation == TOK_BIT_AND) {
         // Reference of operator, the result will be a pointer type of the expression's type
         if (!is_left) {
             // The & operator is only allowed on the left of the expression
@@ -1098,13 +1098,12 @@ std::optional<DataAccessNode> Parser::create_data_access( //
     if (!field_access_base.has_value()) {
         return std::nullopt;
     }
-
-    return DataAccessNode(                      //
-        file_hash,                              //
-        std::get<0>(field_access_base.value()), // base_expr
-        std::get<1>(field_access_base.value()), // field_name
-        std::get<2>(field_access_base.value()), // field_id
-        std::get<3>(field_access_base.value())  // field_type
+    return DataAccessNode(                    //
+        file_hash,                            //
+        field_access_base.value().base_expr,  //
+        field_access_base.value().field_name, //
+        field_access_base.value().field_id,   //
+        field_access_base.value().field_type  //
     );
 }
 
@@ -1120,13 +1119,12 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-
-    return GroupedDataAccessNode(                       //
-        file_hash,                                      //
-        std::get<0>(grouped_field_access_base.value()), // base_expr
-        std::get<1>(grouped_field_access_base.value()), // field_names
-        std::get<2>(grouped_field_access_base.value()), // field_ids
-        std::get<3>(grouped_field_access_base.value())  // field_types
+    return GroupedDataAccessNode(                      //
+        file_hash,                                     //
+        grouped_field_access_base.value().base_expr,   //
+        grouped_field_access_base.value().field_names, //
+        grouped_field_access_base.value().field_ids,   //
+        grouped_field_access_base.value().field_types  //
     );
 }
 
@@ -1371,11 +1369,11 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        auto &field_name = std::get<1>(field_access_base.value());
-        auto &field_id = std::get<2>(field_access_base.value());
+        const auto &field_name = field_access_base.value().field_name;
+        const uint32_t field_id = field_access_base.value().field_id;
         operation = ChainFieldAccess{field_name, field_id};
-        result_type = std::get<3>(field_access_base.value());
-        auto &base_expr = std::get<0>(field_access_base.value());
+        result_type = field_access_base.value().field_type;
+        auto &base_expr = field_access_base.value().base_expr;
         return OptionalChainNode(file_hash, base_expr, true, operation, result_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
@@ -1470,11 +1468,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        auto &base_expr = std::get<0>(grouped_access_base.value());
+        auto &base_expr = grouped_access_base.value().base_expr;
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
-        auto &field_names = std::get<1>(grouped_access_base.value());
-        auto &field_ids = std::get<2>(grouped_access_base.value());
-        auto &field_types = std::get<3>(grouped_access_base.value());
+        const auto &field_names = grouped_access_base.value().field_names;
+        const auto &field_ids = grouped_access_base.value().field_ids;
+        const auto &field_types = grouped_access_base.value().field_types;
         return std::make_unique<GroupedDataAccessNode>(file_hash, opt_unwrap, field_names, field_ids, field_types);
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
@@ -1483,11 +1481,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        auto &base_expr = std::get<0>(field_access_base.value());
+        auto &base_expr = field_access_base.value().base_expr;
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
-        auto &field_name = std::get<1>(field_access_base.value());
-        auto &field_id = std::get<2>(field_access_base.value());
-        auto &field_type = std::get<3>(field_access_base.value());
+        const auto &field_name = field_access_base.value().field_name;
+        const auto &field_id = field_access_base.value().field_id;
+        const auto &field_type = field_access_base.value().field_type;
         return std::make_unique<DataAccessNode>(file_hash, opt_unwrap, field_name, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);

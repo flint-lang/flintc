@@ -809,19 +809,56 @@ class Parser {
         const bool is_func_module_call = false                                     //
     );
 
+    /// @struct `CreateUnaryOpBaseRet`
+    /// @brief The return type of the `create_unary_op_base` function. It's return type got very complex and that's why this
+    /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
+    struct CreateUnaryOpBaseRet {
+        /// @var `operation`
+        /// @brief The operator of the unary operation
+        Token operation;
+
+        /// @var `base_expr`
+        /// @brief The expression on which the unary operator is applied on
+        std::unique_ptr<ExpressionNode> base_expr;
+
+        /// @var `is_left`
+        /// @brief Whether the unary operator is left of the base expression
+        bool is_left;
+    };
+
     /// @function `create_unary_op_base`
     /// @brief Creates a UnaryOpBase from the given tokens
     ///
     /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the unary operation is defined
     /// @param `tokens` The list of tokens representing the unary operation
-    /// @return A optional value containing a tuple, where the first value is the operator token, the second value is the expression on
-    /// which the unary operation is applied on and the third value is whether the unary operator is left to the expression
-    std::optional<std::tuple<Token, std::unique_ptr<ExpressionNode>, bool>> create_unary_op_base( //
-        const Context &ctx,                                                                       //
-        std::shared_ptr<Scope> &scope,                                                            //
-        const token_slice &tokens                                                                 //
+    /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
+    std::optional<CreateUnaryOpBaseRet> create_unary_op_base( //
+        const Context &ctx,                                   //
+        std::shared_ptr<Scope> &scope,                        //
+        const token_slice &tokens                             //
     );
+
+    /// @struct `CreateFieldAccessBaseRet`
+    /// @brief The return type of the `create_field_access_base` function. It's return type got very complex and that's why this
+    /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
+    struct CreateFieldAccessBaseRet {
+        /// @var `base_expr`
+        /// @brief The base expression of the field access
+        std::unique_ptr<ExpressionNode> base_expr;
+
+        /// @var `field_name`
+        /// @brief The name of the accessed field, nullopt if it was a tuple-access like .$N
+        std::optional<std::string> field_name;
+
+        /// @var `field_id`
+        /// @brief The ID of the accessed field
+        unsigned int field_id;
+
+        /// @var `field_type`
+        /// @brief The type of the accessed field
+        std::shared_ptr<Type> field_type;
+    };
 
     /// @function `create_field_access_base`
     /// @brief Creates a tuple of all field access variables extracted from a field access
@@ -830,17 +867,12 @@ class Parser {
     /// @param `scope` The scope in which the field access is defined
     /// @param `tokens` The list of tokens representing the field access
     /// @param `has_inbetween_operator` Whether the field access has an in-between operator like a `?` for example
-    /// @return A optional value containing a tuple, where the
-    ///     - first value is the base expression of the access
-    ///     - second value is the name of the accessed field, nullopt if tis a $N access
-    ///     - third value is the id of the field
-    ///     - fourth value is the type of the field
-    std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::optional<std::string>, unsigned int, std::shared_ptr<Type>>>
-    create_field_access_base(                     //
-        const Context &ctx,                       //
-        std::shared_ptr<Scope> &scope,            //
-        const token_slice &tokens,                //
-        const bool has_inbetween_operator = false //
+    /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
+    std::optional<CreateFieldAccessBaseRet> create_field_access_base( //
+        const Context &ctx,                                           //
+        std::shared_ptr<Scope> &scope,                                //
+        const token_slice &tokens,                                    //
+        const bool has_inbetween_operator = false                     //
     );
 
     /// @function `create_multi_type_access`
@@ -855,6 +887,27 @@ class Parser {
         const std::string &field_name                                              //
     );
 
+    /// @struct `CreateGroupedAccessBaseRet`
+    /// @brief The return type of the `create_grouped_access_base` function. It's return type got very complex and that's why this
+    /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
+    struct CreateGroupedAccessBaseRet {
+        /// @var `base_expr`
+        /// @brief The base expression of the grouped access
+        std::unique_ptr<ExpressionNode> base_expr;
+
+        /// @var `field_names`
+        /// @brief A list of all accessed field names, ordered
+        std::vector<std::string> field_names;
+
+        /// @var `field_ids`
+        /// @brief A list of all accessed field ids, ordered
+        std::vector<unsigned int> field_ids;
+
+        /// @var `field_types`
+        /// @brief A list of all accessed field types, ordered
+        std::vector<std::shared_ptr<Type>> field_types;
+    };
+
     /// @function `create_grouped_access_base`
     /// @brief Creates a tuple for all group access variables extracted from a grouped variable access
     ///
@@ -862,18 +915,12 @@ class Parser {
     /// @param `scope` The scope in which the grouped access is defined
     /// @param `tokens` The list of tokens representing the grouped access
     /// @param `has_inbetween_operator` Whether the grouped field access has an in-between operator like a `?` for example
-    /// @return A optional value containing a tuple, where the
-    ///     - first value is the base expression of the access
-    ///     - second value is the list of accessed field names
-    ///     - third value is the list of accessed field ids
-    ///     - fourth value is the list of accessed field types
-    std::optional<std::tuple<std::unique_ptr<ExpressionNode>, std::vector<std::string>, std::vector<unsigned int>,
-        std::vector<std::shared_ptr<Type>>>>
-    create_grouped_access_base(                   //
-        const Context &ctx,                       //
-        std::shared_ptr<Scope> &scope,            //
-        const token_slice &tokens,                //
-        const bool has_inbetween_operator = false //
+    /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
+    std::optional<CreateGroupedAccessBaseRet> create_grouped_access_base( //
+        const Context &ctx,                                               //
+        std::shared_ptr<Scope> &scope,                                    //
+        const token_slice &tokens,                                        //
+        const bool has_inbetween_operator = false                         //
     );
 
     /// @function `ensure_castability_multiple`
