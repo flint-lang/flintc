@@ -365,6 +365,21 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
         // Then, save all values of the return_value in the return struct
         if (return_value.value().size() == 1) {
+            // If the return value is an optional and the expression is a typecast the expression will return the "raw" result of the
+            // expression directly, so the value needs to be stored in the optional struct and that optional struct then becomes the "new"
+            // return value for the code below. We also only do the code below if the expression was not a 'none' literal. For 'none'
+            // literals we can use the value as-is
+            if (return_node->return_value.value()->type->get_variation() == Type::Variation::OPTIONAL         //
+                && return_node->return_value.value()->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                && return_node->return_value.value()->as<TypeCastNode>()->expr->type->to_string() != "void?"  //
+            ) {
+                llvm::Value *ret_struct = IR::get_default_value_of_type(                      //
+                    builder, ctx.parent->getParent(), return_node->return_value.value()->type //
+                );
+                llvm::Value *has_value = builder.CreateInsertValue(ret_struct, builder.getInt1(true), 0, "has_value");
+                llvm::Value *value_inserted = builder.CreateInsertValue(has_value, return_value.value().front(), 1, "value_inserted");
+                return_value.value().front() = value_inserted;
+            }
             llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "ret_val");
             if (return_node->return_value.value()->type->is_freeable()                                              //
                 && return_node->return_value.value()->type->get_variation() != Type::Variation::DATA                //

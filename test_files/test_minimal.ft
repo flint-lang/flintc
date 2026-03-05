@@ -1,7 +1,12 @@
 use Core.print
 
-const data Globals:
-	float pi = 3.141592653589793238462643383279;
+def get() -> i32?:
+	i32 x = 10;
+	return x;
 
 def main():
-	print($"pi = {Globals.pi}\n");
+	i32? res = get();
+	if res == none:
+		print("IS NONE\n");
+	else:
+		print($"res = {res!}\n");
