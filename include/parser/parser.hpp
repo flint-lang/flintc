@@ -923,6 +923,30 @@ class Parser {
         const bool has_inbetween_operator = false                         //
     );
 
+    /// @struct `CreateArrayAccessBaseRet`
+    /// @brief The return type of the `create_array_access_base` function. It's return type got very complex and that's why this
+    /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
+    struct CreateArrayAccessBaseRet {
+        /// @var `base_expr`
+        /// @brief The base expression of the array access
+        std::unique_ptr<ExpressionNode> base_expr;
+
+        /// @var `indexing_exprs`
+        /// @brief The indexing expressions of the array access
+        std::vector<std::unique_ptr<ExpressionNode>> indexing_exprs;
+
+        /// @var `result_type`
+        /// @brief The result type of the array access, for example arr[10] has result type of 'i32' when arr has type 'i32[]'
+        std::shared_ptr<Type> result_type;
+    };
+
+    /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
+    std::optional<CreateArrayAccessBaseRet> create_array_access_base( //
+        const Context &ctx,                                           //
+        std::shared_ptr<Scope> &scope,                                //
+        const token_slice &tokens                                     //
+    );
+
     /// @function `ensure_castability_multiple`
     /// @brief Ensures that all expressions in the expression vector are castable to the given type respectively
     ///
@@ -1736,7 +1760,7 @@ class Parser {
     /// @function `create_array_assignment`
     /// @brief Creates an ArrayAssignmentNode from the given tokens
     ///
-    /// @param `scope` The scope in which the grouped array assignment is defined
+    /// @param `scope` The scope in which the array assignment is defined
     /// @param `tokens` The list of tokens representing the array assignment
     /// @param `rhs` The rhs of the assignment, which possibly is already parsed
     /// @return `std::optional<ArrayAssignmentNode>` The created ArrayAssignmentNode, nullopt if its creation failed
@@ -1744,6 +1768,19 @@ class Parser {
         std::shared_ptr<Scope> &scope,                          //
         const token_slice &tokens,                              //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs     //
+    );
+
+    /// @function `create_array_assignment_shorthand`
+    /// @brief Creates a shorthand ArrayAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the shorthand array assignment is defined
+    /// @param `tokens` The list of tokens representing the array assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
+    /// @return `std::optional<ArrayAssignmentNode>` The created shorthand ArrayAssignmentNode, nullopt if its creation failed
+    std::optional<ArrayAssignmentNode> create_array_assignment_shorthand( //
+        std::shared_ptr<Scope> &scope,                                    //
+        const token_slice &tokens,                                        //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
     );
 
     /// @function `create_stacked_statement`

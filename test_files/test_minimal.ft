@@ -1,12 +1,8 @@
 use Core.print
 
-def get() -> i32?:
-	i32 x = 10;
-	return x;
-
 def main():
-	i32? res = get();
-	if res == none:
-		print("IS NONE\n");
-	else:
-		print($"res = {res!}\n");
+	u64[] arr = u64[10](10);
+	for (i, _) in 0..arr.len:
+		arr[i] += i;
+	for (i, e) in arr:
+		print($"arr[{i}] = {e}\n");

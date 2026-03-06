@@ -11,15 +11,11 @@
 class ArrayAssignmentNode : public StatementNode {
   public:
     ArrayAssignmentNode(                                                    //
-        const std::string &variable_name,                                   //
-        const std::shared_ptr<Type> &array_type,                            //
-        const std::shared_ptr<Type> &value_type,                            //
+        std::unique_ptr<ExpressionNode> &base_expr,                         //
         std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions, //
         std::unique_ptr<ExpressionNode> &expression                         //
         ) :
-        variable_name(variable_name),
-        array_type(array_type),
-        value_type(value_type),
+        base_expr(std::move(base_expr)),
         indexing_expressions(std::move(indexing_expressions)),
         expression(std::move(expression)) {}
 
@@ -38,17 +34,9 @@ class ArrayAssignmentNode : public StatementNode {
     ArrayAssignmentNode(ArrayAssignmentNode &&) = default;
     ArrayAssignmentNode &operator=(ArrayAssignmentNode &&) = default;
 
-    /// @var `variable_name`
-    /// @brief The name of the array variable to assign to
-    std::string variable_name;
-
-    /// @var `array_type`
-    /// @brief The type of the accessed array variable
-    std::shared_ptr<Type> array_type;
-
-    /// @var `value_type`
-    /// @brief The type of the assigned value
-    std::shared_ptr<Type> value_type;
+    /// @var `base_expr`
+    /// @brief The base array expression on which to assign the value to
+    std::unique_ptr<ExpressionNode> base_expr;
 
     /// @var `indexing_expressions`
     /// @brief The indexing expressions for all indices

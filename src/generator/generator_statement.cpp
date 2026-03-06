@@ -2174,10 +2174,7 @@ bool Generator::Statement::generate_array_assignment( //
         return false;
     }
     llvm::Value *expression = expression_result.value().front();
-    if (!array_assignment->expression->type->equals(array_assignment->value_type)) {
-        expression =
-            Expression::generate_type_cast(builder, ctx, expression, array_assignment->expression->type, array_assignment->value_type);
-    }
+
     // Generate all the indexing expressions
     std::vector<llvm::Value *> idx_expressions;
     for (auto &idx_expression : array_assignment->indexing_expressions) {
@@ -2199,19 +2196,16 @@ bool Generator::Statement::generate_array_assignment( //
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
     }
     // Get the array value
-    const unsigned int var_decl_scope = ctx.scope->variables.at(array_assignment->variable_name).scope_id;
-    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + array_assignment->variable_name;
-    llvm::Value *const array_alloca = ctx.allocations.at(var_name);
-    llvm::Type *arr_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first->getPointerTo();
-    // Check if this is a function parameter - if so, use it directly without loading
-    llvm::Value *array_ptr;
-    if (ctx.scope->variables.at(array_assignment->variable_name).is_fn_param) {
-        // It's a function parameter (or enhanced for loop variable), use the alloca directly
-        array_ptr = array_alloca;
-    } else {
-        // It's a local variable, load the pointer from the alloca
-        array_ptr = IR::aligned_load(builder, arr_type, array_alloca, "array_ptr");
+    Generator::group_mapping base_expr = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->base_expr.get());
+    if (!base_expr.has_value()) {
+        return false;
     }
+    if (base_expr.value().size() > 1) {
+        // Group expression not allowed as base of array assignment
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *array_ptr = base_expr.value().front();
     if (array_assignment->expression->type->to_string() == "str") {
         // This call returns a 'str**'
         llvm::Value *element_ptr = builder.CreateCall(             //

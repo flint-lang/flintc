@@ -1063,10 +1063,15 @@ namespace Debug {
 
         void print_array_assignment(unsigned int indent_lvl, TreeBits &bits, const ArrayAssignmentNode &assign) {
             Local::print_header(indent_lvl, bits, "Array Assign ");
-            std::cout << assign.array_type->to_string() << " " << assign.variable_name;
             std::cout << std::endl;
 
             indent_lvl++;
+            TreeBits base_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_bits, "Base Expression ");
+            std::cout << assign.base_expr->type->to_string() << std::endl;
+            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assign.base_expr);
+
             for (size_t i = 0; i < assign.indexing_expressions.size(); i++) {
                 TreeBits id_bits = bits.child(indent_lvl, false);
                 Local::print_header(indent_lvl, id_bits, "ID " + std::to_string(i) + " ");

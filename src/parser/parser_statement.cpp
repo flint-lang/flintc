@@ -2208,61 +2208,113 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_assignment");
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    // Find the = operator
+    while (lhs_tokens.second != tokens.second) {
+        if (lhs_tokens.second->token == TOK_EQUAL) {
+            break;
+        }
+        lhs_tokens.second++;
+    }
+    if (lhs_tokens.second == tokens.second) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    assert(lhs_tokens.second->token == TOK_EQUAL);
+
+    // Create the access base from the lhs tokens
+    auto access_base = create_array_access_base(_ctx_, scope, lhs_tokens);
+    if (!access_base.has_value()) {
+        return std::nullopt;
+    }
+
+    // If no rhs was provided we need to parse it ourselves, otherwise we can use the provided rhs expression
+    if (!rhs.has_value()) {
+        const token_slice rhs_tokens = {lhs_tokens.second + 1, tokens.second};
+        rhs = create_expression(_ctx_, scope, rhs_tokens, access_base.value().result_type);
+        if (!rhs.has_value()) {
+            return std::nullopt;
+        }
+    }
+    return ArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
+}
+
+std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
+    std::shared_ptr<Scope> &scope,                                            //
+    const token_slice &tokens,                                                //
+    std::optional<std::unique_ptr<ExpressionNode>> &rhs                       //
+) {
+    PROFILE_CUMULATIVE("Parser::create_array_assignment_shorthand");
     token_slice tokens_mut = tokens;
-    // Now the first token should be the array identifier
-    assert(tokens_mut.first->token == TOK_IDENTIFIER);
-    const std::string variable_name(tokens_mut.first->lexme);
-    std::optional<std::shared_ptr<Type>> var_type = scope->get_variable_type(variable_name);
-    if (!var_type.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    while (!Matcher::token_match(lhs_tokens.second->token, Matcher::assignment_shorthand_operator)) {
+        lhs_tokens.second++;
+        tokens_mut.first++;
     }
-    if (var_type.value()->get_variation() != Type::Variation::ARRAY) {
-        // Accessed variable not of array type
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    Token operation = TOK_EOF;
+    switch (lhs_tokens.second->token) {
+        default:
+            // Should not happen, at least one assignment shorthand operator should be present because otherwise the matcher would not have
+            // matched this statement as an array assignment shorthand
+            assert(false);
+            return std::nullopt;
+        case TOK_PLUS_EQUALS:
+            operation = TOK_PLUS;
+            break;
+        case TOK_MINUS_EQUALS:
+            operation = TOK_MINUS;
+            break;
+        case TOK_MULT_EQUALS:
+            operation = TOK_MULT;
+            break;
+        case TOK_DIV_EQUALS:
+            operation = TOK_DIV;
+            break;
     }
-    const auto *array_type = var_type.value()->as<ArrayType>();
-    tokens_mut.first++;
-    // The next token should be a [ symbol
-    std::optional<uint2> bracket_range = Matcher::balanced_range_extraction(            //
-        tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
-    );
-    if (!bracket_range.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    token_slice indexing_tokens = {tokens_mut.first + bracket_range.value().first, tokens_mut.first + bracket_range.value().second};
-    tokens_mut.first = indexing_tokens.second;
-    // Now the first two tokens should be the [ and ]
-    assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
-    indexing_tokens.first++;
-    assert(std::prev(indexing_tokens.second)->token == TOK_RIGHT_BRACKET);
-    indexing_tokens.second--;
 
-    auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_tokens);
-    if (!indexing_expressions.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+    // Create the access base from the lhs tokens
+    auto access_base = create_array_access_base(_ctx_, scope, lhs_tokens);
+    if (!access_base.has_value()) {
         return std::nullopt;
     }
-    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
-    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
-        return std::nullopt;
-    }
-    // Now the next token should be a = sign
-    assert(tokens_mut.first->token == TOK_EQUAL);
-    tokens_mut.first++;
 
-    if (rhs.has_value()) {
-        return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), rhs.value());
+    // If no rhs was provided we need to parse it ourselves, otherwise we can use the provided rhs expression
+    if (!rhs.has_value()) {
+        const token_slice rhs_tokens = {lhs_tokens.second + 1, tokens.second};
+        rhs = create_expression(_ctx_, scope, rhs_tokens, access_base.value().result_type);
+        if (!rhs.has_value()) {
+            return std::nullopt;
+        }
     }
-    // Parse the rhs expression
-    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(_ctx_, scope, tokens_mut, array_type->type);
-    if (!expression.has_value()) {
-        return std::nullopt;
+
+    // Calculate the new dimensionality of the result based on the number of range expressions in the indexing expressions
+    uint32_t dimensionality = 0;
+    for (const auto &expr : access_base.value().indexing_exprs) {
+        if (expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+            dimensionality++;
+        }
     }
-    return ArrayAssignmentNode(variable_name, var_type.value(), array_type->type, indexing_expressions.value(), expression.value());
+    const auto &base_type = access_base.value().base_expr->type->as<ArrayType>()->type;
+    std::shared_ptr<Type> result_type = nullptr;
+    if (dimensionality > 0) {
+        result_type = std::make_shared<ArrayType>(dimensionality, base_type);
+        if (!file_node_ptr->file_namespace->add_type(result_type)) {
+            result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
+        }
+    } else {
+        result_type = base_type;
+    }
+
+    // Since it's an array assignment shorthand we need to clone the base expression and put it into a binary op together with the rhs
+    // expression and use that as our new rhs expression
+    auto base_expr_clone = access_base.value().base_expr->clone(scope->scope_id);
+    std::vector<std::unique_ptr<ExpressionNode>> indexing_exprs_clone;
+    for (const auto &expr : access_base.value().indexing_exprs) {
+        indexing_exprs_clone.emplace_back(expr->clone(scope->scope_id));
+    }
+    std::unique_ptr<ExpressionNode> arr_access = std::make_unique<ArrayAccessNode>(base_expr_clone, result_type, indexing_exprs_clone);
+    rhs = std::make_unique<BinaryOpNode>(operation, arr_access, rhs.value(), arr_access->type, true);
+    return ArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
 }
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
@@ -2575,6 +2627,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::array_assignment)) {
         std::optional<ArrayAssignmentNode> assign = create_array_assignment(scope, tokens, rhs);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::array_assignment_shorthand)) {
+        std::optional<ArrayAssignmentNode> assign = create_array_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

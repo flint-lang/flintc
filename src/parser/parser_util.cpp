@@ -1402,6 +1402,96 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
     return std::nullopt;
 }
 
+std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base( //
+    const Context &ctx,                                                           //
+    std::shared_ptr<Scope> &scope,                                                //
+    const token_slice &tokens                                                     //
+) {
+    PROFILE_CUMULATIVE("Parser::create_array_access_base");
+    // Array accesses happen at the end of the expression, so we extract indexing expressions etc from left to right and then parse the
+    // base expression last. The last token should be a ] symbol
+    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    // Then we search in a balanced way for the [ symbol and count how many , symbols we came across at depth 1. This is the number of
+    // indexing expressions in the tokens. Then, when we know the "bounds" of the array access we can parse the base expression and the
+    // indexing expressions respectively
+    token_slice base_expr_tokens = tokens;
+    token_slice indexing_tokens = {tokens.second - 2, tokens.second - 1};
+    uint32_t depth = 1;
+    bool continue_cond = indexing_tokens.first != tokens.first;
+    while (continue_cond) {
+        switch (indexing_tokens.first->token) {
+            default:
+                break;
+            case TOK_RIGHT_BRACKET:
+                depth++;
+                break;
+            case TOK_LEFT_BRACKET:
+                depth--;
+                if (depth == 0) {
+                    continue_cond = false;
+                }
+                break;
+        }
+        continue_cond &= indexing_tokens.first != tokens.first;
+        if (continue_cond) {
+            indexing_tokens.first--;
+        }
+    }
+    if (indexing_tokens.first == tokens.first) {
+        // No [ symbol found, this should not be possible because then the matcher should not have matched an array access
+        assert(false);
+        return std::nullopt;
+    }
+    assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
+    base_expr_tokens.second = indexing_tokens.first++;
+
+    // Parse the base expression first before parsing the indexing expressions
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
+        return std::nullopt;
+    }
+    if (base_expr.value()->type->get_variation() != Type::Variation::ARRAY) {
+        // Array access on non-array type base expression
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Now parse the indexing expressions
+    auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_tokens);
+    if (!indexing_expressions.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast
+    // it
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
+        return std::nullopt;
+    }
+    // Calculate the new dimensionality of the result based on the number of range expressions in the indexing expressions
+    uint32_t dimensionality = 0;
+    for (const auto &expr : indexing_expressions.value()) {
+        if (expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+            dimensionality++;
+        }
+    }
+    const auto &base_type = base_expr.value()->type->as<ArrayType>()->type;
+    std::shared_ptr<Type> result_type = nullptr;
+    if (dimensionality > 0) {
+        result_type = std::make_shared<ArrayType>(dimensionality, base_type);
+        if (!file_node_ptr->file_namespace->add_type(result_type)) {
+            result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
+        }
+    } else {
+        result_type = base_type;
+    }
+    return CreateArrayAccessBaseRet{
+        .base_expr = std::move(base_expr.value()),
+        .indexing_exprs = std::move(indexing_expressions.value()),
+        .result_type = result_type,
+    };
+}
+
 bool Parser::ensure_castability_multiple(                      //
     const std::shared_ptr<Type> &to_type,                      //
     std::vector<std::unique_ptr<ExpressionNode>> &expressions, //
