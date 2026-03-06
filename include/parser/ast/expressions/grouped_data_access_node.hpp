@@ -17,7 +17,7 @@ class GroupedDataAccessNode : public ExpressionNode {
         const std::vector<unsigned int> &field_ids,           //
         const std::vector<std::shared_ptr<Type>> &field_types //
         ) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, base_expr->is_const),
         base_expr(std::move(base_expr)),
         field_names(field_names),
         field_ids(field_ids) {

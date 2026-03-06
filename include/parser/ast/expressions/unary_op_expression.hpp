@@ -8,9 +8,10 @@
 
 /// @class `UnaryOpExpression`
 /// @brief Represents unary operation expressions
-class UnaryOpExpression : public UnaryOpBase, public ExpressionNode {
+class UnaryOpExpression : public ExpressionNode, public UnaryOpBase {
   public:
-    explicit UnaryOpExpression(Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
+    explicit UnaryOpExpression(const Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
+        ExpressionNode(operand->is_const),
         UnaryOpBase(operator_token, operand, is_left) {
         ExpressionNode::type = UnaryOpBase::operand->type;
     }

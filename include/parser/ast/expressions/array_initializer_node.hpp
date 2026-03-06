@@ -15,6 +15,7 @@ class ArrayInitializerNode : public ExpressionNode {
         std::vector<std::unique_ptr<ExpressionNode>> &length_expressions, //
         std::unique_ptr<ExpressionNode> &initializer_value                //
         ) :
+        ExpressionNode(true),
         length_expressions(std::move(length_expressions)),
         initializer_value(std::move(initializer_value)) {
         const auto *arr_type = type->as<ArrayType>();

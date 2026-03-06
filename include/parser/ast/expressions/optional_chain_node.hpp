@@ -40,7 +40,7 @@ class OptionalChainNode : public ExpressionNode {
         ChainOperation &operation,                  //
         const std::shared_ptr<Type> &result_type    //
         ) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, base_expr->is_const),
         base_expr(std::move(base_expr)),
         is_toplevel_chain_node(is_toplevel_chain_node),
         operation(std::move(operation)) {

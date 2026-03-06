@@ -6,7 +6,8 @@
 /// @brief Represents default values (the '_' symbol). A default node literally has only a type and nothing else
 class DefaultNode : public ExpressionNode {
   public:
-    DefaultNode(const std::shared_ptr<Type> &type) {
+    DefaultNode(const std::shared_ptr<Type> &type) :
+        ExpressionNode(true) {
         this->type = type;
     }
 

@@ -202,6 +202,48 @@ bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &patte
     return false;
 }
 
+bool Matcher::tokens_end_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator) {
+    PROFILE_CUMULATIVE("Matcher::tokens_end_with_continuous");
+    for (auto start = tokens.second - 1; start != tokens.first; --start) {
+        auto match = pattern->match({start, tokens.second}, 0);
+        if (!match.has_value()) {
+            continue;
+        }
+        // pattern matched; ensure it consumes the whole suffix
+        if (match.value() != static_cast<size_t>(std::distance(start, tokens.second))) {
+            continue;
+        }
+
+        // Now verify that there is NO separator token to the left of `start` that is *outside* any group.
+        // We scan leftwards from start-1 down to tokens.first and maintain a depth counter.
+        // As per your note we increase depth on RIGHT_* tokens and decrease on LEFT_* tokens because we scan backwards.
+        int depth = 0;
+        if (start == tokens.first) {
+            return true;
+        }
+        do {
+            --start;
+            auto tok = start->token;
+            if (tok == TOK_RIGHT_PAREN || tok == TOK_RIGHT_BRACKET || tok == TOK_RIGHT_BRACE) {
+                depth++;
+            } else if (tok == TOK_LEFT_PAREN || tok == TOK_LEFT_BRACKET || tok == TOK_LEFT_BRACE) {
+                depth--;
+                // A bit of robustness for malformed input
+                if (depth < 0) {
+                    depth = 0;
+                }
+            }
+            // Only consider separator tokens when depth == 0 (i.e., outside any group)
+            if (depth == 0 && token_match(tok, separator)) {
+                return false;
+            }
+        } while (start != tokens.first);
+        // No separator found in tokens
+        return true;
+    }
+    return false;
+}
+
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     PROFILE_CUMULATIVE("Matcher::tokens_contain_in_range");
     assert(range.second <= std::distance(tokens.first, tokens.second));

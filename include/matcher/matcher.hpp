@@ -91,6 +91,16 @@ class Matcher {
     /// @return `bool` Whether the given tokens end with the given pattern
     static bool tokens_end_with(const token_slice &tokens, const PatternPtr &pattern);
 
+    /// @function `tokens_end_with_continuous`
+    /// @brief Checks whether the given vector of tokens ends with a given pattern and also checks that the whole vector of tokens does
+    /// *not* contain a given pattern (outside of groups) too.
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `pattern` The pattern to check for
+    /// @param `separator` The separator of continuous blocks, for example binary operators
+    /// @return `bool` Whether the given tokens end with the given pattern and does not contain the separator pattern outside of groups
+    static bool tokens_end_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator);
+
     /// @function `token_match`
     /// @brief Checks if a given token matches with the given pattern
     ///
@@ -680,6 +690,9 @@ class Matcher {
     static const inline PatternPtr group = sequence({
         token(TOK_LEFT_PAREN), type, zero_or_more(sequence({token(TOK_COMMA), type})), token(TOK_RIGHT_PAREN) //
     });
+    static const inline PatternPtr expression_separator = one_of({
+        operational_binop, relational_binop, boolean_binop, unary_operator, token(TOK_RANGE) //
+    });
 
     // --- UNTILS ---
     static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
@@ -790,23 +803,18 @@ class Matcher {
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});
     static const inline PatternPtr data_access = sequence({
-        token(TOK_IDENTIFIER), token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
-        not_followed_by(token(TOK_LEFT_PAREN))                                                                                       //
+        token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
+        not_followed_by(token(TOK_LEFT_PAREN))                                                                //
     });
-    static const inline PatternPtr grouped_data_access = sequence({
-        one_of({token(TOK_IDENTIFIER), token(TOK_TYPE)}), token(TOK_DOT), group_expression //
-    });
+    static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
         type, token(TOK_LEFT_BRACKET),                                                                                // T[ sizes ]
         one_or_more(balanced_match_until(                                                                             //
             token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)), //
         token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
-    static const inline PatternPtr array_access = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_BRACKET), until_right_bracket});
-    static const inline PatternPtr stacked_array_access = sequence({
-        array_access, one_or_more({sequence({token(TOK_LEFT_BRACKET), until_right_bracket})}) //
-    });
-    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), not_followed_by(token(TOK_LEFT_PAREN))});
+    static const inline PatternPtr array_access = sequence({token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({array_access, data_access})});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
@@ -821,34 +829,6 @@ class Matcher {
         sequence({token(TOK_DOT), token(TOK_DOLLAR), token(TOK_INT_VALUE)}),
         // Array/map access: []
         sequence({token(TOK_LEFT_BRACKET), until_right_bracket}) //
-    });
-    static const inline PatternPtr stacked_expression = sequence({
-        token(TOK_IDENTIFIER), // Start with a base identifier
-        one_of({
-            two_or_more(stackable_basic_expr),
-            sequence({
-                one_or_more( // Then one or more chained elements
-                    one_of({
-                        // Optional chained access: ?.identifier
-                        sequence({token(TOK_QUESTION), token(TOK_DOT), token(TOK_IDENTIFIER)}),
-                        // Optional chained grouped acess: ?.()
-                        sequence({token(TOK_QUESTION), token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
-                        // Optional chained array access: ?[]
-                        sequence({token(TOK_QUESTION), token(TOK_LEFT_BRACKET), until_right_bracket}),
-                        // Optional force-unwrap access: !.identifier
-                        sequence({token(TOK_EXCLAMATION), token(TOK_DOT), token(TOK_IDENTIFIER)}),
-                        // Optional force-unwrap group access: !.()
-                        sequence({token(TOK_EXCLAMATION), token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
-                        // Optional force-unwrap array access: ![]
-                        sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_BRACKET), until_right_bracket}),
-                        // Variant extraction: ?(T)
-                        sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren}),
-                        // Variant force-extract: !(T)
-                        sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren}),
-                    })),
-                zero_or_more(stackable_basic_expr),
-            }),
-        }),
     });
     static const inline PatternPtr range_expression = balanced_match_until( //
         one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET)}),           //

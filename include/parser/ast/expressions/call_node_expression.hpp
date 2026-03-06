@@ -8,7 +8,7 @@
 
 /// @class `CallNodeExpression`
 /// @brief Represents function or method calls
-class CallNodeExpression : public CallNodeBase, public ExpressionNode {
+class CallNodeExpression : public ExpressionNode, public CallNodeBase {
   public:
     explicit CallNodeExpression(                                                  //
         FunctionNode *function,                                                   //
@@ -16,6 +16,7 @@ class CallNodeExpression : public CallNodeBase, public ExpressionNode {
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type                                         //
         ) :
+        ExpressionNode(true),
         CallNodeBase(function, arguments, error_types, type) {
         ExpressionNode::type = type;
     }

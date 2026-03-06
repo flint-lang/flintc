@@ -25,7 +25,15 @@ bool Generator::Allocation::generate_allocations(                               
         switch (statement->get_variation()) {
             case StatementNode::Variation::ARRAY_ASSIGNMENT: {
                 const auto *node = statement->as<ArrayAssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->base_expr.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
                 generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expression.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
                 break;
             }
             case StatementNode::Variation::ASSIGNMENT: {
@@ -58,8 +66,18 @@ bool Generator::Allocation::generate_allocations(                               
             }
             case StatementNode::Variation::CONTINUE:
                 break;
-            case StatementNode::Variation::DATA_FIELD_ASSIGNMENT:
+            case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
+                const auto *node = statement->as<DataFieldAssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->base_expr.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expression.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
                 break;
+            }
             case StatementNode::Variation::DECLARATION: {
                 const auto *node = statement->as<DeclarationNode>();
                 if (!generate_declaration_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {
@@ -123,8 +141,18 @@ bool Generator::Allocation::generate_allocations(                               
                 }
                 break;
             }
-            case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT:
+            case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
+                const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->base_expr.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                if (!generate_expression_allocations(builder, parent, scope, allocations, imported_core_modules, node->expression.get())) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
                 break;
+            }
             case StatementNode::Variation::IF: {
                 const auto *node = statement->as<IfNode>();
                 if (!generate_if_allocations(builder, parent, allocations, imported_core_modules, node)) {
@@ -156,27 +184,6 @@ bool Generator::Allocation::generate_allocations(                               
                 }
                 break;
             }
-            case StatementNode::Variation::STACKED_ASSIGNMENT:
-                break;
-            case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
-                const auto *node = statement->as<StackedArrayAssignmentNode>();
-                generate_array_indexing_allocation(builder, allocations, node->indexing_expressions);
-                if (!generate_expression_allocations(                                                            //
-                        builder, parent, scope, allocations, imported_core_modules, node->base_expression.get()) //
-                ) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
-                }
-                if (!generate_expression_allocations(                                                       //
-                        builder, parent, scope, allocations, imported_core_modules, node->expression.get()) //
-                ) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
-                }
-                break;
-            }
-            case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT:
-                break;
             case StatementNode::Variation::SWITCH: {
                 const auto *node = statement->as<SwitchStatement>();
                 if (!generate_switch_statement_allocations(builder, parent, scope, allocations, imported_core_modules, node)) {

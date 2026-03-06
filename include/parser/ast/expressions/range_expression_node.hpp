@@ -15,7 +15,7 @@ class RangeExpressionNode : public ExpressionNode {
         std::unique_ptr<ExpressionNode> &lower_bound, //
         std::unique_ptr<ExpressionNode> &upper_bound  //
         ) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, true),
         lower_bound(std::move(lower_bound)),
         upper_bound(std::move(upper_bound)) {
         assert(this->lower_bound->type == this->upper_bound->type);

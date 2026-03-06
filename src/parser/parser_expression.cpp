@@ -332,7 +332,7 @@ std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> &scop
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
                 return std::nullopt;
             }
-            return VariableNode(name, scope->variables.at(name).type);
+            return VariableNode(name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable);
         }
     }
     return var;
@@ -1107,10 +1107,10 @@ std::optional<DataAccessNode> Parser::create_data_access( //
     );
 }
 
-std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access( //
-    const Context &ctx,                                                  //
-    std::shared_ptr<Scope> &scope,                                       //
-    const token_slice &tokens                                            //
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_access( //
+    const Context &ctx,                                                            //
+    std::shared_ptr<Scope> &scope,                                                 //
+    const token_slice &tokens                                                      //
 ) {
     PROFILE_CUMULATIVE("Parser::create_grouped_data_access");
     token_slice tokens_mut = tokens;
@@ -1119,7 +1119,10 @@ std::optional<GroupedDataAccessNode> Parser::create_grouped_data_access( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return GroupedDataAccessNode(                      //
+    if (grouped_field_access_base->alternative_expression.has_value()) {
+        return std::move(grouped_field_access_base->alternative_expression);
+    }
+    return std::make_unique<GroupedDataAccessNode>(    //
         file_hash,                                     //
         grouped_field_access_base.value().base_expr,   //
         grouped_field_access_base.value().field_names, //
@@ -1320,61 +1323,21 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
     // Now we need to check what the rhs of the optional chain is
     // TODO: Change the 'is_toplevel_chain_node' to something else, to detect whether it actually *is* the top level
     if (iterator->token == TOK_LEFT_BRACKET) {
-        // It's an array access. First we need to make sure that the base expression is an array or string type
-        auto base_expr = create_expression(ctx, scope, base_expr_tokens);
-        if (!base_expr.has_value()) {
+        auto array_access_base = create_array_access_base(ctx, scope, tokens);
+        if (!array_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (base_expr.value()->type->get_variation() != Type::Variation::OPTIONAL) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const auto *optional_type = base_expr.value()->type->as<OptionalType>();
-        unsigned int dimensionality = 1;
-        if (optional_type->base_type->get_variation() == Type::Variation::ARRAY) {
-            const auto *base_array_type = optional_type->base_type->as<ArrayType>();
-            result_type = base_array_type->type;
-            dimensionality = base_array_type->dimensionality;
-        } else if (optional_type->base_type->to_string() != "str") {
-            result_type = Type::get_primitive_type("u8");
-        } else {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-
-        // The last token should be a right bracket and everything in between are the indexing expressions
-        if (std::prev(tokens.second)->token != TOK_RIGHT_BRACKET) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        token_slice indexing_tokens = {std::next(iterator), std::prev(tokens.second)};
-        std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions( //
-            ctx, scope, indexing_tokens                                                                              //
-        );
-        if (!indexing_expressions.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        if (indexing_expressions.value().size() != dimensionality) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        operation = ChainArrayAccess{std::move(indexing_expressions.value())};
-        return OptionalChainNode(file_hash, base_expr.value(), true, operation, result_type);
+        operation = ChainArrayAccess{std::move(array_access_base.value().indexing_exprs)};
+        return OptionalChainNode(file_hash, array_access_base.value().base_expr, true, operation, array_access_base.value().result_type);
     } else if (iterator->token == TOK_DOT) {
-        // It's a field access
         auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
         if (!field_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const auto &field_name = field_access_base.value().field_name;
-        const uint32_t field_id = field_access_base.value().field_id;
-        operation = ChainFieldAccess{field_name, field_id};
-        result_type = field_access_base.value().field_type;
-        auto &base_expr = field_access_base.value().base_expr;
-        return OptionalChainNode(file_hash, base_expr, true, operation, result_type);
+        operation = ChainFieldAccess{field_access_base.value().field_name, field_access_base.value().field_id};
+        return OptionalChainNode(file_hash, field_access_base.value().base_expr, true, operation, field_access_base.value().field_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
@@ -1663,40 +1626,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_stacked_expression( //
-    const Context &ctx,                                                           //
-    std::shared_ptr<Scope> &scope,                                                //
-    const token_slice &tokens                                                     //
-) {
-    PROFILE_CUMULATIVE("Parser::create_stacked_expression");
-    // Stacked expressions *end* with one of these patterns, if we match one of these patterns we can parse them
-    if (Matcher::tokens_end_with(tokens, Matcher::data_access)) {
-        std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens);
-        if (!data_access.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_unique<DataAccessNode>(std::move(data_access.value()));
-    } else if (Matcher::tokens_end_with(tokens, Matcher::grouped_data_access)) {
-        std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(ctx, scope, tokens);
-        if (!group_access.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
-    } else if (Matcher::tokens_end_with(tokens, Matcher::array_access) || Matcher::tokens_match(tokens, Matcher::stacked_array_access)) {
-        std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens);
-        if (!access.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_unique<ArrayAccessNode>(std::move(access.value()));
-    } else {
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
-    }
-}
-
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
     const Context &ctx,                                                         //
     std::shared_ptr<Scope> &scope,                                              //
@@ -1976,68 +1905,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
         }
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::data_access)) {
-        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
-            std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens_mut);
-            if (!data_access.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_unique<DataAccessNode>(std::move(data_access.value()));
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_chain, Matcher::expression_separator)) {
+        std::optional<OptionalChainNode> chain = create_optional_chain(ctx, scope, tokens_mut);
+        if (!chain.has_value()) {
+            return std::nullopt;
         }
+        return std::make_unique<OptionalChainNode>(std::move(chain.value()));
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::grouped_data_access)) {
-        if (tokens_mut.first->token == TOK_TYPE) {
-            const std::shared_ptr<Type> &type = tokens_mut.first->type;
-            // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
-            // All other types other than enums are not supported yet
-            if (tokens_mut.first->type->get_variation() != Type::Variation::ENUM) {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return std::nullopt;
-            }
-            const auto *enum_type = tokens_mut.first->type->as<EnumType>();
-            auto tok_it = tokens_mut.first + 1;
-            assert(tok_it->token == TOK_DOT);
-            tok_it++;
-            assert(tok_it->token == TOK_LEFT_PAREN);
-            tok_it++;
-            const auto &enum_values = enum_type->enum_node->values;
-            std::vector<std::string> values;
-            while (tok_it->token != TOK_RIGHT_PAREN) {
-                if (tok_it->token == TOK_COMMA) {
-                    ++tok_it;
-                    continue;
-                } else if (tok_it->token != TOK_IDENTIFIER) {
-                    // Unexpected Token, expected an identifier
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                const std::string value(tok_it->lexme);
-                bool enum_contains_tag = false;
-                for (size_t i = 0; i < enum_values.size(); i++) {
-                    if (enum_values.at(i).first == value) {
-                        enum_contains_tag = true;
-                        break;
-                    }
-                }
-                if (!enum_contains_tag) {
-                    // Enum tag not part of the enum values
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                values.emplace_back(value);
-                ++tok_it;
-            }
-            LitValue lit_value = LitEnum{.enum_type = type, .values = values};
-            return std::make_unique<LiteralNode>(lit_value, type);
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::data_access, Matcher::expression_separator)) {
+        std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens_mut);
+        if (!data_access.has_value()) {
+            return std::nullopt;
         }
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().first == 2 && range.value().second == token_size) {
-            std::optional<GroupedDataAccessNode> group_access = create_grouped_data_access(ctx, scope, tokens_mut);
-            if (!group_access.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_unique<GroupedDataAccessNode>(std::move(group_access.value()));
-        }
+        return std::make_unique<DataAccessNode>(std::move(data_access.value()));
+    }
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::grouped_data_access, Matcher::expression_separator)) {
+        return create_grouped_data_access(ctx, scope, tokens_mut);
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
         std::optional<ArrayInitializerNode> initializer = create_array_initializer(ctx, scope, tokens_mut);
@@ -2045,22 +1928,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
-    } else if (Matcher::tokens_match(tokens_mut, Matcher::array_access)) {
+    } else if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
         if (!access.has_value()) {
             return std::nullopt;
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
-    }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_chain)) {
-        if (!Matcher::tokens_contain(tokens_mut, Matcher::unary_operator) &&
-            !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator)) {
-            std::optional<OptionalChainNode> chain = create_optional_chain(ctx, scope, tokens_mut);
-            if (!chain.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_unique<OptionalChainNode>(std::move(chain.value()));
-        }
     }
     if (Matcher::tokens_contain(tokens_mut, Matcher::optional_unwrap)     //
         && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
@@ -2091,9 +1964,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::nullopt;
         }
         return std::move(unwrap.value());
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::stacked_expression)) {
-        return create_stacked_expression(ctx, scope, tokens_mut);
     }
     const std::vector<uint2> range_expr_matches = Matcher::get_match_ranges_in_range_outside_group( //
         tokens_mut,                                                                                 //

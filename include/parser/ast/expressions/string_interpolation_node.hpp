@@ -11,6 +11,7 @@
 class StringInterpolationNode : public ExpressionNode {
   public:
     StringInterpolationNode(std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> &string_content) :
+        ExpressionNode(true),
         string_content(std::move(string_content)) {
         this->type = Type::get_primitive_type("str");
     }

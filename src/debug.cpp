@@ -51,7 +51,6 @@ PersistentThreadPool thread_pool;
 #include <cstddef>
 #include <iostream>
 #include <memory>
-#include <mutex>
 #include <ostream>
 #include <string>
 #include <typeinfo>
@@ -287,6 +286,7 @@ namespace Debug {
 
         void print_variable(unsigned int indent_lvl, TreeBits &bits, const VariableNode &var) {
             Local::print_header(indent_lvl, bits, "Variable ");
+            std::cout << "[" << (var.is_const ? "c" : "m") << "] ";
             std::cout << var.name;
             std::cout << std::endl;
         }
@@ -303,6 +303,7 @@ namespace Debug {
 
         void print_literal(unsigned int indent_lvl, TreeBits &bits, const LiteralNode &lit) {
             Local::print_header(indent_lvl, bits, "Lit ");
+            std::cout << "[" << (lit.is_const ? "c" : "m") << "] ";
             std::cout << lit.type->to_string();
             std::cout << ": ";
             if (std::holds_alternative<LitInt>(lit.value)) {
@@ -376,6 +377,7 @@ namespace Debug {
 
         void print_string_interpolation(unsigned int indent_lvl, TreeBits &bits, const StringInterpolationNode &interpol) {
             Local::print_header(indent_lvl, bits, "Interpol ");
+            std::cout << "[" << (interpol.is_const ? "c" : "m") << "] ";
             std::cout << std::endl;
 
             indent_lvl++;
@@ -461,7 +463,7 @@ namespace Debug {
 
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin) {
             Local::print_header(indent_lvl, bits, "BinOp ");
-            std::cout << get_token_name(bin.operator_token);
+            std::cout << "[" << (bin.is_const ? "c" : "m") << "] " << get_token_name(bin.operator_token);
             if (bin.is_shorthand) {
                 std::cout << " [append]";
             }
@@ -490,6 +492,7 @@ namespace Debug {
 
         void print_type_cast(unsigned int indent_lvl, TreeBits &bits, const TypeCastNode &cast) {
             Local::print_header(indent_lvl, bits, "TypeCast ");
+            std::cout << "[" << (cast.is_const ? "c" : "m") << "] ";
             std::cout << cast.expr->type->to_string();
             std::cout << " -> ";
             std::cout << cast.type->to_string();
@@ -502,11 +505,13 @@ namespace Debug {
 
         void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type) {
             Local::print_header(indent_lvl, bits, "Type ");
+            std::cout << "[" << (type.is_const ? "c" : "m") << "] ";
             std::cout << type.type->to_string() << std::endl;
         }
 
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer) {
             Local::print_header(indent_lvl, bits, "Initializer ");
+            std::cout << "[" << (initializer.is_const ? "c" : "m") << "] ";
             std::cout << initializer.type->to_string() << std::endl;
 
             indent_lvl++;
@@ -519,6 +524,7 @@ namespace Debug {
 
         void print_group_expression(unsigned int indent_lvl, TreeBits &bits, const GroupExpressionNode &group) {
             Local::print_header(indent_lvl, bits, "Group Expr ");
+            std::cout << "[" << (group.is_const ? "c" : "m") << "] ";
             std::cout << "group types: ";
             std::cout << group.type->to_string();
             std::cout << std::endl;
@@ -534,6 +540,7 @@ namespace Debug {
 
         void print_range_expression(unsigned int indent_lvl, TreeBits &bits, const RangeExpressionNode &range) {
             Local::print_header(indent_lvl, bits, "Range Expr ");
+            std::cout << "[" << (range.is_const ? "c" : "m") << "] ";
             std::cout << range.type->to_string() << std::endl;
 
             indent_lvl++;
@@ -552,7 +559,7 @@ namespace Debug {
 
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init) {
             Local::print_header(indent_lvl, bits, "Array Initializer ");
-            std::cout << init.type->to_string();
+            std::cout << "[" << (init.is_const ? "c" : "m") << "] " << init.type->to_string();
             std::cout << std::endl;
 
             // Print length expressions
@@ -579,7 +586,7 @@ namespace Debug {
 
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Array Access ");
-            std::cout << access.type->to_string() << std::endl;
+            std::cout << "[" << (access.is_const ? "c" : "m") << "] " << access.type->to_string() << std::endl;
             indent_lvl++;
             TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
             Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
@@ -601,6 +608,7 @@ namespace Debug {
 
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Data Access ");
+            std::cout << "[" << (access.is_const ? "c" : "m") << "] ";
             if (access.field_name.has_value()) {
                 std::cout << access.field_name.value() << " at ID " << access.field_id;
             } else {
@@ -613,6 +621,7 @@ namespace Debug {
 
         void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Grouped Access ");
+            std::cout << "[" << (access.is_const ? "c" : "m") << "] ";
             std::cout << ".(";
             for (auto it = access.field_names.begin(); it != access.field_names.end(); ++it) {
                 if (it != access.field_names.begin()) {
@@ -636,11 +645,13 @@ namespace Debug {
 
         void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match) {
             Local::print_header(indent_lvl, bits, "Match ");
+            std::cout << "[" << (match.is_const ? "c" : "m") << "] ";
             std::cout << "[" << match.id << "]: " << match.type->to_string() << " " << match.name << std::endl;
         }
 
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression) {
             Local::print_header(indent_lvl, bits, "Switch ");
+            std::cout << "[" << (switch_expression.is_const ? "c" : "m") << "] ";
             std::cout << "switch\n";
             TreeBits expr_header_bits = bits.child(indent_lvl + 1, false);
             Local::print_header(indent_lvl + 1, expr_header_bits, "Expression ");
@@ -669,11 +680,13 @@ namespace Debug {
 
         void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node) {
             Local::print_header(indent_lvl, bits, "Default ");
+            std::cout << "[" << (default_node.is_const ? "c" : "m") << "] ";
             std::cout << "of type " << default_node.type->to_string() << std::endl;
         }
 
         void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node) {
             Local::print_header(indent_lvl, bits, "OptChain ");
+            std::cout << "[" << (chain_node.is_const ? "c" : "m") << "] ";
             if (std::holds_alternative<ChainFieldAccess>(chain_node.operation)) {
                 const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain_node.operation);
                 if (access.field_name.has_value()) {
@@ -699,6 +712,7 @@ namespace Debug {
 
         void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node) {
             Local::print_header(indent_lvl, bits, "OptUnwrap ");
+            std::cout << "[" << (unwrap_node.is_const ? "c" : "m") << "] ";
             std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
@@ -706,6 +720,7 @@ namespace Debug {
 
         void print_variant_extraction(unsigned int indent_lvl, TreeBits &bits, const VariantExtractionNode &extraction) {
             Local::print_header(indent_lvl, bits, "VariantExtract ");
+            std::cout << "[" << (extraction.is_const ? "c" : "m") << "] ";
             std::cout << "?(" << extraction.extracted_type->to_string() << ") -> " << extraction.type->to_string() << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, extraction.base_expr);
@@ -713,6 +728,7 @@ namespace Debug {
 
         void print_variant_unwrap(unsigned int indent_lvl, TreeBits &bits, const VariantUnwrapNode &unwrap_node) {
             Local::print_header(indent_lvl, bits, "VarUnwrap ");
+            std::cout << "[" << (unwrap_node.is_const ? "c" : "m") << "] ";
             std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
@@ -1130,24 +1146,32 @@ namespace Debug {
 
         void print_data_field_assignment(unsigned int indent_lvl, TreeBits &bits, const DataFieldAssignmentNode &assignment) {
             Local::print_header(indent_lvl, bits, "Data Field Assignment ");
-            std::cout << "assign [" << assignment.data_type->to_string() << "] " << assignment.var_name << ".";
+            std::cout << "assign .";
             if (assignment.field_name.has_value()) {
                 std::cout << assignment.field_name.value() << " at ID " << assignment.field_id;
             } else {
                 std::cout << "$" << assignment.field_id;
             }
-            std::cout << " of types " << assignment.field_type->to_string() << " to be";
+            std::cout << " of types " << assignment.field_type->to_string();
             std::cout << std::endl;
 
-            TreeBits expr_bits = bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, expr_bits, assignment.expression);
+            // Print base expression
+            indent_lvl++;
+            TreeBits base_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_bits, "Base Expression ");
+            std::cout << assignment.base_expr->type->to_string() << std::endl;
+            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expr);
+
+            TreeBits expr_bits = bits.child(indent_lvl, true);
+            print_expression(indent_lvl, expr_bits, assignment.expression);
         }
 
         void print_grouped_data_field_assignment(                                                     //
             unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
         ) {
             Local::print_header(indent_lvl, bits, "Grouped Field Assignment ");
-            std::cout << "assign " << assignment.var_name << ".(";
+            std::cout << "assign on fields <base>.(";
             for (auto it = assignment.field_names.begin(); it != assignment.field_names.end(); ++it) {
                 if (it != assignment.field_names.begin()) {
                     std::cout << ", ";
@@ -1174,107 +1198,17 @@ namespace Debug {
                 }
                 std::cout << *it;
             }
-            std::cout << ") to be" << std::endl;
-
-            TreeBits expr_bits = bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, expr_bits, assignment.expression);
-        }
-
-        void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment) {
-            Local::print_header(indent_lvl, bits, "Stacked Assignment ");
-            std::cout << "Field " << std::to_string(assignment.field_id) << " [" << assignment.field_name << " : "
-                      << assignment.field_type->to_string() << "] from";
-            std::cout << std::endl;
-
-            // Print base expression
-            indent_lvl++;
-            TreeBits base_bits = bits.child(indent_lvl, false);
-            Local::print_header(indent_lvl, base_bits, "Base Expression ");
-            std::cout << assignment.base_expression->type->to_string() << std::endl;
-
-            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
-
-            // Print RHS expression
-            TreeBits rhs_bits = bits.child(indent_lvl, true);
-            Local::print_header(indent_lvl, rhs_bits, "RHS Expression ");
-            std::cout << "to be" << std::endl;
-
-            TreeBits rhs_expr_bits = bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
-        }
-
-        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment) {
-            Local::print_header(indent_lvl, bits, "Stacked Array Assignment ");
-            std::cout << "on base expr" << std::endl;
+            std::cout << ") on base expr" << std::endl;
 
             indent_lvl++;
             TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
             Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
             std::cout << std::endl;
-
             TreeBits base_expr_bits = base_expr_header_bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
+            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expr);
 
-            for (size_t i = 0; i < assignment.indexing_expressions.size(); i++) {
-                TreeBits index_header_bits = bits.child(indent_lvl, false);
-                Local::print_header(indent_lvl, index_header_bits, "ID " + std::to_string(i) + " ");
-                std::cout << std::endl;
-
-                TreeBits index_bits = index_header_bits.child(indent_lvl + 1, true);
-                print_expression(indent_lvl + 1, index_bits, assignment.indexing_expressions.at(i));
-            }
-
-            // Print RHS expression
-            TreeBits rhs_expr_header_bits = bits.child(indent_lvl, true);
-            Local::print_header(indent_lvl, rhs_expr_header_bits, "RHS Expression ");
-            std::cout << "to be" << std::endl;
-
-            TreeBits rhs_expr_bits = rhs_expr_header_bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
-        }
-
-        void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment) {
-            Local::print_header(indent_lvl, bits, "Stacked Grouped Assignment ");
-            std::cout << "Fields (";
-            for (auto field_it = assignment.field_names.begin(); field_it != assignment.field_names.end(); ++field_it) {
-                if (field_it != assignment.field_names.begin()) {
-                    std::cout << ", ";
-                }
-                std::cout << *field_it;
-            }
-            std::cout << ") at ids (";
-            for (auto field_it = assignment.field_ids.begin(); field_it != assignment.field_ids.end(); ++field_it) {
-                if (field_it != assignment.field_ids.begin()) {
-                    std::cout << ", ";
-                }
-                std::cout << *field_it;
-            }
-            std::cout << ") of types (";
-            for (auto field_it = assignment.field_types.begin(); field_it != assignment.field_types.end(); ++field_it) {
-                if (field_it != assignment.field_types.begin()) {
-                    std::cout << ", ";
-                }
-                std::cout << (*field_it)->to_string();
-            }
-            std::cout << ") on base" << std::endl;
-
-            // Print base expression
-            indent_lvl++;
-            TreeBits base_bits = bits.child(indent_lvl, false);
-            Local::print_header(indent_lvl, base_bits, "Base Expression ");
-            std::cout << assignment.base_expression->type->to_string() << std::endl;
-
-            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, base_expr_bits, assignment.base_expression);
-
-            // Print RHS expression
-            TreeBits rhs_bits = bits.child(indent_lvl, true);
-            Local::print_header(indent_lvl, rhs_bits, "RHS Expression ");
-            std::cout << "to be" << std::endl;
-
-            TreeBits rhs_expr_bits = bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, rhs_expr_bits, assignment.expression);
+            TreeBits expr_bits = bits.child(indent_lvl, true);
+            print_expression(indent_lvl, expr_bits, assignment.expression);
         }
 
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement) {
@@ -1360,21 +1294,6 @@ namespace Debug {
                 case StatementNode::Variation::RETURN: {
                     const auto *node = statement->as<ReturnNode>();
                     print_return(indent_lvl, bits, *node);
-                    break;
-                }
-                case StatementNode::Variation::STACKED_ASSIGNMENT: {
-                    const auto *node = statement->as<StackedAssignmentNode>();
-                    print_stacked_assignment(indent_lvl, bits, *node);
-                    break;
-                }
-                case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
-                    const auto *node = statement->as<StackedArrayAssignmentNode>();
-                    print_stacked_array_assignment(indent_lvl, bits, *node);
-                    break;
-                }
-                case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
-                    const auto *node = statement->as<StackedGroupedAssignmentNode>();
-                    print_stacked_grouped_assignment(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::SWITCH: {

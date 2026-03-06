@@ -80,6 +80,7 @@ class LiteralNode : public ExpressionNode {
         const std::shared_ptr<Type> &type, //
         const bool is_folded = false       //
         ) :
+        ExpressionNode(true),
         value(std::move(value)),
         is_folded(is_folded) {
         this->type = type;

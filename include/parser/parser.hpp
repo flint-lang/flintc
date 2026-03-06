@@ -891,6 +891,12 @@ class Parser {
     /// @brief The return type of the `create_grouped_access_base` function. It's return type got very complex and that's why this
     /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
     struct CreateGroupedAccessBaseRet {
+        /// @var `alternative_expression`
+        /// @brief Whether the grouped access base was an alternative expression, like a grouped enum literal like `MyEnum.(VAL1, VAL2)` for
+        /// example. In this case all other fields are zero-initialized and only this field contains the actual expression. We could use a
+        /// variant for that, but simple semantics are enough too.
+        std::optional<std::unique_ptr<ExpressionNode>> alternative_expression;
+
         /// @var `base_expr`
         /// @brief The base expression of the grouped access
         std::unique_ptr<ExpressionNode> base_expr;
@@ -940,11 +946,20 @@ class Parser {
         std::shared_ptr<Type> result_type;
     };
 
+    /// @function `create_array_access_base`
+    /// @brief Creates all the values needed for the array access like the base expression, indexing expressions etc and returns them in a
+    /// struct
+    ///
+    /// @param `ctx` The parsing context
+    /// @param `scope` The scope in which the array access is defined
+    /// @param `tokens` The list of tokens representing the array access
+    /// @param `has_inbetween_operator` Whether the array access has an in-between operator like a `?` for example
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateArrayAccessBaseRet> create_array_access_base( //
         const Context &ctx,                                           //
         std::shared_ptr<Scope> &scope,                                //
-        const token_slice &tokens                                     //
+        const token_slice &tokens,                                    //
+        const bool has_inbetween_operator = false                     //
     );
 
     /// @function `ensure_castability_multiple`
@@ -1166,11 +1181,12 @@ class Parser {
     /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the data access is defined
     /// @param `tokens` The list of tokens representing the data access
-    /// @return `std::optional<GroupedDataAccessNode>` A grouped data access node, nullopt if its creation failed
-    std::optional<GroupedDataAccessNode> create_grouped_data_access( //
-        const Context &ctx,                                          //
-        std::shared_ptr<Scope> &scope,                               //
-        const token_slice &tokens                                    //
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` A grouped data access node or other expression (like grouped enum literal),
+    /// nullopt if its creation failed
+    std::optional<std::unique_ptr<ExpressionNode>> create_grouped_data_access( //
+        const Context &ctx,                                                    //
+        std::shared_ptr<Scope> &scope,                                         //
+        const token_slice &tokens                                              //
     );
 
     /// @function `create_array_initializer`
@@ -1249,22 +1265,6 @@ class Parser {
         const Context &ctx,                                               //
         std::shared_ptr<Scope> &scope,                                    //
         const token_slice &tokens                                         //
-    );
-
-    /// @function `create_stacked_expression`
-    /// @brief Creates a stacked expression from the given tokens
-    ///
-    /// @param `ctx` The parsing context
-    /// @param `scope` The scope in which the scoped expression is defined
-    /// @param `tokens` The list of tokens representing the scoped expression
-    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The stacked expression, nullopt if its creation failed
-    ///
-    /// @details Stacked expressions are unwrapped from the right to the left: `instance.field.field.field` becomes
-    /// `(instance.field.field).field` and then it becomes `((instance.field).field).field`, so they are evalueated balanced from the right
-    std::optional<std::unique_ptr<ExpressionNode>> create_stacked_expression( //
-        const Context &ctx,                                                   //
-        std::shared_ptr<Scope> &scope,                                        //
-        const token_slice &tokens                                             //
     );
 
     /// @function `create_pivot_expression`
@@ -1782,14 +1782,6 @@ class Parser {
         const token_slice &tokens,                                        //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
     );
-
-    /// @function `create_stacked_statement`
-    /// @brief Creates a stacked statement, like `a.b.c = sdf` for example
-    ///
-    /// @param `scope` The scope in which the stacked statement is defined
-    /// @param `tokens` The list of tokens representing the stacked statement
-    /// @return `std::optional<std::unique_ptr<StatementNode>>` The created stacked statement
-    std::optional<std::unique_ptr<StatementNode>> create_stacked_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_statement`
     /// @brief Creates a StatementNode from the given list of tokens

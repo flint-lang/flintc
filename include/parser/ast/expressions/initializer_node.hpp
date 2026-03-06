@@ -10,6 +10,7 @@
 class InitializerNode : public ExpressionNode {
   public:
     InitializerNode(const std::shared_ptr<Type> &type, std::vector<std::unique_ptr<ExpressionNode>> &args) :
+        ExpressionNode(true),
         args(std::move(args)) {
         this->type = type;
     }

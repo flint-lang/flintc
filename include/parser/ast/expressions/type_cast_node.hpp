@@ -9,6 +9,7 @@
 class TypeCastNode : public ExpressionNode {
   public:
     TypeCastNode(const std::shared_ptr<Type> &type, std::unique_ptr<ExpressionNode> &expr) :
+        ExpressionNode(expr->is_const),
         expr(std::move(expr)) {
         this->type = type;
     }

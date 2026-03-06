@@ -1,8 +1,6 @@
 use Core.print
 
 def main():
-	u64[] arr = u64[10](10);
-	for (i, _) in 0..arr.len:
-		arr[i] += i;
-	for (i, e) in arr:
-		print($"arr[{i}] = {e}\n");
+	str msg = "Hello";
+	msg[2] = 'E';
+	print($"msg = {msg}\n");

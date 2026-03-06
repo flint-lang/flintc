@@ -37,8 +37,6 @@
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/return_node.hpp"
-#include "parser/ast/statements/stacked_assignment.hpp"
-#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
@@ -192,6 +190,10 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
     switch (statement->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
             for (const auto &index_expr : node->indexing_expressions) {
                 result = analyze_expression(ctx, index_expr.get());
                 if (result != Result::OK) {
@@ -249,6 +251,10 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             break;
         case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<DataFieldAssignmentNode>();
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
             result = analyze_expression(ctx, node->expression.get());
             if (result != Result::OK) {
                 goto fail;
@@ -327,6 +333,10 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
         }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
             result = analyze_expression(ctx, node->expression.get());
             if (result != Result::OK) {
                 goto fail;
@@ -381,48 +391,6 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
                 if (result != Result::OK) {
                     goto fail;
                 }
-            }
-            break;
-        }
-        case StatementNode::Variation::STACKED_ASSIGNMENT: {
-            const auto *node = statement->as<StackedAssignmentNode>();
-            result = analyze_expression(ctx, node->base_expression.get());
-            if (result != Result::OK) {
-                goto fail;
-            }
-            result = analyze_expression(ctx, node->expression.get());
-            if (result != Result::OK) {
-                goto fail;
-            }
-            break;
-        }
-        case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
-            const auto *node = statement->as<StackedArrayAssignmentNode>();
-            result = analyze_expression(ctx, node->base_expression.get());
-            if (result != Result::OK) {
-                goto fail;
-            }
-            for (auto &expr : node->indexing_expressions) {
-                result = analyze_expression(ctx, expr.get());
-                if (result != Result::OK) {
-                    goto fail;
-                }
-            }
-            result = analyze_expression(ctx, node->expression.get());
-            if (result != Result::OK) {
-                goto fail;
-            }
-            break;
-        }
-        case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
-            const auto *node = statement->as<StackedGroupedAssignmentNode>();
-            result = analyze_expression(ctx, node->base_expression.get());
-            if (result != Result::OK) {
-                goto fail;
-            }
-            result = analyze_expression(ctx, node->expression.get());
-            if (result != Result::OK) {
-                goto fail;
             }
             break;
         }

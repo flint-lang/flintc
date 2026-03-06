@@ -834,7 +834,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         instance_variable.value()->as<VariableNode>()->name,                    //
-                        instance_variable.value()->type                                         //
+                        instance_variable.value()->type,                                        //
+                        instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
@@ -856,7 +857,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     const auto &required_data_type = func_node->required_data.at(i - 1).first;
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         instance_variable.value()->as<VariableNode>()->name,                    //
-                        instance_variable.value()->type                                         //
+                        instance_variable.value()->type,                                        //
+                        instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
@@ -1310,6 +1312,59 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         base_type = optional_type->base_type;
     }
 
+    // Check if the "base expression" is a type. Grouped accesses are possible on a base of certain types (like enums for example) and
+    // result in different expressions, not a grouped access per-se but in different expressions like a "normal" enum literal for example
+    if (base_expr.value()->get_variation() == ExpressionNode::Variation::TYPE) {
+        const std::shared_ptr<Type> &type = base_expr.value()->type;
+        // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
+        // All other types other than enums are not supported yet
+        if (type->get_variation() != Type::Variation::ENUM) {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
+        const auto *enum_type = type->as<EnumType>();
+        auto tok_it = access_tokens.first + 1;
+        assert(tok_it->token == TOK_DOT);
+        tok_it++;
+        assert(tok_it->token == TOK_LEFT_PAREN);
+        tok_it++;
+        const auto &enum_values = enum_type->enum_node->values;
+        std::vector<std::string> values;
+        while (tok_it->token != TOK_RIGHT_PAREN) {
+            if (tok_it->token == TOK_COMMA) {
+                ++tok_it;
+                continue;
+            } else if (tok_it->token != TOK_IDENTIFIER) {
+                // Unexpected Token, expected an identifier
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const std::string value(tok_it->lexme);
+            bool enum_contains_tag = false;
+            for (size_t i = 0; i < enum_values.size(); i++) {
+                if (enum_values.at(i).first == value) {
+                    enum_contains_tag = true;
+                    break;
+                }
+            }
+            if (!enum_contains_tag) {
+                // Enum tag not part of the enum values
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            values.emplace_back(value);
+            ++tok_it;
+        }
+        LitValue lit_value = LitEnum{.enum_type = type, .values = values};
+        return CreateGroupedAccessBaseRet{
+            .alternative_expression = std::make_unique<LiteralNode>(lit_value, type),
+            .base_expr = nullptr,
+            .field_names = {},
+            .field_ids = {},
+            .field_types = {},
+        };
+    }
+
     // Now, extract the names of all accessed fields
     std::vector<std::string> field_names;
     while (access_tokens.first != access_tokens.second) {
@@ -1349,6 +1404,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 field_id++;
             }
             return CreateGroupedAccessBaseRet{
+                .alternative_expression = std::nullopt,
                 .base_expr = std::move(base_expr.value()),
                 .field_names = field_names,
                 .field_ids = field_ids,
@@ -1371,6 +1427,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 field_ids.emplace_back(std::get<1>(access.value()));
             }
             return CreateGroupedAccessBaseRet{
+                .alternative_expression = std::nullopt,
                 .base_expr = std::move(base_expr.value()),
                 .field_names = access_field_names,
                 .field_ids = field_ids,
@@ -1391,6 +1448,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 field_ids.emplace_back(field_id);
             }
             return CreateGroupedAccessBaseRet{
+                .alternative_expression = std::nullopt,
                 .base_expr = std::move(base_expr.value()),
                 .field_names = field_names,
                 .field_ids = field_ids,
@@ -1405,7 +1463,8 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
 std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base( //
     const Context &ctx,                                                           //
     std::shared_ptr<Scope> &scope,                                                //
-    const token_slice &tokens                                                     //
+    const token_slice &tokens,                                                    //
+    const bool has_inbetween_operator                                             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_access_base");
     // Array accesses happen at the end of the expression, so we extract indexing expressions etc from left to right and then parse the
@@ -1444,13 +1503,20 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
     assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
     base_expr_tokens.second = indexing_tokens.first++;
+    if (has_inbetween_operator) {
+        base_expr_tokens.second--;
+        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
 
     // Parse the base expression first before parsing the indexing expressions
     std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
         return std::nullopt;
     }
-    if (base_expr.value()->type->get_variation() != Type::Variation::ARRAY) {
+    if (base_expr.value()->type->get_variation() != Type::Variation::ARRAY && base_expr.value()->type->to_string() != "str") {
         // Array access on non-array type base expression
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1475,15 +1541,35 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
             dimensionality++;
         }
     }
-    const auto &base_type = base_expr.value()->type->as<ArrayType>()->type;
+    auto base_type = base_expr.value()->type;
+    if (has_inbetween_operator) {
+        base_type = base_type->as<OptionalType>()->base_type;
+    }
+    const bool base_is_str = base_type->to_string() == "str";
+    if (base_is_str) {
+        base_type = Type::get_primitive_type("u8");
+    } else {
+        base_type = base_type->as<ArrayType>()->type;
+    }
     std::shared_ptr<Type> result_type = nullptr;
     if (dimensionality > 0) {
-        result_type = std::make_shared<ArrayType>(dimensionality, base_type);
-        if (!file_node_ptr->file_namespace->add_type(result_type)) {
-            result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
+        if (base_is_str) {
+            assert(dimensionality == 1);
+            result_type = Type::get_primitive_type("str");
+        } else {
+            result_type = std::make_shared<ArrayType>(dimensionality, base_type);
+            if (!file_node_ptr->file_namespace->add_type(result_type)) {
+                result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
+            }
         }
     } else {
         result_type = base_type;
+    }
+    if (has_inbetween_operator) {
+        result_type = std::make_shared<OptionalType>(result_type);
+        if (!file_node_ptr->file_namespace->add_type(result_type)) {
+            result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
+        }
     }
     return CreateArrayAccessBaseRet{
         .base_expr = std::move(base_expr.value()),

@@ -14,6 +14,7 @@ class ArrayAccessNode : public ExpressionNode {
         std::shared_ptr<Type> result_type,                                 //
         std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         ) :
+        ExpressionNode(base_expr->is_const),
         base_expr(std::move(base_expr)),
         indexing_expressions(std::move(indexing_expressions)) {
         this->type = result_type;

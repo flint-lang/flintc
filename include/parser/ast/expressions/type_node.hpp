@@ -6,7 +6,8 @@
 /// @brief Represents types as expressions, for example for variant comparisons or extractions
 class TypeNode : public ExpressionNode {
   public:
-    TypeNode(const std::shared_ptr<Type> &type) {
+    TypeNode(const std::shared_ptr<Type> &type) :
+        ExpressionNode(true) {
         this->type = type;
     }
 

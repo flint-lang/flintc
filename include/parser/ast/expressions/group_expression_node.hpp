@@ -12,7 +12,7 @@
 class GroupExpressionNode : public ExpressionNode {
   public:
     explicit GroupExpressionNode(const Hash &hash, std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, true),
         expressions(std::move(expressions)) {
         std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {

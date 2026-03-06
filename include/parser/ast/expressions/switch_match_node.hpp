@@ -7,6 +7,7 @@
 class SwitchMatchNode : public ExpressionNode {
   public:
     SwitchMatchNode(const std::shared_ptr<Type> &type, const std::string &name, const unsigned int id) :
+        ExpressionNode(true),
         name(name),
         id(id) {
         this->type = type;

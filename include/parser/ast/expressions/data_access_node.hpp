@@ -15,7 +15,7 @@ class DataAccessNode : public ExpressionNode {
         const unsigned int field_id,                  //
         const std::shared_ptr<Type> &field_type       //
         ) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, base_expr->is_const),
         base_expr(std::move(base_expr)),
         field_name(field_name),
         field_id(field_id) {

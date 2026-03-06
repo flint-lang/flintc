@@ -2542,7 +2542,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
         if (!is_slice) {
-            llvm::Value *index_ptr = builder.CreateGEP(                                                            //
+            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                    //
                 builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
             );
             llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
@@ -2553,7 +2553,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
         }
         const bool is_range = indexing_expressions.at(i)->type->get_variation() == Type::Variation::RANGE;
         for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
-            llvm::Value *index_ptr = builder.CreateGEP(                                                                            //
+            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                                    //
                 builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + j), "idx_" + std::to_string(i * 2 + j) + "_ptr" //
             );
             llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[j], index_ptr);
@@ -2562,7 +2562,7 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             );
             if (is_slice && !is_range) {
                 // The slicing function expects indices of non-ranges to be '1, 1' for the index 1, and '1, 3' for the range [1, 3)
-                index_ptr = builder.CreateGEP(                                                                                         //
+                index_ptr = builder.CreateInBoundsGEP(                                                                                 //
                     builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i * 2 + 1) + "_ptr" //
                 );
                 index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);

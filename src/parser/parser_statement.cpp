@@ -12,10 +12,6 @@
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
-#include "parser/ast/statements/stacked_array_assignment.hpp"
-#include "parser/ast/statements/stacked_assignment.hpp"
-#include "parser/ast/statements/stacked_grouped_assignment.hpp"
-#include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -1352,7 +1348,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!create_variant_switch_branches(body_scope, scope_segment, s_branches, e_branches, body, switcher_type, true, false)) {
             return std::nullopt;
         }
-        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("flint.value_err", switcher_type);
+        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("flint.value_err", switcher_type, true);
         std::unique_ptr<StatementNode> switch_statement = std::make_unique<SwitchStatement>(dummy_switcher, s_branches);
         body_scope->body.push_back(std::move(switch_statement));
     }
@@ -1499,7 +1495,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     // The expression now is the group of all assignees within a binop with the rhs expr
     std::vector<std::unique_ptr<ExpressionNode>> lhs_expressions;
     for (const auto &[type, name] : assignees) {
-        lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type));
+        lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type, false));
     }
     std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_expressions);
     if (!check_castability(lhs_expr, expr.value())) {
@@ -1609,7 +1605,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                         op = TOK_DIV;
                         break;
                 }
-                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(it_lexme, expected_type);
+                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(it_lexme, expected_type, false);
                 std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>( //
                     op, var_node, expression.value(), expected_type, true                //
                 );
@@ -1930,17 +1926,10 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
 
     // The data field base expression should be a variable expression
     std::unique_ptr<ExpressionNode> &base_expr = field_access_base.value().base_expr;
-    if (base_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
-        THROW_BASIC_ERR(ERR_PARSING);
+    if (base_expr->is_const) {
+        THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
-    const auto *var_node = base_expr->as<VariableNode>();
-    const std::string &var_name = var_node->name;
-    if (!scope->variables.at(var_name).is_mutable) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_name);
-        return std::nullopt;
-    }
-
     const auto &field_type = field_access_base.value().field_type;
     if (!check_castability(field_type, expression.value())) {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, field_type, expression.value()->type);
@@ -1948,8 +1937,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     }
 
     return DataFieldAssignmentNode(           //
-        base_expr->type,                      //
-        var_name,                             //
+        base_expr,                            //
         field_access_base.value().field_name, //
         field_access_base.value().field_id,   //
         field_type,                           //
@@ -1975,13 +1963,11 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    // The data field base expression should be a variable expression
     auto &base_expr = field_access_base.value().base_expr;
-    if (base_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
-        THROW_BASIC_ERR(ERR_PARSING);
+    if (base_expr->is_const) {
+        THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
-    const auto *var_node = base_expr->as<VariableNode>();
 
     // Get the operation of the assignment shorthand
     Token operation = TOK_EOF;
@@ -2016,26 +2002,14 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
         return std::nullopt;
     }
 
-    const std::string &var_name = var_node->name;
-    if (!scope->variables.at(var_name).is_mutable) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_name);
-        return std::nullopt;
-    }
-
-    // Check if the data variable we try to mutate is marked as immutable
-    if (!scope->variables.at(var_node->name).is_mutable) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
-        return std::nullopt;
-    }
-
     // Create the lhs of the binary op of the right side, which is the data field access
-    const std::shared_ptr<Type> &base_expr_type = base_expr->type;
     const auto &field_name = field_access_base.value().field_name;
     const auto field_id = field_access_base.value().field_id;
     const auto &field_type = field_access_base.value().field_type;
+    auto base_expr_clone = base_expr->clone(scope->scope_id);
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<DataAccessNode>( //
         file_hash,                                                                //
-        base_expr,                                                                //
+        base_expr_clone,                                                          //
         field_name,                                                               //
         field_id,                                                                 //
         field_type                                                                //
@@ -2049,10 +2023,10 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
         operation,                               //
         binop_lhs,                               //
         expression.value(),                      //
-        binop_lhs->type,                         //
+        field_type,                              //
         true                                     //
     );
-    return DataFieldAssignmentNode(base_expr_type, var_name, field_name, field_id, field_type, expression.value());
+    return DataFieldAssignmentNode(base_expr, field_name, field_id, field_type, expression.value());
 }
 
 std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment( //
@@ -2072,12 +2046,11 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    const auto &base_expr = grouped_field_access_base.value().base_expr;
-    if (base_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
-        THROW_BASIC_ERR(ERR_PARSING);
+    auto &base_expr = grouped_field_access_base.value().base_expr;
+    if (base_expr->is_const) {
+        THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, lhs_tokens);
         return std::nullopt;
     }
-    const auto *var_node = base_expr->as<VariableNode>();
 
     // Now the equal sign should follow, we will delete that one too
     assert(tokens_mut.first->token == TOK_EQUAL);
@@ -2094,10 +2067,6 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    if (!scope->variables.at(var_node->name).is_mutable) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
-        return std::nullopt;
-    }
     const auto &field_names = grouped_field_access_base.value().field_names;
     const auto &field_ids = grouped_field_access_base.value().field_ids;
     const auto &field_types = grouped_field_access_base.value().field_types;
@@ -2106,7 +2075,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
         return std::nullopt;
     }
-    return GroupedDataFieldAssignmentNode(base_expr->type, var_node->name, field_names, field_ids, field_types, expression.value());
+    return GroupedDataFieldAssignmentNode(base_expr, field_names, field_ids, field_types, expression.value());
 }
 
 std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_assignment_shorthand( //
@@ -2127,11 +2096,10 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         return std::nullopt;
     }
     auto &base_expr = grouped_field_access_base.value().base_expr;
-    if (base_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
-        THROW_BASIC_ERR(ERR_PARSING);
+    if (base_expr->is_const) {
+        THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, lhs_tokens);
         return std::nullopt;
     }
-    const auto *var_node = base_expr->as<VariableNode>();
 
     // Get the operation of the assignment shorthand
     Token operation = TOK_EOF;
@@ -2166,20 +2134,14 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         return std::nullopt;
     }
 
-    // Check if the data variable we try to mutate is marked as immutable
-    if (!scope->variables.at(var_node->name).is_mutable) {
-        THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, var_node->name);
-        return std::nullopt;
-    }
-
     // Create the lhs of the binary op of the right side, which is the grouped data field access
-    const std::shared_ptr<Type> &base_expr_type = base_expr->type;
     const auto &field_names = grouped_field_access_base.value().field_names;
     const auto &field_ids = grouped_field_access_base.value().field_ids;
     const auto &field_types = grouped_field_access_base.value().field_types;
+    auto base_expr_clone = base_expr->clone(scope->scope_id);
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
         file_hash,                                                                       //
-        base_expr,                                                                       //
+        base_expr_clone,                                                                 //
         field_names,                                                                     //
         field_ids,                                                                       //
         field_types                                                                      //
@@ -2199,7 +2161,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         binop_lhs->type,                         //
         true                                     //
     );
-    return GroupedDataFieldAssignmentNode(base_expr_type, var_node->name, field_names, field_ids, field_types, expression.value());
+    return GroupedDataFieldAssignmentNode(base_expr, field_names, field_ids, field_types, expression.value());
 }
 
 std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
@@ -2317,239 +2279,6 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     return ArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::create_stacked_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
-    if (!Matcher::tokens_contain(tokens, Matcher::token(TOK_EQUAL))) {
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
-    }
-    // Stacked statements cant be declarations, because sub-elements of a "stack" like `var.field.field` are already declared when one
-    // can write a statement like this. This means the stacked statement is definitely an assignment. First, find the position of the
-    // equals sign
-    auto iterator = tokens.first;
-    while (iterator != tokens.second && iterator->token != TOK_EQUAL) {
-        ++iterator;
-    }
-    assert(iterator->token == TOK_EQUAL);
-    // Now, everything to the right of the iterator is the rhs expression
-    const token_slice rhs_expr_tokens = {iterator + 1, tokens.second};
-    auto rhs_expr = create_expression(_ctx_, scope, rhs_expr_tokens);
-    if (!rhs_expr.has_value()) {
-        return std::nullopt;
-    }
-    token_slice indexing_expression_tokens{iterator, iterator};
-    // Okay, so now we find the dot token for the last stack and create an expression with everything to the left of it
-    --iterator;
-    size_t depth = 0;
-    for (; iterator != tokens.first; --iterator) {
-        if (iterator->token == TOK_RIGHT_BRACKET) {
-            depth++;
-        } else if (iterator->token == TOK_LEFT_BRACKET) {
-            depth--;
-            if (depth == 0) {
-                // There is an array access at the very right so everything left to it is the base expression
-                // Move the end to the ]
-                indexing_expression_tokens.second--;
-                // Move past the [
-                indexing_expression_tokens.first = iterator + 1;
-                break;
-            }
-        } else if (iterator->token == TOK_RIGHT_PAREN) {
-            depth++;
-        } else if (iterator->token == TOK_LEFT_PAREN) {
-            depth--;
-        } else if (iterator->token == TOK_DOT && depth == 0) {
-            break;
-        }
-    }
-    // Okay, now everything to the left of the iterator is the base expression
-    const token_slice base_expr_tokens = {tokens.first, iterator};
-    auto base_expr = create_expression(_ctx_, scope, base_expr_tokens);
-    if (!base_expr.has_value()) {
-        return std::nullopt;
-    }
-    ++iterator;
-    const std::shared_ptr<Type> base_expr_type = base_expr.value()->type;
-    switch (base_expr_type->get_variation()) {
-        default:
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        case Type::Variation::PRIMITIVE: {
-            if (base_expr_type->to_string() != "str") {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            [[fallthrough]];
-        }
-        case Type::Variation::ARRAY: {
-            unsigned int dimensionality = 1;
-            std::shared_ptr<Type> base_type = Type::get_primitive_type("u8");
-            if (base_expr_type->to_string() != "str") {
-                const auto *array_type = base_expr_type->as<ArrayType>();
-                dimensionality = array_type->dimensionality;
-                base_type = array_type->type;
-            }
-            if (!rhs_expr.value()->type->equals(base_type)) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_expression_tokens);
-            if (!indexing_expressions.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            if (indexing_expressions.value().size() != dimensionality) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            for (auto &expr : indexing_expressions.value()) {
-                if (!check_castability(Type::get_primitive_type("u64"), expr)) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            }
-            return std::make_unique<StackedArrayAssignmentNode>(base_expr.value(), indexing_expressions.value(), rhs_expr.value());
-        }
-        case Type::Variation::DATA: {
-            const auto *data_type = base_expr_type->as<DataType>();
-            if (iterator->token == TOK_IDENTIFIER) {
-                // It's a single value assignment
-                const std::string field_name(iterator->lexme);
-                const DataNode *data_node = data_type->data_node;
-                auto field_it = data_node->fields.begin();
-                while (field_it != data_node->fields.end()) {
-                    if (field_it->name == field_name) {
-                        break;
-                    }
-                    ++field_it;
-                }
-                if (field_it == data_node->fields.end()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                size_t field_id = std::distance(data_node->fields.begin(), field_it);
-                const std::shared_ptr<Type> field_type = field_it->type;
-                return std::make_unique<StackedAssignmentNode>(base_expr.value(), field_name, field_id, field_type, rhs_expr.value());
-            } else if (iterator->token == TOK_LEFT_PAREN) {
-                // It's a grouped assignment
-                std::vector<std::string> field_names;
-                std::vector<unsigned int> field_ids;
-                std::vector<std::shared_ptr<Type>> field_types;
-                const DataNode *data_node = data_type->data_node;
-                ++iterator;
-                while (iterator != tokens.second && iterator->token != TOK_RIGHT_PAREN) {
-                    if (iterator->token == TOK_IDENTIFIER) {
-                        const std::string field_str(iterator->lexme);
-                        bool field_found = false;
-                        for (auto field_it = data_node->fields.begin(); field_it != data_node->fields.end(); ++field_it) {
-                            if (field_it->name == field_str) {
-                                field_ids.emplace_back(std::distance(data_node->fields.begin(), field_it));
-                                field_names.emplace_back(field_it->name);
-                                field_types.emplace_back(field_it->type);
-                                field_found = true;
-                                break;
-                            }
-                        }
-                        if (!field_found) {
-                            // Use of non-present field in data type
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                    } else if (iterator->token != TOK_COMMA) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    ++iterator;
-                }
-                if (field_names.empty()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
-                if (!check_castability(group_type, rhs_expr.value())) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_expr_tokens, group_type, rhs_expr.value()->type);
-                    return std::nullopt;
-                }
-                return std::make_unique<StackedGroupedAssignmentNode>(                       //
-                    base_expr.value(), field_names, field_ids, field_types, rhs_expr.value() //
-                );
-            } else {
-                assert(false);
-                return std::nullopt;
-            }
-        }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = base_expr_type->as<MultiType>();
-            if (iterator->token == TOK_IDENTIFIER) {
-                if (multi_type->width > 4) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                size_t field_id = 0;
-                const std::string field_name(iterator->lexme);
-                if (multi_type->width == 4) {
-                    if (field_name == "r") {
-                        field_id = 0;
-                    } else if (field_name == "g") {
-                        field_id = 1;
-                    } else if (field_name == "b") {
-                        field_id = 2;
-                    } else if (field_name == "w") {
-                        field_id = 3;
-                    } else {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                } else {
-                    if (field_name == "x") {
-                        field_id = 0;
-                    } else if (field_name == "y") {
-                        field_id = 1;
-                    } else if (field_name == "z") {
-                        field_id = 2;
-                    } else {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                }
-                return std::make_unique<StackedAssignmentNode>(                                      //
-                    base_expr.value(), field_name, field_id, multi_type->base_type, rhs_expr.value() //
-                );
-            } else if (iterator->token == TOK_DOLLAR && std::next(iterator)->token == TOK_INT_VALUE) {
-                // Handle the special case of tuple / multi-type accesses in a stacked expression
-                size_t field_id = std::stoul(std::string(std::next(iterator)->lexme));
-                const std::string field_name = "$" + std::to_string(field_id);
-                if (field_id >= multi_type->width) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                return std::make_unique<StackedAssignmentNode>(                                      //
-                    base_expr.value(), field_name, field_id, multi_type->base_type, rhs_expr.value() //
-                );
-            } else {
-                assert(false);
-                return std::nullopt;
-            }
-        }
-        case Type::Variation::TUPLE: {
-            const auto *tuple_type = base_expr_type->as<TupleType>();
-            if (iterator->token != TOK_DOLLAR || std::next(iterator)->token != TOK_INT_VALUE) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            // Handle the special case of tuple / multi-type accesses in a stacked expression
-            size_t field_id = std::stoul(std::string(std::next(iterator)->lexme));
-            const std::string field_name = "$" + std::to_string(field_id);
-            if (field_id >= tuple_type->types.size()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            return std::make_unique<StackedAssignmentNode>(                                               //
-                base_expr.value(), field_name, field_id, tuple_type->types.at(field_id), rhs_expr.value() //
-            );
-        }
-    }
-}
-
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     std::shared_ptr<Scope> &scope,                                      //
     const unsigned int scope_segment,                                   //
@@ -2557,6 +2286,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     std::optional<std::unique_ptr<ExpressionNode>> rhs                  //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
+    [[maybe_unused]] token_list tok_list = clone_from_slice(tokens);
 
     if (Matcher::tokens_contain(tokens, Matcher::group_declaration_inferred)) {
         std::optional<GroupDeclarationNode> group_decl = create_group_declaration(scope, scope_segment, tokens, rhs);
@@ -2867,13 +2597,7 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body( 
             next_statement = create_scoped_statement(scope, scope_segment, line_it, body, body_statements);
             scope_segment++;
         } else {
-            if (Matcher::tokens_start_with(statement_tokens, Matcher::stacked_expression)) {
-                // --- STACKED STATEMENT ---
-                next_statement = create_stacked_statement(scope, statement_tokens);
-            } else {
-                // --- NORMAL STATEMENT ---
-                next_statement = create_statement(scope, scope_segment, statement_tokens);
-            }
+            next_statement = create_statement(scope, scope_segment, statement_tokens);
         }
         if (!next_statement.has_value()) {
             return std::nullopt;

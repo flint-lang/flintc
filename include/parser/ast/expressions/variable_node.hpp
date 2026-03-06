@@ -8,7 +8,8 @@
 /// @brief Represents variables or identifiers
 class VariableNode : public ExpressionNode {
   public:
-    VariableNode(const std::string &name, const std::shared_ptr<Type> &type) :
+    VariableNode(const std::string &name, const std::shared_ptr<Type> &type, const bool is_const) :
+        ExpressionNode(is_const),
         name(name) {
         this->type = type;
     }
@@ -18,7 +19,7 @@ class VariableNode : public ExpressionNode {
     }
 
     std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
-        return std::make_unique<VariableNode>(name, type);
+        return std::make_unique<VariableNode>(name, type, is_const);
     }
 
     /// @var `name`

@@ -48,9 +48,6 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
-#include "parser/ast/statements/stacked_array_assignment.hpp"
-#include "parser/ast/statements/stacked_assignment.hpp"
-#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
@@ -202,9 +199,6 @@ namespace Debug {
         void print_grouped_data_field_assignment(                                                     //
             unsigned int indent_lvl, TreeBits &bits, const GroupedDataFieldAssignmentNode &assignment //
         );
-        void print_stacked_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedAssignmentNode &assignment);
-        void print_stacked_array_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedArrayAssignmentNode &assignment);
-        void print_stacked_grouped_assignment(unsigned int indent_lvl, TreeBits &bits, const StackedGroupedAssignmentNode &assignment);
         void print_statement(unsigned int indent_lvl, TreeBits &bits, const std::unique_ptr<StatementNode> &statement);
         void print_body(unsigned int indent_lvl, TreeBits &bits, const std::vector<std::unique_ptr<StatementNode>> &body);
 

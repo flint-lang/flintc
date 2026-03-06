@@ -10,10 +10,12 @@
 class ExpressionNode : public ASTNode {
   protected:
     // constructor
-    ExpressionNode() = default;
+    ExpressionNode(const bool is_const) :
+        is_const(is_const) {};
 
-    explicit ExpressionNode(const Hash &hash) :
-        ASTNode(hash, 0, 0, 0) {}
+    explicit ExpressionNode(const Hash &hash, const bool is_const) :
+        ASTNode(hash, 0, 0, 0),
+        is_const(is_const) {}
 
   public:
     // deconstructor
@@ -28,6 +30,11 @@ class ExpressionNode : public ASTNode {
     /// @var `type`
     /// @brief The type of the expression
     std::shared_ptr<Type> type;
+
+    /// @var `is_const`
+    /// @brief Whether the expression is constant, like a variable expression or any operation on a variable that is constant. Constness
+    /// propagates through all expressions, so `d.x` is a const expression if the `d` variable itself is const.
+    bool is_const;
 
     /// @enum `Variation`
     /// @brief A enum describing which expression variations exist

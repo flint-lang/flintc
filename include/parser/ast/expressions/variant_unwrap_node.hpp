@@ -7,6 +7,7 @@
 class VariantUnwrapNode : public ExpressionNode {
   public:
     VariantUnwrapNode(std::unique_ptr<ExpressionNode> &base_expr, const std::shared_ptr<Type> &unwrap_type) :
+        ExpressionNode(base_expr->is_const),
         base_expr(std::move(base_expr)) {
         this->type = unwrap_type;
     }

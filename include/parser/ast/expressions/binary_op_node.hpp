@@ -17,6 +17,7 @@ class BinaryOpNode : public ExpressionNode {
         const std::shared_ptr<Type> &type,      //
         bool is_shorthand = false               //
         ) :
+        ExpressionNode(true),
         operator_token(operator_token),
         left(std::move(left)),
         right(std::move(right)),
@@ -35,7 +36,7 @@ class BinaryOpNode : public ExpressionNode {
     }
 
     // empty constructor
-    BinaryOpNode() = default;
+    BinaryOpNode() = delete;
     // deconstructor
     ~BinaryOpNode() override = default;
     // copy operations - disabled due to unique_ptr memeber

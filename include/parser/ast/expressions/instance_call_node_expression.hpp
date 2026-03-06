@@ -8,7 +8,7 @@
 
 /// @class `InstanceCallNodeExpression`
 /// @brief Represents function or method calls
-class InstanceCallNodeExpression : public InstanceCallNodeBase, public ExpressionNode {
+class InstanceCallNodeExpression : public ExpressionNode, public InstanceCallNodeBase {
   public:
     explicit InstanceCallNodeExpression(                                          //
         FunctionNode *function,                                                   //
@@ -17,6 +17,7 @@ class InstanceCallNodeExpression : public InstanceCallNodeBase, public Expressio
         const std::shared_ptr<Type> &type,                                        //
         std::unique_ptr<ExpressionNode> &instance_variable                        //
         ) :
+        ExpressionNode(instance_variable->is_const),
         InstanceCallNodeBase(function, arguments, error_types, type, instance_variable) {
         ExpressionNode::type = type;
     }

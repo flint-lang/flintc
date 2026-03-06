@@ -39,9 +39,6 @@
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
-#include "parser/ast/statements/stacked_array_assignment.hpp"
-#include "parser/ast/statements/stacked_assignment.hpp"
-#include "parser/ast/statements/stacked_grouped_assignment.hpp"
 #include "parser/ast/statements/switch_statement.hpp"
 #include "parser/ast/statements/throw_node.hpp"
 #include "parser/ast/statements/unary_op_statement.hpp"
@@ -1404,45 +1401,6 @@ class Generator {
             llvm::IRBuilder<> &builder,                      //
             GenerationContext &ctx,                          //
             const ArrayAssignmentNode *array_assignment      //
-        );
-
-        /// @function `generate_stacked_assignment`
-        /// @brief Generates the stacked assignment from the given StackedAssignmentNode
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `ctx` The context of the statement generation
-        /// @param `stacked_assignment` The stacked assignment to generate
-        /// @return `bool` Whether the code generation of the stacked assignment was successful
-        [[nodiscard]] static bool generate_stacked_assignment( //
-            llvm::IRBuilder<> &builder,                        //
-            GenerationContext &ctx,                            //
-            const StackedAssignmentNode *stacked_assignment    //
-        );
-
-        /// @function `generate_stacked_array_assignment`
-        /// @brief Generates the stacked array assignment from the given StackedArrayAssignmentNode
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `ctx` The context of the statement generation
-        /// @param `stacked_assignment` The stacked array assignment to generate
-        /// @return `bool` Whether the code generation of the stacked array assignment was successful
-        [[nodiscard]] static bool generate_stacked_array_assignment( //
-            llvm::IRBuilder<> &builder,                              //
-            GenerationContext &ctx,                                  //
-            const StackedArrayAssignmentNode *stacked_assignment     //
-        );
-
-        /// @function `generate_stacked_grouped_assignment`
-        /// @brief Generates the stacked grouped assignment from the given StackedGroupedAssignmentNode
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `ctx` The context of the statement generation
-        /// @param `stacked_assignment` The stacked grouped assignment to generate
-        /// @return `bool` Whether the code generation of the stacked grouped assignment was successful
-        [[nodiscard]] static bool generate_stacked_grouped_assignment( //
-            llvm::IRBuilder<> &builder,                                //
-            GenerationContext &ctx,                                    //
-            const StackedGroupedAssignmentNode *stacked_assignment     //
         );
 
         /// @function `generate_unary_op_statement`

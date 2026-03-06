@@ -13,7 +13,7 @@ class VariantExtractionNode : public ExpressionNode {
         std::unique_ptr<ExpressionNode> &base_expr, //
         const std::shared_ptr<Type> &extracted_type //
         ) :
-        ExpressionNode(hash),
+        ExpressionNode(hash, base_expr->is_const),
         base_expr(std::move(base_expr)),
         extracted_type(extracted_type) {
         this->type = std::make_shared<OptionalType>(extracted_type);

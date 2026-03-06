@@ -144,18 +144,6 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<ReturnNode>();
             return generate_return_statement(builder, ctx, node);
         }
-        case StatementNode::Variation::STACKED_ASSIGNMENT: {
-            const auto *node = statement->as<StackedAssignmentNode>();
-            return generate_stacked_assignment(builder, ctx, node);
-        }
-        case StatementNode::Variation::STACKED_ARRAY_ASSIGNMENT: {
-            const auto *node = statement->as<StackedArrayAssignmentNode>();
-            return generate_stacked_array_assignment(builder, ctx, node);
-        }
-        case StatementNode::Variation::STACKED_GROUPED_ASSIGNMENT: {
-            const auto *node = statement->as<StackedGroupedAssignmentNode>();
-            return generate_stacked_grouped_assignment(builder, ctx, node);
-        }
         case StatementNode::Variation::SWITCH: {
             const auto *node = statement->as<SwitchStatement>();
             return generate_switch_statement(builder, ctx, node);
@@ -1969,14 +1957,21 @@ bool Generator::Statement::generate_data_field_assignment( //
         return false;
     }
     llvm::Value *expr_val = expression.value().front();
-    const unsigned int var_decl_scope = ctx.scope->variables.at(data_field_assignment->var_name).scope_id;
-    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + data_field_assignment->var_name;
-    llvm::Value *const var_alloca = ctx.allocations.at(var_name);
+    auto base_expr = Expression::generate_expression(builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), true);
+    if (!base_expr.has_value()) {
+        return false;
+    }
+    if (base_expr.value().size() > 1) {
+        // Base expression of field access not allowed to be a group
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *const var_alloca = base_expr.value().front();
 
-    if (data_field_assignment->data_type->to_string() == "bool8") {
+    if (data_field_assignment->base_expr->type->to_string() == "bool8") {
         // The 'field access' is actually the bit at the given field index
         // Load the current value of the bool8 (i8)
-        llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, var_name + "_val");
+        llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, "current_field_val");
         // Get the boolean value from the expression
         llvm::Value *bool_value = expression.value().front();
         // Set or clear the specific bit based on the bool value
@@ -1987,79 +1982,57 @@ bool Generator::Statement::generate_data_field_assignment( //
         llvm::StoreInst *store = IR::aligned_store(builder, new_value, var_alloca);
         store->setMetadata("comment",
             llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Store result of expr in field '" + data_field_assignment->var_name + ".$" +
-                        std::to_string(data_field_assignment->field_id) + "'")));
+                llvm::MDString::get(context, "Store result of expr in field '$" + std::to_string(data_field_assignment->field_id) + "'")));
         return true;
     }
 
-    auto data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->data_type);
-    llvm::Value *field_ptr = var_alloca;
-    bool is_fn_param = false;
-    for (auto &arg : ctx.parent->args()) {
-        if (arg.getName() == data_field_assignment->var_name) {
-            is_fn_param = true;
-            break;
-        }
-    }
-    if (data_type.second.first && !is_fn_param) {
-        field_ptr = IR::aligned_load(builder, data_type.first->getPointerTo(), var_alloca, data_field_assignment->var_name + "_ptr");
-    }
-    field_ptr = builder.CreateStructGEP(data_type.first, field_ptr, data_field_assignment->field_id);
-
-    // Check if the field is a complex type and create an allocation before storing
-    // Check if the field is an optional type and check whether to need an allocation for the optional value
-
     // Get the type of the field we're assigning to
-    const DataType *struct_data_type = dynamic_cast<const DataType *>(data_field_assignment->data_type.get());
-    if (struct_data_type != nullptr && data_field_assignment->field_id < struct_data_type->data_node->fields.size()) {
-        // Get the field type from the struct definition
-        auto field_it = struct_data_type->data_node->fields.begin();
-        std::advance(field_it, data_field_assignment->field_id);
-        const std::shared_ptr<Type> &field_type = field_it->type;
+    const std::shared_ptr<Type> &field_type = data_field_assignment->field_type;
+    auto data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->base_expr->type);
+    llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, var_alloca, data_field_assignment->field_id);
 
-        // Check if the field is an optional type
-        if (field_type->get_variation() == Type::Variation::OPTIONAL) {
-            const auto *optional_type = field_type->as<OptionalType>();
-            const TypeCastNode *rhs_cast = data_field_assignment->expression->as<TypeCastNode>();
-            llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
+    // TODO? Check if the field is a complex type and create an allocation before storing
+    // TODO? Check if the field is an optional type and check whether to need an allocation for the optional value
 
-            // Handle special cases (like str cleanup)
-            if (optional_type->base_type->to_string() == "str") {
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
-                llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
-                llvm::Value *actual_str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), field_value_ptr, "actual_str_ptr");
-                builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
-            }
+    // Check if the field is an optional type
+    if (field_type->get_variation() == Type::Variation::OPTIONAL) {
+        const auto *optional_type = field_type->as<OptionalType>();
+        const TypeCastNode *rhs_cast = data_field_assignment->expression->as<TypeCastNode>();
+        llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
 
-            // Check if we need to handle optional conversion
-            const bool types_match = expr_val->getType() == field_optional_type;
-            if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
-                // Set has_value to true
-                llvm::Value *field_has_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 0, "field_has_value_ptr");
-                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), field_has_value_ptr);
+        // Handle special cases (like str cleanup)
+        if (optional_type->base_type->to_string() == "str") {
+            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
+            llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
+            llvm::Value *actual_str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), field_value_ptr, "actual_str_ptr");
+            builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
+        }
+
+        // Check if we need to handle optional conversion
+        const bool types_match = expr_val->getType() == field_optional_type;
+        if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
+            // Set has_value to true
+            llvm::Value *field_has_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 0, "field_has_value_ptr");
+            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), field_has_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Set 'has_value' property of optional field to 1")));
+
+            // Store the value in the optional
+            llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
+            store = IR::aligned_store(builder, expr_val, field_value_ptr);
+
+            if (data_field_assignment->field_name.has_value()) {
                 store->setMetadata("comment",
-                    llvm::MDNode::get(context, llvm::MDString::get(context, "Set 'has_value' property of optional field to 1")));
-
-                // Store the value in the optional
-                llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
-                store = IR::aligned_store(builder, expr_val, field_value_ptr);
-
-                if (data_field_assignment->field_name.has_value()) {
-                    store->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString::get(context,
-                                "Store result of expr in optional field '" + data_field_assignment->var_name + "." +
-                                    data_field_assignment->field_name.value() + "'")));
-                } else {
-                    store->setMetadata("comment",
-                        llvm::MDNode::get(context,
-                            llvm::MDString::get(context,
-                                "Store result of expr in optional field '" + data_field_assignment->var_name + ".$" +
-                                    std::to_string(data_field_assignment->field_id) + "'")));
-                }
-                return true;
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
+                            "Store result of expr in optional field '" + data_field_assignment->field_name.value() + "'")));
+            } else {
+                store->setMetadata("comment",
+                    llvm::MDNode::get(context,
+                        llvm::MDString::get(context,
+                            "Store result of expr in optional field '$" + std::to_string(data_field_assignment->field_id) + "'")));
             }
+            return true;
         }
     }
 
@@ -2067,15 +2040,11 @@ bool Generator::Statement::generate_data_field_assignment( //
     if (data_field_assignment->field_name.has_value()) {
         store->setMetadata("comment",
             llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Store result of expr in field '" + data_field_assignment->var_name + "." + data_field_assignment->field_name.value() +
-                        "'")));
+                llvm::MDString::get(context, "Store result of expr in field '" + data_field_assignment->field_name.value() + "'")));
     } else {
         store->setMetadata("comment",
             llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Store result of expr in field '" + data_field_assignment->var_name + ".$" +
-                        std::to_string(data_field_assignment->field_id) + "'")));
+                llvm::MDString::get(context, "Store result of expr in field '$" + std::to_string(data_field_assignment->field_id) + "'")));
     }
     return true;
 }
@@ -2100,13 +2069,20 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    const unsigned int var_decl_scope = ctx.scope->variables.at(grouped_field_assignment->var_name).scope_id;
-    const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + grouped_field_assignment->var_name;
-    llvm::Value *const var_alloca = ctx.allocations.at(var_name);
+    auto base_expr = Expression::generate_expression(builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), true);
+    if (!base_expr.has_value()) {
+        return false;
+    }
+    if (base_expr.value().size() > 1) {
+        // Base expression of field access not allowed to be a group
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *const var_alloca = base_expr.value().front();
 
-    if (grouped_field_assignment->data_type->to_string() == "bool8") {
+    if (grouped_field_assignment->base_expr->type->to_string() == "bool8") {
         // Load the current value of the bool8 (i8)
-        llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, var_name + "_val");
+        llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, "grouped_field_access_val");
         llvm::Value *new_value = current_value;
 
         // Process each field in the grouped assignment
@@ -2127,32 +2103,17 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
             fields_str += "$" + std::to_string(grouped_field_assignment->field_ids.at(i));
         }
         store->setMetadata("comment",
-            llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Store result of expr in fields '" + grouped_field_assignment->var_name + ".(" + fields_str + ")'")));
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in fields '(" + fields_str + ")'")));
         return true;
     }
 
-    auto data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->data_type);
-    llvm::Value *alloca = var_alloca;
-    bool is_fn_param = false;
-    for (auto &arg : ctx.parent->args()) {
-        if (arg.getName() == grouped_field_assignment->var_name) {
-            is_fn_param = true;
-            break;
-        }
-    }
-    if (data_type.second.first && !is_fn_param) {
-        alloca = IR::aligned_load(builder, data_type.first->getPointerTo(), var_alloca, grouped_field_assignment->var_name + "_ptr");
-    }
+    auto data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->base_expr->type);
     for (size_t i = 0; i < expression.value().size(); i++) {
-        llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, alloca, grouped_field_assignment->field_ids.at(i));
+        llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, var_alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = IR::aligned_store(builder, expression.value().at(i), field_ptr);
         store->setMetadata("comment",
             llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Store result of expr in field '" + grouped_field_assignment->var_name + "." +
-                        grouped_field_assignment->field_names.at(i) + "'")));
+                llvm::MDString::get(context, "Store result of expr in field '" + grouped_field_assignment->field_names.at(i) + "'")));
     }
     return true;
 }
@@ -2187,13 +2148,7 @@ bool Generator::Statement::generate_array_assignment( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        idx_expressions.emplace_back(idx_expr.value().at(0));
-    }
-    // Store all the results of the index expressions in the indices array
-    llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(array_assignment->indexing_expressions.size()));
-    for (size_t i = 0; i < idx_expressions.size(); i++) {
-        llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
-        IR::aligned_store(builder, idx_expressions[i], idx_ptr);
+        idx_expressions.emplace_back(idx_expr.value().front());
     }
     // Get the array value
     Generator::group_mapping base_expr = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->base_expr.get());
@@ -2206,6 +2161,20 @@ bool Generator::Statement::generate_array_assignment( //
         return false;
     }
     llvm::Value *array_ptr = base_expr.value().front();
+    if (array_assignment->base_expr->type->to_string() == "str" && array_assignment->expression->type->to_string() == "u8") {
+        // We assign a single u8 value in a string
+        assert(idx_expressions.size() == 1);
+        llvm::Function *const assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
+        builder.CreateCall(assign_str_at_fn, {array_ptr, idx_expressions.front(), expression});
+        return true;
+    }
+
+    // Store all the results of the index expressions in the indices array
+    llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(array_assignment->indexing_expressions.size()));
+    for (size_t i = 0; i < idx_expressions.size(); i++) {
+        llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
+        IR::aligned_store(builder, idx_expressions[i], idx_ptr);
+    }
     if (array_assignment->expression->type->to_string() == "str") {
         // This call returns a 'str**'
         llvm::Value *element_ptr = builder.CreateCall(             //
@@ -2241,240 +2210,6 @@ bool Generator::Statement::generate_array_assignment( //
         Module::Array::array_manip_functions.at("assign_arr_val_at"),                       //
         {array_ptr, builder.getInt64(std::max(1U, expr_bitwidth / 8)), indices, expression} //
     );
-    return true;
-}
-
-bool Generator::Statement::generate_stacked_assignment( //
-    llvm::IRBuilder<> &builder,                         //
-    GenerationContext &ctx,                             //
-    const StackedAssignmentNode *stacked_assignment     //
-) {
-    // Generate the main expression
-    Expression::garbage_type garbage;
-    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!expression_result.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (expression_result.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Value *expression = expression_result.value().front();
-    if (!stacked_assignment->expression->type->equals(stacked_assignment->field_type)) {
-        expression = Expression::generate_type_cast(                                                       //
-            builder, ctx, expression, stacked_assignment->expression->type, stacked_assignment->field_type //
-        );
-    }
-    // Now we can create the "base expression" which then gets accessed
-    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!base_expr_res.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (base_expr_res.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Value *base_expr = base_expr_res.value().front();
-    if (stacked_assignment->base_expression->type->to_string() == "bool8") {
-        // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked
-        // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example). We
-        // currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
-        // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple types
-        // and other multi-types, so this is a bool8-specific issue
-        //
-        // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
-        return false;
-    }
-    // Now we can access the element of the data of the lhs and assign the rhs expression result to it
-    // TOOD: Stacked assignments do not work for any multi-types yet, as the vector type is loaded as a "normal" value still.
-    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
-    llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_id, "field_ptr");
-    IR::aligned_store(builder, expression, field_ptr);
-    return true;
-}
-
-bool Generator::Statement::generate_stacked_array_assignment( //
-    llvm::IRBuilder<> &builder,                               //
-    GenerationContext &ctx,                                   //
-    const StackedArrayAssignmentNode *stacked_assignment      //
-) {
-    // Generate the main expression
-    Expression::garbage_type garbage;
-    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!expression_result.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (expression_result.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Value *expression = expression_result.value().front();
-
-    // Now we can create the "base expression" which then gets accessed
-    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!base_expr_res.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (base_expr_res.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Value *base_expr = base_expr_res.value().front();
-
-    // Generate all the indexing expressions
-    std::vector<llvm::Value *> idx_expressions;
-    for (auto &idx_expression : stacked_assignment->indexing_expressions) {
-        group_mapping idx_expr = Expression::generate_expression(builder, ctx, garbage, 0, idx_expression.get());
-        if (!idx_expr.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-        if (idx_expr.value().size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-        idx_expressions.emplace_back(idx_expr.value().at(0));
-    }
-    // We need to make a special case if the "array" is a string
-    if (stacked_assignment->base_expression->type->to_string() == "str") {
-        // We do a normal string assignment at a given position
-        assert(stacked_assignment->expression->type->to_string() == "u8");
-        assert(idx_expressions.size() == 1);
-        llvm::Function *assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
-        builder.CreateCall(assign_str_at_fn, {base_expr, idx_expressions.front(), expression});
-        return true;
-    }
-
-    // Store all the results of the index expressions in the indices array
-    llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(stacked_assignment->indexing_expressions.size()));
-    for (size_t i = 0; i < idx_expressions.size(); i++) {
-        llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
-        IR::aligned_store(builder, idx_expressions[i], idx_ptr);
-    }
-    // The base expression should return the pointer to the array directly
-    llvm::Value *array_ptr = base_expr;
-    if (stacked_assignment->expression->type->to_string() == "str") {
-        // This call returns a 'str**'
-        llvm::Value *element_ptr = builder.CreateCall(             //
-            Module::Array::array_manip_functions.at("access_arr"), //
-            {array_ptr, builder.getInt64(8), indices}              //
-        );
-        // The string assignment will call the 'assign_str' function, which takes in a 'str**' argument for its dest, so this is correct
-        Module::String::generate_string_assignment(builder, element_ptr, stacked_assignment->expression.get(), expression);
-        return true;
-    }
-
-    // For types larger than 8 bytes (like structs/tuples), use direct store via access_arr
-    const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
-    if (element_size_bytes > 8) {
-        // Get pointer to the array element
-        llvm::Value *element_ptr = builder.CreateCall(                 //
-            Module::Array::array_manip_functions.at("access_arr"),     //
-            {array_ptr, builder.getInt64(element_size_bytes), indices} //
-        );
-        // Cast the char* to the correct pointer type
-        llvm::Value *typed_element_ptr = builder.CreateBitCast(element_ptr, expression->getType()->getPointerTo(), "typed_element_ptr");
-        // Store the value directly
-        IR::aligned_store(builder, expression, typed_element_ptr);
-        return true;
-    }
-
-    // For primitives <= 8 bytes, use the `assign_arr_val_at` function instead
-    llvm::Type *to_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first;
-    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
-    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
-    // Call the `assign_at_val` function
-    builder.CreateCall(                                                                     //
-        Module::Array::array_manip_functions.at("assign_arr_val_at"),                       //
-        {array_ptr, builder.getInt64(std::max(1U, expr_bitwidth / 8)), indices, expression} //
-    );
-    return true;
-}
-
-bool Generator::Statement::generate_stacked_grouped_assignment( //
-    llvm::IRBuilder<> &builder,                                 //
-    GenerationContext &ctx,                                     //
-    const StackedGroupedAssignmentNode *stacked_assignment      //
-) {
-    // Generate the rhs expression
-    Expression::garbage_type garbage;
-    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!expression_result.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (expression_result.value().size() != stacked_assignment->field_names.size()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (stacked_assignment->expression->type->get_variation() != Type::Variation::GROUP) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return false;
-    }
-    const auto *expr_group_type = stacked_assignment->expression->type->as<GroupType>();
-    // Now we can create the "base expression" which then gets accessed
-    group_mapping base_expr_res = Expression::generate_expression(builder, ctx, garbage, 0, stacked_assignment->base_expression.get());
-    if (!clear_garbage(builder, garbage)) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (!base_expr_res.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    if (base_expr_res.value().size() > 1) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return false;
-    }
-    llvm::Value *base_expr = base_expr_res.value().front();
-    llvm::Type *base_type = IR::get_type(ctx.parent->getParent(), stacked_assignment->base_expression->type).first;
-    for (size_t i = 0; i < expression_result.value().size(); i++) {
-        llvm::Value *expression = expression_result.value().at(i);
-
-        if (expr_group_type->types.at(i) != stacked_assignment->field_types.at(i)) {
-            expression = Expression::generate_type_cast(                                                      //
-                builder, ctx, expression, expr_group_type->types.at(i), stacked_assignment->field_types.at(i) //
-            );
-        }
-        if (stacked_assignment->field_types.at(i)->to_string() == "bool8") {
-            // TODO: Find a way how to store the return value of the `set_bool8_element_at` function back at the value the stacked
-            // expression came from (we need a pointer to the data field, if the bool8 variable is stored in another data, for example).
-            // We currently only get the actual loaded value of bool8, and there is no way to get a pointer to where it came from. This
-            // definitely needs to be done, otherwise stacked assignments for the bool8 type will not work. It still works for tuple
-            // types and other multi-types, so this is a bool8-specific issue
-            //
-            // Expression::set_bool8_element_at(builder, base_expr, expression, stacked_assignment->field_id);
-            return false;
-        }
-        // Now we can access the element of the data of the lhs and assign the rhs expression result to it
-        // TOOD: Stacked assignments do not work for any multi-types yet, as the vector type is loaded as a "normal" value still.
-        llvm::Value *field_ptr = builder.CreateStructGEP(base_type, base_expr, stacked_assignment->field_ids.at(i), "field_ptr");
-        IR::aligned_store(builder, expression, field_ptr);
-    }
     return true;
 }
 
