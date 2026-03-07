@@ -14,7 +14,6 @@
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/data_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -1768,28 +1767,19 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 return true;
             }
         } else {
-            // We need to store the `expression`, which is just the value of the optional struct, temporarily somewhere, for now it is
-            // stored on the heap. We then free that temporary value after the `flint.clone` call. The problem is that the `flint.clone`
-            // function expects a pointer to the opt struct but the `expression` is just the optional value itself. If the rhs is a none
-            // literal, however, we need to store the whole expression in that temporary memory on the heap since then it's not the actual
-            // value of the optional but the whole structure
-            // TODO: Not store that temporary value on the heap if possible
-            llvm::Function *malloc_fn = c_functions.at(MALLOC);
-            llvm::Value *opt_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), var_type));
-            llvm::Value *temporary = builder.CreateCall(malloc_fn, {opt_type_size}, "TEMP_assign_" + variable_type->to_string());
-            const bool is_opt_literal =                                                                 //
-                assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL         //
-                && assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
-            if (is_opt_literal) {
-                IR::aligned_store(builder, expr.value().front(), temporary);
-            } else {
-                llvm::Value *has_value_ptr = builder.CreateStructGEP(var_type, temporary, 0, "has_value_ptr");
-                IR::aligned_store(builder, builder.getInt1(true), has_value_ptr);
-                llvm::Value *value_ptr = builder.CreateStructGEP(var_type, temporary, 1, "value_ptr");
-                IR::aligned_store(builder, expr.value().front(), value_ptr);
+            // Check if RHS is already a "true" optional (no type-cast or literal) and if so, store it directly
+            // If the RHS, however, is a "cast" to an optional then we need to insert the "real" value in a new optional struct
+            // llvm::Value *opt_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), var_type));
+            assert(assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL);
+            const bool is_type_cast = assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST;
+            const bool is_opt_literal = is_type_cast && //
+                assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+            if (is_type_cast && !is_opt_literal) {
+                llvm::Value *opt_aggregate = IR::get_default_value_of_type(builder, ctx.parent->getParent(), variable_type);
+                opt_aggregate = builder.CreateInsertValue(opt_aggregate, builder.getInt1(true), 0, "opt_agg_has_value");
+                opt_aggregate = builder.CreateInsertValue(opt_aggregate, expr.value().front(), 0, "opt_agg_value");
+                expr.value().front() = opt_aggregate;
             }
-            expr.value().front() = temporary;
         }
     } else if (assignment_node->type->get_variation() == Type::Variation::VARIANT) {
         const auto *var_type = assignment_node->type->as<VariantType>();

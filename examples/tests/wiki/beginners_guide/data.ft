@@ -63,7 +63,7 @@ test "11_function_simple.ft":
 test "12_function_mutating_immutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "12_function_mutating_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
 
 test "13_function_mutating_mutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
