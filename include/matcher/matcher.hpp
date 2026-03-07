@@ -878,7 +878,7 @@ class Matcher {
     static const inline PatternPtr if_statement = sequence({token(TOK_IF), until_colon});
     static const inline PatternPtr else_if_statement = sequence({token(TOK_ELSE), token(TOK_IF), until_colon});
     static const inline PatternPtr else_statement = sequence({token(TOK_ELSE), until_colon});
-    static const inline PatternPtr return_statement = sequence({token(TOK_RETURN), until_semicolon});
+    static const inline PatternPtr return_statement = sequence({token(TOK_RETURN), one_of({until_semicolon, until_colon})});
     static const inline PatternPtr throw_statement = sequence({token(TOK_THROW), until_semicolon});
     static const inline PatternPtr break_statement = sequence({token(TOK_BREAK), token(TOK_SEMICOLON)});
     static const inline PatternPtr continue_statement = sequence({token(TOK_CONTINUE), token(TOK_SEMICOLON)});
