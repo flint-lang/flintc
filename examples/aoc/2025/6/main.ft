@@ -77,10 +77,6 @@ def part_1(str[] lines):
 
 	print($"part_1 = {total_sum}\n");
 
-// Used because of memory leaks, normally not needed
-def get_string_length(str string) -> u64:
-	return string.len;
-
 def parse_operations_2(str line) -> Operation[]:
 	Operation[] operations = Operation[line.len](Operation.ADD);
 	u64 offset = line.len - 1;
@@ -95,7 +91,7 @@ def parse_operations_2(str line) -> Operation[]:
 
 def part_2(str[] lines):
 	u64 max_num_length = lines.len - 1;
-	u64 num_count = get_string_length(lines[0]);
+	u64 num_count = lines[0].len;
 	str empty = "";
 	for u64 i = 0; i < max_num_length; i++:
 		empty += " ";
