@@ -182,7 +182,11 @@ bool Matcher::tokens_match(const token_slice &tokens, const PatternPtr &pattern)
 bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
     PROFILE_CUMULATIVE("Matcher::token_match");
     token_list match_list;
-    match_list.emplace_back(token, 0, 0, 0, "");
+    if (token == TOK_TYPE) {
+        match_list.emplace_back(token, 0, 0, 0, Type::get_primitive_type("void"));
+    } else {
+        match_list.emplace_back(token, 0, 0, 0, "");
+    }
     return tokens_match({match_list.begin(), match_list.end()}, pattern);
 }
 
