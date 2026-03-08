@@ -24,8 +24,8 @@ def starts_with(str string, str check) -> bool:
 def test_test(str test_dir, str file_name):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{test_dir}");
-	str test_file = $"{normalized_path}/{file_name}";
-	str out_file = $"{normalized_path}/test";
+	str test_file = get_path($"{normalized_path}/{file_name}");
+	str out_file = get_path($"{normalized_path}/test");
 	(exit_code, output) := system_command($"flintc --file {test_file} --test --out {out_file}");
 	if exit_code != 0:
 		print(output);
