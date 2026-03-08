@@ -2023,7 +2023,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         llvm::Value *branch_value = branch_expr.value().front();
 
         // Store this value for the phi node
-        phi_values.emplace_back(branch_value, branch_blocks[i]);
+        phi_values.emplace_back(branch_value, builder.GetInsertBlock());
 
         // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
@@ -2263,7 +2263,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
         llvm::Value *branch_value = branch_expr.value().front();
 
         // Store this value for the phi node
-        phi_values.emplace_back(branch_value, branch_blocks[i]);
+        phi_values.emplace_back(branch_value, builder.GetInsertBlock());
 
         // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
