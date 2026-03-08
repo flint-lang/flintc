@@ -1,19 +1,29 @@
+use Core.assert
+use Core.parse
 use Core.print
 
-data Vec2:
-	i32 x;
-	i32 y;
-	Vec2(x, y);
+data Node:
+	u32 value = 0;
+	Node? left = none;
+	Node? right = none;
+	Node(value, left, right);
 
-def inc(mut Vec2? vec):
-	if vec == none:
-		return;
-	vec!.(x, y) += (1, 1);
+def make_tree(u32 depth) -> Node?:
+	if depth == 0:
+		return none;
+	return Node(depth, make_tree(depth - 1), make_tree(depth - 1));
 
-def main():
-	Vec2 v2 = Vec2(10, 20);
-	Vec2? v2m = v2;
-	inc(v2m);
+def check_tree(Node? node) -> u32:
+	u32 result = switch node:
+		none -> 0;
+		n -> n.value + check_tree(n.left) + check_tree(n.right);
+	return result;
+
+def main(str[] args):
+	u32 depth = 12;
+	if args.len > 1:
+		depth = parse_u32(args[1]);
 	
-	(x, y) := v2m!.(x, y);
-	print($"(x, y) = ({x}, {y})\n");
+	Node? root = make_tree(depth);
+	u32 result = check_tree(root);
+	print($"{result}\n");

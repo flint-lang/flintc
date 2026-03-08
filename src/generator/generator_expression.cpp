@@ -55,7 +55,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression_node->as<DataAccessNode>();
-            return generate_data_access(builder, ctx, garbage, expr_depth, node);
+            return generate_data_access(builder, ctx, garbage, expr_depth, node, is_reference);
         }
         case ExpressionNode::Variation::DEFAULT: {
             [[maybe_unused]] const auto *node = expression_node->as<DefaultNode>();
@@ -2647,7 +2647,8 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     GenerationContext &ctx,                                           //
     garbage_type &garbage,                                            //
     const unsigned int expr_depth,                                    //
-    const DataAccessNode *data_access                                 //
+    const DataAccessNode *data_access,                                //
+    const bool is_reference                                           //
 ) {
     // First, generate the base expression to get the value of the data variable
     group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, data_access->base_expr.get());
@@ -2685,19 +2686,22 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
+            assert(!is_reference);
             llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
             std::vector<llvm::Value *> length_values;
             for (size_t i = 0; i < array_type->dimensionality; i++) {
                 llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
-                llvm::Value *length_value =
-                    IR::aligned_load(builder, builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i));
+                llvm::Value *length_value = IR::aligned_load(                                             //
+                    builder, builder.getInt64Ty(), actual_length_ptr, "length_value_" + std::to_string(i) //
+                );
                 length_values.emplace_back(length_value);
             }
             return length_values;
         }
         case Type::Variation::MULTI: {
             const auto *multi_type = data_access->base_expr->type->as<MultiType>();
+            assert(!is_reference);
             std::vector<llvm::Value *> values;
             if (multi_type->base_type->to_string() == "bool") {
                 // Special case for accessing an "element" on a bool8 type
@@ -2743,11 +2747,17 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     llvm::Value *elem_ptr = builder.CreateStructGEP(                                                     //
         type.first, expr_val, data_access->field_id, "elem_ptr_" + std::to_string(data_access->field_id) //
     );
+    // If this expression is requested as a reference then we return the pointer to the element if the element is not complex in of itself
+    // (like data, strings etc) as these values themselves point somewhere
     auto elem_type = IR::get_type(ctx.parent->getParent(), data_access->type);
-    values.emplace_back(IR::aligned_load(                                                    //
-        builder, elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first, //
-        elem_ptr, "elem_" + std::to_string(data_access->field_id)                            //
-        ));
+    if (is_reference && !elem_type.second.first) {
+        values.emplace_back(elem_ptr);
+    } else {
+        values.emplace_back(IR::aligned_load(                                                    //
+            builder, elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first, //
+            elem_ptr, "elem_" + std::to_string(data_access->field_id)                            //
+            ));
+    }
     return values;
 }
 

@@ -1833,13 +1833,15 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `data_access` The data access node to generate
+        /// @param `is_reference` Whether the result of the data access should be a reference
         /// @return `group_mapping` The value containing the result of the data access, nullopt if generation failed
         static group_mapping generate_data_access( //
             llvm::IRBuilder<> &builder,            //
             GenerationContext &ctx,                //
             garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
-            const DataAccessNode *data_access      //
+            const DataAccessNode *data_access,     //
+            const bool is_reference                //
         );
 
         /// @function `generate_grouped_data_access`
