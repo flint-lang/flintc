@@ -1890,9 +1890,10 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     }
                 }
                 const bool is_opaque = arg_expr->type->get_variation() == Type::Variation::OPAQUE;
+                const bool is_call = arg_expr->get_variation() == ExpressionNode::Variation::CALL;
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
-                if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice || is_opaque) {
+                if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice || is_opaque || is_call) {
                     IR::aligned_store(builder, expr_val, field_ptr);
                     continue;
                 }
@@ -3498,9 +3499,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
-            // "casting" the actual value of the optional and storing it in the optional struct value itself, but the storing part is done
-            // in the assignment / declaration generation
-            return expr;
+            llvm::Value *cast_optional = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+            cast_optional = builder.CreateInsertValue(cast_optional, builder.getInt1(true), 0);
+            return builder.CreateInsertValue(cast_optional, expr, 1, "cast_optional");
         }
         case Type::Variation::VARIANT: {
             const auto *to_var_type = to_type->as<VariantType>();

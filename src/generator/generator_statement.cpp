@@ -352,21 +352,6 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
         // Then, save all values of the return_value in the return struct
         if (return_value.value().size() == 1) {
-            // If the return value is an optional and the expression is a typecast the expression will return the "raw" result of the
-            // expression directly, so the value needs to be stored in the optional struct and that optional struct then becomes the "new"
-            // return value for the code below. We also only do the code below if the expression was not a 'none' literal. For 'none'
-            // literals we can use the value as-is
-            if (return_node->return_value.value()->type->get_variation() == Type::Variation::OPTIONAL         //
-                && return_node->return_value.value()->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                && return_node->return_value.value()->as<TypeCastNode>()->expr->type->to_string() != "void?"  //
-            ) {
-                llvm::Value *ret_struct = IR::get_default_value_of_type(                      //
-                    builder, ctx.parent->getParent(), return_node->return_value.value()->type //
-                );
-                llvm::Value *has_value = builder.CreateInsertValue(ret_struct, builder.getInt1(true), 0, "has_value");
-                llvm::Value *value_inserted = builder.CreateInsertValue(has_value, return_value.value().front(), 1, "value_inserted");
-                return_value.value().front() = value_inserted;
-            }
             llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "ret_val");
             if (return_node->return_value.value()->type->is_freeable()                                              //
                 && return_node->return_value.value()->type->get_variation() != Type::Variation::DATA                //
@@ -1655,12 +1640,10 @@ bool Generator::Statement::generate_declaration( //
     }
     if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
         const ExpressionNode::Variation initializer_variaiton = declaration_node->initializer.value()->get_variation();
-        const Type::Variation initializer_type_variation = declaration_node->initializer.value()->type->get_variation();
+        const std::shared_ptr<Type> initializer_type = declaration_node->initializer.value()->type;
+        const Type::Variation initializer_type_variation = initializer_type->get_variation();
         const std::string &initializer_type_str = declaration_node->initializer.value()->type->to_string();
-        const bool is_opt_literal =                                          //
-            initializer_type_variation == Type::Variation::OPTIONAL          //
-            && initializer_variaiton == ExpressionNode::Variation::TYPE_CAST //
-            && declaration_node->initializer.value()->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+        const bool is_optional = initializer_type_variation == Type::Variation::OPTIONAL;
         const bool is_initializer = initializer_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = initializer_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = initializer_variaiton == ExpressionNode::Variation::CALL;
@@ -1675,7 +1658,7 @@ bool Generator::Statement::generate_declaration( //
                 }
             }
         }
-        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared. However, function returns, array initializers, initializers, optional none literals and string
             // interpolation expressions  do not need to be cloned, as they all *produce* something themselves
@@ -1684,6 +1667,24 @@ bool Generator::Statement::generate_declaration( //
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             builder.CreateCall(clone_fn, {expression, alloca, type_id});
             return true;
+        } else if (                                                                                                  //
+            is_optional && initializer_type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
+        ) {
+            llvm::BasicBlock *current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            llvm::Value *has_value = builder.CreateExtractValue(expression, 0, "rhs_has_value");
+            builder.CreateCondBr(has_value, retain_block, merge_block);
+
+            builder.SetInsertPoint(retain_block);
+            llvm::Value *value = builder.CreateExtractValue(expression, 1, "rhs_value");
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder.CreateCall(retain_fn, {value});
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the variable
@@ -1852,10 +1853,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         const ExpressionNode::Variation expression_variaiton = assignment_node->expression->get_variation();
         const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
         const std::string &expression_type_str = assignment_node->expression->type->to_string();
-        const bool is_opt_literal =                                         //
-            expression_type_variation == Type::Variation::OPTIONAL          //
-            && expression_variaiton == ExpressionNode::Variation::TYPE_CAST //
-            && assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+        const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
         const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
@@ -1870,7 +1868,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 }
             }
         }
-        if (!is_opt_literal && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
@@ -1881,6 +1879,24 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 builder.CreateCall(c_functions.at(FREE), {expression});
             }
             return true;
+        } else if (                                                                                                                   //
+            is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
+        ) {
+            llvm::BasicBlock *current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            llvm::Value *has_value = builder.CreateExtractValue(expression, 0, "rhs_has_value");
+            builder.CreateCondBr(has_value, retain_block, merge_block);
+
+            builder.SetInsertPoint(retain_block);
+            llvm::Value *value = builder.CreateExtractValue(expression, 1, "rhs_value");
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder.CreateCall(retain_fn, {value});
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
