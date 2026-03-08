@@ -2062,8 +2062,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             const auto *lhs_opt = lhs.value()->type->as<OptionalType>();
-            if (!check_castability(lhs.value()->type, rhs.value(), true)) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, lhs.value()->type, rhs.value()->type);
+            if (!check_castability(lhs_opt->base_type, rhs.value(), true)) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, lhs_opt->base_type, rhs.value()->type);
                 return std::nullopt;
             }
             return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
