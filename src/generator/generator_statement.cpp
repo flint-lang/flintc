@@ -929,7 +929,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         upper_bound = iterable.value().back();
         llvm::Value *calculated_length = builder.CreateSub(upper_bound, lower_bound, "range_length");
         // Ensure length is positive
-        llvm::Value *is_positive = builder.CreateICmpSGT(calculated_length, builder.getInt64(0), "is_positive");
+        llvm::Value *is_positive = builder.CreateICmpSGE(calculated_length, builder.getInt64(0), "is_positive");
         llvm::BasicBlock *range_error_block = llvm::BasicBlock::Create(context, "range_error", ctx.parent);
         llvm::BasicBlock *range_continue_block = llvm::BasicBlock::Create(context, "range_continue", ctx.parent);
         builder.CreateCondBr(is_positive, range_continue_block, range_error_block);
