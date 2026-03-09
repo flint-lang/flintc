@@ -1,12 +1,28 @@
 use Core.print
+use Core.time
 
-data SomeData:
-	i32 x;
-	SomeData(x);
+data DurationListNode:
+	Duration duration;
+	DurationListNode? next;
+	DurationListNode(duration, next);
 
-func SomeFunc requires(SomeData d):
-	def append(SomeData d):
-		print("");
+data DurationListHead:
+	DurationListNode? head;
+	DurationListHead(head);
+
+def append(mut DurationListHead head, Duration d):
+	if head.head == none:
+		head.head = DurationListNode(d, none);
+		return;
+	DurationListNode? current = head.head;
+	while current!.next != none:
+		current = current!.next;
+	current!.next = DurationListNode(d, none);
 
 def main():
-	print("Hello, World!\n");
+	list := DurationListHead(none);
+	d := from(10, TimeUnit.S);
+	append(list, d);
+	print($"list.head!.duration.value = {list.head!.duration.value}\n");
+	append(list, d);
+	print($"list.head!.next!.duration.value = {list.head!.next!.duration.value}\n");

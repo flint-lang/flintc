@@ -1538,10 +1538,7 @@ bool Generator::Statement::generate_declaration( //
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         Expression::garbage_type garbage;
-        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::OPTIONAL;
-        auto expr_val = Expression::generate_expression(                                        //
-            builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
-        );
+        auto expr_val = Expression::generate_expression(builder, ctx, garbage, 0, declaration_node->initializer.value().get());
         if (!expr_val.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -1696,8 +1693,7 @@ bool Generator::Statement::generate_declaration( //
 
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
-    const bool is_reference = assignment_node->type->get_variation() == Type::Variation::OPTIONAL;
-    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_reference);
+    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get());
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
