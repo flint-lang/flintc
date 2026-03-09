@@ -77,8 +77,19 @@ std::optional<FunctionNode> Parser::create_function(                            
                 continue;
             }
             if (depth == 0 && (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN)) {
-                // The current token is the parameter type
+                // The current token is the parameter name
                 const std::string param_name(tok_it->lexme);
+                if (required_data.has_value()) {
+                    // Check if there are any overlaps with required data
+                    for (const auto &[required_data_type, required_data_name] : required_data.value().second) {
+                        if (required_data_name == param_name) {
+                            THROW_ERR(                                                                                                  //
+                                ErrFnParamShadowsRequiredData, ERR_PARSING, file_hash, token_slice{last_param_begin, std::next(tok_it)} //
+                            );
+                            return std::nullopt;
+                        }
+                    }
+                }
                 // The type is everything from the last param begin
                 token_slice type_tokens = {last_param_begin, tok_it};
                 bool is_mutable = false;

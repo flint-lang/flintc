@@ -37,6 +37,7 @@
 #include "error_types/parsing/definitions/function/err_fn_main_redefinition.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_too_many_args.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_wrong_arg_type.hpp"
+#include "error_types/parsing/definitions/function/err_fn_param_shadows_required_data.hpp"
 #include "error_types/parsing/definitions/function/err_fn_reserved_name.hpp"
 #include "error_types/parsing/definitions/import//err_alias_not_found.hpp"
 #include "error_types/parsing/definitions/import/err_def_not_found_in_aliased_file.hpp"
