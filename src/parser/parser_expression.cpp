@@ -1935,30 +1935,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::optional_unwrap)     //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
-    ) {
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_unwrap, Matcher::expression_separator)) {
         std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(ctx, scope, tokens_mut);
         if (!unwrap.has_value()) {
             return std::nullopt;
         }
         return std::move(unwrap.value());
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_extraction)  //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
-    ) {
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::variant_extraction, Matcher::expression_separator)) {
         std::optional<VariantExtractionNode> extraction = create_variant_extraction(ctx, scope, tokens_mut);
         if (!extraction.has_value()) {
             return std::nullopt;
         }
         return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
     }
-    if (Matcher::tokens_contain(tokens_mut, Matcher::variant_unwrap)      //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::unary_operator)  //
-        && !Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) //
-    ) {
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::variant_unwrap, Matcher::expression_separator)) {
         std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(ctx, scope, tokens_mut);
         if (!unwrap.has_value()) {
             return std::nullopt;
