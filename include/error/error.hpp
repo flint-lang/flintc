@@ -53,6 +53,7 @@
 #include "error_types/parsing/fip/err_no_fip_directory_found.hpp"
 #include "error_types/parsing/fip/err_unknown_module_tag.hpp"
 #include "error_types/parsing/fip/err_use_without_fip.hpp"
+#include "error_types/parsing/types/err_unknown_type.hpp"
 
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"

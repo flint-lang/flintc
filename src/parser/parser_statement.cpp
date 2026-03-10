@@ -1798,7 +1798,12 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     std::shared_ptr<Type> declared_type;
     std::string name;
     if (!is_inferred) {
-        assert(lhs_tokens.first->token == TOK_TYPE);
+        if (lhs_tokens.first->token != TOK_TYPE) {
+            assert((lhs_tokens.second - 1) != lhs_tokens.first);
+            assert((lhs_tokens.second - 2) != lhs_tokens.first);
+            THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, token_slice{lhs_tokens.first, lhs_tokens.second - 2});
+            return std::nullopt;
+        }
         declared_type = lhs_tokens.first->type;
         assert(std::next(lhs_tokens.first)->token == TOK_IDENTIFIER);
         name = std::next(lhs_tokens.first)->lexme;
