@@ -1824,28 +1824,6 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             const auto *alias_type = lhs_type->as<AliasType>();
             lhs_type = alias_type->type;
         }
-        llvm::Value *lhs_value = lhs;
-        std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
-        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY;
-        const bool var_is_str = lhs_type->to_string() == "str";
-        const auto &variable = ctx.scope->variables.at(assignment_node->name);
-        if ((var_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
-            llvm::Type *type_to_load = var_type.second.first ? var_type.first->getPointerTo() : var_type.first;
-            lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
-        }
-        llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
-        if (lhs_type->get_variation() == Type::Variation::DATA) {
-            // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
-            // however, which means we first need to load the data pointer from it
-            // llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs_value, "data_ptr");
-            auto data_head = Module::DIMA::get_head(lhs_type);
-            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-            builder.CreateCall(release_fn, {data_head, lhs_value});
-        } else {
-            // We need to call the `flint.free` function on the lhs before assigning anything to it
-            llvm::Function *free_fn = Memory::memory_functions.at("free");
-            builder.CreateCall(free_fn, {lhs_value, type_id});
-        }
         const ExpressionNode::Variation expression_variaiton = assignment_node->expression->get_variation();
         const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
         const std::string &expression_type_str = assignment_node->expression->type->to_string();
@@ -1864,6 +1842,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
                 }
             }
         }
+        llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
         if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to
@@ -1893,6 +1872,28 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             builder.CreateBr(merge_block);
 
             builder.SetInsertPoint(merge_block);
+        }
+        // Free the lhs before assigning
+        llvm::Value *lhs_value = lhs;
+        std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
+        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY;
+        const bool var_is_str = lhs_type->to_string() == "str";
+        const auto &variable = ctx.scope->variables.at(assignment_node->name);
+        if ((var_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
+            llvm::Type *type_to_load = var_type.second.first ? var_type.first->getPointerTo() : var_type.first;
+            lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
+        }
+        if (lhs_type->get_variation() == Type::Variation::DATA) {
+            // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
+            // however, which means we first need to load the data pointer from it
+            // llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs_value, "data_ptr");
+            auto data_head = Module::DIMA::get_head(lhs_type);
+            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+            builder.CreateCall(release_fn, {data_head, lhs_value});
+        } else {
+            // We need to call the `flint.free` function on the lhs before assigning anything to it
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            builder.CreateCall(free_fn, {lhs_value, type_id});
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
