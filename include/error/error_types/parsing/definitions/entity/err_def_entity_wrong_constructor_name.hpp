@@ -13,7 +13,7 @@ class ErrDefEntityWrongConstructorName : public BaseError {
         const std::string &expected_name, //
         const std::string &actual_name    //
         ) :
-        BaseError(error_type, file_hash, line, column),
+        BaseError(error_type, file_hash, line, column, actual_name.size()),
         expected_name(expected_name),
         actual_name(actual_name) {}
 

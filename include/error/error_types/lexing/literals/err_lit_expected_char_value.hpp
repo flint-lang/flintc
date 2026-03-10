@@ -11,7 +11,7 @@ class ErrLitExpectedCharValue : public BaseError {
         const int column,           //
         const std::string &text     //
         ) :
-        BaseError(error_type, file_hash, line, column),
+        BaseError(error_type, file_hash, line, column, text.size()),
         text(text) {}
 
     [[nodiscard]]

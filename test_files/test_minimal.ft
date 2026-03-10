@@ -1,28 +1,13 @@
 use Core.print
-use Core.time
 
-data DurationListNode:
-	Duration duration;
-	DurationListNode? next;
-	DurationListNode(duration, next);
+error MyError1:
+	e1;
 
-data DurationListHead:
-	DurationListNode? head;
-	DurationListHead(head);
+error MyError2:
+	e2;
 
-def append(mut DurationListHead head, Duration d):
-	if head.head == none:
-		head.head = DurationListNode(d, none);
-		return;
-	DurationListNode? current = head.head;
-	while current!.next != none:
-		current = current!.next;
-	current!.next = DurationListNode(d, none);
+error MyError3(MyError1, MyError2):
+	e3;
 
 def main():
-	list := DurationListHead(none);
-	d := from(10, TimeUnit.S);
-	append(list, d);
-	print($"list.head!.duration.value = {list.head!.duration.value}\n");
-	append(list, d);
-	print($"list.head!.next!.duration.value = {list.head!.next!.duration.value}\n");
+	print("Hello there\n");

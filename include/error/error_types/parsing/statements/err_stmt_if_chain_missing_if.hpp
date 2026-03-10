@@ -6,7 +6,7 @@
 class ErrStmtIfChainMissingIf : public BaseError {
   public:
     ErrStmtIfChainMissingIf(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
-        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, tokens.first->lexme.size()) {}
+        BaseError(error_type, file_hash, tokens) {}
 
     [[nodiscard]]
     std::string to_string() const override {

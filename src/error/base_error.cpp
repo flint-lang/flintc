@@ -239,3 +239,18 @@ std::string BaseError::get_wiki_link() {
     ss << "https://flint-lang.github.io/v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION;
     return ss.str();
 }
+
+size_t BaseError::slice_visual_length(const token_slice tokens) {
+    assert(tokens.first != tokens.second);
+    size_t last_token_size = 0;
+    const token_list::iterator &last_token = std::prev(tokens.second);
+    if (last_token->token == TOK_TYPE || last_token->token == TOK_ALIAS) {
+        last_token_size = last_token->type->to_string().size();
+    } else {
+        last_token_size = last_token->lexme.size();
+    }
+    if (last_token == tokens.first) {
+        return last_token_size;
+    }
+    return last_token->column - tokens.first->column + last_token_size;
+}

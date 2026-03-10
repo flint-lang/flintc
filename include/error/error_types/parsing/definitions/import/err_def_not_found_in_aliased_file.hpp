@@ -14,7 +14,7 @@ class ErrDefNotFoundInAliasedFile : public BaseError {
         const std::string &aliased_file_name, //
         const std::string &definition         //
         ) :
-        BaseError(error_type, file_hash, line, column),
+        BaseError(error_type, file_hash, line, column, alias.size() + definition.size() + 1),
         alias(alias),
         aliased_file_name(aliased_file_name),
         definition(definition) {}

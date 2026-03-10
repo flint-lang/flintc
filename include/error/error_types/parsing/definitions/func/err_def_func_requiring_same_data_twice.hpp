@@ -11,7 +11,7 @@ class ErrDefFuncRequiringSameDataTwice : public BaseError {
         const token_slice &tokens,        //
         const std::shared_ptr<Type> &type //
         ) :
-        BaseError(error_type, file_file, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
+        BaseError(error_type, file_file, tokens),
         type(type) {}
 
     [[nodiscard]]

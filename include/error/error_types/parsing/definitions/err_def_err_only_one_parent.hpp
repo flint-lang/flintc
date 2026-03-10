@@ -6,12 +6,12 @@
 class ErrDefErrOnlyOneParent : public BaseError {
   public:
     ErrDefErrOnlyOneParent(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
-        BaseError(                                                   //
-            error_type,                                              //
-            file_hash,                                               //
-            tokens.first->line,                                      //
-            (tokens.first + 3)->column,                              //
-            (tokens.second - 2)->column - (tokens.first + 3)->column //
+        BaseError(                                                                //
+            error_type,                                                           //
+            file_hash,                                                            //
+            tokens.first->line,                                                   //
+            (tokens.first + 3)->column,                                           //
+            slice_visual_length(token_slice{tokens.first + 3, tokens.second - 2}) //
         ) {}
 
     [[nodiscard]]

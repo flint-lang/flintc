@@ -16,7 +16,7 @@ class ErrExprTypeMismatch : public BaseError {
         const std::shared_ptr<Type> &expected, //
         const std::shared_ptr<Type> &type      //
         ) :
-        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
+        BaseError(error_type, file_hash, tokens),
         expected(expected),
         type(type) {}
 

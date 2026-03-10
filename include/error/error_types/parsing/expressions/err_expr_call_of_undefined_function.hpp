@@ -12,7 +12,7 @@ class ErrExprCallOfUndefinedFunction : public BaseError {
         const std::string &function_name,                   //
         const std::vector<std::shared_ptr<Type>> &arg_types //
         ) :
-        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, (tokens.first + 1)->column - tokens.first->column),
+        BaseError(error_type, file_hash, tokens),
         function_name(function_name),
         arg_types(arg_types) {}
 

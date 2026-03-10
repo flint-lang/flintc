@@ -42,6 +42,13 @@ class BaseError {
         column(column),
         length(length) {}
 
+    BaseError(const ErrorType error_type, const Hash &hash, const token_slice &tokens) :
+        error_type(error_type),
+        hash(hash),
+        line(tokens.first->line),
+        column(tokens.first->column),
+        length(slice_visual_length(tokens)) {}
+
     /// @var `error_type`
     /// @brief The error type of the error, e.g. where it came from
     ErrorType error_type;
@@ -105,4 +112,13 @@ class BaseError {
     ///
     /// @return `std::string` The link to the wiki
     [[nodiscard]] static std::string get_wiki_link();
+
+    /// @function `slice_visual_length`
+    /// @brief Returns the visual length of a given slice, from it's beginning to it's end
+    ///
+    /// @param `tokens` The token slice to get the visual length of
+    /// @return `size_t` The visual length of the given slice
+    /// @note This function does not return the length of the slice itself (number of tokens) but the length of the string the tokens of the
+    /// slice view into, and the length of that visual string slice
+    [[nodiscard]] static size_t slice_visual_length(const token_slice tokens);
 };

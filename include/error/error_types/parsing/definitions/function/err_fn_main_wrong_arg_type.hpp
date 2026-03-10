@@ -12,7 +12,7 @@ class ErrFnMainWrongArgType : public BaseError {
         const token_slice &tokens,            //
         const std::shared_ptr<Type> &arg_type //
         ) :
-        BaseError(error_type, file_hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
+        BaseError(error_type, file_hash, tokens),
         arg_type(arg_type) {}
 
     [[nodiscard]]

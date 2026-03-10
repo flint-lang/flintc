@@ -11,7 +11,7 @@ class ErrVarFromRequiresList : public BaseError {
         const int column,           //
         const std::string &var_name //
         ) :
-        BaseError(error_type, file_hash, line, column),
+        BaseError(error_type, file_hash, line, column, var_name.size()),
         var_name(var_name) {}
 
     [[nodiscard]]

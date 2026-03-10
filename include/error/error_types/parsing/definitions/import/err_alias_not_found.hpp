@@ -12,7 +12,7 @@ class ErrAliasNotFound : public BaseError {
         const unsigned int column,  //
         const std::string &alias    //
         ) :
-        BaseError(error_type, file_hash, line, column),
+        BaseError(error_type, file_hash, line, column, alias.size()),
         alias(alias) {}
 
     [[nodiscard]]
