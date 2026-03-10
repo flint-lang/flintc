@@ -1848,11 +1848,6 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // variable we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             builder.CreateCall(clone_fn, {expression, lhs, type_id});
-            if (assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL) {
-                // We need to free the expression, being a temporary value allocated on the heap
-                // TODO: Not locate that temporary on the heap if possible
-                builder.CreateCall(c_functions.at(FREE), {expression});
-            }
             return true;
         } else if (                                                                                                                   //
             is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
