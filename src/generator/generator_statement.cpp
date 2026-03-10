@@ -1936,6 +1936,8 @@ bool Generator::Statement::generate_data_field_assignment( //
     GenerationContext &ctx,                                //
     const DataFieldAssignmentNode *data_field_assignment   //
 ) {
+    // TODO: This function shares a lot of code with the `generate_assignment` function, they should probably be merged in some way
+
     // Just save the result of the expression in the field of the data
     Expression::garbage_type garbage;
     const bool is_reference = data_field_assignment->field_type->get_variation() == Type::Variation::OPTIONAL;
@@ -2031,6 +2033,55 @@ bool Generator::Statement::generate_data_field_assignment( //
                             "Store result of expr in optional field '$" + std::to_string(data_field_assignment->field_id) + "'")));
             }
             return true;
+        }
+    }
+
+    // Check if we need to call "retain" or "clone" on the rhs value (e.g. if it's not a producer)
+    if (data_field_assignment->field_type->is_freeable() && data_field_assignment->field_type->get_variation() != Type::Variation::OPAQUE) {
+        const ExpressionNode::Variation expression_variaiton = data_field_assignment->expression->get_variation();
+        const Type::Variation expression_type_variation = data_field_assignment->expression->type->get_variation();
+        const std::string &expression_type_str = data_field_assignment->expression->type->to_string();
+        const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
+        const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
+        const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
+        const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
+        const bool is_string_interpolation = expression_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
+        bool is_slice = false;
+        if (expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
+            const auto *arg_arr_access = data_field_assignment->expression->as<ArrayAccessNode>();
+            for (const auto &index : arg_arr_access->indexing_expressions) {
+                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                    is_slice = true;
+                    break;
+                }
+            }
+        }
+        llvm::Value *type_id = builder.getInt32(data_field_assignment->expression->type->get_id());
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
+            // field we assign the value to
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            builder.CreateCall(clone_fn, {expr_val, field_ptr, type_id});
+            return true;
+        } else if ( //
+            is_optional &&
+            data_field_assignment->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
+        ) {
+            llvm::BasicBlock *current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            llvm::Value *has_value = builder.CreateExtractValue(expr_val, 0, "rhs_has_value");
+            builder.CreateCondBr(has_value, retain_block, merge_block);
+
+            builder.SetInsertPoint(retain_block);
+            llvm::Value *value = builder.CreateExtractValue(expr_val, 1, "rhs_value");
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder.CreateCall(retain_fn, {value});
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
         }
     }
 

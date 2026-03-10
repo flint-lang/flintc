@@ -1,13 +1,71 @@
 use Core.print
+use Core.time
 
-error MyError1:
-	e1;
+/// @brief A simple list of durations used for filtering etc in the profiling code
+entity DurationList:
+	data: DurationListHead;
+	func: FDurationList;
+	DurationList(DurationListHead);
 
-error MyError2:
-	e2;
+/// @brief A single node in the duration list containing a single duration
+///        and an optional next node
+data DurationListNode:
+	Duration duration;
+	DurationListNode? next;
+	DurationListNode(duration, next);
 
-error MyError3(MyError1, MyError2):
-	e3;
+/// @brief The head of the 'DurationList' entity type required by
+///        the duration list func type
+data DurationListHead:
+	DurationListNode? head;
+	DurationListHead(head);
+
+/// @brief A func module containing all functionality of the 'DurationList' entity type
+func FDurationList requires(DurationListHead d):
+	/// @brief Appends a new duration to the duration list
+	///
+	/// @param `duration` The duration to append
+	def append(Duration duration):
+		if d.head == none:
+			d.head = DurationListNode(duration, none);
+			return;
+		DurationListNode? current = d.head;
+		while current!.next != none:
+			current = current!.next;
+		current!.next = DurationListNode(duration, none);
+
+	/// @brief Sorts all durations of the list in ascending order, smallest durations come first
+	/// @note Just does a bubble-sort for now, it's good enough for now
+	def sort():
+		DurationListNode? start = d.head;
+		while start != none:
+			DurationListNode? current = start;
+			while current!.next != none:
+				const bool needs_swap = current!.duration.value > current!.next!.duration.value;
+				if needs_swap:
+					Duration temp = current!.duration;
+					current!.duration = current!.next!.duration;
+					current!.next!.duration = temp;
+				current = current!.next;
+			start = start!.next;
+	
+	/// @brief Prints this whole duration list
+	def print():
+		if d.head == none:
+			print("EMPTY LIST\n");
+			return;
+		DurationListNode? current = d.head;
+		print($"List (in ms): {as_unit(current!.duration, TimeUnit.MS)}");
+		while current!.next != none:
+			print(" -> ");
+			current = current!.next;
+			print(current!.duration.value);
+			//print(as_unit(current!.duration, TimeUnit.MS));
+		print("\n");
 
 def main():
-	print("Hello there\n");
+	list := DurationList(DurationListHead(none));
+	for (i, _) in 0..10:
+		list.append(from(10 -i, TimeUnit.MS));
+	list.sort();
+	list.print();
