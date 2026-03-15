@@ -151,7 +151,7 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::FUNC:
-            // TODO: Implement freeing loginc for func modules once func-modules as-interfaces work
+            // TODO: Implement freeing logic for func modules once func-modules as-interfaces work
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
         case Type::Variation::PRIMITIVE: {
@@ -301,7 +301,7 @@ void Generator::Memory::generate_free_value( //
 
                 // Now generate the content of each block, get the value of the variant and free the value in it
                 for (auto &[value_id, value_block] : possible_value_blocks) {
-                    active_value_switch->addCase(builder->getInt8(value_id), value_block);
+                    active_value_switch->addCase(builder->getInt8(value_id + 1), value_block);
                     value_block->insertInto(prev_block->getParent());
                     builder->SetInsertPoint(value_block);
                     llvm::Value *variant_value_ptr = builder->CreateStructGEP(variant_struct_type, value, 1, "variant_value_ptr");
@@ -680,7 +680,7 @@ void Generator::Memory::generate_clone_value( //
 
                 // Now generate the content of each block, get the value of the variant and free the value in it
                 for (auto &[value_id, value_block] : possible_value_blocks) {
-                    active_value_switch->addCase(builder->getInt8(value_id), value_block);
+                    active_value_switch->addCase(builder->getInt8(value_id + 1), value_block);
                     value_block->insertInto(prev_block->getParent());
                     builder->SetInsertPoint(value_block);
                     llvm::Value *variant_value_ptr = builder->CreateStructGEP(variant_struct_type, src, 1, "variant_value_ptr");
