@@ -402,6 +402,7 @@ void Generator::Memory::generate_clone_value( //
     llvm::Value *const dest,                  //
     const std::shared_ptr<Type> &type         //
 ) {
+    llvm::Function *const clone_fn = memory_functions.at("clone");
     switch (type->get_variation()) {
         default:
             break;
@@ -475,7 +476,6 @@ void Generator::Memory::generate_clone_value( //
                 arr_value = IR::aligned_load(*builder, elem_type, arr_value_ptr, "arr_value");
             }
             llvm::Value *new_arr_value_ptr = builder->CreateGEP(elem_type, new_value_ptr, idx_value, "new_arr_value_ptr");
-            llvm::Function *clone_fn = memory_functions.at("clone");
             builder->CreateCall(clone_fn, {arr_value, new_arr_value_ptr, builder->getInt32(array_type->type->get_id())});
             llvm::Value *idx_value_p1 = builder->CreateAdd(idx_value, builder->getInt64(1), "idx_value_p1");
             IR::aligned_store(*builder, idx_value_p1, idx);
@@ -508,7 +508,6 @@ void Generator::Memory::generate_clone_value( //
                 llvm::Value *field_dest_ptr = builder->CreateStructGEP(data_type, new_data_ptr, i, "dest_data_field_ptr_" + field.name);
                 if (field.type->is_freeable()) {
                     // The field is more complex so it needs to be cloned as well
-                    llvm::Function *clone_fn = memory_functions.at("clone");
                     builder->CreateCall(clone_fn, {field_src, field_dest_ptr, builder->getInt32(field.type->get_id())});
                 } else {
                     // We simply copy the field from src to dest
@@ -527,26 +526,42 @@ void Generator::Memory::generate_clone_value( //
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
-                llvm::Value *field_ptr = builder->CreateStructGEP(struct_type, src, i, "field_" + data_type_str + "_ptr");
-                llvm::Type *base_type = IR::get_type(module, data_type).first;
-                llvm::Value *data_value = IR::aligned_load(*builder, base_type->getPointerTo(), field_ptr, "data_value");
-                llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-                builder->CreateCall(release_fn, {Module::DIMA::get_head(data_type), data_value});
+                llvm::Value *src_field_ptr = builder->CreateStructGEP(struct_type, src, i, "src_field_" + data_type_str + "_ptr");
+                llvm::Value *src_field = IR::aligned_load(*builder, llvm::PointerType::get(context, 0), src_field_ptr, "src_field");
+                llvm::Value *dest_field_ptr = builder->CreateStructGEP(struct_type, dest, i, "dest_field_" + data_type_str + "_ptr");
+                llvm::Value *data_type_id = builder->getInt32(data_type->get_id());
+                builder->CreateCall(clone_fn, {src_field, dest_field_ptr, data_type_id});
             }
             break;
         }
         case Type::Variation::ERROR_SET: {
             llvm::StructType *error_type = type_map.at("type.flint.err");
-            llvm::Value *err_message_ptr = builder->CreateStructGEP(error_type, src, 2, "err_message_ptr");
-            llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("str")).first;
-            llvm::Value *err_message = IR::aligned_load(*builder, str_type, err_message_ptr, "err_message");
-            builder->CreateCall(c_functions.at(FREE), {err_message});
+            llvm::Value *loaded_err = IR::aligned_load(*builder, error_type, src, "loaded_err");
+            IR::aligned_store(*builder, loaded_err, dest);
+            llvm::Value *src_msg_ptr = builder->CreateStructGEP(error_type, src, 2, "src_msg_ptr");
+            llvm::Value *src_msg = IR::aligned_load(*builder, llvm::PointerType::get(context, 0), src_msg_ptr, "src_msg");
+            llvm::Value *dest_msg_ptr = builder->CreateStructGEP(error_type, src, 2, "dest_msg_ptr");
+            builder->CreateCall(clone_fn, {dest_msg_ptr, src_msg, builder->getInt32(Type::get_primitive_type("str")->get_id())});
             break;
         }
-        case Type::Variation::FUNC:
-            // TODO: Implement freeing loginc for func modules once func-modules as-interfaces work
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::FUNC: {
+            const auto *func_node = type->as<FuncType>()->func_node;
+            llvm::Type *func_type = IR::get_type(module, type).first;
+            for (size_t i = 0; i < func_node->required_data.size(); i++) {
+                llvm::Value *required_data_src = builder->CreateStructGEP(           //
+                    func_type, src, i, "required_data_" + std::to_string(i) + "_ptr" //
+                );
+                llvm::Value *required_data = IR::aligned_load(                                       //
+                    *builder, llvm::PointerType::get(context, 0), required_data_src, "required_data" //
+                );
+                llvm::Value *required_data_dest = builder->CreateStructGEP(          //
+                    func_type, src, i, "required_data_" + std::to_string(i) + "_ptr" //
+                );
+                llvm::Value *type_id = builder->getInt32(func_node->required_data.at(i).first->get_id());
+                builder->CreateCall(clone_fn, {required_data, required_data_dest, type_id});
+            }
             break;
+        }
         case Type::Variation::PRIMITIVE: {
             assert(type->to_string() == "str");
             llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
@@ -568,8 +583,8 @@ void Generator::Memory::generate_clone_value( //
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             assert(optional_type->base_type->is_freeable());
-            // We check if the optional holds a value and only if it does then we clone anything. This means that we need a basic block for
-            // the cloning code and if it does not hold a value then we store `none` in the value
+            // We check if the optional holds a value and only if it does then we clone anything. This means that we need a basic block
+            // for the cloning code and if it does not hold a value then we store `none` in the value
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
             llvm::BasicBlock *has_value_block = llvm::BasicBlock::Create(             //
                 context, type->to_string() + "_has_value", current_block->getParent() //
@@ -588,7 +603,8 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *has_value = IR::aligned_load(*builder, builder->getInt1Ty(), has_value_ptr, "has_value");
             builder->CreateCondBr(has_value, has_value_block, has_no_value_block);
 
-            // Now we get the type of the value contained in the optional and call `flint.clone` and pass that loaded value to the function
+            // Now we get the type of the value contained in the optional and call `flint.clone` and pass that loaded value to the
+            // function
             builder->SetInsertPoint(has_value_block);
             llvm::Value *opt_value_ptr = builder->CreateStructGEP(opt_struct_type, src, 1, "opt_value_ptr");
             auto base_type_pair = IR::get_type(module, optional_type->base_type);
@@ -600,7 +616,6 @@ void Generator::Memory::generate_clone_value( //
                 opt_value = IR::aligned_load(*builder, base_type_pair.first->getPointerTo(), opt_value_ptr, "opt_value");
             }
             llvm::Value *dest_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 1, "dest_value_ptr");
-            llvm::Function *clone_fn = memory_functions.at("clone");
             builder->CreateCall(clone_fn, {opt_value, dest_value_ptr, builder->getInt32(optional_type->base_type->get_id())});
             llvm::Value *dest_has_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 0, "dest_has_value_ptr");
             IR::aligned_store(*builder, builder->getInt1(true), dest_has_value_ptr);
@@ -643,10 +658,15 @@ void Generator::Memory::generate_clone_value( //
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {
                 llvm::StructType *error_type = type_map.at("type.flint.err");
-                llvm::Value *err_message_ptr = builder->CreateStructGEP(error_type, src, 2, "err_message_ptr");
-                llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("str")).first;
-                llvm::Value *err_message = IR::aligned_load(*builder, str_type, err_message_ptr, "err_message");
-                builder->CreateCall(c_functions.at(FREE), {err_message});
+                llvm::Value *error_value = IR::aligned_load(*builder, error_type, src, "error_value");
+                IR::aligned_store(*builder, error_value, dest);
+                llvm::Value *src_message_ptr = builder->CreateStructGEP(error_type, src, 2, "src_message_ptr");
+                llvm::Value *dest_message_ptr = builder->CreateStructGEP(error_type, dest, 2, "dest_message_ptr");
+                const auto &string_type = Type::get_primitive_type("str");
+                llvm::Type *str_type = IR::get_type(module, string_type).first;
+                llvm::Value *string_type_id = builder->getInt32(string_type->get_id());
+                llvm::Value *src_message = IR::aligned_load(*builder, str_type->getPointerTo(), src_message_ptr, "src_message");
+                builder->CreateCall(clone_fn, {src_message, dest_message_ptr, string_type_id});
             } else {
                 llvm::BasicBlock *prev_block = builder->GetInsertBlock();
                 std::map<size_t, llvm::BasicBlock *> possible_value_blocks;
@@ -657,17 +677,17 @@ void Generator::Memory::generate_clone_value( //
                     if (!possible_type->is_freeable()) {
                         continue;
                     }
-                    possible_value_blocks[i] = llvm::BasicBlock::Create(                   //
-                        context, type->to_string() + "_free_" + possible_type->to_string() //
+                    possible_value_blocks[i] = llvm::BasicBlock::Create(                    //
+                        context, type->to_string() + "_clone_" + possible_type->to_string() //
                     );
                 }
                 if (possible_value_blocks.empty()) {
                     // If there are no complex values inside the variant then we do not need to free anything
                     break;
                 }
-                // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
+                // Create the merge block of the variant clone and create the switch statement at the end of the current block to branch
                 // to each type.
-                llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, type->to_string() + "_free_merge");
+                llvm::BasicBlock *variant_clone_merge_block = llvm::BasicBlock::Create(context, type->to_string() + "_clone_merge");
                 llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type, false);
                 llvm::Value *variant_active_value_ptr = builder->CreateStructGEP( //
                     variant_struct_type, src, 0, "variant_active_value_ptr"       //
@@ -676,38 +696,31 @@ void Generator::Memory::generate_clone_value( //
                     *builder, builder->getInt8Ty(), variant_active_value_ptr, "variant_active_value" //
                 );
                 const size_t block_count = possible_value_blocks.size();
-                llvm::SwitchInst *active_value_switch = builder->CreateSwitch(variant_active_value, variant_free_merge_block, block_count);
+                llvm::SwitchInst *active_value_switch = builder->CreateSwitch(variant_active_value, variant_clone_merge_block, block_count);
 
                 // Now generate the content of each block, get the value of the variant and free the value in it
                 for (auto &[value_id, value_block] : possible_value_blocks) {
                     active_value_switch->addCase(builder->getInt8(value_id + 1), value_block);
                     value_block->insertInto(prev_block->getParent());
                     builder->SetInsertPoint(value_block);
-                    llvm::Value *variant_value_ptr = builder->CreateStructGEP(variant_struct_type, src, 1, "variant_value_ptr");
+                    llvm::Value *src_value_ptr = builder->CreateStructGEP(variant_struct_type, src, 1, "src_value_ptr");
+                    llvm::Value *dest_value_ptr = builder->CreateStructGEP(variant_struct_type, dest, 1, "dest_value_ptr");
                     const auto &variant_type_ptr = possible_types.at(value_id).second;
                     auto value_type = IR::get_type(module, variant_type_ptr);
-                    llvm::Value *variant_value = variant_value_ptr;
+                    llvm::Value *variant_value = src_value_ptr;
                     const bool value_is_array = variant_type_ptr->get_variation() == Type::Variation::ARRAY;
                     const bool value_is_str = variant_type_ptr->to_string() == "str";
                     const bool value_is_opaque = variant_type_ptr->get_variation() == Type::Variation::OPAQUE;
                     if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {
-                        variant_value = IR::aligned_load(                                                  //
-                            *builder, value_type.first->getPointerTo(), variant_value_ptr, "variant_value" //
+                        variant_value = IR::aligned_load(                                              //
+                            *builder, value_type.first->getPointerTo(), src_value_ptr, "variant_value" //
                         );
                     }
-                    if (variant_type_ptr->get_variation() == Type::Variation::DATA) {
-                        // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
-                        llvm::Value *dima_head = Module::DIMA::get_head(variant_type_ptr);
-                        llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
-                        builder->CreateCall(dima_release_fn, {dima_head, src});
-                    } else {
-                        builder->CreateCall(memory_functions.at("free"), {variant_value, builder->getInt32(variant_type_ptr->get_id())});
-                    }
-                    builder->CreateBr(variant_free_merge_block);
+                    builder->CreateCall(clone_fn, {variant_value, dest_value_ptr, builder->getInt32(variant_type_ptr->get_id())});
+                    builder->CreateBr(variant_clone_merge_block);
                 }
-
-                variant_free_merge_block->insertInto(prev_block->getParent());
-                builder->SetInsertPoint(variant_free_merge_block);
+                variant_clone_merge_block->insertInto(prev_block->getParent());
+                builder->SetInsertPoint(variant_clone_merge_block);
             }
             break;
     }
