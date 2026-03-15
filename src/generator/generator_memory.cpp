@@ -289,7 +289,7 @@ void Generator::Memory::generate_free_value( //
                 // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
                 // to each type.
                 llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, type->to_string() + "_free_merge");
-                llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type);
+                llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type, false);
                 llvm::Value *variant_active_value_ptr = builder->CreateStructGEP( //
                     variant_struct_type, value, 0, "variant_active_value_ptr"     //
                 );
@@ -668,7 +668,7 @@ void Generator::Memory::generate_clone_value( //
                 // Create the merge block of the variant free and create the switch statement at the end of the current block to branch
                 // to each type.
                 llvm::BasicBlock *variant_free_merge_block = llvm::BasicBlock::Create(context, type->to_string() + "_free_merge");
-                llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type);
+                llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type, false);
                 llvm::Value *variant_active_value_ptr = builder->CreateStructGEP( //
                     variant_struct_type, src, 0, "variant_active_value_ptr"       //
                 );
