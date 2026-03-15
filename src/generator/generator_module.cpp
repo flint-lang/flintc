@@ -55,6 +55,7 @@ bool Generator::Module::generate_module(     //
             break;
         case BuiltinLibrary::ARRAY:
             Builtin::generate_c_functions(module.get());
+            Memory::generate_memory_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::READ:
@@ -69,6 +70,7 @@ bool Generator::Module::generate_module(     //
         case BuiltinLibrary::FILESYSTEM:
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
+            Memory::generate_memory_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), true);
             FileSystem::generate_filesystem_functions(builder.get(), module.get(), false);
             break;
@@ -80,6 +82,7 @@ bool Generator::Module::generate_module(     //
         case BuiltinLibrary::SYSTEM:
             Builtin::generate_c_functions(module.get());
             String::generate_string_manip_functions(builder.get(), module.get(), true);
+            Memory::generate_memory_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), true);
             System::generate_system_functions(builder.get(), module.get(), false);
             break;

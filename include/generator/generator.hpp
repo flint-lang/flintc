@@ -323,6 +323,10 @@ class Generator {
     /// efficient to have this reference inside an static array than to pass it around unnecessarily.
     static inline std::array<llvm::Module *, 1> main_module;
 
+    /// @var `scratchspace`
+    /// @brief Holds N bytes of global scratchspace, where N is the number of bytes for the biggest non-complex type.
+    static inline llvm::GlobalVariable *scratchspace;
+
     /// @var `tests`
     /// @brief A list of all generated test functions across all files:
     ///  - Key: `Hash` The hash of the file the tests are created in
@@ -2719,13 +2723,9 @@ class Generator {
             static inline std::unordered_map<std::string_view, llvm::Function *> array_manip_functions = {
                 {"get_arr_len", nullptr},
                 {"create_arr", nullptr},
-                {"fill_arr_inline", nullptr},
-                {"fill_arr_deep", nullptr},
-                {"fill_arr_val", nullptr},
+                {"fill_arr", nullptr},
                 {"access_arr", nullptr},
                 {"access_arr_val", nullptr},
-                {"assign_arr_at", nullptr},
-                {"assign_arr_val_at", nullptr},
                 {"get_arr_slice_1d", nullptr},
                 {"get_arr_slice", nullptr},
             };
@@ -2746,29 +2746,14 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_create_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
-            /// @function `generate_fill_arr_inline_function`
-            /// @brief Generates the builtin hidden `fill_arr_inline` function
+            /// @function `generate_fill_arr_function`
+            /// @brief Generates the builtin hidden `fill_arr` function - unified fill function
+            ///        that handles both primitive types (by-value) and complex types (via clone)
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `fill_arr_inline` function will be generated in
+            /// @param `module` The LLVM Module the `fill_arr` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_fill_arr_inline_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /// @function `generate_fill_arr_deep_function`
-            /// @brief Generates the builtin hidden `fill_arr_deep` function
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `fill_arr_deep` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_fill_arr_deep_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /// @function `generate_fill_arr_val_function`
-            /// @brief Generates the builtin hidden `fill_arr_val` function
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `fill_arr_val` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the generation for it
-            static void generate_fill_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_fill_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_access_arr_function`
             /// @brief Generates the builtin hidden `access_arr` function

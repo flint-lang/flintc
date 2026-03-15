@@ -1241,6 +1241,79 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     return freeable_types;
 }
 
+std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
+    std::vector<std::shared_ptr<Type>> nonfreeable_types;
+    std::vector<std::string> collected_types;
+
+    // Go through all core Modules and collect all non-freeable types they provide
+    for (const auto &[module_name, module_namespace] : core_namespaces) {
+        for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+            if (type->is_freeable()) {
+                continue;
+            }
+            if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+                nonfreeable_types.emplace_back(type);
+                collected_types.emplace_back(type->to_string());
+            }
+        }
+    }
+    // Go through all instances of the parser and collect all non-freeable types from all instances
+    for (const auto &instance : Parser::instances) {
+        for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
+            if (type->is_freeable()) {
+                continue;
+            }
+            if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+                nonfreeable_types.emplace_back(type);
+                collected_types.emplace_back(type->to_string());
+            }
+        }
+    }
+    // Go through all public types and collect all freable types
+    const std::vector<std::string> skipped_types = {"float", "int", "void", "void?", "type.flint.default", "type.flint.str.lit"};
+    for (const auto &[type_string, type] : Type::types) {
+        if (type->is_freeable()) {
+            continue;
+        }
+        if (std::find(skipped_types.begin(), skipped_types.end(), type_string) != skipped_types.end()) {
+            continue;
+        }
+        const auto &type_variation = type->get_variation();
+        switch (type_variation) {
+            default:
+                break;
+            case Type::Variation::RANGE:
+                continue;
+            case Type::Variation::GROUP: {
+                const auto *group = type->as<GroupType>();
+                bool contains_skipped = false;
+                for (const auto &value : group->types) {
+                    if (std::find(skipped_types.begin(), skipped_types.end(), value->to_string()) != skipped_types.end()) {
+                        contains_skipped = true;
+                        break;
+                    }
+                }
+                if (contains_skipped) {
+                    continue;
+                }
+                break;
+            }
+            case Type::Variation::FUNC: {
+                const auto *func = type->as<FuncType>();
+                if (func->func_node->required_data.empty()) {
+                    continue;
+                }
+                break;
+            }
+        }
+        if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
+            nonfreeable_types.emplace_back(type);
+            collected_types.emplace_back(type->to_string());
+        }
+    }
+    return nonfreeable_types;
+}
+
 bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
     PROFILE_THREADED_SCOPE("Parse Open Data Modules", parse_parallel);
 

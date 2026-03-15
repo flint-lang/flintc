@@ -4,6 +4,7 @@
 #include "error/error_type.hpp"
 #include "globals.hpp"
 #include "parser/ast/definitions/function_node.hpp"
+#include "parser/parser.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
@@ -249,6 +250,24 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the c functions
     Builtin::generate_c_functions(module.get());
 
+    // Create the global 'flint.scratch' variable which must be able to hold the biggest non-complex type as a glorified scratch-space
+    std::string str_name = "flint.scratch";
+    std::vector<std::shared_ptr<Type>> nonfreeable_types = Parser::get_all_nonfreeable_types();
+    size_t max_size = 0;
+    for (const auto &type : nonfreeable_types) {
+        llvm::Type *const type_ptr = IR::get_type(module.get(), type).first;
+        const size_t type_size = Allocation::get_type_size(module.get(), type_ptr);
+        if (type_size > max_size) {
+            max_size = type_size;
+        }
+    }
+    llvm::Type *scratchspace_type = llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size);
+    llvm::Constant *initializer = llvm::ConstantAggregateZero::get(scratchspace_type);
+    scratchspace = new llvm::GlobalVariable(                                                         //
+        *module, scratchspace_type, false, llvm::GlobalValue::ExternalLinkage, initializer, str_name //
+    );
+    scratchspace->setAlignment(llvm::Align(Allocation::calculate_type_alignment(llvm::PointerType::get(context, 0))));
+
     // Force the addition of the 'type.flint.err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
@@ -256,10 +275,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     Module::String::generate_string_manip_functions(builder.get(), module.get());
     Module::TypeCast::generate_typecast_functions(builder.get(), module.get());
     Module::Arithmetic::generate_arithmetic_functions(builder.get(), module.get());
-    Module::Array::generate_array_manip_functions(builder.get(), module.get());
     Module::DIMA::generate_dima_functions(builder.get(), module.get(), false);
-    Error::generate_error_functions(builder.get(), module.get());
     Memory::generate_memory_functions(builder.get(), module.get());
+    Module::Array::generate_array_manip_functions(builder.get(), module.get());
+    Error::generate_error_functions(builder.get(), module.get());
     if (is_test) {
         // The 'time' module is *always* required when building a program with the `--test` flag because of the builtin performance test
         // runners

@@ -330,7 +330,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *create_arr_fn = Array::array_manip_functions.at("create_arr");
-    llvm::Function *fill_arr_inline_fn = Array::array_manip_functions.at("fill_arr_inline");
+    llvm::Function *fill_arr_fn = Array::array_manip_functions.at("fill_arr");
     llvm::Function *access_arr_fn = Array::array_manip_functions.at("access_arr");
 
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
@@ -526,11 +526,12 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(str_type->getPointerTo()), null_str_ptr);
 
     // Fill array with NULL pointers
-    builder->CreateCall(fill_arr_inline_fn,
+    builder->CreateCall(fill_arr_fn,
         {
             lines_array,                       // Array to fill
             builder->getInt64(sizeof(void *)), // Size of element
-            null_str_ptr                       // Value to fill with
+            null_str_ptr,                      // Value to fill with
+            builder->getInt32(0)               // type_id == 0 to fill inline
         });
 
     // Allocate buffer for reading lines (4096 bytes)

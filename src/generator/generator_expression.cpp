@@ -2400,7 +2400,16 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
                 "Create an array of type " + initializer->element_type->to_string() + "[" +
                     std::string(length_expressions.size() - 1, ',') + "]")));
     llvm::Value *initializer_expression = nullptr;
-    if (initializer->initializer_value->get_variation() == ExpressionNode::Variation::DEFAULT) {
+    bool is_default_init = initializer->initializer_value->get_variation() == ExpressionNode::Variation::DEFAULT;
+
+    // For complex types (strings, data/structs), we require an explicit initializer
+    // because default values would lead to uninitialized memory (e.g., invalid string pointers)
+    if (is_default_init) {
+        if (initializer->element_type->is_freeable()) {
+            // Complex type requires explicit initializer
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
         initializer_expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), initializer->element_type);
     } else {
         group_mapping initializer_mapping = generate_expression(builder, ctx, garbage, expr_depth, initializer->initializer_value.get());
@@ -2418,34 +2427,20 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
         }
     }
-    if (initializer->element_type->to_string() == "str") {
-        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-        llvm::Value *str_len_ptr = builder.CreateStructGEP(str_type, initializer_expression, 0, "str_len_ptr");
-        llvm::Value *str_len = IR::aligned_load(builder, builder.getInt64Ty(), str_len_ptr, "str_len");
-        uint64_t str_size = data_layout.getTypeAllocSize(str_type);
-        str_len = builder.CreateAdd(str_len, builder.getInt64(str_size));
-        llvm::CallInst *fill_call = builder.CreateCall(               //
-            Module::Array::array_manip_functions.at("fill_arr_deep"), //
-            {created_array, str_len, initializer_expression}          //
-        );
-        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
-    } else if (initializer->element_type->get_variation() == Type::Variation::PRIMITIVE) {
-        llvm::Type *from_type = IR::get_type(ctx.parent->getParent(), initializer->element_type).first;
-        llvm::Value *value_container = IR::generate_bitwidth_change(                     //
-            builder,                                                                     //
-            initializer_expression,                                                      //
-            from_type->getPrimitiveSizeInBits(),                                         //
-            64,                                                                          //
-            IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first //
-        );
-        llvm::CallInst *fill_call = builder.CreateCall(                               //
-            Module::Array::array_manip_functions.at("fill_arr_val"),                  //
-            {created_array, builder.getInt64(element_size_in_bytes), value_container} //
-        );
-        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
-    } else if (initializer->element_type->get_variation() == Type::Variation::MULTI) {
-        // TODO:
+    llvm::Value *type_id = nullptr;
+    llvm::Value *initializer_ptr = initializer_expression;
+    if (initializer->element_type->is_freeable()) {
+        type_id = builder.getInt32(initializer->element_type->get_id());
+    } else {
+        type_id = builder.getInt32(0);
+        IR::aligned_store(builder, initializer_expression, scratchspace);
+        initializer_ptr = scratchspace;
     }
+    llvm::CallInst *fill_call = builder.CreateCall(                                        //
+        Module::Array::array_manip_functions.at("fill_arr"),                               //
+        {created_array, builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
+    );
+    fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
     return created_array;
 }
 

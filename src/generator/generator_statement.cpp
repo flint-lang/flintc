@@ -2224,41 +2224,21 @@ bool Generator::Statement::generate_array_assignment( //
         llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
     }
-    if (array_assignment->expression->type->to_string() == "str") {
-        // This call returns a 'str**'
-        llvm::Value *element_ptr = builder.CreateCall(             //
-            Module::Array::array_manip_functions.at("access_arr"), //
-            {array_ptr, builder.getInt64(8), indices}              //
-        );
-        // The string assignment will call the 'assign_str' function, which takes in a 'str**' argument for its dest, so this is correct
-        Module::String::generate_string_assignment(builder, element_ptr, array_assignment->expression.get(), expression);
-        return true;
-    }
-
-    // For types larger than 8 bytes (like structs/tuples), use direct store via access_arr
+    llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
     const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
-    if (element_size_bytes > 8) {
-        // Get pointer to the array element
-        llvm::Value *element_ptr = builder.CreateCall(                 //
-            Module::Array::array_manip_functions.at("access_arr"),     //
-            {array_ptr, builder.getInt64(element_size_bytes), indices} //
-        );
-        // Cast the char* to the correct pointer type
-        llvm::Value *typed_element_ptr = builder.CreateBitCast(element_ptr, expression->getType()->getPointerTo(), "typed_element_ptr");
-        // Store the value directly
-        IR::aligned_store(builder, expression, typed_element_ptr);
-        return true;
+    llvm::Value *element_size = builder.getInt64(element_size_bytes);
+    llvm::Value *arr_value_ptr = builder.CreateCall(access_arr_fn, {array_ptr, element_size, indices}, "arr_value_ptr");
+    assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
+    const std::shared_ptr<Type> &base_type = array_assignment->base_expr->type->as<ArrayType>()->type;
+    if (base_type->is_freeable()) {
+        // Call 'flint.clone' on the freeable type to clone the expression into the array element
+        llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+        llvm::Value *type_id = builder.getInt32(base_type->get_id());
+        builder.CreateCall(clone_fn, {expression, arr_value_ptr, type_id});
+    } else {
+        // Direct store for non-freeable types
+        IR::aligned_store(builder, expression, arr_value_ptr);
     }
-
-    // For primitives <= 8 bytes, use the `assign_arr_val_at` function instead
-    llvm::Type *to_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("i64")).first;
-    const unsigned int expr_bitwidth = expression->getType()->getPrimitiveSizeInBits();
-    expression = IR::generate_bitwidth_change(builder, expression, expr_bitwidth, 64, to_type);
-    // Call the `assign_at_val` function
-    builder.CreateCall(                                                                     //
-        Module::Array::array_manip_functions.at("assign_arr_val_at"),                       //
-        {array_ptr, builder.getInt64(std::max(1U, expr_bitwidth / 8)), indices, expression} //
-    );
     return true;
 }
 

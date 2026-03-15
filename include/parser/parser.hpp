@@ -259,6 +259,12 @@ class Parser {
     /// @return `std::vector<std::shared_ptr<Type>>` A list of all freeable types of all files
     static std::vector<std::shared_ptr<Type>> get_all_freeable_types();
 
+    /// @function `get_all_nonfreeable_types`
+    /// @brief Collects and returns all nonfreeable types from all files
+    ///
+    /// @return `std::vector<std::shared_ptr<Type>>` A list of all non-freeable types of all files
+    static std::vector<std::shared_ptr<Type>> get_all_nonfreeable_types();
+
     /// @function `parse_all_open_data_modules`
     /// @brief Parses all still open data module "bodies"
     ///

@@ -981,16 +981,20 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     //             str *line_string = i == line_start                   //
     //                 ? create_str(0)                                  //
     //                 : get_str_slice(captured_buffer, line_start, i); //
-    //             ptr_bitcast_t cast = (ptr_bitcast_t){.ptr = line_string};
-    //             assign_arr_val_at(output_array, sizeof(str *), &output_id, cast.bits);
+    //             str **element_ptr = access_arr(                      //
+    //                 output_array, sizeof(fclib_str_t *), &output_id  //
+    //             );
+    //             *element_ptr = line_string;
     //             line_start = i + 1;
     //             output_id++;
     //         }
     //     }
     //     if (contains_trailing_line) {
     //         str *line_string = get_str_slice(output_buffer, line_start, captured_buffer->len);
-    //         ptr_bitcast_t cast = (ptr_bitcast_t){.ptr = line_string};
-    //         assign_arr_val_at(output_array, sizeof(str *), &output_id, cast.bits);
+    //         str **element_ptr = access_arr(                      //
+    //             output_array, sizeof(fclib_str_t *), &output_id  //
+    //         );
+    //         *element_ptr = line_string;
     //     }
     //     free(captured_buffer);
     //     return output_array;
@@ -1000,7 +1004,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
 
     llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
     llvm::Function *const end_capture_fn = system_functions.at("end_capture");
-    llvm::Function *const assign_arr_val_at_fn = Array::array_manip_functions.at("assign_arr_val_at");
+    llvm::Function *const access_arr_fn = Array::array_manip_functions.at("access_arr");
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const get_str_slice_fn = String::string_manip_functions.at("get_str_slice");
 
@@ -1165,11 +1169,10 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::PHINode *line_string = builder->CreatePHI(str_type->getPointerTo(), 2, "line_string");
     line_string->addIncoming(empty_line_string, empty_line_block);
     line_string->addIncoming(slice_line_string, slice_line_block);
-    llvm::Value *line_string_bits = builder->CreatePtrToInt(line_string, i64_ty, "line_string_bits");
-    llvm::AllocaInst *output_id_ptr = builder->CreateAlloca(i64_ty, nullptr, "output_id_ptr");
+    llvm::Value *ptr_size = builder->getInt64(Allocation::get_type_size(module, llvm::PointerType::get(context, 0)));
+    llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {output_array, ptr_size, output_id_alloca}, "element_ptr");
+    IR::aligned_store(*builder, line_string, element_ptr);
     llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
-    builder->CreateStore(output_id_load, output_id_ptr);
-    builder->CreateCall(assign_arr_val_at_fn, {output_array, sizeof_ptr, output_id_ptr, line_string_bits});
     llvm::Value *next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");
     builder->CreateStore(next_output_id, output_id_alloca);
     llvm::Value *assign_i_p1 = builder->CreateAdd(assign_i, builder->getInt64(1), "assign_i_p1");
@@ -1191,13 +1194,11 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     // Trailing assign
     builder->SetInsertPoint(trailing_assign_block);
     llvm::Value *trailing_line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "trailing_line_start_load");
-    llvm::Value *trailing_line_string =
-        builder->CreateCall(get_str_slice_fn, {captured_buffer, trailing_line_start, buffer_len}, "trailing_line_string");
-    llvm::Value *trailing_bits = builder->CreatePtrToInt(trailing_line_string, i64_ty, "trailing_bits");
-    llvm::AllocaInst *trailing_id_ptr = builder->CreateAlloca(i64_ty, nullptr, "trailing_id_ptr");
-    llvm::Value *trailing_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "trailing_id_load");
-    builder->CreateStore(trailing_id_load, trailing_id_ptr);
-    builder->CreateCall(assign_arr_val_at_fn, {output_array, sizeof_ptr, trailing_id_ptr, trailing_bits});
+    llvm::Value *trailing_line_string = builder->CreateCall(                                         //
+        get_str_slice_fn, {captured_buffer, trailing_line_start, buffer_len}, "trailing_line_string" //
+    );
+    element_ptr = builder->CreateCall(access_arr_fn, {output_array, ptr_size, output_id_alloca}, "element_ptr");
+    IR::aligned_store(*builder, trailing_line_string, element_ptr);
     builder->CreateBr(cleanup_block);
 
     // Cleanup: free captured_buffer, ret output_array
