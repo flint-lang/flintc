@@ -513,9 +513,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // Arguments are separated by commas. When the arg_range.first == arg_range.second, no arguments are passed
     if (arg_range.value().first < arg_range.value().second) {
         // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
-        // passed. But the comma must be present at the top-level and not within one of the balanced range groups
-        const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                                               //
-            tokens, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+        // passed. But the comma must be present at the top-level and not within one of the balanced range groups or inside of array
+        // accesses or generics, for example
+        const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                               //
+            tokens, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::balancer_left, Matcher::balancer_right //
         );
         Context local_ctx = ctx;
         local_ctx.level = ContextLevel::UNKNOWN;

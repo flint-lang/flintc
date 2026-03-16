@@ -661,6 +661,8 @@ class Matcher {
         keyword_test,
     });
 
+    static const inline PatternPtr balancer_left = one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET), token(TOK_LEFT_BRACE)});
+    static const inline PatternPtr balancer_right = one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_BRACE)});
     static const inline PatternPtr assignment_shorthand_operator = one_of({
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
     });
