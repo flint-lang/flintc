@@ -1251,6 +1251,11 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
             if (type->is_freeable()) {
                 continue;
             }
+            if (type->get_variation() == Type::Variation::DATA &&                                         //
+                (type->as<DataType>()->data_node->is_const || type->as<DataType>()->data_node->is_shared) //
+            ) {
+                continue;
+            }
             if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
                 nonfreeable_types.emplace_back(type);
                 collected_types.emplace_back(type->to_string());
@@ -1261,6 +1266,11 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
             if (type->is_freeable()) {
+                continue;
+            }
+            if (type->get_variation() == Type::Variation::DATA &&                                         //
+                (type->as<DataType>()->data_node->is_const || type->as<DataType>()->data_node->is_shared) //
+            ) {
                 continue;
             }
             if (std::find(collected_types.begin(), collected_types.end(), type->to_string()) == collected_types.end()) {
