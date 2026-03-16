@@ -1,0 +1,13 @@
+use Core.print
+use Core.parse
+
+def fibonacci(u32 n) -> u64:
+	if n <= 1:
+		return n;
+	return fibonacci(n - 1) + fibonacci(n - 2);
+
+def main(str[] args):
+	u32 n = 30;
+	if args.len > 1:
+		n = parse_u32(args[1]);
+	print($"{fibonacci(n)}\n");

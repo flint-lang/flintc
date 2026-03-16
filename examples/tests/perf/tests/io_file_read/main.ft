@@ -1,0 +1,6 @@
+use Core.print
+use Core.filesystem
+
+def main():
+	str file = read_file("input.txt");
+	print($"{file.len}\n");

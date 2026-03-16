@@ -1,0 +1,17 @@
+use Core.print
+use Core.parse
+
+def ackermann(u32 m, u32 n) -> u32:
+	if m == 0:
+		return n + 1;
+	if n == 0:
+		return ackermann(m - 1, 1);
+	return ackermann(m - 1, ackermann(m, n - 1));
+
+def main(str[] args):
+	u32 m = 3;
+	u32 n = 10;
+	if args.len > 2:
+		m = parse_u32(args[1]);
+		n = parse_u32(args[2]);
+	print($"{ackermann(m, n)}\n");

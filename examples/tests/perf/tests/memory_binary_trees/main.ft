@@ -1,0 +1,29 @@
+use Core.assert
+use Core.parse
+use Core.print
+
+data Node:
+	u32 value = 0;
+	Node? left = none;
+	Node? right = none;
+	Node(value, left, right);
+
+def make_tree(u32 depth) -> Node?:
+	if depth == 0:
+		return none;
+	return Node(depth, make_tree(depth - 1), make_tree(depth - 1));
+
+def check_tree(Node? node) -> u32:
+	u32 result = switch node:
+		none -> 0;
+		n -> n.value + check_tree(n.left) + check_tree(n.right);
+	return result;
+
+def main(str[] args):
+	u32 depth = 12;
+	if args.len > 1:
+		depth = parse_u32(args[1]);
+	
+	Node? root = make_tree(depth);
+	u32 result = check_tree(root);
+	print($"{result}\n");

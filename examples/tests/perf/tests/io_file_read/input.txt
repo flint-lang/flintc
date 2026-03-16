@@ -1,0 +1,6 @@
+This is a sample input file for the io_file_read benchmark.
+It contains some text that will be read and counted.
+The program should output the number of bytes read.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.

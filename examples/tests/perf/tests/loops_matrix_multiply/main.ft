@@ -1,0 +1,30 @@
+use Core.print
+use Core.assert
+
+const data Globals:
+	int N = 100;
+
+def matrix_multiply(u32[,] a, u32[,] b) -> u32[,]:
+	assert(a.len == b.len);
+	(X, Y) := a.len;
+	u32[,] result = u32[X, Y](0);
+	for (i, _) in 0..X:
+		for (j, _) in 0..Y:
+			for (k, _) in 0..Globals.N:
+				result[i, j] += a[i, k] * b[k, j];
+	return result;
+
+def main():
+	u32[,] a = u32[Globals.N, Globals.N](0);
+	u32[,] b = u32[Globals.N, Globals.N](0);
+	for (i, _) in 0..Globals.N:
+		for (j, _) in 0..Globals.N:
+			a[i, j] = u32(i + j);
+			b[i, j] = u32(i * j) + 1;
+	u32[,] result = matrix_multiply(a, b);
+
+	u32 sum = 0;
+	for (i, _) in 0..Globals.N:
+		sum += result[i, i];
+	
+	print($"{sum}\n");

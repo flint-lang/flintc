@@ -1,0 +1,260 @@
+use Core.assert
+use Core.filesystem
+use Core.parse
+use Core.print
+use Core.system
+use Core.time
+
+use "DurationList.ft"
+
+/// @brief All possible error types of the executable
+error ErrPerf:
+	fetch_fail,
+	ls_fail,
+	test_fail,
+	compile_fail;
+
+/// @brief The compiler to use for the `execute_test` function
+variant CompilerToUse:
+	C(u32), DEV(f32), TAG(str);
+
+/// @brief The results of a single test, e.g. it's wall time, max time etc.
+data Result:
+	Duration min;
+	Duration max;
+	Duration median;
+	Duration mean;
+	u64 std_dev;
+	Result(min, max, median, mean, std_dev);
+
+def main():
+	str[] tags = get_tags();
+	str[] tests = get_tests();
+
+	// Fill the results array needed to properly be able to print the result table at the end
+	str[,] results = str[tags.len + 3, tests.len + 1]("");
+	results[0, 0] = "Test Names";
+	results[1, 0] = "C";
+	results[2, 0] = "flintc";
+	for (i, tag) in tags:
+		results[i + 3, 0] = tag;
+
+	cwd := get_cwd();
+	bin_path := get_path($"{cwd}/bin");
+	for (i, name) in tests:
+		const u64 Y = i + 1;
+		results[0, Y] = name;
+		// Read the warmup and iteration counts from the csv file
+		test_path := get_path($"{cwd}/tests/{name}");
+		(warmup, iterations) := parse_config(test_path);
+
+		// Execute (reference) C test first
+		CompilerToUse c = u32(0);
+		Result? res = execute_test(test_path, c, warmup, iterations);
+		if res == none:
+			// If the C test fails then it's an hard error, the reference should always work
+			throw ErrPerf.test_fail($"c:{name}");
+		results[1, Y] = normalize(res!.mean);
+
+		// Execute the current dev version of the compiler
+		c = f32(0.0);
+		res = execute_test(test_path, c, warmup, iterations);
+		if res == none:
+			results[2, Y] = "fail";
+		else:
+			results[2, Y] = normalize(res!.mean);
+
+		// Then execute the test for all compiler tags
+		for (j, tag) in tags:
+			const u64 X = j + 3;
+			c = str(get_path($"{bin_path}/{tag}"));
+			res = execute_test(test_path, c, warmup, iterations);
+			if res == none:
+				results[X, Y] = "fail";
+			else:
+				results[X, Y] = normalize(res!.mean);
+	
+	// Collect the longest lengths of each column in the input
+	(X, Y) := results.len;
+	u64[] lengths = u64[X](0);
+	for (x, _) in 0..X:
+		for (y, _) in 0..Y:
+			if lengths[x] < results[x, y].len:
+				lengths[x] = results[x, y].len
+	
+	// Print the results table
+	for (y, _) in 0..Y:
+		for (x, _) in 0..X:
+			if x == 0:
+				print("| ");
+			else:
+				print(" | ");
+			print(left_align(results[x, y], lengths[x]));
+		print(" |\n");
+		if y == 0:
+			for (x, _) in 0..X:
+				if x == 0:
+					print("|:");
+				else:
+					print(":|:");
+				print(str(u8[lengths[x]]('-')));
+			print(":|\n");
+
+/// @brief Left-aligns the given input string inside a given buffer size and adds some spaces
+///        after the input value as "padding"
+///
+/// @param `input` The input string to left-align in a container of size buffer_size
+/// @param `container_size` The size of the container in which to left-align the input
+def left_align(str input, u64 container_size) -> str:
+	if input.len >= container_size:
+		return input;
+	const u64 padding_len = container_size - input.len;
+	str padding = str(u8[padding_len](' '));
+	return input + padding;
+
+/// @brief Normalizes a given duration to the form of '<N, ...>.<NN>ms' so that the returned string
+///        always has two numbers after the comma
+///
+/// @param `d` The duration to "normalize"
+/// @return `str` The "normalized" time of the duration
+def normalize(Duration d) -> str:
+	f64 time = as_unit(d, TimeUnit.MS);
+	u32 time_i = u32(time * 100);
+	str time_i_str = str(time_i);
+	assert(time_i_str.len >= 3);
+	u64 pivot = time_i_str.len - 2;
+	return $"{time_i_str[0..pivot]}.{time_i_str[pivot..]}ms";
+
+/// @brief Executes a single test by first compiling the executable and then profiling the executable afterwards
+///
+/// @param `test_path` The path in which the source file(s) are located and in which the 'main'
+///                    executable is emitted to
+/// @param `compiler` The compiler variant to decide which compiler to use for creating the 'main' executable
+/// @param `warmup` How many iterations to warm up before beginning the profiling
+/// @param `iterations` How many iterations to profile the executable
+/// @return `Result?` The result of profiling the executable, 'none' if generating the 'main' executable failed
+def execute_test(str test_path, CompilerToUse compiler, u64 warmup, u64 iterations) -> Result?:
+	switch compiler:
+		CompilerToUse.C(c):
+			(exit_code, output) := system_command($"cd {test_path} && gcc main.c -o main");
+			if exit_code != 0:
+				return none;
+		CompilerToUse.DEV(d):
+			(exit_code, output) := system_command($"cd {test_path} && flintc --file main.ft");
+			if exit_code != 0:
+				return none;
+		CompilerToUse.TAG(compiler_path):
+			(exit_code, output) := system_command($"cd {test_path} && {compiler_path} --file main.ft");
+			if exit_code != 0:
+				return none;
+	return profile_executable(test_path, warmup, iterations);
+
+/// @brief Profiles the given executable (always 'main' in that directory) with a given warmup and
+///        iteration count. Collects all times and then returns how long the given executable ran.
+///
+/// @param `path` The path in which the 'main' executable file to profile is contained
+/// @param `warmup` How many iterations to warm up before beginning the profiling
+/// @param `iterations` How many iterations to profile the executable
+/// @return `Result` The results of profiling the executable
+def profile_executable(str path, u64 warmup, u64 iterations) -> Result:
+	for (_, _) in 0..warmup:
+		system_command($"cd {path} && ./main");
+
+	durations := DurationList(DurationListHead(none));
+	for (i, _) in 0..iterations:
+		TimeStamp start = now();
+		(exit_code, output) := system_command($"cd {path} && ./main");
+		TimeStamp end = now();
+		Duration d = duration(start, end);
+		durations.append(d);
+
+	// Sort all durations and then we directly can read out the min and the max
+	// values from the list as the first and last value respectively
+	durations.sort();
+	Duration min = durations.at(0)!;
+	Duration max = durations.at(iterations - 1)!;
+
+	// Calculate the median if iteration count is even or just take the value in the middle if it's uneven
+	Duration median = from(0, TimeUnit.S);
+	u64 middle = (iterations - 1) / 2;
+	if iterations % 2 == 0:
+		// Even, calculate mean from two middle values
+		Duration left = durations.at(middle)!;
+		Duration right = durations.at(middle + 1)!;
+		median = Duration((left.value + right.value) / 2);
+	else:
+		// Uneven, mean is just the middle value
+		median = durations.at(middle)!;
+
+	// Calculate mean by dividing total duration sum through iteration count
+	u64 durations_sum = durations.sum();
+	Duration mean = Duration(durations_sum / iterations);
+
+	// TODO: Calculate standard deviation of the durations
+	u64 std_dev = 0;
+	return Result(min, max, median, mean, std_dev);
+
+/// @brief Executes the `fetch.sh` script to fetch and download all compilers from GH
+///        Flint has no networking Core module yet so we need to rely on the extern
+///        script for this functionality for now.
+///
+/// @return `str[]` The list of tags fetched from GH, for example `flintc-v0.3.2-core`
+def get_tags() -> str[]:
+	(exit_code, output) := system_command(get_path($"{get_cwd()}/fetch.sh"));
+	if exit_code != 0:
+		throw ErrPerf.fetch_fail;
+	start_capture();
+	print(output);
+	return end_capture_lines();
+
+/// @brief Executes `ls` in the tests path to return a list of all tests present
+///
+/// @return `str[]` A list of all tests
+def get_tests() -> str[]:
+	(exit_code, output) := system_command($"ls {get_path($"{get_cwd()}/tests")}");
+	if exit_code != 0:
+		throw ErrPerf.ls_fail;
+	start_capture();
+	print(output);
+	return end_capture_lines();
+
+/// @brief Splits a given input string at the given chars and returns a list of strings
+///        no longer containing the character at which has been splitted
+///
+/// @param `input` The input string to split
+/// @param `char` The character at which to split the input string
+/// @return `str[]` The split input string as an array of strings
+def split_at(str input, u8 char) -> str[]:
+	u64 segments = 1;
+	for (_, c) in input:
+		if c == char:
+			segments++;
+	str[] output = str[segments]("");
+	u64 start = 0;
+	u64 idx = 0;
+	for (i, c) in input:
+		if c == char:
+			output[idx] = input[start..i];
+			idx++;
+			start = i + 1;
+	output[idx] = input[start..];
+	return output;
+
+/// @brief Parses the 'config.csv' config file in the given test path and returns
+///        the warmup and iteration counts from the parsed csv file
+///
+/// @param `test_path` The path in which the 'config.csv' to parse is contained in
+/// @return `(u64, u64)` A group containing '(warmup, iterations)'
+def parse_config(str test_path) -> (u64, u64):
+	config_path := get_path($"{test_path}/config.csv");
+	str[] config = read_lines(config_path);
+	assert(config.len == 2);
+
+	str[] headers = split_at(config[0], ',');
+	assert(headers[0] == "warmup");
+	assert(headers[1] == "iterations");
+
+	str[] values = split_at(config[1], ',');
+	u64 warmup = parse_u64(values[0]);
+	u64 iterations = parse_u64(values[1]);
+	return (warmup, iterations);
