@@ -443,6 +443,7 @@ enum CFunction {
 
 static const inline std::unordered_map<std::string_view, std::vector<std::string_view>> primitive_casting_table = {
     {"type.flint.str.lit", {"str"}},
+    {"u8[]", {"str"}},
     {"int", {"str", "u8", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
     {"u8", {"bool8", "str", "i8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},
     {"i8", {"bool8", "str", "u8", "u16", "i16", "u32", "i32", "u64", "i64", "f32", "f64"}},

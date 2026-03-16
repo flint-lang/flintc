@@ -1,10 +1,5 @@
 use Core.print
 
 def main():
-	str[,] arr = str[3, 3]("Hi");
-	arr[0, 0] = "Hi There";
-	arr[0, 1] = "Hi there 2";
-	for (i, elem) in arr:
-		print($"arr[{i}] = '{elem}'\n");
-
-	print(arr[0, 0]);
+	u8[] arr = u8[10](' ');
+	print($"arr = '{str(arr)}'\n");

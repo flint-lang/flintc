@@ -3595,6 +3595,24 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateCall(get_err_str_fn, {expr}, "err_to_str");
         }
     }
+    if (from_type_str == "u8[]" && to_type_str == "str") {
+        // one-dimensional u8 arrays are always castable to a string since a string more or less "is" a one-dimensional u8 array
+        llvm::StructType *const str_type = type_map.at("type.str");
+        llvm::Value *arr_value_ptr = builder.CreateStructGEP(str_type, expr, 1, "arr_value_ptr");
+        llvm::Value *arr_len = IR::aligned_load(builder, builder.getInt64Ty(), arr_value_ptr, "arr_len");
+        //IR::generate_debug_print(&builder, ctx.parent->getParent(), "u8[]->str: arr_len=%lu", {arr_len});
+        llvm::Value *str_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), str_type) + 1);
+        llvm::Value *cast_str_size = builder.CreateAdd(str_type_size, arr_len, "cast_str_size");
+        llvm::Value *cast_str = builder.CreateCall(c_functions.at(MALLOC), {cast_str_size}, "cast_str");
+        llvm::Value *str_len_ptr = builder.CreateStructGEP(str_type, cast_str, 0, "str_len_ptr");
+        IR::aligned_store(builder, arr_len, str_len_ptr);
+        llvm::Value *str_value_ptr = builder.CreateStructGEP(str_type, cast_str, 1, "str_value_ptr");
+        llvm::Value *arr_value_start = builder.CreateGEP(builder.getInt64Ty(), arr_value_ptr, builder.getInt64(1), "arr_value_start");
+        builder.CreateCall(c_functions.at(MEMCPY), {str_value_ptr, arr_value_start, arr_len});
+        llvm::Value *str_last_char = builder.CreateGEP(builder.getInt8Ty(), str_value_ptr, arr_len, "str_last_char");
+        IR::aligned_store(builder, builder.getInt8(0), str_last_char);
+        return cast_str;
+    }
     std::cout << "FROM_TYPE: " << from_type_str << ", TO_TYPE: " << to_type_str << std::endl;
     THROW_BASIC_ERR(ERR_GENERATING);
     return nullptr;
