@@ -1086,26 +1086,38 @@ bool Parser::create_variant_switch_branches(    //
         branch_indices.push_back(type_idx);
 
         // Then `(`, `IDENTIFIER`, `)` must follow
-        if ((match_tokens.first + 1)->token != TOK_LEFT_PAREN) {
+        if ((++match_tokens.first)->token != TOK_LEFT_PAREN) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        if ((match_tokens.first + 2)->token != TOK_IDENTIFIER) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        if ((match_tokens.first + 3)->token != TOK_RIGHT_PAREN) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return false;
-        }
-        const std::string access_name((match_tokens.first + 2)->lexme);
         const std::shared_ptr<Type> &access_type = possible_types.at(type_idx - 1).second;
-        match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
-
-        std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope, scope_segment);
-        if (!branch_scope->add_variable(access_name, {access_type, branch_scope->scope_id, scope_segment, is_mutable, false, true})) {
+        std::optional<std::string> access_name;
+        if (access_type->to_string() == "void") {
+            // Void typed tags are not allowed to have an accessor
+            if ((match_tokens.first + 1)->token == TOK_IDENTIFIER) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        } else {
+            // Non-void typed tags must have an accessor
+            if ((match_tokens.first + 1)->token != TOK_IDENTIFIER) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            access_name = std::string((++match_tokens.first)->lexme);
+        }
+        if ((++match_tokens.first)->token != TOK_RIGHT_PAREN) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
+        }
+        match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
+        std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope, scope_segment);
+        if (access_name.has_value()) {
+            if (!branch_scope->add_variable(access_name.value(),
+                    {access_type, branch_scope->scope_id, scope_segment, is_mutable, false, true})) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
         }
         if (!create_switch_branch_body(                                                 //
                 branch_scope, scope_segment, match_expressions, s_branches, e_branches, //

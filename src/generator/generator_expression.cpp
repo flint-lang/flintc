@@ -335,9 +335,37 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     if (std::holds_alternative<LitVariantTag>(literal_node->value)) {
         const LitVariantTag &variant_tag = std::get<LitVariantTag>(literal_node->value);
         const VariantType *variant_type = variant_tag.variant_type->as<VariantType>();
-        const std::optional<unsigned char> id = variant_type->get_idx_of_type(variant_tag.variation_type);
+        const std::optional<unsigned char> id = variant_type->get_idx_of_tag(variant_tag.variation_tag);
         assert(id.has_value());
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
+    }
+    if (std::holds_alternative<LitVariant>(literal_node->value)) {
+        const LitVariant &variant = std::get<LitVariant>(literal_node->value);
+        [[maybe_unused]] const VariantType *variant_type = variant.variant_type->as<VariantType>();
+        llvm::StructType *variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), variant.variant_type, false);
+        const auto tag_index = variant_type->get_idx_of_tag(variant.variation_tag);
+        if (!tag_index.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        llvm::Value *tag_ptr = builder.CreateStructGEP(variant_ty, scratchspace, 0, "tag_ptr");
+        llvm::Value *tag_idx = builder.getInt8(tag_index.value());
+        IR::aligned_store(builder, tag_idx, tag_ptr);
+        if (variant.expr.has_value()) {
+            auto expr = generate_expression(builder, ctx, garbage, expr_depth + 1, variant.expr.value().get());
+            if (!expr.has_value()) {
+                return std::nullopt;
+            }
+            assert(expr.value().size() == 1);
+            llvm::Value *value_ptr = builder.CreateStructGEP(variant_ty, scratchspace, 1, "value_ptr");
+            IR::aligned_store(builder, expr.value().front(), value_ptr);
+        }
+        if (variant.variant_type->is_freeable()) {
+            return std::vector<llvm::Value *>{scratchspace};
+        } else {
+            llvm::Value *result = IR::aligned_load(builder, variant_ty, scratchspace, "result");
+            return std::vector<llvm::Value *>{result};
+        }
     }
     assert(false);
     return std::nullopt;
@@ -2009,7 +2037,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
 
         if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_MATCH) {
             const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
-            const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name;
+            const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name.value();
             llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
             ctx.allocations.emplace(var_str, real_value_reference);
             value_block_idx = i;
@@ -2119,10 +2147,12 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         builder.SetInsertPoint(branch_blocks[i]);
         const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
 
-        // Add a reference to the 'value' of the variant to the block the switch expression takes place in
-        const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name;
-        llvm::Value *real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
-        ctx.allocations.emplace(var_str, real_value_reference);
+        if (match_node->name.has_value()) {
+            // Add a reference to the 'value' of the variant to the block the switch expression takes place in
+            const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name.value();
+            llvm::Value *real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
+            ctx.allocations.emplace(var_str, real_value_reference);
+        }
         ctx.scope = branch.scope;
 
         // Create the actual expression of the branch and store it's result value in the phi_values vector
@@ -3600,7 +3630,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::StructType *const str_type = type_map.at("type.str");
         llvm::Value *arr_value_ptr = builder.CreateStructGEP(str_type, expr, 1, "arr_value_ptr");
         llvm::Value *arr_len = IR::aligned_load(builder, builder.getInt64Ty(), arr_value_ptr, "arr_len");
-        //IR::generate_debug_print(&builder, ctx.parent->getParent(), "u8[]->str: arr_len=%lu", {arr_len});
+        // IR::generate_debug_print(&builder, ctx.parent->getParent(), "u8[]->str: arr_len=%lu", {arr_len});
         llvm::Value *str_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), str_type) + 1);
         llvm::Value *cast_str_size = builder.CreateAdd(str_type_size, arr_len, "cast_str_size");
         llvm::Value *cast_str = builder.CreateCall(c_functions.at(MALLOC), {cast_str_size}, "cast_str");

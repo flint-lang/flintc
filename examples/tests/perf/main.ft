@@ -16,7 +16,7 @@ error ErrPerf:
 
 /// @brief The compiler to use for the `execute_test` function
 variant CompilerToUse:
-	C(u32), DEV(f32), TAG(str);
+	C(void), DEV(void), TAG(str);
 
 /// @brief The results of a single test, e.g. it's wall time, max time etc.
 data Result:
@@ -49,16 +49,14 @@ def main():
 		(warmup, iterations) := parse_config(test_path);
 
 		// Execute (reference) C test first
-		CompilerToUse c = u32(0);
-		Result? res = execute_test(test_path, c, warmup, iterations);
+		Result? res = execute_test(test_path, CompilerToUse.C(), warmup, iterations);
 		if res == none:
 			// If the C test fails then it's an hard error, the reference should always work
 			throw ErrPerf.test_fail($"c:{name}");
 		results[1, Y] = normalize(res!.mean);
 
 		// Execute the current dev version of the compiler
-		c = f32(0.0);
-		res = execute_test(test_path, c, warmup, iterations);
+		res = execute_test(test_path, CompilerToUse.DEV(), warmup, iterations);
 		if res == none:
 			results[2, Y] = "fail";
 		else:
@@ -67,7 +65,7 @@ def main():
 		// Then execute the test for all compiler tags
 		for (j, tag) in tags:
 			const u64 X = j + 3;
-			c = str(get_path($"{bin_path}/{tag}"));
+			c := CompilerToUse.TAG(get_path($"{bin_path}/{tag}"));
 			res = execute_test(test_path, c, warmup, iterations);
 			if res == none:
 				results[X, Y] = "fail";
@@ -135,11 +133,11 @@ def normalize(Duration d) -> str:
 /// @return `Result?` The result of profiling the executable, 'none' if generating the 'main' executable failed
 def execute_test(str test_path, CompilerToUse compiler, u64 warmup, u64 iterations) -> Result?:
 	switch compiler:
-		CompilerToUse.C(c):
+		CompilerToUse.C():
 			(exit_code, output) := system_command($"cd {test_path} && gcc main.c -o main");
 			if exit_code != 0:
 				return none;
-		CompilerToUse.DEV(d):
+		CompilerToUse.DEV():
 			(exit_code, output) := system_command($"cd {test_path} && flintc --file main.ft");
 			if exit_code != 0:
 				return none;

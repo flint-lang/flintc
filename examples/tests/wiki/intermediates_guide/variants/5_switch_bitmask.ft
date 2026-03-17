@@ -5,11 +5,11 @@ variant BitMask:
 
 def main():
 	bool8 empty = '0';
-	data<bool8, bool8, bool8, bool8> b8 = (empty, empty, empty, empty);
-	BitMask var = b8;
+	BitMask var = BitMask.Bits(empty, empty, empty, empty);
 	switch var:
 		BitMask.Bits(b):
 			print($"BitMask: {b.$0} {b.$1} {b.$2} {b.$3}\n");
-			var = u32(1665025);
+			var = BitMask.Value(1665025);
 			print($"BitMask: {b.$0} {b.$1} {b.$2} {b.$3}\n");
-		BitMask.Value(v): print($"holds u64 value of {v}\n");
+		BitMask.Value(v):
+			print($"holds u64 value of {v}\n");

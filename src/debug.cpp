@@ -358,7 +358,18 @@ namespace Debug {
                 }
             } else if (std::holds_alternative<LitVariantTag>(lit.value)) {
                 const LitVariantTag &lit_var = std::get<LitVariantTag>(lit.value);
-                std::cout << lit_var.variant_type->to_string() << "." << lit_var.variation_type->to_string();
+                std::cout << lit_var.variant_type->to_string() << "." << lit_var.variation_tag;
+            } else if (std::holds_alternative<LitVariant>(lit.value)) {
+                const LitVariant &lit_var = std::get<LitVariant>(lit.value);
+                std::cout << lit_var.variant_type->to_string() << "." << lit_var.variation_tag;
+                if (!lit_var.expr.has_value()) {
+                    std::cout << "()" << std::endl;
+                    return;
+                }
+                std::cout << "(<expr>)" << std::endl;
+                TreeBits expr_bits = bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl + 1, expr_bits, lit_var.expr.value());
+                return;
             } else if (std::holds_alternative<LitError>(lit.value)) {
                 const LitError &lit_error = std::get<LitError>(lit.value);
                 std::cout << lit_error.error_type->to_string() << "." << lit_error.value;
@@ -646,7 +657,11 @@ namespace Debug {
         void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match) {
             Local::print_header(indent_lvl, bits, "Match ");
             std::cout << "[" << (match.is_const ? "c" : "m") << "] ";
-            std::cout << "[" << match.id << "]: " << match.type->to_string() << " " << match.name << std::endl;
+            std::cout << "[" << match.id << "]: " << match.type->to_string();
+            if (match.name.has_value()) {
+                std::cout << " " << match.name.value();
+            }
+            std::cout << std::endl;
         }
 
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression) {
@@ -1586,10 +1601,11 @@ namespace Debug {
             for (auto type = variant.possible_types.begin(); type != variant.possible_types.end(); ++type) {
                 bool is_last = std::next(type) == variant.possible_types.end();
                 TreeBits field_bits = bits.child(indent_lvl, is_last);
-                Local::print_header(indent_lvl, field_bits, "Type ");
                 if (type->first.has_value()) {
+                    Local::print_header(indent_lvl, field_bits, "Tag ");
                     std::cout << type->first.value() << "(" << type->second->to_string() << ")\n";
                 } else {
+                    Local::print_header(indent_lvl, field_bits, "Type ");
                     std::cout << type->second->to_string() << "\n";
                 }
             }

@@ -23,10 +23,19 @@ struct LitError {
 };
 
 /// @struct `LitVariantTag`
-/// @brief The structure representing variant tag literals (`VariantType.Tag`)
+/// @brief The structure representing variant tag literals (`VariantType.Tag`) to be used with variant extractions
 struct LitVariantTag {
     std::shared_ptr<Type> variant_type;
-    std::shared_ptr<Type> variation_type;
+    std::string variation_tag;
+};
+
+/// @struct `LitVariant`
+/// @brief The structure representing variant literals (`VariantType.Tag(<expr>)`), <expr> is nullopt if the variant type tag is of type
+/// 'void'. The "variant literal" is essentially the variant constructor
+struct LitVariant {
+    std::shared_ptr<Type> variant_type;
+    std::string variation_tag;
+    std::optional<std::unique_ptr<ExpressionNode>> expr;
 };
 
 /// @struct `LitOptional`
@@ -69,7 +78,7 @@ struct LitStr {
 
 /// @type `LitValue`
 /// @brief The type representing a literal value
-using LitValue = std::variant<LitEnum, LitError, LitVariantTag, LitOptional, LitPtr, LitInt, LitFloat, LitU8, LitBool, LitStr>;
+using LitValue = std::variant<LitEnum, LitError, LitVariantTag, LitVariant, LitOptional, LitPtr, LitInt, LitFloat, LitU8, LitBool, LitStr>;
 
 /// @class `LiteralNode`
 /// @brief Represents literal values
@@ -109,6 +118,17 @@ class LiteralNode : public ExpressionNode {
         } else if (std::holds_alternative<LitVariantTag>(value)) {
             const auto &lit = std::get<LitVariantTag>(value);
             value_clone = lit;
+        } else if (std::holds_alternative<LitVariant>(value)) {
+            const auto &lit = std::get<LitVariant>(value);
+            std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
+            if (lit.expr.has_value()) {
+                expr = lit.expr.value()->clone(scope_id);
+            }
+            value_clone = LitVariant{
+                .variant_type = lit.variant_type,
+                .variation_tag = lit.variation_tag,
+                .expr = std::move(expr),
+            };
         } else if (std::holds_alternative<LitOptional>(value)) {
             const auto &lit = std::get<LitOptional>(value);
             value_clone = lit;

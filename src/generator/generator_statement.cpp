@@ -1116,9 +1116,11 @@ bool Generator::Statement::generate_optional_switch_statement( //
                 switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
             }
             llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
-            const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
-            llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
-            ctx.allocations.emplace(var_str, real_value_reference);
+            if (match_node->name.has_value()) {
+                const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name.value();
+                llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
+                ctx.allocations.emplace(var_str, real_value_reference);
+            }
             value_block_idx = i;
         }
         ctx.scope = branch.body;
@@ -1212,17 +1214,19 @@ bool Generator::Statement::generate_variant_switch_statement( //
         builder.SetInsertPoint(branch_blocks[i]);
 
         const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
-        const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name;
-        llvm::Value *real_value_reference = nullptr;
-        if (variant_type->is_err_variant) {
-            real_value_reference = var_alloca;
-            if (match_node->type->to_string() == "anyerror") {
-                default_block = branch_blocks[i];
+        if (match_node->name.has_value()) {
+            const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name.value();
+            llvm::Value *real_value_reference = nullptr;
+            if (variant_type->is_err_variant) {
+                real_value_reference = var_alloca;
+                if (match_node->type->to_string() == "anyerror") {
+                    default_block = branch_blocks[i];
+                }
+            } else {
+                real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
             }
-        } else {
-            real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
+            ctx.allocations.emplace(var_str, real_value_reference);
         }
-        ctx.allocations.emplace(var_str, real_value_reference);
 
         ctx.scope = branch.body;
         if (!generate_body(builder, ctx)) {

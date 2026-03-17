@@ -687,6 +687,9 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
                     const auto &possible_types = std::get<VariantNode *const>(variant_type->var_or_list)->possible_types;
                     for (const auto &[_, variation] : possible_types) {
+                        if (variation->to_string() == "void") {
+                            continue;
+                        }
                         const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
                         if (type_size > max_size) {
                             max_size = type_size;

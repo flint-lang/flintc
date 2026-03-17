@@ -27,6 +27,15 @@ class VariantNode : public DefinitionNode {
         return Variation::VARIANT;
     }
 
+    std::optional<std::shared_ptr<Type>> get_type_of_tag(const std::string &tag) const {
+        for (const auto &[tag_maybe, type] : possible_types) {
+            if (tag_maybe.has_value() && tag_maybe.value() == tag) {
+                return type;
+            }
+        }
+        return std::nullopt;
+    }
+
     /// @var `name`
     /// @brief The name of the variant type
     std::string name;

@@ -127,6 +127,10 @@ class VariantType : public Type {
         if (std::holds_alternative<VariantNode *const>(var_or_list)) {
             const auto &possible_types = std::get<VariantNode *const>(var_or_list)->possible_types;
             for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
+                // Only get the index of types when the type is untagged. For tagged variants the tag needs to be checked for, not the type
+                if (var_it->first.has_value()) {
+                    continue;
+                }
                 if (var_it->second == type) {
                     return 1 + std::distance(possible_types.begin(), var_it);
                 }
@@ -136,6 +140,28 @@ class VariantType : public Type {
             const auto &idx = std::find(possible_types.begin(), possible_types.end(), type);
             if (idx != possible_types.end()) {
                 return 1 + std::distance(possible_types.begin(), idx);
+            }
+        }
+        return std::nullopt;
+    }
+
+    /// @function `get_idx_of_tag`
+    /// @brief Returns the index of the given variant tag. If the variant type is an anonymous variant type, e.g. inline-defined, then this
+    /// function will always return `std::nullopt` since anonymous variants do not contain any tags.
+    ///
+    /// @param `tag` The tag to search for in all variations and to get the index of
+    /// @return `std::optional<unsigned char>` The idx of the tag in the variant, nullopt if the tag is not present in the variant
+    std::optional<unsigned char> get_idx_of_tag(const std::string &tag) const {
+        if (!std::holds_alternative<VariantNode *const>(var_or_list)) {
+            return std::nullopt;
+        }
+        const auto &possible_types = std::get<VariantNode *const>(var_or_list)->possible_types;
+        for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
+            if (!var_it->first.has_value()) {
+                continue;
+            }
+            if (var_it->first.value() == tag) {
+                return 1 + std::distance(possible_types.begin(), var_it);
             }
         }
         return std::nullopt;

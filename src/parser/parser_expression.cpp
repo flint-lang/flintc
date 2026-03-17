@@ -1499,7 +1499,14 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             return std::nullopt;
         }
         const LitVariantTag &lit_variant = std::get<LitVariantTag>(literal_node->value);
-        unwrap_type = lit_variant.variation_type;
+        VariantNode *const variant_node = std::get<VariantNode *const>(lit_variant.variant_type->as<VariantType>()->var_or_list);
+        const auto &tag_type = variant_node->get_type_of_tag(lit_variant.variation_tag);
+        if (!tag_type.has_value()) {
+            // Tag not present in variant type
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unwrap_type = tag_type.value();
     }
     type_expr.value().reset();
 
@@ -1584,7 +1591,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             return std::nullopt;
         }
         const LitVariantTag &lit_variant = std::get<LitVariantTag>(literal_node->value);
-        unwrap_type = lit_variant.variation_type;
+        VariantNode *const variant_node = std::get<VariantNode *const>(lit_variant.variant_type->as<VariantType>()->var_or_list);
+        const auto &tag_type = variant_node->get_type_of_tag(lit_variant.variation_tag);
+        if (!tag_type.has_value()) {
+            // Tag not present in variant type
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        unwrap_type = tag_type.value();
     }
     type_expr.value().reset();
 
@@ -1739,6 +1753,63 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                             return std::nullopt;
                         }
                         return std::move(call_node.value());
+                    }
+                    case Type::Variation::VARIANT: {
+                        const auto &type = tokens_mut.first->type;
+                        const auto *variant_type = type->as<VariantType>();
+                        if (!variant_type->is_err_variant && std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
+                            [[maybe_unused]] const auto *variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
+                            assert((tokens_mut.first + 1)->token == TOK_DOT);
+                            auto tag_it = tokens_mut.first + 2;
+                            assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
+                            const std::string tag = (tag_it->token == TOK_IDENTIFIER) //
+                                ? std::string(tag_it->lexme)                          //
+                                : tag_it->type->to_string();
+                            const auto &possible_types = variant_type->get_possible_types();
+                            std::optional<std::shared_ptr<Type>> variation_type;
+                            for (const auto &[possible_tag, var_type] : possible_types) {
+                                if (possible_tag.has_value() && possible_tag.value() == tag) {
+                                    variation_type = var_type;
+                                    break;
+                                }
+                            }
+                            if (!variation_type.has_value()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return std::nullopt;
+                            }
+                            tag_it++;
+                            assert(tag_it->token == TOK_LEFT_PAREN);
+                            std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
+                            if (variation_type.value()->to_string() == "void") {
+                                if ((tag_it + 1)->token != TOK_RIGHT_PAREN) {
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return std::nullopt;
+                                }
+                            } else {
+                                if ((tag_it + 1)->token == TOK_RIGHT_PAREN) {
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return std::nullopt;
+                                }
+                                const auto &expr_range = Matcher::get_next_match_range(     //
+                                    {tag_it, tokens_mut.second}, Matcher::until_right_paren //
+                                );
+                                if (!expr_range.has_value()) {
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return std::nullopt;
+                                }
+                                expr = create_expression(ctx, scope, {tag_it, tag_it + expr_range.value().second}, variation_type.value());
+                                if (!expr.has_value()) {
+                                    return std::nullopt;
+                                }
+                            }
+                            LitValue lit_value = LitVariant{
+                                .variant_type = type,
+                                .variation_tag = tag,
+                                .expr = std::move(expr),
+                            };
+                            return std::make_unique<LiteralNode>(lit_value, type);
+                        }
+                        break;
                     }
                 }
             }
@@ -1899,7 +1970,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    LitValue lit_value = LitVariantTag{.variant_type = type, .variation_type = variation_type.value()};
+                    LitValue lit_value = LitVariantTag{.variant_type = type, .variation_tag = tag};
                     return std::make_unique<LiteralNode>(lit_value, type);
                 }
             }

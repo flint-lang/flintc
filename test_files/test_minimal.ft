@@ -1,5 +1,20 @@
 use Core.print
 
+variant CompilerToUse:
+	C(void),
+	DEV(void),
+	TAG(str);
+
+def print_c(CompilerToUse c):
+	switch c:
+		CompilerToUse.C():
+			print("C\n");
+		CompilerToUse.DEV():
+			print("DEV\n");
+		CompilerToUse.TAG(tag):
+			print($"TAG: {tag}\n");
+
 def main():
-	u8[] arr = u8[10](' ');
-	print($"arr = '{str(arr)}'\n");
+	CompilerToUse c = CompilerToUse.TAG("Hi there");
+	print_c(c);
+	print("Hello\n");
