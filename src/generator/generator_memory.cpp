@@ -689,12 +689,9 @@ void Generator::Memory::generate_clone_value( //
                 // to each type.
                 llvm::BasicBlock *variant_clone_merge_block = llvm::BasicBlock::Create(context, type->to_string() + "_clone_merge");
                 llvm::StructType *variant_struct_type = IR::add_and_or_get_type(module, type, false);
-                llvm::Value *variant_active_value_ptr = builder->CreateStructGEP( //
-                    variant_struct_type, src, 0, "variant_active_value_ptr"       //
-                );
-                llvm::Value *variant_active_value = IR::aligned_load(                                //
-                    *builder, builder->getInt8Ty(), variant_active_value_ptr, "variant_active_value" //
-                );
+                llvm::Value *loaded_variant = IR::aligned_load(*builder, variant_struct_type, src, "loaded_variant");
+                IR::aligned_store(*builder, loaded_variant, dest);
+                llvm::Value *variant_active_value = builder->CreateExtractValue(loaded_variant, 0, "variant_active_value");
                 const size_t block_count = possible_value_blocks.size();
                 llvm::SwitchInst *active_value_switch = builder->CreateSwitch(variant_active_value, variant_clone_merge_block, block_count);
 
