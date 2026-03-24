@@ -1780,7 +1780,7 @@ void Generator::Expression::generate_rethrow( //
     );
 
     // Create the branching operation
-    builder.CreateCondBr(err_condition, catch_block, merge_block)
+    builder.CreateCondBr(err_condition, catch_block, merge_block, IR::generate_weights(1, 100))
         ->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context,
