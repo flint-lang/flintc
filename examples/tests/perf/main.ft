@@ -10,6 +10,7 @@ use "DurationList.ft"
 /// @brief All possible error types of the executable
 error ErrPerf:
 	fetch_fail,
+	download,
 	ls_fail,
 	test_fail,
 	compile_fail;
@@ -65,7 +66,7 @@ def main():
 		// Then execute the test for all compiler tags
 		for (j, tag) in tags:
 			const u64 X = j + 3;
-			c := CompilerToUse.TAG(get_path($"{bin_path}/{tag}"));
+			c := CompilerToUse.TAG(get_path($"{bin_path}/flintc-{tag}"));
 			res = execute_test(test_path, c, warmup, iterations);
 			if res == none:
 				results[X, Y] = "fail";
@@ -203,7 +204,11 @@ def get_tags() -> str[]:
 		throw ErrPerf.fetch_fail;
 	start_capture();
 	print(output);
-	return end_capture_lines();
+	str[] tags = end_capture_lines();
+	for (_, tag) in tags:
+		if contains(tag, "Downloading -> "):
+			throw ErrPerf.download(tag);
+	return tags;
 
 /// @brief Executes `ls` in the tests path to return a list of all tests present
 ///
@@ -256,3 +261,18 @@ def parse_config(str test_path) -> (u64, u64):
 	u64 warmup = parse_u64(values[0]);
 	u64 iterations = parse_u64(values[1]);
 	return (warmup, iterations);
+
+/// @brief Checks whether the input string contains a given needle string
+///
+/// @param `input` The input to search for
+/// @param `needle` The needle to search for
+/// @return `bool` Whether the input contains the searched-for string
+def contains(str input, str needle) -> bool:
+	if needle.len > input.len:
+		return false;
+	if needle.len == input.len:
+		return needle == input;
+	for (start, _) in 0..(input.len - needle.len):
+		if input[start..start + needle.len] == needle:
+			return true;
+	return false;
