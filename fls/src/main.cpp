@@ -26,8 +26,7 @@ void print_help() {
 }
 
 void print_version() {
-    std::cout << "fls " << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << " (" << COMMIT_HASH_VALUE << ", " << BUILD_DATE
-              << ")";
+    std::cout << "fls " << VERSION << " (" << COMMIT_HASH << ", " << BUILD_DATE << ")";
     if (DEBUG_MODE) {
         std::cout << " [debug]";
     }

@@ -2,7 +2,6 @@
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
-#include "globals.hpp"
 
 class ErrNoFipDirectoryFound : public BaseError {
   public:
@@ -20,8 +19,7 @@ class ErrNoFipDirectoryFound : public BaseError {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ No '.fip' directory found\n";
         oss << "├─ To be able to interop with extern code you need the FIP set up\n";
-        oss << "└─ For further information look at '" << CYAN << "https://flint-lang.github.io/v" << MAJOR << "." << MINOR << "." << PATCH
-            << "-" << VERSION << "/beginners_guide/11_interop/2_defining.html" << DEFAULT << "'";
+        oss << "└─ For further information look at '" << get_wiki_link() << "/beginners_guide/11_interop/2_defining.html" << DEFAULT << "'";
         return oss.str();
     }
 

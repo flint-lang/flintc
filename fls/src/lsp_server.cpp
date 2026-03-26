@@ -181,7 +181,7 @@ void LspServer::send_initialize_response(const std::string &request_id) {
       "name": ")"
              << LspProtocol::SERVER_NAME << R"(",
       "version": ")"
-             << "v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION << R"("
+             << "v" << VERSION << R"("
     }
   }
 })";

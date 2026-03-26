@@ -8,30 +8,12 @@ constexpr inline bool DEBUG_MODE = true;
 constexpr inline bool DEBUG_MODE = false;
 #endif
 
-#ifndef MAJOR
-#define MAJOR "0"
-#endif
-
-#ifndef MINOR
-#define MINOR "3"
-#endif
-
-#ifndef PATCH
-#define PATCH "2"
-#endif
-
 #ifndef VERSION
-#define VERSION "core"
+#define VERSION "unknown"
 #endif
-
-#include <string>
-#define STRINGIFY(x) #x
-#define STR_EXPAND(x) STRINGIFY(x)
 
 #ifndef COMMIT_HASH
-const inline std::string COMMIT_HASH_VALUE = "unknown";
-#else
-const inline std::string COMMIT_HASH_VALUE = STR_EXPAND(COMMIT_HASH);
+#define COMMIT_HASH "unknown"
 #endif
 
 #ifndef BUILD_DATE

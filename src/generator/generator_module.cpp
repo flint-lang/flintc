@@ -277,7 +277,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     for (const auto &field : main_group->fields) {
         if (const JsonString *json_string = dynamic_cast<const JsonString *>(field.get())) {
             if (json_string->name == "commit_hash") {
-                if (json_string->value != COMMIT_HASH_VALUE) {
+                if (json_string->value != COMMIT_HASH) {
                     return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
                 }
                 continue;
@@ -372,7 +372,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
 }
 
 void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob_mode_value) {
-    std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH_VALUE);
+    std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH);
 
     std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;

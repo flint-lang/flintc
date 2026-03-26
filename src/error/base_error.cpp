@@ -236,7 +236,7 @@ bool BaseError::space_needed(                  //
 
 std::string BaseError::get_wiki_link() {
     std::stringstream ss;
-    ss << "https://flint-lang.github.io/v" << MAJOR << "." << MINOR << "." << PATCH << "-" << VERSION;
+    ss << "https://flint-lang.github.io/v" << VERSION;
     return ss.str();
 }
 

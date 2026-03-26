@@ -32,12 +32,15 @@ pub fn build(b: *std.Build) !void {
 
     const target = targets(b)[@intFromEnum(target_option)];
 
-    const commit_hash: []const u8 = std.mem.trim(
-        u8,
-        b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" }),
-        &std.ascii.whitespace,
-    );
-    std.debug.print("-- Commit Hash is '{s}'\n", .{commit_hash});
+    const commit_hash: []const u8 = blk: {
+        const hash = std.mem.trim(
+            u8,
+            b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" }),
+            &std.ascii.whitespace,
+        );
+        break :blk b.fmt("\"{s}\"", .{hash});
+    };
+    std.debug.print("-- Commit Hash is {s}\n", .{commit_hash});
 
     const build_date: []const u8 = blk: {
         const current_timestamp: u64 = @intCast(std.time.timestamp());
@@ -132,12 +135,14 @@ fn buildFLS(
     });
     exe.link_function_sections = true;
     exe.link_data_sections = true;
+    // exe.link_gc_sections = true; // For Zig 0.16
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
     // Add Macros
     exe.root_module.addCMacro("FLINT_LSP", "");
-    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{s}", .{commit_hash}));
+    exe.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
+    exe.root_module.addCMacro("COMMIT_HASH", commit_hash);
     exe.root_module.addCMacro("BUILD_DATE", build_date);
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
@@ -234,11 +239,13 @@ fn buildFlintc(
     });
     exe.link_function_sections = true;
     exe.link_data_sections = true;
+    // exe.link_gc_sections = true; // For Zig 0.16
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
     // Add Macros
-    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{s}", .{commit_hash}));
+    exe.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
+    exe.root_module.addCMacro("COMMIT_HASH", commit_hash);
     exe.root_module.addCMacro("BUILD_DATE", build_date);
     if (optimize == .Debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
