@@ -1175,6 +1175,34 @@ std::vector<const ErrorNode *> Parser::get_all_errors() {
     return errors;
 }
 
+std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_core) {
+    std::vector<const FunctionNode *> functions;
+    if (include_core) {
+        for (const auto &[module_name, module_namespace] : core_namespaces) {
+            for (const auto &definition : module_namespace->public_symbols.definitions) {
+                if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
+                    const auto *function_node = definition->as<FunctionNode>();
+                    functions.emplace_back(function_node);
+                }
+            }
+        }
+    }
+    // Go through all instances of the parser and collect all errors from all instances
+    for (const auto &instance : Parser::instances) {
+        for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
+                const auto *function_node = definition->as<FunctionNode>();
+                if (function_node->is_extern) {
+                    // We do not collect extern functions, they are not TS-managed but are direct calls instead
+                    continue;
+                }
+                functions.emplace_back(function_node);
+            }
+        }
+    }
+    return functions;
+}
+
 std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     std::vector<std::shared_ptr<Type>> data_types;
     // Go through all core Modules and collect all data nodes they provide

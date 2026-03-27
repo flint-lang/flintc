@@ -286,6 +286,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
         Module::System::generate_system_functions(nullptr, module.get(), true);
     }
+    Module::ThreadStack::generate_ts_frames(builder.get(), module.get());
 
     if (PRINT_FILE_IR) {
         std::cout << " -------- MAIN -------- \n"

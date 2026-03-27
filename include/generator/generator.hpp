@@ -487,8 +487,8 @@ class Generator {
         /// @brief Returns the default value associated with a given Type
         ///
         /// @param `type` The Type from which the default value has to be returned
-        /// @return `llvm::Value *` The default value of the given Type
-        static llvm::Value *get_default_value_of_type(llvm::Type *type);
+        /// @return `llvm::Constant *` The default value of the given Type
+        static llvm::Constant *get_default_value_of_type(llvm::Type *type);
 
         /// @function `generate_const_string`
         /// @brief Generates a compile-time constant string that will be embedded into the binary itself, this string is not mutable
@@ -4052,6 +4052,41 @@ class Generator {
             /// @param `module` The LLVM Module the functions are generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declaration for it
             static void generate_from_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
+        };
+
+        /// @class `ThreadStack`
+        /// @brief The class which is responsilbe for everything Thread-Stack related
+        /// @note This class cannot be initialized and all functions within this class are static
+        class ThreadStack {
+          public:
+            // The constructor is deleted to make this class non-initializable
+            ThreadStack() = delete;
+
+            /// @var `ts_frames`
+            /// @brief The thread stack frames, the struct types of the function frames
+            ///
+            /// @key `size_t` The 64 bit function id of the frame
+            /// @value `llvm::StructType *` The actual struct type of the thread stack frame
+            static inline std::unordered_map<size_t, llvm::StructType *> ts_frames;
+
+            /// @var `ts_defaults`
+            /// @brief The default frames for the thread stack frames
+            ///
+            /// @key `size_t` The 64 bit function id of the frame
+            /// @value `llvm::GlobalVariable *` The default value of the function frame as a global variable
+            static inline std::unordered_map<size_t, llvm::GlobalVariable *> ts_defaults;
+
+            /// @function `generate_types`
+            /// @brief Generates the struct types for everything thread-stack related
+            static void generate_types();
+
+            /// @function `generate_ts_frames`
+            /// @brief Generates all the thread stack frames for all user-defined functions. These frames are simple struct types for the
+            /// respective functions.
+            ///
+            /// @param `builder` The LLVM IR Builder needed for the default-initializer generation
+            /// @param `module` The LLVM Module in which to generate the ts frame types
+            static void generate_ts_frames(llvm::IRBuilder<> *builder, llvm::Module *module);
         };
 
         /// @class `TypeCast`

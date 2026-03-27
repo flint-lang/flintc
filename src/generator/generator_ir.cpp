@@ -728,8 +728,9 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder
     return get_default_value_of_type(IR::get_type(module, type).first);
 }
 
-llvm::Value *Generator::IR::get_default_value_of_type(llvm::Type *type) {
+llvm::Constant *Generator::IR::get_default_value_of_type(llvm::Type *type) {
     if (type->isVoidTy()) {
+        type->dump();
         THROW_BASIC_ERR(ERR_GENERATING);
         return nullptr;
     }

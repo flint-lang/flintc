@@ -247,6 +247,13 @@ class Parser {
     /// @return `std::vector<const ErrorNode *>` A list of all error nodes of all files
     static std::vector<const ErrorNode *> get_all_errors();
 
+    /// @function `get_all_functions`
+    /// @brief Collects and returns all functions from all files, including functions defined within func modules
+    ///
+    /// @param `include_core` Whether to also collect all functions provided from the Core modules
+    /// @return `std::vector<const FunctionNode *>` A list of all functions from all files
+    static std::vector<const FunctionNode *> get_all_functions(const bool include_core = false);
+
     /// @function `get_all_data_types`
     /// @brief Collects and returns all data types from all files
     ///
