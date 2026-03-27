@@ -55,14 +55,14 @@ class FunctionNode : public DefinitionNode {
         ss << file_hash.to_string();
         ss << "." << name << "(";
         for (size_t i = 0; i < parameters.size(); i++) {
-            const auto &[param_type, param_name, param_is_const] = parameters.at(i);
+            const auto &[param_type, param_name, param_is_mutable] = parameters.at(i);
             if (i > 0) {
                 ss << ",";
             }
-            if (param_is_const) {
-                ss << "const ";
-            } else {
+            if (param_is_mutable) {
                 ss << "mut ";
+            } else {
+                ss << "const ";
             }
             ss << param_type->to_string();
         }
