@@ -65,6 +65,17 @@ class Scope {
         /// @brief Whether this variable is a pseudo-variable, for example like the `flint.return_type` variable used to have access to a
         /// function's return type within the generator functions without a reference to the function node itself
         bool is_pseudo_variable = false;
+
+        bool operator==(const Variable &other) const {
+            return type->equals(other.type)                   //
+                && scope_id == other.scope_id                 //
+                && scope_segment == other.scope_segment       //
+                && is_mutable == other.is_mutable             //
+                && is_fn_param == other.is_fn_param           //
+                && is_reference == other.is_reference         //
+                && return_scope_ids == other.return_scope_ids //
+                && is_pseudo_variable == other.is_pseudo_variable;
+        }
     };
 
     /// @function `get_parent`
@@ -89,15 +100,7 @@ class Scope {
     ///
     /// @param `other` The other scope from which to clone the variable types
     /// @return `bool` Whether the cloning was successful
-    bool clone_variables(const std::shared_ptr<Scope> other) {
-        for (const auto &[name, variable] : other->variables) {
-            if (!add_variable(name, variable)) {
-                // Duplicate definition / shadowing
-                return false;
-            }
-        }
-        return true;
-    }
+    bool clone_variables(const std::shared_ptr<Scope> other);
 
     /// @function `add_variable_type`
     /// @brief Adds the given variable and its type to the list of variable types
@@ -105,46 +108,27 @@ class Scope {
     /// @param `var_name` The name of the added variable
     /// @param `variable` The variable to insert
     /// @return `bool` Whether insertion of the variable type was successful. If not, this means a variable is shadowed
-    bool add_variable(               //
-        const std::string &var_name, //
-        const Variable &variable     //
-    ) {
-        return variables.insert({var_name, variable}).second;
-    }
+    bool add_variable(const std::string &var_name, const Variable &variable);
 
     /// @function `get_variable_type`
     /// @brief Return the type of the given variable name, if it exists
     ///
     /// @param `var_name` The name of the variable to search for
     /// @return `std::optional<std::shared_ptr<Type>>` The type of the variable, nullopt if the variable doesnt exist
-    std::optional<std::shared_ptr<Type>> get_variable_type(const std::string &var_name) {
-        if (variables.find(var_name) == variables.end()) {
-            return std::nullopt;
-        }
-        return variables.at(var_name).type;
-    }
+    std::optional<std::shared_ptr<Type>> get_variable_type(const std::string &var_name);
 
     /// @function `get_unique_variables`
     /// @brief Returns all variable definitions which are unique to this scope, and not present in the parent scope. This function is used
     /// for easy handling for variables when they go out of scope
     ///
     /// @return `std::unordered_map<std::string, Variable>` The variable map thats unique to this scope
-    std::unordered_map<std::string, Variable> get_unique_variables(const unsigned int segment) const {
-        auto unique_variables = variables;
-        if (parent_scope != nullptr) {
-            for (const auto &variable : parent_scope->variables) {
-                unique_variables.erase(variable.first);
-            }
-        }
-        for (auto it = unique_variables.begin(); it != unique_variables.end();) {
-            if (it->second.scope_segment > segment) {
-                it = unique_variables.erase(it);
-            } else {
-                ++it;
-            }
-        }
-        return unique_variables;
-    }
+    std::unordered_map<std::string, Variable> get_unique_variables(const unsigned int segment) const;
+
+    /// @function `get_all_variables`
+    /// @brief Returns all variables from all nested scopes within this scope and it's subscopes
+    ///
+    /// @return `std::vector<std::pair<std::string, Variable>>` A list of all varaibles of all nested scopes
+    std::vector<std::pair<std::string, Variable>> get_all_variables() const;
 
     /// @var `scope_id`
     /// @brief The unique id of this scope. Every scope has its own id

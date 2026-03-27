@@ -174,6 +174,7 @@ fn buildFLS(
             "src/parser/parser_expression.cpp",
             "src/parser/parser_statement.cpp",
             "src/parser/parser_util.cpp",
+            "src/parser/scope.cpp",
             "src/parser/type.cpp",
             "src/analyzer.cpp",
             "src/debug.cpp",

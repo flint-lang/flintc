@@ -1,20 +1,11 @@
 use Core.print
 
-variant CompilerToUse:
-	C(void),
-	DEV(void),
-	TAG(str);
-
-def print_c(CompilerToUse c):
-	switch c:
-		CompilerToUse.C():
-			print("C\n");
-		CompilerToUse.DEV():
-			print("DEV\n");
-		CompilerToUse.TAG(tag):
-			print($"TAG: {tag}\n");
+def add(i32 x, i32 y) -> i32:
+	i32 z = x + y;
+	if z == 30:
+		i32 w = z - y;
+	return x + y;
 
 def main():
-	CompilerToUse c = CompilerToUse.TAG("Hi there");
-	print_c(c);
-	print("Hello\n");
+	i32 z = add(10, 20);
+	print($"z = {z}\n");

@@ -93,29 +93,26 @@ struct Hash {
     /// @return `uint32_t` A u32 hash value generated from this hash + the type's name
     uint32_t get_type_id_from_str(const std::string &name) const {
         const std::string string = to_string() + "." + name;
-        // 31-bit hash container
-        struct Hash31 {
-            uint32_t hash : 31;
-            uint32_t unused : 1;
-        };
 
         // FNV-1a hash algorithm constants
         constexpr uint32_t FNV_PRIME = 16777619u;
         constexpr uint32_t FNV_OFFSET_BASIS = 18652613u; // 2166136261 truncated to 31 bits
 
         // Initialize with the FNV offset basis (truncated to 31 bits automatically)
-        Hash31 field;
-        field.hash = FNV_OFFSET_BASIS;
-        field.unused = 0;
+        struct {
+            uint32_t hash : 31;
+            uint32_t unused : 1;
+        } container = {
+            .hash = FNV_OFFSET_BASIS,
+            .unused = 1,
+        };
 
         for (char c : string) {
-            field.hash ^= static_cast<unsigned char>(c);
-            field.hash *= FNV_PRIME;
+            container.hash ^= static_cast<unsigned char>(c);
+            container.hash *= FNV_PRIME;
         }
 
-        // Shift left and handle zero case
-        uint32_t result = static_cast<uint32_t>(field.hash) << 1;
-        return (result == 0) ? 1 : result;
+        return *reinterpret_cast<uint32_t *>(&container);
     }
 
     /// @function `empty`

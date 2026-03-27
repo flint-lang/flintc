@@ -6,6 +6,7 @@
 #include "parser/type/type.hpp"
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -44,6 +45,77 @@ class FunctionNode : public DefinitionNode {
 
     Variation get_variation() const override {
         return Variation::FUNCTION;
+    }
+
+    size_t get_id() const {
+        // Extern functions and core functions do not have id's
+        assert(!is_core && !is_extern);
+        // We first build up a long-ass string for the function, this string is built deterministically
+        std::stringstream ss;
+        ss << file_hash.to_string();
+        ss << "." << name << "(";
+        for (size_t i = 0; i < parameters.size(); i++) {
+            const auto &[param_type, param_name, param_is_const] = parameters.at(i);
+            if (i > 0) {
+                ss << ",";
+            }
+            if (param_is_const) {
+                ss << "const ";
+            } else {
+                ss << "mut ";
+            }
+            ss << param_type->to_string();
+        }
+        ss << "){";
+        for (size_t i = 0; i < error_types.size(); i++) {
+            if (i > 0) {
+                ss << ",";
+            }
+            ss << error_types.at(i)->to_string();
+        }
+        ss << "}(";
+        for (size_t i = 0; i < return_types.size(); i++) {
+            if (i > 0) {
+                ss << ",";
+            }
+            ss << return_types.at(i)->to_string();
+        }
+        ss << "){";
+        // TODO: implement a way to re-use variable allocations within nested scopes to reduce the frame sizes
+        size_t i = 0;
+        for (const auto &[variable_name, variable] : scope.value()->get_all_variables()) {
+            if (variable.is_fn_param || variable.is_pseudo_variable) {
+                continue;
+            }
+            if (i > 0) {
+                ss << ",";
+            }
+            ss << variable.type->to_string();
+            i++;
+        }
+        ss << "}";
+        const std::string hash_str = ss.str();
+
+        // FNV-1a hash algorithm constants
+        constexpr uint64_t FNV_PRIME = 1099511628211ull;
+        constexpr uint64_t FNV_OFFSET_BASIS = 5472609002491880229ull; // 14695981039346656037 truncated to 63 bits
+
+        // 63-bit hash container
+        struct {
+            uint64_t hash : 63;
+            uint64_t unused : 1;
+        } container = {
+            .hash = FNV_OFFSET_BASIS,
+            .unused = 1,
+        };
+
+        for (char c : hash_str) {
+            container.hash ^= static_cast<unsigned char>(c);
+            container.hash *= FNV_PRIME;
+        }
+
+        // Shift left and handle zero case
+        return *reinterpret_cast<uint64_t *>(&container);
     }
 
     // empty constructor
