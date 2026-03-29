@@ -45,7 +45,7 @@ test "8_structure.ft":
 	str file = "8_structure.ft";
 	// Note: The type_id is different if the relative path to the file the error is defined in changes
 	// So when testing this test in 'test_minimal.ft' the id will differ
-	test_file_ok($"{path}/{file}", "type_id = 2044199200\nvalue_id = 0\nmessage = \nIs NullDivision\nres = 0\n");
+	test_file_ok($"{path}/{file}", "type_id = 3169583248\nvalue_id = 0\nmessage = \nIs NullDivision\nres = 0\n");
 
 test "9_cast_to_string.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
