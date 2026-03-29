@@ -109,7 +109,17 @@ void Generator::Module::ThreadStack::generate_ts_frames(llvm::IRBuilder<> *build
         }
 
         // Create the struct type of the frame and the global default-initializer variable as well
-        llvm::StructType *frame_type = IR::create_struct_type(function->file_hash.to_string() + ".type.ts." + function->name, frame_types);
+        std::string frame_type_name = function->file_hash.to_string() + ".type.ts." + function->name;
+        for (size_t i = 0; i < function->parameters.size(); i++) {
+            if (i == 0) {
+                frame_type_name += ".";
+            }
+            if (i > 0) {
+                frame_type_name += "_";
+            }
+            frame_type_name += std::get<0>(function->parameters.at(i))->to_string();
+        }
+        llvm::StructType *frame_type = IR::create_struct_type(frame_type_name, frame_types);
         const size_t id = function->get_id();
         assert(ts_defaults.find(id) == ts_defaults.end());
         llvm::Constant *ts_fn_default = llvm::ConstantStruct::get(ts_fn_ty,
