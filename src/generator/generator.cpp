@@ -507,27 +507,28 @@ bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<Dep
         if (node->get_variation() == DefinitionNode::Variation::FUNCTION) {
             auto *function_node = node->as<FunctionNode>();
             // Create a forward declaration for the function only if it is not the main function!
-            if (function_node->name != "_main") {
-                llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
-                std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
-                if (function_node->mangle_id.has_value()) {
-                    assert(!function_node->is_extern);
-                    function_name += "." + std::to_string(function_node->mangle_id.value());
+            if (function_node->name == "_main") {
+                continue;
+            }
+            llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
+            std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+            if (function_node->mangle_id.has_value()) {
+                assert(!function_node->is_extern);
+                function_name += "." + std::to_string(function_node->mangle_id.value());
+            }
+            module->getOrInsertFunction(function_name, function_type);
+            if (function_node->is_extern) {
+                if (extern_functions.find(function_node->name) != extern_functions.end()) {
+                    // The extern definition is only allowed to be written once in the project
+                    THROW_ERR(ErrExternDuplicateFunction, ERR_GENERATING, function_node, extern_functions.at(function_node->name));
+                    return false;
                 }
-                module->getOrInsertFunction(function_name, function_type);
-                if (function_node->is_extern) {
-                    if (extern_functions.find(function_node->name) != extern_functions.end()) {
-                        // The extern definition is only allowed to be written once in the project
-                        THROW_ERR(ErrExternDuplicateFunction, ERR_GENERATING, function_node, extern_functions.at(function_node->name));
-                        return false;
-                    }
-                    extern_functions.emplace(function_node->name, function_node);
-                    file_function_names.at(file.file_name).emplace_back(function_node->name);
-                } else {
-                    const std::string fn_name = function_node->file_hash.to_string() + "." + function_node->name;
-                    // function_mangle_ids[function_name] = mangle_id++;
-                    file_function_names.at(file.file_name).emplace_back(fn_name);
-                }
+                extern_functions.emplace(function_node->name, function_node);
+                file_function_names.at(file.file_name).emplace_back(function_node->name);
+            } else {
+                const std::string fn_name = function_node->file_hash.to_string() + "." + function_node->name;
+                // function_mangle_ids[function_name] = mangle_id++;
+                file_function_names.at(file.file_name).emplace_back(fn_name);
             }
         }
     }
