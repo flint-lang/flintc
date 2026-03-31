@@ -149,6 +149,11 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
     llvm::Type *err_type = type_map.at("type.flint.err");
     llvm::LoadInst *err_val = IR::aligned_load(*builder, err_type, err_ptr, "main_err_val");
+    llvm::Value *main_exit_code = builder->getInt32(0);
+    if (Parser::main_function_has_ret) {
+        main_exit_code = builder->CreateStructGEP(custom_main_ret_type, main_ret, 1, "exit_code_ptr");
+        main_exit_code = IR::aligned_load(*builder, builder->getInt32Ty(), main_exit_code, "exit_code");
+    }
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
@@ -192,7 +197,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     builder->SetInsertPoint(merge_block);
     llvm::PHINode *exit_value = builder->CreatePHI(builder->getInt32Ty(), 2, "exit_value");
-    exit_value->addIncoming(builder->getInt32(0), current_block);
+    exit_value->addIncoming(main_exit_code, current_block);
     exit_value->addIncoming(builder->getInt32(1), catch_block);
     builder->CreateCall(c_functions.at(EXIT), {exit_value});
     builder->CreateUnreachable();

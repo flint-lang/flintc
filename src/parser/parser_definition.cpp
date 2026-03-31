@@ -216,12 +216,13 @@ std::optional<FunctionNode> Parser::create_function(                            
             return std::nullopt;
         }
 
-        // The main funcition is not allowed to return anything
-        if (!return_types.empty()) {
+        // The main funcition is not allowed to return anything except i32
+        if (!return_types.empty() && (return_types.size() > 1 || return_types.front()->to_string() != "i32")) {
             const token_slice err_tokens = {ret_start_it, std::prev(definition.second)};
-            THROW_ERR(ErrFnMainNoReturns, ERR_PARSING, file_hash, err_tokens);
+            THROW_ERR(ErrFnMainInvalid, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
         }
+        main_function_has_ret = !return_types.empty();
         main_function_parsed = true;
         main_file_hash = file_hash;
     }
