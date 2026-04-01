@@ -52,18 +52,21 @@ def main():
 ### Simple Raylib Example
 
 **`.fip/config/fip.toml`**:
+
 ```toml
 [fip-c]
 enable = true
 ```
 
 **`.fip/config/fip-c.toml`**:
+
 ```toml
 [raylib]
 headers = ["/usr/include/raylib.h"]
 ```
 
 **`main.ft`**:
+
 ```rs
 use Fip.raylib as rl
 
@@ -96,8 +99,8 @@ You need `raylib` installed on your system for this example to compile and run c
 
 ## Installation
 
-https://flint-lang.github.io/v0.3.2-core/user_guide/setup/1_installation.html
+https://flint-lang.github.io/v0.3.3-core/user_guide/setup/1_installation.html
 
 ## Building
 
-https://flint-lang.github.io/v0.3.2-core/developer_guide/flintc/setup.html
+https://flint-lang.github.io/v0.3.3-core/developer_guide/flintc/setup.html
