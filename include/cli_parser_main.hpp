@@ -342,7 +342,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  -o, --out <file>                The name and path of the built output file\n";
         // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to
         // "test" in that case
-        std::cout << "  -t, --test                      Output a test binary instad of the normal binary\n";
+        std::cout << "  -t, --test                      Output a test binary instead of the normal binary\n";
         // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  -r, --run                       Run the built binary directly without outputting it\n";
         std::cout << "  -p, --parallel                  Compile in parallel (only recommended for bigger projects)\n";
@@ -364,7 +364,7 @@ class CLIParserMain : public CLIParserBase {
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
         std::cout
-            << "      --profile-cumulative        Enables the cumulaltive profiling output, by default only the profile tree view is shown\n";
+            << "      --profile-cumulative        Enables the cumulative profiling output, by default only the profile tree view is shown\n";
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
@@ -397,7 +397,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
-        std::cout << "  native      [Default] The native target truple of the platform the compiler is executed on\n";
+        std::cout << "  native      [Default] The native target triple of the platform the compiler is executed on\n";
         std::cout << "  linux       Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
         std::cout << "  windows     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";
         std::flush(std::cout);
@@ -412,7 +412,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  wrap-arounds for various arithmetic operations in general\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The overflow / underflow checking is separate from the compiler optimization mode(s).\n";
-        std::cout << "          It does not matter if you compile in release or debug mode, the behavour of overflows\n";
+        std::cout << "          It does not matter if you compile in release or debug mode, the behaviour of overflows\n";
         std::cout << "          and underflows is only controlled by this mode flag.\n";
         std::cout << "\n";
         std::cout << "  ┌─ Example Program ────────────────┐\n";
@@ -480,7 +480,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  of the array instead\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The out of bounds behaviour is separate from the compiler optimization mode(s). It does\n";
-        std::cout << "          not matter if you compile in release or debug mode, the behavour of out of bounds accesses\n";
+        std::cout << "          not matter if you compile in release or debug mode, the behaviour of out of bounds accesses\n";
         std::cout << "          is only controlled by this mode flag.\n";
         std::cout << "\n";
         std::cout << "  ┌─ Example Program ─────────────────────┐\n";
@@ -541,7 +541,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  if you want to know more about the 'opaque' type itself.\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The opaque behaviour is separate from the compiler optimization mode(s). It does not\n";
-        std::cout << "          matter if you compile in release or debug mode, the behavour of opaque leak detection\n";
+        std::cout << "          matter if you compile in release or debug mode, the behaviour of opaque leak detection\n";
         std::cout << "          is only controlled by this mode flag.\n";
         std::cout << "\n";
         std::cout << "  ┌─ Example Program ───────────────────────┐\n";
@@ -593,7 +593,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  optional typed value which does not contain any value, and holds the value of 'none' instead.\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The optional unwrap behaviour is separate from the compiler optimization mode(s). It\n";
-        std::cout << "          does not matter if you compile in release or debug mode, the behavour of unwrapping\n";
+        std::cout << "          does not matter if you compile in release or debug mode, the behaviour of unwrapping\n";
         std::cout << "          optional values is only controlled by this mode flag.\n";
         std::cout << "\n";
         std::cout << "  ┌─ Example Program ─────────┐\n";
@@ -627,18 +627,20 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  value than the one which is force-unwrapped.\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The variant unwrap behaviour is separate from the compiler optimization mode(s). It\n";
-        std::cout << "          does not matter if you compile in release or debug mode, the behavour of unwrapping\n";
+        std::cout << "          does not matter if you compile in release or debug mode, the behaviour of unwrapping\n";
         std::cout << "          variant typed values is only controlled by this mode flag.\n";
         std::cout << "\n";
-        std::cout << "  ┌─ Example Program ─────────┐\n";
-        std::cout << "  │ use Core.print            │\n";
-        std::cout << "  │                           │\n";
-        std::cout << "  │ def main():               │\n";
-        std::cout << "  │     i32? i = 10;          │\n";
-        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
-        std::cout << "  │     i = none;             │\n";
-        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
-        std::cout << "  └───────────────────────────┘\n";
+        std::cout << "  ┌─ Example Program ──────────────┐\n";
+        std::cout << "  │ use Core.print                 │\n";
+        std::cout << "  │                                │\n";
+        std::cout << "  │ variant MyVariant:             │\n";
+        std::cout << "  │     i32, f32;                  │\n";
+        std::cout << "  │                                │\n";
+        std::cout << "  │ def main():                    │\n";
+        std::cout << "  │     MyVariant v = i32(10);     │\n";
+        std::cout << "  │     print($\"v = {v!(i32)}\\n\"); │\n";
+        std::cout << "  │     print($\"v = {v!(f32)}\\n\"); │\n";
+        std::cout << "  └────────────────────────────────┘\n";
         std::cout << "\n";
         std::cout << "Available Modes:\n";
         std::cout << "  crash       [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
@@ -647,7 +649,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "              │ Bad variant unwrap occurred │\n";
         std::cout << "              └─ Program Crashes ───────────┘\n";
         std::cout << "\n";
-        std::cout << "  unsafe      Disbales all \"is_type\"-checks for variants when unwrapping\n";
+        std::cout << "  unsafe      Disables all \"is_type\"-checks for variants when unwrapping\n";
         std::cout << "                  When unwrapping variants in the 'unsafe' mode the compiler will not emit any checks\n";
         std::cout << "                  to look whether the variant actually holds the type which is unwrapped. In the case\n";
         std::cout << "                  of the example the bits of the 'i32' value are just reinterpreted as a 'f32' value.\n";
