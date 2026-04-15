@@ -653,62 +653,6 @@ void Generator::Module::Array::generate_access_arr_function( //
     builder->CreateRet(result_ptr);
 }
 
-void Generator::Module::Array::generate_access_arr_val_function( //
-    llvm::IRBuilder<> *builder,                                  //
-    llvm::Module *module,                                        //
-    const bool only_declarations                                 //
-) {
-    // THE C IMPLEMENTATION:
-    // size_t access_arr_val(str *arr, const size_t element_size, const size_t *indices) {
-    //     char *element = access_arr(arr, element_size, indices);
-    //     size_t value;
-    //     memcpy(&value, element, element_size);
-    //     return value;
-    // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
-    llvm::Function *access_arr_fn = array_manip_functions.at("access_arr");
-    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
-
-    llvm::FunctionType *access_arr_val_type = llvm::FunctionType::get( //
-        llvm::Type::getInt64Ty(context),                               // Return type: size_t
-        {
-            str_type->getPointerTo(),                       // Argument str* arr
-            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
-            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* indices
-        },
-        false // No vaargs
-    );
-    llvm::Function *access_arr_val_fn = llvm::Function::Create( //
-        access_arr_val_type,                                    //
-        llvm::Function::ExternalLinkage,                        //
-        prefix + "access_arr_val",                              //
-        module                                                  //
-    );
-    array_manip_functions["access_arr_val"] = access_arr_val_fn;
-    if (only_declarations) {
-        return;
-    }
-
-    // Get the parameter (arr)
-    llvm::Argument *arg_arr = access_arr_val_fn->arg_begin();
-    arg_arr->setName("arr");
-    // Get the parameter (element_size)
-    llvm::Argument *arg_element_size = access_arr_val_fn->arg_begin() + 1;
-    arg_element_size->setName("element_size");
-    // Get the parameter (indices)
-    llvm::Argument *arg_indices = access_arr_val_fn->arg_begin() + 2;
-    arg_indices->setName("indices");
-
-    llvm::BasicBlock *entry = llvm::BasicBlock::Create(context, "entry", access_arr_val_fn);
-    builder->SetInsertPoint(entry);
-
-    llvm::Value *access_result = builder->CreateCall(access_arr_fn, {arg_arr, arg_element_size, arg_indices}, "element");
-    llvm::Value *value = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "value_buffer");
-    builder->CreateCall(memcpy_fn, {value, access_result, arg_element_size});
-    llvm::Value *loaded_value = IR::aligned_load(*builder, builder->getInt64Ty(), value, "value");
-    builder->CreateRet(loaded_value);
-}
-
 void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::IRBuilder<> *builder,                                    //
     llvm::Module *module,                                          //
@@ -1642,7 +1586,6 @@ void Generator::Module::Array::generate_array_manip_functions( //
     generate_create_arr_function(builder, module, only_declaration);
     generate_fill_arr_function(builder, module, only_declaration);
     generate_access_arr_function(builder, module, only_declaration);
-    generate_access_arr_val_function(builder, module, only_declaration);
     generate_get_arr_slice_1d_function(builder, module, only_declaration);
     generate_get_arr_slice_function(builder, module, only_declaration);
 }

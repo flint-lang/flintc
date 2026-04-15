@@ -2616,16 +2616,12 @@ llvm::Value *Generator::Expression::generate_array_access(                   //
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
         case Type::Variation::ENUM:
-        case Type::Variation::PRIMITIVE: {
-            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr_val"), //
-                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                        //
-            );
-            return IR::generate_bitwidth_change(builder, result, 64, element_type->getPrimitiveSizeInBits(), element_type);
-        }
+        case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
         case Type::Variation::MULTI: {
-            llvm::Value *elem_ptr = builder.CreateCall(Module::Array::array_manip_functions.at("access_arr"), //
-                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr"    //
+            llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
+            llvm::Value *const elem_ptr = builder.CreateCall(                                                             //
+                access_arr_fn, {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr" //
             );
             return IR::aligned_load(builder, element_type, elem_ptr, "access_arr_value");
         }

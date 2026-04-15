@@ -2725,7 +2725,6 @@ class Generator {
                 {"create_arr", nullptr},
                 {"fill_arr", nullptr},
                 {"access_arr", nullptr},
-                {"access_arr_val", nullptr},
                 {"get_arr_slice_1d", nullptr},
                 {"get_arr_slice", nullptr},
             };
@@ -2762,14 +2761,6 @@ class Generator {
             /// @param `module` The LLVM Module the `access_arr` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_access_arr_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
-
-            /// @function `generate_access_arr_val_function`
-            /// @brief Generates the builtin hidden `access_arr_val` function
-            ///
-            /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `access_arr_val` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_access_arr_val_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
             /// @function `generate_assign_arr_at_function`
             /// @brief Generates the builtin hidden `assign_arr_at` function
