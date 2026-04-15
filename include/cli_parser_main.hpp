@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <ostream>
 #include <sstream>
 #include <sys/types.h>
 #include <vector>
@@ -113,7 +114,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string target_str = args.at(i + 1);
                 if (target_str == "--help" || target_str == "-h") {
                     print_help_targets();
-                    return 1;
+                    std::exit(0);
                 }
                 if (target_str == "native") {
                     COMPILATION_TARGET = Target::NATIVE;
@@ -133,7 +134,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string arithmetic_str = args.at(i + 1);
                 if (arithmetic_str == "--help" || arithmetic_str == "-h") {
                     print_help_arithmetic();
-                    return 1;
+                    std::exit(0);
                 }
                 if (arithmetic_str == "print") {
                     overflow_mode = ArithmeticOverflowMode::PRINT;
@@ -155,7 +156,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string array_str = args.at(i + 1);
                 if (array_str == "--help" || array_str == "-h") {
                     print_help_array();
-                    return 1;
+                    std::exit(0);
                 }
                 if (array_str == "print") {
                     oob_mode = ArrayOutOfBoundsMode::PRINT;
@@ -177,7 +178,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string opaque_str = args.at(i + 1);
                 if (opaque_str == "--help" || opaque_str == "-h") {
                     print_help_opaque();
-                    return 1;
+                    std::exit(0);
                 }
                 if (opaque_str == "print") {
                     opaque_leak_mode = OpaqueLeakMode::PRINT;
@@ -197,7 +198,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string optional_str = args.at(i + 1);
                 if (optional_str == "--help" || optional_str == "-h") {
                     print_help_optional();
-                    return 1;
+                    std::exit(0);
                 }
                 if (optional_str == "crash") {
                     opt_unwrap_mode = OptionalUnwrapMode::CRASH;
@@ -215,7 +216,7 @@ class CLIParserMain : public CLIParserBase {
                 const std::string variant_str = args.at(i + 1);
                 if (variant_str == "--help" || variant_str == "-h") {
                     print_help_variant();
-                    return 1;
+                    std::exit(0);
                 }
                 if (variant_str == "crash") {
                     var_unwrap_mode = VariantUnwrapMode::CRASH;
@@ -364,12 +365,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
         std::cout
             << "      --profile-cumulative        Enables the cumulaltive profiling output, by default only the profile tree view is shown\n";
+        std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";
         std::cout << "      --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "      --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
         std::cout << "      --no-binary                 Disables compilation of the LLVM modules to a final binary, exiting after IR gen\n";
         std::cout << "                                  HINT: Doesnt produce an executable";
@@ -396,62 +397,264 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
-        std::cout << "  native                          [Default] The native target truple of the platform the compiler is executed on\n";
-        std::cout << "  linux                           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
-        std::cout << "  windows                         Targetting Windows (target triple 'x86_64-pc-windows-gnu')";
-        std::cout << std::endl;
+        std::cout << "  native      [Default] The native target truple of the platform the compiler is executed on\n";
+        std::cout << "  linux       Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+        std::cout << "  windows     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";
+        std::flush(std::cout);
     }
 
     void print_help_arithmetic() {
         std::cout << "Usage: flintc --arithmetic <MODE>\n";
         std::cout << "\n";
+        std::cout << "  The arithmetic mode controls the behaviour of the compiled Flint program when an oveflow or\n";
+        std::cout << "  underflow occurs. If an underflow or overflow happen respectively, the value is clamped to\n";
+        std::cout << "  the minimum value (underflow) or the maximum value (overflow) respectively. This prevents\n";
+        std::cout << "  wrap-arounds for various arithmetic operations in general\n";
+        std::cout << "\n";
+        std::cout << "  [NOTE]: The overflow / underflow checking is separate from the compiler optimization mode(s).\n";
+        std::cout << "          It does not matter if you compile in release or debug mode, the behavour of overflows\n";
+        std::cout << "          and underflows is only controlled by this mode flag.\n";
+        std::cout << "\n";
+        std::cout << "  ┌─ Example Program ────────────────┐\n";
+        std::cout << "  │ use Core.print                   │\n";
+        std::cout << "  │                                  │\n";
+        std::cout << "  │ def main():                      │\n";
+        std::cout << "  │     u8 u = 255;                  │\n";
+        std::cout << "  │     u += 1;                      │\n";
+        std::cout << "  │     print($\"u = {u16(u)}\\n\");    │\n";
+        std::cout << "  │                                  │\n";
+        std::cout << "  │     u = 0;                       │\n";
+        std::cout << "  │     u -= 1;                      │\n";
+        std::cout << "  │     print($\"u = {u16(u)}\\n\");    │\n";
+        std::cout << "  └──────────────────────────────────┘\n";
+        std::cout << "\n";
         std::cout << "Available Modes:\n";
-        std::cout << "  print                           [Default] Prints a small message to the console whenever an overflow occurred\n";
-        std::cout << "  silent                          Disables the debug printing when an overflow or underflow happened\n";
-        std::cout << "  crash                           Hard crashes when an overflow / underflow occurred\n";
-        std::cout << "  unsafe                          Disables all overflow and underflow checks to make arithmetic operations faster";
-        std::cout << std::endl;
+        std::cout << "  print       [Default] Prints a small message to the console\n";
+        std::cout << "                  The message will be printed to the console whenever an overflow or underflow\n";
+        std::cout << "                  happens. The value will be clamped if an over/underflow happens.\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ u8 add overflow caught   │\n";
+        std::cout << "              │ u = 255                  │\n";
+        std::cout << "              │ u8 sub underflow caught  │\n";
+        std::cout << "              │ u = 0                    │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  silent      Disables the debug printing when an overflow or underflow happened\n";
+        std::cout << "                  The value will still be clamped if an over/underflow happens but there will\n";
+        std::cout << "                  be no message printed to the console if it happens, the clamping happens\n";
+        std::cout << "                  silently\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ u = 255                  │\n";
+        std::cout << "              │ u = 0                    │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  crash       Hard crashes when an overflow / underflow occurred\n";
+        std::cout << "                  There will be no clamping if an over/underflow happens, the runtime will\n";
+        std::cout << "                  hard crash in this scenario. This option is most useful for testing, for\n";
+        std::cout << "                  example if you are certain that no over/underflow would happen in you code\n";
+        std::cout << "                  you can change the arithmetic mode to 'crash' to test that assumption.\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ u8 add overflow caught   │\n";
+        std::cout << "              └─ Program Crashes ────────┘\n";
+        std::cout << "\n";
+        std::cout << "  unsafe      Disables all overflow and underflow checks to make arithmetic operations faster\n";
+        std::cout << "                  This disables all over/underflow checks whatsoever. Arithmetic will be\n";
+        std::cout << "                  emitted as unsafe IR code, and it's behaviour will be equivalent to the\n";
+        std::cout << "                  wraparound behaviour of C, for example\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ u = 0                    │\n";
+        std::cout << "              │ u = 255                  │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::flush(std::cout);
     }
 
     void print_help_array() {
         std::cout << "Usage: flintc --array <MODE>\n";
         std::cout << "\n";
+        std::cout << "  The array mode controls what happens when an array is accessed out of it's bounds, e.g. when\n";
+        std::cout << "  the index of the array access is greater or equal to the length of the array at that\n";
+        std::cout << "  dimensionality. For all modes except for the 'unsafe' mode, accessing an array out of bounds\n";
+        std::cout << "  results in the index being clamped to '0' at the lower end or the length of the dimensionality\n";
+        std::cout << "  at the upper end respectively.\n";
+        std::cout << "  This means that array accesses outside the bounds of the array access the first or last element\n";
+        std::cout << "  of the array instead\n";
+        std::cout << "\n";
+        std::cout << "  [NOTE]: The out of bounds behaviour is separate from the compiler optimization mode(s). It does\n";
+        std::cout << "          not matter if you compile in release or debug mode, the behavour of out of bounds accesses\n";
+        std::cout << "          is only controlled by this mode flag.\n";
+        std::cout << "\n";
+        std::cout << "  ┌─ Example Program ─────────────────────┐\n";
+        std::cout << "  │ use Core.print                        │\n";
+        std::cout << "  │                                       │\n";
+        std::cout << "  │ def main():                           │\n";
+        std::cout << "  │     i32[] arr = i32[5](0);            │\n";
+        std::cout << "  │     for (i, elem) in arr:             │\n";
+        std::cout << "  │         elem = i32(i);                │\n";
+        std::cout << "  │                                       │\n";
+        std::cout << "  │     print($\"arr[5] = {arr[5]}\\n\");    │\n";
+        std::cout << "  │     print($\"arr[6] = {arr[6]}\\n\");    │\n";
+        std::cout << "  └───────────────────────────────────────┘\n";
+        std::cout << "\n";
         std::cout << "Available Modes:\n";
-        std::cout << "  print                           [Default] Prints a small message to the console whenever accessing an array OOB\n";
-        std::cout << "  silent                          Disables the debug printing when OOB access happens\n";
-        std::cout << "  crash                           Hard crashes when an OOB access happens\n";
-        std::cout << "  unsafe                          Disables all bounds checks for array accesses\n";
-        std::cout << std::endl;
+        std::cout << "  print       [Default] Prints a small message to the console whenever accessing an array OOB\n";
+        std::cout << "                  The index clamping behaviour is fully intact in this mode\n";
+        std::cout << "              ┌─ Example Program Output ───────────────────────────┐\n";
+        std::cout << "              │ Out Of Bounds access occured: Arr Len: 5, Index: 5 │\n";
+        std::cout << "              │ arr[5] = 4                                         │\n";
+        std::cout << "              │ Out Of Bounds access occured: Arr Len: 5, Index: 6 │\n";
+        std::cout << "              │ arr[6] = 4                                         │\n";
+        std::cout << "              └────────────────────────────────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  silent      Disables the debug printing when OOB access happens\n";
+        std::cout << "                  The index clamping behaviour is fully intact in this mode. The accessed element\n";
+        std::cout << "                  still changes depending on the size of the array, but nothing is printed here.\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ arr[5] = 4               │\n";
+        std::cout << "              │ arr[6] = 4               │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  crash       Hard crashes when an OOB access happens\n";
+        std::cout << "                  There will be no clamping behaviour of the accessed index of the array in this\n";
+        std::cout << "                  mode. If an out of bounds access happens then the compiled program will hard\n";
+        std::cout << "                  crash. This mode is best used to test whether any OOB access happens in the\n";
+        std::cout << "                  program since it crashes instantly.\n";
+        std::cout << "              ┌─ Example Program Output ───────────────────────────┐\n";
+        std::cout << "              │ Out Of Bounds access occured: Arr Len: 5, Index: 5 │\n";
+        std::cout << "              └─ Program Crashes ──────────────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  unsafe      Disables all bounds checks for array accesses\n";
+        std::cout << "                  There will be no safety checks around array bounds checking any more in this\n";
+        std::cout << "                  mode. You can run into undefined behaviour, segmentation faults and all the\n";
+        std::cout << "                  good stuff developers love about C. Since bounds checks are disabled the\n";
+        std::cout << "                  program runs faster, but it is now considered unsafe.\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ arr[5] = 0               │\n";
+        std::cout << "              │ arr[6] = 33              │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::flush(std::cout);
     }
 
     void print_help_opaque() {
         std::cout << "Usage: flintc --opaque <MODE>\n";
+        std::cout << "  The opaque mode controls the behaviour when opaque memory is leaked, or at least considered to be\n";
+        std::cout << "  leaked. Please look at " << BaseError::get_wiki_link() << "/beginners_guide/11_interop/7_opaque.html\n";
+        std::cout << "  if you want to know more about the 'opaque' type itself.\n";
+        std::cout << "\n";
+        std::cout << "  [NOTE]: The opaque behaviour is separate from the compiler optimization mode(s). It does not\n";
+        std::cout << "          matter if you compile in release or debug mode, the behavour of opaque leak detection\n";
+        std::cout << "          is only controlled by this mode flag.\n";
+        std::cout << "\n";
+        std::cout << "  ┌─ Example Program ───────────────────────┐\n";
+        std::cout << "  │ use Core.print                          │\n";
+        std::cout << "  │                                         │\n";
+        std::cout << "  │ extern def malloc(mut u64 n) -> opaque; │\n";
+        std::cout << "  │ extern def free(mut opaque ptr);        │\n";
+        std::cout << "  │                                         │\n";
+        std::cout << "  │ def main():                             │\n";
+        std::cout << "  │     if true:                            │\n";
+        std::cout << "  │         // Leaking                      │\n";
+        std::cout << "  │         opaque memory = malloc(10);     │\n";
+        std::cout << "  │         free(memory);                   │\n";
+        std::cout << "  │     print(\"after leaking\\n\");           │\n";
+        std::cout << "  │                                         │\n";
+        std::cout << "  │     if true:                            │\n";
+        std::cout << "  │         // Not Leaking                  │\n";
+        std::cout << "  │         opaque memory = malloc(10);     │\n";
+        std::cout << "  │         free(memory);                   │\n";
+        std::cout << "  │         memory = null;                  │\n";
+        std::cout << "  │     print(\"after not leaking\\n\");       │\n";
+        std::cout << "  └─────────────────────────────────────────┘\n";
         std::cout << "\n";
         std::cout << "Available Modes:\n";
-        std::cout << "  print                           [Default] Prints a small message to the console whenever opaque memory is leaked\n";
-        std::cout << "  silent                          Disables all leak checking for opaque types\n";
-        std::cout << "  crash                           Hard crashes when opaque memory is leaked";
-        std::cout << std::endl;
+        std::cout << "\n";
+        std::cout << "  print       [Default] Prints a small message to the console whenever opaque memory is leaked\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ Error: Leaking memory!   │\n";
+        std::cout << "              │ after leaking            │\n";
+        std::cout << "              │ after not leaking        │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  silent      Disables all leak checking for opaque types\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ after leaking            │\n";
+        std::cout << "              │ after not leaking        │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  crash       Hard crashes when opaque memory is leaked";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ Error: Leaking memory!   │\n";
+        std::cout << "              └─ Program Crashes ────────┘\n";
+        std::flush(std::cout);
     }
 
     void print_help_optional() {
         std::cout << "Usage: flintc --optional <MODE>\n";
+        std::cout << "  The optional mode controls what happens when an optional force unwrap ( ! ) is executed on an\n";
+        std::cout << "  optional typed value which does not contain any value, and holds the value of 'none' instead.\n";
+        std::cout << "\n";
+        std::cout << "  [NOTE]: The optional unwrap behaviour is separate from the compiler optimization mode(s). It\n";
+        std::cout << "          does not matter if you compile in release or debug mode, the behavour of unwrapping\n";
+        std::cout << "          optional values is only controlled by this mode flag.\n";
+        std::cout << "\n";
+        std::cout << "  ┌─ Example Program ─────────┐\n";
+        std::cout << "  │ use Core.print            │\n";
+        std::cout << "  │                           │\n";
+        std::cout << "  │ def main():               │\n";
+        std::cout << "  │     i32? i = 10;          │\n";
+        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
+        std::cout << "  │     i = none;             │\n";
+        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
+        std::cout << "  └───────────────────────────┘\n";
         std::cout << "\n";
         std::cout << "Available Modes:\n";
-        std::cout
-            << "  crash                           [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
-        std::cout << " unsafe                           Disables all \"has_value\"-checks for optionals when unwrapping\n";
-        std::cout << "                                  HINT: All optionals which have 'none' stored on them are zero-initialized";
-        std::cout << std::endl;
+        std::cout << "  crash       [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
+        std::cout << "              ┌─ Example Program Output ─────┐\n";
+        std::cout << "              │ i = 10                       │\n";
+        std::cout << "              │ Bad optional access occurred │\n";
+        std::cout << "              └─ Program Crashes ────────────┘\n";
+        std::cout << "\n";
+        std::cout << "  unsafe      Disables all \"has_value\"-checks for optionals when unwrapping\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ i = 10                   │\n";
+        std::cout << "              │ i = 0                    │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::flush(std::cout);
     }
 
     void print_help_variant() {
         std::cout << "Usage: flintc --variant <MODE>\n";
+        std::cout << "  The variant mode controls what happens when unwrapping a variant which holds a different typed\n";
+        std::cout << "  value than the one which is force-unwrapped.\n";
+        std::cout << "\n";
+        std::cout << "  [NOTE]: The variant unwrap behaviour is separate from the compiler optimization mode(s). It\n";
+        std::cout << "          does not matter if you compile in release or debug mode, the behavour of unwrapping\n";
+        std::cout << "          variant typed values is only controlled by this mode flag.\n";
+        std::cout << "\n";
+        std::cout << "  ┌─ Example Program ─────────┐\n";
+        std::cout << "  │ use Core.print            │\n";
+        std::cout << "  │                           │\n";
+        std::cout << "  │ def main():               │\n";
+        std::cout << "  │     i32? i = 10;          │\n";
+        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
+        std::cout << "  │     i = none;             │\n";
+        std::cout << "  │     print($\"i = {i!}\\n\"); │\n";
+        std::cout << "  └───────────────────────────┘\n";
         std::cout << "\n";
         std::cout << "Available Modes:\n";
-        std::cout
-            << "  crash                           [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
-        std::cout << " unsafe                           Disbales all \"is_type\"-checks for variants when unwrapping";
-        std::cout << std::endl;
+        std::cout << "  crash       [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
+        std::cout << "              ┌─ Example Program Output ────┐\n";
+        std::cout << "              │ v = 10                      │\n";
+        std::cout << "              │ Bad variant unwrap occurred │\n";
+        std::cout << "              └─ Program Crashes ───────────┘\n";
+        std::cout << "\n";
+        std::cout << "  unsafe      Disbales all \"is_type\"-checks for variants when unwrapping\n";
+        std::cout << "                  When unwrapping variants in the 'unsafe' mode the compiler will not emit any checks\n";
+        std::cout << "                  to look whether the variant actually holds the type which is unwrapped. In the case\n";
+        std::cout << "                  of the example the bits of the 'i32' value are just reinterpreted as a 'f32' value.\n";
+        std::cout << "              ┌─ Example Program Output ─┐\n";
+        std::cout << "              │ v = 10                   │\n";
+        std::cout << "              │ v = 1.401298e-44         │\n";
+        std::cout << "              └──────────────────────────┘\n";
+        std::flush(std::cout);
     }
 };

@@ -34,6 +34,12 @@ class BaseError {
     /// @return `std::string` The formatted string representation of the tokens
     [[nodiscard]] static std::string get_token_string(const token_slice &tokens, const std::vector<Token> &ignore_tokens);
 
+    /// @function `get_wiki_link`
+    /// @brief Returns the base link to the wiki of the current compiler version
+    ///
+    /// @return `std::string` The link to the wiki
+    [[nodiscard]] static std::string get_wiki_link();
+
   protected:
     BaseError(const ErrorType error_type, const Hash &hash, const int line, const int column, const int length = 1) :
         error_type(error_type),
@@ -106,12 +112,6 @@ class BaseError {
         const token_list::const_iterator iterator, //
         const std::vector<Token> &ignores          //
     );
-
-    /// @function `get_wiki_link`
-    /// @brief Returns the base link to the wiki of the current compiler version
-    ///
-    /// @return `std::string` The link to the wiki
-    [[nodiscard]] static std::string get_wiki_link();
 
     /// @function `slice_visual_length`
     /// @brief Returns the visual length of a given slice, from it's beginning to it's end
