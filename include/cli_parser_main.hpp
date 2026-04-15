@@ -80,19 +80,6 @@ class CLIParserMain : public CLIParserBase {
             if (arg == "--help") {
                 print_help();
                 std::exit(0);
-            } else if (arg == "--print-libbuiltins-path") {
-                std::cout << Generator::get_flintc_cache_path().string() << std::endl;
-                return 1;
-            } else if (arg == "--no-colors") {
-                RED = "";
-                GREEN = "";
-                YELLOW = "";
-                BLUE = "";
-                CYAN = "";
-                WHITE = "";
-                DEFAULT = "";
-                GREY = "";
-                RED_UNDERLINE = "";
             } else if (arg == "--file") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
@@ -105,31 +92,20 @@ class CLIParserMain : public CLIParserBase {
                 }
                 out_file_path = get_absolute(cwd_path, args.at(i + 1));
                 i++;
-            } else if (arg == "--output-ll-file") {
-                if (!n_args_follow(i + 1, "<file>", arg)) {
-                    return 1;
-                }
-                ll_file_path = get_absolute(cwd_path, args.at(i + 1));
-                build_exe = false;
-                i++;
-            } else if (arg == "--static") {
-                is_static = true;
-                i++;
             } else if (arg == "--test") {
                 test = true;
                 if (out_file_path == "main") {
                     out_file_path = "test";
                 }
-            } else if (arg == "--version") {
-                print_version = true;
-            } else if (arg == "--print-fip-version") {
-                print_fip_version = true;
             } else if (arg == "--run") {
                 run = true;
             } else if (arg == "--parallel") {
                 parallel = true;
-            } else if (arg == "--rebuild-core") {
-                BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            } else if (arg == "--static") {
+                is_static = true;
+                i++;
+            } else if (arg == "--version") {
+                print_version = true;
             } else if (arg == "--target") {
                 if (!n_args_follow(i + 1, "<TARGET>", arg)) {
                     return 1;
@@ -150,6 +126,106 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
                 i++;
+            } else if (arg == "--arithmetic") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string arithmetic_str = args.at(i + 1);
+                if (arithmetic_str == "--help" || arithmetic_str == "-h") {
+                    print_help_arithmetic();
+                    return 1;
+                }
+                if (arithmetic_str == "print") {
+                    overflow_mode = ArithmeticOverflowMode::PRINT;
+                } else if (arithmetic_str == "silent") {
+                    overflow_mode = ArithmeticOverflowMode::SILENT;
+                } else if (arithmetic_str == "crash") {
+                    overflow_mode = ArithmeticOverflowMode::CRASH;
+                } else if (arithmetic_str == "unsafe") {
+                    overflow_mode = ArithmeticOverflowMode::UNSAFE;
+                } else {
+                    print_err("Unknown Mode: " + arithmetic_str);
+                    return 1;
+                }
+                i++;
+            } else if (arg == "--array") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string array_str = args.at(i + 1);
+                if (array_str == "--help" || array_str == "-h") {
+                    print_help_array();
+                    return 1;
+                }
+                if (array_str == "print") {
+                    oob_mode = ArrayOutOfBoundsMode::PRINT;
+                } else if (array_str == "silent") {
+                    oob_mode = ArrayOutOfBoundsMode::SILENT;
+                } else if (array_str == "crash") {
+                    oob_mode = ArrayOutOfBoundsMode::CRASH;
+                } else if (array_str == "unsafe") {
+                    oob_mode = ArrayOutOfBoundsMode::UNSAFE;
+                } else {
+                    print_err("Unknown Mode: " + array_str);
+                    return 1;
+                }
+                i++;
+            } else if (arg == "--opaque") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string opaque_str = args.at(i + 1);
+                if (opaque_str == "--help" || opaque_str == "-h") {
+                    print_help_opaque();
+                    return 1;
+                }
+                if (opaque_str == "print") {
+                    opaque_leak_mode = OpaqueLeakMode::PRINT;
+                } else if (opaque_str == "silent") {
+                    opaque_leak_mode = OpaqueLeakMode::SILENT;
+                } else if (opaque_str == "crash") {
+                    opaque_leak_mode = OpaqueLeakMode::CRASH;
+                } else {
+                    print_err("Unknown Mode: " + opaque_str);
+                    return 1;
+                }
+                i++;
+            } else if (arg == "--optional") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string optional_str = args.at(i + 1);
+                if (optional_str == "--help" || optional_str == "-h") {
+                    print_help_optional();
+                    return 1;
+                }
+                if (optional_str == "crash") {
+                    opt_unwrap_mode = OptionalUnwrapMode::CRASH;
+                } else if (optional_str == "unsafe") {
+                    opt_unwrap_mode = OptionalUnwrapMode::UNSAFE;
+                } else {
+                    print_err("Unknown Mode: " + optional_str);
+                    return 1;
+                }
+                i++;
+            } else if (arg == "--variant") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string variant_str = args.at(i + 1);
+                if (variant_str == "--help" || variant_str == "-h") {
+                    print_help_variant();
+                    return 1;
+                }
+                if (variant_str == "crash") {
+                    var_unwrap_mode = VariantUnwrapMode::CRASH;
+                } else if (variant_str == "unsafe") {
+                    var_unwrap_mode = VariantUnwrapMode::UNSAFE;
+                } else {
+                    print_err("Unknown Mode: " + variant_str);
+                    return 1;
+                }
+                i++;
             } else if (arg.size() > 8 && arg.substr(0, 8) == "--flags=") {
                 const std::string flags = arg.substr(8, arg.size() - 8);
                 std::stringstream ss(flags);
@@ -157,71 +233,30 @@ class CLIParserMain : public CLIParserBase {
                 while (std::getline(ss, line, ' ')) {
                     compile_flags.push_back(line);
                 }
-            } else if (starts_with(arg, "--arithmetic-")) {
-                // Erase the '--arithmetic-' part of the string
-                const std::string arithmetic_overflow_behaviour = arg.substr(13, arg.length() - 13);
-                if (arithmetic_overflow_behaviour == "print") {
-                    overflow_mode = ArithmeticOverflowMode::PRINT;
-                } else if (arithmetic_overflow_behaviour == "silent") {
-                    overflow_mode = ArithmeticOverflowMode::SILENT;
-                } else if (arithmetic_overflow_behaviour == "crash") {
-                    overflow_mode = ArithmeticOverflowMode::CRASH;
-                } else if (arithmetic_overflow_behaviour == "unsafe") {
-                    overflow_mode = ArithmeticOverflowMode::UNSAFE;
-                } else {
-                    print_err("Unknown argument: " + arg);
+            } else if (arg == "--print-fip-version") {
+                print_fip_version = true;
+            } else if (arg == "--rebuild-core") {
+                BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            } else if (arg == "--print-libbuiltins-path") {
+                std::cout << Generator::get_flintc_cache_path().string() << std::endl;
+                return 1;
+            } else if (arg == "--no-colors") {
+                RED = "";
+                GREEN = "";
+                YELLOW = "";
+                BLUE = "";
+                CYAN = "";
+                WHITE = "";
+                DEFAULT = "";
+                GREY = "";
+                RED_UNDERLINE = "";
+            } else if (arg == "--output-ll-file") {
+                if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
-            } else if (starts_with(arg, "--array-")) {
-                // Erase the '--array-' part of the string
-                const std::string array_overflow_behaviour = arg.substr(8, arg.length() - 8);
-                if (array_overflow_behaviour == "print") {
-                    oob_mode = ArrayOutOfBoundsMode::PRINT;
-                } else if (array_overflow_behaviour == "silent") {
-                    oob_mode = ArrayOutOfBoundsMode::SILENT;
-                } else if (array_overflow_behaviour == "crash") {
-                    oob_mode = ArrayOutOfBoundsMode::CRASH;
-                } else if (array_overflow_behaviour == "unsafe") {
-                    oob_mode = ArrayOutOfBoundsMode::UNSAFE;
-                } else {
-                    print_err("Unknown argument: " + arg);
-                    return 1;
-                }
-            } else if (starts_with(arg, "--optional-")) {
-                // Erase the '--optional-' part of the string
-                const std::string optional_unwrap_behaviour = arg.substr(11, arg.length() - 11);
-                if (optional_unwrap_behaviour == "crash") {
-                    opt_unwrap_mode = OptionalUnwrapMode::CRASH;
-                } else if (optional_unwrap_behaviour == "unsafe") {
-                    opt_unwrap_mode = OptionalUnwrapMode::UNSAFE;
-                } else {
-                    print_err("Unknown argument: " + arg);
-                    return 1;
-                }
-            } else if (starts_with(arg, "--variant-")) {
-                // Erase the '--variant-' part of the string
-                const std::string variant_unwrap_behaviour = arg.substr(10, arg.length() - 10);
-                if (variant_unwrap_behaviour == "crash") {
-                    var_unwrap_mode = VariantUnwrapMode::CRASH;
-                } else if (variant_unwrap_behaviour == "unsafe") {
-                    var_unwrap_mode = VariantUnwrapMode::UNSAFE;
-                } else {
-                    print_err("Unknown argument: " + arg);
-                    return 1;
-                }
-            } else if (starts_with(arg, "--opaque-")) {
-                // Erase the '--opaque-' part of the string
-                const std::string opaque_leak_behaviour = arg.substr(9, arg.length() - 9);
-                if (opaque_leak_behaviour == "print") {
-                    opaque_leak_mode = OpaqueLeakMode::PRINT;
-                } else if (opaque_leak_behaviour == "silent") {
-                    opaque_leak_mode = OpaqueLeakMode::SILENT;
-                } else if (opaque_leak_behaviour == "crash") {
-                    opaque_leak_mode = OpaqueLeakMode::CRASH;
-                } else {
-                    print_err("Unknown argument: " + arg);
-                    return 1;
-                }
+                ll_file_path = get_absolute(cwd_path, args.at(i + 1));
+                build_exe = false;
+                i++;
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
                 PRINT_CUMULATIVE_PROFILE_RESULTS = true;
@@ -313,42 +348,18 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  -s, --static                    Build the executable as static\n";
         std::cout << "      --version                   Print the version of the compiler\n";
         std::cout << "      --target <TARGET>           Targets the given target platform (use --help for more information)\n";
-        std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker\n";
+        std::cout << "      --arithmetic <MODE>         Selecting the mode for arithmetic behaviour (use --help for more information)\n";
+        std::cout << "      --array <MODE>              Selecting the mode for array behaviour (use --help for more information)\n";
+        std::cout << "      --opaque <MODE>             Selecting the mode for opaque behaviour (use --help for more information)\n";
+        std::cout << "      --optional <MODE>           Selecting the mode for optional behaviour (use --help for more information)\n";
+        std::cout << "      --variant <MODE>            Selecting the mode for variant behaviour (use --help for more information)\n";
+        std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker (lld)\n";
         std::cout << "      --rebuild-core              Rebuild all the core modules\n";
         std::cout << "      --print-fip-version         Prints the version of the FIP this compiler uses\n";
         std::cout << "      --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
         std::cout << "      --no-colors                 Disables colored console output\n";
         std::cout << "      --output-ll-file <file>     Whether to output the compiled IR code\n";
-        std::cout << "                                  HINT: The compiler will not create an executable with this flag set";
-        std::cout << std::endl;
-        std::cout << "\nArithmetic Options:\n";
-        std::cout << "      --arithmetic-print          [Default] Prints a small message to the console whenever an overflow occurred\n";
-        std::cout << "      --arithmetic-silent         Disables the debug printing when an overflow or underflow happened\n";
-        std::cout << "      --arithmetic-crash          Hard crashes when an overflow / underflow occurred\n";
-        std::cout << "      --arithmetic-unsafe         Disables all overflow and underflow checks to make arithmetic operations faster";
-        std::cout << std::endl;
-        std::cout << "\nArray Options:\n";
-        std::cout << "      --array-print               [Default] Prints a small message to the console whenever accessing an array OOB\n";
-        std::cout << "      --array-silent              Disables the debug printing when OOB access happens\n";
-        std::cout << "      --array-crash               Hard crashes when an OOB access happens\n";
-        std::cout << "      --array-unsafe              Disables all bounds checks for array accesses\n";
-        std::cout << std::endl;
-        std::cout << "\nOpaque Leak Options:\n";
-        std::cout << "      --opaque-print              [Default] Prints a small message to the console whenever opaque memory is leaked\n";
-        std::cout << "      --opaque-silent             Disables all leak checking for opaque types\n";
-        std::cout << "      --opaque-crash              Hard crashes when opaque memory is leaked";
-        std::cout << std::endl;
-        std::cout << "\nOptional Options:\n";
-        std::cout
-            << "      --optional-crash            [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
-        std::cout << "      --optional-unsafe           Disables all \"has_value\"-checks for optionals when unwrapping\n";
-        std::cout << "                                  HINT: All optionals which have 'none' stored on them are zero-initialized";
-        std::cout << std::endl;
-        std::cout << "\nVariant Options:\n";
-        std::cout
-            << "      --variant-crash             [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
-        std::cout << "      --variant-unsafe            Disbales all \"is_type\"-checks for variants when unwrapping";
-        std::cout << std::endl;
+        std::cout << "                                  HINT: The compiler will not create an executable with this flag set\n";
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
         std::cout
@@ -385,9 +396,62 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
-        std::cout << "  native                      [Default] The native target truple of the platform the compiler is executed on\n";
-        std::cout << "  linux                       Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
-        std::cout << "  windows                     Targetting Windows (target triple 'x86_64-pc-windows-gnu')";
+        std::cout << "  native                          [Default] The native target truple of the platform the compiler is executed on\n";
+        std::cout << "  linux                           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+        std::cout << "  windows                         Targetting Windows (target triple 'x86_64-pc-windows-gnu')";
+        std::cout << std::endl;
+    }
+
+    void print_help_arithmetic() {
+        std::cout << "Usage: flintc --arithmetic <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout << "  print                           [Default] Prints a small message to the console whenever an overflow occurred\n";
+        std::cout << "  silent                          Disables the debug printing when an overflow or underflow happened\n";
+        std::cout << "  crash                           Hard crashes when an overflow / underflow occurred\n";
+        std::cout << "  unsafe                          Disables all overflow and underflow checks to make arithmetic operations faster";
+        std::cout << std::endl;
+    }
+
+    void print_help_array() {
+        std::cout << "Usage: flintc --array <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout << "  print                           [Default] Prints a small message to the console whenever accessing an array OOB\n";
+        std::cout << "  silent                          Disables the debug printing when OOB access happens\n";
+        std::cout << "  crash                           Hard crashes when an OOB access happens\n";
+        std::cout << "  unsafe                          Disables all bounds checks for array accesses\n";
+        std::cout << std::endl;
+    }
+
+    void print_help_opaque() {
+        std::cout << "Usage: flintc --opaque <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout << "  print                           [Default] Prints a small message to the console whenever opaque memory is leaked\n";
+        std::cout << "  silent                          Disables all leak checking for opaque types\n";
+        std::cout << "  crash                           Hard crashes when opaque memory is leaked";
+        std::cout << std::endl;
+    }
+
+    void print_help_optional() {
+        std::cout << "Usage: flintc --optional <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout
+            << "  crash                           [Default] Prints a small message and crashes whenever a bad optional unwrap happens\n";
+        std::cout << " unsafe                           Disables all \"has_value\"-checks for optionals when unwrapping\n";
+        std::cout << "                                  HINT: All optionals which have 'none' stored on them are zero-initialized";
+        std::cout << std::endl;
+    }
+
+    void print_help_variant() {
+        std::cout << "Usage: flintc --variant <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout
+            << "  crash                           [Default] Prints a small message and crashes whenever a bad variant unwrap happens\n";
+        std::cout << " unsafe                           Disbales all \"is_type\"-checks for variants when unwrapping";
         std::cout << std::endl;
     }
 };
