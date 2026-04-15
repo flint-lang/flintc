@@ -3186,7 +3186,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
         llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
         llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, element_type->getPointerTo(), "value_ptr_unsafe");
-        llvm::Value *value = IR::aligned_load(builder, variant_type, value_cast_ptr, "var_value_unsafe");
+        llvm::Value *value = IR::aligned_load(builder, element_type, value_cast_ptr, "var_value_unsafe");
         return std::vector<llvm::Value *>{value};
     }
 
@@ -3526,6 +3526,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         }
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
+            expr->dump();
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
         } else if (to_type_str == "u8") {
             return Module::TypeCast::iN_to_uN_trunc(builder, expr, 8);
