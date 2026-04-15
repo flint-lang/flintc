@@ -2,6 +2,10 @@
 
 #include "globals.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
+#include "parser/type/func_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 

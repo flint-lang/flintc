@@ -95,6 +95,10 @@ class FunctionNode : public DefinitionNode {
         }
         ss << "}";
         const std::string hash_str = ss.str();
+        static std::unordered_map<std::string, size_t> ids;
+        if (ids.find(hash_str) != ids.end()) {
+            return ids.at(hash_str);
+        }
 
         // FNV-1a hash algorithm constants
         constexpr uint64_t FNV_PRIME = 1099511628211ull;
@@ -115,7 +119,9 @@ class FunctionNode : public DefinitionNode {
         }
 
         // Shift left and handle zero case
-        return *reinterpret_cast<uint64_t *>(&container);
+        assert(ids.find(hash_str) == ids.end());
+        ids[hash_str] = *reinterpret_cast<uint64_t *>(&container);
+        return ids.at(hash_str);
     }
 
     // empty constructor

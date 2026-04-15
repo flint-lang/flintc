@@ -9,9 +9,13 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
+#include "parser/type/enum_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
 #include "single_executor_guard.hpp"
 
@@ -877,7 +881,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
     // Check if the argument count does match the parameter count
-    [[maybe_unused]] const unsigned int param_count = functions.front()->parameters.size();
+    const auto &parameters = functions.front()->parameters;
+    [[maybe_unused]] const unsigned int param_count = parameters.size();
     [[maybe_unused]] const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_functions_from_call_types` function would
     // have returned `an empty list`
@@ -894,11 +899,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             // never been suggested as a possible function to call in the first place
             arguments[i].first->type = std::get<0>(functions.front()->parameters[i]);
         }
-        if (arguments[i].first->type->get_variation() == Type::Variation::ENUM) {
-            arguments[i].second = false;
-        } else {
-            arguments[i].second = primitives.find(arguments[i].first->type->to_string()) == primitives.end();
+        const auto &param_type = std::get<0>(parameters.at(i));
+        if (!check_castability(param_type, arguments[i].first)) {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, param_type, arguments[i].first->type);
+            return std::nullopt;
         }
+        arguments[i].second = arguments[i].first->type->is_reference();
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference

@@ -70,6 +70,15 @@ class ExpressionNode : public ASTNode {
     /// @return `Variation` The variation of this expression node
     virtual Variation get_variation() const = 0;
 
+    /// @function `is_literal`
+    /// @brief Whether this expression is a literal (a type cast can, for example, still be a literal and the check is a bit more than just
+    /// checking the variation and that's why this function exists)
+    ///
+    /// @return `bool` Whether this expression is a literal, literals need special-case handling in the generator
+    virtual bool is_literal() const {
+        return false;
+    }
+
     /// @function `clone`
     /// @brief Clones this expression by creating a new expression node from this one
     ///

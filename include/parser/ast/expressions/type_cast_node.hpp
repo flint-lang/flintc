@@ -18,6 +18,10 @@ class TypeCastNode : public ExpressionNode {
         return Variation::TYPE_CAST;
     }
 
+    bool is_literal() const override {
+        return expr->is_literal();
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> expr_clone = expr->clone(scope_id);
         return std::make_unique<TypeCastNode>(type, expr_clone);

@@ -6,6 +6,7 @@
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/entity_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"

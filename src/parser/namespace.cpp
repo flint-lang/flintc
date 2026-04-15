@@ -11,6 +11,7 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/unknown_type.hpp"
+#include "parser/type/variant_type.hpp"
 
 std::optional<std::shared_ptr<Type>> Namespace::get_type_from_str(const std::string &type_str) const {
     // First check the global types since they are the most common

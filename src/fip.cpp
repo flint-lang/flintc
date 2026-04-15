@@ -11,6 +11,7 @@ fip_master_state_t master_state;
 #include "error/error.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"

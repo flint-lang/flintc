@@ -1,6 +1,7 @@
 #include "generator/generator.hpp"
 #include "parser/parser.hpp"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 
 static const std::string prefix = "flint.ts.";
 
@@ -47,9 +48,9 @@ void Generator::Module::ThreadStack::generate_types() {
         type_map["type.ts.stack"] = IR::create_struct_type("type.ts.stack",
             {
                 llvm::Type::getInt64Ty(context),                        // u64 capacity
-                ptr_ty,                                                 // ptr stack_ptr
                 llvm::Type::getInt32Ty(context),                        // u32 thread_id
                 llvm::Type::getInt32Ty(context),                        // u32 flags
+                ptr_ty,                                                 // ptr stack_ptr
                 llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char stack_data[]
             } //
         );
@@ -60,85 +61,7 @@ void Generator::Module::ThreadStack::generate_types() {
                 ptr_ty,                          // ptr thread_stack
                 llvm::Type::getInt64Ty(context), // u64 fn_id
                 type_map.at("type.flint.err"),   // err_t err
-                // llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char data[]
             } //
         );
-    }
-}
-
-void Generator::Module::ThreadStack::generate_ts_frames(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    generate_types();
-    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
-    // We start by getting all functions to generate their respective frame types and default values
-    const auto functions = Parser::get_all_functions();
-    for (const auto *function : functions) {
-        std::vector<llvm::Type *> frame_types = {ts_fn_ty};
-        // Append all return types in-order first
-        for (const auto &type : function->return_types) {
-            if (type->to_string() == "void") {
-                continue;
-            }
-            const auto t = IR::get_type(module, type);
-            if (t.second.first) {
-                frame_types.emplace_back(t.first->getPointerTo());
-            } else {
-                frame_types.emplace_back(t.first);
-            }
-        }
-        // Append all argument types in-order
-        for (const auto &[type, name, is_mut] : function->parameters) {
-            const auto t = IR::get_type(module, type);
-            if (t.second.first) {
-                frame_types.emplace_back(t.first->getPointerTo());
-            } else {
-                frame_types.emplace_back(t.first);
-            }
-        }
-        // Append all local variables in-order
-        const auto local_variables = function->scope.value()->get_all_variables();
-        for (const auto &[var_name, variable] : local_variables) {
-            if (variable.is_pseudo_variable || variable.is_fn_param) {
-                continue;
-            }
-            const auto t = IR::get_type(module, variable.type);
-            if (t.second.first) {
-                frame_types.emplace_back(t.first->getPointerTo());
-            } else {
-                frame_types.emplace_back(t.first);
-            }
-        }
-
-        // Create the struct type of the frame and the global default-initializer variable as well
-        std::string frame_type_name = function->file_hash.to_string() + ".type.ts." + function->name;
-        for (size_t i = 0; i < function->parameters.size(); i++) {
-            if (i == 0) {
-                frame_type_name += ".";
-            }
-            if (i > 0) {
-                frame_type_name += "_";
-            }
-            frame_type_name += std::get<0>(function->parameters.at(i))->to_string();
-        }
-        llvm::StructType *frame_type = IR::create_struct_type(frame_type_name, frame_types);
-        const size_t id = function->get_id();
-        assert(ts_defaults.find(id) == ts_defaults.end());
-        llvm::Constant *ts_fn_default = llvm::ConstantStruct::get(ts_fn_ty,
-            {
-                llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0)),
-                builder->getInt64(id),
-                llvm::Constant::getNullValue(type_map.at("type.flint.err")),
-            });
-        std::vector<llvm::Constant *> frame_elems = {ts_fn_default};
-        for (size_t i = 1; i < frame_types.size(); i++) {
-            frame_elems.push_back(IR::get_default_value_of_type(frame_types[i]));
-        }
-        llvm::Constant *frame_default = llvm::ConstantStruct::get(frame_type, frame_elems);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
-        ts_defaults[id] = new llvm::GlobalVariable(                                       //
-            *module, frame_type, false, llvm::GlobalValue::WeakODRLinkage, frame_default, //
-            function->file_hash.to_string() + ".default.ts." + function->name             //
-        );
-#pragma GCC diagnostic pop
     }
 }

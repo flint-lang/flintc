@@ -314,9 +314,7 @@ class Parser {
     /// @brief Clears all parser instances
     static void clear_instances() {
         instances.clear();
-        main_function_parsed = false;
-        main_function_has_ret = false;
-        main_function_has_args = false;
+        main_function.store({}, std::memory_order_release);
         TestNode::clear_test_names();
 
         // Clear all the other static containers that hold pointers to parser data
@@ -340,17 +338,9 @@ class Parser {
         const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                        //
     );
 
-    /// @var `main_function_parsed`
-    /// @brief Determines whether the main function has been parsed already. Atomic for thread-safe access
-    static inline std::atomic_bool main_function_parsed{false};
-
-    /// @var `main_function_has_ret`
-    /// @brief Whether the main function has an return value (i32 type)
-    static inline std::atomic_bool main_function_has_ret{false};
-
-    /// @var `main_function_has_args`
-    /// @brief Whether the main function has an args list (str[] type)
-    static inline std::atomic_bool main_function_has_args{false};
+    /// @var `main_function`
+    /// @brief The main function of the parsed program
+    static inline std::atomic<std::optional<FunctionNode *>> main_function{std::nullopt};
 
     /// @var `main_file_hash`
     /// @brief The hash of the file contianing the main function

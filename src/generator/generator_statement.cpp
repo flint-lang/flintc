@@ -317,18 +317,10 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
 
 bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ReturnNode *return_node) {
     // Get the return type of the function
-    auto *return_struct_type = llvm::cast<llvm::StructType>(ctx.parent->getReturnType());
-
-    // Allocate space for the function's return type (should be a struct type)
-    llvm::AllocaInst *return_struct = builder.CreateAlloca(return_struct_type, nullptr, "ret_struct");
-    return_struct->setAlignment(llvm::Align(Allocation::calculate_type_alignment(return_struct_type)));
-    return_struct->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context,
-                "Create ret struct '" + return_struct->getName().str() + "' of type '" + return_struct_type->getName().str() + "'")));
+    llvm::Value *stack_ptr = ctx.allocations.at("flint.stack");
 
     // First, always store the error code (0 for no error)
-    llvm::Value *error_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 0, "err_ptr");
+    llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), stack_ptr, 2, "error_ptr");
     IR::aligned_store(builder, llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0), error_ptr);
 
     // If we have a return value, store it in the struct
@@ -352,7 +344,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
         // Then, save all values of the return_value in the return struct
         if (return_value.value().size() == 1) {
-            llvm::Value *value_ptr = builder.CreateStructGEP(return_struct_type, return_struct, 1, "ret_val");
+            llvm::Value *value_ptr = ctx.allocations.at("flint.ret.0");
             if (return_node->return_value.value()->type->is_freeable()                                              //
                 && return_node->return_value.value()->type->get_variation() != Type::Variation::DATA                //
                 && return_node->return_value.value()->get_variation() == ExpressionNode::Variation::VARIABLE        //
@@ -365,8 +357,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
             } else {
                 llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().front(), value_ptr);
                 value_store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context, "Store result in return '" + return_struct->getName().str() + "'")));
+                    llvm::MDNode::get(context, llvm::MDString::get(context, "Store result in return field")));
             }
         } else {
             // As there are multiple values being returned we need to check if the the return expression is a group expression
@@ -375,12 +366,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                 exprs = &return_node->return_value.value()->as<GroupExpressionNode>()->expressions;
             }
             for (size_t i = 0; i < return_value.value().size(); i++) {
-                llvm::Value *value_ptr = builder.CreateStructGEP( //
-                    return_struct_type,                           //
-                    return_struct,                                //
-                    i + 1,                                        //
-                    "ret_val_" + std::to_string(i)                //
-                );
+                llvm::Value *value_ptr = ctx.allocations.at("flint.ret." + std::to_string(i));
                 // If this return value is a variable, is freeable and is a function parameter then we clone it into the return value
                 if (exprs != nullptr                                                               //
                     && exprs->at(i)->type->is_freeable()                                           //
@@ -395,9 +381,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                 }
                 llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().at(i), value_ptr);
                 value_store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context,
-                            "Store result " + std::to_string(i) + " in return '" + return_struct->getName().str() + "'")));
+                    llvm::MDNode::get(context, llvm::MDString::get(context, "Store result " + std::to_string(i) + " in return field")));
             }
         }
     }
@@ -419,32 +403,20 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
     }
     ctx.scope = old_scope;
 
-    // Generate the return instruction with the evaluated value
-    llvm::LoadInst *return_struct_val = IR::aligned_load(builder, return_struct_type, return_struct, "ret_val");
-    return_struct_val->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context, "Load allocated ret struct of type '" + return_struct_type->getName().str() + "'")));
-    builder.CreateRet(return_struct_val);
+    // Generate the return instruction and return 'false' (no error)
+    builder.CreateRet(builder.getInt1(false));
     return true;
 }
 
 bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ThrowNode *throw_node) {
-    // Get the return type of the function
-    auto *throw_struct_type = llvm::cast<llvm::StructType>(ctx.parent->getReturnType());
+    // Pointer to the error value of the current function
+    llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), 2);
 
-    // Allocate the struct and set all of its values to their respective default values
-    llvm::AllocaInst *throw_struct = Allocation::generate_default_struct(builder, throw_struct_type, "throw_ret", true);
-    throw_struct->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context, "Create default struct of type '" + throw_struct_type->getName().str() + "' except first value")));
-
-    // Create the pointer to the error value (the 0th index of the struct)
-    llvm::Value *error_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, 0, "err_ptr");
     // Generate the expression right of the throw statement, it has to be an error set
     Expression::garbage_type garbage;
     auto expr_result = Expression::generate_expression(builder, ctx, garbage, 0, throw_node->throw_value.get());
     llvm::Value *err_value = expr_result.value().front();
-    // Store the error value in the struct
+    // Store the error value in the error field of the current function
     IR::aligned_store(builder, err_value, error_ptr);
 
     // Clean up the function's scope before throwing an error
@@ -478,23 +450,9 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
         return_types.emplace_back(throw_type);
     }
 
-    // Properly "create" return values of complex types
-    for (size_t i = 0; i < return_types.size(); i++) {
-        if (return_types[i]->to_string() == "str") {
-            llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
-            llvm::Value *empty_str = builder.CreateCall(init_str_fn, {builder.getInt64(0)}, "empty_str");
-            llvm::Value *value_ptr = builder.CreateStructGEP(throw_struct_type, throw_struct, i + 1, "value_" + std::to_string(i) + "_ptr");
-            IR::aligned_store(builder, empty_str, value_ptr);
-        }
-        // TODO: Implement this for other complex types too (like data)
-    }
-
-    // Generate the throw (return) instruction with the evaluated value
-    llvm::LoadInst *throw_struct_val = IR::aligned_load(builder, throw_struct_type, throw_struct, "throw_val");
-    throw_struct_val->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context, "Load allocated throw struct of type '" + throw_struct_type->getName().str() + "'")));
-    builder.CreateRet(throw_struct_val);
+    // Don't fill the return values of the function frame, we rely on the default-values of the return values being stored within the
+    // function frame
+    builder.CreateRet(builder.getInt1(true));
     return true;
 }
 
@@ -1027,12 +985,12 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         if (iterators.second.has_value()) {
             const unsigned int scope_id = for_node->definition_scope->scope_id;
             const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
-            llvm::Value *const element_alloca = ctx.allocations.at(element_alloca_name);
             if (is_range) {
+                llvm::Value *const element_alloca = ctx.allocations.at(element_alloca_name);
                 IR::aligned_store(builder, current_element, element_alloca);
             } else {
                 // For non-range, replace the old nullptr alloca with the new alloca
-                assert(element_alloca == nullptr);
+                assert(ctx.allocations.find(element_alloca_name) == ctx.allocations.end());
                 ctx.allocations.erase(element_alloca_name);
                 ctx.allocations.emplace(element_alloca_name, current_element_ptr);
             }
@@ -1075,8 +1033,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
 bool Generator::Statement::generate_optional_switch_statement( //
     llvm::IRBuilder<> &builder,                                //
     GenerationContext &ctx,                                    //
-    const SwitchStatement *switch_statement,                   //
-    llvm::Value *switch_value                                  //
+    const SwitchStatement *switch_statement                    //
+    // llvm::Value *switch_value                                  //
 ) {
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
     const std::shared_ptr<Scope> original_scope = ctx.scope;
@@ -1112,9 +1070,9 @@ bool Generator::Statement::generate_optional_switch_statement( //
             const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
             const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
             llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
-            if (switch_value->getType()->isPointerTy()) {
-                switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
-            }
+            // if (switch_value->getType()->isPointerTy()) {
+            //     switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
+            // }
             llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
             if (match_node->name.has_value()) {
                 const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name.value();
@@ -1279,6 +1237,13 @@ bool Generator::Statement::generate_switch_statement( //
     GenerationContext &ctx,                           //
     const SwitchStatement *switch_statement           //
 ) {
+    const auto switcher_type_variation = switch_statement->switcher->type->get_variation();
+    if (switcher_type_variation == Type::Variation::OPTIONAL) {
+        // Switching on optionals requires that the optional value we switch-on is a variable so we do not need to do the expr generation
+        // for optionals
+        return generate_optional_switch_statement(builder, ctx, switch_statement);
+    }
+
     // Generate the switch expression
     Expression::garbage_type garbage;
     group_mapping expr_result = Expression::generate_expression(builder, ctx, garbage, 0, switch_statement->switcher.get());
@@ -1289,10 +1254,6 @@ bool Generator::Statement::generate_switch_statement( //
     }
 
     // Generate the switch branches specially if we switch on various types
-    const auto switcher_type_variation = switch_statement->switcher->type->get_variation();
-    if (switcher_type_variation == Type::Variation::OPTIONAL) {
-        return generate_optional_switch_statement(builder, ctx, switch_statement, switch_value);
-    }
     if (switcher_type_variation == Type::Variation::VARIANT) {
         return generate_variant_switch_statement(builder, ctx, switch_statement, switch_value);
     }
@@ -1398,21 +1359,6 @@ bool Generator::Statement::generate_switch_statement( //
 bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CatchNode *catch_node) {
     // The catch statement is basically just an if check if the err value of the function return is != 0 or not
     const CallNodeBase *call_node = catch_node->call_node;
-    const std::string err_ret_name = "s" + std::to_string(call_node->scope_id) + "::c" + std::to_string(call_node->call_id) + "::err";
-    llvm::Value *const err_var = ctx.allocations.at(err_ret_name);
-
-    // Load the error value
-    llvm::Type *const error_type = type_map.at("type.flint.err");
-    llvm::Value *err_val_ptr = builder.CreateStructGEP(error_type, err_var, 0, "err_val_ptr");
-    llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
-        llvm::Type::getInt32Ty(context),                                              //
-        err_val_ptr,                                                                  //
-        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_err" //
-    );
-    err_val->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context,
-                "Load err val of call '" + call_node->function->name + "::" + std::to_string(call_node->call_id) + "'")));
 
     llvm::BasicBlock *last_block = &ctx.parent->back();
     llvm::BasicBlock *first_block = &ctx.parent->front();
@@ -1437,16 +1383,8 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     );
     builder.SetInsertPoint(current_block);
 
-    // Create the if check and compare the err value to 0
-    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
-    llvm::Value *err_condition = builder.CreateICmpNE( //
-        err_val,                                       //
-        zero,                                          //
-        "errcmp"                                       //
-    );
-
     // Create the branching operation
-    builder.CreateCondBr(err_condition, catch_block, merge_block)
+    builder.CreateCondBr(last_err_values.first, catch_block, merge_block)
         ->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context,
@@ -1456,11 +1394,23 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     ctx.scope = catch_node->scope;
     builder.SetInsertPoint(catch_block);
 
+    // Load the error value
+    llvm::Value *const stack_frame = last_err_values.second;
+    llvm::Value *const err_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), stack_frame, 2, "err_ptr");
+    llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
+        llvm::Type::getInt32Ty(context),                                              //
+        err_ptr,                                                                      //
+        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_err" //
+    );
+    err_val->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
+                "Load err val of call '" + call_node->function->name + "::" + std::to_string(call_node->call_id) + "'")));
     std::string err_alloca_name;
     if (catch_node->var_name.has_value()) {
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
-        ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
+        ctx.allocations.insert({err_alloca_name, err_ptr});
         // Generate the body of the catch block
         if (!generate_body(builder, ctx)) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -1472,8 +1422,8 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         const auto *switch_statement = catch_node->scope->body.front()->as<SwitchStatement>();
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::flint.value_err";
-        ctx.allocations.insert({err_alloca_name, ctx.allocations.at(err_ret_name)});
-        if (!generate_variant_switch_statement(builder, ctx, switch_statement, err_var)) {
+        ctx.allocations.insert({err_alloca_name, err_ptr});
+        if (!generate_variant_switch_statement(builder, ctx, switch_statement, err_ptr)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
@@ -1961,7 +1911,13 @@ bool Generator::Statement::generate_data_field_assignment( //
         return false;
     }
     llvm::Value *expr_val = expression.value().front();
-    auto base_expr = Expression::generate_expression(builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), true);
+    const auto &base_expr_type = data_field_assignment->base_expr->type;
+    const bool is_bool8 = base_expr_type->to_string() == "bool8";
+    const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
+    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
+    auto base_expr = Expression::generate_expression(                                                      //
+        builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    );
     if (!base_expr.has_value()) {
         return false;
     }
@@ -1972,7 +1928,7 @@ bool Generator::Statement::generate_data_field_assignment( //
     }
     llvm::Value *const var_alloca = base_expr.value().front();
 
-    if (data_field_assignment->base_expr->type->to_string() == "bool8") {
+    if (is_bool8) {
         // The 'field access' is actually the bit at the given field index
         // Load the current value of the bool8 (i8)
         llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, "current_field_val");
@@ -1994,9 +1950,6 @@ bool Generator::Statement::generate_data_field_assignment( //
     const std::shared_ptr<Type> &field_type = data_field_assignment->field_type;
     auto data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->base_expr->type);
     llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, var_alloca, data_field_assignment->field_id);
-
-    // TODO? Check if the field is a complex type and create an allocation before storing
-    // TODO? Check if the field is an optional type and check whether to need an allocation for the optional value
 
     // Check if the field is an optional type
     if (field_type->get_variation() == Type::Variation::OPTIONAL) {
@@ -2122,7 +2075,13 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    auto base_expr = Expression::generate_expression(builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), true);
+    const auto &base_expr_type = grouped_field_assignment->base_expr->type;
+    const bool is_bool8 = base_expr_type->to_string() == "bool8";
+    const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
+    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
+    auto base_expr = Expression::generate_expression(                                                         //
+        builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    );
     if (!base_expr.has_value()) {
         return false;
     }
@@ -2133,7 +2092,7 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
     }
     llvm::Value *const var_alloca = base_expr.value().front();
 
-    if (grouped_field_assignment->base_expr->type->to_string() == "bool8") {
+    if (is_bool8) {
         // Load the current value of the bool8 (i8)
         llvm::Value *current_value = IR::aligned_load(builder, builder.getInt8Ty(), var_alloca, "grouped_field_access_val");
         llvm::Value *new_value = current_value;

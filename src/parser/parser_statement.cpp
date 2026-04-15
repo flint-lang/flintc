@@ -14,6 +14,7 @@
 #include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/range_type.hpp"

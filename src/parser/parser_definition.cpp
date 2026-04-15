@@ -52,7 +52,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         token_slice err_tokens = {std::prev(tok_it), definition.second};
         THROW_ERR(ErrFnReservedName, ERR_PARSING, file_hash, err_tokens, name);
         return std::nullopt;
-    } else if (name == "main" && main_function_parsed) {
+    } else if (name == "main" && main_function.load().has_value()) {
         // Redefinition of the main function
         token_slice err_tokens = {std::prev(tok_it), definition.second};
         THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens);
@@ -203,7 +203,6 @@ std::optional<FunctionNode> Parser::create_function(                            
         }
 
         // The parameter list either has to be empty or contain one `str[]` parameter
-        main_function_has_args = !parameters.empty();
         if (parameters.size() > 1) {
             // Too many parameters for the main function
             const token_slice err_tokens = {arg_start_it, arg_end_it};
@@ -222,8 +221,6 @@ std::optional<FunctionNode> Parser::create_function(                            
             THROW_ERR(ErrFnMainInvalid, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
         }
-        main_function_has_ret = !return_types.empty();
-        main_function_parsed = true;
         main_file_hash = file_hash;
     }
 

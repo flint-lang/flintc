@@ -103,11 +103,10 @@ class Generator {
     /// @brief Generates the llvm IR code for a single file and saves it into a llvm module
     ///
     /// @param `module` The module in which to emit the file IR code in
-    /// @param `dep_node` The dependency graph node of the file (used for circular dependencies)
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
     /// @return `bool` Whether the file IR was generated correctly
-    static bool generate_file_ir(llvm::Module *module, const std::shared_ptr<DepNode> &dep_node, FileNode &file, const bool is_test);
+    static bool generate_file_ir(llvm::Module *module, FileNode &file, const bool is_test);
 
     /// @function `get_module_ir_string`
     /// @brief Generates the IR code of the given Module and returns it as a string
@@ -191,6 +190,10 @@ class Generator {
     /// @struct `GenerationContext`
     /// @brief The context of the Generation
     struct GenerationContext {
+        /// @var `stack_type`
+        /// @brief The type of the stack struct the function operates on
+        llvm::StructType *stack_type;
+
         /// @var `parent`
         /// @brief The function the generation happens in
         llvm::Function *parent;
@@ -261,33 +264,6 @@ class Generator {
     /// @note This map is static and persists throughout the module's lifecyle
     static inline std::unordered_map<std::string, std::unordered_map<std::string, std::vector<llvm::CallInst *>>> file_unresolved_functions;
 
-    /// @var `function_mangle_ids`
-    /// @brief Stores all mangle IDs for all functions in the module currently being generated
-    ///
-    /// This data structure is used during the module generation process to track the mangle IDs of all functions within the module
-    /// currently being generated. Because every function inside the generated module can appear in any order, all function definitions have
-    /// to be forward-declared within the generated module, thus _every_ function inside the module does have a mangle ID
-    ///
-    /// @details
-    /// - **Key** `std::string` - Name of the function (including the namespace hash before it like `Asdfb9s5.fn_name`)
-    /// - **Value** `unsigned int` - Manlge ID of the function
-    ///
-    /// @note This map is being cleared at the end of every file module generation pass
-    // static inline std::unordered_map<std::string, unsigned int> function_mangle_ids;
-
-    /// @var `file_function_mangle_ids`
-    /// @brief Stores all mangle ids for all functions from all files
-    ///
-    /// This data structure is used during the module generation process to track the mangle IDs of all functions of all generated
-    /// files. It is used at the end of the main module generation to resolve all unresolved function calls between files.
-    ///
-    /// @details
-    /// - **Key** `std::string` - Name of the file the functions are defined in
-    /// - **Value** `std::unordered_map<std::string, unsigned int>` - The function mangle id map containing all ids of all functions
-    ///
-    /// @attention This map is never cleared so it is considered unsafe generating multiple programs within one lifetime of the program
-    // static inline std::unordered_map<std::string, std::unordered_map<std::string, unsigned int>> file_function_mangle_ids;
-
     /// @var `function_names`
     /// @brief A vector of all function names within the current file
     ///
@@ -348,6 +324,12 @@ class Generator {
     /// @brief The last basic block to merge to, its a list in order to not needing to update the merge block after every nested loop
     /// statement
     static inline std::vector<llvm::BasicBlock *> last_loop_merge_blocks;
+
+    /// @var `last_err_values`
+    /// @brief The last error values. The first value of the pair is the return value of the called function, the boolean whether the
+    /// function has thrown an error, and the second value of the pair is the error value of the function itself, e.g. the pointer to the
+    /// "next" TS frame. The second value of the pair needs to be struct GEPd still with the `type.ts.function` type to get the error ptr
+    static inline std::pair<llvm::Value *, llvm::Value *> last_err_values;
 
     /// @var `enum_name_arrays_map`
     /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
@@ -752,44 +734,47 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Allocation() = delete;
 
-        /// @function `generate_allocations`
-        /// @brief Generates all allocations of the given scope recursively. Adds all AllocaInst pointer to the allocations map
+        /// @function `generate_function_allocations`
+        /// @brief Generates all allocations of the given function recursively. Adds all "allocation" pointers to the allocations map
         ///
         /// This function is meant to be called at the start of the generate_function function. This function goes through all
         /// statements and expressions recursively down the scope and enters every sub-scope too and generates all allocations of all
-        /// function variables at the start of the function. This is done to make StackOverflows nearly impossible. Before this
-        /// pre-allocation system for all variables was implemented, StackOverflows were common (when calling functions inside loops),
-        /// caused by the creation of a return struct for every function call.
+        /// function variables at the start of the function. This function also crates a struct type for each function for the Thread Stack
+        /// system.
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The Function the allocations are generated in
-        /// @param `scope` The Scope from which all allocations are collected and allocated at the start of the scope
+        /// @param `function` The Function whose struct type is created and the allocation map is filled with it's struct GEPs
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `imported_core_modules` The list of imported core modules
+        /// @return `std::optional<llvm::StructType *>` The generated struct type of the function, if everything was successful
+        ///
+        /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
+        /// allocations map before calling this function, you need to clear it yourself.
+        [[nodiscard]] static std::optional<llvm::StructType *> generate_function_allocations( //
+            llvm::IRBuilder<> &builder,                                                       //
+            llvm::Function *parent,                                                           //
+            const FunctionNode *function,                                                     //
+            std::unordered_map<std::string, llvm::Value *const> &allocations                  //
+        );
+
+        /// @function `generate_allocations`
+        /// @brief Generates all allocations of the given scope recursively. Adds all AllocaInst pointer to the allocations map
+        ///
+        /// This function is called recursively and collects all accessor names for the allocation map and the respective type and ID for
+        /// the struct GEP when accessing the functions "fields" respectively.
+        ///
+        /// @param `scope` The Scope from which all allocations are collected and allocated at the start of the scope
+        /// @param `struct_types` The map of the struct types within the function's Thread Stack struct
         /// @return `bool` Whether all allocations were successful
         ///
         /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
         /// allocations map before calling this function, you need to clear it yourself.
-        [[nodiscard]] static bool generate_allocations(                                     //
-            llvm::IRBuilder<> &builder,                                                     //
-            llvm::Function *parent,                                                         //
-            const std::shared_ptr<Scope> scope,                                             //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,               //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
-        );
-
-        /// @function `generate_function_allocations`
-        /// @brief Maps the argument values to fake allocations in the allocations map to make them accessible in the functions body
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The Function from which the arguments are mapped to allocations (if arguments are of non-primitive type)
-        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name etc is encoded
-        /// @param `function` The function node from which to map the argument allocations
-        static void generate_function_allocations(                            //
-            llvm::IRBuilder<> &builder,                                       //
-            llvm::Function *parent,                                           //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const FunctionNode *function                                      //
+        [[nodiscard]] static bool generate_allocations(                          //
+            llvm::IRBuilder<> &builder,                                          //
+            llvm::Function *parent,                                              //
+            const std::shared_ptr<Scope> scope,                                  //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types //
         );
 
         /// @funnction `generate_call_allcoations`
@@ -798,19 +783,17 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the allocations are generated in
         /// @param `scope` The scope the allocation would take place in
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
         /// @param `call_node` The CallNode used to generate the allocations from
         /// @return `bool` Whether the call allocations were all successful
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_call_allocations(                                 //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const CallNodeBase *call_node                                                    //
+        [[nodiscard]] static bool generate_call_allocations(                      //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const CallNodeBase *call_node                                         //
         );
 
         /// @funnction `generate_if_allcoations`
@@ -819,17 +802,15 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the allocations are generated in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `if_node` The IfNode used to generate the allocations from
         /// @return `bool` Whether the if allocations were all successful
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_if_allocations(                                   //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const IfNode *if_node                                                            //
+        [[nodiscard]] static bool generate_if_allocations(                        //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const IfNode *if_node                                                 //
         );
 
         /// @function `generate_enh_for_allocations`
@@ -838,17 +819,15 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The function the allocations are generated in
         /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `for_node` The enhanced for loop node to generate allocations for
         /// @return `bool` Whether the allocations were all successfull
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_enh_for_allocations(                              //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const EnhForLoopNode *for_node                                                   //
+        [[nodiscard]] static bool generate_enh_for_allocations(                   //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const EnhForLoopNode *for_node                                        //
         );
 
         /// @function `generate_switch_statement_allocations`
@@ -858,18 +837,16 @@ class Generator {
         /// @param `parent` The function the allocations are generated in
         /// @param `scope` The scope in which the switch statement is defined in
         /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `switch_statement` The switch statement from which to generate all allocations
         /// @return `bool` Whether the allocations were all successfull
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_switch_statement_allocations(                     //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const SwitchStatement *switch_statement                                          //
+        [[nodiscard]] static bool generate_switch_statement_allocations(          //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const SwitchStatement *switch_statement                               //
         );
 
         /// @function `generate_switch_expression_allocations`
@@ -879,18 +856,16 @@ class Generator {
         /// @param `parent` The function the allocations are generated in
         /// @param `scope` The scope in which the switch statement is defined in
         /// @param `allocations` The map of allocations, where tin the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `switch_expression` The switch expression from which to generate all allocations
         /// @return `bool` Whether the allocations were all successfull
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_switch_expression_allocations(                    //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const SwitchExpression *switch_expression                                        //
+        [[nodiscard]] static bool generate_switch_expression_allocations(         //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const SwitchExpression *switch_expression                             //
         );
 
         /// @funnction `generate_declaration_allcoations`
@@ -900,18 +875,16 @@ class Generator {
         /// @param `parent` The function the allocations are generated in
         /// @param `scope` The scope the allocation would take place in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `declaration_node` The DeclarationNode used to generate the allocations from
         /// @return `bool` Whether all declaration allocations succeeded
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_declaration_allocations(                          //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const DeclarationNode *declaration_node                                          //
+        [[nodiscard]] static bool generate_declaration_allocations(               //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const DeclarationNode *declaration_node                               //
         );
 
         /// @funnction `generate_group_declaration_allcoations`
@@ -921,18 +894,16 @@ class Generator {
         /// @param `parent` The function the allocations are generated in
         /// @param `scope` The scope the allocation would take place in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `group_declaration_node` The GroupDeclarationNode used to generate the allocations from
         /// @return `bool` Whether all group declaration allocations were successful
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_group_declaration_allocations(                    //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const GroupDeclarationNode *group_declaration_node                               //
+        [[nodiscard]] static bool generate_group_declaration_allocations(         //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const GroupDeclarationNode *group_declaration_node                    //
         );
 
         /// @function `generate_array_indexing_allocation`
@@ -944,7 +915,7 @@ class Generator {
         /// @param `indexing_expressions` The indexing expressions of the array
         static void generate_array_indexing_allocation(                              //
             llvm::IRBuilder<> &builder,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,        //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types,    //
             const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         );
 
@@ -954,36 +925,16 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `scope` The scope the allocation would take place in
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc in encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @param `expression` The expression to search for calls for
         /// @param `bool` Whether all expression allocations were successful
         ///
         /// @attention The allocations map will be modified
-        [[nodiscard]] static bool generate_expression_allocations(                           //
-            llvm::IRBuilder<> &builder,                                                      //
-            llvm::Function *parent,                                                          //
-            const std::shared_ptr<Scope> scope,                                              //
-            std::unordered_map<std::string, llvm::Value *const> &allocations,                //
-            const std::unordered_map<std::string, ImportNode *const> &imported_core_modules, //
-            const ExpressionNode *expression                                                 //
-        );
-
-        /// @function `generate_allocation`
-        /// @brief Generates a custom allocation call. This is a helper function to make allocations easier
-        ///
-        /// @param `builder` The LLVM IRBuilder
-        /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `alloca_name` The name of the allocation (its name in the allocations map)
-        /// @param `type` The type of the allocation
-        /// @param `ir_name` The name of the allocation, only important for the IR Code output
-        /// @param `ir_comment` The comment the allocation gets, only important for the IR Code output
-        static void generate_allocation(                                      //
-            llvm::IRBuilder<> &builder,                                       //
-            std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const std::string &alloca_name,                                   //
-            llvm::Type *type,                                                 //
-            const std::string &ir_name,                                       //
-            const std::string &ir_comment                                     //
+        [[nodiscard]] static bool generate_expression_allocations(                //
+            llvm::IRBuilder<> &builder,                                           //
+            llvm::Function *parent,                                               //
+            const std::shared_ptr<Scope> scope,                                   //
+            std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
+            const ExpressionNode *expression                                      //
         );
 
         /// @function `calculate_type_alignment`
@@ -1029,6 +980,35 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Function() = delete;
 
+        /// @struct `FunctionContext`
+        /// @brief A simple struct contianing the function to generate the body for and it's respective allocations
+        ///
+        /// @info This structure is needed because of the two-phase generation approach to functions needed from the Thread Stack. In the
+        /// frst phase, we need to generate all the function frame struct types for the TS and in the second phase we actually generate all
+        /// the bodies of the functions. This is needed because functions can cross-call one another and when calling a function it's TS
+        /// frame type and default value already has to be generated
+        struct FunctionContext {
+            /// @var `function`
+            /// @brief The function to generate itself, it's entry point will be generate in the `generate_function_setup` function while
+            /// it's body is generate in the `generate_function_body` function
+            llvm::Function *function;
+
+            /// @var `function_type`
+            /// @brief The function frame type being generated when calling the `Allocation::generate_function_allocations` function needed
+            /// for the TS and the generation of the body itself
+            llvm::StructType *function_type;
+
+            /// @var `allocations`
+            /// @brief The map of all "allocations" of the function, being struct GEPs into the function frame in the setup block, needed
+            /// for the generation of the function body
+            std::unordered_map<std::string, llvm::Value *const> allocations;
+        };
+
+        /// @var `function_allocations`
+        /// @brief A map which maps the function ID to function context of the given function containing all information needed for the body
+        /// generation of the function
+        static inline std::map<size_t, FunctionContext> function_contexts;
+
         /// @function `generate_function_type`
         /// @brief Generates the type information of a given FunctionNode
         ///
@@ -1039,17 +1019,23 @@ class Generator {
         /// @note This function handles a lot of work to get external function definitions right. It splits struct argument types or refines
         /// return types etc. This function, like the `Expression::generate_extern_call` function are the boundary between Flint and the
         /// outside world.
-        static llvm::FunctionType *generate_function_type(llvm::Module *module, FunctionNode *function_node);
+        static llvm::FunctionType *generate_function_type(llvm::Module *module, const FunctionNode *function_node);
 
-        /// @function `generate_function`
-        /// @brief Generates a function from a given FunctionNode
+        /// @function `generate_function_setup`
+        /// @brief Generates the setup entry point and the function frame type from a given FunctionNode
         ///
         /// @param `module` The LLVM Module the function will be generated in
+        /// @param `function_node` The FunctionNode used to generate the function type and entry point
+        /// @return `bool` Whether the code generation of the function was successful
+        [[nodiscard]] static bool generate_function_setup(llvm::Module *module, const FunctionNode *function_node);
+
+        /// @function `generate_function_body`
+        /// @brief Generates the function body from a given FunctionNode
+        ///
         /// @param `function_node` The FunctionNode used to generate the function
         /// @param `imported_core_modules` The list of imported core modules
         /// @return `bool` Whether the code generation of the function was successful
-        [[nodiscard]] static bool generate_function(                                        //
-            llvm::Module *module,                                                           //
+        [[nodiscard]] static bool generate_function_body(                                   //
             FunctionNode *function_node,                                                    //
             const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
         );
@@ -1271,8 +1257,8 @@ class Generator {
         [[nodiscard]] static bool generate_optional_switch_statement( //
             llvm::IRBuilder<> &builder,                               //
             GenerationContext &ctx,                                   //
-            const SwitchStatement *switch_statement,                  //
-            llvm::Value *switch_value                                 //
+            const SwitchStatement *switch_statement                   //
+            // llvm::Value *switch_value                                 //
         );
 
         /// @function `generate_switch_statement`
@@ -1598,6 +1584,24 @@ class Generator {
             const CallNodeBase *call_node   //
         );
 
+        /// @function `generate_builtin_call`
+        /// @brief Generates a builtin call
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `call_node` The call node to generate
+        /// @return `group_mapping` The value(s) containing the result of the call
+        static group_mapping generate_builtin_call( //
+            llvm::IRBuilder<> &builder,             //
+            GenerationContext &ctx,                 //
+            garbage_type &garbage,                  //
+            std::vector<llvm::Value *> &args,       //
+            const CallNodeBase *call_node,          //
+            const std::string &function_name,       //
+            const std::string &module_name,         //
+            const overloads &fn_overloads           //
+        );
+
         /// @function `generate_instance_call`
         /// @brief Generates the instance call from the given InstanceCallNode
         ///
@@ -1756,13 +1760,15 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `access` The array access to generate
+        /// @param `is_reference` Whether the result of the array access should be a reference
         /// @return `llvm::Value *` The accessed element
         static llvm::Value *generate_array_access( //
             llvm::IRBuilder<> &builder,            //
             GenerationContext &ctx,                //
             garbage_type &garbage,                 //
             const unsigned int expr_depth,         //
-            const ArrayAccessNode *access          //
+            const ArrayAccessNode *access,         //
+            const bool is_reference = false        //
         );
 
         /// @function `generate_array_access`
@@ -1776,16 +1782,18 @@ class Generator {
         /// @param `result_type` The result type of the array access (being the `base_type` of the array type itself most of times)
         /// @param `base_expr` The base expression to generate, if no `base_expr_value` is provided
         /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
+        /// @param `is_reference` Whether the result of the array access should be a reference
         /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_access(                                   //
-            llvm::IRBuilder<> &builder,                                              //
-            GenerationContext &ctx,                                                  //
-            garbage_type &garbage,                                                   //
-            const unsigned int expr_depth,                                           //
-            std::optional<llvm::Value *> base_expr_value,                            //
-            const std::shared_ptr<Type> result_type,                                 //
-            const std::unique_ptr<ExpressionNode> &base_expr,                        //
-            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
+        static llvm::Value *generate_array_access(                                    //
+            llvm::IRBuilder<> &builder,                                               //
+            GenerationContext &ctx,                                                   //
+            garbage_type &garbage,                                                    //
+            const unsigned int expr_depth,                                            //
+            std::optional<llvm::Value *> base_expr_value,                             //
+            const std::shared_ptr<Type> result_type,                                  //
+            const std::unique_ptr<ExpressionNode> &base_expr,                         //
+            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions, //
+            const bool is_reference = false                                           //
         );
 
         /// @function `generate_array_slice`
@@ -1890,13 +1898,15 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `unwrap` The optional unwrap node node to generate
+        /// @param `is_reference` Whether the result of the optional unwrap should be a reference
         /// @return `group_mapping` The value(s) containing the result of the optional unwrap
         static group_mapping generate_optional_unwrap( //
             llvm::IRBuilder<> &builder,                //
             GenerationContext &ctx,                    //
             garbage_type &garbage,                     //
             const unsigned int expr_depth,             //
-            const OptionalUnwrapNode *unwrap           //
+            const OptionalUnwrapNode *unwrap,          //
+            const bool is_reference = false            //
         );
 
         /// @function `generate_variant_extraction`
@@ -1933,15 +1943,13 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `type_cast_node` The type cast to generate
-        /// @param `is_reference` Whether the result of the expression should be a reference. This is only possible for certain
         /// @return `group_mapping` The value(s) containing the result of the type cast
         static group_mapping generate_type_cast( //
             llvm::IRBuilder<> &builder,          //
             GenerationContext &ctx,              //
             garbage_type &garbage,               //
             const unsigned int expr_depth,       //
-            const TypeCastNode *type_cast_node,  //
-            const bool is_reference = false      //
+            const TypeCastNode *type_cast_node   //
         );
 
         /// @function `generate_type_cast`
@@ -4053,6 +4061,34 @@ class Generator {
             // The constructor is deleted to make this class non-initializable
             ThreadStack() = delete;
 
+            /// @var `TS_DATA_SIZE`
+            /// @brief The size of the data section of the thread stack in bytes
+            static constexpr inline size_t TS_DATA_SIZE = 1 << 21;
+
+            /// @struct `STACK`
+            /// @brief This struct type's only purpose is to act as a namespace for all the field IDs of the `type.ts.stack` struct type.
+            ///        Because of potential changes to the structure in the future, it is much more safe to access struct fields through
+            ///        these named values instead of hard-coded element positions within the struct type
+            struct STACK {
+                static constexpr inline size_t CAPACITY = 0;
+                static constexpr inline size_t THREAD_ID = 1;
+                static constexpr inline size_t FLAGS = 2;
+                static constexpr inline size_t STACK_PTR = 3;
+                static constexpr inline size_t STACK_DATA = 4;
+            };
+
+            /// @struct `FUNCTION`
+            /// @brief This struct type's only purpose is to act as a namespace for all the field IDs of the `type.ts.function` struct type.
+            struct FUNCTION {
+                static constexpr inline size_t THREAD_STACK = 0;
+                static constexpr inline size_t FN_ID = 1;
+                static constexpr inline size_t ERR = 2;
+            };
+
+            /// @var `ts`
+            /// @brief The global thread stack variable itself, only one variable for now as multi-threading is not implemented yet
+            static inline llvm::GlobalVariable *ts;
+
             /// @var `ts_frames`
             /// @brief The thread stack frames, the struct types of the function frames
             ///
@@ -4070,14 +4106,6 @@ class Generator {
             /// @function `generate_types`
             /// @brief Generates the struct types for everything thread-stack related
             static void generate_types();
-
-            /// @function `generate_ts_frames`
-            /// @brief Generates all the thread stack frames for all user-defined functions. These frames are simple struct types for the
-            /// respective functions.
-            ///
-            /// @param `builder` The LLVM IR Builder needed for the default-initializer generation
-            /// @param `module` The LLVM Module in which to generate the ts frame types
-            static void generate_ts_frames(llvm::IRBuilder<> *builder, llvm::Module *module);
         };
 
         /// @class `TypeCast`

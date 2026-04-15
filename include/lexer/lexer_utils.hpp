@@ -284,7 +284,7 @@ static const std::unordered_map<std::string_view, Token> primitives = {
     {"opaque", TOK_OPAQUE},
 };
 
-static std::string get_token_name(Token token) {
+[[maybe_unused]] static std::string get_token_name(Token token) {
     switch (token) {
         case TOK_TYPE:
             return "TYPE";

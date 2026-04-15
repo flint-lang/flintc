@@ -122,6 +122,12 @@ class Type {
     /// @return `uint32_t` The unique ID of this type
     uint32_t get_id() const;
 
+    /// @function `is_reference`
+    /// @brief Whether this type is a reference
+    ///
+    /// @return `bool` Whether this type is a reference
+    bool is_reference() const;
+
     /// @function `init_types`
     /// @brief Initializes all primitive types to be ready to be used
     /// @note This function only needs to be called once at the start of the parsing phase

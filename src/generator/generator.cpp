@@ -286,12 +286,27 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
         Module::System::generate_system_functions(nullptr, module.get(), true);
     }
-    Module::ThreadStack::generate_ts_frames(builder.get(), module.get());
+    Module::ThreadStack::generate_types();
 
     if (PRINT_FILE_IR) {
         std::cout << " -------- MAIN -------- \n"
                   << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
                   << std::endl;
+    }
+
+    // Forward declare all functions from all files
+    for (const auto &file : Parser::instances) {
+        IR::generate_forward_declarations(module.get(), *file.file_node_ptr);
+    }
+    // Generate all the `setup` blocks for all functions, and generate all the TS frame types for all funcitons before moving on to generate
+    // the actual file IR
+    for (const FunctionNode *function_node : Parser::get_all_functions()) {
+        if (is_test && function_node->name == "_main") {
+            continue;
+        }
+        if (!Function::generate_function_setup(module.get(), function_node)) {
+            return std::nullopt;
+        }
     }
 
     // Start with the tips of the dependency graph and then work towards the root node. First, get all tips of the graph:
@@ -352,19 +367,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             // Generate the IR code from the given FileNode
             Namespace *file_namespace = Resolver::get_namespace_from_hash(shared_tip->file_hash);
             FileNode *file = file_namespace->file_node;
-            if (!generate_file_ir(module.get(), shared_tip, *file, is_test)) {
+            if (!generate_file_ir(module.get(), *file, is_test)) {
                 return std::nullopt;
             }
 
             // Store that this file is now finished with its generation
             Resolver::file_generation_finished(shared_tip->file_hash);
-
-            if (DEBUG_MODE) {
-                if (!verify_module(module.get())) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return std::nullopt;
-                }
-            }
 
             if (PRINT_FILE_IR) {
                 std::cout << " -------- " << module->getName().str() << " -------- \n"
@@ -427,7 +435,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     return module;
 }
 
-bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<DepNode> &dep_node, FileNode &file, const bool is_test) {
+bool Generator::generate_file_ir(llvm::Module *module, FileNode &file, const bool is_test) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
 
     for (auto &imported_core_module : file.imported_core_modules) {
@@ -491,16 +499,7 @@ bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<Dep
             }
         }
     }
-    // Forward declare all functions from all files where this file has a weak reference to
-    for (const auto &dep : dep_node->dependencies) {
-        if (std::holds_alternative<std::weak_ptr<DepNode>>(dep)) {
-            std::weak_ptr<DepNode> weak_dep = std::get<std::weak_ptr<DepNode>>(dep);
-            Namespace *file_namespace = Resolver::get_namespace_from_hash(weak_dep.lock()->file_hash);
-            IR::generate_forward_declarations(module, *file_namespace->file_node);
-        }
-    }
 
-    // unsigned int mangle_id = 1;
     file_function_names[file.file_name] = {};
     // Declare all functions in the file at the top of the module
     for (const std::unique_ptr<DefinitionNode> &node : file.file_namespace->public_symbols.definitions) {
@@ -553,7 +552,7 @@ bool Generator::generate_file_ir(llvm::Module *module, const std::shared_ptr<Dep
                 if (is_test && function_node->name == "_main") {
                     continue;
                 }
-                if (!Function::generate_function(module, function_node, file.imported_core_modules)) {
+                if (!Function::generate_function_body(function_node, file.imported_core_modules)) {
                     return false;
                 }
                 // No return statement found despite the signature requires return OR

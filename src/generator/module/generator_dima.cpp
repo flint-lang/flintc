@@ -1,5 +1,6 @@
 #include "generator/generator.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/data_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"

@@ -1,5 +1,6 @@
 #include "parser/type/type.hpp"
 
+#include "lexer/lexer_utils.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/opaque_type.hpp"
@@ -13,6 +14,17 @@
 
 uint32_t Type::get_id() const {
     return get_hash().get_type_id_from_str(to_string());
+}
+
+bool Type::is_reference() const {
+    if (get_variation() == Variation::ENUM) {
+        return false;
+    }
+    const std::string type_str = to_string();
+    if (type_str == "str") {
+        return true;
+    }
+    return primitives.find(type_str) == primitives.end();
 }
 
 void Type::init_types() {

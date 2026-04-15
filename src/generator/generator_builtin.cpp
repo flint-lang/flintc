@@ -9,7 +9,9 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
-    if (Parser::main_function_has_args) {
+    const bool main_function_has_args = !Parser::main_function.load().value()->parameters.empty();
+    const bool main_function_has_ret = !Parser::main_function.load().value()->return_types.empty();
+    if (main_function_has_args) {
         std::optional<std::shared_ptr<Type>> str_arr_type = Type::get_type_from_str("str[]");
         if (!str_arr_type.has_value()) {
             str_arr_type = std::make_shared<ArrayType>(1, Type::get_primitive_type("str"));
@@ -26,12 +28,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     );
 
     // Get the custom user-defined main function
-    llvm::StructType *custom_main_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("i32"));
     llvm::Function *custom_main_function = module->getFunction(function_node.name);
     assert(custom_main_function != nullptr);
-
     llvm::FunctionType *main_type = nullptr;
-    if (Parser::main_function_has_args) {
+    if (main_function_has_args) {
         main_type = llvm::FunctionType::get(                                               //
             builder->getInt32Ty(),                                                         // Return type: int
             {builder->getInt32Ty(), builder->getInt8Ty()->getPointerTo()->getPointerTo()}, // Takes int argc, char *argv[]
@@ -78,9 +78,40 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
     builder->CreateCall(dima_init_heads_fn, {});
 
-    // Create the return types of the call of the main function.
-    llvm::AllocaInst *main_ret = builder->CreateAlloca(custom_main_ret_type, nullptr, "main_ret");
-    if (Parser::main_function_has_args) {
+    // Init the TS variable
+    llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+    const size_t ts_stack_size = Allocation::get_type_size(module, ts_ty);
+    llvm::Value *const ts_stack_size_v = builder->getInt64(ts_stack_size + Module::ThreadStack::TS_DATA_SIZE);
+    llvm::Value *const ts_ptr = builder->CreateCall(c_functions.at(MALLOC), {ts_stack_size_v}, "ts_ptr");
+    llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(             //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt64(Module::ThreadStack::TS_DATA_SIZE), ts_capacity_ptr);
+    llvm::Value *const ts_thread_id_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::THREAD_ID, "ts_thread_id_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt32(0), ts_thread_id_ptr);
+    llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt32(0), ts_flags_ptr);
+    llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+    );
+    llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    );
+    IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+
+    // Store the default-value of the main function in the TS data section
+    const size_t main_fn_id = Parser::main_function.load().value()->get_id();
+    llvm::StructType *const main_frame_type = Module::ThreadStack::ts_frames.at(main_fn_id);
+    llvm::Value *const main_default_value = Module::ThreadStack::ts_defaults.at(main_fn_id);
+    llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");
+
+    // If the user-defined main function has args, we first put those args into an array of strings
+    if (main_function_has_args) {
         llvm::Argument *argc = main_function->args().begin();
         argc->setName("argc");
         llvm::Argument *argv = main_function->args().begin() + 1;
@@ -138,21 +169,23 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_exit_block);
-        llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {arr_ptr});
-        IR::aligned_store(*builder, main_call, main_ret);
-    } else {
-        llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {});
-        IR::aligned_store(*builder, main_call, main_ret);
+        // Now store the array in the first argument field of the main function
+        if (main_function_has_ret) {
+            main_frame = builder->CreateInsertValue(main_frame, arr_ptr, {2}, "main_frame_args_added");
+        } else {
+            main_frame = builder->CreateInsertValue(main_frame, arr_ptr, {1}, "main_frame_args_added");
+        }
     }
 
-    // First, load the first return value of the return struct
-    llvm::Value *err_ptr = builder->CreateStructGEP(custom_main_ret_type, main_ret, 0);
-    llvm::Type *err_type = type_map.at("type.flint.err");
-    llvm::LoadInst *err_val = IR::aligned_load(*builder, err_type, err_ptr, "main_err_val");
+    // Store the main frame in the ts data section as the first function frame
+    IR::aligned_store(*builder, main_frame, ts_stack_data_ptr);
+
+    // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
+    llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
     llvm::Value *main_exit_code = builder->getInt32(0);
-    if (Parser::main_function_has_ret) {
-        main_exit_code = builder->CreateStructGEP(custom_main_ret_type, main_ret, 1, "exit_code_ptr");
-        main_exit_code = IR::aligned_load(*builder, builder->getInt32Ty(), main_exit_code, "exit_code");
+    if (main_function_has_ret) {
+        llvm::Value *main_exit_code_ptr = builder->CreateStructGEP(main_frame_type, ts_stack_data_ptr, 1, "main_exit_code_ptr");
+        main_exit_code = IR::aligned_load(*builder, builder->getInt32Ty(), main_exit_code_ptr, "main_exit_code");
     }
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -160,25 +193,17 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "main_merge", main_function);
     builder->SetInsertPoint(current_block);
 
-    // Create the if check and compare the err value to 0
-    llvm::ConstantInt *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
-    llvm::Value *type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
-    llvm::Value *err_condition = builder->CreateICmpNE( //
-        type_id,                                        //
-        zero,                                           //
-        "errcmp"                                        //
-    );
-
-    // Create the branching operation
-    builder->CreateCondBr(err_condition, catch_block, merge_block)
+    // Check if the main function returned an error and branch accordingly
+    builder->CreateCondBr(main_call, catch_block, merge_block)
         ->setMetadata("comment",
             llvm::MDNode::get(context,
                 llvm::MDString::get(context, "Branch to '" + catch_block->getName().str() + "' if 'main' returned error")));
 
     // Generate the body of the catch block
     builder->SetInsertPoint(catch_block);
-
-    // Create the message that an error has occured
+    llvm::Value *err_val_ptr = builder->CreateStructGEP(ts_fn_ty, ts_stack_data_ptr, Module::ThreadStack::FUNCTION::ERR, "err_val_ptr");
+    llvm::Value *err_val = IR::aligned_load(*builder, type_map.at("type.flint.err"), err_val_ptr, "err_val");
+    llvm::Value *type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
     llvm::Value *value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
     llvm::Value *message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
     llvm::Function *get_err_type_str_fn = Error::error_functions.at("get_err_type_str");
@@ -893,13 +918,13 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     llvm::PointerType *ptr_type = llvm::PointerType::get(context, 0);
 
     // visible_width(char* str, i64 len) -> i64
-    llvm::FunctionType *visible_width_type = llvm::FunctionType::get(i64_type, { ptr_type, i64_type }, false);
+    llvm::FunctionType *visible_width_type = llvm::FunctionType::get(i64_type, {ptr_type, i64_type}, false);
     llvm::Function *visible_width_fn = llvm::Function::Create(visible_width_type, llvm::Function::ExternalLinkage, "visible_width", module);
 
     // Get the function arguments
-    llvm::Argument *arg_str =visible_width_fn->arg_begin();
+    llvm::Argument *arg_str = visible_width_fn->arg_begin();
     arg_str->setName("str");
-    llvm::Argument *arg_len =visible_width_fn->arg_begin() + 1;
+    llvm::Argument *arg_len = visible_width_fn->arg_begin() + 1;
     arg_len->setName("len");
 
     // Create all blocks of the function
@@ -1059,6 +1084,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
         i1_type,                                             // Whether the test failed (to increment counter)
         {
             ptr_type, // void* test_fn_ptr
+            ptr_type, // void* stack
             ptr_type, // char* test_name_value
             ptr_type, // char* success_fmt
             ptr_type, // char* fail_fmt
@@ -1080,6 +1106,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     auto arg_it = exec_fn->arg_begin();
     llvm::Argument *arg_test_fn_ptr = arg_it++;
     arg_test_fn_ptr->setName("test_fn_ptr");
+    llvm::Argument *arg_stack = arg_it++;
+    arg_stack->setName("stack");
     llvm::Argument *arg_test_name_value = arg_it++;
     arg_test_name_value->setName("test_name_value");
     llvm::Argument *arg_success_fmt = arg_it++;
@@ -1156,13 +1184,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
 
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::StructType *TimeStamp_type = Module::Time::time_data_types.at("TimeStamp");
+
     builder->SetInsertPoint(entry_block);
-    // Create the return struct of the test call. It only needs to be allocated once and will be reused by all test calls
-    llvm::AllocaInst *test_alloca = builder->CreateAlloca(                 //
-        IR::add_and_or_get_type(module, Type::get_primitive_type("void")), //
-        nullptr,                                                           //
-        "test_alloca"                                                      //
-    );
     llvm::AllocaInst *perf_start_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_start_TimePoint");
     llvm::AllocaInst *perf_end_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_end_TimePoint");
     // Start capturing the output
@@ -1179,11 +1202,11 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
 
     // Add a call to the actual function
     builder->SetInsertPoint(perf_test_start_merge_block);
-    llvm::StructType *const void_ret_type = IR::add_and_or_get_type(module, Type::get_primitive_type("void"));
-    llvm::FunctionType *const test_function_type = llvm::FunctionType::get(void_ret_type, false);
+    llvm::FunctionType *const test_function_type = llvm::FunctionType::get( //
+        builder->getInt1Ty(), {llvm::PointerType::get(context, 0)}, false   //
+    );
     llvm::FunctionCallee test_fn(test_function_type, arg_test_fn_ptr);
-    llvm::CallInst *test_call = builder->CreateCall(test_fn, {}, "call_test");
-    IR::aligned_store(*builder, test_call, test_alloca);
+    llvm::CallInst *test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
     builder->CreateCondBr(arg_is_perf_test, perf_test_end_block, perf_test_end_merge_block);
 
     builder->SetInsertPoint(perf_test_end_block);
@@ -1197,14 +1220,10 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::Function *end_capture_fn = Module::System::system_functions.at("end_capture_lines");
     llvm::Value *captured_output = builder->CreateCall(end_capture_fn, {}, "captured_output");
 
-    llvm::Value *err_ptr = builder->CreateStructGEP(void_ret_type, test_alloca, 0, "test_err_ptr");
-    llvm::Value *err_value = IR::aligned_load(*builder, builder->getInt32Ty(), err_ptr, "test_er_val");
-
     // Create branching condition. Go to succeed block if the test_err_val is == 0, to the fail_block otherwise
     // If the test should fail then the condition is flipped
-    llvm::Value *comparison = builder->CreateICmpEQ(err_value, builder->getInt32(0), "errcmp");
-    llvm::Value *comparison_not = builder->CreateNot(comparison, "not_errcmp");
-    llvm::Value *comparison_value = builder->CreateSelect(arg_should_fail, comparison_not, comparison, "comparison_value");
+    llvm::Value *test_ok = builder->CreateNot(test_fail, "test_ok");
+    llvm::Value *comparison_value = builder->CreateSelect(arg_should_fail, test_fail, test_ok, "test_succeed");
     builder->CreateCondBr(comparison_value, succeed_block, fail_block);
 
     builder->SetInsertPoint(succeed_block);
@@ -1395,6 +1414,31 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
     builder->CreateCall(dima_init_heads_fn, {});
 
+    // Init the TS variable
+    llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+    const size_t ts_stack_size = Allocation::get_type_size(module, ts_ty);
+    llvm::Value *const ts_stack_size_v = builder->getInt64(ts_stack_size + Module::ThreadStack::TS_DATA_SIZE);
+    llvm::Value *const ts_ptr = builder->CreateCall(c_functions.at(MALLOC), {ts_stack_size_v}, "ts_ptr");
+    llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(             //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt64(Module::ThreadStack::TS_DATA_SIZE), ts_capacity_ptr);
+    llvm::Value *const ts_thread_id_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::THREAD_ID, "ts_thread_id_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt32(0), ts_thread_id_ptr);
+    llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    IR::aligned_store(*builder, builder->getInt32(0), ts_flags_ptr);
+    llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+    );
+    llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    );
+    IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+
     // Create the counter to count how many tests have failed
     llvm::AllocaInst *counter = builder->CreateAlloca( //
         llvm::Type::getInt32Ty(context),               //
@@ -1475,8 +1519,8 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
             llvm::Value *test_ret = builder->CreateCall(execute_test_fn,
                 {
-                    //
                     test_function,                   // void* test_fn_ptr
+                    ts_stack_data_ptr,               // void* stack
                     test_name_value,                 // char* test_name_value
                     success_fmt,                     // char* success_fmt
                     fail_fmt,                        // char* fail_fmt
