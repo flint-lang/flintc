@@ -38,6 +38,7 @@ std::string GREY = "\033[90m";
 std::string RED_UNDERLINE = "\033[4:3;58;2;255;0;0m";
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
+OptimizeMode OPTIMIZE_MODE = OptimizeMode::DEBUG;
 Target COMPILATION_TARGET = Target::NATIVE;
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;

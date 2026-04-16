@@ -59,6 +59,30 @@ class CLIParserMain : public CLIParserBase {
                             out_file_path = get_absolute(cwd_path, args.at(i + 1));
                             i++;
                             break;
+                        case 'O': {
+                            if (j + 1 < arg.length()) {
+                                std::cerr << "Expected the 'O' to be the last single-element argument in the argument '" << arg << "'!\n";
+                                return 1;
+                            }
+                            if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                                return 1;
+                            }
+                            const std::string &optimize_str = args.at(i + 1);
+                            if (optimize_str == "--help" || optimize_str == "-h") {
+                                print_help_optimize();
+                                std::exit(0);
+                            }
+                            if (optimize_str == "debug") {
+                                OPTIMIZE_MODE = OptimizeMode::DEBUG;
+                            } else if (optimize_str == "fast") {
+                                OPTIMIZE_MODE = OptimizeMode::FAST;
+                            } else {
+                                print_err("Unknown Mode: " + optimize_str);
+                                return 1;
+                            }
+                            i++;
+                            break;
+                        }
                         case 'r':
                             run = true;
                             break;
@@ -105,13 +129,30 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--static") {
                 is_static = true;
                 i++;
+            } else if (arg == "--optimize") {
+                if (!n_args_follow(i + 1, "<MODE>", arg)) {
+                    return 1;
+                }
+                const std::string &optimize_str = args.at(i + 1);
+                if (optimize_str == "--help" || optimize_str == "-h") {
+                    print_help_optimize();
+                    std::exit(0);
+                }
+                if (optimize_str == "debug") {
+                    OPTIMIZE_MODE = OptimizeMode::DEBUG;
+                } else if (optimize_str == "fast") {
+                    OPTIMIZE_MODE = OptimizeMode::FAST;
+                } else {
+                    print_err("Unknown Mode: " + optimize_str);
+                    return 1;
+                }
             } else if (arg == "--version") {
                 print_version = true;
             } else if (arg == "--target") {
                 if (!n_args_follow(i + 1, "<TARGET>", arg)) {
                     return 1;
                 }
-                const std::string target_str = args.at(i + 1);
+                const std::string &target_str = args.at(i + 1);
                 if (target_str == "--help" || target_str == "-h") {
                     print_help_targets();
                     std::exit(0);
@@ -131,7 +172,7 @@ class CLIParserMain : public CLIParserBase {
                 if (!n_args_follow(i + 1, "<MODE>", arg)) {
                     return 1;
                 }
-                const std::string arithmetic_str = args.at(i + 1);
+                const std::string &arithmetic_str = args.at(i + 1);
                 if (arithmetic_str == "--help" || arithmetic_str == "-h") {
                     print_help_arithmetic();
                     std::exit(0);
@@ -153,7 +194,7 @@ class CLIParserMain : public CLIParserBase {
                 if (!n_args_follow(i + 1, "<MODE>", arg)) {
                     return 1;
                 }
-                const std::string array_str = args.at(i + 1);
+                const std::string &array_str = args.at(i + 1);
                 if (array_str == "--help" || array_str == "-h") {
                     print_help_array();
                     std::exit(0);
@@ -175,7 +216,7 @@ class CLIParserMain : public CLIParserBase {
                 if (!n_args_follow(i + 1, "<MODE>", arg)) {
                     return 1;
                 }
-                const std::string opaque_str = args.at(i + 1);
+                const std::string &opaque_str = args.at(i + 1);
                 if (opaque_str == "--help" || opaque_str == "-h") {
                     print_help_opaque();
                     std::exit(0);
@@ -195,7 +236,7 @@ class CLIParserMain : public CLIParserBase {
                 if (!n_args_follow(i + 1, "<MODE>", arg)) {
                     return 1;
                 }
-                const std::string optional_str = args.at(i + 1);
+                const std::string &optional_str = args.at(i + 1);
                 if (optional_str == "--help" || optional_str == "-h") {
                     print_help_optional();
                     std::exit(0);
@@ -213,7 +254,7 @@ class CLIParserMain : public CLIParserBase {
                 if (!n_args_follow(i + 1, "<MODE>", arg)) {
                     return 1;
                 }
-                const std::string variant_str = args.at(i + 1);
+                const std::string &variant_str = args.at(i + 1);
                 if (variant_str == "--help" || variant_str == "-h") {
                     print_help_variant();
                     std::exit(0);
@@ -340,13 +381,11 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "  -h, --help                      Show help\n";
         std::cout << "  -f, --file <file>               The file to compile\n";
         std::cout << "  -o, --out <file>                The name and path of the built output file\n";
-        // If the --test flag is set, the compiler will output a test binary. The default name "main" is overwritten to
-        // "test" in that case
         std::cout << "  -t, --test                      Output a test binary instead of the normal binary\n";
-        // If the --run flag is set, the compiler will output the built binary into the .flintc directory.
         std::cout << "  -r, --run                       Run the built binary directly without outputting it\n";
         std::cout << "  -p, --parallel                  Compile in parallel (only recommended for bigger projects)\n";
         std::cout << "  -s, --static                    Build the executable as static\n";
+        std::cout << "  -O, --optimize <MODE>           Selecting the optimize mode for compilation (use --help for more information)\n";
         std::cout << "      --version                   Print the version of the compiler\n";
         std::cout << "      --target <TARGET>           Targets the given target platform (use --help for more information)\n";
         std::cout << "      --arithmetic <MODE>         Selecting the mode for arithmetic behaviour (use --help for more information)\n";
@@ -391,6 +430,15 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --print-ir-math             Enables printing of the IR code for the math.o library";
         std::cout << std::endl;
 #endif
+    }
+
+    void print_help_optimize() {
+        std::cout << "Usage: flintc --optimize <MODE>\n";
+        std::cout << "\n";
+        std::cout << "Available Modes:\n";
+        std::cout << "  debug       [Default] Compiles in debug mode\n";
+        std::cout << "  fast        Compiles in release mode\n";
+        std::flush(std::cout);
     }
 
     void print_help_targets() {

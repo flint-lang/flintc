@@ -49,6 +49,12 @@ enum class BuiltinLibrary : unsigned int {
 };
 extern unsigned int BUILTIN_LIBS_TO_PRINT;
 
+enum class OptimizeMode {
+    DEBUG,
+    FAST,
+};
+extern OptimizeMode OPTIMIZE_MODE;
+
 enum class Target {
     NATIVE,
     LINUX,
