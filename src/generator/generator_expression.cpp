@@ -3526,7 +3526,6 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         }
     } else if (from_type_str == "i32") {
         if (to_type_str == "str") {
-            expr->dump();
             return builder.CreateCall(Module::TypeCast::typecast_functions.at("i32_to_str"), {expr}, "i32_to_str_res");
         } else if (to_type_str == "u8") {
             return Module::TypeCast::iN_to_uN_trunc(builder, expr, 8);
