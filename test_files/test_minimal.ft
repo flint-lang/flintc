@@ -1,5 +1,8 @@
 use Core.print
 
-def main() -> i32:
-	print("Returning 10...\n");
-	return 10;
+def main():
+	str[] lines = str[5]("");
+	for (i, line) in lines:
+		line = $"line_{i}";
+	str input = lines[0];
+	print($"input.len = {input.len}\n");

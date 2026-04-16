@@ -1039,8 +1039,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         assert(!rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
         lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
-        LitValue rhs_zero = LitInt{.value = APInt("0")};
-        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
+        LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
+        rhs_expr = std::make_unique<LiteralNode>(rhs_max, u64_ty);
         return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
@@ -1052,8 +1052,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         // Its an open ended range expression
         assert(lhs_expr.has_value());
         assert(!rhs_expr.has_value());
-        LitValue rhs_zero = LitInt{.value = APInt("0")};
-        rhs_expr = std::make_unique<LiteralNode>(rhs_zero, u64_ty);
+        LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
+        rhs_expr = std::make_unique<LiteralNode>(rhs_max, u64_ty);
     }
     if (!check_castability(u64_ty, lhs_expr.value())) {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, lhs_tokens, u64_ty, lhs_expr.value()->type);
@@ -1068,20 +1068,24 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
     if (is_lhs_lit && is_rhs_lit) {
         const auto *lhs_lit = lhs_expr.value()->as<LiteralNode>();
         const auto *rhs_lit = rhs_expr.value()->as<LiteralNode>();
-        // Ensure that the range is correct (a range like '5..1' is not correct, it should be '1..5'. And because the upper bound is
-        // exclusive a range like '1..1' is invalid too, since its one but exclusive to 1, so it's an empty range. Well maybe we will add
-        // this eventually, but for now it's not allowed.
+        // Ensure that the range is correct (a range like '5..1' is not correct, it should be '1..5'
         if (!std::holds_alternative<LitInt>(lhs_lit->value) || !std::holds_alternative<LitInt>(rhs_lit->value)) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        // Make sure that no value of the range is negative, that's not allowed
         const APInt lhs_val = std::get<LitInt>(lhs_lit->value).value;
-        const APInt rhs_val = std::get<LitInt>(rhs_lit->value).value;
-        if (lhs_val.is_negative || rhs_val.is_negative) {
+        if (lhs_val.is_negative) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (lhs_val >= rhs_val && rhs_val.to_string() != "0") {
+        const APInt rhs_val = std::get<LitInt>(rhs_lit->value).value;
+        if (rhs_val.is_negative) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Check if the rhs val is smaller than the lhs val, that's an error case since the range is the wrong way around
+        if (lhs_val > rhs_val) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }

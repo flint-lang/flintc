@@ -987,7 +987,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *get_str_slice(const str *src, const size_t from, const size_t to) {
-    //     const size_t real_to = to == 0 ? src->len : to;
+    //     const size_t real_to = to == UINT64_MAX ? src->len : to;
     //     if (real_to > src->len) {
     //         // Print error to tell a oob-slicing attempt was done and clamp to the src len
     //         // Because slicing is technically an array operation, the array OOB options apply here
@@ -1076,10 +1076,10 @@ void Generator::Module::String::generate_get_str_slice_function( //
     arg_to->setName("to");
 
     builder->SetInsertPoint(entry_block);
-    llvm::Value *to_eq_0 = builder->CreateICmpEQ(arg_to, builder->getInt64(0), "to_eq_0");
+    llvm::Value *to_eq_max = builder->CreateICmpEQ(arg_to, builder->getInt64(UINT64_MAX), "to_eq_max");
     llvm::Value *src_len_ptr = builder->CreateStructGEP(str_type, arg_src, 0, "src_len_ptr");
     llvm::Value *src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
-    llvm::Value *real_to = builder->CreateSelect(to_eq_0, src_len, arg_to, "real_to");
+    llvm::Value *real_to = builder->CreateSelect(to_eq_max, src_len, arg_to, "real_to");
 
     // if (real_to > src->len) { ... }
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
