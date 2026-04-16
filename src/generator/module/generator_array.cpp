@@ -899,7 +899,10 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //         const size_t to = ranges[i * 2 + 1];
     //         if (from != to) {
     //             // Validate range bounds
-    //             if (to > src_dim_lengths[i]) {
+    //             if (to == UINT64_MAX) {
+    //                 // Until-end range, change to range to the dim length
+    //                 ranges[i * 2 + 1] = src_dim_lengths[i];
+    //             } else if (to > src_dim_lengths[i]) {
     //                 // Out of bounds range
     //                 return NULL;
     //             } else if (to - from < 2) {
@@ -1046,7 +1049,12 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::BasicBlock *const get_dim_loop_body_block = llvm::BasicBlock::Create(context, "get_dim_loop_body", get_arr_slice_fn);
     //     if (from != to) {
     llvm::BasicBlock *const get_dim_loop_is_range_block = llvm::BasicBlock::Create(context, "get_dim_loop_is_range", get_arr_slice_fn);
-    //         if (to > src_dim_lengths[i]) {
+    //         if (to == UINT64_MAX) {
+    llvm::BasicBlock *const get_dim_loop_is_range_is_end_block =
+        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_end", get_arr_slice_fn);
+    llvm::BasicBlock *const get_dim_loop_is_range_is_not_end_block =
+        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_not_end", get_arr_slice_fn);
+    //         } else if (to > src_dim_lengths[i]) {
     llvm::BasicBlock *const get_dim_loop_is_range_is_oob_block =
         llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_oob", get_arr_slice_fn);
     llvm::BasicBlock *const get_dim_loop_is_range_is_not_oob_block =
@@ -1197,12 +1205,23 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         // if (from != to) {
         {
             builder->SetInsertPoint(get_dim_loop_is_range_block);
+            llvm::Value *to_eq_max = builder->CreateICmpEQ(to, builder->getInt64(UINT64_MAX), "to_eq_max");
+            builder->CreateCondBr(to_eq_max, get_dim_loop_is_range_is_end_block, get_dim_loop_is_range_is_not_end_block);
+
+            // if (to == UINT64_MAX) {
+            {
+                builder->SetInsertPoint(get_dim_loop_is_range_is_end_block);
+                IR::aligned_store(*builder, src_dim_lengths_i, to_ptr);
+                builder->CreateBr(get_dim_loop_is_range_merge_block);
+            }
+
+            builder->SetInsertPoint(get_dim_loop_is_range_is_not_end_block);
             llvm::Value *to_gt_lengths_i = builder->CreateICmpUGT(to, src_dim_lengths_i, "to_gt_lengths_i");
             builder->CreateCondBr(                                                                                                        //
                 to_gt_lengths_i, get_dim_loop_is_range_is_oob_block, get_dim_loop_is_range_is_not_oob_block, IR::generate_weights(1, 100) //
             );
 
-            // if (to > src_dim_lengths[i]) {
+            // } else if (to > src_dim_lengths[i]) {
             {
                 builder->SetInsertPoint(get_dim_loop_is_range_is_oob_block);
                 llvm::Value *msg = IR::generate_const_string(module, "OOB ranged array access: len=%lu, upper_bound=%lu\n");
