@@ -16,27 +16,28 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     if (function_node->return_types.empty()) {
         // If it's extern and empty it's a void return type
         return_types = llvm::Type::getVoidTy(context);
-    }
-    std::shared_ptr<Type> ret_type = function_node->return_types.front();
-    if (function_node->return_types.size() > 1) {
-        ret_type = std::make_shared<GroupType>(function_node->return_types);
-        Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
-        if (!file_namespace->add_type(ret_type)) {
-            ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
-        }
-    }
-
-    // Check if return type is > 16 bytes
-    llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
-    size_t return_size = Allocation::get_type_size(module, actual_return_type);
-    if (return_size > 16) {
-        // Return type becomes void
-        return_types = llvm::Type::getVoidTy(context);
-        // First parameter becomes sret pointer
-        sret_param_type = actual_return_type->getPointerTo();
     } else {
-        // Existing logic for <= 16 bytes
-        return_types = IR::get_type(module, ret_type, true).first;
+        std::shared_ptr<Type> ret_type = function_node->return_types.front();
+        if (function_node->return_types.size() > 1) {
+            ret_type = std::make_shared<GroupType>(function_node->return_types);
+            Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
+            if (!file_namespace->add_type(ret_type)) {
+                ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
+            }
+        }
+
+        // Check if return type is > 16 bytes
+        llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
+        size_t return_size = Allocation::get_type_size(module, actual_return_type);
+        if (return_size > 16) {
+            // Return type becomes void
+            return_types = llvm::Type::getVoidTy(context);
+            // First parameter becomes sret pointer
+            sret_param_type = actual_return_type->getPointerTo();
+        } else {
+            // Existing logic for <= 16 bytes
+            return_types = IR::get_type(module, ret_type, true).first;
+        }
     }
 
     // Get the parameter types
