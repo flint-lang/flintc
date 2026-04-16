@@ -146,6 +146,7 @@ class CLIParserMain : public CLIParserBase {
                     print_err("Unknown Mode: " + optimize_str);
                     return 1;
                 }
+                i++;
             } else if (arg == "--version") {
                 print_version = true;
             } else if (arg == "--target") {
