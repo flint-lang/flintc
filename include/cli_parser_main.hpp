@@ -319,6 +319,8 @@ class CLIParserMain : public CLIParserBase {
                 NO_GENERATION = true;
             } else if (arg == "--no-binary") {
                 NO_BINARY = true;
+            } else if (arg == "--print-optimized-ir") {
+                PRINT_IR_PROGRAM_OPTIMIZED = true;
             } else if (arg == "--print-file-ir") {
                 PRINT_FILE_IR = true;
             } else if (arg == "--print-ir-arithmetic") {
@@ -416,6 +418,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "                                  HINT: Doesnt produce an executable";
         std::cout << std::endl;
         std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
+        std::cout << "      --print-optimized-ir        Prints the LLVM IR code after the optimization pass has completed\n";
         std::cout << "      --print-file-ir             Enables printing of the IR code for every file which was parsed\n";
         std::cout << "      --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
         std::cout << "                                  HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
@@ -435,10 +438,24 @@ class CLIParserMain : public CLIParserBase {
 
     void print_help_optimize() {
         std::cout << "Usage: flintc --optimize <MODE>\n";
+        std::cout << "  Flint has a pretty unique runtime thanks to the Thread Stack. In Flint, every function has the\n";
+        std::cout << "  same signature under the hood ('i1 fn_name(ptr stack)') and Flint does not use the hardware\n";
+        std::cout << "  stack at all for function data, it uses the TS instead. This is important to understand for\n";
+        std::cout << "  the optimization modes.\n";
+        std::cout << "\n";
+        std::cout << "  If any optimization mode other than 'debug' is chosen, Call-Tail-Optimization is applied to\n";
+        std::cout << "  *every* user-defined function. This means that LLVM will produce a flat call-stack and NO\n";
+        std::cout << "  stack-trace for user-defined called functions any more! If you rely on the \"regular\" stack-\n";
+        std::cout << "  traces then you *need* to use the 'debug' mode.\n";
         std::cout << "\n";
         std::cout << "Available Modes:\n";
         std::cout << "  debug       [Default] Compiles in debug mode\n";
+        std::cout << "                  Absolutely no optimizations are appied. LLVM will compile the generated IR\n";
+        std::cout << "                  code as-is.\n";
         std::cout << "  fast        Compiles in release mode\n";
+        std::cout << "                  Optimizations are turned on in the LLVM backend. The optimization level is\n";
+        std::cout << "                  O2. All user-defined calls have CTO applied to them, they disappear in stack-\n";
+        std::cout << "                  traces and no user-defined Flint function uses *any* stack space.\n";
         std::flush(std::cout);
     }
 

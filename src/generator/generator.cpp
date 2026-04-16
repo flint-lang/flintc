@@ -9,6 +9,7 @@
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
 
+#include <llvm/Analysis/CGSCCPassManager.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
@@ -18,11 +19,13 @@
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
+#include <llvm/IR/PassManager.h>
 #include <llvm/IR/Type.h>
 #include <llvm/IR/ValueSymbolTable.h>
 #include <llvm/IR/Verifier.h>
 #include <llvm/Linker/Linker.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Passes/PassBuilder.h>
 #include <llvm/Support/CodeGen.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/FileSystem.h>
@@ -154,6 +157,28 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     if (EC) {
         llvm::errs() << "Could not open file: " << EC.message() << "\n";
         return false;
+    }
+
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+        llvm::LoopAnalysisManager LAM;
+        llvm::FunctionAnalysisManager FAM;
+        llvm::CGSCCAnalysisManager CGAM;
+        llvm::ModuleAnalysisManager MAM;
+
+        llvm::PassBuilder PB(target_machine);
+        PB.registerModuleAnalyses(MAM);
+        PB.registerCGSCCAnalyses(CGAM);
+        PB.registerFunctionAnalyses(FAM);
+        PB.registerLoopAnalyses(LAM);
+        PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+        llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
+        MPM.run(*module, MAM);
+
+        if (DEBUG_MODE && PRINT_IR_PROGRAM_OPTIMIZED) {
+            std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program AFTER optimizations\n"
+                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module)) << std::endl;
+        }
     }
 
     // Set up the pass manager and code generation

@@ -20,6 +20,7 @@ bool PRINT_TOK_STREAM = true;
 bool PRINT_DEP_TREE = true;
 bool PRINT_AST = true;
 bool PRINT_IR_PROGRAM = true;
+bool PRINT_IR_PROGRAM_OPTIMIZED = false;
 bool PRINT_PROFILE_RESULTS = true;
 bool PRINT_CUMULATIVE_PROFILE_RESULTS = false;
 bool PRINT_FILE_IR = false;

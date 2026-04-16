@@ -24,6 +24,7 @@ extern bool PRINT_TOK_STREAM;
 extern bool PRINT_DEP_TREE;
 extern bool PRINT_AST;
 extern bool PRINT_IR_PROGRAM;
+extern bool PRINT_IR_PROGRAM_OPTIMIZED;
 extern bool PRINT_PROFILE_RESULTS;
 extern bool PRINT_CUMULATIVE_PROFILE_RESULTS;
 extern bool PRINT_FILE_IR;

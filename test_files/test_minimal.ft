@@ -1,12 +1,6 @@
-use Core.print
+def add(i32 x, i32 y) -> i32:
+	return x + y;
 
 def main():
-	i32[,] arr = i32[5, 5](1);
-	for (i, elem) in arr:
-		elem = i32(i);
-	i32[] arr2 = arr[1, 1..];
-	for (i, elem) in arr2:
-		if i > 0:
-			print(", ");
-		print(elem);
-	print("\n");
+	for (i, _) in 0..10_000_000:
+		add(10, i32(i));

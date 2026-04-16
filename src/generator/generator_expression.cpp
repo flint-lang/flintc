@@ -1468,6 +1468,11 @@ Generator::group_mapping Generator::Expression::generate_call( //
         function_name + std::to_string(call_node->call_id) + "_call" //
     );
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + function_name + "'")));
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+        // Add the 'tailcc' to every user-defined call
+        call->setCallingConv(llvm::CallingConv::Tail);
+        call->setTailCall();
+    }
     last_err_values = {call, next_stack_frame};
 
     // Call 'dima.release' on the retained function arguments. It is important that we release the retained function arguments *before*

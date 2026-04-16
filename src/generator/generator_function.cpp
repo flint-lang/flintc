@@ -5,41 +5,41 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     llvm::Type *return_types = nullptr;
     llvm::Type *sret_param_type = nullptr;
     const bool is_extern = function_node->is_extern;
-    if (is_extern && function_node->return_types.empty()) {
-        // If it's extern and empty it's a void return type
-        return_types = llvm::Type::getVoidTy(context);
-    } else if (is_extern) {
-        std::shared_ptr<Type> ret_type = function_node->return_types.front();
-        if (function_node->return_types.size() > 1) {
-            ret_type = std::make_shared<GroupType>(function_node->return_types);
-            Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
-            if (!file_namespace->add_type(ret_type)) {
-                ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
-            }
-        }
-        // Check if return type is > 16 bytes
-        llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
-        size_t return_size = Allocation::get_type_size(module, actual_return_type);
-
-        if (return_size > 16) {
-            // Return type becomes void
-            return_types = llvm::Type::getVoidTy(context);
-            // First parameter becomes sret pointer
-            sret_param_type = actual_return_type->getPointerTo();
-        } else {
-            // Existing logic for <= 16 bytes
-            return_types = IR::get_type(module, ret_type, true).first;
-        }
-    } else {
+    if (!is_extern) {
         return llvm::FunctionType::get(         //
             llvm::Type::getInt1Ty(context),     //
             llvm::PointerType::get(context, 0), //
             false                               //
         );
     }
+    assert(is_extern);
+    if (function_node->return_types.empty()) {
+        // If it's extern and empty it's a void return type
+        return_types = llvm::Type::getVoidTy(context);
+    }
+    std::shared_ptr<Type> ret_type = function_node->return_types.front();
+    if (function_node->return_types.size() > 1) {
+        ret_type = std::make_shared<GroupType>(function_node->return_types);
+        Namespace *file_namespace = Resolver::get_namespace_from_hash(function_node->file_hash);
+        if (!file_namespace->add_type(ret_type)) {
+            ret_type = file_namespace->get_type_from_str(ret_type->to_string()).value();
+        }
+    }
+
+    // Check if return type is > 16 bytes
+    llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
+    size_t return_size = Allocation::get_type_size(module, actual_return_type);
+    if (return_size > 16) {
+        // Return type becomes void
+        return_types = llvm::Type::getVoidTy(context);
+        // First parameter becomes sret pointer
+        sret_param_type = actual_return_type->getPointerTo();
+    } else {
+        // Existing logic for <= 16 bytes
+        return_types = IR::get_type(module, ret_type, true).first;
+    }
 
     // Get the parameter types
-    assert(is_extern);
     std::vector<llvm::Type *> param_types_vec;
     if (sret_param_type != nullptr) {
         // Add the sret parameter as the first parameter
@@ -91,6 +91,10 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
+    }
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+        // Add 'tailcc' to every user-defined function
+        function->setCallingConv(llvm::CallingConv::Tail);
     }
 
     if (!function_node->scope.has_value()) {

@@ -182,6 +182,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
     llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
+    main_call->setCallingConv(llvm::CallingConv::Tail);
+    main_call->setTailCall();
     llvm::Value *main_exit_code = builder->getInt32(0);
     if (main_function_has_ret) {
         llvm::Value *main_exit_code_ptr = builder->CreateStructGEP(main_frame_type, ts_stack_data_ptr, 1, "main_exit_code_ptr");
