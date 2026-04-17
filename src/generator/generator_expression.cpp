@@ -347,7 +347,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     }
     if (std::holds_alternative<LitVariant>(literal_node->value)) {
         const LitVariant &variant = std::get<LitVariant>(literal_node->value);
-        [[maybe_unused]] const VariantType *variant_type = variant.variant_type->as<VariantType>();
+        const VariantType *variant_type = variant.variant_type->as<VariantType>();
         llvm::StructType *variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), variant.variant_type, false);
         const auto tag_index = variant_type->get_idx_of_tag(variant.variation_tag);
         if (!tag_index.has_value()) {
@@ -1335,6 +1335,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
         const ExpressionNode::Variation arg_variation = arg->get_variation();
         const std::string &arg_type_str = arg->type->to_string();
         const bool is_initializer = arg_variation == ExpressionNode::Variation::INITIALIZER;
+        const bool is_variant_initializer = arg_variation == ExpressionNode::Variation::LITERAL //
+            && std::holds_alternative<LitVariant>(arg->as<LiteralNode>()->value);
         const bool is_array_initializer = arg_variation == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = arg_variation == ExpressionNode::Variation::CALL;
         const bool is_string_interpolation = arg_variation == ExpressionNode::Variation::STRING_INTERPOLATION;
@@ -1353,7 +1355,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
             && arg_variation == ExpressionNode::Variation::TYPE_CAST                                //
             && arg->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
             && std::holds_alternative<LitStr>(arg->as<TypeCastNode>()->expr->as<LiteralNode>()->value);
-        if (is_initializer || is_array_initializer || is_fn_return || is_string_interpolation || is_slice || is_string_literal) {
+        if (is_initializer || is_variant_initializer || is_array_initializer || is_fn_return || is_string_interpolation || is_slice ||
+            is_string_literal) {
             if (garbage.find(0) == garbage.end()) {
                 std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{param_type, args.at(i)}};
                 garbage[0] = std::move(vec);
@@ -1443,10 +1446,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
             }
         }
         const bool is_literal = call_node->arguments.at(i).first->is_literal();
+        const bool is_variant_literal = call_node->arguments.at(i).first->get_variation() == ExpressionNode::Variation::LITERAL //
+            && std::holds_alternative<LitVariant>(call_node->arguments.at(i).first->as<LiteralNode>()->value);
         const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
         const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
         const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
-        const bool is_reference = arg.second && !is_literal && !is_temporary && !is_initializer && !is_opt_unwrap && !is_type_cast;
+        const bool is_reference = arg.second && !is_temporary && (!is_literal || is_variant_literal) //
+            && !is_initializer && !is_opt_unwrap && !is_type_cast;
 
         llvm::Value *arg_value = args[i];
         if (is_reference) {
@@ -1454,6 +1460,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
+        // arg_value->dump();
         fn_frame = builder.CreateInsertValue(                                                                                      //
             fn_frame, arg_value, i + fn_ret_count + 1, call_node->function->name + "_frame_arg_" + std::to_string(i) + "_inserted" //
         );
@@ -3126,7 +3133,6 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     GenerationContext &ctx,                                                  //
     const VariantExtractionNode *extraction                                  //
 ) {
-    const auto *var_type = extraction->base_expr->type->as<VariantType>();
     const auto *variable_node = extraction->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
@@ -3141,9 +3147,8 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     llvm::BasicBlock *holds_correct_type = llvm::BasicBlock::Create(context, "var_extract_correct_type", ctx.parent);
     llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "var_extract_merge", ctx.parent);
     builder.SetInsertPoint(inserter);
-    const std::optional<unsigned char> id = var_type->get_idx_of_type(extract_type_ptr);
-    assert(id.has_value());
-    llvm::Value *wanted_type = builder.getInt8(id.value());
+    const uint8_t id = extraction->extracted_id;
+    llvm::Value *wanted_type = builder.getInt8(id);
     llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
     llvm::Value *current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
     llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
@@ -3181,7 +3186,6 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     GenerationContext &ctx,                                              //
     const VariantUnwrapNode *unwrap                                      //
 ) {
-    const auto *var_type = unwrap->base_expr->type->as<VariantType>();
     const auto *variable_node = unwrap->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
@@ -3200,9 +3204,8 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     llvm::BasicBlock *holds_wrong_type = llvm::BasicBlock::Create(context, "var_upwrap_wrong_type", ctx.parent);
     llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "var_unwrap", ctx.parent);
     builder.SetInsertPoint(inserter);
-    const std::optional<unsigned char> id = var_type->get_idx_of_type(unwrap->type);
-    assert(id.has_value());
-    llvm::Value *wanted_type = builder.getInt8(id.value());
+    const unsigned char id = unwrap->unwrap_id;
+    llvm::Value *wanted_type = builder.getInt8(id);
     llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
     llvm::Value *current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
     llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");

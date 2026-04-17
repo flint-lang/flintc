@@ -1,6 +1,12 @@
-def add(i32 x, i32 y) -> i32:
-	return x + y;
+use Core.print
+
+variant Variant:
+	T1(void), T2(i32), T3(str);
 
 def main():
-	for (i, _) in 0..10_000_000:
-		add(10, i32(i));
+	Variant v = Variant.T3("Hi there");
+	str msg = v!(Variant.T3);
+	print($"v = {msg}\n");
+
+	v = Variant.T2(10);
+	print($"v = {v!(Variant.T2)}\n");

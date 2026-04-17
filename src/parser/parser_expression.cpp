@@ -1494,10 +1494,10 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
         return std::nullopt;
     }
     iterator = end_it;
-    std::shared_ptr<Type> unwrap_type;
+    std::pair<std::optional<std::string>, std::shared_ptr<Type>> unwrap_tag_and_type;
     const auto type_expr_variation = type_expr.value()->get_variation();
     if (type_expr_variation == ExpressionNode::Variation::TYPE) {
-        unwrap_type = type_expr.value()->type;
+        unwrap_tag_and_type = {std::nullopt, type_expr.value()->type};
     } else if (type_expr_variation == ExpressionNode::Variation::LITERAL) {
         const auto *literal_node = type_expr.value()->as<LiteralNode>();
         if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
@@ -1512,7 +1512,7 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        unwrap_type = tag_type.value();
+        unwrap_tag_and_type = {lit_variant.variation_tag, tag_type.value()};
     }
     type_expr.value().reset();
 
@@ -1528,7 +1528,13 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             return std::nullopt;
         }
         const auto *variant_type = base_expr.value()->type->as<VariantType>();
-        if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
+        std::optional<unsigned char> type_id;
+        if (unwrap_tag_and_type.first.has_value()) {
+            type_id = variant_type->get_idx_of_tag(unwrap_tag_and_type.first.value());
+        } else {
+            type_id = variant_type->get_idx_of_type(unwrap_tag_and_type.second);
+        }
+        if (!type_id.has_value()) {
             // Type not part of the variant
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1538,7 +1544,7 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return VariantExtractionNode(file_hash, base_expr.value(), unwrap_type);
+        return VariantExtractionNode(file_hash, base_expr.value(), unwrap_tag_and_type.second, type_id.value());
     }
     // Skip the `)`
     ++iterator;
@@ -1586,10 +1592,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
         return std::nullopt;
     }
     iterator = end_it;
-    std::shared_ptr<Type> unwrap_type;
+    std::pair<std::optional<std::string>, std::shared_ptr<Type>> unwrap_tag_and_type;
     const auto type_expr_variation = type_expr.value()->get_variation();
     if (type_expr_variation == ExpressionNode::Variation::TYPE) {
-        unwrap_type = type_expr.value()->type;
+        unwrap_tag_and_type = {std::nullopt, type_expr.value()->type};
     } else if (type_expr_variation == ExpressionNode::Variation::LITERAL) {
         const auto *literal_node = type_expr.value()->as<LiteralNode>();
         if (!std::holds_alternative<LitVariantTag>(literal_node->value)) {
@@ -1604,7 +1610,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        unwrap_type = tag_type.value();
+        unwrap_tag_and_type = {lit_variant.variation_tag, tag_type.value()};
     }
     type_expr.value().reset();
 
@@ -1620,7 +1626,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             return std::nullopt;
         }
         const auto *variant_type = base_expr.value()->type->as<VariantType>();
-        if (!variant_type->get_idx_of_type(unwrap_type).has_value()) {
+        std::optional<unsigned char> type_id;
+        if (unwrap_tag_and_type.first.has_value()) {
+            type_id = variant_type->get_idx_of_tag(unwrap_tag_and_type.first.value());
+        } else {
+            type_id = variant_type->get_idx_of_type(unwrap_tag_and_type.second);
+        }
+        if (!type_id.has_value()) {
             // Type not part of the variant
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -1630,7 +1642,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<VariantUnwrapNode>(base_expr.value(), unwrap_type);
+        return std::make_unique<VariantUnwrapNode>(base_expr.value(), unwrap_tag_and_type.second, type_id.value());
     }
     // Skip the `)`
     ++iterator;

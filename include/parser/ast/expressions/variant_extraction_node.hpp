@@ -8,14 +8,16 @@
 /// @brief Represents variant extractions
 class VariantExtractionNode : public ExpressionNode {
   public:
-    VariantExtractionNode(                          //
-        const Hash &hash,                           //
-        std::unique_ptr<ExpressionNode> &base_expr, //
-        const std::shared_ptr<Type> &extracted_type //
+    VariantExtractionNode(                           //
+        const Hash &hash,                            //
+        std::unique_ptr<ExpressionNode> &base_expr,  //
+        const std::shared_ptr<Type> &extracted_type, //
+        const uint8_t extracted_id                   //
         ) :
         ExpressionNode(hash, base_expr->is_const),
         base_expr(std::move(base_expr)),
-        extracted_type(extracted_type) {
+        extracted_type(extracted_type),
+        extracted_id(extracted_id) {
         this->type = std::make_shared<OptionalType>(extracted_type);
         Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
         if (!file_namespace->add_type(this->type)) {
@@ -29,7 +31,7 @@ class VariantExtractionNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
-        return std::make_unique<VariantExtractionNode>(file_hash, base_expr_clone, extracted_type);
+        return std::make_unique<VariantExtractionNode>(file_hash, base_expr_clone, extracted_type, extracted_id);
     }
 
     /// @var `base_expr`
@@ -39,4 +41,8 @@ class VariantExtractionNode : public ExpressionNode {
     /// @var `extracted_type`
     /// @brief The type to extract from the variant
     std::shared_ptr<Type> extracted_type;
+
+    /// @var `unwrap_id`
+    /// @brief The id of the type extracted from the variant
+    uint8_t extracted_id;
 };

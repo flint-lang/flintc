@@ -738,7 +738,7 @@ namespace Debug {
         void print_variant_extraction(unsigned int indent_lvl, TreeBits &bits, const VariantExtractionNode &extraction) {
             Local::print_header(indent_lvl, bits, "VariantExtract ");
             std::cout << "[" << (extraction.is_const ? "c" : "m") << "] ";
-            std::cout << "?(" << extraction.extracted_type->to_string() << ") -> " << extraction.type->to_string() << std::endl;
+            std::cout << "?(" << std::to_string(extraction.extracted_id) << ") -> " << extraction.type->to_string() << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, extraction.base_expr);
         }
@@ -746,7 +746,7 @@ namespace Debug {
         void print_variant_unwrap(unsigned int indent_lvl, TreeBits &bits, const VariantUnwrapNode &unwrap_node) {
             Local::print_header(indent_lvl, bits, "VarUnwrap ");
             std::cout << "[" << (unwrap_node.is_const ? "c" : "m") << "] ";
-            std::cout << "[" << unwrap_node.type->to_string() << "]" << std::endl;
+            std::cout << "!(" << std::to_string(unwrap_node.unwrap_id) << ") -> " << unwrap_node.type->to_string() << std::endl;
             TreeBits base_expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, base_expr_bits, unwrap_node.base_expr);
         }
