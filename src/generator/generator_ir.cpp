@@ -684,31 +684,48 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             const std::string var_str = type->get_type_string();
             // Check if its a known data type
             if (type_map.find(var_str) == type_map.end()) {
+                // Because of alignment-requirements of certain types, for example when one payload is a pointer, we need to calculate the
+                // max_alignment as well in addition to the `max_size`.
                 unsigned int max_size = 0;
+                unsigned int max_alignment = 1;
                 if (std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
                     const auto &possible_types = std::get<VariantNode *const>(variant_type->var_or_list)->possible_types;
                     for (const auto &[_, variation] : possible_types) {
                         if (variation->to_string() == "void") {
                             continue;
                         }
-                        const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
+                        llvm::Type *const ty = get_type(module, variation).first;
+                        const unsigned int type_size = Allocation::get_type_size(module, ty);
                         if (type_size > max_size) {
                             max_size = type_size;
+                        }
+                        const unsigned int type_alignment = Allocation::calculate_type_alignment(ty);
+                        if (type_alignment > max_alignment) {
+                            max_alignment = type_alignment;
                         }
                     }
                 } else {
                     const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
                     for (const auto &variation : possible_types) {
-                        const unsigned int type_size = Allocation::get_type_size(module, get_type(module, variation).first);
+                        llvm::Type *const ty = get_type(module, variation).first;
+                        const unsigned int type_size = Allocation::get_type_size(module, ty);
                         if (type_size > max_size) {
                             max_size = type_size;
                         }
+                        const unsigned int type_alignment = Allocation::calculate_type_alignment(ty);
+                        if (type_alignment > max_alignment) {
+                            max_alignment = type_alignment;
+                        }
                     }
+                }
+                // If the max_size is not a multiplicative of max_alignment, we must add a few bytes to make it a multiplicative
+                if (max_size % max_alignment != 0) {
+                    max_size += max_size % max_alignment;
                 }
                 llvm::StructType *variant_struct_type = IR::create_struct_type(var_str,
                     {
-                        llvm::Type::getInt8Ty(context),                                // The tag which type it is (starts at 1)
-                        llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size) // The actual data array, being *N* bytes of data
+                        llvm::Type::getInt8Ty(context),                                                                   //
+                        llvm::ArrayType::get(llvm::Type::getIntNTy(context, max_alignment * 8), max_size / max_alignment) //
                     } //
                 );
                 type_map[var_str] = variant_struct_type;
