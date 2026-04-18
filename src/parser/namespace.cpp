@@ -417,6 +417,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 }
                 assert(next_range.value().first == 0);
                 const token_slice type_tokens = {tokens_mut.first, tokens_mut.first + next_range.value().second};
+                tokens_mut.first = type_tokens.second;
                 std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
