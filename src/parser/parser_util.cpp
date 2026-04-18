@@ -299,7 +299,8 @@ void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
         }
         // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
         // expensive matching logic needs to be run, so we can safely skip that token entirely
-        if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_IDENTIFIER) {
+        if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_FN &&
+            it->token != TOK_IDENTIFIER) {
             ++it;
             continue;
         }
@@ -421,6 +422,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
             break;
         case Type::Variation::FUNC:
             // Func types resolve in a different stage
+            break;
+        case Type::Variation::FN:
+            // Fn types resolve in a different stage
             break;
         case Type::Variation::GROUP: {
             auto *group_type = type_to_resolve->as<GroupType>();

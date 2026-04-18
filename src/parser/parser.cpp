@@ -782,6 +782,9 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
         case Type::Variation::ALIAS:
             assert(false);
             break;
+        case Type::Variation::FN:
+            assert(false);
+            break;
         case Type::Variation::ARRAY:
         case Type::Variation::DATA:
         case Type::Variation::ENTITY:

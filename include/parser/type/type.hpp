@@ -38,6 +38,7 @@ class Type {
         ENUM,
         ERROR_SET,
         FUNC,
+        FN,
         GROUP,
         MULTI,
         OPAQUE,

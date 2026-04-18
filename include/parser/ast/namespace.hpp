@@ -116,6 +116,14 @@ class Namespace {
         const std::vector<std::shared_ptr<Type>> &arg_types,   //
         const bool is_aliased                                  //
     ) const;
+    /// @function `get_functions_with_name`
+    /// @brief Returns all possible functions with the givne function name found in this namespace
+    ///
+    /// @param `fn_name` The name of the function which is searched for
+    /// @param `is_aliased` Whether the this namespace is the current file's namespace (for non-aliased calls the private functions are
+    /// available too, but for aliased calls only publically available functions are visible)
+    /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which match the function name
+    std::vector<FunctionNode *> get_functions_with_name(const std::string &fn_name, const bool is_aliased) const;
 
     /// @function `get_type`
     /// @brief Creates a type from the given list of tokens and adds it to the public or global type list of this namespace

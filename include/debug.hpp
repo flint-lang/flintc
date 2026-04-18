@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/expressions/function_reference_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -161,6 +162,7 @@ namespace Debug {
         void print_string_interpolation(unsigned int indent_lvl, TreeBits &bits, const StringInterpolationNode &interpol);
         void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call);
         void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call);
+        void print_function_reference(unsigned int indent_lvl, TreeBits &bits, const FunctionReferenceNode &ref);
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin);
         void print_type_cast(unsigned int indent_lvl, TreeBits &bits, const TypeCastNode &cast);
         void print_type_node(unsigned int indent_lvl, TreeBits &bits, const TypeNode &type);

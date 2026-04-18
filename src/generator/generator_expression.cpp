@@ -65,6 +65,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // TODO: Somehow it was unused until now?
             return std::nullopt;
         }
+        case ExpressionNode::Variation::FUNCTION_REFERENCE: {
+            [[maybe_unused]] const auto *node = expression_node->as<FunctionReferenceNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             const auto *node = expression_node->as<GroupExpressionNode>();
             return generate_group_expression(builder, ctx, garbage, expr_depth, node);

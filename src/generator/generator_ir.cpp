@@ -556,6 +556,11 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }
+        case Type::Variation::FN: {
+            assert(false);
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return {nullptr, {false, false}};
+        }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             const std::string type_str = group_type->get_type_string();

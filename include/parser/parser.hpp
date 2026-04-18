@@ -42,7 +42,6 @@
 #include "ast/expressions/data_access_node.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
-#include "ast/expressions/grouped_data_access_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/optional_chain_node.hpp"
 #include "ast/expressions/switch_expression.hpp"
@@ -1096,13 +1095,26 @@ class Parser {
     /// @param `tokens` The list of tokens representing the call expression
     /// @param `alias` The potential alias base on which the call is done
     /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
-    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created CallNodeExpression
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` A unique pointer to the created call node expression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
         const Context &ctx,                                                //
         std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
         const std::optional<Namespace *> &alias,                           //
         const bool is_func_module_call = false                             //
+    );
+
+    /// @function `creat_function_reference`
+    /// @brief Creates a FunctionReferenceNode from the given tokens
+    ///
+    /// @param `ctx` The parsing context
+    /// @param `scope` The scope in which the call expression is defined
+    /// @param `tokens` The list of tokens representing the function reference
+    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created function reference node
+    std::optional<std::unique_ptr<ExpressionNode>> create_function_reference( //
+        const Context &ctx,                                                   //
+        std::shared_ptr<Scope> &scope,                                        //
+        const token_slice &tokens                                             //
     );
 
     /// @function `create_initializer`

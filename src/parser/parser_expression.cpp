@@ -7,6 +7,7 @@
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -792,6 +793,48 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         last_parsed_call = simple_call_node.get();
         return std::move(simple_call_node);
     }
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference( //
+    [[maybe_unused]] const Context &ctx,                                          //
+    [[maybe_unused]] std::shared_ptr<Scope> &scope,                               //
+    const token_slice &tokens                                                     //
+) {
+    // TODO: If the first token is a type then it's a func module's function reference, so we need to search for the referenced function
+    // within that func module type
+
+    // TODO: Support aliased func-module types before the reference operator (`alias.FuncType::function`)
+
+    // TODO: If the first token is an identifier, then that identifier is an alias of another file, so we need to search for the function
+    // within that aliased imported file
+
+    // If the first token is the function reference itself we need to search in the current file for a "regular" function to reference
+    assert(tokens.first->token == TOK_REFERENCE);
+    assert((tokens.first + 1)->token == TOK_IDENTIFIER);
+    const std::string referenced_fn_name((tokens.first + 1)->lexme);
+    std::vector<FunctionNode *> potential_functions = file_node_ptr->file_namespace->get_functions_with_name(referenced_fn_name, false);
+
+    if (potential_functions.empty()) {
+        // No function found with this name in this namespace
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    // Check if the function's name exists more than once.
+    if (potential_functions.size() > 1) {
+        // TODO: How to support function overloading here? I think overloading could be supported when the result-type of the fn variable is
+        // known, so the `create_function_reference` function would need an additional parameter, being the expected type of the reference,
+        // and if more overloads exist then we choose the one with the correct type. Yes, this could work nicely.
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    const FunctionNode *referenced_function = potential_functions.front();
+    if (referenced_function->is_extern) {
+        // It is not allowed to reference extern functions
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return std::make_unique<FunctionReferenceNode>(file_hash, referenced_function);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
@@ -1992,6 +2035,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     return std::make_unique<LiteralNode>(lit_value, type);
                 }
             }
+        }
+    }
+    if (Matcher::tokens_match(tokens_mut, Matcher::function_reference)) {
+        if (token_size == 2 || token_size == 3) {
+            return create_function_reference(ctx, scope, tokens_mut);
         }
     }
     if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_chain, Matcher::expression_separator)) {

@@ -42,6 +42,7 @@
 #include "parser/ast/statements/unary_op_statement.hpp"
 #include "parser/ast/statements/while_node.hpp"
 #include "parser/type/alias_type.hpp"
+#include "parser/type/fn_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
 
@@ -543,6 +544,8 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
             }
             break;
         }
+        case ExpressionNode::Variation::FUNCTION_REFERENCE:
+            break;
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression->as<GroupedDataAccessNode>();
             result = analyze_expression(ctx, node->base_expr.get());
@@ -718,6 +721,22 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
             break;
         case Type::Variation::FUNC:
             break;
+        case Type::Variation::FN: {
+            const auto *fn_type = type_to_analyze->as<FnType>();
+            for (const auto &type : fn_type->param_types) {
+                result = analyze_type(ctx, type);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
+            for (const auto &type : fn_type->return_types) {
+                result = analyze_type(ctx, type);
+                if (result != Result::OK) {
+                    break;
+                }
+            }
+            break;
+        }
         case Type::Variation::GROUP: {
             const auto *group_type = type_to_analyze->as<GroupType>();
             for (const auto &type : group_type->types) {

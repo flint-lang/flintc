@@ -47,6 +47,7 @@ class ExpressionNode : public ASTNode {
         DEFAULT,
         GROUP_EXPRESSION,
         GROUPED_DATA_ACCESS,
+        FUNCTION_REFERENCE,
         INITIALIZER,
         INSTANCE_CALL,
         LITERAL,

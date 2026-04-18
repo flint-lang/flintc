@@ -572,6 +572,9 @@ bool Generator::Allocation::generate_expression_allocations(              //
         }
         case ExpressionNode::Variation::DEFAULT:
             break;
+        case ExpressionNode::Variation::FUNCTION_REFERENCE:
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             const auto *node = expression->as<GroupExpressionNode>();
             for (const auto &expr : node->expressions) {

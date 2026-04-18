@@ -474,6 +474,11 @@ namespace Debug {
             }
         }
 
+        void print_function_reference(unsigned int indent_lvl, TreeBits &bits, const FunctionReferenceNode &ref) {
+            Local::print_header(indent_lvl, bits, "Fn Reference ");
+            std::cout << "::" << ref.referenced_function->name << std::endl;
+        }
+
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin) {
             Local::print_header(indent_lvl, bits, "BinOp ");
             std::cout << "[" << (bin.is_const ? "c" : "m") << "] " << get_token_name(bin.operator_token);
@@ -801,6 +806,11 @@ namespace Debug {
                 case ExpressionNode::Variation::INSTANCE_CALL: {
                     const auto *node = expr->as<InstanceCallNodeExpression>();
                     print_instance_call(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::FUNCTION_REFERENCE: {
+                    const auto *ref = expr->as<FunctionReferenceNode>();
+                    print_function_reference(indent_lvl, bits, *ref);
                     break;
                 }
                 case ExpressionNode::Variation::LITERAL: {

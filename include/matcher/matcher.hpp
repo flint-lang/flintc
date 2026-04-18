@@ -549,7 +549,7 @@ class Matcher {
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
     static const inline PatternPtr type = one_of({
         sequence({
-            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA), token(TOK_VARIANT)}),                                 // Single base type
+            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA), token(TOK_VARIANT), token(TOK_FN)}),                  // Single base type
             optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),               // <..> Type group
             zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})), // [][,][,,] Arrays
             optional(one_of({
@@ -706,7 +706,7 @@ class Matcher {
         one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
     );
     static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
-    static const inline PatternPtr until_arrow = match_until(token(TOK_ARROW));
+    static const inline PatternPtr until_arrow = balanced_match_until(token(TOK_LESS), token(TOK_ARROW), token(TOK_GREATER), 0);
     static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
     static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
     static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));
@@ -790,6 +790,9 @@ class Matcher {
     static const inline PatternPtr instance_call = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), function_call});
     static const inline PatternPtr aliased_function_call = sequence({
         one_of({token(TOK_ALIAS), token(TOK_TYPE)}), token(TOK_DOT), function_call //
+    });
+    static const inline PatternPtr function_reference = sequence({
+        optional(one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)})), token(TOK_REFERENCE), token(TOK_IDENTIFIER) //
     });
     static const inline PatternPtr type_cast = sequence({one_of({type_prim, token(TOK_TYPE)}), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr bin_op_expr = sequence({
