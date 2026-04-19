@@ -158,6 +158,13 @@ void Generator::Memory::generate_free_value( //
             // TODO: Implement freeing logic for func modules once func-modules as-interfaces work
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
+        case Type::Variation::FN: {
+            // TODO: We need to call a special function to free a fn frame, as we need to free the persitent locals too (eventually)
+            // For now, it is enough to simply call the free function on the passed value
+            // llvm::Value *const fn_ptr = IR::aligned_load(*builder, llvm::PointerType::get(context, 0), value, "fn_ptr");
+            builder->CreateCall(c_functions.at(FREE), {value});
+            break;
+        }
         case Type::Variation::PRIMITIVE: {
             assert(type->to_string() == "str");
             llvm::Function *free_fn = c_functions.at(FREE);
@@ -564,6 +571,14 @@ void Generator::Memory::generate_clone_value( //
                 llvm::Value *type_id = builder->getInt32(func_node->required_data.at(i).first->get_id());
                 builder->CreateCall(clone_fn, {required_data, required_data_dest, type_id});
             }
+            break;
+        }
+        case Type::Variation::FN: {
+            // TODO: We need to call a special function to clone a fn frame, as we need to clone the persitent locals too (eventually)
+            // And cloning also means that we need to know the size of the function frame
+            // For now, it is enough to simply load and store the value into the destination
+            // llvm::Value *const fn_ptr = IR::aligned_load(*builder, llvm::PointerType::get(context, 0), src, "fn_ptr");
+            IR::aligned_store(*builder, src, dest);
             break;
         }
         case Type::Variation::PRIMITIVE: {

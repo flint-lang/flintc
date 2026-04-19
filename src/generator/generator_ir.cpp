@@ -557,9 +557,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return {type_map.at(type_str), {false, true}};
         }
         case Type::Variation::FN: {
-            assert(false);
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return {nullptr, {false, false}};
+            // A fn variable is just a pointer to the heap-allocated function frame, so it is literally just a simple pointer
+            return {llvm::PointerType::get(context, 0), {true, true}};
         }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();

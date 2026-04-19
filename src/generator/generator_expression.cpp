@@ -66,9 +66,8 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             return std::nullopt;
         }
         case ExpressionNode::Variation::FUNCTION_REFERENCE: {
-            [[maybe_unused]] const auto *node = expression_node->as<FunctionReferenceNode>();
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
+            const auto *node = expression_node->as<FunctionReferenceNode>();
+            return std::vector<llvm::Value *>{generate_function_reference(builder, ctx, node)};
         }
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             const auto *node = expression_node->as<GroupExpressionNode>();
@@ -1418,9 +1417,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
     // Load the default frame of the to-be-called function
-    llvm::Value *fn_frame = IR::aligned_load(                                                    //
-        builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame" //
-    );
+    llvm::Value *fn_frame = IR::aligned_load(builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame");
     // Insert all arguments into the loaded default-value
     const size_t fn_ret_count = call_node->function->return_types.size();
     for (size_t i = 0; i < args.size(); i++) {
@@ -1901,6 +1898,25 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
         case Type::Variation::ENTITY:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node));
     }
+}
+
+llvm::Value *Generator::Expression::generate_function_reference( //
+    llvm::IRBuilder<> &builder,                                  //
+    GenerationContext &ctx,                                      //
+    const FunctionReferenceNode *ref_node                        //
+) {
+    // A function reference allocates as much memory on the heap as needed for the function frame, then stores the default frame of the
+    // referenced function in that allocated frame and simply returns the pointer to the allocated frame.
+    const size_t referenced_fn_id = ref_node->referenced_function->get_id();
+    llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(referenced_fn_id);
+    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(referenced_fn_id);
+    llvm::Value *const frame_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), called_fn_type));
+    llvm::Value *const fn_frame = builder.CreateCall(c_functions.at(MALLOC), {frame_size}, "fn_frame");
+    llvm::Value *const default_fn_frame = IR::aligned_load(                                                //
+        builder, called_fn_type, called_fn_default, ref_node->referenced_function->name + "_default_frame" //
+    );
+    IR::aligned_store(builder, default_fn_frame, fn_frame);
+    return fn_frame;
 }
 
 void Generator::Expression::generate_rethrow( //

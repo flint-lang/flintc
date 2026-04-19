@@ -9,6 +9,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
@@ -1613,6 +1614,19 @@ class Generator {
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
             const InstanceCallNodeBase *call_node    //
+        );
+
+        /// @function `generate_function_reference`
+        /// @brief Generates the function reference from the given FunctionReferenceNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `ref_node` The ref node to generate
+        /// @return `llvm::Value *` The value containing the result of the function reference
+        static llvm::Value *generate_function_reference( //
+            llvm::IRBuilder<> &builder,                  //
+            GenerationContext &ctx,                      //
+            const FunctionReferenceNode *ref_node        //
         );
 
         /// @function `generate_rethrow`
