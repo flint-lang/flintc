@@ -1350,6 +1350,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
     // Load the default frame of the to-be-called function
     llvm::Value *fn_frame = IR::aligned_load(builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame");
+    // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
+    llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+    fn_frame = builder.CreateInsertValue(fn_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
     // Insert all arguments into the loaded default-value
     const size_t fn_ret_count = call_node->function->return_types.size();
     for (size_t i = 0; i < args.size(); i++) {
@@ -1991,6 +1994,19 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 
     // Get the pointer to the callable frame
     llvm::Value *const callable_frame = builder.CreateGEP(ptr_ty, callable_value, builder.getInt32(1), "callable_frame");
+    // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
+    llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+    IR::aligned_store(builder, ts_ptr, callable_frame);
+    // Store the next frame in the TS
+    llvm::Value *const next_ts_ptr = builder.CreateStructGEP(                                       //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr" //
+    );
+    IR::aligned_store(builder, ctx.allocations.at("flint.stack.next"), next_ts_ptr);
+    // Store the IS_CALLABLE flag in the flags section of the TS root
+    llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(                                  //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    IR::aligned_store(builder, builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE), ts_flags_ptr);
 
     // Store the arguments in the called function
     llvm::Module *const module = ctx.parent->getParent();
@@ -2044,6 +2060,9 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         call->setTailCall();
     }
     last_err_values = {call, callable_frame};
+
+    // Reset the ts flags to their original value
+    IR::aligned_store(builder, ctx.allocations.at("flint.stack.flags"), ts_flags_ptr);
 
     // Do all the common call cleanup on the arguments of the call
     if (!generate_call_arg_cleanup(                                                           //

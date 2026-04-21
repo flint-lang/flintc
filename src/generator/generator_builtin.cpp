@@ -95,7 +95,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
         ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
     );
-    IR::aligned_store(*builder, builder->getInt32(0), ts_flags_ptr);
+    IR::aligned_store(*builder, builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_USED), ts_flags_ptr);
     llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
         ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
     );
@@ -109,6 +109,9 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::StructType *const main_frame_type = Module::ThreadStack::ts_frames.at(main_fn_id);
     llvm::Value *const main_default_value = Module::ThreadStack::ts_defaults.at(main_fn_id);
     llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");
+
+    // Insert the pointer to the thread stack in the main function's frame
+    main_frame = builder->CreateInsertValue(main_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
 
     // If the user-defined main function has args, we first put those args into an array of strings
     if (main_function_has_args) {

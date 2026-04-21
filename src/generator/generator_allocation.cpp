@@ -103,7 +103,22 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         const size_t idx = std::distance(types_list.begin(), type_it);
         allocations.emplace(alloca_name, builder.CreateStructGEP(frame_type, parent->arg_begin(), idx + 1, alloca_name));
     }
+    llvm::Value *const ts_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), parent->arg_begin(), "ts_ptr");
+    allocations.emplace("flint.stack.root", ts_ptr);
+    // Check if we are in a callable context and choose the next ts pointer accordingly
+    llvm::Value *const ts_stack_ptr_ptr = builder.CreateStructGEP(                                      //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    );
+    llvm::Value *ts_stack_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), ts_stack_ptr_ptr, "ts_stack_ptr");
+    llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(                                  //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    llvm::Value *const ts_flags = IR::aligned_load(builder, builder.getInt32Ty(), ts_flags_ptr, "ts_flags");
+    allocations.emplace("flint.stack.flags", ts_flags);
+    llvm::Value *const is_callable_flag = builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
+    llvm::Value *const is_callable_ctx = builder.CreateICmpEQ(ts_flags, is_callable_flag, "is_callable_ctx");
     llvm::Value *next_stack_frame = builder.CreateGEP(frame_type, parent->arg_begin(), builder.getInt32(1), "next_stack_frame");
+    next_stack_frame = builder.CreateSelect(is_callable_ctx, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
     allocations.emplace("flint.stack.next", next_stack_frame);
     return frame_type;
 }

@@ -22,10 +22,11 @@ static const std::string prefix = "flint.ts.";
  *         TS_FLAG_FREE = 0,        // This Thread Stack is "free" and can be occupied by an 'spawn' statement (future stuff)
  *         TS_FLAG_AVAILABLE = 1,   // This Thread Stack is "available" and can be occupied by an 'async' expression or other
  *                                  // parallel work from other threads while it is waiting on a 'sync' point (future stuff)
- *         TS_FLAG_ASYNC = 2,       // This Thread Stack is currently operating on an async function, we need to keep track of
- *                                  // this information to emit every following 'async' call as a direct call
+ *         TS_FLAG_USED = 2,        // This Thread Stack is currently used by a normal execution, for example the main thread
  *         TS_FLAG_CALLABLE = 3,    // This Thread Stack is currently operating on an callable function, this is needed for
  *                                  // future persitent local support, and also to correctly load the next TS frame
+ *         TS_FLAG_ASYNC = 4,       // This Thread Stack is currently operating on an async function, we need to keep track of
+ *                                  // this information to emit every following 'async' call as a direct call
  *     } ts_flags_e;
  *
  *     typedef struct thread_stack_t {

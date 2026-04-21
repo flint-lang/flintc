@@ -9,8 +9,11 @@ func Func requires(Data d):
 	def print():
 		print($"d.(x, y) = ({d.x}, {d.y})\n");
 
-def regular_callable(i32 x) -> i32:
-	return x ** 2;
+def add(i32 x, i32 y) -> i32:
+	return x + y;
+
+def callable(i32 x) -> i32:
+	return add(x, 10);
 
 def main():
 	d := Data(10, 3.14);
@@ -19,5 +22,5 @@ def main():
 	fn<mut Data> print_fn = Func::print;
 	print_fn(d);
 
-	fn<i32 -> i32> c = ::regular_callable;
+	fn<i32 -> i32> c = ::callable;
 	print($"c(10) = {c(10)}\n");

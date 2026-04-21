@@ -4172,6 +4172,17 @@ class Generator {
                 static constexpr inline size_t FLAGS = 2;
                 static constexpr inline size_t STACK_PTR = 3;
                 static constexpr inline size_t STACK_DATA = 4;
+
+                /// @enum `FLAG`
+                /// @brief The possible flags the FLAGS field could contain. Note that the FLAGS value is not a packed enum, it's just a
+                /// regular enum
+                enum FLAG : uint32_t {
+                    TS_FLAG_FREE = 0,
+                    TS_FLAG_AVAILABLE = 1,
+                    TS_FLAG_USED = 2,
+                    TS_FLAG_CALLABLE = 3,
+                    TS_FLAG_ASYNC = 4,
+                };
             };
 
             /// @struct `FUNCTION`
