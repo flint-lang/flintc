@@ -3,5 +3,26 @@ use Core.print
 def greet():
 	print("Hello, World!\n");
 
+def print_val(i32 x):
+	print($"x = {x}\n");
+
+def get_val() -> i32:
+	return 10;
+
+def add(i32 x, i32 y) -> i32:
+	return x + y;
+
 def main():
-	fn<> function = ::greet;
+	fn<> greet_fn = ::greet;
+	greet_fn();
+
+	fn<i32> print_val_fn = ::print_val;
+	print_val_fn(i32(20));
+
+	fn<() -> i32> get_val_fn = ::get_val;
+	i32 x = get_val_fn();
+	print($"x = {x}\n");
+
+	fn<i32, i32 -> i32> add_fn = ::add;
+	x = add_fn(i32(10), i32(20));
+	print($"x = {x}\n");

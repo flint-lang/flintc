@@ -8,7 +8,9 @@
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/callable_call_node_expression.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
@@ -25,6 +27,7 @@
 #include "parser/ast/statements/array_assignment_node.hpp"
 #include "parser/ast/statements/assignment_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/data_field_assignment_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
@@ -226,6 +229,18 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
                 } else {
                     local_ctx.level = ContextLevel::INTERNAL;
                 }
+                result = analyze_expression(local_ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
+        case StatementNode::Variation::CALLABLE_CALL: {
+            const auto *node = statement->as<CallableCallNodeStatement>();
+            for (const auto &arg : node->arguments) {
+                Context local_ctx = ctx;
+                local_ctx.level = ContextLevel::INTERNAL;
                 result = analyze_expression(local_ctx, arg.first.get());
                 if (result != Result::OK) {
                     goto fail;
@@ -524,6 +539,18 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
             }
             break;
         }
+        case ExpressionNode::Variation::CALLABLE_CALL: {
+            const auto *node = expression->as<CallableCallNodeExpression>();
+            Context local_ctx = ctx;
+            local_ctx.level = ContextLevel::INTERNAL;
+            for (const auto &arg : node->arguments) {
+                result = analyze_expression(ctx, arg.first.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression->as<DataAccessNode>();
             result = analyze_expression(ctx, node->base_expr.get());
@@ -723,7 +750,7 @@ Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_pt
             break;
         case Type::Variation::FN: {
             const auto *fn_type = type_to_analyze->as<FnType>();
-            for (const auto &type : fn_type->param_types) {
+            for (const auto &[type, is_mutable] : fn_type->params) {
                 result = analyze_type(ctx, type);
                 if (result != Result::OK) {
                     break;

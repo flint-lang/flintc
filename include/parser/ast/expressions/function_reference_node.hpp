@@ -12,11 +12,11 @@ class FunctionReferenceNode : public ExpressionNode {
     FunctionReferenceNode(const Hash &hash, const FunctionNode *referenced_function) :
         ExpressionNode(hash, true),
         referenced_function(referenced_function) {
-        std::vector<std::shared_ptr<Type>> param_types;
-        for (const auto &param : referenced_function->parameters) {
-            param_types.emplace_back(std::get<0>(param));
+        std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
+        for (const auto &[param_type, param_name, param_is_mutable] : referenced_function->parameters) {
+            params.emplace_back(param_type, param_is_mutable);
         }
-        std::shared_ptr<Type> fn_type = std::make_shared<FnType>(param_types, referenced_function->return_types);
+        std::shared_ptr<Type> fn_type = std::make_shared<FnType>(params, referenced_function->return_types);
         Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
         if (file_namespace->add_type(fn_type)) {
             this->type = fn_type;

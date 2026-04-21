@@ -10,6 +10,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/type/enum_type.hpp"
@@ -64,6 +65,16 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
         instance_call_node->scope_id = scope->scope_id;
         last_parsed_call = instance_call_node.get();
         return std::move(instance_call_node);
+    } else if (ret->callable.has_value()) {
+        std::unique_ptr<CallableCallNodeStatement> simple_call_node = std::make_unique<CallableCallNodeStatement>( //
+            ret->args,                                                                                             //
+            std::vector<std::shared_ptr<Type>>{},                                                                  //
+            ret->type,                                                                                             //
+            ret->callable.value()                                                                                  //
+        );
+        simple_call_node->scope_id = scope->scope_id;
+        last_parsed_call = simple_call_node.get();
+        return std::move(simple_call_node);
     } else {
         std::unique_ptr<CallNodeStatement> simple_call_node = std::make_unique<CallNodeStatement>( //
             ret->function, ret->args, ret->function->error_types, ret->type                        //

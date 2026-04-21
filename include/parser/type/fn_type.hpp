@@ -10,8 +10,8 @@
 /// @brief Represents fn types
 class FnType : public Type {
   public:
-    FnType(const std::vector<std::shared_ptr<Type>> &param_types, const std::vector<std::shared_ptr<Type>> &return_types) :
-        param_types(param_types),
+    FnType(const std::vector<std::pair<std::shared_ptr<Type>, bool>> &params, const std::vector<std::shared_ptr<Type>> &return_types) :
+        params(params),
         return_types(return_types) {}
 
     Variation get_variation() const override {
@@ -32,20 +32,25 @@ class FnType : public Type {
             return false;
         }
         const FnType *const other_type = other->as<FnType>();
-        return param_types == other_type->param_types && return_types == other_type->return_types;
+        return params == other_type->params && return_types == other_type->return_types;
     }
 
     std::string to_string() const override {
         std::stringstream ss;
         ss << "fn<";
-        if (param_types.empty()) {
+        if (params.empty()) {
             ss << "()";
         } else {
-            for (size_t i = 0; i < param_types.size(); i++) {
+            for (size_t i = 0; i < params.size(); i++) {
                 if (i > 0) {
                     ss << ", ";
                 }
-                ss << param_types.at(i)->to_string();
+                if (params.at(i).second) {
+                    ss << "mut ";
+                } else {
+                    ss << "const ";
+                }
+                ss << params.at(i).first->to_string();
             }
         }
 
@@ -70,9 +75,9 @@ class FnType : public Type {
         return type_str + to_string();
     }
 
-    /// @var `param_types`
-    /// @brief The parameter types of the referenced function
-    std::vector<std::shared_ptr<Type>> param_types;
+    /// @var `params`
+    /// @brief The parameter list of the referenced function, and whether each parameter is mutable or not
+    std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
 
     /// @var `return_types`
     /// @brief The return types of the referenced function

@@ -794,6 +794,10 @@ class Parser {
         /// @var `instance_variable`
         /// @brief The instance variable expression the call is done at, if any (`entity_variable.call()` for example)
         std::optional<std::unique_ptr<ExpressionNode>> instance_variable;
+
+        /// @var `callable`
+        /// @brief The callable name if this function is a callable call
+        std::optional<std::string> callable;
     };
 
     /// @function `create_call_or_initializer_base`

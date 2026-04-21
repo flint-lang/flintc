@@ -3,9 +3,11 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/callable_call_node_expression.hpp"
 #include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/statement_node.hpp"
@@ -139,6 +141,14 @@ bool Generator::Allocation::generate_allocations(                        //
                 break;
             case StatementNode::Variation::CALL: {
                 const auto *node = statement->as<CallNodeStatement>();
+                if (!generate_call_allocations(builder, parent, scope, struct_types, static_cast<const CallNodeBase *>(node))) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::CALLABLE_CALL: {
+                const auto *node = statement->as<CallableCallNodeStatement>();
                 if (!generate_call_allocations(builder, parent, scope, struct_types, static_cast<const CallNodeBase *>(node))) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
@@ -556,6 +566,14 @@ bool Generator::Allocation::generate_expression_allocations(              //
         }
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression->as<CallNodeExpression>();
+            if (!generate_call_allocations(builder, parent, scope, struct_types, static_cast<const CallNodeBase *>(node))) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            break;
+        }
+        case ExpressionNode::Variation::CALLABLE_CALL: {
+            const auto *node = expression->as<CallableCallNodeExpression>();
             if (!generate_call_allocations(builder, parent, scope, struct_types, static_cast<const CallNodeBase *>(node))) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return false;

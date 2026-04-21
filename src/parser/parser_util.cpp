@@ -634,6 +634,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .is_initializer = true,
                     .function = nullptr,
                     .instance_variable = std::nullopt,
+                    .callable = std::nullopt,
                 };
             }
             case Type::Variation::ENTITY: {
@@ -662,6 +663,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .is_initializer = true,
                     .function = nullptr,
                     .instance_variable = std::nullopt,
+                    .callable = std::nullopt,
                 };
             }
             case Type::Variation::MULTI: {
@@ -684,6 +686,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .is_initializer = true,
                     .function = nullptr,
                     .instance_variable = std::nullopt,
+                    .callable = std::nullopt,
                 };
             }
         }
@@ -772,6 +775,59 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         instance_variable = std::make_unique<VariableNode>(std::move(variable_node.value()));
     } else {
         functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+    }
+    if (functions.empty()) {
+        // Check if the called function is a callable by looking in this scope for a variable wihth the same name as the called function
+        std::vector<std::pair<std::string, Scope::Variable>> potential_callables;
+        for (const auto &[variable_name, variable] : scope->get_all_variables()) {
+            if (variable_name != function_name) {
+                continue;
+            }
+            if (variable.type->get_variation() != Type::Variation::FN) {
+                continue;
+            }
+            const auto *fn_type = variable.type->as<FnType>();
+            if (fn_type->params.size() != argument_types.size()) {
+                continue;
+            }
+            bool types_match = true;
+            for (size_t i = 0; i < argument_types.size(); i++) {
+                const auto &param_type = fn_type->params.at(i).first;
+                const auto &arg_type = argument_types.at(i);
+                types_match &= param_type->equals(arg_type);
+            }
+            if (types_match) {
+                potential_callables.emplace_back(variable_name, variable);
+            }
+            // Shadowing is not allowed in Flint, which means that the first callable variable with the correct name must be the called
+            // callable, as there exists no other callable with the same name
+            break;
+        }
+        if (!potential_callables.empty()) {
+            // There must be exactly one potential callable because of Flint's shadowing rules and the code above
+            assert(potential_callables.size() == 1);
+            const auto &callable_var = potential_callables.front().second;
+            const auto *fn_type = callable_var.type->as<FnType>();
+            std::shared_ptr<Type> return_type;
+            if (fn_type->return_types.empty()) {
+                return_type = Type::get_primitive_type("void");
+            } else if (fn_type->return_types.size() == 1) {
+                return_type = fn_type->return_types.front();
+            } else {
+                return_type = std::make_shared<GroupType>(fn_type->return_types);
+                if (!file_node_ptr->file_namespace->add_type(return_type)) {
+                    return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
+                }
+            }
+            return CreateCallOrInitializerBaseRet{
+                .args = std::move(arguments),
+                .type = return_type,
+                .is_initializer = false,
+                .function = nullptr,
+                .instance_variable = std::nullopt,
+                .callable = potential_callables.front().first,
+            };
+        }
     }
     if (functions.empty()) {
         THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens, function_name, argument_types);
@@ -958,6 +1014,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         .is_initializer = false,
         .function = functions.front(),
         .instance_variable = std::move(instance_variable),
+        .callable = std::nullopt,
     };
 }
 

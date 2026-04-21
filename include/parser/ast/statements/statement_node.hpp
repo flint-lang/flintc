@@ -36,6 +36,7 @@ class StatementNode : public ASTNode {
         ASSIGNMENT,
         BREAK,
         CALL,
+        CALLABLE_CALL,
         CATCH,
         CONTINUE,
         DATA_FIELD_ASSIGNMENT,

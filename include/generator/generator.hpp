@@ -3,6 +3,7 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/ast/call_node_base.hpp"
+#include "parser/ast/callable_call_node_base.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
@@ -1579,10 +1580,61 @@ class Generator {
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
         /// @return `group_mapping` The value(s) containing the result of the call
-        static group_mapping generate_call( //
-            llvm::IRBuilder<> &builder,     //
-            GenerationContext &ctx,         //
-            const CallNodeBase *call_node   //
+        static group_mapping generate_call(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CallNodeBase *call_node);
+
+        /// @function `generate_call_arg_prep`
+        /// @brief Generates all the argument preperation of calls, e.g. generating all the argument expressions, putting them into
+        /// temporary containers etc. This function only exists to minimize code duplication between the `generate_call` and
+        /// `generate_callable_call` functions.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `args` The output arguments, where all the generated argument expressions are added to
+        /// @param `garbage` The potential garbage collected up from the argument expression
+        /// @param `arguments` The argument list to generate, a list of pairs where the first value is the agument expression and the second
+        /// value is whether that argument is passed by reference
+        /// @param `parameters` The parameter list of the called function type, a list of types and whether that parameter is mutable
+        /// @param `is_builtin` Whether this call targets a builtin function, argument generation differs in that case
+        /// @return `bool` Whether all argument preperation was successful
+        static bool generate_call_arg_prep(                                                 //
+            llvm::IRBuilder<> &builder,                                                     //
+            GenerationContext &ctx,                                                         //
+            std::vector<llvm::Value *> &args,                                               //
+            garbage_type &garbage,                                                          //
+            const std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+            const std::vector<std::pair<std::shared_ptr<Type>, bool>> &parameters,          //
+            const bool is_builtin = false                                                   //
+        );
+
+        struct call_arg_cleanup_ctx {};
+
+        /// @function `generate_call_arg_cleanup`
+        /// @brief Generates all the common argument cleanup of calls, e.g. checking which arguments to store back into their original
+        /// memory etc
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `args` The output arguments, where all the generated argument expressions are added to
+        /// @param `garbage` The potential garbage collected up from the argument expression
+        /// @param `called_fn_type` The type of the called function frame, holds nullopt if the call is a callable
+        /// @param `next_stack_frame` The stack frame of the call in which the arguments were passed to
+        /// @param `fn_ret_types` The return types of the called function
+        /// @param `arguments` The argument list to generate, a list of pairs where the first value is the agument expression and the second
+        /// value is whether that argument is passed by reference
+        /// @param `parameters` The parameter list of the called function type, a list of types and whether that parameter is mutable
+        /// @param `fn_name` The name of the function / callable being called
+        /// @return `bool` Whether all argument cleanup was successful
+        static bool generate_call_arg_cleanup(                                              //
+            llvm::IRBuilder<> &builder,                                                     //
+            GenerationContext &ctx,                                                         //
+            std::vector<llvm::Value *> &args,                                               //
+            garbage_type &garbage,                                                          //
+            const std::optional<llvm::StructType *> called_fn_type,                         //
+            llvm::Value *const next_stack_frame,                                            //
+            const std::vector<std::shared_ptr<Type>> fn_ret_types,                          //
+            const std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+            const std::vector<std::pair<std::shared_ptr<Type>, bool>> &parameters,          //
+            const std::string &fn_name                                                      //
         );
 
         /// @function `generate_builtin_call`
@@ -1590,7 +1642,12 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` The collected garbage of the arguments of the call
+        /// @param `args` The arguments the builtin call is called with
         /// @param `call_node` The call node to generate
+        /// @param `function_name` The name of the called builtin funciton
+        /// @param `module_name` The name of the Core module the called builtin function comes from
+        /// @param `fn_overloads` The list of overloads for that Core module function being called
         /// @return `group_mapping` The value(s) containing the result of the call
         static group_mapping generate_builtin_call( //
             llvm::IRBuilder<> &builder,             //
@@ -1601,6 +1658,19 @@ class Generator {
             const std::string &function_name,       //
             const std::string &module_name,         //
             const overloads &fn_overloads           //
+        );
+
+        /// @function `generate_callable_call`
+        /// @brief Generates a callable call
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `call_node` The call node to generate
+        /// @return `group_mapping` The value(s) containing the result of the callable call
+        static group_mapping generate_callable_call( //
+            llvm::IRBuilder<> &builder,              //
+            GenerationContext &ctx,                  //
+            const CallableCallNodeBase *call_node    //
         );
 
         /// @function `generate_instance_call`
@@ -1635,10 +1705,12 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node which is used to generate the rethrow from
-        static void generate_rethrow(     //
-            llvm::IRBuilder<> &builder,   //
-            GenerationContext &ctx,       //
-            const CallNodeBase *call_node //
+        /// @param `function_name` The name of the called function
+        static void generate_rethrow(        //
+            llvm::IRBuilder<> &builder,      //
+            GenerationContext &ctx,          //
+            const CallNodeBase *call_node,   //
+            const std::string &function_name //
         );
 
         /// @function `generate_group_expression`

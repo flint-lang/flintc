@@ -1,7 +1,4 @@
 #include "generator/generator.hpp"
-#include "parser/parser.hpp"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/Module.h"
 
 static const std::string prefix = "flint.ts.";
 
@@ -27,6 +24,8 @@ static const std::string prefix = "flint.ts.";
  *                                  // parallel work from other threads while it is waiting on a 'sync' point (future stuff)
  *         TS_FLAG_ASYNC = 2,       // This Thread Stack is currently operating on an async function, we need to keep track of
  *                                  // this information to emit every following 'async' call as a direct call
+ *         TS_FLAG_CALLABLE = 3,    // This Thread Stack is currently operating on an callable function, this is needed for
+ *                                  // future persitent local support, and also to correctly load the next TS frame
  *     } ts_flags_e;
  *
  *     typedef struct thread_stack_t {

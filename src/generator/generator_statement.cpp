@@ -8,6 +8,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/call_node_statement.hpp"
+#include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
@@ -68,6 +69,11 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::CALL: {
             const auto *node = statement->as<CallNodeStatement>();
             group_mapping gm = Expression::generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
+            return gm.has_value();
+        }
+        case StatementNode::Variation::CALLABLE_CALL: {
+            const auto *node = statement->as<CallableCallNodeStatement>();
+            group_mapping gm = Expression::generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node));
             return gm.has_value();
         }
         case StatementNode::Variation::CATCH: {

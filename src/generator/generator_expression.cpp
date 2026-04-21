@@ -6,6 +6,7 @@
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/callable_call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/instance_call_node_expression.hpp"
@@ -22,6 +23,7 @@
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
 #include <stack>
@@ -54,7 +56,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression_node->as<CallNodeExpression>();
-            return generate_call(builder, ctx, node);
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
+        }
+        case ExpressionNode::Variation::CALLABLE_CALL: {
+            const auto *node = expression_node->as<CallableCallNodeExpression>();
+            return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node));
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression_node->as<DataAccessNode>();
@@ -83,7 +89,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
-            return generate_instance_call(builder, ctx, node);
+            return generate_instance_call(builder, ctx, static_cast<const InstanceCallNodeBase *>(node));
         }
         case ExpressionNode::Variation::LITERAL: {
             const auto *node = expression_node->as<LiteralNode>();
@@ -1259,125 +1265,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
     const auto builtin_function = Parser::get_builtin_function(call_node->function->name, ctx.imported_core_modules);
     // Get the arguments
     std::vector<llvm::Value *> args;
-    args.reserve(call_node->arguments.size());
     garbage_type garbage;
-
-    for (size_t i = 0; i < call_node->arguments.size(); i++) {
-        const auto &arg = call_node->arguments[i];
-        const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters[i]);
-        // Complex arguments of function calls are always passed as references, but if the data type is complex this "reference" is a
-        // pointer to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any
-        // variable as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour
-        // should only effect array types, as data and strings are handled differently
-        //
-        // Optionals are always passed by-reference but because of the Thread Stack any "argument" of a function is *always* stored in the
-        // passed-by thread stack frame, and it is stored inside it *by value*. This means that every argument which "is" a reference needs
-        // to be loaded and stored in it's original data position after the function call *if* that parameter of the function is mutable
-        //
-        // This also means that the `expression` / the `args[i]` value now is a *pointer to the value* if `is_reference` is true. This means
-        // that it needs to be loaded before stored in the TS. We need this behaviour to be able to "load and store" the value of the TS
-        // parameter after the call is finished.
-        //
-        // Because builtin calls do not rely on the TS at all, the argument does not need to be a reference for builtin calls at all, we
-        // just want the "raw" value to pass to the builtin function in that case. The same is true for extern calls too
-        const bool is_builtin = builtin_function.has_value();
-        const bool is_reference = std::get<0>(call_node->function->parameters.at(i))->is_reference() && !is_builtin;
-        group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
-        if (!expression.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        if (expression.value().empty()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        llvm::Value *expr_val = expression.value().front();
-
-        // Check if we need to convert non-optional to optional
-        const auto arg_type = arg.first->type;
-        const Type::Variation arg_var = arg_type->get_variation();
-        const Type::Variation param_var = param_type->get_variation();
-        const bool is_tmp_opt = param_var == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
-        const bool is_data = param_var == Type::Variation::DATA && arg_var == Type::Variation::DATA;
-        if (is_tmp_opt) {
-            // We are passing a non-optional value to a function expecting an optional, so we build up the optional struct which is later
-            // stored in the TS frame of the called function
-            // If the value contained within the optional is a reference then we need to load that reference first
-            if (arg_type->is_reference()) {
-                expr_val = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), arg_type).first, expr_val, "loaded_expr_val");
-            }
-            llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
-            llvm::Value *temp_opt = IR::get_default_value_of_type(opt_struct_type);
-            temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt1(true), 0);
-            temp_opt = builder.CreateInsertValue(temp_opt, expr_val, 1, "temp_opt");
-            expr_val = temp_opt;
-        } else if (is_data) {
-            // Call `dima.retain` to increment the ARC before passing the argument to the function
-            // Data is always passed by reference
-            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
-            llvm::Value *data_value = expr_val;
-            const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
-            const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-            if (is_reference && !is_initializer && !is_opt_unwrap) {
-                llvm::Type *const ptr_ty = llvm::PointerType::get(context, 0);
-                data_value = IR::aligned_load(builder, ptr_ty, expr_val, "data_value");
-            }
-            llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {data_value});
-            retain_call->setMetadata("comment",
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Calling 'retain' before passing data to function")));
-        }
-        args.emplace_back(expr_val);
+    std::vector<std::pair<std::shared_ptr<Type>, bool>> parameters;
+    for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
+        parameters.emplace_back(param_type, param_is_mutable);
     }
-    // Now that we have generated all arguments check which need to be freed after the call, e.g. which garbage we collected
-    for (size_t i = 0; i < call_node->function->parameters.size(); i++) {
-        const auto &[param_type, param_name, is_mutable] = call_node->function->parameters.at(i);
-        if (!param_type->is_freeable()) {
-            continue;
-        }
-        // We only need to free garbage which is a "producer", so things like variables etc do *not* need to be freed
-        const auto &arg = call_node->arguments.at(i).first;
-        const ExpressionNode::Variation arg_variation = arg->get_variation();
-        const std::string &arg_type_str = arg->type->to_string();
-        const bool is_initializer = arg_variation == ExpressionNode::Variation::INITIALIZER;
-        const bool is_variant_initializer = arg_variation == ExpressionNode::Variation::LITERAL //
-            && std::holds_alternative<LitVariant>(arg->as<LiteralNode>()->value);
-        const bool is_array_initializer = arg_variation == ExpressionNode::Variation::ARRAY_INITIALIZER;
-        const bool is_fn_return = arg_variation == ExpressionNode::Variation::CALL;
-        const bool is_string_interpolation = arg_variation == ExpressionNode::Variation::STRING_INTERPOLATION;
-        bool is_slice = false;
-        if (arg_variation == ExpressionNode::Variation::ARRAY_ACCESS) {
-            const auto *arg_arr_access = arg->as<ArrayAccessNode>();
-            for (const auto &index : arg_arr_access->indexing_expressions) {
-                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-                    is_slice = true;
-                    break;
-                }
-            }
-        }
-        const bool is_string_literal =                                                              //
-            arg_type_str == "str"                                                                   //
-            && arg_variation == ExpressionNode::Variation::TYPE_CAST                                //
-            && arg->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
-            && std::holds_alternative<LitStr>(arg->as<TypeCastNode>()->expr->as<LiteralNode>()->value);
-        if (is_initializer || is_variant_initializer || is_array_initializer || is_fn_return || is_string_interpolation || is_slice ||
-            is_string_literal) {
-            if (garbage.find(0) == garbage.end()) {
-                std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{param_type, args.at(i)}};
-                garbage[0] = std::move(vec);
-            } else {
-                // Check if the garbage already contains the parameter value
-                bool already_contains_param = false;
-                for (const auto &[t, v] : garbage.at(0)) {
-                    if (t->equals(arg->type) && v == args.at(i)) {
-                        already_contains_param = true;
-                        break;
-                    }
-                }
-                if (!already_contains_param) {
-                    garbage.at(0).emplace_back(param_type, args.at(i));
-                }
-            }
-        }
+    if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters, builtin_function.has_value())) {
+        return std::nullopt;
     }
 
     llvm::Function *func_decl = nullptr;
@@ -1484,91 +1378,17 @@ Generator::group_mapping Generator::Expression::generate_call( //
     }
     last_err_values = {call, next_stack_frame};
 
-    // Call 'dima.release' on the retained function arguments. It is important that we release the retained function arguments *before*
-    // assigning back the potentially modified parameters of the called function (the next loop).
-    for (size_t i = 0; i < call_node->arguments.size(); i++) {
-        const auto &arg = call_node->arguments[i];
-        if (arg.first->type->get_variation() != Type::Variation::DATA) {
-            continue;
-        }
-        if (call_node->arguments.at(i).first->type->get_variation() != Type::Variation::DATA) {
-            continue;
-        }
-        // Call `dima.release` to decrement the ARC after the function call
-        llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-        auto data_head = Module::DIMA::get_head(arg.first->type);
-        llvm::Value *data_value = args.at(i);
-        const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
-        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-        if (!is_initializer && !is_opt_unwrap) {
-            llvm::Type *ptr_ty = llvm::PointerType::get(context, 0);
-            data_value = IR::aligned_load(builder, ptr_ty, data_value, "data_value");
-        }
-        llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, data_value});
-        release_call->setMetadata("comment",
-            llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Calling 'release' on arg " + std::to_string(i) + " after calling function '" + call_node->function->name + "'")));
-    }
-
-    // Store back the mutable reference function arguments in their original location (within the caller's TS frame) from the callees
-    // TS frame. For example if we pass mutable data to a function and re-assign that data in it the caller's variable still points to the
-    // old memory, which is potentially freed now (from the re-assignment process). Same is true for strings and any other by-reference
-    // values passed to functions.
-    for (size_t i = 0; i < call_node->arguments.size(); i++) {
-        const auto &arg = call_node->arguments[i];
-        const Type::Variation arg_var = arg.first->type->get_variation();
-        const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
-
-        const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
-        bool is_temporary = is_tmp_opt;
-        switch (arg.first->get_variation()) {
-            default:
-                break;
-            case ExpressionNode::Variation::STRING_INTERPOLATION:
-            case ExpressionNode::Variation::INITIALIZER:
-            case ExpressionNode::Variation::ARRAY_INITIALIZER:
-                is_temporary = true;
-                break;
-            case ExpressionNode::Variation::ARRAY_ACCESS: {
-                // Check if the array access contains a range expression
-                const auto *node = arg.first->as<ArrayAccessNode>();
-                for (const auto &expr : node->indexing_expressions) {
-                    if (expr->type->get_variation() == Type::Variation::RANGE) {
-                        is_temporary = true;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-        const bool is_literal = call_node->arguments.at(i).first->is_literal();
-        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-        const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
-        const bool is_reference = arg.second && !is_literal && !is_temporary && !is_opt_unwrap && !is_type_cast;
-
-        const bool is_mutable = std::get<2>(call_node->function->parameters.at(i));
-        if (!is_reference || !is_mutable) {
-            continue;
-        }
-
-        llvm::Value *const value_ptr = builder.CreateStructGEP(                                         //
-            called_fn_type, next_stack_frame, i + fn_ret_count + 1, "arg_" + std::to_string(i) + "_ptr" //
-        );
-        const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-        llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
-        llvm::Value *const value = IR::aligned_load(builder, param_ty, value_ptr, "arg_" + std::to_string(i) + "_value");
-        IR::aligned_store(builder, value, args[i]);
-    }
-
-    // Clear all garbage of temporary parameters
-    if (!Statement::clear_garbage(builder, garbage)) {
+    // Do all the common call cleanup on the arguments of the call
+    if (!generate_call_arg_cleanup(                                                                           //
+            builder, ctx, args, garbage, called_fn_type, next_stack_frame, call_node->function->return_types, //
+            call_node->arguments, parameters, call_node->function->name)                                      //
+    ) {
         return std::nullopt;
     }
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, ctx, call_node);
+        generate_rethrow(builder, ctx, call_node, call_node->function->name);
     }
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
@@ -1619,6 +1439,262 @@ Generator::group_mapping Generator::Expression::generate_call( //
         return_value.emplace_back(elem_value);
     }
     return return_value;
+}
+
+bool Generator::Expression::generate_call_arg_prep(                                 //
+    llvm::IRBuilder<> &builder,                                                     //
+    GenerationContext &ctx,                                                         //
+    std::vector<llvm::Value *> &args,                                               //
+    garbage_type &garbage,                                                          //
+    const std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+    const std::vector<std::pair<std::shared_ptr<Type>, bool>> &parameters,          //
+    const bool is_builtin                                                           //
+) {
+    assert(arguments.size() == parameters.size());
+    args.reserve(arguments.size());
+
+    for (size_t i = 0; i < arguments.size(); i++) {
+        const auto &arg = arguments[i];
+        const std::shared_ptr<Type> &param_type = parameters.at(i).first;
+        // Complex arguments of function calls are always passed as references, but if the data type is complex this "reference" is a
+        // pointer to the actual data of the variable, not a pointer to its allocation. So, in this case we are not allowed to pass in any
+        // variable as "reference" because then a double pointer is passed to the function where a single pointer is expected This behaviour
+        // should only effect array types, as data and strings are handled differently
+        //
+        // Optionals are always passed by-reference but because of the Thread Stack any "argument" of a function is *always* stored in the
+        // passed-by thread stack frame, and it is stored inside it *by value*. This means that every argument which "is" a reference needs
+        // to be loaded and stored in it's original data position after the function call *if* that parameter of the function is mutable
+        //
+        // This also means that the `expression` / the `args[i]` value now is a *pointer to the value* if `is_reference` is true. This means
+        // that it needs to be loaded before stored in the TS. We need this behaviour to be able to "load and store" the value of the TS
+        // parameter after the call is finished.
+        //
+        // Because builtin calls do not rely on the TS at all, the argument does not need to be a reference for builtin calls at all, we
+        // just want the "raw" value to pass to the builtin function in that case. The same is true for extern calls too
+        const bool is_reference = param_type->is_reference() && !is_builtin;
+        group_mapping expression = generate_expression(builder, ctx, garbage, 0, arg.first.get(), is_reference);
+        if (!expression.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (expression.value().empty()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        llvm::Value *expr_val = expression.value().front();
+
+        // Check if we need to convert non-optional to optional
+        const auto arg_type = arg.first->type;
+        const Type::Variation arg_var = arg_type->get_variation();
+        const Type::Variation param_var = param_type->get_variation();
+        const bool is_tmp_opt = param_var == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
+        const bool is_data = param_var == Type::Variation::DATA && arg_var == Type::Variation::DATA;
+        if (is_tmp_opt) {
+            // We are passing a non-optional value to a function expecting an optional, so we build up the optional struct which is later
+            // stored in the TS frame of the called function
+            // If the value contained within the optional is a reference then we need to load that reference first
+            if (arg_type->is_reference()) {
+                expr_val = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), arg_type).first, expr_val, "loaded_expr_val");
+            }
+            llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
+            llvm::Value *temp_opt = IR::get_default_value_of_type(opt_struct_type);
+            temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt1(true), 0);
+            temp_opt = builder.CreateInsertValue(temp_opt, expr_val, 1, "temp_opt");
+            expr_val = temp_opt;
+        } else if (is_data) {
+            // Call `dima.retain` to increment the ARC before passing the argument to the function
+            // Data is always passed by reference
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            llvm::Value *data_value = expr_val;
+            const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
+            const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
+            if (is_reference && !is_initializer && !is_opt_unwrap) {
+                llvm::Type *const ptr_ty = llvm::PointerType::get(context, 0);
+                data_value = IR::aligned_load(builder, ptr_ty, expr_val, "data_value");
+            }
+            llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {data_value});
+            retain_call->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Calling 'retain' before passing data to function")));
+        }
+        args.emplace_back(expr_val);
+    }
+    // Now that we have generated all arguments check which need to be freed after the call, e.g. which garbage we collected
+    for (size_t i = 0; i < parameters.size(); i++) {
+        const auto &[param_type, is_mutable] = parameters.at(i);
+        if (!param_type->is_freeable()) {
+            continue;
+        }
+        // We only need to free garbage which is a "producer", so things like variables etc do *not* need to be freed
+        const auto &arg = arguments.at(i).first;
+        const ExpressionNode::Variation arg_variation = arg->get_variation();
+        const std::string &arg_type_str = arg->type->to_string();
+        const bool is_initializer = arg_variation == ExpressionNode::Variation::INITIALIZER;
+        const bool is_variant_initializer = arg_variation == ExpressionNode::Variation::LITERAL //
+            && std::holds_alternative<LitVariant>(arg->as<LiteralNode>()->value);
+        const bool is_array_initializer = arg_variation == ExpressionNode::Variation::ARRAY_INITIALIZER;
+        const bool is_fn_return = arg_variation == ExpressionNode::Variation::CALL;
+        const bool is_string_interpolation = arg_variation == ExpressionNode::Variation::STRING_INTERPOLATION;
+        bool is_slice = false;
+        if (arg_variation == ExpressionNode::Variation::ARRAY_ACCESS) {
+            const auto *arg_arr_access = arg->as<ArrayAccessNode>();
+            for (const auto &index : arg_arr_access->indexing_expressions) {
+                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                    is_slice = true;
+                    break;
+                }
+            }
+        }
+        const bool is_string_literal =                                                              //
+            arg_type_str == "str"                                                                   //
+            && arg_variation == ExpressionNode::Variation::TYPE_CAST                                //
+            && arg->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
+            && std::holds_alternative<LitStr>(arg->as<TypeCastNode>()->expr->as<LiteralNode>()->value);
+        if (is_initializer || is_variant_initializer || is_array_initializer || is_fn_return || is_string_interpolation || is_slice ||
+            is_string_literal) {
+            if (garbage.find(0) == garbage.end()) {
+                std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{param_type, args.at(i)}};
+                garbage[0] = std::move(vec);
+            } else {
+                // Check if the garbage already contains the parameter value
+                bool already_contains_param = false;
+                for (const auto &[t, v] : garbage.at(0)) {
+                    if (t->equals(arg->type) && v == args.at(i)) {
+                        already_contains_param = true;
+                        break;
+                    }
+                }
+                if (!already_contains_param) {
+                    garbage.at(0).emplace_back(param_type, args.at(i));
+                }
+            }
+        }
+    }
+    return true;
+}
+
+bool Generator::Expression::generate_call_arg_cleanup(                              //
+    llvm::IRBuilder<> &builder,                                                     //
+    GenerationContext &ctx,                                                         //
+    std::vector<llvm::Value *> &args,                                               //
+    garbage_type &garbage,                                                          //
+    const std::optional<llvm::StructType *> called_fn_type,                         //
+    llvm::Value *const next_stack_frame,                                            //
+    const std::vector<std::shared_ptr<Type>> fn_ret_types,                          //
+    const std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+    const std::vector<std::pair<std::shared_ptr<Type>, bool>> &parameters,          //
+    const std::string &fn_name                                                      //
+) {
+    // Call 'dima.release' on the retained function arguments. It is important that we release the retained function arguments *before*
+    // assigning back the potentially modified parameters of the called function (the next loop).
+    for (size_t i = 0; i < arguments.size(); i++) {
+        const auto &arg = arguments[i];
+        if (arg.first->type->get_variation() != Type::Variation::DATA) {
+            continue;
+        }
+        // Call `dima.release` to decrement the ARC after the function call
+        llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+        auto data_head = Module::DIMA::get_head(arg.first->type);
+        llvm::Value *data_value = args.at(i);
+        const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
+        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
+        if (!is_initializer && !is_opt_unwrap) {
+            llvm::Type *ptr_ty = llvm::PointerType::get(context, 0);
+            data_value = IR::aligned_load(builder, ptr_ty, data_value, "data_value");
+        }
+        llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, data_value});
+        release_call->setMetadata("comment",
+            llvm::MDNode::get(context,
+                llvm::MDString::get(context,
+                    "Calling 'release' on arg " + std::to_string(i) + " after calling function '" + fn_name + "'")));
+    }
+
+    // Get the pointer to where the parameter types begin (for callables only)
+    llvm::Value *param_start_ptr = nullptr;
+    if (!called_fn_type.has_value()) {
+        // First we need to skip the `function_t` value of every function frame, which should be 32 bytes
+        llvm::Module *const module = ctx.parent->getParent();
+        size_t offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
+        // Now the offset is at the function return values, we need to skip them as they are placed in front of the arguments
+        for (const auto &[param_type, param_is_mutable] : parameters) {
+            const size_t param_size = Allocation::get_type_size(module, IR::get_type(module, param_type).first);
+            // Add alignment
+            offset += offset % param_size;
+            // Add the param size
+            offset += param_size;
+        }
+        param_start_ptr = builder.CreateGEP(builder.getInt8Ty(), next_stack_frame, builder.getInt64(offset), "param_start_ptr");
+    }
+
+    // Store back the mutable reference function arguments in their original location (within the caller's TS frame) from the callees
+    // TS frame. For example if we pass mutable data to a function and re-assign that data in it the caller's variable still points to the
+    // old memory, which is potentially freed now (from the re-assignment process). Same is true for strings and any other by-reference
+    // values passed to functions.
+    size_t offset = 0;
+    for (size_t i = 0; i < arguments.size(); i++) {
+        const auto &arg = arguments[i];
+        const Type::Variation arg_var = arg.first->type->get_variation();
+        const std::shared_ptr<Type> &param_type = parameters.at(i).first;
+
+        const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
+        bool is_temporary = is_tmp_opt;
+        switch (arg.first->get_variation()) {
+            default:
+                break;
+            case ExpressionNode::Variation::STRING_INTERPOLATION:
+            case ExpressionNode::Variation::INITIALIZER:
+            case ExpressionNode::Variation::ARRAY_INITIALIZER:
+                is_temporary = true;
+                break;
+            case ExpressionNode::Variation::ARRAY_ACCESS: {
+                // Check if the array access contains a range expression
+                const auto *node = arg.first->as<ArrayAccessNode>();
+                for (const auto &expr : node->indexing_expressions) {
+                    if (expr->type->get_variation() == Type::Variation::RANGE) {
+                        is_temporary = true;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+        const bool is_literal = arguments.at(i).first->is_literal();
+        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
+        const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
+        const bool is_reference = arg.second && !is_literal && !is_temporary && !is_opt_unwrap && !is_type_cast;
+
+        const bool is_mutable = parameters.at(i).second;
+        if (!is_reference || !is_mutable) {
+            continue;
+        }
+
+        const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
+        llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
+        llvm::Value *value_ptr = nullptr;
+        if (called_fn_type.has_value()) {
+            value_ptr = builder.CreateStructGEP(                                                                           //
+                called_fn_type.value(), next_stack_frame, i + fn_ret_types.size() + 1, "arg_" + std::to_string(i) + "_ptr" //
+            );
+        } else {
+            assert(param_start_ptr != nullptr);
+            const size_t type_size = Allocation::get_type_size(ctx.parent->getParent(), param_ty);
+            // Make the offset aligned to the parameter
+            offset += offset % type_size;
+            value_ptr = builder.CreateGEP(                                                                          //
+                builder.getInt8Ty(), param_start_ptr, builder.getInt64(offset), "arg_" + std::to_string(i) + "_ptr" //
+            );
+            // Add the type's size to the offset for the next parameter
+            offset += type_size;
+        }
+        llvm::Value *const value = IR::aligned_load(builder, param_ty, value_ptr, "arg_" + std::to_string(i) + "_value");
+        IR::aligned_store(builder, value, args[i]);
+    }
+
+    // Clear all garbage of temporary parameters
+    if (!Statement::clear_garbage(builder, garbage)) {
+        return false;
+    }
+
+    return true;
 }
 
 Generator::group_mapping Generator::Expression::generate_builtin_call( //
@@ -1867,7 +1943,7 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, ctx, call_node);
+        generate_rethrow(builder, ctx, call_node, call_node->function->name);
     }
 
     // Extract all the return values from the call (everything except the error return)
@@ -1880,6 +1956,118 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
             call, i, function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
         );
         return_value.emplace_back(elem_value);
+    }
+    return return_value;
+}
+
+Generator::group_mapping Generator::Expression::generate_callable_call( //
+    llvm::IRBuilder<> &builder,                                         //
+    GenerationContext &ctx,                                             //
+    const CallableCallNodeBase *call_node                               //
+) {
+    // First we prepare all the arguments
+    std::vector<llvm::Value *> args;
+    garbage_type garbage;
+    const std::string &fn_name = call_node->callable_variable;
+    const Scope::Variable variable = ctx.scope->variables.at(fn_name);
+    assert(variable.type->get_variation() == Type::Variation::FN);
+    const FnType *fn_type = variable.type->as<FnType>();
+    if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, fn_type->params)) {
+        return std::nullopt;
+    }
+
+    // Then we are loading the pointer to the allocated stack frame from the callable variable's allocation
+    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
+    const unsigned int callable_scope_id = ctx.scope->variables.at(fn_name).scope_id;
+    const std::string callable_var_str = "s" + std::to_string(callable_scope_id) + "::" + fn_name;
+    llvm::Value *const callable_alloca = ctx.allocations.at(callable_var_str);
+    llvm::Value *const callable_value = IR::aligned_load(builder, ptr_ty, callable_alloca, "callable_value");
+
+    // Get the pointer to the callable frame
+    llvm::Value *const callable_frame = builder.CreateGEP(ptr_ty, callable_value, builder.getInt32(1), "callable_frame");
+
+    // Store the arguments in the called function
+    llvm::Module *const module = ctx.parent->getParent();
+    size_t offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
+    // Skip all the return values first
+    for (const auto &return_type : fn_type->return_types) {
+        const auto type_pair = IR::get_type(module, return_type);
+        llvm::Type *const return_ty = type_pair.second.first ? llvm::PointerType::get(context, 0) : type_pair.first;
+        const size_t return_size = Allocation::get_type_size(module, return_ty);
+        // Add alignment
+        offset += offset % return_size;
+        // Add the ret type size
+        offset += return_size;
+    }
+    // Then store the arguments
+    for (size_t i = 0; i < fn_type->params.size(); i++) {
+        const auto &param_type = fn_type->params.at(i).first;
+        const auto type_pair = IR::get_type(module, param_type);
+        llvm::Type *const param_ty = type_pair.second.first ? llvm::PointerType::get(context, 0) : type_pair.first;
+        const size_t param_size = Allocation::get_type_size(module, param_ty);
+        // Add alignment
+        offset += offset % param_size;
+        // Store arg i at offset in the callable frame
+        llvm::Value *const value_ptr = builder.CreateGEP(                                                                      //
+            builder.getInt8Ty(), callable_frame, builder.getInt64(offset), fn_name + "_call_arg_" + std::to_string(i) + "_ptr" //
+        );
+        IR::aligned_store(builder, args[i], value_ptr);
+        // Add the param size
+        offset += param_size;
+    }
+
+    // Load the function to call
+    llvm::Value *const fn_ptr = IR::aligned_load(builder, ptr_ty, callable_value, "fn_ptr");
+    // Call the loaded function and pass the callable frame to it
+    // We can do a small trick here. Because the function types of *all* Flint functions are exactly the same, we can just take the type of
+    // the current function we are in
+    const llvm::FunctionCallee fn_to_call = llvm::FunctionCallee(ctx.parent->getFunctionType(), fn_ptr);
+    llvm::CallInst *const call = builder.CreateCall(fn_to_call, {callable_frame}, fn_name + std::to_string(call_node->call_id) + "_call");
+    call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + fn_name + "'")));
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+        // Add the 'tailcc' to every user-defined call, including callable calls as well, let's see how LLVM reacts to it...
+        call->setCallingConv(llvm::CallingConv::Tail);
+        call->setTailCall();
+    }
+    last_err_values = {call, callable_frame};
+
+    // Do all the common call cleanup on the arguments of the call
+    if (!generate_call_arg_cleanup(                                                           //
+            builder, ctx, args, garbage, std::nullopt, callable_frame, fn_type->return_types, //
+            call_node->arguments, fn_type->params, fn_name)                                   //
+    ) {
+        return std::nullopt;
+    }
+
+    // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
+    if (!call_node->has_catch) {
+        generate_rethrow(builder, ctx, call_node, fn_name);
+    }
+
+    // Extract all the return values from the call
+    std::vector<llvm::Value *> return_value;
+    offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
+    for (unsigned int i = 0; i < fn_type->return_types.size(); i++) {
+        const auto &return_type = fn_type->return_types.at(i);
+        const size_t return_type_size = Allocation::get_type_size(module, IR::get_type(module, return_type).first);
+        // Add alignment for the return type
+        offset += offset % return_type_size;
+        llvm::Value *const elem_ptr = builder.CreateGEP(                                                //
+            builder.getInt8Ty(),                                                                        //
+            callable_frame,                                                                             //
+            builder.getInt64(offset),                                                                   //
+            fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
+        );
+        const auto &ret_type_pair = IR::get_type(module, return_type);
+        llvm::Type *const ret_type = ret_type_pair.second.first ? llvm::PointerType::get(context, 0) : ret_type_pair.first;
+        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                      //
+            ret_type,                                                                               //
+            elem_ptr,                                                                               //
+            fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+        );
+        return_value.emplace_back(elem_value);
+        // Add the return type's size for the next return value
+        offset += return_type_size;
     }
     return return_value;
 }
@@ -1911,21 +2099,27 @@ llvm::Value *Generator::Expression::generate_function_reference( //
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(referenced_fn_id);
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(referenced_fn_id);
     llvm::Value *const frame_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), called_fn_type));
-    llvm::Value *const fn_frame = builder.CreateCall(c_functions.at(MALLOC), {frame_size}, "fn_frame");
+    // The "actual frame size" is the frame size + 8 bytes. The first 8 bytes contain the pointer to the called function
+    llvm::Value *const actual_frame_size = builder.CreateAdd(frame_size, builder.getInt64(8));
+    llvm::Value *const callable_frame = builder.CreateCall(c_functions.at(MALLOC), {actual_frame_size}, "callable_frame");
+    // Store the pointer to the function in the first 8 bytes of the callable frame
+    llvm::Function *const fn_ptr = Function::function_contexts.at(referenced_fn_id).function;
+    IR::aligned_store(builder, fn_ptr, callable_frame);
+    // Store the rest of the function frame in the space after that
     llvm::Value *const default_fn_frame = IR::aligned_load(                                                //
         builder, called_fn_type, called_fn_default, ref_node->referenced_function->name + "_default_frame" //
     );
+    llvm::Value *const fn_frame = builder.CreateGEP(llvm::PointerType::get(context, 0), callable_frame, builder.getInt32(1), "fn_frame");
     IR::aligned_store(builder, default_fn_frame, fn_frame);
-    return fn_frame;
+    return callable_frame;
 }
 
 void Generator::Expression::generate_rethrow( //
     llvm::IRBuilder<> &builder,               //
     GenerationContext &ctx,                   //
-    const CallNodeBase *call_node             //
+    const CallNodeBase *call_node,            //              const std::string &function_name //
+    const std::string &function_name          //
 ) {
-    const std::string function_name = call_node->function->name;
-
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
     llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                //

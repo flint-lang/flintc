@@ -2,6 +2,7 @@
 
 #include "error/error.hpp"
 #include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
@@ -443,43 +444,50 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             tokens_mut.second--;
             // We search for the arrow token. Everything to the left of it are the parameter types, everything to the right of it the return
             // types
-            std::vector<std::shared_ptr<Type>> param_types;
+            std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
             std::vector<std::shared_ptr<Type>> return_types;
             const std::optional<uint2> param_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_arrow);
             token_slice param_tokens;
             token_slice return_tokens;
             if (param_range.has_value()) {
-                param_tokens = token_slice{tokens_mut.first + param_range.value().first, tokens_mut.first + param_range.value().second};
+                param_tokens = token_slice{tokens_mut.first + param_range.value().first, tokens_mut.first + param_range.value().second - 1};
                 return_tokens = token_slice{tokens_mut.first + param_range.value().second, tokens_mut.second};
-                assert(return_tokens.first->token == TOK_ARROW);
-                return_tokens.first++;
+                assert(std::prev(return_tokens.first)->token == TOK_ARROW);
+                assert(param_tokens.second->token == TOK_ARROW);
             } else {
                 // There is no `->` token in the fn definiton, which means everything between the `<>` are paramters and the return type is
                 // of type void, e.g. empty return_types
                 param_tokens = tokens_mut;
                 return_tokens = {tokens_mut.first, tokens_mut.first};
             }
-            while (param_tokens.first != param_tokens.second) {
-                if (param_tokens.first->token == TOK_COMMA) {
-                    param_tokens.first++;
+            // Check if the "param types" is just a `()`, signifying empty parameter list, skip them if that's the case
+            if (std::distance(param_tokens.first, param_tokens.second) != 2 //
+                || param_tokens.first->token != TOK_LEFT_PAREN              //
+                || std::next(param_tokens.first)->token != TOK_RIGHT_PAREN  //
+            ) {
+                while (param_tokens.first != param_tokens.second) {
+                    if (param_tokens.first->token == TOK_COMMA) {
+                        param_tokens.first++;
+                    }
+                    const std::optional<uint2> next_range = Matcher::get_next_match_range(param_tokens, Matcher::type);
+                    if (!next_range.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    assert(next_range.value().first == 0);
+                    token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
+                    const bool is_mutable = param_tokens.first->token == TOK_MUT;
+                    if (is_mutable || param_tokens.first->token == TOK_CONST) {
+                        type_tokens.first++;
+                    }
+                    std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                    if (!type.has_value()) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    params.emplace_back(type.value(), is_mutable);
+                    param_tokens.first = type_tokens.second;
                 }
-                const std::optional<uint2> next_range = Matcher::get_next_match_range(param_tokens, Matcher::type);
-                if (!next_range.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                assert(next_range.value().first == 0);
-                const token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
-                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
-                if (!type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                if (std::find(param_types.begin(), param_types.end(), type.value()) != param_types.end()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                param_types.emplace_back(type.value());
             }
             while (return_tokens.first != return_tokens.second) {
                 if (return_tokens.first->token == TOK_COMMA) {
@@ -497,13 +505,10 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (std::find(return_types.begin(), return_types.end(), type.value()) != return_types.end()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
                 return_types.emplace_back(type.value());
+                return_tokens.first = type_tokens.second;
             }
-            return std::make_shared<FnType>(param_types, return_types);
+            return std::make_shared<FnType>(params, return_types);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
         // It's an optional type

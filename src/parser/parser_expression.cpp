@@ -6,15 +6,16 @@
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
-#include "parser/ast/expressions/expression_node.hpp"
-#include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
+#include "parser/ast/expressions/callable_call_node_expression.hpp"
 #include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/instance_call_node_expression.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
@@ -782,6 +783,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         instance_call_node->scope_id = scope->scope_id;
         last_parsed_call = instance_call_node.get();
         return std::move(instance_call_node);
+    } else if (ret->callable.has_value()) {
+        std::unique_ptr<CallableCallNodeExpression> simple_call_node = std::make_unique<CallableCallNodeExpression>( //
+            ret->args,                                                                                               //
+            std::vector<std::shared_ptr<Type>>{},                                                                    //
+            ret->type,                                                                                               //
+            ret->callable.value()                                                                                    //
+        );
+        simple_call_node->scope_id = scope->scope_id;
+        last_parsed_call = simple_call_node.get();
+        return std::move(simple_call_node);
     } else {
         std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>( //
             ret->function,                                                                           //

@@ -43,6 +43,7 @@ class ExpressionNode : public ASTNode {
         ARRAY_INITIALIZER,
         BINARY_OP,
         CALL,
+        CALLABLE_CALL,
         DATA_ACCESS,
         DEFAULT,
         GROUP_EXPRESSION,
