@@ -500,13 +500,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
-    std::string func_module_name = "";
     if (is_func_module_call) {
         assert(tokens.first->token == TOK_TYPE);
         assert(tokens.first->type->get_variation() == Type::Variation::FUNC);
         assert((tokens.first + 1)->token == TOK_DOT);
         assert((tokens.first + 2)->token == TOK_IDENTIFIER);
-        func_module_name = std::string(tokens.first->type->to_string());
     }
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
@@ -817,6 +815,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             assert(potential_callables.size() == 1);
             const auto &callable_var = potential_callables.front().second;
             const auto *fn_type = callable_var.type->as<FnType>();
+            for (size_t i = 0; i < arguments.size(); i++) {
+                // Set the 'is_reference' flag of the arguments
+                arguments[i].second = arguments[i].first->type->is_reference();
+            }
             std::shared_ptr<Type> return_type;
             if (fn_type->return_types.empty()) {
                 return_type = Type::get_primitive_type("void");
