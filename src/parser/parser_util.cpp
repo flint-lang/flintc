@@ -793,8 +793,17 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             bool types_match = true;
             for (size_t i = 0; i < argument_types.size(); i++) {
                 const auto &param_type = fn_type->params.at(i).first;
+                assert(param_type->get_variation() != Type::Variation::ALIAS);
                 const auto &arg_type = argument_types.at(i);
-                types_match &= param_type->equals(arg_type);
+                assert(arg_type->get_variation() != Type::Variation::ALIAS);
+                if (param_type->equals(arg_type)) {
+                    continue;
+                }
+                // Check if argument can be implicitly cast to parameter type
+                if (!Parser::check_castability(param_type, arguments.at(i).first)) {
+                    types_match = false;
+                    break;
+                }
             }
             if (types_match) {
                 potential_callables.emplace_back(variable_name, variable);
