@@ -1934,7 +1934,9 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
 
     // Extract and store error value
     llvm::Value *err_val = builder.CreateExtractValue(call, 0, function_name + std::to_string(call_node->call_id) + "_err_val");
-    llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), 2);
+    llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
+        type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+    );
     IR::aligned_store(builder, err_val, error_ptr);
     llvm::Value *err_id = builder.CreateExtractValue(err_val, 0, "err_id");
     llvm::Value *fn_failed = builder.CreateICmpNE(err_id, builder.getInt32(0), "fn_" + function_name + "_failed");
@@ -2160,7 +2162,9 @@ void Generator::Expression::generate_rethrow( //
         // Load error value
         llvm::StructType *error_type = type_map.at("type.flint.err");
         llvm::Value *const stack_frame = last_err_values.second;
-        llvm::Value *const err_var = builder.CreateStructGEP(type_map.at("type.ts.function"), stack_frame, 2, "err_var");
+        llvm::Value *const err_var = builder.CreateStructGEP(                                           //
+            type_map.at("type.ts.function"), stack_frame, Module::ThreadStack::FUNCTION::ERR, "err_var" //
+        );
         llvm::LoadInst *err_val = IR::aligned_load(builder,                   //
             error_type,                                                       //
             err_var,                                                          //
@@ -2171,7 +2175,9 @@ void Generator::Expression::generate_rethrow( //
                 llvm::MDString::get(context, "Load err val of call '" + function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
         // Store the error value in the error field of the current function
-        llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), 2);
+        llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
+            type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+        );
         IR::aligned_store(builder, err_val, error_ptr);
         builder.CreateRet(builder.getInt1(true));
     }

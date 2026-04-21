@@ -326,7 +326,9 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
     llvm::Value *stack_ptr = ctx.allocations.at("flint.stack");
 
     // First, always store the error code (0 for no error)
-    llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), stack_ptr, 2, "error_ptr");
+    llvm::Value *error_ptr = builder.CreateStructGEP(                                               //
+        type_map.at("type.ts.function"), stack_ptr, Module::ThreadStack::FUNCTION::ERR, "error_ptr" //
+    );
     IR::aligned_store(builder, llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0), error_ptr);
 
     // If we have a return value, store it in the struct
@@ -416,7 +418,9 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
 bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ThrowNode *throw_node) {
     // Pointer to the error value of the current function
-    llvm::Value *error_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), 2);
+    llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
+        type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+    );
 
     // Generate the expression right of the throw statement, it has to be an error set
     Expression::garbage_type garbage;
@@ -1402,7 +1406,9 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
 
     // Load the error value
     llvm::Value *const stack_frame = last_err_values.second;
-    llvm::Value *const err_ptr = builder.CreateStructGEP(type_map.at("type.ts.function"), stack_frame, 2, "err_ptr");
+    llvm::Value *const err_ptr = builder.CreateStructGEP(                                           //
+        type_map.at("type.ts.function"), stack_frame, Module::ThreadStack::FUNCTION::ERR, "err_ptr" //
+    );
     llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
         llvm::Type::getInt32Ty(context),                                              //
         err_ptr,                                                                      //
