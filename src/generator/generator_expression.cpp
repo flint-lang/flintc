@@ -1256,6 +1256,44 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     return return_value;
 }
 
+bool Generator::Expression::is_arg_reference(                    //
+    const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
+    const std::shared_ptr<Type> &param_type                      //
+) {
+    const Type::Variation arg_var = arg.first->type->get_variation();
+    const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
+    bool is_temporary = is_tmp_opt;
+    switch (arg.first->get_variation()) {
+        default:
+            break;
+        case ExpressionNode::Variation::STRING_INTERPOLATION:
+        case ExpressionNode::Variation::INITIALIZER:
+        case ExpressionNode::Variation::ARRAY_INITIALIZER:
+            is_temporary = true;
+            break;
+        case ExpressionNode::Variation::ARRAY_ACCESS: {
+            // Check if the array access contains a range expression
+            const auto *node = arg.first->as<ArrayAccessNode>();
+            for (const auto &expr : node->indexing_expressions) {
+                if (expr->type->get_variation() == Type::Variation::RANGE) {
+                    is_temporary = true;
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    const bool is_literal = arg.first->is_literal();
+    const bool is_variant_literal = arg.first->get_variation() == ExpressionNode::Variation::LITERAL //
+        && std::holds_alternative<LitVariant>(arg.first->as<LiteralNode>()->value);
+    const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
+    const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
+    const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
+    const bool is_reference = arg.second && !is_temporary && (!is_literal || is_variant_literal) //
+        && !is_initializer && !is_opt_unwrap && !is_type_cast;
+    return is_reference;
+}
+
 Generator::group_mapping Generator::Expression::generate_call( //
     llvm::IRBuilder<> &builder,                                //
     GenerationContext &ctx,                                    //
@@ -1315,43 +1353,9 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // Insert all arguments into the loaded default-value
     const size_t fn_ret_count = call_node->function->return_types.size();
     for (size_t i = 0; i < args.size(); i++) {
-        const auto &arg = call_node->arguments[i];
-        const Type::Variation arg_var = arg.first->type->get_variation();
         const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
-
-        const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
-        bool is_temporary = is_tmp_opt;
-        switch (arg.first->get_variation()) {
-            default:
-                break;
-            case ExpressionNode::Variation::STRING_INTERPOLATION:
-            case ExpressionNode::Variation::INITIALIZER:
-            case ExpressionNode::Variation::ARRAY_INITIALIZER:
-                is_temporary = true;
-                break;
-            case ExpressionNode::Variation::ARRAY_ACCESS: {
-                // Check if the array access contains a range expression
-                const auto *node = arg.first->as<ArrayAccessNode>();
-                for (const auto &expr : node->indexing_expressions) {
-                    if (expr->type->get_variation() == Type::Variation::RANGE) {
-                        is_temporary = true;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-        const bool is_literal = call_node->arguments.at(i).first->is_literal();
-        const bool is_variant_literal = call_node->arguments.at(i).first->get_variation() == ExpressionNode::Variation::LITERAL //
-            && std::holds_alternative<LitVariant>(call_node->arguments.at(i).first->as<LiteralNode>()->value);
-        const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
-        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-        const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
-        const bool is_reference = arg.second && !is_temporary && (!is_literal || is_variant_literal) //
-            && !is_initializer && !is_opt_unwrap && !is_type_cast;
-
         llvm::Value *arg_value = args[i];
-        if (is_reference) {
+        if (is_arg_reference(call_node->arguments[i], param_type)) {
             const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
             llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
@@ -2011,7 +2015,15 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         llvm::Value *const value_ptr = builder.CreateGEP(                                                                      //
             builder.getInt8Ty(), callable_frame, builder.getInt64(offset), fn_name + "_call_arg_" + std::to_string(i) + "_ptr" //
         );
-        IR::aligned_store(builder, args[i], value_ptr);
+
+        // Check if the arg is a reference
+        llvm::Value *arg_value = args[i];
+        if (is_arg_reference(call_node->arguments[i], param_type)) {
+            arg_value = IR::aligned_load(builder, param_ty, arg_value);
+        }
+        // arg_value->dump();
+        IR::aligned_store(builder, arg_value, value_ptr);
+
         // Add the param size
         offset += param_size;
     }

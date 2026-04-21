@@ -1582,6 +1582,17 @@ class Generator {
         /// @return `group_mapping` The value(s) containing the result of the call
         static group_mapping generate_call(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CallNodeBase *call_node);
 
+        /// @function `is_arg_reference`
+        /// @brief Checks whether the given argument should be passed by reference to a function
+        ///
+        /// @param `arg` The argument to check
+        /// @param `param_type` The parameter type where the argument will be passed into
+        /// @return `bool` Whether the given argument should be passed by reference
+        static bool is_arg_reference(                                    //
+            const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
+            const std::shared_ptr<Type> &param_type                      //
+        );
+
         /// @function `generate_call_arg_prep`
         /// @brief Generates all the argument preperation of calls, e.g. generating all the argument expressions, putting them into
         /// temporary containers etc. This function only exists to minimize code duplication between the `generate_call` and
