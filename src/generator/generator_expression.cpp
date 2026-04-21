@@ -1615,12 +1615,12 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         llvm::Module *const module = ctx.parent->getParent();
         size_t offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
         // Now the offset is at the function return values, we need to skip them as they are placed in front of the arguments
-        for (const auto &[param_type, param_is_mutable] : parameters) {
-            const size_t param_size = Allocation::get_type_size(module, IR::get_type(module, param_type).first);
+        for (const auto &return_type : fn_ret_types) {
+            const size_t return_size = Allocation::get_type_size(module, IR::get_type(module, return_type).first);
             // Add alignment
-            offset += offset % param_size;
+            offset += offset % return_size;
             // Add the param size
-            offset += param_size;
+            offset += return_size;
         }
         param_start_ptr = builder.CreateGEP(builder.getInt8Ty(), next_stack_frame, builder.getInt64(offset), "param_start_ptr");
     }
