@@ -469,18 +469,18 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     if (param_tokens.first->token == TOK_COMMA) {
                         param_tokens.first++;
                     }
+                    const bool is_mutable = param_tokens.first->token == TOK_MUT;
+                    if (is_mutable || param_tokens.first->token == TOK_CONST) {
+                        param_tokens.first++;
+                    }
                     const std::optional<uint2> next_range = Matcher::get_next_match_range(param_tokens, Matcher::type);
                     if (!next_range.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
                     assert(next_range.value().first == 0);
-                    token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
-                    const bool is_mutable = param_tokens.first->token == TOK_MUT;
-                    if (is_mutable || param_tokens.first->token == TOK_CONST) {
-                        type_tokens.first++;
-                    }
-                    std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                    const token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
+                    const std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
                     if (!type.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
