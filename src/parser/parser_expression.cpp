@@ -811,8 +811,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference
     [[maybe_unused]] std::shared_ptr<Scope> &scope,                               //
     const token_slice &tokens                                                     //
 ) {
-    // TODO: If the first token is a type then it's a func module's function reference, so we need to search for the referenced function
+    // If the first token is a type then it's a func module's function reference, so we need to search for the referenced function
     // within that func module type
+    token_slice tokens_mut = tokens;
+    std::string referenced_fn_name = "";
+    if (tokens.first->token == TOK_TYPE) {
+        if (tokens.first->type->get_variation() != Type::Variation::FUNC) {
+            // Referencing functions is only allowed when referencing functions of func modules
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        referenced_fn_name = tokens.first->type->to_string() + ".";
+        tokens_mut.first++;
+    }
 
     // TODO: Support aliased func-module types before the reference operator (`alias.FuncType::function`)
 
@@ -820,9 +831,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference
     // within that aliased imported file
 
     // If the first token is the function reference itself we need to search in the current file for a "regular" function to reference
-    assert(tokens.first->token == TOK_REFERENCE);
-    assert((tokens.first + 1)->token == TOK_IDENTIFIER);
-    const std::string referenced_fn_name((tokens.first + 1)->lexme);
+    assert(tokens_mut.first->token == TOK_REFERENCE);
+    assert((tokens_mut.first + 1)->token == TOK_IDENTIFIER);
+    referenced_fn_name += std::string((tokens_mut.first + 1)->lexme);
     std::vector<FunctionNode *> potential_functions = file_node_ptr->file_namespace->get_functions_with_name(referenced_fn_name, false);
 
     if (potential_functions.empty()) {

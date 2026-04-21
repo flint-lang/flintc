@@ -1,28 +1,23 @@
 use Core.print
 
-def greet():
-	print("Hello, World!\n");
+data Data:
+	i32 x;
+	f32 y;
+	Data(x, y);
 
-def print_val(i32 x):
-	print($"x = {x}\n");
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y) = ({d.x}, {d.y})\n");
 
-def get_val() -> i32:
-	return 10;
-
-def add(i32 x, i32 y) -> i32:
-	return x + y;
+def regular_callable(i32 x) -> i32:
+	return x ** 2;
 
 def main():
-	fn<> greet_fn = ::greet;
-	greet_fn();
+	d := Data(10, 3.14);
+	Func.print(d);
 
-	fn<i32> print_val_fn = ::print_val;
-	print_val_fn(20);
+	fn<mut Data> print_fn = Func::print;
+	print_fn(d);
 
-	fn<() -> i32> get_val_fn = ::get_val;
-	i32 x = get_val_fn();
-	print($"x = {x}\n");
-
-	fn<i32, i32 -> i32> add_fn = ::add;
-	x = add_fn(10, 20);
-	print($"x = {x}\n");
+	fn<i32 -> i32> c = ::regular_callable;
+	print($"c(10) = {c(10)}\n");
