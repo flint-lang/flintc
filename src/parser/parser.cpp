@@ -1297,6 +1297,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all core Modules and collect all non-freeable types they provide
     for (const auto &[module_name, module_namespace] : core_namespaces) {
         for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+            if (type->get_variation() == Type::Variation::UNKNOWN) {
+                continue;
+            }
             if (type->get_variation() != Type::Variation::VARIANT) {
                 if (type->is_freeable()) {
                     continue;
@@ -1316,6 +1319,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all instances of the parser and collect all non-freeable types from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
+            if (type->get_variation() == Type::Variation::UNKNOWN) {
+                continue;
+            }
             if (type->get_variation() != Type::Variation::VARIANT) {
                 if (type->is_freeable()) {
                     continue;
@@ -1335,6 +1341,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all public types and collect all freable types
     const std::vector<std::string> skipped_types = {"float", "int", "void", "void?", "type.flint.default", "type.flint.str.lit"};
     for (const auto &[type_string, type] : Type::types) {
+        if (type->get_variation() == Type::Variation::UNKNOWN) {
+            continue;
+        }
         if (type->get_variation() != Type::Variation::VARIANT) {
             if (type->is_freeable()) {
                 continue;
