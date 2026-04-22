@@ -1369,6 +1369,14 @@ bool Generator::Statement::generate_switch_statement( //
 bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CatchNode *catch_node) {
     // The catch statement is basically just an if check if the err value of the function return is != 0 or not
     const CallNodeBase *call_node = catch_node->call_node;
+    std::string fn_name;
+    if (call_node->function == nullptr) {
+        // It's a callable
+        const auto *callable = static_cast<const CallableCallNodeBase *>(call_node);
+        fn_name = callable->callable_variable;
+    } else {
+        fn_name = call_node->function->name;
+    }
 
     llvm::BasicBlock *last_block = &ctx.parent->back();
     llvm::BasicBlock *first_block = &ctx.parent->front();
@@ -1379,17 +1387,17 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     bool will_insert_after = current_block == last_block || current_block != first_block;
     llvm::BasicBlock *insert_before = will_insert_after ? (current_block->getNextNode()) : current_block;
 
-    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(                            //
-        context,                                                                         //
-        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_catch", //
-        ctx.parent,                                                                      //
-        insert_before                                                                    //
+    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(          //
+        context,                                                       //
+        fn_name + "_" + std::to_string(call_node->call_id) + "_catch", //
+        ctx.parent,                                                    //
+        insert_before                                                  //
     );
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(                            //
-        context,                                                                         //
-        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_merge", //
-        nullptr,                                                                         //
-        insert_before                                                                    //
+    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(          //
+        context,                                                       //
+        fn_name + "_" + std::to_string(call_node->call_id) + "_merge", //
+        nullptr,                                                       //
+        insert_before                                                  //
     );
     builder.SetInsertPoint(current_block);
 
@@ -1397,8 +1405,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     builder.CreateCondBr(last_err_values.first, catch_block, merge_block)
         ->setMetadata("comment",
             llvm::MDNode::get(context,
-                llvm::MDString::get(context,
-                    "Branch to '" + catch_block->getName().str() + "' if '" + call_node->function->name + "' returned error")));
+                llvm::MDString::get(context, "Branch to '" + catch_block->getName().str() + "' if '" + fn_name + "' returned error")));
 
     const std::shared_ptr<Scope> current_scope = ctx.scope;
     ctx.scope = catch_node->scope;
@@ -1409,15 +1416,14 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     llvm::Value *const err_ptr = builder.CreateStructGEP(                                           //
         type_map.at("type.ts.function"), stack_frame, Module::ThreadStack::FUNCTION::ERR, "err_ptr" //
     );
-    llvm::LoadInst *err_val = IR::aligned_load(builder,                               //
-        llvm::Type::getInt32Ty(context),                                              //
-        err_ptr,                                                                      //
-        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_err" //
+    llvm::LoadInst *err_val = IR::aligned_load(builder,             //
+        llvm::Type::getInt32Ty(context),                            //
+        err_ptr,                                                    //
+        fn_name + "_" + std::to_string(call_node->call_id) + "_err" //
     );
     err_val->setMetadata("comment",
         llvm::MDNode::get(context,
-            llvm::MDString::get(context,
-                "Load err val of call '" + call_node->function->name + "::" + std::to_string(call_node->call_id) + "'")));
+            llvm::MDString::get(context, "Load err val of call '" + fn_name + "::" + std::to_string(call_node->call_id) + "'")));
     std::string err_alloca_name;
     if (catch_node->var_name.has_value()) {
         // Add the error variable to the list of allocations (temporarily)

@@ -784,15 +784,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         last_parsed_call = instance_call_node.get();
         return std::move(instance_call_node);
     } else if (ret->callable.has_value()) {
-        std::unique_ptr<CallableCallNodeExpression> simple_call_node = std::make_unique<CallableCallNodeExpression>( //
-            ret->args,                                                                                               //
-            std::vector<std::shared_ptr<Type>>{},                                                                    //
-            ret->type,                                                                                               //
-            ret->callable.value()                                                                                    //
+        const auto &error_types = scope->variables.at(ret->callable.value()).type->as<FnType>()->error_types;
+        std::unique_ptr<CallableCallNodeExpression> callable_call_node = std::make_unique<CallableCallNodeExpression>( //
+            ret->args,                                                                                                 //
+            error_types,                                                                                               //
+            ret->type,                                                                                                 //
+            ret->callable.value()                                                                                      //
         );
-        simple_call_node->scope_id = scope->scope_id;
-        last_parsed_call = simple_call_node.get();
-        return std::move(simple_call_node);
+        callable_call_node->scope_id = scope->scope_id;
+        last_parsed_call = callable_call_node.get();
+        return std::move(callable_call_node);
     } else {
         std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>( //
             ret->function,                                                                           //

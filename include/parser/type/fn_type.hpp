@@ -10,9 +10,14 @@
 /// @brief Represents fn types
 class FnType : public Type {
   public:
-    FnType(const std::vector<std::pair<std::shared_ptr<Type>, bool>> &params, const std::vector<std::shared_ptr<Type>> &return_types) :
+    FnType(                                                                //
+        const std::vector<std::pair<std::shared_ptr<Type>, bool>> &params, //
+        const std::vector<std::shared_ptr<Type>> &return_types,            //
+        const std::vector<std::shared_ptr<Type>> &error_types              //
+        ) :
         params(params),
-        return_types(return_types) {}
+        return_types(return_types),
+        error_types(error_types) {}
 
     Variation get_variation() const override {
         return Variation::FN;
@@ -65,7 +70,18 @@ class FnType : public Type {
                 ss << return_types.at(i)->to_string();
             }
         }
-
+        assert(!error_types.empty());
+        assert(error_types.front()->to_string() == "anyerror");
+        if (error_types.size() > 1) {
+            ss << " {";
+            for (size_t i = 1; i < error_types.size(); i++) {
+                if (i > 1) {
+                    ss << ", ";
+                }
+                ss << error_types.at(i)->to_string();
+            }
+            ss << "}";
+        }
         ss << ">";
         return ss.str();
     }
@@ -83,5 +99,7 @@ class FnType : public Type {
     /// @brief The return types of the referenced function
     std::vector<std::shared_ptr<Type>> return_types;
 
-    // TODO: Eventually add error sets to fn variables too?
+    /// @var `error_types`
+    /// @brief The possible error sets the referenced function can throw
+    std::vector<std::shared_ptr<Type>> error_types;
 };

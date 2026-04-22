@@ -66,15 +66,16 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
         last_parsed_call = instance_call_node.get();
         return std::move(instance_call_node);
     } else if (ret->callable.has_value()) {
-        std::unique_ptr<CallableCallNodeStatement> simple_call_node = std::make_unique<CallableCallNodeStatement>( //
-            ret->args,                                                                                             //
-            std::vector<std::shared_ptr<Type>>{},                                                                  //
-            ret->type,                                                                                             //
-            ret->callable.value()                                                                                  //
+        const auto &error_types = scope->variables.at(ret->callable.value()).type->as<FnType>()->error_types;
+        std::unique_ptr<CallableCallNodeStatement> callable_call_node = std::make_unique<CallableCallNodeStatement>( //
+            ret->args,                                                                                               //
+            error_types,                                                                                             //
+            ret->type,                                                                                               //
+            ret->callable.value()                                                                                    //
         );
-        simple_call_node->scope_id = scope->scope_id;
-        last_parsed_call = simple_call_node.get();
-        return std::move(simple_call_node);
+        callable_call_node->scope_id = scope->scope_id;
+        last_parsed_call = callable_call_node.get();
+        return std::move(callable_call_node);
     } else {
         std::unique_ptr<CallNodeStatement> simple_call_node = std::make_unique<CallNodeStatement>( //
             ret->function, ret->args, ret->function->error_types, ret->type                        //
@@ -1054,7 +1055,7 @@ bool Parser::create_variant_switch_branches(    //
         }
         auto type_it = possible_types.begin();
 
-        if (match_tokens.first->type == switcher_type) {
+        if (match_tokens.first->type->equals(switcher_type)) {
             // It's a tagged variation
             match_tokens.first++;
             if (match_tokens.first->token != TOK_DOT) {
@@ -1079,7 +1080,7 @@ bool Parser::create_variant_switch_branches(    //
         } else {
             // It's not tagged
             for (; type_it != possible_types.end(); ++type_it) {
-                if (type_it->second == match_tokens.first->type && !type_it->first.has_value()) {
+                if (type_it->second->equals(match_tokens.first->type) && !type_it->first.has_value()) {
                     break;
                 }
             }

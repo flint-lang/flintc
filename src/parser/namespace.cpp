@@ -3,6 +3,7 @@
 #include "error/error.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
+#include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
@@ -446,6 +447,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             // types
             std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
             std::vector<std::shared_ptr<Type>> return_types;
+            std::vector<std::shared_ptr<Type>> error_types;
             const std::optional<uint2> param_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_arrow);
             token_slice param_tokens;
             token_slice return_tokens;
@@ -460,6 +462,44 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 param_tokens = tokens_mut;
                 return_tokens = {tokens_mut.first, tokens_mut.first};
             }
+            // Check if the return tokens end with a `}`, signifying that there are error sets defined in the fn type
+            if (std::prev(return_tokens.second)->token == TOK_RIGHT_BRACE) {
+                return_tokens.second -= 2;
+                // Get all error types
+                while (return_tokens.second->token != TOK_LEFT_BRACE) {
+                    switch (return_tokens.second->token) {
+                        default:
+                            // Not allowed token inside of error set list
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        case TOK_COMMA:
+                            break;
+                        case TOK_IDENTIFIER: {
+                            // Check if this identifier is an error set type and replace it with a type token
+                            const auto type = file_node->file_namespace->get_type_from_str(std::string(return_tokens.second->lexme));
+                            if (!type.has_value()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return std::nullopt;
+                            }
+                            auto &tok = *return_tokens.second;
+                            tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, type.value());
+                            [[fallthrough]];
+                        }
+                        case TOK_TYPE:
+                            if (return_tokens.second->type->get_variation() != Type::Variation::ERROR_SET) {
+                                // Type in error set list is not an error set type
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return std::nullopt;
+                            }
+                            error_types.emplace_back(return_tokens.second->type);
+                            break;
+                    }
+                    return_tokens.second--;
+                }
+            }
+            error_types.emplace_back(Type::get_primitive_type("anyerror"));
+            // Reverse the error types to keep the definition ordering intact
+            std::reverse(error_types.begin(), error_types.end());
             // Check if the "param types" is just a `()`, signifying empty parameter list, skip them if that's the case
             if (std::distance(param_tokens.first, param_tokens.second) != 2 //
                 || param_tokens.first->token != TOK_LEFT_PAREN              //
@@ -508,7 +548,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 return_types.emplace_back(type.value());
                 return_tokens.first = type_tokens.second;
             }
-            return std::make_shared<FnType>(params, return_types);
+            return std::make_shared<FnType>(params, return_types, error_types);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
         // It's an optional type

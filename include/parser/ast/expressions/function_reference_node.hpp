@@ -16,7 +16,9 @@ class FunctionReferenceNode : public ExpressionNode {
         for (const auto &[param_type, param_name, param_is_mutable] : referenced_function->parameters) {
             params.emplace_back(param_type, param_is_mutable);
         }
-        std::shared_ptr<Type> fn_type = std::make_shared<FnType>(params, referenced_function->return_types);
+        std::shared_ptr<Type> fn_type = std::make_shared<FnType>(                       //
+            params, referenced_function->return_types, referenced_function->error_types //
+        );
         Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
         if (file_namespace->add_type(fn_type)) {
             this->type = fn_type;

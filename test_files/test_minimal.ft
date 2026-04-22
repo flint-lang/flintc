@@ -1,26 +1,35 @@
+use Core.assert
 use Core.print
 
-data Data:
-	i32 x;
-	f32 y;
-	Data(x, y);
+def assert_not_0(i32 x) -> i32 {ErrAssert}:
+	assert(x != 0);
+	return x;
 
-func Func requires(Data d):
-	def print():
-		print($"d.(x, y) = ({d.x}, {d.y})\n");
-
-def add(i32 x, i32 y) -> i32:
-	return x + y;
-
-def callable(i32 x) -> i32:
-	return add(x, 10);
+def greet():
+	print("Hello, World!\n");
 
 def main():
-	d := Data(10, 3.14);
-	Func.print(d);
+	fn<> g = ::greet;
+	g();
 
-	fn<mut Data> print_fn = Func::print;
-	print_fn(d);
+	fn<i32 -> i32 {ErrAssert}> c = ::assert_not_0;
+	i32 x = c(10) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");
 
-	fn<i32 -> i32> c = ::callable;
-	print($"c(10) = {c(10)}\n");
+	x = c(0) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");
+
+	x = assert_not_0(0) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");
