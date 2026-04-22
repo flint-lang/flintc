@@ -1102,6 +1102,12 @@ bool Parser::resolve_all_unknown_types() {
                             return false;
                         }
                     }
+                    // Resolve all error types of the function
+                    for (auto &err : function_node->error_types) {
+                        if (!file_namespace->resolve_type(err)) {
+                            return false;
+                        }
+                    }
                     break;
                 }
                 case DefinitionNode::Variation::VARIANT: {
@@ -1134,6 +1140,12 @@ bool Parser::resolve_all_unknown_types() {
             // Resolve all return types of the function
             for (auto &ret : function->return_types) {
                 if (!file_namespace->resolve_type(ret)) {
+                    return false;
+                }
+            }
+            // Resolve all error types of the function
+            for (auto &err : function->error_types) {
+                if (!file_namespace->resolve_type(err)) {
                     return false;
                 }
             }
