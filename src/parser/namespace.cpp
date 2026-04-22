@@ -203,6 +203,29 @@ bool Namespace::resolve_type(std::shared_ptr<Type> &type) {
             }
             break;
         }
+        case Type::Variation::FN: {
+            auto *fn_type = type->as<FnType>();
+            for (auto &[param_type, param_is_mutable] : fn_type->params) {
+                if (!resolve_type(param_type)) {
+                    return false;
+                }
+            }
+            for (auto &return_type : fn_type->return_types) {
+                if (!resolve_type(return_type)) {
+                    return false;
+                }
+            }
+            for (auto &error_type : fn_type->error_types) {
+                if (!resolve_type(error_type)) {
+                    return false;
+                }
+                if (error_type->to_string() != "anyerror" && error_type->get_variation() != Type::Variation::ERROR_SET) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+            }
+            break;
+        }
         case Type::Variation::GROUP: {
             auto *group_type = type->as<GroupType>();
             for (auto &elem_type : group_type->types) {
