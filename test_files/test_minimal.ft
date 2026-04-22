@@ -1,28 +1,9 @@
 use Core.assert
-use Core.print
 
-def div(i32 x, i32 y) -> u32 {ErrAssert}:
-	assert(y != 0);
-	assert(x >= 0);
-	assert(y > 0);
-	return u32(x / y);
+def add(i32 x, i32 y) -> i32:
+	return x + y;
 
-def sub(i32 x, i32 y) -> u32 {ErrAssert}:
-	assert(x >= y);
-	assert(y > 0);
-	return u32(x - y);
-
-def bind_sub(mut fn<i32, i32 -> u32 {ErrAssert}> c):
-	c = ::sub;
-
-def execute(fn<i32, i32 -> u32 {ErrAssert}> c, i32 x, i32 y) -> u32 {ErrAssert}:
-	return c(x, y);
-
-def main():
-	fn<i32, i32 -> u32 {ErrAssert}> c = ::div;
-	u32 result = c(10, 2);
-	print($"result = {result}\n");
-
-	bind_sub(c);
-	result = c(10, 2);
-	print($"result = {result}\n");
+test "callable":
+	fn<i32, i32 -> i32> c = ::add;
+	i32 res = c(10, 20);
+	assert(res == 30);

@@ -80,7 +80,6 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Init the TS variable
     llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
-    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
     const size_t ts_stack_size = Allocation::get_type_size(module, ts_ty);
     llvm::Value *const ts_stack_size_v = builder->getInt64(ts_stack_size + Module::ThreadStack::TS_DATA_SIZE);
     llvm::Value *const ts_ptr = builder->CreateCall(c_functions.at(MALLOC), {ts_stack_size_v}, "ts_ptr");
@@ -206,6 +205,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Generate the body of the catch block
     builder->SetInsertPoint(catch_block);
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
     llvm::Value *err_val_ptr = builder->CreateStructGEP(ts_fn_ty, ts_stack_data_ptr, Module::ThreadStack::FUNCTION::ERR, "err_val_ptr");
     llvm::Value *err_val = IR::aligned_load(*builder, type_map.at("type.flint.err"), err_val_ptr, "err_val");
     llvm::Value *type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
@@ -1426,7 +1426,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
         ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
     );
-    IR::aligned_store(*builder, builder->getInt32(0), ts_flags_ptr);
+    IR::aligned_store(*builder, builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_USED), ts_flags_ptr);
     llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
         ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
     );
@@ -1512,6 +1512,38 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 return;
             }
             llvm::Value *const test_name_value = IR::generate_const_string(module, test_node->name);
+
+            // Compute the test function's ID to look up its frame in ts_frames/ts_defaults
+            // This must match the ID computed in generate_test_function when the frame was registered
+            std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> fake_fn_parameters;
+            std::vector<std::shared_ptr<Type>> fake_fn_return_types;
+            std::vector<std::shared_ptr<Type>> fake_fn_error_types;
+            const std::optional<size_t> fake_fn_mangle_id;
+            std::optional<std::shared_ptr<Scope>> fake_fn_scope = std::make_optional(test_node->scope);
+            const FunctionNode fake_fn = FunctionNode( //
+                test_node->file_hash,                  //
+                test_node->line,                       //
+                test_node->column,                     //
+                test_node->length,                     //
+                false,                                 //
+                false,                                 //
+                false,                                 //
+                false,                                 //
+                test_function_name,                    //
+                fake_fn_parameters,                    //
+                fake_fn_return_types,                  //
+                fake_fn_error_types,                   //
+                fake_fn_scope,                         //
+                fake_fn_mangle_id                      //
+            );
+            const size_t test_fn_id = fake_fn.get_id();
+
+            // Set up the test function's frame in the TS data section
+            llvm::StructType *const test_frame_type = Module::ThreadStack::ts_frames.at(test_fn_id);
+            llvm::Value *const test_default_value = Module::ThreadStack::ts_defaults.at(test_fn_id);
+            llvm::Value *test_frame = IR::aligned_load(*builder, test_frame_type, test_default_value, "test_frame_default");
+            test_frame = builder->CreateInsertValue(test_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
+            IR::aligned_store(*builder, test_frame, ts_stack_data_ptr);
 
             llvm::Value *test_ret = builder->CreateCall(execute_test_fn,
                 {
