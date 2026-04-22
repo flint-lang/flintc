@@ -32,10 +32,10 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     assert(custom_main_function != nullptr);
     llvm::FunctionType *main_type = nullptr;
     if (main_function_has_args) {
-        main_type = llvm::FunctionType::get(                                               //
-            builder->getInt32Ty(),                                                         // Return type: int
-            {builder->getInt32Ty(), builder->getInt8Ty()->getPointerTo()->getPointerTo()}, // Takes int argc, char *argv[]
-            false                                                                          // no varargs
+        main_type = llvm::FunctionType::get( //
+            builder->getInt32Ty(),           // Return type: int
+            {builder->getInt32Ty(), PTR_TY}, // Takes int argc, char *argv[]
+            false                            // no varargs
         );
     } else {
         main_type = llvm::FunctionType::get( //
@@ -153,18 +153,18 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
         builder->SetInsertPoint(arg_save_loop_body_block);
         llvm::Value *argv_element_ptr = builder->CreateGEP(          //
-            builder->getInt8Ty()->getPointerTo()->getPointerTo(),    //
+            PTR_TY,                                                  //
             argv,                                                    //
             {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
             "argv_element_ptr"                                       //
         );
-        llvm::Value *argv_element = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), argv_element_ptr, "argv_element");
+        llvm::Value *argv_element = IR::aligned_load(*builder, PTR_TY, argv_element_ptr, "argv_element");
         llvm::Value *arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
         llvm::Value *created_str = builder->CreateCall(                                                     //
             Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
         );
-        llvm::Value *arg_ptr = builder->CreateGEP(                                                              //
-            str_type->getPointerTo(), len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
+        llvm::Value *arg_ptr = builder->CreateGEP(                                            //
+            PTR_TY, len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
         );
         IR::aligned_store(*builder, created_str, arg_ptr);
         IR::aligned_store(*builder, builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
@@ -252,7 +252,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // malloc
     {
         llvm::FunctionType *malloc_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
+            PTR_TY,                                                // Return type: void*
             {llvm::Type::getInt64Ty(context)},                     // Arguments: u64
             false                                                  // No vaarg
         );
@@ -263,7 +263,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *free_type = llvm::FunctionType::get( //
             llvm::Type::getInt8Ty(context),                      // Return type: void
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},    // Argument: void*
+            {PTR_TY},                                            // Argument: void*
             false                                                // No vaarg
         );
         llvm::Function *free_fn = llvm::Function::Create(free_type, llvm::Function::ExternalLinkage, "free", module);
@@ -272,13 +272,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // memcpy
     {
         llvm::FunctionType *memcpy_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
+            PTR_TY,                                                // Return type: void*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void*
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: const void*
-                llvm::Type::getInt64Ty(context)                 // Argument: u64
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                         // Argument: void*
+                PTR_TY,                         // Argument: const void*
+                llvm::Type::getInt64Ty(context) // Argument: u64
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *memcpy_fn = llvm::Function::Create(memcpy_type, llvm::Function::ExternalLinkage, "memcpy", module);
         c_functions[MEMCPY] = memcpy_fn;
@@ -286,13 +286,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // memset
     {
         llvm::FunctionType *memset_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),        // Return type: void*
+            PTR_TY,                                                // Return type: void*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* __s
-                llvm::Type::getInt32Ty(context),                // Argument: i32 __c
-                llvm::Type::getInt64Ty(context)                 // Argument: u64 __n
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                          // Argument: void* __s
+                llvm::Type::getInt32Ty(context), // Argument: i32 __c
+                llvm::Type::getInt64Ty(context)  // Argument: u64 __n
+            },                                   //
+            false                                // No vaarg
         );
         llvm::Function *memset_fn = llvm::Function::Create(memset_type, llvm::Function::ExternalLinkage, "memset", module);
         c_functions[MEMSET] = memset_fn;
@@ -300,12 +300,12 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // realloc
     {
         llvm::FunctionType *realloc_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),         // Return type: void*
+            PTR_TY,                                                 // Return type: void*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void*
-                llvm::Type::getInt64Ty(context)                 // Argument: u64
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                         // Argument: void*
+                llvm::Type::getInt64Ty(context) // Argument: u64
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *realloc_fn = llvm::Function::Create(realloc_type, llvm::Function::ExternalLinkage, "realloc", module);
         c_functions[REALLOC] = realloc_fn;
@@ -315,11 +315,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *snprintf_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                         // Return type: i32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* (buffer)
-                llvm::Type::getInt64Ty(context),                // Argument: u64 (max_len)
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // Argument: char* (format)
-            },                                                  //
-            true                                                // vaarg
+                PTR_TY,                          // Argument: char* (buffer)
+                llvm::Type::getInt64Ty(context), // Argument: u64 (max_len)
+                PTR_TY                           // Argument: char* (format)
+            },                                   //
+            true                                 // vaarg
         );
         llvm::Function *snprintf_fn = llvm::Function::Create(snprintf_type, llvm::Function::ExternalLinkage, "snprintf", module);
         c_functions[SNPRINTF] = snprintf_fn;
@@ -329,11 +329,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *memcmp_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       //
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* (memory address 1)
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: void* (memory address 2)
-                llvm::Type::getInt64Ty(context)                 // Argument: u64 (size to compare)
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                         // Argument: void* (memory address 1)
+                PTR_TY,                         // Argument: void* (memory address 2)
+                llvm::Type::getInt64Ty(context) // Argument: u64 (size to compare)
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *memcmp_fn = llvm::Function::Create(memcmp_type, llvm::Function::ExternalLinkage, "memcmp", module);
         c_functions[MEMCMP] = memcmp_fn;
@@ -359,7 +359,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *fgetc_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                      // return i32
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},     // FILE* stream (as void*)
+            {PTR_TY},                                             // FILE* stream (as void*)
             false                                                 // no vaarg
         );
         llvm::Function *fgetc_fn = llvm::Function::Create(fgetc_type, llvm::Function::ExternalLinkage, "fgetc", module);
@@ -368,13 +368,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // memmove
     {
         llvm::FunctionType *memmove_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),         // return void*
+            PTR_TY,                                                 // return void*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* dest
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* src
-                llvm::Type::getInt64Ty(context)                 // i64 n
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                         // void* dest
+                PTR_TY,                         // void* src
+                llvm::Type::getInt64Ty(context) // i64 n
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *memmove_fn = llvm::Function::Create(memmove_type, llvm::Function::ExternalLinkage, "memmove", module);
         c_functions[MEMMOVE] = memmove_fn;
@@ -384,11 +384,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtol_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                       // return i64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
-                llvm::Type::getInt32Ty(context)                                 // i32 base
-            },                                                                  //
-            false                                                               // No vaarg
+                PTR_TY,                         // char* buffer
+                PTR_TY,                         // char** endptr
+                llvm::Type::getInt32Ty(context) // i32 base
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *strtol_fn = llvm::Function::Create(strtol_type, llvm::Function::ExternalLinkage, "strtol", module);
         c_functions[STRTOL] = strtol_fn;
@@ -398,11 +398,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtoul_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                        // return u64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                 // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo(), // char** endptr
-                llvm::Type::getInt32Ty(context)                                 // i32 base
-            },                                                                  //
-            false                                                               // No vaarg
+                PTR_TY,                         // char* buffer
+                PTR_TY,                         // char** endptr
+                llvm::Type::getInt32Ty(context) // i32 base
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *strtoul_fn = llvm::Function::Create(strtoul_type, llvm::Function::ExternalLinkage, "strtoul", module);
         c_functions[STRTOUL] = strtoul_fn;
@@ -412,10 +412,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtof_type = llvm::FunctionType::get( //
             llvm::Type::getFloatTy(context),                       // return f32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo() // char** endptr
-            },                                                                 //
-            false                                                              // No vaarg
+                PTR_TY, // char* buffer
+                PTR_TY  // char** endptr
+            },          //
+            false       // No vaarg
         );
         llvm::Function *strtof_fn = llvm::Function::Create(strtof_type, llvm::Function::ExternalLinkage, "strtof", module);
         c_functions[STRTOF] = strtof_fn;
@@ -425,10 +425,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *strtod_type = llvm::FunctionType::get( //
             llvm::Type::getDoubleTy(context),                      // return f64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(),                // char* buffer
-                llvm::Type::getInt8Ty(context)->getPointerTo()->getPointerTo() // char** endptr
-            },                                                                 //
-            false                                                              // No vaarg
+                PTR_TY, // char* buffer
+                PTR_TY  // char** endptr
+            },          //
+            false       // No vaarg
         );
         llvm::Function *strtod_fn = llvm::Function::Create(strtod_type, llvm::Function::ExternalLinkage, "strtod", module);
         c_functions[STRTOD] = strtod_fn;
@@ -437,7 +437,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *strlen_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                       // return u64
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // char* str
+            {PTR_TY},                                              // char* str
             false                                                  // No vaarg
         );
         llvm::Function *strlen_fn = llvm::Function::Create(strlen_type, llvm::Function::ExternalLinkage, "strlen", module);
@@ -446,12 +446,12 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // fopen
     {
         llvm::FunctionType *fopen_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return FILE*
+            PTR_TY,                                               // return FILE*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* filename
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY, // char* filename
+                PTR_TY  // char* modes
+            },          //
+            false       // No vaarg
         );
         llvm::Function *fopen_fn = llvm::Function::Create(fopen_type, llvm::Function::ExternalLinkage, "fopen", module);
         c_functions[FOPEN] = fopen_fn;
@@ -461,11 +461,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fseek_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                      // return i32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // FILE* stream
-                llvm::Type::getInt64Ty(context),                // i64 offset
-                llvm::Type::getInt32Ty(context)                 // i32 whence (whatever that means)
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                          // FILE* stream
+                llvm::Type::getInt64Ty(context), // i64 offset
+                llvm::Type::getInt32Ty(context)  // i32 whence (whatever that means)
+            },                                   //
+            false                                // No vaarg
         );
         llvm::Function *fseek_fn = llvm::Function::Create(fseek_type, llvm::Function::ExternalLinkage, "fseek", module);
         c_functions[FSEEK] = fseek_fn;
@@ -474,7 +474,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *fclose_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
+            {PTR_TY},                                              // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *fclose_fn = llvm::Function::Create(fclose_type, llvm::Function::ExternalLinkage, "fclose", module);
@@ -484,7 +484,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *ftell_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                      // return i64
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},     // FILE* stream
+            {PTR_TY},                                             // FILE* stream
             false                                                 // No vaarg
         );
         llvm::Function *ftell_fn = llvm::Function::Create(ftell_type, llvm::Function::ExternalLinkage, "ftell", module);
@@ -495,12 +495,12 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fread_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                      // return u64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* ptr
-                llvm::Type::getInt64Ty(context),                // u64 size
-                llvm::Type::getInt64Ty(context),                // u64 n
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                          // void* ptr
+                llvm::Type::getInt64Ty(context), // u64 size
+                llvm::Type::getInt64Ty(context), // u64 n
+                PTR_TY                           // FILE* stream
+            },                                   //
+            false                                // No vaarg
         );
         llvm::Function *fread_fn = llvm::Function::Create(fread_type, llvm::Function::ExternalLinkage, "fread", module);
         c_functions[FREAD] = fread_fn;
@@ -509,7 +509,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *rewind_type = llvm::FunctionType::get( //
             llvm::Type::getInt8Ty(context),                        // return void
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
+            {PTR_TY},                                              // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *rewind_fn = llvm::Function::Create(rewind_type, llvm::Function::ExternalLinkage, "rewind", module);
@@ -518,13 +518,13 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // fgets
     {
         llvm::FunctionType *fgets_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return char*
+            PTR_TY,                                               // return char*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* s
-                llvm::Type::getInt32Ty(context),                // i32 n
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                          // char* s
+                llvm::Type::getInt32Ty(context), // i32 n
+                PTR_TY                           // FILE* stream
+            },                                   //
+            false                                // No vaarg
         );
         llvm::Function *fgets_fn = llvm::Function::Create(fgets_type, llvm::Function::ExternalLinkage, "fgets", module);
         c_functions[FGETS] = fgets_fn;
@@ -534,12 +534,12 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fwrite_type = llvm::FunctionType::get( //
             llvm::Type::getInt64Ty(context),                       // return u64
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // void* ptr
-                llvm::Type::getInt64Ty(context),                // u64 size
-                llvm::Type::getInt64Ty(context),                // u64 n
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // FILE* stream
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                          // void* ptr
+                llvm::Type::getInt64Ty(context), // u64 size
+                llvm::Type::getInt64Ty(context), // u64 n
+                PTR_TY                           // FILE* stream
+            },                                   //
+            false                                // No vaarg
         );
         llvm::Function *fwrite_fn = llvm::Function::Create(fwrite_type, llvm::Function::ExternalLinkage, "fwrite", module);
         c_functions[FWRITE] = fwrite_fn;
@@ -547,8 +547,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // getenv
     {
         llvm::FunctionType *getenv_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),        // return char*
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // char* name
+            PTR_TY,                                                // return char*
+            {PTR_TY},                                              // char* name
             false                                                  // No vaarg
         );
         llvm::Function *getenv_fn = llvm::Function::Create(getenv_type, llvm::Function::ExternalLinkage, "getenv", module);
@@ -560,11 +560,11 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* name
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* value
-                llvm::Type::getInt32Ty(context)                 // i32 replace
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY,                         // char* name
+                PTR_TY,                         // char* value
+                llvm::Type::getInt32Ty(context) // i32 replace
+            },                                  //
+            false                               // No vaarg
         );
         llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
         c_functions[SETENV] = setenv_fn;
@@ -573,12 +573,12 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // popen
     {
         llvm::FunctionType *popen_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),       // return FILE*
+            PTR_TY,                                               // return FILE*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* command
-                llvm::Type::getInt8Ty(context)->getPointerTo()  // char* modes
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY, // char* command
+                PTR_TY  // char* modes
+            },          //
+            false       // No vaarg
         );
         llvm::Function *popen_fn = llvm::Function::Create(popen_type, llvm::Function::ExternalLinkage,
 #ifdef __WIN32__
@@ -593,7 +593,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         llvm::FunctionType *pclose_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32 (exit code)
-            {llvm::Type::getInt8Ty(context)->getPointerTo()},      // FILE* stream
+            {PTR_TY},                                              // FILE* stream
             false                                                  // No vaarg
         );
         llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage,
@@ -608,10 +608,10 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // getcwd
     {
         llvm::FunctionType *getcwd_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),        // return char*
+            PTR_TY,                                                // return char*
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // char* _DstBuf
-                llvm::Type::getInt32Ty(context)                 // i32 _SizeInBytes
+                PTR_TY,                         // char* _DstBuf
+                llvm::Type::getInt32Ty(context) // i32 _SizeInBytes
             },
             false // No vaarg
         );
@@ -755,9 +755,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fflush_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo() // FILE* stream
-            },                                                 //
-            false                                              // No vaarg
+                PTR_TY // FILE* stream
+            },         //
+            false      // No vaarg
         );
         llvm::Function *fflush_fn = llvm::Function::Create(fflush_type, llvm::Function::ExternalLinkage, "fflush", module);
         c_functions[FFLUSH] = fflush_fn;
@@ -765,7 +765,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // tmpfile
     {
         llvm::FunctionType *tmpfile_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context)->getPointerTo(),         // FILE*
+            PTR_TY,                                                 // FILE*
             {},                                                     //
             false                                                   // No vaarg
         );
@@ -816,9 +816,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::FunctionType *fileno_type = llvm::FunctionType::get( //
             llvm::Type::getInt32Ty(context),                       // return i32
             {
-                llvm::Type::getInt8Ty(context)->getPointerTo(), // FILE* stream
-            },                                                  //
-            false                                               // No vaarg
+                PTR_TY, // FILE* stream
+            },          //
+            false       // No vaarg
         );
         llvm::Function *fileno_fn = llvm::Function::Create(fileno_type, llvm::Function::ExternalLinkage,
 #ifdef __WIN32__
@@ -920,10 +920,9 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     llvm::Type *i8_type = builder->getInt8Ty();
     llvm::Type *i32_type = builder->getInt32Ty();
     llvm::Type *i64_type = builder->getInt64Ty();
-    llvm::PointerType *ptr_type = llvm::PointerType::get(context, 0);
 
     // visible_width(char* str, i64 len) -> i64
-    llvm::FunctionType *visible_width_type = llvm::FunctionType::get(i64_type, {ptr_type, i64_type}, false);
+    llvm::FunctionType *visible_width_type = llvm::FunctionType::get(i64_type, {PTR_TY, i64_type}, false);
     llvm::Function *visible_width_fn = llvm::Function::Create(visible_width_type, llvm::Function::ExternalLinkage, "visible_width", module);
 
     // Get the function arguments
@@ -1082,21 +1081,20 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
 
 llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     llvm::Function *visible_width_fn = generate_visible_width_function(builder, module);
-    llvm::PointerType *ptr_type = llvm::PointerType::get(context, 0);
     llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
     llvm::Type *i1_type = llvm::Type::getInt1Ty(context);
     llvm::FunctionType *exec_type = llvm::FunctionType::get( //
         i1_type,                                             // Whether the test failed (to increment counter)
         {
-            ptr_type, // void* test_fn_ptr
-            ptr_type, // void* stack
-            ptr_type, // char* test_name_value
-            ptr_type, // char* success_fmt
-            ptr_type, // char* fail_fmt
-            ptr_type, // char* perf_fmt
-            ptr_type, // char* output_begin
-            ptr_type, // char* output_line
-            ptr_type, // char *output_end
+            PTR_TY,   // void* test_fn_ptr
+            PTR_TY,   // void* stack
+            PTR_TY,   // char* test_name_value
+            PTR_TY,   // char* success_fmt
+            PTR_TY,   // char* fail_fmt
+            PTR_TY,   // char* perf_fmt
+            PTR_TY,   // char* output_begin
+            PTR_TY,   // char* output_line
+            PTR_TY,   // char *output_end
             i32_type, // longest_name
             i1_type,  // is_perf_test
             i1_type,  // should_fail
@@ -1188,11 +1186,10 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", exec_fn);
 
     llvm::Function *printf_fn = c_functions.at(PRINTF);
-    llvm::StructType *TimeStamp_type = Module::Time::time_data_types.at("TimeStamp");
 
     builder->SetInsertPoint(entry_block);
-    llvm::AllocaInst *perf_start_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_start_TimePoint");
-    llvm::AllocaInst *perf_end_point = builder->CreateAlloca(TimeStamp_type->getPointerTo(), nullptr, "perf_end_TimePoint");
+    llvm::AllocaInst *perf_start_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_start_TimePoint");
+    llvm::AllocaInst *perf_end_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_end_TimePoint");
     // Start capturing the output
     llvm::Function *start_capture_fn = Module::System::system_functions.at("start_capture");
     builder->CreateCall(start_capture_fn, {});
@@ -1208,7 +1205,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     // Add a call to the actual function
     builder->SetInsertPoint(perf_test_start_merge_block);
     llvm::FunctionType *const test_function_type = llvm::FunctionType::get( //
-        builder->getInt1Ty(), {llvm::PointerType::get(context, 0)}, false   //
+        builder->getInt1Ty(), {PTR_TY}, false                               //
     );
     llvm::FunctionCallee test_fn(test_function_type, arg_test_fn_ptr);
     llvm::CallInst *test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
@@ -1245,9 +1242,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Value *line_count_ptr = builder->CreateStructGEP(str_type, captured_output, 1, "line_count_ptr");
     llvm::Value *line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_ptr, "line_count");
-    llvm::Value *line_iter_start_ptr = builder->CreateGEP(                                    //
-        str_type->getPointerTo(), line_count_ptr, builder->getInt64(1), "line_iter_start_ptr" //
-    );
+    llvm::Value *line_iter_start_ptr = builder->CreateGEP(PTR_TY, line_count_ptr, builder->getInt64(1), "line_iter_start_ptr");
     llvm::AllocaInst *const longest_line = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "longest_line");
     IR::aligned_store(*builder, builder->getInt64(0), longest_line);
     builder->CreateBr(find_longest_line_cond_block);
@@ -1258,8 +1253,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     builder->CreateCondBr(i_lt_line_count, find_longest_line_body_block, find_longest_line_merge_block);
 
     builder->SetInsertPoint(find_longest_line_body_block);
-    llvm::Value *line_iter_ptr = builder->CreateGEP(str_type->getPointerTo(), line_iter_start_ptr, i_value, "line_iter_ptr");
-    llvm::Value *line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
+    llvm::Value *line_iter_ptr = builder->CreateGEP(PTR_TY, line_iter_start_ptr, i_value, "line_iter_ptr");
+    llvm::Value *line_iter = IR::aligned_load(*builder, PTR_TY, line_iter_ptr, "line_iter");
     llvm::Value *line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
     llvm::Value *line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
     llvm::Value *line_value_ptr = builder->CreateStructGEP(str_type, line_iter, 1, "line_value_ptr");
@@ -1316,8 +1311,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     builder->CreateCondBr(i_lt_line_count, print_output_loop_body_block, print_output_loop_merge_block);
 
     builder->SetInsertPoint(print_output_loop_body_block);
-    line_iter_ptr = builder->CreateGEP(str_type->getPointerTo(), line_iter_start_ptr, i_value, "line_iter_ptr");
-    line_iter = IR::aligned_load(*builder, str_type->getPointerTo(), line_iter_ptr, "line_iter");
+    line_iter_ptr = builder->CreateGEP(PTR_TY, line_iter_start_ptr, i_value, "line_iter_ptr");
+    line_iter = IR::aligned_load(*builder, PTR_TY, line_iter_ptr, "line_iter");
     line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
     line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
     llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
@@ -1358,12 +1353,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     builder->SetInsertPoint(perf_print_results_block);
     // Print the perf test result
     llvm::Function *time_duration_fn = Module::Time::time_functions.at("duration");
-    llvm::Value *perf_test_start = IR::aligned_load(                                    //
-        *builder, TimeStamp_type->getPointerTo(), perf_start_point, "start_point_value" //
-    );
-    llvm::Value *perf_test_end = IR::aligned_load(                                  //
-        *builder, TimeStamp_type->getPointerTo(), perf_end_point, "end_point_value" //
-    );
+    llvm::Value *perf_test_start = IR::aligned_load(*builder, PTR_TY, perf_start_point, "start_point_value");
+    llvm::Value *perf_test_end = IR::aligned_load(*builder, PTR_TY, perf_end_point, "end_point_value");
     llvm::Value *duration = builder->CreateCall(time_duration_fn, {perf_test_start, perf_test_end}, "perf_test_duration");
 
     llvm::Function *time_as_unit_fn = Module::Time::time_functions.at("as_unit");

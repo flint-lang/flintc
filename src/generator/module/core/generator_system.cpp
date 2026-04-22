@@ -6,17 +6,16 @@ static const std::string prefix = hash.to_string() + ".system.";
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     if (!only_declarations) {
-        llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
         system_variables["stdout"] = module->getGlobalVariable("stdout");
         if (system_variables.at("stdout") == nullptr) {
             system_variables["stdout"] = new llvm::GlobalVariable(                            //
-                *module, ptr_ty, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stdout" //
+                *module, PTR_TY, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stdout" //
             );
         }
         system_variables["stderr"] = module->getGlobalVariable("stderr");
         if (system_variables.at("stderr") == nullptr) {
             system_variables["stderr"] = new llvm::GlobalVariable(                            //
-                *module, ptr_ty, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stderr" //
+                *module, PTR_TY, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stderr" //
             );
         }
         llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
@@ -27,7 +26,7 @@ void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *bui
             *module, i32_ty, false, llvm::GlobalVariable::InternalLinkage, builder->getInt32(-1), "orig_stderr_fd" //
         );
         system_variables["capture_file"] = new llvm::GlobalVariable(                                                              //
-            *module, ptr_ty, false, llvm::GlobalVariable::InternalLinkage, llvm::ConstantPointerNull::get(ptr_ty), "capture_file" //
+            *module, PTR_TY, false, llvm::GlobalVariable::InternalLinkage, llvm::ConstantPointerNull::get(PTR_TY), "capture_file" //
         );
     }
     generate_system_command_function(builder, module, only_declarations);
@@ -108,7 +107,7 @@ void Generator::Module::System::generate_system_command_function( //
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr.value(), true);
     llvm::FunctionType *system_type = llvm::FunctionType::get( //
         function_result_type,                                  //
-        {str_type->getPointerTo()},                            //
+        {PTR_TY},                                              //
         false                                                  // No vaarg
     );
     llvm::Function *system_fn = llvm::Function::Create( //
@@ -242,7 +241,7 @@ void Generator::Module::System::generate_system_command_function( //
 #ifdef __WIN32__
     builder->CreateCall(free_fn, command_copy);
 #endif
-    llvm::Value *output_load_null = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load_null");
+    llvm::Value *output_load_null = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
     llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrSystem, SpawnFailed, SpawnFailedMessage);
     IR::aligned_store(*builder, err_value, error_value_ptr);
@@ -272,14 +271,14 @@ void Generator::Module::System::generate_system_command_function( //
     // Read loop body
     builder->SetInsertPoint(read_loop_body);
     // Load the current output
-    llvm::Value *output_load = IR::aligned_load(*builder, str_type->getPointerTo(), output_ptr, "output_load");
+    llvm::Value *output_load = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load");
     // Append buffer to output: append_lit(&result.output, buffer)
-    llvm::Value *output_addr = builder->CreateAlloca(str_type->getPointerTo(), nullptr, "output_addr");
+    llvm::Value *output_addr = builder->CreateAlloca(PTR_TY, nullptr, "output_addr");
     IR::aligned_store(*builder, output_load, output_addr);
     llvm::Value *buffer_len = builder->CreateCall(strlen_fn, {buffer}, "buffer_len");
     builder->CreateCall(append_lit_fn, {output_addr, buffer, buffer_len});
     // Update the output in result struct
-    llvm::Value *updated_output = IR::aligned_load(*builder, str_type->getPointerTo(), output_addr, "updated_output");
+    llvm::Value *updated_output = IR::aligned_load(*builder, PTR_TY, output_addr, "updated_output");
     IR::aligned_store(*builder, updated_output, output_ptr);
     // Loop back to read more
     builder->CreateBr(read_loop_header);
@@ -321,13 +320,12 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     //     }
     //     return init_str(buffer, strlen(buffer));
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *getcwd_fn = c_functions.at(GETCWD);
     llvm::Function *strlen_fn = c_functions.at(STRLEN);
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
-    llvm::FunctionType *get_cwd_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::FunctionType *get_cwd_type = llvm::FunctionType::get(PTR_TY, {}, false);
     llvm::Function *get_cwd_fn = llvm::Function::Create( //
         get_cwd_type,                                    //
         llvm::Function::ExternalLinkage,                 //
@@ -348,7 +346,7 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
     llvm::Value *getcwd_result = builder->CreateCall(getcwd_fn, {buffer, builder->getInt32(256)}, "getcwd_result");
-    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo());
+    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
     llvm::Value *getcwd_failed = builder->CreateICmpEQ(getcwd_result, nullpointer, "getcwd_failed");
     builder->CreateCondBr(getcwd_failed, getcwd_fail_block, getcwd_ok_block);
 
@@ -433,7 +431,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
 
-    llvm::FunctionType *get_path_type = llvm::FunctionType::get(str_type->getPointerTo(), {str_type->getPointerTo()}, false);
+    llvm::FunctionType *get_path_type = llvm::FunctionType::get(PTR_TY, {PTR_TY}, false);
     llvm::Function *get_path_fn = llvm::Function::Create(get_path_type, llvm::Function::ExternalLinkage, prefix + "get_path", module);
     system_functions["get_path"] = get_path_fn;
     if (only_declarations) {
@@ -727,8 +725,7 @@ void Generator::Module::System::generate_start_capture_function( //
     llvm::BasicBlock *const tmpfile_null_block = llvm::BasicBlock::Create(context, "tmpfile_null", start_capture_fn);
     llvm::BasicBlock *const redirect_block = llvm::BasicBlock::Create(context, "redirect", start_capture_fn);
 
-    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
-    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(PTR_TY);
 
     // Entry: Check if already capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
@@ -743,8 +740,8 @@ void Generator::Module::System::generate_start_capture_function( //
 
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
-    llvm::Value *stdout_ptr = builder->CreateLoad(ptr_ty, stdout_gv, "stdout_load");
-    llvm::Value *stderr_ptr = builder->CreateLoad(ptr_ty, stderr_gv, "stderr_load");
+    llvm::Value *stdout_ptr = builder->CreateLoad(PTR_TY, stdout_gv, "stdout_load");
+    llvm::Value *stderr_ptr = builder->CreateLoad(PTR_TY, stderr_gv, "stderr_load");
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
 
@@ -822,7 +819,6 @@ void Generator::Module::System::generate_end_capture_function( //
     //
     //     return captured;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
     llvm::Function *const dup2_fn = c_functions.at(DUP2);
     llvm::Function *const fileno_fn = c_functions.at(FILENO);
@@ -840,7 +836,7 @@ void Generator::Module::System::generate_end_capture_function( //
     llvm::GlobalVariable *const orig_stderr_fd_gv = system_variables.at("orig_stderr_fd");
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
 
-    llvm::FunctionType *const end_capture_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::FunctionType *const end_capture_type = llvm::FunctionType::get(PTR_TY, {}, false);
     llvm::Function *const end_capture_fn = llvm::Function::Create( //
         end_capture_type,                                          //
         llvm::Function::ExternalLinkage,                           //
@@ -852,9 +848,8 @@ void Generator::Module::System::generate_end_capture_function( //
         return;
     }
 
-    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
     llvm::IntegerType *const i32_ty = builder->getInt32Ty();
-    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+    llvm::ConstantPointerNull *const null_ptr = llvm::ConstantPointerNull::get(PTR_TY);
     llvm::ConstantInt *const neg_one = builder->getInt32(-1);
     llvm::ConstantInt *const zero_i64 = builder->getInt64(0);
     llvm::ConstantInt *const one_i64 = builder->getInt64(1);
@@ -871,7 +866,7 @@ void Generator::Module::System::generate_end_capture_function( //
 
     // Entry: Check if capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
-    llvm::Value *capture_file = IR::aligned_load(*builder, ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
     llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
     builder->CreateCondBr(is_null, not_capturing_block, flush_block);
 
@@ -882,8 +877,8 @@ void Generator::Module::System::generate_end_capture_function( //
 
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
-    llvm::Value *stdout_ptr = IR::aligned_load(*builder, ptr_ty, stdout_gv, "stdout_load");
-    llvm::Value *stderr_ptr = IR::aligned_load(*builder, ptr_ty, stderr_gv, "stderr_load");
+    llvm::Value *stdout_ptr = IR::aligned_load(*builder, PTR_TY, stdout_gv, "stdout_load");
+    llvm::Value *stderr_ptr = IR::aligned_load(*builder, PTR_TY, stderr_gv, "stderr_load");
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
     builder->CreateBr(restore_block);
@@ -908,7 +903,7 @@ void Generator::Module::System::generate_end_capture_function( //
     builder->CreateCall(rewind_fn, {capture_file});
 
     // Create empty captured str
-    llvm::AllocaInst *captured_alloca = builder->CreateAlloca(ptr_ty, 0, nullptr, "captured_alloca");
+    llvm::AllocaInst *captured_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "captured_alloca");
     llvm::Value *captured = builder->CreateCall(create_str_fn, {zero_i64}, "captured");
     IR::aligned_store(*builder, captured, captured_alloca);
 
@@ -932,7 +927,7 @@ void Generator::Module::System::generate_end_capture_function( //
     builder->SetInsertPoint(read_loop_exit);
     builder->CreateCall(fclose_fn, {capture_file});
     builder->CreateStore(null_ptr, capture_file_gv);
-    captured = IR::aligned_load(*builder, ptr_ty, captured_alloca, "captured_ret");
+    captured = IR::aligned_load(*builder, PTR_TY, captured_alloca, "captured_ret");
     builder->CreateRet(captured);
 }
 
@@ -1010,7 +1005,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
 
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
 
-    llvm::FunctionType *const end_capture_lines_type = llvm::FunctionType::get(str_type->getPointerTo(), {}, false);
+    llvm::FunctionType *const end_capture_lines_type = llvm::FunctionType::get(PTR_TY, {}, false);
     llvm::Function *const end_capture_lines_fn = llvm::Function::Create( //
         end_capture_lines_type,                                          //
         llvm::Function::ExternalLinkage,                                 //
@@ -1022,13 +1017,12 @@ void Generator::Module::System::generate_end_capture_lines_function( //
         return;
     }
 
-    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
     llvm::Type *const i64_ty = builder->getInt64Ty();
     llvm::Type *const i8_ty = builder->getInt8Ty();
-    llvm::Constant *const null_ptr = llvm::ConstantPointerNull::get(ptr_ty);
+    llvm::Constant *const null_ptr = llvm::ConstantPointerNull::get(PTR_TY);
     llvm::Constant *const zero_i64 = builder->getInt64(0);
     llvm::Constant *const one_i64 = builder->getInt64(1);
-    llvm::Constant *const sizeof_ptr = builder->getInt64(Allocation::get_type_size(module, ptr_ty));
+    llvm::Constant *const sizeof_ptr = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
     llvm::Constant *const newline_const = builder->getInt8('\n');
 
     // Create the basic blocks for the function
@@ -1054,7 +1048,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
 
     // Entry: Check if capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
-    llvm::Value *capture_file = IR::aligned_load(*builder, ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
     llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
     builder->CreateCondBr(is_null, not_capturing_block, capture_block);
 
@@ -1166,10 +1160,10 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     builder->CreateBr(line_select_block);
 
     builder->SetInsertPoint(line_select_block);
-    llvm::PHINode *line_string = builder->CreatePHI(str_type->getPointerTo(), 2, "line_string");
+    llvm::PHINode *line_string = builder->CreatePHI(PTR_TY, 2, "line_string");
     line_string->addIncoming(empty_line_string, empty_line_block);
     line_string->addIncoming(slice_line_string, slice_line_block);
-    llvm::Value *ptr_size = builder->getInt64(Allocation::get_type_size(module, llvm::PointerType::get(context, 0)));
+    llvm::Value *ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
     llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {output_array, ptr_size, output_id_alloca}, "element_ptr");
     IR::aligned_store(*builder, line_string, element_ptr);
     llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");

@@ -43,14 +43,13 @@ static const std::string prefix = "flint.ts.";
  */
 
 void Generator::Module::ThreadStack::generate_types() {
-    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
     if (type_map.find("type.ts.stack") == type_map.end()) {
         type_map["type.ts.stack"] = IR::create_struct_type("type.ts.stack",
             {
                 llvm::Type::getInt64Ty(context),                        // u64 capacity
                 llvm::Type::getInt32Ty(context),                        // u32 thread_id
                 llvm::Type::getInt32Ty(context),                        // u32 flags
-                ptr_ty,                                                 // ptr stack_ptr
+                PTR_TY,                                                 // ptr stack_ptr
                 llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char stack_data[]
             } //
         );
@@ -58,7 +57,7 @@ void Generator::Module::ThreadStack::generate_types() {
     if (type_map.find("type.ts.function") == type_map.end()) {
         type_map["type.ts.function"] = IR::create_struct_type("type.ts.function",
             {
-                ptr_ty,                          // ptr thread_stack
+                PTR_TY,                          // ptr thread_stack
                 llvm::Type::getInt64Ty(context), // u64 fn_id
                 type_map.at("type.flint.err"),   // err_t err
             } //

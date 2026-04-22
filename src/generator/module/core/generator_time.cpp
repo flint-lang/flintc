@@ -65,7 +65,7 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
     time_data_types["LARGE_INTEGER"] = large_integer_type;
     llvm::FunctionType *QueryPerformanceCounter_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                                        // returns BOOL (i32)
-        {large_integer_type->getPointerTo()},                                   // LARGE_INTEGER*
+        {PTR_TY},                                                               // LARGE_INTEGER*
         false                                                                   // No vaargs
     );
     llvm::Function *QueryPerformanceCounter_fn = llvm::Function::Create(                                 //
@@ -74,8 +74,8 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
     time_platform_functions["QueryPerformanceCounter"] = QueryPerformanceCounter_fn;
 
     // QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency)
-    llvm::FunctionType *QueryPerformanceFrequency_type = llvm::FunctionType::get(    //
-        llvm::Type::getInt32Ty(context), {large_integer_type->getPointerTo()}, false //
+    llvm::FunctionType *QueryPerformanceFrequency_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context), {PTR_TY}, false                          //
     );
     llvm::Function *QueryPerformanceFrequency_fn = llvm::Function::Create(                                   //
         QueryPerformanceFrequency_type, llvm::Function::ExternalLinkage, "QueryPerformanceFrequency", module //
@@ -100,7 +100,7 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
         llvm::Type::getInt32Ty(context),                              // returns i32
         {
             llvm::Type::getInt32Ty(context), // i32 clock_id
-            timespec_type->getPointerTo()    // timespec* tp
+            PTR_TY                           // timespec* tp
         },
         false // No vaargs
     );
@@ -111,8 +111,8 @@ void Generator::Module::Time::generate_platform_functions(llvm::Module *module) 
     llvm::FunctionType *nanosleep_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                          // returns i32
         {
-            timespec_type->getPointerTo(), // requested_time
-            timespec_type->getPointerTo()  // remaining
+            PTR_TY, // requested_time
+            PTR_TY  // remaining
         },
         false // No vaargs
     );
@@ -206,7 +206,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     llvm::StructType *timestamp_type = time_data_types.at("TimeStamp");
 
     llvm::FunctionType *now_type = llvm::FunctionType::get( //
-        timestamp_type->getPointerTo(),                     // Return type: TimeStamp*
+        PTR_TY,                                             // Return type: TimeStamp*
         false                                               // No arguments
     );
     llvm::Function *now_fn = llvm::Function::Create( //
@@ -306,10 +306,10 @@ void Generator::Module::Time::generate_duration_function(llvm::IRBuilder<> *buil
     llvm::StructType *duration_type = time_data_types.at("Duration");
 
     llvm::FunctionType *duration_fn_type = llvm::FunctionType::get( //
-        duration_type->getPointerTo(),                              // Return type: Duration*
+        PTR_TY,                                                     // Return type: Duration*
         {
-            timestamp_type->getPointerTo(), // TimeStamp* t1
-            timestamp_type->getPointerTo()  // TimeStamp* t2
+            PTR_TY, // TimeStamp* t1
+            PTR_TY  // TimeStamp* t2
         },
         false // No vaargs
     );
@@ -406,7 +406,7 @@ void Generator::Module::Time::generate_sleep_duration_function( //
 
     llvm::FunctionType *sleep_duration_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                                // Return type: void
-        {duration_type->getPointerTo()},                               // Duration* d
+        {PTR_TY},                                                      // Duration* d
         false                                                          // No vaargs
     );
     llvm::Function *sleep_duration_fn = llvm::Function::Create( //
@@ -479,7 +479,7 @@ void Generator::Module::Time::generate_sleep_duration_function( //
     IR::aligned_store(*builder, tv_nsec, tv_nsec_ptr);
 
     // Call nanosleep(&ts, NULL)
-    builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(timespec_type->getPointerTo())});
+    builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(PTR_TY)});
 #endif
     builder->CreateRetVoid();
 }
@@ -625,7 +625,7 @@ void Generator::Module::Time::generate_as_unit_function(llvm::IRBuilder<> *build
     llvm::FunctionType *as_unit_type = llvm::FunctionType::get( //
         llvm::Type::getDoubleTy(context),                       // Return type: f64
         {
-            duration_type->getPointerTo(),  // Duration* d
+            PTR_TY,                         // Duration* d
             llvm::Type::getInt32Ty(context) // i32 u (TimeUnit enum)
         },
         false // No vaargs
@@ -735,7 +735,7 @@ void Generator::Module::Time::generate_from_function(llvm::IRBuilder<> *builder,
     llvm::StructType *duration_type = time_data_types.at("Duration");
 
     llvm::FunctionType *from_type = llvm::FunctionType::get( //
-        duration_type->getPointerTo(),                       // Return type: Duration*
+        PTR_TY,                                              // Return type: Duration*
         {
             llvm::Type::getInt64Ty(context), // u64 t
             llvm::Type::getInt32Ty(context)  // i32 u (TimeUnit enum)

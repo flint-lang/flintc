@@ -6,10 +6,10 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     llvm::Type *sret_param_type = nullptr;
     const bool is_extern = function_node->is_extern;
     if (!is_extern) {
-        return llvm::FunctionType::get(         //
-            llvm::Type::getInt1Ty(context),     //
-            llvm::PointerType::get(context, 0), //
-            false                               //
+        return llvm::FunctionType::get(     //
+            llvm::Type::getInt1Ty(context), //
+            PTR_TY,                         //
+            false                           //
         );
     }
     assert(is_extern);
@@ -33,7 +33,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
             // Return type becomes void
             return_types = llvm::Type::getVoidTy(context);
             // First parameter becomes sret pointer
-            sret_param_type = actual_return_type->getPointerTo();
+            sret_param_type = PTR_TY;
         } else {
             // Existing logic for <= 16 bytes
             return_types = IR::get_type(module, ret_type, true).first;
@@ -189,7 +189,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     // Create the function type
     llvm::FunctionType *test_type = llvm::FunctionType::get( //
         llvm::Type::getInt1Ty(context),                      // return i1
-        {llvm::PointerType::get(context, 0)},                // ptr stack
+        {PTR_TY},                                            // ptr stack
         false                                                // no vararg
     );
     // Create the test function itself

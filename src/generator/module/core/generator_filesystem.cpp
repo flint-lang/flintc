@@ -73,7 +73,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *read_file_type = llvm::FunctionType::get( //
         function_result_type,                                     // Return type: str*
-        {str_type->getPointerTo()},                               // Parameter: const str* path
+        {PTR_TY},                                                 // Parameter: const str* path
         false                                                     // Not variadic
     );
     llvm::Function *read_file_fn = llvm::Function::Create(read_file_type, llvm::Function::ExternalLinkage, prefix + "read_file", module);
@@ -346,7 +346,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     // Define return type - str[] (array of strings)
     const std::shared_ptr<Type> result_type_ptr = Type::get_type_from_str("str[]").value();
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
-    llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
+    llvm::FunctionType *read_lines_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
     llvm::Function *read_lines_fn = llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, prefix + "read_lines", module);
     fs_functions["read_lines"] = read_lines_fn;
     if (only_declarations) {
@@ -522,8 +522,8 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     builder->SetInsertPoint(read_lines_loop);
 
     // Create a NULL str pointer to fill array
-    llvm::AllocaInst *null_str_ptr = builder->CreateAlloca(str_type->getPointerTo(), 0, "null_str_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(str_type->getPointerTo()), null_str_ptr);
+    llvm::AllocaInst *null_str_ptr = builder->CreateAlloca(PTR_TY, 0, "null_str_ptr");
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), null_str_ptr);
 
     // Fill array with NULL pointers
     builder->CreateCall(fill_arr_fn,
@@ -635,7 +635,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn, {lines_array, builder->getInt64(sizeof(void *)), idx_alloca}, "elem_ptr");
 
     // Load the string pointer
-    llvm::Value *elem_str_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), elem_ptr, "elem_str_ptr");
+    llvm::Value *elem_str_ptr = IR::aligned_load(*builder, PTR_TY, elem_ptr, "elem_str_ptr");
 
     // Free the string
     builder->CreateCall(free_fn, {elem_str_ptr});
@@ -703,8 +703,8 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
 
     // Get pointer to dimension lengths in array (first element of array->value)
     llvm::Value *array_value_ptr = builder->CreateStructGEP(str_type, lines_array, 1, "array_value_ptr");
-    llvm::Value *dim_lengths = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), array_value_ptr, "dim_lengths");
-    llvm::Value *dim_lengths_cast = builder->CreateBitCast(dim_lengths, builder->getInt64Ty()->getPointerTo(), "dim_lengths_cast");
+    llvm::Value *dim_lengths = IR::aligned_load(*builder, PTR_TY, array_value_ptr, "dim_lengths");
+    llvm::Value *dim_lengths_cast = builder->CreateBitCast(dim_lengths, PTR_TY, "dim_lengths_cast");
 
     // Update first dimension length
     llvm::Value *dim_first = builder->CreateGEP(builder->getInt64Ty(), dim_lengths_cast, builder->getInt32(0), "dim_first");
@@ -752,7 +752,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
 
     llvm::FunctionType *file_exists_type = llvm::FunctionType::get( //
         llvm::Type::getInt1Ty(context),                             // return bool
-        {str_type->getPointerTo()},                                 // str* path
+        {PTR_TY},                                                   // str* path
         false                                                       // No vaarg
     );
     llvm::Function *file_exists_fn = llvm::Function::Create(                              //
@@ -836,7 +836,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *write_file_type = llvm::FunctionType::get( //
         function_result_type,                                      // Return type: struct with error code
-        {str_type->getPointerTo(), str_type->getPointerTo()},      // Parameters: const str *path, const str *content
+        {PTR_TY, PTR_TY},                                          // Parameters: const str *path, const str *content
         false                                                      // Not variadic
     );
     llvm::Function *write_file_fn = llvm::Function::Create(write_file_type, llvm::Function::ExternalLinkage, prefix + "write_file", module);
@@ -956,7 +956,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *append_file_type = llvm::FunctionType::get( //
         function_result_type,                                       // return struct with error code
-        {str_type->getPointerTo(), str_type->getPointerTo()},       // Parameters: const str *path, const str *content
+        {PTR_TY, PTR_TY},                                           // Parameters: const str *path, const str *content
         false                                                       // No vaarg
     );
     llvm::Function *append_file_fn = llvm::Function::Create(                              //
@@ -1074,7 +1074,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
 
     llvm::FunctionType *is_file_type = llvm::FunctionType::get( //
         llvm::Type::getInt1Ty(context),                         // return bool
-        {str_type->getPointerTo()},                             // str *path
+        {PTR_TY},                                               // str *path
         false                                                   // No vaarg
     );
     llvm::Function *is_file_fn = llvm::Function::Create(                          //

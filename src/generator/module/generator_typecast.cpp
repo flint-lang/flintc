@@ -283,11 +283,10 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     //         return init_str("false", 5);
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
 
     llvm::FunctionType *bool_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                   // Return type: str*
+        PTR_TY,                                                     // Return type: str*
         {llvm::Type::getInt1Ty(context)},                           // Argument: i1 b_value
         false                                                       // No varargs
     );
@@ -347,7 +346,6 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     // }
     const std::string multitype_string = type_str + "x" + std::to_string(width);
     llvm::Type *multi_type = IR::get_type(module, Type::get_type_from_str(multitype_string).value()).first;
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *elem_to_str_fn = typecast_functions.at(type_str + "_to_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *append_str_fn = String::string_manip_functions.at("append_str");
@@ -355,7 +353,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     llvm::Function *free_fn = c_functions.at(FREE);
 
     const std::string typecast_function_name = multitype_string + "_to_str";
-    llvm::FunctionType *multitype_to_str_type = llvm::FunctionType::get(str_type->getPointerTo(), {multi_type}, false);
+    llvm::FunctionType *multitype_to_str_type = llvm::FunctionType::get(PTR_TY, {multi_type}, false);
     llvm::Function *multitype_to_str_fn = llvm::Function::Create(                                       //
         multitype_to_str_type, llvm::Function::ExternalLinkage, prefix + typecast_function_name, module //
     );
@@ -381,7 +379,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
 
     // Create the multi-type string with '(' in it
     llvm::Value *lparen_chars = IR::generate_const_string(module, "(");
-    llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(str_type->getPointerTo(), 0, nullptr, "mt_alloca");
+    llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "mt_alloca");
     llvm::Value *multitype_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, multitype_string + "_str");
     IR::aligned_store(*builder, multitype_str, multitype_str_alloca);
 
@@ -404,7 +402,7 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     }
 
     // Return the result
-    multitype_str = IR::aligned_load(*builder, str_type->getPointerTo(), multitype_str_alloca);
+    multitype_str = IR::aligned_load(*builder, PTR_TY, multitype_str_alloca);
     builder->CreateRet(multitype_str);
 }
 
@@ -444,7 +442,7 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     llvm::IntegerType *const uintN_t = llvm::IntegerType::getIntNTy(context, N);
 
     llvm::FunctionType *const uN_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                       // Return type: str*
+        PTR_TY,                                                         // Return type: str*
         {uintN_t},                                                      // Argument: uN u_value
         false                                                           // No varargs
     );
@@ -610,7 +608,7 @@ void Generator::Module::TypeCast::generate_iN_to_str( //
     llvm::IntegerType *const intN_t = llvm::IntegerType::getIntNTy(context, N);
 
     llvm::FunctionType *const iN_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                       // Return type: str*
+        PTR_TY,                                                         // Return type: str*
         {intN_t},                                                       // Argument: iN i_value
         false                                                           // No varargs
     );
@@ -756,7 +754,7 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *bool8_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                    // Return type: str*
+        PTR_TY,                                                      // Return type: str*
         {llvm::Type::getInt8Ty(context)},                            // Argument: bool8 b8
         false                                                        // No varargs
     );
@@ -846,12 +844,11 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *f32_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                  // Return type: str*
+        PTR_TY,                                                    // Return type: str*
         {llvm::Type::getFloatTy(context)},                         // Argument: f32 f_value
         false                                                      // No varargs
     );
@@ -950,7 +947,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         "buffer"                                        //
     );
     buffer->setAlignment(llvm::Align(8));
-    llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, builder->getInt8Ty()->getPointerTo(), "buffer_ptr");
+    llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, PTR_TY, "buffer_ptr");
     // Create the len variable
     llvm::AllocaInst *len_var = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "len_var");
     llvm::Value *f_pow = builder->CreateFMul(arg_fvalue, arg_fvalue, "f_pow");
@@ -1130,12 +1127,11 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     //
     //     return init_str(buffer, last_non_zero + 1);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *f64_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                  // Return type: str*
+        PTR_TY,                                                    // Return type: str*
         {llvm::Type::getDoubleTy(context)},                        // Argument: f64 d_value
         false                                                      // No varargs
     );
@@ -1234,7 +1230,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         "buffer"                                        //
     );
     buffer->setAlignment(llvm::Align(8));
-    llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, builder->getInt8Ty()->getPointerTo(), "buffer_ptr");
+    llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, PTR_TY, "buffer_ptr");
     // Create the len variable
     llvm::AllocaInst *len_var = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "len_var");
     llvm::Value *d_pow = builder->CreateFMul(arg_dvalue, arg_dvalue, "d_pow");
@@ -1382,15 +1378,13 @@ void Generator::Module::TypeCast::generate_opaque_to_str(llvm::IRBuilder<> *buil
     //     int len = snprintf(buffer, sizeof(buffer), "0x%llx", (unsigned long long)(uintptr_t)p);
     //     return init_str(buffer, (int64_t)len);
     // }
-    llvm::PointerType *const ptr_type = llvm::PointerType::get(context, 0);
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *const snprintf_fn = c_functions.at(SNPRINTF);
 
     // Function type: str *opaque_to_str(ptr)
     llvm::FunctionType *opaque_to_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                     // return: str*
-        {ptr_type},                                                   // argument: void* p
+        PTR_TY,                                                       // return: str*
+        {PTR_TY},                                                     // argument: void* p
         false                                                         // No vaarg
     );
     llvm::Function *opaque_to_str_fn = llvm::Function::Create(                                //
@@ -1412,7 +1406,7 @@ void Generator::Module::TypeCast::generate_opaque_to_str(llvm::IRBuilder<> *buil
     arg_p->setName("p");
 
     // Compare with null
-    llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(ptr_type);
+    llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
     llvm::Value *is_null = builder->CreateICmpEQ(arg_p, nullpointer, "is_null");
     builder->CreateCondBr(is_null, null_block, fmt_block);
 

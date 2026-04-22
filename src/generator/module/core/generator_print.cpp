@@ -169,7 +169,7 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                           // Return Type: void
-        {str_type->getPointerTo()},                               // Argument: str* string
+        {PTR_TY},                                                 // Argument: str* string
         false                                                     // No varargs
     );
     // Create the print_int function

@@ -38,7 +38,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *get_env_type = llvm::FunctionType::get( //
         function_result_type,                                   // return struct with error code
-        {str_type->getPointerTo()},                             // Parameters: const str *var
+        {PTR_TY},                                               // Parameters: const str *var
         false                                                   // No vaarg
     );
     llvm::Function *get_env_fn = llvm::Function::Create(get_env_type, llvm::Function::ExternalLinkage, prefix + "get_env", module);
@@ -116,31 +116,31 @@ void Generator::Module::Env::generate_setenv_function(llvm::IRBuilder<> *builder
     llvm::FunctionType *getenv_s_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                         // return i32
         {
-            llvm::Type::getInt64Ty(context)->getPointerTo(), // size_t* _ReturnSize
-            llvm::Type::getInt8Ty(context)->getPointerTo(),  // char* _DstBuf
-            llvm::Type::getInt64Ty(context),                 // rsize_t _DstSize
-            llvm::Type::getInt8Ty(context)->getPointerTo()   // char* _VarName
-        },                                                   //
-        false                                                // No vaarg
+            PTR_TY,                          // size_t* _ReturnSize
+            PTR_TY,                          // char* _DstBuf
+            llvm::Type::getInt64Ty(context), // rsize_t _DstSize
+            PTR_TY                           // char* _VarName
+        },                                   //
+        false                                // No vaarg
     );
     llvm::Function *getenv_s_fn = llvm::Function::Create(getenv_s_type, llvm::Function::ExternalLinkage, "getenv_s", module);
 
     llvm::FunctionType *_putenv_s_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                          // return i32
         {
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* _Name
-            llvm::Type::getInt8Ty(context)->getPointerTo()  // char* _Value
-        },                                                  //
-        false                                               // No vaarg
+            PTR_TY, // char* _Name
+            PTR_TY  // char* _Value
+        },          //
+        false       // No vaarg
     );
     llvm::Function *_putenv_s_fn = llvm::Function::Create(_putenv_s_type, llvm::Function::ExternalLinkage, "_putenv_s", module);
 
     llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                       // return i32
         {
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* env_var
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // char* content
-            llvm::Type::getInt32Ty(context)                 // int overwrite
+            PTR_TY,                         // char* env_var
+            PTR_TY,                         // char* content
+            llvm::Type::getInt32Ty(context) // int overwrite
         },
         false // No vaarg
     );
@@ -170,7 +170,7 @@ void Generator::Module::Env::generate_setenv_function(llvm::IRBuilder<> *builder
 
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *envsize = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "envsize");
-    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo());
+    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
     builder->CreateCall(getenv_s_fn, {envsize, nullpointer, builder->getInt64(0), arg_env_var});
     llvm::Value *envsize_value = IR::aligned_load(*builder, builder->getInt64Ty(), envsize);
     llvm::Value *envsize_gt_0 = builder->CreateICmpSGT(envsize_value, builder->getInt64(0), "envsize_gt_0");
@@ -226,8 +226,8 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     llvm::FunctionType *set_env_type = llvm::FunctionType::get( //
         function_result_type,                                   // Return type: bool {ErrEnv}
-        {str_type->getPointerTo(),                              // Argument: const str* var
-            str_type->getPointerTo(),                           // Argument: const str* content
+        {PTR_TY,                                                // Argument: const str* var
+            PTR_TY,                                             // Argument: const str* content
             llvm::Type::getInt1Ty(context)},                    // Argument: bool overwrite
         false                                                   // No varargs
     );

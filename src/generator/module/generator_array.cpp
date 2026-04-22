@@ -25,7 +25,7 @@ void Generator::Module::Array::generate_get_arr_len_function( //
 
     llvm::FunctionType *get_arr_len_type = llvm::FunctionType::get( //
         llvm::Type::getInt64Ty(context),                            // Return type: size_t
-        {str_type->getPointerTo()},                                 // Argument: str* arr
+        {PTR_TY},                                                   // Argument: str* arr
         false                                                       // No vaargs
     );
     llvm::Function *get_arr_len_fn = llvm::Function::Create( //
@@ -126,11 +126,11 @@ void Generator::Module::Array::generate_create_arr_function( //
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *create_arr_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                  // Return type: str*
+        PTR_TY,                                                    // Return type: str*
         {
-            llvm::Type::getInt64Ty(context),                // Argument size_t dimensionality
-            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
-            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* lengths
+            llvm::Type::getInt64Ty(context), // Argument size_t dimensionality
+            llvm::Type::getInt64Ty(context), // Argument size_t element_size
+            PTR_TY                           // Argument size_t* lengths
         },
         false // No vaargs
     );
@@ -220,7 +220,7 @@ void Generator::Module::Array::generate_create_arr_function( //
 
     // Allocate memory for the array
     llvm::Value *arr_ptr = builder->CreateCall(malloc_fn, {malloc_size}, "arr_ptr");
-    llvm::Value *arr = builder->CreateBitCast(arr_ptr, str_type->getPointerTo(), "arr");
+    llvm::Value *arr = builder->CreateBitCast(arr_ptr, PTR_TY, "arr");
 
     // Set the dimensionality (len field): arr->len = dimensionality
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr, 0, "len_ptr");
@@ -278,10 +278,10 @@ void Generator::Module::Array::generate_fill_arr_function( //
     llvm::FunctionType *fill_arr_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                          // Return type: void
         {
-            str_type->getPointerTo(),                       // Argument str* arr
-            llvm::Type::getInt64Ty(context),                // Argument size_t value_size
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument void* value
-            llvm::Type::getInt32Ty(context)                 // Argument i32 type_id
+            PTR_TY,                          // Argument str* arr
+            llvm::Type::getInt64Ty(context), // Argument size_t value_size
+            PTR_TY,                          // Argument void* value
+            llvm::Type::getInt32Ty(context)  // Argument i32 type_id
         },
         false // No vaargs
     );
@@ -335,7 +335,7 @@ void Generator::Module::Array::generate_fill_arr_function( //
 
     // Get dim_lengths = (size_t *)arr->value
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
-    llvm::Value *dim_lengths = builder->CreateBitCast(value_ptr, builder->getInt64Ty()->getPointerTo(), "dim_lengths");
+    llvm::Value *dim_lengths = builder->CreateBitCast(value_ptr, PTR_TY, "dim_lengths");
 
     // Initialize total_elements = 1
     llvm::Value *total_elements_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "total_elements_ptr");
@@ -388,7 +388,7 @@ void Generator::Module::Array::generate_fill_arr_function( //
     // Calculate data_start = (char *)(dim_lengths + dimensionality)
     builder->SetInsertPoint(arr_nonempty_block);
     llvm::Value *dim_lengths_offset = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, dimensionality, "dim_lengths_offset");
-    llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, builder->getInt8Ty()->getPointerTo(), "data_start");
+    llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, PTR_TY, "data_start");
 
     // Check type_id == 0
     llvm::Value *is_primitive = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "is_primitive");
@@ -398,7 +398,7 @@ void Generator::Module::Array::generate_fill_arr_function( //
     builder->SetInsertPoint(primitive_fill_block);
 
     // memcpy(data_start, value, value_size) - copy the initial value
-    llvm::Value *arg_value_cast = builder->CreateBitCast(arg_value, builder->getInt8Ty()->getPointerTo());
+    llvm::Value *arg_value_cast = builder->CreateBitCast(arg_value, PTR_TY);
     builder->CreateCall(memcpy_fn, {data_start, arg_value_cast, arg_value_size});
 
     // Use exponential fill for primitives
@@ -492,11 +492,11 @@ void Generator::Module::Array::generate_access_arr_function( //
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 
     llvm::FunctionType *access_arr_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),            // Return type: char*
+        PTR_TY,                                                    // Return type: char*
         {
-            str_type->getPointerTo(),                       // Argument str* arr
-            llvm::Type::getInt64Ty(context),                // Argument size_t element_size
-            llvm::Type::getInt64Ty(context)->getPointerTo() // Argument size_t* indices
+            PTR_TY,                          // Argument str* arr
+            llvm::Type::getInt64Ty(context), // Argument size_t element_size
+            PTR_TY                           // Argument size_t* indices
         },
         false // No vaargs
     );
@@ -541,7 +541,7 @@ void Generator::Module::Array::generate_access_arr_function( //
 
     // size_t *dim_lengths = (size_t *)arr->value;
     llvm::Value *value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
-    llvm::Value *dim_lengths = builder->CreateBitCast(value_ptr, builder->getInt64Ty()->getPointerTo(), "dim_lengths");
+    llvm::Value *dim_lengths = builder->CreateBitCast(value_ptr, PTR_TY, "dim_lengths");
 
     // Initialize offset = 0
     llvm::Value *offset_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "offset_ptr");
@@ -642,7 +642,7 @@ void Generator::Module::Array::generate_access_arr_function( //
     // Calculate the pointer to the data start
     // char *data_start = (char *)(dim_lengths + dimensionality);
     llvm::Value *dim_lengths_offset = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, dimensionality, "dim_lengths_offset");
-    llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, builder->getInt8Ty()->getPointerTo(), "data_start");
+    llvm::Value *data_start = builder->CreateBitCast(dim_lengths_offset, PTR_TY, "data_start");
 
     // Calculate the final offset: data_start + offset * element_size
     llvm::Value *final_offset = IR::aligned_load(*builder, builder->getInt64Ty(), offset_ptr, "final_offset");
@@ -698,9 +698,9 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::Function *create_arr_fn = array_manip_functions.at("create_arr");
 
     llvm::FunctionType *get_arr_slice_1d_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                        // Return Type: str*
+        PTR_TY,                                                          // Return Type: str*
         {
-            str_type->getPointerTo(),        // Argument: str* src
+            PTR_TY,                          // Argument: str* src
             llvm::Type::getInt64Ty(context), // Argument: u64 element_size
             llvm::Type::getInt64Ty(context), // Argument: u64 from
             llvm::Type::getInt64Ty(context)  // Argument: u64 to
@@ -762,7 +762,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::Value *to_eq_max = builder->CreateICmpEQ(arg_to, builder->getInt64(UINT64_MAX), "to_eq_max");
     // For arrays, the length is stored as the first element in the value array: *(size_t *)src->value
     llvm::Value *src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "src_value_ptr");
-    llvm::Value *src_len_ptr = builder->CreateBitCast(src_value_ptr, builder->getInt64Ty()->getPointerTo(), "src_len_ptr");
+    llvm::Value *src_len_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_len_ptr");
     llvm::Value *src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
     llvm::Value *real_to = builder->CreateSelect(to_eq_max, src_len, arg_to, "real_to");
 
@@ -862,14 +862,14 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
     // char *dest_ptr = (char *)(((size_t *)slice->value) + 1);
     llvm::Value *result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
-    llvm::Value *result_size_ptr = builder->CreateBitCast(result_value_ptr, builder->getInt64Ty()->getPointerTo(), "result_size_ptr");
+    llvm::Value *result_size_ptr = builder->CreateBitCast(result_value_ptr, PTR_TY, "result_size_ptr");
     llvm::Value *result_data_ptr = builder->CreateGEP(builder->getInt64Ty(), result_size_ptr, {builder->getInt64(1)}, "result_data_ptr");
-    llvm::Value *dest_ptr = builder->CreateBitCast(result_data_ptr, builder->getInt8Ty()->getPointerTo(), "dest_ptr");
+    llvm::Value *dest_ptr = builder->CreateBitCast(result_data_ptr, PTR_TY, "dest_ptr");
 
     // char *src_ptr = (char *)(((size_t *)src->value) + 1);
-    llvm::Value *src_size_ptr = builder->CreateBitCast(src_value_ptr, builder->getInt64Ty()->getPointerTo(), "src_size_ptr");
+    llvm::Value *src_size_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_size_ptr");
     llvm::Value *src_data_ptr = builder->CreateGEP(builder->getInt64Ty(), src_size_ptr, {builder->getInt64(1)}, "src_data_ptr");
-    llvm::Value *src_ptr = builder->CreateBitCast(src_data_ptr, builder->getInt8Ty()->getPointerTo(), "src_ptr");
+    llvm::Value *src_ptr = builder->CreateBitCast(src_data_ptr, PTR_TY, "src_ptr");
 
     // src_ptr + (real_from * element_size)
     llvm::Value *offset_bytes = builder->CreateMul(real_from, arg_element_size, "offset_bytes");
@@ -1023,13 +1023,13 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Function *get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
 
     llvm::FunctionType *get_arr_slice_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                     // Return Type: str*
+        PTR_TY,                                                       // Return Type: str*
         {
-            str_type->getPointerTo(), // Argument: str* src
-            i64_ty,                   // Argument: u64 element_size
-            i64_ty->getPointerTo()    // Argument: u64* ranges
-        },                            //
-        false                         // No varargs
+            PTR_TY, // Argument: str* src
+            i64_ty, // Argument: u64 element_size
+            PTR_TY  // Argument: u64* ranges
+        },          //
+        false       // No varargs
     );
     llvm::Function *get_arr_slice_fn = llvm::Function::Create( //
         get_arr_slice_type,                                    //
@@ -1175,9 +1175,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
 
     // const size_t *src_dim_lengths = (size_t *)src->value;
     llvm::Value *const src_dim_lengths_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "src_dim_lengths_ptr");
-    llvm::Value *const src_dim_lengths = builder->CreateBitCast(       //
-        src_dim_lengths_ptr, i64_ty->getPointerTo(), "src_dim_legnths" //
-    );
+    llvm::Value *const src_dim_lengths = builder->CreateBitCast(src_dim_lengths_ptr, PTR_TY, "src_dim_legnths");
 
     IR::aligned_store(*builder, builder->getInt64(0), new_dimensionality);
     IR::aligned_store(*builder, builder->getInt64(0), i);
@@ -1298,9 +1296,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     builder->SetInsertPoint(is_1d_slice_merge_block);
     llvm::Value *const new_dim_lengths_size = builder->CreateMul(new_dim_val, builder->getInt64(8), "new_dim_lengths_size");
     llvm::Value *const new_dim_lengths_ptr = builder->CreateCall(malloc_fn, {new_dim_lengths_size}, "new_dim_lengths_ptr");
-    llvm::Value *const new_dim_lengths = builder->CreateBitCast(       //
-        new_dim_lengths_ptr, i64_ty->getPointerTo(), "new_dim_lengths" //
-    );
+    llvm::Value *const new_dim_lengths = builder->CreateBitCast(new_dim_lengths_ptr, PTR_TY, "new_dim_lengths");
 
     IR::aligned_store(*builder, builder->getInt64(0), new_dim_index);
     IR::aligned_store(*builder, builder->getInt64(0), i);
@@ -1349,16 +1345,16 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Value *const new_dimensionality_val = IR::aligned_load(*builder, i64_ty, new_dimensionality, "new_dimensionality_val");
     llvm::Value *const result = builder->CreateCall(create_arr_fn, {new_dimensionality_val, arg_element_size, new_dim_lengths}, "result");
     llvm::Value *const src_data_ptr = builder->CreateGEP(i64_ty, src_dim_lengths, src_dimensionality);
-    llvm::Value *const src_data = builder->CreateBitCast(src_data_ptr, builder->getInt8Ty()->getPointerTo(), "src_data");
+    llvm::Value *const src_data = builder->CreateBitCast(src_data_ptr, PTR_TY, "src_data");
     llvm::Value *const result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
-    llvm::Value *const result_value_cast = builder->CreateBitCast(result_value_ptr, i64_ty->getPointerTo(), "result_value_cast");
+    llvm::Value *const result_value_cast = builder->CreateBitCast(result_value_ptr, PTR_TY, "result_value_cast");
     llvm::Value *const dest_data_ptr = builder->CreateGEP(i64_ty, result_value_cast, new_dimensionality_val, "dest_data_ptr");
-    llvm::Value *const dest_data = builder->CreateBitCast(dest_data_ptr, builder->getInt8Ty()->getPointerTo(), "dest_data");
+    llvm::Value *const dest_data = builder->CreateBitCast(dest_data_ptr, PTR_TY, "dest_data");
 
     // Calculate strides for each dimension in source array
     llvm::Value *const src_strides_size = builder->CreateMul(src_dimensionality, builder->getInt64(8), "src_strides_size");
     llvm::Value *const src_strides_ptr = builder->CreateCall(malloc_fn, {src_strides_size}, "src_strides_ptr");
-    llvm::Value *const src_strides = builder->CreateBitCast(src_strides_ptr, i64_ty->getPointerTo(), "src_strides");
+    llvm::Value *const src_strides = builder->CreateBitCast(src_strides_ptr, PTR_TY, "src_strides");
 
     IR::aligned_store(*builder, builder->getInt64(1), src_strides);
     IR::aligned_store(*builder, builder->getInt64(1), i);
@@ -1421,7 +1417,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     builder->SetInsertPoint(tre_loop_merge_block);
     // Initialize indices to the start of each range/index
     llvm::Value *const current_indices_ptr = builder->CreateCall(malloc_fn, src_strides_size, "current_indices_ptr");
-    llvm::Value *const current_indices = builder->CreateBitCast(current_indices_ptr, i64_ty->getPointerTo(), "current_indices");
+    llvm::Value *const current_indices = builder->CreateBitCast(current_indices_ptr, PTR_TY, "current_indices");
 
     IR::aligned_store(*builder, builder->getInt64(0), i);
     builder->CreateBr(idx_init_loop_cond_block);

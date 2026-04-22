@@ -9,7 +9,6 @@
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
-#include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -28,12 +27,11 @@ void Generator::IR::init_builtin_types() {
         );
     }
     if (type_map.find("type.flint.err") == type_map.end()) {
-        llvm::Type *str_type = type_map.at("type.str");
         IR::create_struct_type("type.flint.err",
             {
                 llvm::Type::getInt32Ty(context), // ErrType ID (0 for 'none')
                 llvm::Type::getInt32Ty(context), // ErrValue
-                str_type->getPointerTo()         // ErrMessage
+                PTR_TY                           // ErrMessage
             } //
         );
     }
@@ -90,11 +88,11 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
             const GroupType *group_type = type->as<GroupType>();
             for (const auto &elem : group_type->types) {
                 auto elem_type = get_type(module, elem, is_extern);
-                types_vec.emplace_back(elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first);
+                types_vec.emplace_back(elem_type.second.first ? PTR_TY : elem_type.first);
             }
         } else {
             auto ret_type = get_type(module, type, is_extern);
-            types_vec.emplace_back(ret_type.second.first ? ret_type.first->getPointerTo() : ret_type.first);
+            types_vec.emplace_back(ret_type.second.first ? PTR_TY : ret_type.first);
         }
         type_map[type_str] = IR::create_struct_type(type_str, types_vec);
         return type_map.at(type_str);
@@ -288,7 +286,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     assert(_struct_type->isStructTy());
     if (Allocation::get_type_size(module, _struct_type) > 16) {
         // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
-        return _struct_type->getPointerTo();
+        return PTR_TY;
     }
     // The struct will be packed into n smaller values which are all <= 8 bytes in size
     // It follows these rules:
@@ -485,7 +483,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         }
         case Type::Variation::ARRAY: {
             // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
-            return {type_map.at("type.str")->getPointerTo(), {false, false}};
+            return {PTR_TY, {false, false}};
         }
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();
@@ -502,7 +500,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
                 auto pair = get_type(module, field_it->type);
                 if (pair.second.first && field_it->type->get_variation() != Type::Variation::OPTIONAL) {
-                    field_types.emplace_back(pair.first->getPointerTo());
+                    field_types.emplace_back(PTR_TY);
                 } else {
                     field_types.emplace_back(pair.first);
                 }
@@ -520,10 +518,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             }
             // Create the entity type, it's just a struct containing pointers to the entities' defined data
             std::vector<llvm::Type *> field_types;
-            for (const auto &data_node : entity_type->entity_node->data_modules) {
-                Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
-                field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
+            for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
+                field_types.emplace_back(PTR_TY);
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
@@ -550,15 +546,15 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             }
             // Create the func type, it's just a struct containing pointers to the defined data
             std::vector<llvm::Type *> field_types;
-            for (const auto &[data_type, accessor_name] : func_type->func_node->required_data) {
-                field_types.emplace_back(IR::get_type(module, data_type).first->getPointerTo());
+            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
+                field_types.emplace_back(PTR_TY);
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }
         case Type::Variation::FN: {
             // A fn variable is just a pointer to the heap-allocated function frame, so it is literally just a simple pointer
-            return {llvm::PointerType::get(context, 0), {true, true}};
+            return {PTR_TY, {true, true}};
         }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
@@ -567,7 +563,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             for (const auto &tup_type : group_type->types) {
                 auto pair = get_type(module, tup_type);
                 if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
-                    pair.first = pair.first->getPointerTo();
+                    pair.first = PTR_TY;
                 }
                 type_vector.emplace_back(pair.first);
             }
@@ -586,24 +582,21 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return {vector_type, {false, false}};
         }
         case Type::Variation::OPAQUE:
-            return {llvm::PointerType::get(context, 0), {false, true}};
+            return {PTR_TY, {false, true}};
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             const std::string opt_str = type->get_type_string();
             if (type_map.find(opt_str) == type_map.end()) {
                 auto pair = get_type(module, optional_type->base_type);
                 if (pair.second.first) {
-                    pair.first = pair.first->getPointerTo();
+                    pair.first = PTR_TY;
                 }
                 type_map[opt_str] = IR::create_struct_type(opt_str, {llvm::Type::getInt1Ty(context), pair.first});
             }
             return {type_map.at(opt_str), {false, true}};
         }
-        case Type::Variation::POINTER: {
-            const auto *pointer_type = type->as<PointerType>();
-            const auto pair = get_type(module, pointer_type->base_type);
-            return {pair.first->getPointerTo(), {false, false}};
-        }
+        case Type::Variation::POINTER:
+            return {PTR_TY, {false, false}};
         case Type::Variation::PRIMITIVE: {
             const auto *primitive_type = type->as<PrimitiveType>();
             if (primitive_type->type_name == "type.flint.str") {
@@ -611,7 +604,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 return {type_map.at("type.str"), {false, false}};
             }
             if (primitive_type->type_name == "type.flint.str.lit") {
-                return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
+                return {PTR_TY, {false, false}};
             }
             if (primitive_type->type_name == "anyerror") {
                 return {type_map.at("type.flint.err"), {false, false}};
@@ -640,20 +633,14 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                     case TOK_FLINT:
                         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                         return {nullptr, {false, false}};
-                    case TOK_STR: {
-                        if (is_extern) {
-                            // If it's an extern call we pass in the c_str
-                            return {llvm::Type::getInt8Ty(context)->getPointerTo(), {false, false}};
-                        }
-                        // A string is a struct of type 'type { i64, [0 x i8] }'
-                        return {type_map.at("type.str")->getPointerTo(), {false, false}};
-                    }
+                    case TOK_STR:
+                        return {PTR_TY, {false, false}};
                     case TOK_BOOL:
                         return {llvm::Type::getInt1Ty(context), {false, false}};
                     case TOK_VOID:
                         return {llvm::Type::getVoidTy(context), {false, false}};
                     case TOK_OPAQUE:
-                        return {llvm::PointerType::get(context, 0), {false, false}};
+                        return {PTR_TY, {false, false}};
                 }
             }
             break;
@@ -668,7 +655,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             for (const auto &tup_type : tuple_type->types) {
                 auto pair = get_type(module, tup_type);
                 if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
-                    pair.first = pair.first->getPointerTo();
+                    pair.first = PTR_TY;
                 }
                 type_vector.emplace_back(pair.first);
             }
@@ -801,7 +788,6 @@ bool Generator::IR::generate_enum_value_strings(                         //
         return true;
     }
     std::vector<llvm::Constant *> string_pointers;
-    llvm::Type *const i8_ptr_type = llvm::Type::getInt8Ty(context)->getPointerTo();
 
     for (size_t i = 0; i < enum_values.size(); ++i) {
         // Create the string constant data
@@ -817,12 +803,12 @@ bool Generator::IR::generate_enum_value_strings(                         //
 #pragma GCC diagnostic pop
 
         // Get pointer to the string data (cast to i8*)
-        llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, i8_ptr_type);
+        llvm::Constant *string_ptr = llvm::ConstantExpr::getBitCast(string_global, PTR_TY);
         string_pointers.push_back(string_ptr);
     }
 
     // Create the array type and global array
-    llvm::ArrayType *array_type = llvm::ArrayType::get(i8_ptr_type, enum_values.size());
+    llvm::ArrayType *array_type = llvm::ArrayType::get(PTR_TY, enum_values.size());
     llvm::Constant *string_array = llvm::ConstantArray::get(array_type, string_pointers);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"

@@ -64,6 +64,12 @@ class Generator {
   public:
     Generator() = delete;
 
+    /// @var `PTR_TY`
+    /// @brief A simple global pointer type created at the beginning of the code generation phase, since pointer types are needed fairly
+    /// often. This is just here because writing `llvm::PointerType::get(context, 0)` every single time we need a pointer type
+    /// is just painful
+    static inline llvm::PointerType *PTR_TY;
+
     /// @function `get_flintc_cache_path`
     /// @brief Returns the path to the `flntc` cache directory in `$HOME/.cache/` or in `C:\\Program Files\\Flint\\Cache\\`
     ///

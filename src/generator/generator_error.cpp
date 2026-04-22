@@ -9,7 +9,7 @@ void Generator::Error::generate_error_functions(llvm::IRBuilder<> *builder, llvm
 
 void Generator::Error::generate_get_err_type_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     llvm::FunctionType *get_err_type_str_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),                  // returns char*
+        PTR_TY,                                                          // returns char*
         {llvm::Type::getInt32Ty(context)},                               // Takes the type of the error
         false                                                            // No vaargs
     );
@@ -66,7 +66,7 @@ void Generator::Error::generate_get_err_type_str_function(llvm::IRBuilder<> *bui
 
 void Generator::Error::generate_get_err_val_str_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     llvm::FunctionType *get_err_val_str_type = llvm::FunctionType::get( //
-        llvm::Type::getInt8Ty(context)->getPointerTo(),                 // returns char*
+        PTR_TY,                                                         // returns char*
         {
             llvm::Type::getInt32Ty(context), // Takes the error type id
             llvm::Type::getInt32Ty(context)  // Takes the value id
@@ -185,7 +185,7 @@ void Generator::Error::generate_get_err_str_function(llvm::IRBuilder<> *builder,
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::StructType *error_type = type_map.at("type.flint.err");
     llvm::FunctionType *get_err_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                   // returns str*
+        PTR_TY,                                                     // returns str*
         {error_type},                                               // Takes the error to create a string from
         false                                                       // No vaargs
     );

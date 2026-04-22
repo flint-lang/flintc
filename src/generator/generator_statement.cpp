@@ -295,7 +295,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         const bool var_is_str = var_type->to_string() == "str";
         const bool var_is_opaque = var_type->get_variation() == Type::Variation::OPAQUE;
         if ((variable_type.second.first || var_is_array || var_is_str || var_is_opaque) && !variable.is_fn_param) {
-            llvm::Type *type_to_load = variable_type.second.first ? variable_type.first->getPointerTo() : variable_type.first;
+            llvm::Type *type_to_load = variable_type.second.first ? PTR_TY : variable_type.first;
             variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
         }
         if (var_type->get_variation() == Type::Variation::DATA) {
@@ -1847,13 +1847,13 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         const bool var_is_str = lhs_type->to_string() == "str";
         const auto &variable = ctx.scope->variables.at(assignment_node->name);
         if ((var_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
-            llvm::Type *type_to_load = var_type.second.first ? var_type.first->getPointerTo() : var_type.first;
+            llvm::Type *type_to_load = var_type.second.first ? PTR_TY : var_type.first;
             lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
         }
         if (lhs_type->get_variation() == Type::Variation::DATA) {
             // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
             // however, which means we first need to load the data pointer from it
-            // llvm::Value *data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), lhs_value, "data_ptr");
+            // llvm::Value *data_ptr = IR::aligned_load(builder, PTR_TY, lhs_value, "data_ptr");
             auto data_head = Module::DIMA::get_head(lhs_type);
             llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
             builder.CreateCall(release_fn, {data_head, lhs_value});
@@ -1977,9 +1977,8 @@ bool Generator::Statement::generate_data_field_assignment( //
 
         // Handle special cases (like str cleanup)
         if (optional_type->base_type->to_string() == "str") {
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("str")).first;
             llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");
-            llvm::Value *actual_str_ptr = IR::aligned_load(builder, str_type->getPointerTo(), field_value_ptr, "actual_str_ptr");
+            llvm::Value *actual_str_ptr = IR::aligned_load(builder, PTR_TY, field_value_ptr, "actual_str_ptr");
             builder.CreateCall(c_functions.at(FREE), {actual_str_ptr});
         }
 

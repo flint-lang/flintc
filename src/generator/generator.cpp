@@ -257,6 +257,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     const std::shared_ptr<DepNode> &dep_graph,                               //
     const bool is_test                                                       //
 ) {
+    PTR_TY = llvm::PointerType::get(context, 0);
     Profiler::start_task("Generate builtin libraries");
     if (!Module::generate_modules()) {
         std::cerr << "Error: Failed to generate builtin modules. aborting..." << std::endl;
@@ -291,7 +292,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     scratchspace = new llvm::GlobalVariable(                                                         //
         *module, scratchspace_type, false, llvm::GlobalValue::ExternalLinkage, initializer, str_name //
     );
-    scratchspace->setAlignment(llvm::Align(Allocation::calculate_type_alignment(llvm::PointerType::get(context, 0))));
+    scratchspace->setAlignment(llvm::Align(Allocation::calculate_type_alignment(PTR_TY)));
 
     // Force the addition of the 'type.flint.err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));

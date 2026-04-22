@@ -56,7 +56,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
+    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
     llvm::Function *parse_uN_fn = llvm::Function::Create( //
         parse_uN_type,                                    //
         llvm::Function::ExternalLinkage,                  //
@@ -98,8 +98,8 @@ void Generator::Module::Parse::generate_parse_int_function( //
     llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtol: long value = strtol(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
@@ -110,7 +110,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
     llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtol call
-    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
     llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
@@ -232,7 +232,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
+    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
     llvm::Function *parse_uN_fn = llvm::Function::Create( //
         parse_uN_type,                                    //
         llvm::Function::ExternalLinkage,                  //
@@ -274,8 +274,8 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtol: long value = strtol(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
@@ -286,7 +286,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtol call
-    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
     llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
@@ -398,7 +398,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_f32_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
+    llvm::FunctionType *parse_f32_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
     llvm::Function *parse_f32_fn = llvm::Function::Create( //
         parse_f32_type,                                    //
         llvm::Function::ExternalLinkage,                   //
@@ -429,8 +429,8 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtof: float value = strtof(input.c_str, &endptr)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
@@ -441,7 +441,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     llvm::Value *value = builder->CreateCall(strtof_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
-    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
     llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
@@ -518,7 +518,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_f64_type = llvm::FunctionType::get(function_result_type, {str_type->getPointerTo()}, false);
+    llvm::FunctionType *parse_f64_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
     llvm::Function *parse_f64_fn = llvm::Function::Create( //
         parse_f64_type,                                    //
         llvm::Function::ExternalLinkage,                   //
@@ -549,8 +549,8 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(builder->getInt8Ty()->getPointerTo(), nullptr, "endptr_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(builder->getInt8Ty()->getPointerTo()), endptr_ptr);
+    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtof: float value = strtod(input.c_str, &endptr)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
@@ -561,7 +561,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     llvm::Value *value = builder->CreateCall(strtod_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
-    llvm::Value *endptr = IR::aligned_load(*builder, builder->getInt8Ty()->getPointerTo(), endptr_ptr, "endptr");
+    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
     llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");

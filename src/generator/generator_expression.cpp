@@ -287,7 +287,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         return std::vector<llvm::Value *>{builder.getInt8(std::get<LitU8>(literal_node->value).value)};
     }
     if (std::holds_alternative<LitPtr>(literal_node->value)) {
-        return std::vector<llvm::Value *>{llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0))};
+        return std::vector<llvm::Value *>{llvm::ConstantPointerNull::get(PTR_TY)};
     }
     if (std::holds_alternative<LitOptional>(literal_node->value)) {
         return std::vector<llvm::Value *>{builder.getInt1(false)};
@@ -420,7 +420,7 @@ llvm::Value *Generator::Expression::generate_variable( //
     // Check if the variable is complex, in that case we need to load a pointer to the value, not the value itself (the type of the load
     // inst differs)
     if (type.second.first) {
-        llvm::LoadInst *load = IR::aligned_load(builder, type.first->getPointerTo(), variable, variable_node->name + "_ptr");
+        llvm::LoadInst *load = IR::aligned_load(builder, PTR_TY, variable, variable_node->name + "_ptr");
         load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load ptr to '" + variable_node->name + "'")));
         return load;
     }
@@ -511,7 +511,7 @@ void Generator::Expression::convert_type_to_ext( //
             convert_data_type_to_ext(builder, ctx, type, value, args);
             return;
         case Type::Variation::DATA: {
-            llvm::Value *const data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), value, "loaded_data");
+            llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, value, "loaded_data");
             convert_data_type_to_ext(builder, ctx, type, data_ptr, args);
             return;
         }
@@ -1360,7 +1360,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
         llvm::Value *arg_value = args[i];
         if (is_arg_reference(call_node->arguments[i], param_type)) {
             const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-            llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
+            llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
         // arg_value->dump();
@@ -1516,8 +1516,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
             const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
             if (is_reference && !is_initializer && !is_opt_unwrap) {
-                llvm::Type *const ptr_ty = llvm::PointerType::get(context, 0);
-                data_value = IR::aligned_load(builder, ptr_ty, expr_val, "data_value");
+                data_value = IR::aligned_load(builder, PTR_TY, expr_val, "data_value");
             }
             llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {data_value});
             retain_call->setMetadata("comment",
@@ -1605,8 +1604,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
         const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
         if (!is_initializer && !is_opt_unwrap) {
-            llvm::Type *ptr_ty = llvm::PointerType::get(context, 0);
-            data_value = IR::aligned_load(builder, ptr_ty, data_value, "data_value");
+            data_value = IR::aligned_load(builder, PTR_TY, data_value, "data_value");
         }
         llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, data_value});
         release_call->setMetadata("comment",
@@ -1675,7 +1673,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         }
 
         const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-        llvm::Type *const param_ty = param_type_pair.second.first ? llvm::PointerType::get(context, 0) : param_type_pair.first;
+        llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
         llvm::Value *value_ptr = nullptr;
         if (called_fn_type.has_value()) {
             value_ptr = builder.CreateStructGEP(                                                                           //
@@ -1986,14 +1984,13 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     }
 
     // Then we are loading the pointer to the allocated stack frame from the callable variable's allocation
-    llvm::PointerType *const ptr_ty = llvm::PointerType::get(context, 0);
     const unsigned int callable_scope_id = ctx.scope->variables.at(fn_name).scope_id;
     const std::string callable_var_str = "s" + std::to_string(callable_scope_id) + "::" + fn_name;
     llvm::Value *const callable_alloca = ctx.allocations.at(callable_var_str);
-    llvm::Value *const callable_value = IR::aligned_load(builder, ptr_ty, callable_alloca, "callable_value");
+    llvm::Value *const callable_value = IR::aligned_load(builder, PTR_TY, callable_alloca, "callable_value");
 
     // Get the pointer to the callable frame
-    llvm::Value *const callable_frame = builder.CreateGEP(ptr_ty, callable_value, builder.getInt32(1), "callable_frame");
+    llvm::Value *const callable_frame = builder.CreateGEP(PTR_TY, callable_value, builder.getInt32(1), "callable_frame");
     // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
     llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
     IR::aligned_store(builder, ts_ptr, callable_frame);
@@ -2014,7 +2011,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // Skip all the return values first
     for (const auto &return_type : fn_type->return_types) {
         const auto type_pair = IR::get_type(module, return_type);
-        llvm::Type *const return_ty = type_pair.second.first ? llvm::PointerType::get(context, 0) : type_pair.first;
+        llvm::Type *const return_ty = type_pair.second.first ? PTR_TY : type_pair.first;
         const size_t return_size = Allocation::get_type_size(module, return_ty);
         // Add alignment
         offset += offset % return_size;
@@ -2025,7 +2022,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     for (size_t i = 0; i < fn_type->params.size(); i++) {
         const auto &param_type = fn_type->params.at(i).first;
         const auto type_pair = IR::get_type(module, param_type);
-        llvm::Type *const param_ty = type_pair.second.first ? llvm::PointerType::get(context, 0) : type_pair.first;
+        llvm::Type *const param_ty = type_pair.second.first ? PTR_TY : type_pair.first;
         const size_t param_size = Allocation::get_type_size(module, param_ty);
         // Add alignment
         offset += offset % param_size;
@@ -2047,7 +2044,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     }
 
     // Load the function to call
-    llvm::Value *const fn_ptr = IR::aligned_load(builder, ptr_ty, callable_value, "fn_ptr");
+    llvm::Value *const fn_ptr = IR::aligned_load(builder, PTR_TY, callable_value, "fn_ptr");
     // Call the loaded function and pass the callable frame to it
     // We can do a small trick here. Because the function types of *all* Flint functions are exactly the same, we can just take the type of
     // the current function we are in
@@ -2092,7 +2089,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
             fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
         const auto &ret_type_pair = IR::get_type(module, return_type);
-        llvm::Type *const ret_type = ret_type_pair.second.first ? llvm::PointerType::get(context, 0) : ret_type_pair.first;
+        llvm::Type *const ret_type = ret_type_pair.second.first ? PTR_TY : ret_type_pair.first;
         llvm::LoadInst *elem_value = IR::aligned_load(builder,                                      //
             ret_type,                                                                               //
             elem_ptr,                                                                               //
@@ -2142,7 +2139,7 @@ llvm::Value *Generator::Expression::generate_function_reference( //
     llvm::Value *const default_fn_frame = IR::aligned_load(                                                //
         builder, called_fn_type, called_fn_default, ref_node->referenced_function->name + "_default_frame" //
     );
-    llvm::Value *const fn_frame = builder.CreateGEP(llvm::PointerType::get(context, 0), callable_frame, builder.getInt32(1), "fn_frame");
+    llvm::Value *const fn_frame = builder.CreateGEP(PTR_TY, callable_frame, builder.getInt32(1), "fn_frame");
     IR::aligned_store(builder, default_fn_frame, fn_frame);
     return callable_frame;
 }
@@ -2338,8 +2335,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 }
                 // The initializer is of type `i8*` and we need to cast it to `T*` before storing it
                 llvm::Value *expr_val = expr_result.value().front();
-                llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), initializer->args.at(i)->type).first;
-                llvm::Value *cast_expr = builder.CreatePointerCast(expr_val, data_type->getPointerTo());
+                llvm::Value *cast_expr = builder.CreatePointerCast(expr_val, PTR_TY);
                 initialized_entity = builder.CreateInsertValue(initialized_entity, cast_expr, i, "entity_init_" + std::to_string(i));
             }
             return std::vector<llvm::Value *>{initialized_entity};
@@ -3124,7 +3120,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
             llvm::Value *data_ptr = builder.CreateStructGEP(entity_type, expr_val, data_access->field_id, "entity_data_ptr_gep");
             if (!is_reference) {
-                data_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), data_ptr, "entity_data_ptr");
+                data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr, "entity_data_ptr");
             }
             std::vector<llvm::Value *> values = {data_ptr};
             return values;
@@ -3166,9 +3162,9 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     if (is_reference && !elem_type.second.first) {
         values.emplace_back(elem_ptr);
     } else {
-        values.emplace_back(IR::aligned_load(                                                    //
-            builder, elem_type.second.first ? elem_type.first->getPointerTo() : elem_type.first, //
-            elem_ptr, "elem_" + std::to_string(data_access->field_id)                            //
+        values.emplace_back(IR::aligned_load(                           //
+            builder, elem_type.second.first ? PTR_TY : elem_type.first, //
+            elem_ptr, "elem_" + std::to_string(data_access->field_id)   //
             ));
     }
     return values;
@@ -3418,7 +3414,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     // wrapper
     builder.SetInsertPoint(holds_correct_type);
     llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
-    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
+    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
     llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
     llvm::Value *value_ok = IR::get_default_value_of_type(opt_type);
     value_ok = builder.CreateInsertValue(value_ok, builder.getInt1(true), {0}, "value_ok_fill_has_value");
@@ -3446,7 +3442,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
         llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
-        llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, element_type->getPointerTo(), "value_ptr_unsafe");
+        llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, PTR_TY, "value_ptr_unsafe");
         llvm::Value *value = IR::aligned_load(builder, element_type, value_cast_ptr, "var_value_unsafe");
         return std::vector<llvm::Value *>{value};
     }
@@ -3474,7 +3470,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     // The merge block, when the variant access is okay
     builder.SetInsertPoint(merge);
     llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
-    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, element_type->getPointerTo(), "value_ptr");
+    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
     llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
     return std::vector<llvm::Value *>{value};
 }
@@ -4010,8 +4006,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
 
         // Use mapped_index for GEP
         llvm::Value *name_str_ptr = builder.CreateGEP(name_array->getType(), name_array, {mapped_index}, "name_str_ptr");
-        llvm::Type *i8_ptr_type = builder.getInt8Ty()->getPointerTo();
-        llvm::Value *name_str = IR::aligned_load(builder, i8_ptr_type, name_str_ptr, "name_str");
+        llvm::Value *name_str = IR::aligned_load(builder, PTR_TY, name_str_ptr, "name_str");
         llvm::Value *name_len = builder.CreateCall(c_functions.at(STRLEN), {name_str}, "name_len");
         llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
         llvm::Value *cast_value = builder.CreateCall(init_str_fn, {name_str, name_len}, "cast_enum");
@@ -4170,7 +4165,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 assert(operand.size() == 1);
                 if (base_type->get_variation() == Type::Variation::DATA) {
                     // We need to load the pointer since the operand points to the allocation in which the pointer to the data is located at
-                    operand.front() = IR::aligned_load(builder, llvm::PointerType::get(context, 0), operand.front(), "loaded_data_ptr");
+                    operand.front() = IR::aligned_load(builder, PTR_TY, operand.front(), "loaded_data_ptr");
                 }
                 // Check if the base type is a complex type and whether it needs to be passed by value or by reference
                 // If it needs to be passed by value normally, we first need to get the allocation of it, for now only VariableNodes are

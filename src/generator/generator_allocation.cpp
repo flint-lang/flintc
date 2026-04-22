@@ -30,7 +30,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         auto ret_ty = IR::get_type(parent->getParent(), ret_type);
         const std::string ret_name = "flint.ret." + std::to_string(ret_id);
         if (ret_ty.second.first) {
-            types_list.emplace_back(ret_name, ret_ty.first->getPointerTo());
+            types_list.emplace_back(ret_name, PTR_TY);
         } else {
             types_list.emplace_back(ret_name, ret_ty.first);
         }
@@ -43,7 +43,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         auto param_type = IR::get_type(parent->getParent(), std::get<0>(function->parameters.at(param_id)));
         assert(param_type.first != nullptr);
         if (param_type.second.first) {
-            types_list.emplace_back(param_name, param_type.first->getPointerTo());
+            types_list.emplace_back(param_name, PTR_TY);
         } else {
             types_list.emplace_back(param_name, param_type.first);
         }
@@ -78,7 +78,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     assert(Module::ThreadStack::ts_defaults.find(fn_id) == Module::ThreadStack::ts_defaults.end());
     llvm::Constant *ts_fn_default = llvm::ConstantStruct::get(ts_fn_ty,
         {
-            llvm::ConstantPointerNull::get(llvm::PointerType::get(context, 0)),
+            llvm::ConstantPointerNull::get(PTR_TY),
             builder.getInt64(fn_id),
             llvm::Constant::getNullValue(type_map.at("type.flint.err")),
         });
@@ -103,13 +103,13 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         const size_t idx = std::distance(types_list.begin(), type_it);
         allocations.emplace(alloca_name, builder.CreateStructGEP(frame_type, parent->arg_begin(), idx + 1, alloca_name));
     }
-    llvm::Value *const ts_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), parent->arg_begin(), "ts_ptr");
+    llvm::Value *const ts_ptr = IR::aligned_load(builder, PTR_TY, parent->arg_begin(), "ts_ptr");
     allocations.emplace("flint.stack.root", ts_ptr);
     // Check if we are in a callable context and choose the next ts pointer accordingly
     llvm::Value *const ts_stack_ptr_ptr = builder.CreateStructGEP(                                      //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
     );
-    llvm::Value *ts_stack_ptr = IR::aligned_load(builder, llvm::PointerType::get(context, 0), ts_stack_ptr_ptr, "ts_stack_ptr");
+    llvm::Value *ts_stack_ptr = IR::aligned_load(builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
     llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(                                  //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
     );
@@ -498,7 +498,7 @@ bool Generator::Allocation::generate_declaration_allocations(             //
 
     const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
     auto type = IR::get_type(parent->getParent(), declaration_node->type);
-    struct_types.emplace_back(var_name, type.second.first ? type.first->getPointerTo() : type.first);
+    struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);
 
     return true;
 }
@@ -518,7 +518,7 @@ bool Generator::Allocation::generate_group_declaration_allocations(       //
     for (const auto &variable : group_declaration_node->variables) {
         const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
         auto type = IR::get_type(parent->getParent(), variable.first);
-        struct_types.emplace_back(var_name, type.second.first ? type.first->getPointerTo() : type.first);
+        struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);
     }
     return true;
 }

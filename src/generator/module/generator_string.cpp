@@ -26,7 +26,7 @@ void Generator::Module::String::generate_access_str_at_function( //
     llvm::FunctionType *access_str_at_type = llvm::FunctionType::get( //
         llvm::Type::getInt8Ty(context),                               // Return type: char (i8)
         {
-            str_type->getPointerTo(),       // Argument const str* string
+            PTR_TY,                         // Argument const str* string
             llvm::Type::getInt64Ty(context) // Argument size_t idx
         },
         false // No vaargs
@@ -121,7 +121,7 @@ void Generator::Module::String::generate_assign_str_at_function( //
     llvm::FunctionType *assign_str_at_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                               // Return type: void
         {
-            str_type->getPointerTo(),        // Argument const str* string
+            PTR_TY,                          // Argument const str* string
             llvm::Type::getInt64Ty(context), // Argument size_t idx
             llvm::Type::getInt8Ty(context)   // Argument char value
         },
@@ -216,7 +216,7 @@ void Generator::Module::String::generate_create_str_function( //
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                  // Return type: str*
+        PTR_TY,                                                    // Return type: str*
         {llvm::Type::getInt64Ty(context)},                         // Argument size_t len
         false                                                      // No varargs
     );
@@ -276,12 +276,12 @@ void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *bu
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
     llvm::FunctionType *init_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                // Return type str*
+        PTR_TY,                                                  // Return type str*
         {
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument char* value
-            llvm::Type::getInt64Ty(context)                 // Argument size_t len
-        },                                                  //
-        false                                               // No varargs
+            PTR_TY,                         // Argument char* value
+            llvm::Type::getInt64Ty(context) // Argument size_t len
+        },                                  //
+        false                               // No varargs
     );
     llvm::Function *init_str_fn = llvm::Function::Create( //
         init_str_type,                                    //
@@ -339,10 +339,10 @@ void Generator::Module::String::generate_compare_str_function( //
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                            // Return type: i32
         {
-            str_type->getPointerTo(), // Argument: str* (lhs)
-            str_type->getPointerTo()  // Argument: str* (rhs)
-        },                            //
-        false                         // No varargs
+            PTR_TY, // Argument: str* (lhs)
+            PTR_TY  // Argument: str* (rhs)
+        },          //
+        false       // No varargs
     );
     llvm::Function *compare_str_fn = llvm::Function::Create( //
         compare_str_type,                                    //
@@ -422,16 +422,15 @@ void Generator::Module::String::generate_assign_str_function( //
     //     free(*string);
     //     *string = value;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Function *free_fn = c_functions.at(FREE);
 
     llvm::FunctionType *assign_str_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            //
         {
-            str_type->getPointerTo()->getPointerTo(), // str**
-            str_type->getPointerTo()                  // str*
-        },                                            //
-        false                                         // No varargs
+            PTR_TY, // str**
+            PTR_TY  // str*
+        },          //
+        false       // No varargs
     );
     llvm::Function *assign_str_fn = llvm::Function::Create( //
         assign_str_type,                                    //
@@ -457,7 +456,7 @@ void Generator::Module::String::generate_assign_str_function( //
     arg_value->setName("value");
 
     // Load the current string pointer: str* old_string = *string
-    llvm::Value *old_string_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_string, "old_str_ptr");
+    llvm::Value *old_string_ptr = IR::aligned_load(*builder, PTR_TY, arg_string, "old_str_ptr");
 
     // Free the old string: free(old_string)
     builder->CreateCall(free_fn, {old_string_ptr});
@@ -489,11 +488,11 @@ void Generator::Module::String::generate_assign_lit_function( //
     llvm::FunctionType *assign_lit_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            //
         {
-            str_type->getPointerTo()->getPointerTo(),       // Argument: str** string
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* value
-            llvm::Type::getInt64Ty(context)                 // Argument: u64 len
-        },                                                  //
-        false                                               // No varargs
+            PTR_TY,                         // Argument: str** string
+            PTR_TY,                         // Argument: char* value
+            llvm::Type::getInt64Ty(context) // Argument: u64 len
+        },                                  //
+        false                               // No varargs
     );
     llvm::Function *assign_lit_fn = llvm::Function::Create( //
         assign_lit_type,                                    //
@@ -523,7 +522,7 @@ void Generator::Module::String::generate_assign_lit_function( //
     arg_len->setName("len");
 
     // Load the current string pointer: str* old_string = *string
-    llvm::Value *old_string_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_string, "old_string_ptr");
+    llvm::Value *old_string_ptr = IR::aligned_load(*builder, PTR_TY, arg_string, "old_string_ptr");
 
     // Calculate new size: sizeof(str) + len
     size_t str_size = Allocation::get_type_size(module, str_type);
@@ -574,10 +573,10 @@ void Generator::Module::String::generate_append_str_function( //
     llvm::FunctionType *append_str_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            // Return Type: void
         {
-            str_type->getPointerTo()->getPointerTo(), // Argument: str** dest
-            str_type->getPointerTo()                  // Argument: str* source
-        },                                            //
-        false                                         // No varargs
+            PTR_TY, // Argument: str** dest
+            PTR_TY  // Argument: str* source
+        },          //
+        false       // No varargs
     );
     llvm::Function *append_str_fn = llvm::Function::Create(append_str_type, llvm::Function::ExternalLinkage, prefix + "append_str", module);
     string_manip_functions["append_str"] = append_str_fn;
@@ -598,7 +597,7 @@ void Generator::Module::String::generate_append_str_function( //
     arg_source->setName("source");
 
     // Load the destination string pointer: str* old_dest = *dest
-    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, PTR_TY, arg_dest, "old_dest_ptr");
 
     // Load the destination string length: size_t dest_len = old_dest->len
     llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
@@ -667,11 +666,11 @@ void Generator::Module::String::generate_append_lit_function( //
     llvm::FunctionType *append_lit_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                            // Return Type: void
         {
-            str_type->getPointerTo()->getPointerTo(),       // Argument: str** dest
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* source
-            llvm::Type::getInt64Ty(context)                 // Argument: size_t source_len
-        },                                                  //
-        false                                               // No varargs
+            PTR_TY,                         // Argument: str** dest
+            PTR_TY,                         // Argument: char* source
+            llvm::Type::getInt64Ty(context) // Argument: size_t source_len
+        },                                  //
+        false                               // No varargs
     );
     llvm::Function *append_lit_fn = llvm::Function::Create(append_lit_type, llvm::Function::ExternalLinkage, prefix + "append_lit", module);
     string_manip_functions["append_lit"] = append_lit_fn;
@@ -694,7 +693,7 @@ void Generator::Module::String::generate_append_lit_function( //
     arg_source_len->setName("source_len");
 
     // Load the destination string pointer: str* old_dest = *dest
-    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, str_type->getPointerTo(), arg_dest, "old_dest_ptr");
+    llvm::Value *old_dest_ptr = IR::aligned_load(*builder, PTR_TY, arg_dest, "old_dest_ptr");
 
     // Load the destination string length: size_t dest_len = old_dest->len
     llvm::Value *dest_len_ptr = builder->CreateStructGEP(str_type, old_dest_ptr, 0, "dest_len_ptr");
@@ -752,12 +751,12 @@ void Generator::Module::String::generate_add_str_str_function( //
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *add_str_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                   // Return Type: str*
+        PTR_TY,                                                     // Return Type: str*
         {
-            str_type->getPointerTo(), // Argument: str* lhs
-            str_type->getPointerTo()  // Argument: str* rhs
-        },                            //
-        false                         // No varargs
+            PTR_TY, // Argument: str* lhs
+            PTR_TY  // Argument: str* rhs
+        },          //
+        false       // No varargs
     );
     llvm::Function *add_str_str_fn = llvm::Function::Create( //
         add_str_str_type,                                    //
@@ -835,13 +834,13 @@ void Generator::Module::String::generate_add_str_lit_function( //
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *add_str_lit_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                   // Return Type: str*
+        PTR_TY,                                                     // Return Type: str*
         {
-            str_type->getPointerTo(),                       // Argument: str* lhs
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* rhs
-            llvm::Type::getInt64Ty(context)                 // Argument: u64 rhs_len
-        },                                                  //
-        false                                               // No varargs
+            PTR_TY,                         // Argument: str* lhs
+            PTR_TY,                         // Argument: char* rhs
+            llvm::Type::getInt64Ty(context) // Argument: u64 rhs_len
+        },                                  //
+        false                               // No varargs
     );
     llvm::Function *add_str_lit_fn = llvm::Function::Create( //
         add_str_lit_type,                                    //
@@ -916,13 +915,13 @@ void Generator::Module::String::generate_add_lit_str_function( //
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *add_lit_str_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                   // Return Type: str*
+        PTR_TY,                                                     // Return Type: str*
         {
-            llvm::Type::getInt8Ty(context)->getPointerTo(), // Argument: char* lhs
-            llvm::Type::getInt64Ty(context),                // Argument: u64 lhs_len
-            str_type->getPointerTo()                        // Argument: str* rhs
-        },                                                  //
-        false                                               // No varargs
+            PTR_TY,                          // Argument: char* lhs
+            llvm::Type::getInt64Ty(context), // Argument: u64 lhs_len
+            PTR_TY                           // Argument: str* rhs
+        },                                   //
+        false                                // No varargs
     );
     llvm::Function *add_lit_str_fn = llvm::Function::Create( //
         add_lit_str_type,                                    //
@@ -1020,9 +1019,9 @@ void Generator::Module::String::generate_get_str_slice_function( //
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
     llvm::FunctionType *get_str_slice_type = llvm::FunctionType::get( //
-        str_type->getPointerTo(),                                     // Return Type: str*
+        PTR_TY,                                                       // Return Type: str*
         {
-            str_type->getPointerTo(),        // Argument: str* src
+            PTR_TY,                          // Argument: str* src
             llvm::Type::getInt64Ty(context), // Argument: u64 from
             llvm::Type::getInt64Ty(context)  // Argument: u64 to
         },                                   //
