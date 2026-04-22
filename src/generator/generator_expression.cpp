@@ -1943,7 +1943,7 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
     IR::aligned_store(builder, err_val, error_ptr);
     llvm::Value *err_id = builder.CreateExtractValue(err_val, 0, "err_id");
     llvm::Value *fn_failed = builder.CreateICmpNE(err_id, builder.getInt32(0), "fn_" + function_name + "_failed");
-    last_err_values = {fn_failed, error_ptr};
+    last_err_values = {fn_failed, ctx.allocations.at("flint.stack")};
 
     // Clear all garbage of temporary parameters
     if (!Statement::clear_garbage(builder, garbage)) {
