@@ -500,16 +500,21 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                         case TOK_IDENTIFIER: {
                             // Check if this identifier is an error set type and replace it with a type token
                             const auto type = file_node->file_namespace->get_type_from_str(std::string(return_tokens.second->lexme));
-                            if (!type.has_value()) {
-                                THROW_BASIC_ERR(ERR_PARSING);
-                                return std::nullopt;
-                            }
                             auto &tok = *return_tokens.second;
-                            tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, type.value());
+                            if (type.has_value()) {
+                                tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, type.value());
+                            } else {
+                                std::shared_ptr<Type> unknown_type = std::make_shared<UnknownType>(std::string(tok.lexme));
+                                if (!file_node->file_namespace->add_type(unknown_type)) {
+                                    unknown_type = file_node->file_namespace->get_type_from_str(unknown_type->to_string()).value();
+                                }
+                                tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, unknown_type);
+                            }
                             [[fallthrough]];
                         }
                         case TOK_TYPE:
-                            if (return_tokens.second->type->get_variation() != Type::Variation::ERROR_SET) {
+                            if (return_tokens.second->type->get_variation() != Type::Variation::ERROR_SET &&
+                                return_tokens.second->type->get_variation() != Type::Variation::UNKNOWN) {
                                 // Type in error set list is not an error set type
                                 THROW_BASIC_ERR(ERR_PARSING);
                                 return std::nullopt;

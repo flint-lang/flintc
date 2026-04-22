@@ -1,35 +1,28 @@
 use Core.assert
 use Core.print
 
-def assert_not_0(i32 x) -> i32 {ErrAssert}:
-	assert(x != 0);
-	return x;
+def div(i32 x, i32 y) -> u32 {ErrAssert}:
+	assert(y != 0);
+	assert(x >= 0);
+	assert(y > 0);
+	return u32(x / y);
 
-def greet():
-	print("Hello, World!\n");
+def sub(i32 x, i32 y) -> u32 {ErrAssert}:
+	assert(x >= y);
+	assert(y > 0);
+	return u32(x - y);
+
+def bind_sub(mut fn<i32, i32 -> u32 {ErrAssert}> c):
+	c = ::sub;
+
+def execute(fn<i32, i32 -> u32 {ErrAssert}> c, i32 x, i32 y) -> u32 {ErrAssert}:
+	return c(x, y);
 
 def main():
-	fn<> g = ::greet;
-	g();
+	fn<i32, i32 -> u32 {ErrAssert}> c = ::div;
+	u32 result = c(10, 2);
+	print($"result = {result}\n");
 
-	fn<i32 -> i32 {ErrAssert}> c = ::assert_not_0;
-	i32 x = c(10) catch:
-		ErrAssert(e):
-			print($"err = {e}\n");
-		anyerror(e):
-			print($"err = {e}\n");
-	print($"x = {x}\n");
-
-	x = c(0) catch:
-		ErrAssert(e):
-			print($"err = {e}\n");
-		anyerror(e):
-			print($"err = {e}\n");
-	print($"x = {x}\n");
-
-	x = assert_not_0(0) catch:
-		ErrAssert(e):
-			print($"err = {e}\n");
-		anyerror(e):
-			print($"err = {e}\n");
-	print($"x = {x}\n");
+	bind_sub(c);
+	result = c(10, 2);
+	print($"result = {result}\n");
