@@ -5,7 +5,7 @@
 </p>
 
 <p>
-An approachable programming language to make power and performance accessible without bloat, in a high level package.
+A high level language with transparency at its core.
 
 This subproject contains the Flint Language Server.
 
@@ -33,5 +33,3 @@ This subproject contains the Flint Language Server.
 ## Introduction
 
 This sub-project contains all code regarding the `fls`, the Flint Language Server.
-
-
