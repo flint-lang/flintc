@@ -104,7 +104,9 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     }
 
     assert(function->arg_size() == 1);
-    function->args().begin()->setName("stack");
+    llvm::Argument *const stack_arg = function->args().begin();
+    stack_arg->setName("stack");
+    stack_arg->addAttr(llvm::Attribute::InReg);
 
     // Create the functions setup block
     llvm::BasicBlock *setup_block = llvm::BasicBlock::Create( //
@@ -194,8 +196,10 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     );
     // Create the test function itself
     const std::string test_name = "___test_" + std::to_string(test_node->test_id);
-    llvm::Function *test_function = llvm::Function::Create(test_type, llvm::Function::ExternalLinkage, test_name, module);
-    test_function->args().begin()->setName("stack");
+    llvm::Function *const test_function = llvm::Function::Create(test_type, llvm::Function::ExternalLinkage, test_name, module);
+    llvm::Argument *const stack_arg = test_function->args().begin();
+    stack_arg->setName("stack");
+    stack_arg->addAttr(llvm::Attribute::InReg);
 
     // Create the entry block
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
