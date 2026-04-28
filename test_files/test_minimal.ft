@@ -1,9 +1,14 @@
-use Core.assert
+use Core.print
 
-def add(i32 x, i32 y) -> i32:
-	return x + y;
+def greet():
+	print("Hello, World!\n");
 
-test "callable":
-	fn<i32, i32 -> i32> c = ::add;
-	i32 res = c(10, 20);
-	assert(res == 30);
+def get_10() -> i32:
+	return 10;
+
+def main():
+	fn<() -> void> g = ::greet;
+	g();
+
+	//fn<() -> i32> g10 = ::get_10;
+	//print($"g10() = {g10()}\n");

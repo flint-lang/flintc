@@ -576,6 +576,9 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 return_types.emplace_back(type.value());
                 return_tokens.first = type_tokens.second;
             }
+            if (return_types.size() == 1 && return_types.front()->to_string() == "void") {
+                return_types.clear();
+            }
             return std::make_shared<FnType>(params, return_types, error_types);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
