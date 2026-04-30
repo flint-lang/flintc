@@ -479,6 +479,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             const std::optional<uint2> param_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_arrow);
             token_slice param_tokens;
             token_slice return_tokens;
+            token_slice *error_set_tokens = &return_tokens;
             if (param_range.has_value()) {
                 param_tokens = token_slice{tokens_mut.first + param_range.value().first, tokens_mut.first + param_range.value().second - 1};
                 return_tokens = token_slice{tokens_mut.first + param_range.value().second, tokens_mut.second};
@@ -489,13 +490,14 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 // of type void, e.g. empty return_types
                 param_tokens = tokens_mut;
                 return_tokens = {tokens_mut.first, tokens_mut.first};
+                error_set_tokens = &param_tokens;
             }
             // Check if the return tokens end with a `}`, signifying that there are error sets defined in the fn type
-            if (std::prev(return_tokens.second)->token == TOK_RIGHT_BRACE) {
-                return_tokens.second -= 2;
+            if (std::prev(error_set_tokens->second)->token == TOK_RIGHT_BRACE) {
+                error_set_tokens->second -= 2;
                 // Get all error types
-                while (return_tokens.second->token != TOK_LEFT_BRACE) {
-                    switch (return_tokens.second->token) {
+                while (error_set_tokens->second->token != TOK_LEFT_BRACE) {
+                    switch (error_set_tokens->second->token) {
                         default:
                             // Not allowed token inside of error set list
                             THROW_BASIC_ERR(ERR_PARSING);
@@ -504,8 +506,8 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                             break;
                         case TOK_IDENTIFIER: {
                             // Check if this identifier is an error set type and replace it with a type token
-                            const auto type = file_node->file_namespace->get_type_from_str(std::string(return_tokens.second->lexme));
-                            auto &tok = *return_tokens.second;
+                            const auto type = file_node->file_namespace->get_type_from_str(std::string(error_set_tokens->second->lexme));
+                            auto &tok = *error_set_tokens->second;
                             if (type.has_value()) {
                                 tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, type.value());
                             } else {
@@ -518,16 +520,16 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                             [[fallthrough]];
                         }
                         case TOK_TYPE:
-                            if (return_tokens.second->type->get_variation() != Type::Variation::ERROR_SET &&
-                                return_tokens.second->type->get_variation() != Type::Variation::UNKNOWN) {
+                            if (error_set_tokens->second->type->get_variation() != Type::Variation::ERROR_SET &&
+                                error_set_tokens->second->type->get_variation() != Type::Variation::UNKNOWN) {
                                 // Type in error set list is not an error set type
                                 THROW_BASIC_ERR(ERR_PARSING);
                                 return std::nullopt;
                             }
-                            error_types.emplace_back(return_tokens.second->type);
+                            error_types.emplace_back(error_set_tokens->second->type);
                             break;
                     }
-                    return_tokens.second--;
+                    error_set_tokens->second--;
                 }
             }
             error_types.emplace_back(Type::get_primitive_type("anyerror"));

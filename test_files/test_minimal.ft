@@ -1,14 +1,21 @@
+use Core.assert
 use Core.print
 
-def greet():
-	print("Hello, World!\n");
-
-def get_10() -> i32:
-	return 10;
+def may_fail(bool fail) {ErrAssert}:
+	print($"fail = {fail}\n");
+	assert(not fail);
 
 def main():
-	fn<() -> void> g = ::greet;
-	g();
-
-	//fn<() -> i32> g10 = ::get_10;
-	//print($"g10() = {g10()}\n");
+	fn<bool {ErrAssert}> f = ::may_fail;
+	f(false) catch err:
+		switch err:
+			ErrAssert(e):
+				print($"ErrAssert = {e}\n");
+			anyerror(e):
+				print($"anyerror = {e}\n");
+	f(true) catch err:
+		switch err:
+			ErrAssert(e):
+				print($"ErrAssert = {e}\n");
+			anyerror(e):
+				print($"anyerror = {e}\n");
