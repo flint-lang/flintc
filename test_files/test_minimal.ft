@@ -1,21 +1,19 @@
-use Core.assert
 use Core.print
 
-def may_fail(bool fail) {ErrAssert}:
-	print($"fail = {fail}\n");
-	assert(not fail);
+variant MyCompiler:
+    First(str),
+    Second(str);
+
+def check_variant(MyCompiler compiler) -> u64:
+    switch compiler:
+        MyCompiler.First(path):
+            print(path);
+            return 1;
+        MyCompiler.Second(path):
+            print(path);
+            return 2;
+    return 0;
 
 def main():
-	fn<bool {ErrAssert}> f = ::may_fail;
-	f(false) catch err:
-		switch err:
-			ErrAssert(e):
-				print($"ErrAssert = {e}\n");
-			anyerror(e):
-				print($"anyerror = {e}\n");
-	f(true) catch err:
-		switch err:
-			ErrAssert(e):
-				print($"ErrAssert = {e}\n");
-			anyerror(e):
-				print($"anyerror = {e}\n");
+	check_variant(MyCompiler.First("hello"));
+	check_variant(MyCompiler.Second("world"));

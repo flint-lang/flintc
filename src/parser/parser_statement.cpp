@@ -2424,7 +2424,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
-    } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call) //
+        && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0) {
+        // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
+        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func module call
+        // within a call)
         token_slice tokens_mut = tokens;
         if (tokens_mut.first->token == TOK_TYPE) {
             if (tokens_mut.first->type->get_variation() != Type::Variation::FUNC) {
