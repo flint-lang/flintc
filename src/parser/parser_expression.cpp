@@ -835,11 +835,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference
     assert(tokens_mut.first->token == TOK_REFERENCE);
     assert((tokens_mut.first + 1)->token == TOK_IDENTIFIER);
     referenced_fn_name += std::string((tokens_mut.first + 1)->lexme);
-    std::vector<FunctionNode *> potential_functions = file_node_ptr->file_namespace->get_functions_with_name(referenced_fn_name, false);
+    std::vector<const FunctionNode *> potential_functions = file_node_ptr->file_namespace->get_functions_with_name( //
+        referenced_fn_name, false, true                                                                             //
+    );
 
     if (potential_functions.empty()) {
-        // No function found with this name in this namespace
-        THROW_BASIC_ERR(ERR_PARSING);
+        // Try to get all potential functions again and include all functions from all Core modules this time. If we now found a function it
+        // means that a Core module function has been referenced, which is not allowed. If still no functions have been found then the
+        // referenced function simply does not exist
+        potential_functions = file_node_ptr->file_namespace->get_functions_with_name(referenced_fn_name, false, false);
+        if (potential_functions.empty()) {
+            // No function found with this name in this namespace
+            THROW_ERR(ErrExprFnRefNonexistent, ERR_PARSING, file_hash, tokens, referenced_fn_name);
+            return std::nullopt;
+        }
+        // The reference targets a Core module function, this is not allowed
+        THROW_ERR(ErrExprFnRefCore, ERR_PARSING, file_hash, tokens, referenced_fn_name);
         return std::nullopt;
     }
 

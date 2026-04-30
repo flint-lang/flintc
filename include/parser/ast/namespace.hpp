@@ -122,8 +122,13 @@ class Namespace {
     /// @param `fn_name` The name of the function which is searched for
     /// @param `is_aliased` Whether the this namespace is the current file's namespace (for non-aliased calls the private functions are
     /// available too, but for aliased calls only publically available functions are visible)
+    /// @param `exclude_core` Whether to exclude all functions from Core modules
     /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which match the function name
-    std::vector<FunctionNode *> get_functions_with_name(const std::string &fn_name, const bool is_aliased) const;
+    std::vector<const FunctionNode *> get_functions_with_name( //
+        const std::string &fn_name,                            //
+        const bool is_aliased,                                 //
+        const bool exclude_core = false                        //
+    ) const;
 
     /// @function `get_type`
     /// @brief Creates a type from the given list of tokens and adds it to the public or global type list of this namespace

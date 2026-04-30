@@ -104,31 +104,36 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
     }
     return found_functions;
 }
-std::vector<FunctionNode *> Namespace::get_functions_with_name(const std::string &fn_name, const bool is_aliased) const {
-    std::vector<FunctionNode *> available_functions;
+std::vector<const FunctionNode *> Namespace::get_functions_with_name( //
+    const std::string &fn_name,                                       //
+    const bool is_aliased,                                            //
+    const bool exclude_core                                           //
+) const {
+    std::vector<const FunctionNode *> found_functions;
 
-    // Collect all available functions from public and private symbols
+    // Collect all available functions from public and private symbols. Core module functions cannot be part of the public symbols of any
+    // file, ever. They are always part of the private section of the file namespace
     for (const auto &definition : public_symbols.definitions) {
         if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
-            available_functions.emplace_back(definition->as<FunctionNode>());
+            const FunctionNode *fn = definition->as<FunctionNode>();
+            if (fn->name != fn_name) {
+                continue;
+            }
+            found_functions.emplace_back(fn);
         }
     }
     if (!is_aliased) {
         for (const auto &[hash, fn_vec] : private_symbols.functions) {
-            for (auto *fn : fn_vec) {
-                available_functions.emplace_back(fn);
+            for (const auto *fn : fn_vec) {
+                if (fn->name != fn_name) {
+                    continue;
+                }
+                if (fn->is_core && exclude_core) {
+                    continue;
+                }
+                found_functions.emplace_back(fn);
             }
         }
-    }
-
-    // Filter functions based on name
-    std::vector<FunctionNode *> found_functions;
-    for (FunctionNode *fn : available_functions) {
-        // Check if function name matches
-        if (fn->name != fn_name) {
-            continue;
-        }
-        found_functions.emplace_back(fn);
     }
     return found_functions;
 }
