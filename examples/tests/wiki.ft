@@ -35,3 +35,6 @@ test "intermediates_guide/variants":
 
 test "intermediates_guide/error_sets":
 	test_test("tests/wiki/intermediates_guide", "error_sets.ft");
+
+test "intermediates_guide/callables":
+	test_test("tests/wiki/intermediates_guide", "callables.ft");

@@ -1,0 +1,56 @@
+use "../../../utils.ft"
+
+test "0_omitting_return_type.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "0_omitting_return_type.ft";
+	test_file_ok($"{path}/{file}", "value = 10\n");
+
+test "1_no_args_no_rets.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "1_no_args_no_rets.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "2_fn_ref.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "2_fn_ref.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "3_referencing_core.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "3_referencing_core.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/intermediates_guide/callables/3_referencing_core.ft:9:10\n└─┬┤E0000│\n6 │ def main():\n9 │ »   p := ::print;\n┌─┴──────────┘\n├─ Referencing Core module function 'print'\n└─ Referencing functions of Core modules is not allowed\n");
+
+test "4_reassign_different_functions.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "4_reassign_different_functions.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nHello from second greeting! local = 10\n");
+
+test "5_fn_as_value.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "5_fn_as_value.ft";
+	test_file_ok($"{path}/{file}", "res = 30\nres = 10\nres = 200\nres = 2\n");
+
+test "6_ret_callable_from_fn.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "6_ret_callable_from_fn.ft";
+	test_file_ok($"{path}/{file}", "res = 30\nres = 10\n");
+
+test "7_pass_callable_by_ref.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "7_pass_callable_by_ref.ft";
+	test_file_ok($"{path}/{file}", "res = 30\nres = 10\n");
+
+test "8_err_bubble_up.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "8_err_bubble_up.ft";
+	test_file_crash($"{path}/{file}", "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n");
+
+test "9_specifying_err_set.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "9_specifying_err_set.ft";
+	test_file_crash($"{path}/{file}", "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n");
+
+test "10_catching_callables.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "10_catching_callables.ft";
+	test_file_ok($"{path}/{file}", "fail = false\nfail = true\nErrAssert = ErrAssert.AssertionFailed\n");

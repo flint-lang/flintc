@@ -1,0 +1,9 @@
+use Core.print
+
+def greet():
+    print("Hello, World!\n");
+
+def main():
+    fn<() -> void> g = ::greet;
+    g();
+	p := ::print;

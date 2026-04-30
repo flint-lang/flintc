@@ -1,0 +1,8 @@
+use Core.print
+
+def print_value(i32 value):
+    print($"value = {value}\n");
+
+def main():
+    fn<i32> p = ::print_value;
+    p(10);

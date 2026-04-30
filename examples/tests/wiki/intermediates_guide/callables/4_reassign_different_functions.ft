@@ -1,0 +1,15 @@
+use Core.print
+
+def greet():
+    print("Hello, World!\n");
+
+def greet2():
+    i32 local = 10;
+    print($"Hello from second greeting! local = {local}\n");
+
+def main():
+    fn<() -> void> g = ::greet;
+    g();
+
+    g = ::greet2;
+    g();

@@ -1,0 +1,11 @@
+use Core.assert
+use Core.print
+
+def may_fail(bool fail) {ErrAssert}:
+    print($"fail = {fail}\n");
+    assert(not fail);
+
+def main():
+    fn<bool {ErrAssert}> f = ::may_fail;
+    f(false);
+    f(true);
