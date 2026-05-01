@@ -248,6 +248,49 @@ bool Matcher::tokens_end_with_continuous(const token_slice &tokens, const Patter
     return false;
 }
 
+bool Matcher::tokens_start_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator) {
+    PROFILE_CUMULATIVE("Matcher::tokens_start_with_continuous");
+
+    // Match must start at the beginning of the slice
+    auto match = pattern->match(tokens, 0);
+    if (!match.has_value()) {
+        return false;
+    }
+
+    const auto matched_len = match.value();
+    const auto total_len = static_cast<size_t>(std::distance(tokens.first, tokens.second));
+
+    // If the pattern claims to match more than the slice length, reject it
+    if (matched_len > total_len) {
+        return false;
+    }
+
+    // Start scanning the remainder after the matched prefix
+    auto it = tokens.first;
+    std::advance(it, matched_len);
+
+    // Scan the rest of the slice and reject if a separator appears outside any grouping
+    int depth = 0;
+    for (; it != tokens.second; ++it) {
+        auto tok = it->token;
+
+        if (tok == TOK_LEFT_PAREN || tok == TOK_LEFT_BRACKET || tok == TOK_LEFT_BRACE) {
+            depth++;
+        } else if (tok == TOK_RIGHT_PAREN || tok == TOK_RIGHT_BRACKET || tok == TOK_RIGHT_BRACE) {
+            depth--;
+            if (depth < 0) {
+                depth = 0;
+            }
+        }
+
+        if (depth == 0 && token_match(tok, separator)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     PROFILE_CUMULATIVE("Matcher::tokens_contain_in_range");
     assert(range.second <= std::distance(tokens.first, tokens.second));

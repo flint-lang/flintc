@@ -1,19 +1,7 @@
 use Core.print
 
-variant MyCompiler:
-    First(str),
-    Second(str);
-
-def check_variant(MyCompiler compiler) -> u64:
-    switch compiler:
-        MyCompiler.First(path):
-            print(path);
-            return 1;
-        MyCompiler.Second(path):
-            print(path);
-            return 2;
-    return 0;
-
 def main():
-	check_variant(MyCompiler.First("hello"));
-	check_variant(MyCompiler.Second("world"));
+	bool[] arr = bool[5](false);
+	u64 j = 1;
+	if not arr[j + 1]:
+		print("Hello, World!\n");

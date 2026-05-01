@@ -2424,8 +2424,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             return std::nullopt;
         }
         statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
-    } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call) //
-        && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0) {
+    } else if (Matcher::tokens_contain(tokens, Matcher::aliased_function_call)                      //
+        && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0 //
+    ) {
         // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
         // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func module call
         // within a call)
@@ -2438,9 +2439,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
             if (func_node->file_hash.to_string() != file_hash.to_string()) {
                 auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
-                statement_node = create_call_statement(scope, tokens, func_namespace, true);
+                statement_node = create_call_statement(scope, tokens_mut, func_namespace, true);
             } else {
-                statement_node = create_call_statement(scope, tokens, std::nullopt, true);
+                statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
             }
         } else {
             assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
@@ -2450,7 +2451,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         }
     } else if (Matcher::tokens_contain(tokens, Matcher::function_call)) {
         statement_node = create_call_statement(scope, tokens, std::nullopt);
-    } else if (Matcher::tokens_contain(tokens, Matcher::unary_op_expr)) {
+    } else if (Matcher::tokens_end_with_continuous(                                                                                  //
+                   token_slice{tokens.first, std::prev(tokens.second)}, Matcher::unary_post_operator, Matcher::expression_separator) //
+    ) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
         if (!unary_op.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -2471,7 +2474,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     }
     statement_node.value()->file_hash = file_hash;
     statement_node.value()->line = tokens.first->line;
-    statement_node.value()->line = tokens.first->column;
+    statement_node.value()->column = tokens.first->column;
     statement_node.value()->length = tokens.second->column - tokens.first->column;
     Analyzer::Context ctx{
         .level = ContextLevel::INTERNAL,

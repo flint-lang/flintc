@@ -101,6 +101,16 @@ class Matcher {
     /// @return `bool` Whether the given tokens end with the given pattern and does not contain the separator pattern outside of groups
     static bool tokens_end_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator);
 
+    /// @function `tokens_start_with_continuous`
+    /// @brief Checks whether the given vector of tokens starts with a given pattern and also checks that the whole vector of tokens does
+    /// *not* contain a given pattern (outside of groups) too.
+    ///
+    /// @param `tokens` The list of tokens to check
+    /// @param `pattern` The pattern to check for
+    /// @param `separator` The separator of continuous blocks, for example binary operators
+    /// @return `bool` Whether the given tokens start with the given pattern and does not contain the separator pattern outside of groups
+    static bool tokens_start_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator);
+
     /// @function `token_match`
     /// @brief Checks if a given token matches with the given pattern
     ///
@@ -673,9 +683,8 @@ class Matcher {
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});
     static const inline PatternPtr boolean_binop = one_of({token(TOK_AND), token(TOK_OR)});
     static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop});
-    static const inline PatternPtr unary_operator = one_of({
-        token(TOK_INCREMENT), token(TOK_DECREMENT), token(TOK_NOT), token(TOK_MINUS), token(TOK_BIT_AND) //
-    });
+    static const inline PatternPtr unary_pre_operator = one_of({token(TOK_NOT), token(TOK_MINUS), token(TOK_BIT_AND)});
+    static const inline PatternPtr unary_post_operator = one_of({token(TOK_INCREMENT), token(TOK_DECREMENT)});
     static const inline PatternPtr inbetween_operator = one_of({token(TOK_QUESTION), token(TOK_EXCLAMATION)});
     static const inline PatternPtr reference = sequence({
         token(TOK_IDENTIFIER), one_or_more(sequence({token(TOK_REFERENCE), token(TOK_IDENTIFIER)})) //
@@ -693,7 +702,7 @@ class Matcher {
         token(TOK_LEFT_PAREN), type, zero_or_more(sequence({token(TOK_COMMA), type})), token(TOK_RIGHT_PAREN) //
     });
     static const inline PatternPtr expression_separator = one_of({
-        operational_binop, relational_binop, boolean_binop, unary_operator, token(TOK_RANGE) //
+        operational_binop, relational_binop, boolean_binop, unary_pre_operator, unary_post_operator, token(TOK_RANGE) //
     });
 
     // --- UNTILS ---
@@ -798,12 +807,9 @@ class Matcher {
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });
-    static const inline PatternPtr unary_op_expr = one_of({
-        sequence({one_or_more(not_p(unary_operator)), unary_operator}), sequence({unary_operator, one_or_more(not_p(unary_operator))}) //
-    });
     static const inline PatternPtr literal_expr = one_of({
-        sequence({literal, zero_or_more(sequence({binary_operator, literal}))}), sequence({unary_operator, literal}), //
-        sequence({literal, unary_operator})                                                                           //
+        sequence({literal, zero_or_more(sequence({binary_operator, literal}))}), sequence({unary_pre_operator, literal}), //
+        sequence({literal, unary_post_operator})                                                                          //
     });
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});

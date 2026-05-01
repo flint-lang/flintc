@@ -1048,9 +1048,9 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
     bool is_left;
     const uint2 left_range = {0, 1};
     const uint2 right_range = {tokens_size - 1, tokens_size};
-    if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_operator, left_range)) {
+    if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_pre_operator, left_range)) {
         is_left = true;
-    } else if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_operator, right_range)) {
+    } else if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_post_operator, right_range)) {
         is_left = false;
     } else {
         THROW_BASIC_ERR(ERR_PARSING);

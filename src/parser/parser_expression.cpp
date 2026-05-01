@@ -1968,17 +1968,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return type_cast;
         }
     }
-    if (Matcher::tokens_match(tokens_mut, Matcher::unary_op_expr)) {
-        // For it to be considered an unary operation, either right after the operator needs to come a paren group, or no other binop
-        // tokens
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (!Matcher::tokens_contain(tokens_mut, Matcher::binary_operator) || (range.has_value() && range.value().second == token_size)) {
-            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(ctx, scope, tokens_mut);
-            if (!unary_op.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
+    if (Matcher::tokens_start_with_continuous(tokens_mut, Matcher::unary_pre_operator, Matcher::expression_separator)   //
+        || Matcher::tokens_end_with_continuous(tokens_mut, Matcher::unary_post_operator, Matcher::expression_separator) //
+    ) {
+        std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(ctx, scope, tokens_mut);
+        if (!unary_op.has_value()) {
+            return std::nullopt;
         }
+        return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_field_access)) {
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
