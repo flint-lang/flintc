@@ -1,0 +1,67 @@
+use Core.print
+use Core.filesystem
+use Core.parse
+
+def part_1(str[] lines) -> u64:
+	const u64 line_width = lines[0].len;
+	u64 split_count = 0;
+
+	// Keep a horizontal array of all tachyons as we move down the tree
+	bool[] tachyons = bool[line_width](false);
+
+	// Search for the `S` to get the start ID of the tachyon
+	for (i, c) in lines[0]:
+		if c == 'S':
+			tachyons[i] = true;
+			break;
+
+	// See how often the tachyons split
+	for (i, line) in lines[1..]:
+		// Search for all the `^` to check whether to split the tachyons
+		for (j, _) in 0..line_width:
+			if line[j] == '^':
+				// We found a splitter, check if there is a tachyon here. If it is then we need to split it
+				if tachyons[j]:
+					split_count++;
+					tachyons[j] = false;
+					if j > 0:
+						tachyons[j - 1] = true;
+					if j + 2 < line_width:
+						tachyons[j + 1] = true;
+	return split_count;
+
+def part_2(str[] lines) -> u64:
+	const u64 line_width = lines[0].len;
+	// Keep a horizontal array of all timelines as we move down the tree
+	u64[] timelines = u64[line_width](0);
+
+	// Search for the `S` to get the start ID of the tachyon
+	for (i, c) in lines[0]:
+		if c == 'S':
+			timelines[i] = 1;
+			break;
+
+	// See how often the tachyons split
+	for (i, line) in lines[1..]:
+		// Search for all the `^` to check whether to split the tachyons
+		// We search for how many splits happen in this stage of the tachyon particle.
+		for (j, _) in 0..line_width:
+			if line[j] == '^':
+				// We found a splitter, check if there is a timeline here. If it is then we need to split it and
+				// the left and right to the split get added the timeline count of this timeline to them
+				if timelines[j] > 0:
+					if j > 0:
+						timelines[j - 1] += timelines[j];
+					if j + 1 < line_width:
+						timelines[j + 1] += timelines[j];
+					timelines[j] = 0;
+	// At the end we sum up all timeline counts
+	u64 timeline_count = 0;
+	for (_, n) in timelines:
+		timeline_count += n;
+	return timeline_count;
+
+def main():
+	str[] lines = read_lines("input.txt");
+	print($"part_1 = {part_1(lines)}\n");
+	print($"part_2 = {part_2(lines)}\n");
