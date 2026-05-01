@@ -38,13 +38,14 @@ This repository contains the Flint compiler itself.
 
 This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, compiled and automatically memory managed ([DIMA](https://github.com/flint-lang/dima)) language built around composition of data and behaviour, giving you full transparency without sacrificing high-level structure.
 Because of Flint's strong focus on transparency, it feels lower level compared to Python. But this very transparency becomes your superpower because you can actually tell what the runtime is doing with ease. This means that Flint could be described as a middle-level language, even though we try to make Flint as high level as possible without sacrificing transparency.
-If you are interested in it, start learning it through the [Wiki](https://flint-lang.github.io/v0.3.3-core) today!
+If you are interested in it, start learning it through the [Wiki](https://flint-lang.github.io/v0.3.4-core) today!
 
 ## Who Flint is For
 
 Flint is for developers who appreciate high-level ergonomics and syntax but want to understand what's actually happening under the hood. If you enjoy writing expressive code while maintaining transparency into runtime behaviour, Flint is for you.
 
 Flint may not be the best fit if you:
+
 - want maximum low-level control with manual memory management, Flint won't provide that level of control
 - prioritize maximum ergonomics over understanding runtime details, as Flint will feel too explicit
 
@@ -89,7 +90,7 @@ def main():
 	fn<i32, i32 -> i32> c = ::div;
 	i32 result = execute(c, 10, 2);
 	print($"result = {result}\n");
-    
+
 	bind_sub(c);
 	result = execute(c, 10, 2);
 	print($"result = {result}\n");
@@ -243,12 +244,12 @@ You need `raylib` installed on your system for this example to compile and run c
 ## Installation
 
 For how to install Flint, follow the instructions of the Wiki:
-https://flint-lang.github.io/v0.3.3-core/user_guide/setup/1_installation.html
+https://flint-lang.github.io/v0.3.4-core/user_guide/setup/1_installation.html
 
 ## Building
 
 For how to build Flint from source, follow the instructions of the Wiki:
-https://flint-lang.github.io/v0.3.3-core/developer_guide/flintc/setup.html
+https://flint-lang.github.io/v0.3.4-core/developer_guide/flintc/setup.html
 
 ## What's next?
 
