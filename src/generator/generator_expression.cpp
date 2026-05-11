@@ -80,8 +80,8 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             return generate_group_expression(builder, ctx, garbage, expr_depth, node);
         }
         case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
+            const auto *node = expression_node->as<GroupedArrayAccessNode>();
+            return generate_grouped_array_access(builder, ctx, garbage, expr_depth, node, is_reference);
         }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression_node->as<GroupedDataAccessNode>();
@@ -2873,28 +2873,68 @@ llvm::Value *Generator::Expression::generate_array_access( //
     const bool is_reference                                //
 ) {
     std::optional<llvm::Value *> base_expr_value = std::nullopt;
-    return generate_array_access(                                                                                                       //
-        builder, ctx, garbage, expr_depth, base_expr_value, access->type, access->base_expr, access->indexing_expressions, is_reference //
+    std::vector<const ExpressionNode *> indexing_exprs;
+    for (const auto &expr : access->indexing_expressions) {
+        indexing_exprs.emplace_back(expr.get());
+    }
+    return generate_array_access(                                                                                         //
+        builder, ctx, garbage, expr_depth, base_expr_value, access->type, access->base_expr, indexing_exprs, is_reference //
     );
 }
 
-llvm::Value *Generator::Expression::generate_array_access(                    //
-    llvm::IRBuilder<> &builder,                                               //
-    GenerationContext &ctx,                                                   //
-    garbage_type &garbage,                                                    //
-    const unsigned int expr_depth,                                            //
-    std::optional<llvm::Value *> base_expr_value,                             //
-    const std::shared_ptr<Type> result_type,                                  //
-    const std::unique_ptr<ExpressionNode> &base_expr,                         //
-    const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions, //
-    const bool is_reference                                                   //
+Generator::group_mapping Generator::Expression::generate_grouped_array_access( //
+    llvm::IRBuilder<> &builder,                                                //
+    GenerationContext &ctx,                                                    //
+    garbage_type &garbage,                                                     //
+    const unsigned int expr_depth,                                             //
+    const GroupedArrayAccessNode *access,                                      //
+    const bool is_reference                                                    //
+) {
+    // To generate a grouped array access we simply go through all "indexing expressions" and generate a regular array access at every
+    // index, and then collect all the results in a simple list of values
+    std::vector<llvm::Value *> results;
+    const auto &array_base_type = access->base_expr->type->as<ArrayType>()->type;
+    for (const auto &expr : access->indexing_expressions) {
+        std::vector<const ExpressionNode *> indexing_exprs;
+        switch (expr->type->get_variation()) {
+            default:
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            case Type::Variation::GROUP:
+                assert(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
+                for (const auto &ie : expr->as<GroupExpressionNode>()->expressions) {
+                    indexing_exprs.emplace_back(ie.get());
+                }
+                break;
+            case Type::Variation::PRIMITIVE:
+                indexing_exprs.emplace_back(expr.get());
+                break;
+        }
+        llvm::Value *const result = generate_array_access(                                                                    //
+            builder, ctx, garbage, expr_depth, std::nullopt, array_base_type, access->base_expr, indexing_exprs, is_reference //
+        );
+        results.emplace_back(result);
+    }
+    return results;
+}
+
+llvm::Value *Generator::Expression::generate_array_access(           //
+    llvm::IRBuilder<> &builder,                                      //
+    GenerationContext &ctx,                                          //
+    garbage_type &garbage,                                           //
+    const unsigned int expr_depth,                                   //
+    std::optional<llvm::Value *> base_expr_value,                    //
+    const std::shared_ptr<Type> result_type,                         //
+    const std::unique_ptr<ExpressionNode> &base_expr,                //
+    const std::vector<const ExpressionNode *> &indexing_expressions, //
+    const bool is_reference                                          //
 ) {
     const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY //
         || (result_type->to_string() == "str" && base_expr->type->to_string() == "str");
     // First, generate the index expressions
     std::vector<std::array<llvm::Value *, 2>> index_expressions;
     for (auto &index_expression : indexing_expressions) {
-        group_mapping index = generate_expression(builder, ctx, garbage, expr_depth, index_expression.get());
+        group_mapping index = generate_expression(builder, ctx, garbage, expr_depth, index_expression);
         if (!index.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
@@ -3286,8 +3326,12 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
         const ChainArrayAccess &access = std::get<ChainArrayAccess>(chain->operation);
         const auto *base_expr_type = chain->base_expr->type->as<OptionalType>();
         const auto *base_array_type = base_expr_type->base_type->as<ArrayType>();
-        llvm::Value *opt_value = generate_array_access(                                                                              //
-            builder, ctx, garbage, expr_depth, base_expr_value, base_array_type->type, chain->base_expr, access.indexing_expressions //
+        std::vector<const ExpressionNode *> indexing_exprs;
+        for (const auto &expr : access.indexing_expressions) {
+            indexing_exprs.emplace_back(expr.get());
+        }
+        llvm::Value *opt_value = generate_array_access(                                                                 //
+            builder, ctx, garbage, expr_depth, base_expr_value, base_array_type->type, chain->base_expr, indexing_exprs //
         );
         result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
     }

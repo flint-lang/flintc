@@ -5,10 +5,10 @@ def main():
 	for (i, elem) in arr:
 		elem = i32(i);
 
-	(n3, n4) := arr.[3, 4];
+	(n3, n5) := arr.[3, 5];
 	//arr.[3, 4] = arr.[4, 3];
-	arr[3] = n4;
-	arr[4] = n3;
+	arr[3] = n5;
+	arr[5] = n3;
 
 	for (i, elem) in arr:
 		print($"arr[{i}] = {elem}\n");

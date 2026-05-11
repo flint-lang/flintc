@@ -618,8 +618,41 @@ bool Generator::Allocation::generate_expression_allocations(              //
             break;
         }
         case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return false;
+            const auto *node = expression->as<GroupedArrayAccessNode>();
+            if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            // For grouped array accesses, the "indexing expressions" are actually N groups where each group is a list of indexing
+            // expressions by itself, but only one of the groups is needed at the same time, so we iterate through the "indexing
+            // expressions" and call the `generate_array_indexing_allocation` on all of them.
+            const auto *base_arr_type = node->base_expr->type->as<ArrayType>();
+            for (const auto &expr : node->indexing_expressions) {
+                switch (expr->type->get_variation()) {
+                    default:
+                        THROW_BASIC_ERR(ERR_GENERATING);
+                        return false;
+                    case Type::Variation::GROUP:
+                        assert(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
+                        generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
+                        break;
+                    case Type::Variation::MULTI:
+                        // Multi-types are allowed as indexing expressions of multi-dimensional grouped array accesses
+                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                        return false;
+                    case Type::Variation::PRIMITIVE:
+                        // It must be a one-dimensional array in this case
+                        if (base_arr_type->dimensionality != 1) {
+                            THROW_BASIC_ERR(ERR_GENERATING);
+                            return false;
+                        }
+                        if (!generate_expression_allocations(builder, parent, scope, struct_types, expr.get())) {
+                            return false;
+                        }
+                        break;
+                }
+            }
+            break;
         }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression->as<GroupedDataAccessNode>();

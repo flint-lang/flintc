@@ -12,6 +12,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
+#include "parser/ast/expressions/grouped_array_access_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
@@ -1874,6 +1875,25 @@ class Generator {
             const bool is_reference = false        //
         );
 
+        /// @function `generate_grouped_array_access`
+        /// @brief Generates a grouped array access from a given GroupedArrayAccessNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `access` The grouped array access to generate
+        /// @param `is_reference` Whether the result of the array access should be a reference
+        /// @return `group_mapping` A list of all accessed elements
+        static group_mapping generate_grouped_array_access( //
+            llvm::IRBuilder<> &builder,                     //
+            GenerationContext &ctx,                         //
+            garbage_type &garbage,                          //
+            const unsigned int expr_depth,                  //
+            const GroupedArrayAccessNode *access,           //
+            const bool is_reference = false                 //
+        );
+
         /// @function `generate_array_access`
         /// @brief Generates an array access from all the needed information for the array access
         ///
@@ -1887,16 +1907,16 @@ class Generator {
         /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
         /// @param `is_reference` Whether the result of the array access should be a reference
         /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_access(                                    //
-            llvm::IRBuilder<> &builder,                                               //
-            GenerationContext &ctx,                                                   //
-            garbage_type &garbage,                                                    //
-            const unsigned int expr_depth,                                            //
-            std::optional<llvm::Value *> base_expr_value,                             //
-            const std::shared_ptr<Type> result_type,                                  //
-            const std::unique_ptr<ExpressionNode> &base_expr,                         //
-            const std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions, //
-            const bool is_reference = false                                           //
+        static llvm::Value *generate_array_access(                           //
+            llvm::IRBuilder<> &builder,                                      //
+            GenerationContext &ctx,                                          //
+            garbage_type &garbage,                                           //
+            const unsigned int expr_depth,                                   //
+            std::optional<llvm::Value *> base_expr_value,                    //
+            const std::shared_ptr<Type> result_type,                         //
+            const std::unique_ptr<ExpressionNode> &base_expr,                //
+            const std::vector<const ExpressionNode *> &indexing_expressions, //
+            const bool is_reference = false                                  //
         );
 
         /// @function `generate_array_slice`
