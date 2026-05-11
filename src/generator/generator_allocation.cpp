@@ -253,6 +253,10 @@ bool Generator::Allocation::generate_allocations(                        //
                 }
                 break;
             }
+            case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
             case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
                 const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
                 if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {

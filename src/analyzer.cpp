@@ -347,6 +347,24 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
             }
             break;
         }
+        case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
+            const auto *node = statement->as<GroupedArrayAssignmentNode>();
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            for (const auto &index_expr : node->indexing_expressions) {
+                result = analyze_expression(ctx, index_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            result = analyze_expression(ctx, node->expression.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            break;
+        }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
             result = analyze_expression(ctx, node->base_expr.get());

@@ -131,6 +131,10 @@ bool Generator::Statement::generate_statement(      //
             const auto *node = statement->as<GroupDeclarationNode>();
             return generate_group_declaration(builder, ctx, node);
         }
+        case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
             return generate_grouped_data_field_assignment(builder, ctx, node);

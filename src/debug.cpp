@@ -1206,6 +1206,36 @@ namespace Debug {
             print_expression(indent_lvl + 1, assign_expr_bits, assign.expression);
         }
 
+        void print_grouped_array_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupedArrayAssignmentNode &assign) {
+            Local::print_header(indent_lvl, bits, "Grouped Array Assign ");
+            std::cout << std::endl;
+
+            indent_lvl++;
+            TreeBits base_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_bits, "Base Expression ");
+            std::cout << assign.base_expr->type->to_string() << std::endl;
+            TreeBits base_expr_bits = base_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, assign.base_expr);
+
+            for (size_t i = 0; i < assign.indexing_expressions.size(); i++) {
+                TreeBits id_bits = bits.child(indent_lvl, false);
+                Local::print_header(indent_lvl, id_bits, "ID " + std::to_string(i) + " ");
+                std::cout << assign.indexing_expressions[i]->type->to_string();
+                std::cout << std::endl;
+
+                TreeBits expr_bits = id_bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl + 1, expr_bits, assign.indexing_expressions[i]);
+            }
+
+            TreeBits assignee_bits = bits.child(indent_lvl, true);
+            Local::print_header(indent_lvl, assignee_bits, "Assignee ");
+            std::cout << "of type " << assign.expression->type->to_string();
+            std::cout << std::endl;
+
+            TreeBits assign_expr_bits = bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, assign_expr_bits, assign.expression);
+        }
+
         void print_group_declaration(unsigned int indent_lvl, TreeBits &bits, const GroupDeclarationNode &decl) {
             Local::print_header(indent_lvl, bits, "Group Decl ");
             std::cout << "(";
@@ -1378,6 +1408,11 @@ namespace Debug {
                 case StatementNode::Variation::GROUP_DECLARATION: {
                     const auto *node = statement->as<GroupDeclarationNode>();
                     print_group_declaration(indent_lvl, bits, *node);
+                    break;
+                }
+                case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
+                    const auto *node = statement->as<GroupedArrayAssignmentNode>();
+                    print_grouped_array_assignment(indent_lvl, bits, *node);
                     break;
                 }
                 case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {

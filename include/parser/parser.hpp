@@ -1,8 +1,8 @@
 #pragma once
 
 #include "analyzer/analyzer.hpp"
+#include "line.hpp"
 #include "matcher/matcher.hpp"
-#include "parser/line.hpp"
 #include "types.hpp"
 
 #include "ast/annotation_node.hpp"
@@ -29,6 +29,7 @@
 #include "ast/statements/for_loop_node.hpp"
 #include "ast/statements/group_assignment_node.hpp"
 #include "ast/statements/group_declaration_node.hpp"
+#include "ast/statements/grouped_array_assignment_node.hpp"
 #include "ast/statements/grouped_data_field_assignment_node.hpp"
 #include "ast/statements/if_node.hpp"
 #include "ast/statements/return_node.hpp"
@@ -1819,6 +1820,19 @@ class Parser {
         std::shared_ptr<Scope> &scope,                                    //
         const token_slice &tokens,                                        //
         std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
+    );
+
+    /// @function `create_grouped_array_assignment`
+    /// @brief Creates an GroupedArrayAssignmentNode from the given tokens
+    ///
+    /// @param `scope` The scope in which the grouped array assignment is defined
+    /// @param `tokens` The list of tokens representing the grouped array assignment
+    /// @param `rhs` The rhs of the assignment, which possibly is already parsed
+    /// @return `std::optional<GroupedArrayAssignmentNode>` The created GroupedArrayAssignmentNode, nullopt if its creation failed
+    std::optional<GroupedArrayAssignmentNode> create_grouped_array_assignment( //
+        std::shared_ptr<Scope> &scope,                                         //
+        const token_slice &tokens,                                             //
+        std::optional<std::unique_ptr<ExpressionNode>> &rhs                    //
     );
 
     /// @function `create_statement`

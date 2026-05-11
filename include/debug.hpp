@@ -1,7 +1,5 @@
 #pragma once
 
-#include "parser/ast/callable_call_node_base.hpp"
-#include "parser/ast/expressions/function_reference_node.hpp"
 #include "resolver/resolver.hpp"
 #include "types.hpp"
 
@@ -21,6 +19,7 @@
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
+#include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
 #include "parser/ast/expressions/grouped_array_access_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
@@ -48,6 +47,7 @@
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/group_declaration_node.hpp"
+#include "parser/ast/statements/grouped_array_assignment_node.hpp"
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
@@ -57,6 +57,7 @@
 #include "parser/ast/statements/while_node.hpp"
 
 #include "parser/ast/call_node_base.hpp"
+#include "parser/ast/callable_call_node_base.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/instance_call_node_base.hpp"
 #include "parser/ast/unary_op_base.hpp"
@@ -199,6 +200,7 @@ namespace Debug {
         void print_group_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupAssignmentNode &assign);
         void print_assignment(unsigned int indent_lvl, TreeBits &bits, const AssignmentNode &assign);
         void print_array_assignment(unsigned int indent_lvl, TreeBits &bits, const ArrayAssignmentNode &assign);
+        void print_grouped_array_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupedArrayAssignmentNode &assign);
         void print_group_declaration(unsigned int indent_lvl, TreeBits &bits, const GroupDeclarationNode &decl);
         void print_declaration(unsigned int indent_lvl, TreeBits &bits, const DeclarationNode &decl);
         void print_data_field_assignment(unsigned int indent_lvl, TreeBits &bits, const DataFieldAssignmentNode &assignment);

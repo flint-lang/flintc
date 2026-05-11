@@ -1582,6 +1582,11 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
     assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
     base_expr_tokens.second = indexing_tokens.first++;
+    // Remove the '.' of the base expr, for grouped array accesses
+    const bool is_grouped_access = std::prev(base_expr_tokens.second)->token == TOK_DOT;
+    if (is_grouped_access) {
+        base_expr_tokens.second--;
+    }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
         if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
@@ -1608,8 +1613,38 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         return std::nullopt;
     }
     // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast
-    // it
+    // it.
     const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    if (is_grouped_access) {
+        // If the array access is grouped then every indexing expression needs to be castable to a group of u64 types
+        // Grouped array accesses do not need the below dimensionality-changes and special-case stuff like regular array accesses which
+        // could reduce the dimensionality of the array.
+        const auto *array_type = base_expr.value()->type->as<ArrayType>();
+        std::shared_ptr<Type> index_type = u64_ty;
+        if (array_type->dimensionality > 1) {
+            const std::vector<std::shared_ptr<Type>> index_types(array_type->dimensionality, u64_ty);
+            index_type = std::make_shared<GroupType>(index_types);
+            if (!Type::add_type(index_type)) {
+                index_type = Type::get_type_from_str(index_type->to_string()).value();
+            }
+        }
+        // All indexing expressions need to be castable to either the index type
+        if (!ensure_castability_multiple(index_type, indexing_expressions.value(), indexing_tokens)) {
+            return std::nullopt;
+        }
+
+        const std::vector<std::shared_ptr<Type>> result_types(indexing_expressions.value().size(), array_type->type);
+        std::shared_ptr<Type> result_type = std::make_shared<GroupType>(result_types);
+        if (!Type::add_type(result_type)) {
+            result_type = Type::get_type_from_str(result_type->to_string()).value();
+        }
+
+        return CreateArrayAccessBaseRet{
+            .base_expr = std::move(base_expr.value()),
+            .indexing_exprs = std::move(indexing_expressions.value()),
+            .result_type = result_type,
+        };
+    }
     if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
         return std::nullopt;
     }

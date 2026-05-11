@@ -1,4 +1,5 @@
 #include "analyzer/analyzer.hpp"
+#include "error/error_type.hpp"
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
@@ -2309,6 +2310,43 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     return ArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
 }
 
+std::optional<GroupedArrayAssignmentNode> Parser::create_grouped_array_assignment( //
+    std::shared_ptr<Scope> &scope,                                                 //
+    const token_slice &tokens,                                                     //
+    std::optional<std::unique_ptr<ExpressionNode>> &rhs                            //
+) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_array_assignment");
+    token_slice lhs_tokens = {tokens.first, tokens.first};
+    // Find the = operator
+    while (lhs_tokens.second != tokens.second) {
+        if (lhs_tokens.second->token == TOK_EQUAL) {
+            break;
+        }
+        lhs_tokens.second++;
+    }
+    if (lhs_tokens.second == tokens.second) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    assert(lhs_tokens.second->token == TOK_EQUAL);
+
+    // Create the access base from the lhs tokens
+    auto access_base = create_array_access_base(_ctx_, scope, lhs_tokens);
+    if (!access_base.has_value()) {
+        return std::nullopt;
+    }
+
+    // If no rhs was provided we need to parse it ourselves, otherwise we can use the provided rhs expression
+    if (!rhs.has_value()) {
+        const token_slice rhs_tokens = {lhs_tokens.second + 1, tokens.second};
+        rhs = create_expression(_ctx_, scope, rhs_tokens, access_base.value().result_type);
+        if (!rhs.has_value()) {
+            return std::nullopt;
+        }
+    }
+    return GroupedArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
+}
+
 std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     std::shared_ptr<Scope> &scope,                                      //
     const unsigned int scope_segment,                                   //
@@ -2399,6 +2437,16 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             return std::nullopt;
         }
         statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::grouped_array_assignment)) {
+        std::optional<GroupedArrayAssignmentNode> assign = create_grouped_array_assignment(scope, tokens, rhs);
+        if (!assign.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<GroupedArrayAssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::grouped_array_assignment_shorthand)) {
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
     } else if (Matcher::tokens_contain(tokens, Matcher::assignment)) {
         std::optional<AssignmentNode> assign = create_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {

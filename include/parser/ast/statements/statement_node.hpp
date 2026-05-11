@@ -46,6 +46,7 @@ class StatementNode : public ASTNode {
         FOR_LOOP,
         GROUP_ASSIGNMENT,
         GROUP_DECLARATION,
+        GROUPED_ARRAY_ASSIGNMENT,
         GROUPED_DATA_FIELD_ASSIGNMENT,
         IF,
         INSTANCE_CALL,
