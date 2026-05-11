@@ -39,6 +39,7 @@
 #include "parser/ast/statements/for_loop_node.hpp"
 #include "parser/ast/statements/group_assignment_node.hpp"
 #include "parser/ast/statements/group_declaration_node.hpp"
+#include "parser/ast/statements/grouped_array_assignment_node.hpp"
 #include "parser/ast/statements/grouped_data_field_assignment_node.hpp"
 #include "parser/ast/statements/if_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
@@ -1400,6 +1401,19 @@ class Generator {
             llvm::IRBuilder<> &builder,                      //
             GenerationContext &ctx,                          //
             const ArrayAssignmentNode *array_assignment      //
+        );
+
+        /// @function `generate_grouped_array_assignment`
+        /// @brief Generates the grouped array assignment from the given GroupedArrayAssignmentNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the statement generation
+        /// @param `array_assignment` The grouped array assignment to generate
+        /// @return `bool` Whether the code genration of the grouped array assignment was successful
+        [[nodiscard]] static bool generate_grouped_array_assignment( //
+            llvm::IRBuilder<> &builder,                              //
+            GenerationContext &ctx,                                  //
+            const GroupedArrayAssignmentNode *array_assignment       //
         );
 
         /// @function `generate_unary_op_statement`

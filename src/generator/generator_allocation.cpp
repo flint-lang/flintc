@@ -9,6 +9,7 @@
 #include "parser/ast/statements/call_node_statement.hpp"
 #include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
+#include "parser/ast/statements/grouped_array_assignment_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 
@@ -254,8 +255,41 @@ bool Generator::Allocation::generate_allocations(                        //
                 break;
             }
             case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return false;
+                const auto *node = statement->as<GroupedArrayAssignmentNode>();
+                if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+                // For grouped array assignments, the "indexing expressions" are actually N groups where each group is a list of indexing
+                // expressions by itself, but only one of the groups is needed at the same time, so we iterate through the "indexing
+                // expressions" and call the `generate_array_indexing_allocation` on all of them.
+                const auto *base_arr_type = node->base_expr->type->as<ArrayType>();
+                for (const auto &expr : node->indexing_expressions) {
+                    switch (expr->type->get_variation()) {
+                        default:
+                            THROW_BASIC_ERR(ERR_GENERATING);
+                            return false;
+                        case Type::Variation::GROUP:
+                            assert(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
+                            generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
+                            break;
+                        case Type::Variation::MULTI:
+                            // Multi-types are allowed as indexing expressions of multi-dimensional grouped array accesses
+                            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                            return false;
+                        case Type::Variation::PRIMITIVE:
+                            // It must be a one-dimensional array in this case
+                            if (base_arr_type->dimensionality != 1) {
+                                THROW_BASIC_ERR(ERR_GENERATING);
+                                return false;
+                            }
+                            if (!generate_expression_allocations(builder, parent, scope, struct_types, expr.get())) {
+                                return false;
+                            }
+                            break;
+                    }
+                }
+                break;
             }
             case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
                 const auto *node = statement->as<GroupedDataFieldAssignmentNode>();

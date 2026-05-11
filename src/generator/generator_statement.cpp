@@ -132,8 +132,8 @@ bool Generator::Statement::generate_statement(      //
             return generate_group_declaration(builder, ctx, node);
         }
         case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return false;
+            const auto *node = statement->as<GroupedArrayAssignmentNode>();
+            return generate_grouped_array_assignment(builder, ctx, node);
         }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             const auto *node = statement->as<GroupedDataFieldAssignmentNode>();
@@ -2225,6 +2225,94 @@ bool Generator::Statement::generate_array_assignment( //
     } else {
         // Direct store for non-freeable types
         IR::aligned_store(builder, expression, arr_value_ptr);
+    }
+    return true;
+}
+
+bool Generator::Statement::generate_grouped_array_assignment( //
+    llvm::IRBuilder<> &builder,                               //
+    GenerationContext &ctx,                                   //
+    const GroupedArrayAssignmentNode *array_assignment        //
+) {
+    // Generate the main expression
+    Expression::garbage_type garbage;
+    group_mapping expression_result = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->expression.get());
+    if (!expression_result.has_value()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    if (expression_result.value().size() != array_assignment->indexing_expressions.size()) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+
+    // Generate the base expression for the grouped array assignment
+    Generator::group_mapping base_expr = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->base_expr.get());
+    if (!base_expr.has_value()) {
+        return false;
+    }
+    if (base_expr.value().size() > 1) {
+        // Group expression not allowed as base of array assignment
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    llvm::Value *array_ptr = base_expr.value().front();
+
+    // Assign all results of the expression result on their respective index in the array
+    std::optional<ArrayType *> array_type;
+    if (array_assignment->base_expr->type->to_string() != "str") {
+        array_type = array_assignment->base_expr->type->as<ArrayType>();
+    }
+    const GroupType *expr_type = array_assignment->expression->type->as<GroupType>();
+    for (size_t i = 0; i < array_assignment->indexing_expressions.size(); i++) {
+        llvm::Value *const expression = expression_result.value().at(i);
+        const auto &indexing_expression = array_assignment->indexing_expressions.at(i);
+        // Generate all the indexing expressions
+        group_mapping idx_expressions = Expression::generate_expression(builder, ctx, garbage, 0, indexing_expression.get());
+        if (!idx_expressions.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        if (!array_type.has_value() && idx_expressions.value().size() != 1) {
+            // Grouped access on a string but indexing expressions are multi-dimensional (not possible, strings are always one-dimensional)
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+        assert(array_type.has_value());
+        if (idx_expressions.value().size() != array_type.value()->dimensionality) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+
+        if (array_assignment->base_expr->type->to_string() == "str" && expr_type->types.at(i)->to_string() == "u8") {
+            // We assign a single u8 value in a string
+            assert(idx_expressions.value().size() == 1);
+            llvm::Function *const assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
+            builder.CreateCall(assign_str_at_fn, {array_ptr, idx_expressions.value().front(), expression});
+            return true;
+        }
+
+        // Store all the results of the index expressions in the indices array
+        llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(idx_expressions.value().size()));
+        for (size_t j = 0; j < idx_expressions.value().size(); j++) {
+            llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(j), "idx_ptr_" + std::to_string(j));
+            IR::aligned_store(builder, idx_expressions.value().at(j), idx_ptr);
+        }
+        llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
+        const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
+        llvm::Value *element_size = builder.getInt64(element_size_bytes);
+        llvm::Value *arr_value_ptr = builder.CreateCall(access_arr_fn, {array_ptr, element_size, indices}, "arr_value_ptr");
+        assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
+        const std::shared_ptr<Type> &base_type = array_type.value()->type;
+        if (base_type->is_freeable()) {
+            // Call 'flint.clone' on the freeable type to clone the expression into the array element
+            llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+            llvm::Value *type_id = builder.getInt32(base_type->get_id());
+            builder.CreateCall(clone_fn, {expression, arr_value_ptr, type_id});
+        } else {
+            // Direct store for non-freeable types
+            IR::aligned_store(builder, expression, arr_value_ptr);
+        }
     }
     return true;
 }
