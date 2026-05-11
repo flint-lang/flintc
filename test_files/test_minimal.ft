@@ -1,10 +1,13 @@
 use Core.print
 
-def main():
-	i32[] arr1 = i32[3](0);
-	arr1.[1, 2] = (1, 2);
+data Data:
+	u64 x = 0;
+	u64 y = 1;
+	u64 z = 2;
+	Data(x, y, z);
 
-	i32[] arr2 = i32[4](0);
-	arr2 = arr1;
-	for (i, elem) in arr2:
-		print($"arr2[{i}] = {elem}\n");
+def main():
+	Data[] d = Data[5](Data(_));
+
+	for (i, elem) in d:
+		print($"d[{i}] = Data(.x = {elem.x}, .y = {elem.y}, .z = {elem.z}\n");

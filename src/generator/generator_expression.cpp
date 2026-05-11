@@ -2803,7 +2803,8 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         IR::aligned_store(builder, length_expressions.at(i), array_element_ptr);
     }
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
-    llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), initializer->element_type).first;
+    const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
+    llvm::Type *element_type = initializer->element_type->get_variation() == Type::Variation::DATA ? PTR_TY : elem_type_pair.first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
     llvm::CallInst *created_array = builder.CreateCall(        //
         Module::Array::array_manip_functions.at("create_arr"), //

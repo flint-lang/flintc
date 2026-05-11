@@ -894,7 +894,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         length = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca, "length");
         // The values start right after the lengths
         value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
-        element_type = IR::get_type(ctx.parent->getParent(), array_type->type).first;
+        const auto type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
+        element_type = array_type->type->get_variation() == Type::Variation::DATA ? PTR_TY : type_pair.first;
     } else if (is_range) {
         assert(iterable.value().size() == 2);
         lower_bound = iterable.value().front();
