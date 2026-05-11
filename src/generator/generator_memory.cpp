@@ -93,6 +93,8 @@ void Generator::Memory::generate_free_value( //
             builder->CreateBr(loop_cond_block);
 
             builder->SetInsertPoint(loop_merge_block);
+            // Lastly, free the array itself
+            builder->CreateCall(c_functions.at(FREE), {value});
             break;
         }
         case Type::Variation::DATA: {
