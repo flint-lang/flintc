@@ -3039,7 +3039,8 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             }
         }
     }
-    llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), result_type).first;
+    const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), result_type);
+    llvm::Type *element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
     if (is_slice) {
         element_type = IR::get_type(ctx.parent->getParent(), result_type->as<ArrayType>()->type).first;
     }
@@ -3049,6 +3050,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             // Non-supported type for array access
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
+        case Type::Variation::DATA:
         case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
@@ -3057,7 +3059,8 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             llvm::Value *const elem_ptr = builder.CreateCall(                                                             //
                 access_arr_fn, {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr" //
             );
-            if (is_reference) {
+            if (is_reference && result_type->get_variation() != Type::Variation::DATA) {
+                // Always load data as it's stored as pointers within the array
                 return elem_ptr;
             }
             return IR::aligned_load(builder, element_type, elem_ptr, "access_arr_value");
