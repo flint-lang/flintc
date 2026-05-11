@@ -1820,15 +1820,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             }
         }
         llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
-        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
-            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
-            // variable we assign the value to
-            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
-            builder.CreateCall(clone_fn, {expression, lhs, type_id});
-            return true;
-        } else if (                                                                                                                   //
-            is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
-        ) {
+        if (is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
             llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
             llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
@@ -1850,8 +1842,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
         const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY;
         const bool var_is_str = lhs_type->to_string() == "str";
-        const auto &variable = ctx.scope->variables.at(assignment_node->name);
-        if ((var_type.second.first || var_is_array || var_is_str) && !variable.is_fn_param) {
+        if (var_type.second.first || var_is_array || var_is_str) {
             llvm::Type *type_to_load = var_type.second.first ? PTR_TY : var_type.first;
             lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
         }
@@ -1866,6 +1857,13 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // We need to call the `flint.free` function on the lhs before assigning anything to it
             llvm::Function *free_fn = Memory::memory_functions.at("free");
             builder.CreateCall(free_fn, {lhs_value, type_id});
+        }
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
+            // variable we assign the value to
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            builder.CreateCall(clone_fn, {expression, lhs, type_id});
+            return true;
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
