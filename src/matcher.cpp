@@ -245,7 +245,7 @@ bool Matcher::tokens_end_with_continuous(const token_slice &tokens, const Patter
         // No separator found in tokens
         return true;
     }
-    return false;
+    return tokens_start_with_continuous(tokens, pattern, separator);
 }
 
 bool Matcher::tokens_start_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator) {
