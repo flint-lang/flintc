@@ -83,7 +83,7 @@ void Generator::Memory::generate_free_value( //
                 // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                 llvm::Value *dima_head = Module::DIMA::get_head(array_type->type);
                 llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
-                builder->CreateCall(dima_release_fn, {dima_head, value});
+                builder->CreateCall(dima_release_fn, {dima_head, arr_value});
             } else {
                 llvm::Function *free_fn = memory_functions.at("free");
                 builder->CreateCall(free_fn, {arr_value, builder->getInt32(array_type->type->get_id())});
