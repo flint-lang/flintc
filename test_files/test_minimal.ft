@@ -9,3 +9,7 @@ def main():
 
 	for (i, elem) in arr:
 		print($"arr[{i}] = {elem}\n");
+
+	str string = "Hello, World!\n";
+	string.[0, 2, 1] = string.[2, 1, 0];
+	print(string);

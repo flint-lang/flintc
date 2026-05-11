@@ -2893,7 +2893,16 @@ Generator::group_mapping Generator::Expression::generate_grouped_array_access( /
     // To generate a grouped array access we simply go through all "indexing expressions" and generate a regular array access at every
     // index, and then collect all the results in a simple list of values
     std::vector<llvm::Value *> results;
-    const auto &array_base_type = access->base_expr->type->as<ArrayType>()->type;
+    const auto &base_expr_ty = access->base_expr->type;
+    [[maybe_unused]] uint32_t dimensionality = 1;
+    std::shared_ptr<Type> base_type{nullptr};
+    if (base_expr_ty->to_string() == "str") {
+        base_type = Type::get_primitive_type("u8");
+    } else {
+        const auto *arr_ty = base_expr_ty->as<ArrayType>();
+        dimensionality = arr_ty->dimensionality;
+        base_type = arr_ty->type;
+    }
     for (const auto &expr : access->indexing_expressions) {
         std::vector<const ExpressionNode *> indexing_exprs;
         switch (expr->type->get_variation()) {
@@ -2910,8 +2919,8 @@ Generator::group_mapping Generator::Expression::generate_grouped_array_access( /
                 indexing_exprs.emplace_back(expr.get());
                 break;
         }
-        llvm::Value *const result = generate_array_access(                                                                    //
-            builder, ctx, garbage, expr_depth, std::nullopt, array_base_type, access->base_expr, indexing_exprs, is_reference //
+        llvm::Value *const result = generate_array_access(                                                              //
+            builder, ctx, garbage, expr_depth, std::nullopt, base_type, access->base_expr, indexing_exprs, is_reference //
         );
         results.emplace_back(result);
     }

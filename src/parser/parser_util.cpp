@@ -1619,13 +1619,19 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         // If the array access is grouped then every indexing expression needs to be castable to a group of u64 types
         // Grouped array accesses do not need the below dimensionality-changes and special-case stuff like regular array accesses which
         // could reduce the dimensionality of the array.
-        const auto *array_type = base_expr.value()->type->as<ArrayType>();
+        std::shared_ptr<Type> base_type;
         std::shared_ptr<Type> index_type = u64_ty;
-        if (array_type->dimensionality > 1) {
-            const std::vector<std::shared_ptr<Type>> index_types(array_type->dimensionality, u64_ty);
-            index_type = std::make_shared<GroupType>(index_types);
-            if (!Type::add_type(index_type)) {
-                index_type = Type::get_type_from_str(index_type->to_string()).value();
+        if (base_expr.value()->type->to_string() == "str") {
+            base_type = Type::get_primitive_type("u8");
+        } else {
+            const auto *array_type = base_expr.value()->type->as<ArrayType>();
+            base_type = array_type->type;
+            if (array_type->dimensionality > 1) {
+                const std::vector<std::shared_ptr<Type>> index_types(array_type->dimensionality, u64_ty);
+                index_type = std::make_shared<GroupType>(index_types);
+                if (!Type::add_type(index_type)) {
+                    index_type = Type::get_type_from_str(index_type->to_string()).value();
+                }
             }
         }
         // All indexing expressions need to be castable to either the index type
@@ -1633,7 +1639,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
             return std::nullopt;
         }
 
-        const std::vector<std::shared_ptr<Type>> result_types(indexing_expressions.value().size(), array_type->type);
+        const std::vector<std::shared_ptr<Type>> result_types(indexing_expressions.value().size(), base_type);
         std::shared_ptr<Type> result_type = std::make_shared<GroupType>(result_types);
         if (!Type::add_type(result_type)) {
             result_type = Type::get_type_from_str(result_type->to_string()).value();
@@ -1700,7 +1706,7 @@ bool Parser::ensure_castability_multiple(                      //
     PROFILE_CUMULATIVE("Parser::ensure_castability_multiple");
     // Every expression in the length expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
     for (auto &expr : expressions) {
-        if (expr->type == to_type) {
+        if (expr->type->equals(to_type)) {
             continue;
         }
         const std::string type_str = expr->type->to_string();

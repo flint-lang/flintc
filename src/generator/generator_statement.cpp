@@ -2278,18 +2278,18 @@ bool Generator::Statement::generate_grouped_array_assignment( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        assert(array_type.has_value());
-        if (idx_expressions.value().size() != array_type.value()->dimensionality) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
 
-        if (array_assignment->base_expr->type->to_string() == "str" && expr_type->types.at(i)->to_string() == "u8") {
+        if (!array_type.has_value() && expr_type->types.at(i)->to_string() == "u8") {
             // We assign a single u8 value in a string
             assert(idx_expressions.value().size() == 1);
             llvm::Function *const assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
             builder.CreateCall(assign_str_at_fn, {array_ptr, idx_expressions.value().front(), expression});
-            return true;
+            continue;
+        }
+        assert(array_type.has_value());
+        if (idx_expressions.value().size() != array_type.value()->dimensionality) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
         }
 
         // Store all the results of the index expressions in the indices array

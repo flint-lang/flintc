@@ -263,7 +263,8 @@ bool Generator::Allocation::generate_allocations(                        //
                 // For grouped array assignments, the "indexing expressions" are actually N groups where each group is a list of indexing
                 // expressions by itself, but only one of the groups is needed at the same time, so we iterate through the "indexing
                 // expressions" and call the `generate_array_indexing_allocation` on all of them.
-                const auto *base_arr_type = node->base_expr->type->as<ArrayType>();
+                const auto &base_expr_ty = node->base_expr->type;
+                const uint32_t dimensionality = base_expr_ty->to_string() == "str" ? 1 : base_expr_ty->as<ArrayType>()->dimensionality;
                 for (const auto &expr : node->indexing_expressions) {
                     switch (expr->type->get_variation()) {
                         default:
@@ -279,7 +280,7 @@ bool Generator::Allocation::generate_allocations(                        //
                             return false;
                         case Type::Variation::PRIMITIVE:
                             // It must be a one-dimensional array in this case
-                            if (base_arr_type->dimensionality != 1) {
+                            if (dimensionality != 1) {
                                 THROW_BASIC_ERR(ERR_GENERATING);
                                 return false;
                             }
@@ -664,7 +665,8 @@ bool Generator::Allocation::generate_expression_allocations(              //
             // For grouped array accesses, the "indexing expressions" are actually N groups where each group is a list of indexing
             // expressions by itself, but only one of the groups is needed at the same time, so we iterate through the "indexing
             // expressions" and call the `generate_array_indexing_allocation` on all of them.
-            const auto *base_arr_type = node->base_expr->type->as<ArrayType>();
+            const auto &base_expr_ty = node->base_expr->type;
+            const uint32_t dimensionality = base_expr_ty->to_string() == "str" ? 1 : base_expr_ty->as<ArrayType>()->dimensionality;
             for (const auto &expr : node->indexing_expressions) {
                 switch (expr->type->get_variation()) {
                     default:
@@ -680,7 +682,7 @@ bool Generator::Allocation::generate_expression_allocations(              //
                         return false;
                     case Type::Variation::PRIMITIVE:
                         // It must be a one-dimensional array in this case
-                        if (base_arr_type->dimensionality != 1) {
+                        if (dimensionality != 1) {
                             THROW_BASIC_ERR(ERR_GENERATING);
                             return false;
                         }

@@ -1419,11 +1419,7 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     }
     const bool is_array_type = base_expr.value()->type->get_variation() == Type::Variation::ARRAY;
     const bool is_str_type = base_expr.value()->type->to_string() == "str";
-    if (is_str_type) {
-        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-        return std::nullopt;
-    }
-    if (!is_array_type) {
+    if (!is_array_type && !is_str_type) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -1436,23 +1432,31 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     }
     // The indexing expressions must all have the type of a group with N values where N is the dimensionality of the accessed array
     const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-    std::vector<std::shared_ptr<Type>> indexing_group_types;
-    const auto *array_type = base_expr.value()->type->as<ArrayType>();
-    unsigned int dimensionality = array_type->dimensionality;
-    for (size_t i = 0; i < dimensionality; i++) {
-        indexing_group_types.emplace_back(u64_ty);
+    std::shared_ptr<Type> indexing_ty = u64_ty;
+    std::shared_ptr<Type> base_ty{nullptr};
+    if (is_array_type) {
+        const auto *array_ty = base_expr.value()->type->as<ArrayType>();
+        if (array_ty->dimensionality > 1) {
+            std::vector<std::shared_ptr<Type>> indexing_group_types;
+            for (size_t i = 0; i < array_ty->dimensionality; i++) {
+                indexing_group_types.emplace_back(u64_ty);
+            }
+            indexing_ty = std::make_shared<GroupType>(indexing_group_types);
+            if (!Type::add_type(indexing_ty)) {
+                indexing_ty = Type::get_type_from_str(indexing_ty->to_string()).value();
+            }
+        }
+        base_ty = array_ty->type;
+    } else {
+        base_ty = Type::get_primitive_type("u8");
     }
-    std::shared_ptr<Type> group_ty = std::make_shared<GroupType>(indexing_group_types);
-    if (!Type::add_type(group_ty)) {
-        group_ty = Type::get_type_from_str(group_ty->to_string()).value();
-    }
-    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
+    if (!ensure_castability_multiple(indexing_ty, indexing_expressions.value(), indexing_tokens)) {
         return std::nullopt;
     }
     // The retuned type is the base type of the array as a group of N where N is the number of indexing expression
     std::vector<std::shared_ptr<Type>> return_types;
     for (size_t i = 0; i < indexing_expressions.value().size(); i++) {
-        return_types.emplace_back(array_type->type);
+        return_types.emplace_back(base_ty);
     }
     std::shared_ptr<Type> ret_ty = std::make_shared<GroupType>(return_types);
     if (!Type::add_type(ret_ty)) {
