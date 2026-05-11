@@ -824,7 +824,8 @@ class Matcher {
             token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)), //
         token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
     });
-    static const inline PatternPtr array_access = sequence({token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr array_access = sequence({not_p(token(TOK_DOT)), token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr grouped_array_access = sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({array_access, data_access})});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});

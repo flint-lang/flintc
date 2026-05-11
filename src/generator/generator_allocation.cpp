@@ -617,6 +617,10 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
+        case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression->as<GroupedDataAccessNode>();
             if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {

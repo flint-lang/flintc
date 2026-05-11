@@ -79,6 +79,10 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             const auto *node = expression_node->as<GroupExpressionNode>();
             return generate_group_expression(builder, ctx, garbage, expr_depth, node);
         }
+        case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression_node->as<GroupedDataAccessNode>();
             return generate_grouped_data_access(builder, ctx, garbage, expr_depth, node);

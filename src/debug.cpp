@@ -659,6 +659,28 @@ namespace Debug {
             }
         }
 
+        void print_grouped_array_access(unsigned int indent_lvl, TreeBits &bits, const GroupedArrayAccessNode &access) {
+            Local::print_header(indent_lvl, bits, "Grouped Array Access ");
+            std::cout << "[" << (access.is_const ? "c" : "m") << "] " << access.type->to_string() << std::endl;
+            indent_lvl++;
+            TreeBits base_expr_header_bits = bits.child(indent_lvl, false);
+            Local::print_header(indent_lvl, base_expr_header_bits, "Base Expr ");
+            std::cout << std::endl;
+            TreeBits base_expr_bits = base_expr_header_bits.child(indent_lvl + 1, true);
+            print_expression(indent_lvl + 1, base_expr_bits, access.base_expr);
+
+            for (size_t i = 0; i < access.indexing_expressions.size(); i++) {
+                bool is_last = i + 1 == access.indexing_expressions.size();
+                TreeBits header_bits = bits.child(indent_lvl, is_last);
+                Local::print_header(indent_lvl, header_bits, "Value " + std::to_string(i) + " ");
+                std::cout << access.indexing_expressions[i]->type->to_string();
+                std::cout << std::endl;
+
+                TreeBits expr_bits = header_bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl + 1, expr_bits, access.indexing_expressions[i]);
+            }
+        }
+
         void print_data_access(unsigned int indent_lvl, TreeBits &bits, const DataAccessNode &access) {
             Local::print_header(indent_lvl, bits, "Data Access ");
             std::cout << "[" << (access.is_const ? "c" : "m") << "] ";
@@ -831,6 +853,11 @@ namespace Debug {
                 case ExpressionNode::Variation::GROUP_EXPRESSION: {
                     const auto *node = expr->as<GroupExpressionNode>();
                     print_group_expression(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
+                    const auto *node = expr->as<GroupedArrayAccessNode>();
+                    print_grouped_array_access(indent_lvl, bits, *node);
                     break;
                 }
                 case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {

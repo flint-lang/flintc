@@ -1379,6 +1379,88 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
     }
 }
 
+std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
+    const Context &ctx,                                                    //
+    std::shared_ptr<Scope> &scope,                                         //
+    const token_slice &tokens                                              //
+) {
+    PROFILE_CUMULATIVE("Parser::create_grouped_array_access");
+    // The grouped array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an
+    // opening bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the
+    // base expression.
+    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
+    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    unsigned int depth = 0;
+    for (; base_expr_tokens.second != tokens.first;) {
+        // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to
+        // get both ranges
+        if (base_expr_tokens.second->token == TOK_RIGHT_BRACKET) {
+            depth++;
+        } else if (base_expr_tokens.second->token == TOK_LEFT_BRACKET) {
+            depth--;
+            if (depth == 0) {
+                // Let the indexing tokens start right after the bracket
+                indexing_tokens.first++;
+                break;
+            }
+        }
+        indexing_tokens.first--;
+        base_expr_tokens.second--;
+    }
+    assert(base_expr_tokens.second->token == TOK_LEFT_BRACKET);
+    base_expr_tokens.second--;
+    assert(base_expr_tokens.second->token == TOK_DOT);
+    // First we parse the base expression, it's type must be an array type (or string type)
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    if (!base_expr.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const bool is_array_type = base_expr.value()->type->get_variation() == Type::Variation::ARRAY;
+    const bool is_str_type = base_expr.value()->type->to_string() == "str";
+    if (is_str_type) {
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    if (!is_array_type) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    // Now we can parse the indexing expression(s)
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions( //
+        ctx, scope, indexing_tokens                                                                              //
+    );
+    if (!indexing_expressions.has_value()) {
+        return std::nullopt;
+    }
+    // The indexing expressions must all have the type of a group with N values where N is the dimensionality of the accessed array
+    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+    std::vector<std::shared_ptr<Type>> indexing_group_types;
+    const auto *array_type = base_expr.value()->type->as<ArrayType>();
+    unsigned int dimensionality = array_type->dimensionality;
+    for (size_t i = 0; i < dimensionality; i++) {
+        indexing_group_types.emplace_back(u64_ty);
+    }
+    std::shared_ptr<Type> group_ty = std::make_shared<GroupType>(indexing_group_types);
+    if (!Type::add_type(group_ty)) {
+        group_ty = Type::get_type_from_str(group_ty->to_string()).value();
+    }
+    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
+        return std::nullopt;
+    }
+    // The retuned type is the base type of the array as a group of N where N is the number of indexing expression
+    std::vector<std::shared_ptr<Type>> return_types;
+    for (size_t i = 0; i < indexing_expressions.value().size(); i++) {
+        return_types.emplace_back(array_type->type);
+    }
+    std::shared_ptr<Type> ret_ty = std::make_shared<GroupType>(return_types);
+    if (!Type::add_type(ret_ty)) {
+        ret_ty = Type::get_type_from_str(ret_ty->to_string()).value();
+    }
+    return GroupedArrayAccessNode(base_expr.value(), ret_ty, indexing_expressions.value());
+}
+
 std::optional<OptionalChainNode> Parser::create_optional_chain( //
     const Context &ctx,                                         //
     std::shared_ptr<Scope> &scope,                              //
@@ -2096,12 +2178,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::nullopt;
         }
         return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
-    } else if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
+    }
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
         if (!access.has_value()) {
             return std::nullopt;
         }
         return std::make_unique<ArrayAccessNode>(std::move(access.value()));
+    }
+    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::grouped_array_access, Matcher::expression_separator)) {
+        std::optional<GroupedArrayAccessNode> access = create_grouped_array_access(ctx, scope, tokens_mut);
+        if (!access.has_value()) {
+            return std::nullopt;
+        }
+        return std::make_unique<GroupedArrayAccessNode>(std::move(access.value()));
     }
     if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_unwrap, Matcher::expression_separator)) {
         std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(ctx, scope, tokens_mut);

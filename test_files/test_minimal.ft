@@ -1,7 +1,14 @@
 use Core.print
 
 def main():
-	bool[] arr = bool[5](false);
-	u64 j = 1;
-	if not arr[j + 1]:
-		print("Hello, World!\n");
+	i32[] arr = i32[10](0);
+	for (i, elem) in arr:
+		elem = i32(i);
+
+	(n3, n4) := arr.[3, 4];
+	//arr.[3, 4] = arr.[4, 3];
+	arr[3] = n4;
+	arr[4] = n3;
+
+	for (i, elem) in arr:
+		print($"arr[{i}] = {elem}\n");

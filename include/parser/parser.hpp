@@ -42,6 +42,7 @@
 #include "ast/expressions/data_access_node.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
+#include "ast/expressions/grouped_array_access_node.hpp"
 #include "ast/expressions/literal_node.hpp"
 #include "ast/expressions/optional_chain_node.hpp"
 #include "ast/expressions/switch_expression.hpp"
@@ -1224,6 +1225,19 @@ class Parser {
         const Context &ctx,                                       //
         std::shared_ptr<Scope> &scope,                            //
         const token_slice &tokens                                 //
+    );
+
+    /// @function `create_grouped_array_access`
+    /// @brief Creates a GroupedArrayAccessNode from the given tokens
+    ///
+    /// @param `ctx` The parsing context
+    /// @param `scope` The scope in which the grouped array access is defined
+    /// @param `tokens` The list of tokens representing the grouped array access
+    /// @return `std::optional<GroupedArrayAccessNode>` A grouped array access node, nullopt if its creation failed
+    std::optional<GroupedArrayAccessNode> create_grouped_array_access( //
+        const Context &ctx,                                            //
+        std::shared_ptr<Scope> &scope,                                 //
+        const token_slice &tokens                                      //
     );
 
     /// @function `create_array_access`

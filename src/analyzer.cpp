@@ -573,6 +573,20 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
         }
         case ExpressionNode::Variation::FUNCTION_REFERENCE:
             break;
+        case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
+            const auto *node = expression->as<GroupedArrayAccessNode>();
+            result = analyze_expression(ctx, node->base_expr.get());
+            if (result != Result::OK) {
+                goto fail;
+            }
+            for (const auto &index_expr : node->indexing_expressions) {
+                result = analyze_expression(ctx, index_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             const auto *node = expression->as<GroupedDataAccessNode>();
             result = analyze_expression(ctx, node->base_expr.get());
