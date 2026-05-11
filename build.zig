@@ -43,7 +43,7 @@ pub fn build(b: *std.Build) !void {
     std.debug.print("-- Commit Hash is {s}\n", .{commit_hash});
 
     const build_date: []const u8 = blk: {
-        const current_timestamp: u64 = @intCast(std.time.timestamp());
+        const current_timestamp: u64 = @intCast(std.Io.Timestamp.now(b.graph.io, .real).toSeconds());
         const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
         const epoch_day = epoch_seconds.getEpochDay();
         const year_day = epoch_day.calculateYearDay();
@@ -135,7 +135,7 @@ fn buildFLS(
     });
     exe.link_function_sections = true;
     exe.link_data_sections = true;
-    // exe.link_gc_sections = true; // For Zig 0.16
+    exe.link_gc_sections = true;
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
@@ -241,7 +241,7 @@ fn buildFlintc(
     });
     exe.link_function_sections = true;
     exe.link_data_sections = true;
-    // exe.link_gc_sections = true; // For Zig 0.16
+    exe.link_gc_sections = true;
     exe.compress_debug_sections = .zlib;
     exe.build_id = .fast;
 
@@ -270,13 +270,13 @@ fn buildFlintc(
     exe.root_module.addLibraryPath(b.path(b.fmt("{s}/lib", .{llvm_dir})));
 
     // Collect C++ files
-    var src_dir: std.fs.Dir = try std.fs.cwd().openDir("src", .{ .iterate = true });
-    defer src_dir.close();
+    var src_dir: std.Io.Dir = try std.Io.Dir.cwd().openDir(b.graph.io, "src", .{ .iterate = true });
+    defer src_dir.close(b.graph.io);
     var cpp_files: std.ArrayList([]const u8) = .empty;
     defer cpp_files.deinit(b.allocator);
     var walker = try src_dir.walk(b.allocator);
     defer walker.deinit();
-    while (try walker.next()) |entry| {
+    while (try walker.next(b.graph.io)) |entry| {
         if (entry.kind == .file and std.mem.endsWith(u8, entry.basename, ".cpp")) {
             try cpp_files.append(b.allocator, try b.allocator.dupe(u8, entry.path));
         }
@@ -342,16 +342,16 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
     const llvm_build_dir = b.fmt(".zig-cache/llvm-{s}", .{build_name});
     const install_dir = b.fmt("vendor/llvm-{s}", .{build_name});
 
-    if (std.fs.cwd().openDir(install_dir, .{})) |_| {
+    if (std.Io.Dir.cwd().openDir(b.graph.io, install_dir, .{})) |_| {
         // LLVM is already built, rebuilt only if requested
         if (force_rebuild) {
-            try std.fs.cwd().deleteTree(install_dir);
+            try std.Io.Dir.cwd().deleteTree(b.graph.io, install_dir);
         } else {
             return makeEmptyStep(b);
         }
     } else |_| {}
     if (force_rebuild) {
-        try std.fs.cwd().deleteTree(llvm_build_dir);
+        try std.Io.Dir.cwd().deleteTree(b.graph.io, llvm_build_dir);
     }
 
     std.debug.print("-- Building LLVM for {s}\n", .{build_name});
@@ -476,7 +476,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
 fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []const u8) !*std.Build.Step.Run {
     std.debug.print("-- Updating the 'llvm-project' repository\n", .{});
     // 1. Check if llvm-project exists in vendor directory
-    if (std.fs.cwd().openDir("vendor/sources/llvm-project", .{})) |_| {
+    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/llvm-project", .{})) |_| {
         // 2. Check for internet connection
         if (!hasInternetConnection(b)) {
             std.debug.print("-- No internet connection found, skipping updating 'llvm-project'...\n", .{});
@@ -521,7 +521,7 @@ fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []con
 fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run {
     // 1. Check if fip exists in vendor directory
     std.debug.print("-- Updating the 'fip' repository\n", .{});
-    if (std.fs.cwd().openDir("vendor/sources/fip", .{})) |_| {
+    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/fip", .{})) |_| {
         // 2. Check for internet connection
         if (!hasInternetConnection(b)) {
             std.debug.print("-- No internet connection found, skipping updating 'fip'...\n", .{});
@@ -584,7 +584,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
 fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
     // 1. Check if json-mini exists in vendor directory
     std.debug.print("-- Updating the 'json-mini' repository\n", .{});
-    if (std.fs.cwd().openDir("vendor/sources/json-mini", .{})) |_| {
+    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/json-mini", .{})) |_| {
         // 2. Check for internet connection
         if (!hasInternetConnection(b)) {
             std.debug.print("-- No internet connection found, skipping updating 'json-mini'...\n", .{});
@@ -662,7 +662,7 @@ fn linkWithLLVM(b: *std.Build, previous_step: *std.Build.Step, exe: *std.Build.S
             const b_llvm = self.step.owner;
             const file_path = self.output_file.getPath(b_llvm);
 
-            const contents: []const u8 = try std.fs.cwd().readFileAlloc(b_llvm.allocator, file_path, std.math.maxInt(u32));
+            const contents: []const u8 = try std.Io.Dir.cwd().readFileAlloc(b_llvm.graph.io, file_path, b_llvm.allocator, .limited(std.math.maxInt(u32)));
             defer b_llvm.allocator.free(contents);
 
             const dash_l = "-l";
@@ -687,7 +687,7 @@ fn linkWithLLVM(b: *std.Build, previous_step: *std.Build.Step, exe: *std.Build.S
             .makeFn = LinkLLVMLibsStep.make,
         }),
         .exe = exe,
-        .output_file = llvm_config_cmd.captureStdOut(),
+        .output_file = llvm_config_cmd.captureStdOut(.{}),
     };
     link_llvm_libs_step.step.dependOn(&llvm_config_cmd.step);
     exe.step.dependOn(&link_llvm_libs_step.step);
@@ -697,13 +697,22 @@ fn linkWithLLVM(b: *std.Build, previous_step: *std.Build.Step, exe: *std.Build.S
 fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
     const run_step = b.addSystemCommand(&[_][]const u8{ "zig", "version" });
     run_step.setName("make_empty_step");
-    _ = run_step.captureStdOut();
+    _ = run_step.captureStdOut(.{});
     return run_step;
 }
 
 fn hasInternetConnection(b: *std.Build) bool {
-    const s = std.net.tcpConnectToHost(b.allocator, "google.com", 443) catch return false;
-    s.close();
+    const hostname: std.Io.net.HostName = .{ .bytes = "google.com" };
+    const conn: std.Io.net.Stream = hostname.connect(
+        b.graph.io,
+        443,
+        .{
+            .mode = .stream,
+            .protocol = .tcp,
+            .timeout = .none,
+        },
+    ) catch return false;
+    conn.close(b.graph.io);
     return true;
 }
 
