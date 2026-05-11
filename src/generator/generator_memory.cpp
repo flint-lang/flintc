@@ -490,6 +490,7 @@ void Generator::Memory::generate_clone_value( //
             builder->CreateBr(loop_cond_block);
 
             builder->SetInsertPoint(loop_merge_block);
+            IR::aligned_store(*builder, new_arr, dest);
             break;
         }
         case Type::Variation::DATA: {
