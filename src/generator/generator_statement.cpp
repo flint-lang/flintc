@@ -1508,6 +1508,42 @@ bool Generator::Statement::generate_declaration( //
     GenerationContext &ctx,                      //
     const DeclarationNode *declaration_node      //
 ) {
+    // If the declaration is persistent, then we need to check if the call is a callable context. If the call is a callable context then we
+    // need to branch to check whether we actually execute the initializer, if the persistent local is already initialized then the
+    // declaration is skipped entirely
+    llvm::BasicBlock *is_callable_block = nullptr;
+    llvm::BasicBlock *declaration_block = nullptr;
+    llvm::BasicBlock *decl_finished_block = nullptr;
+    llvm::BasicBlock *merge_block = nullptr;
+    llvm::Value *const is_callable = ctx.allocations.at("flint.stack.is_callable");
+    if (declaration_node->is_persistent) {
+        llvm::BasicBlock *current_block = builder.GetInsertBlock();
+        is_callable_block = llvm::BasicBlock::Create(context, "pers_decl_is_callable_" + declaration_node->name, ctx.parent);
+        declaration_block = llvm::BasicBlock::Create(context, "pers_decl_declaration_" + declaration_node->name, ctx.parent);
+        decl_finished_block = llvm::BasicBlock::Create(context, "pers_decl_decl_finished_" + declaration_node->name, ctx.parent);
+        merge_block = llvm::BasicBlock::Create(context, "pers_decl_merge_" + declaration_node->name, ctx.parent);
+
+        // Check if we are a callable at all, branch accordingly
+        builder.SetInsertPoint(current_block);
+        builder.CreateCondBr(is_callable, is_callable_block, declaration_block);
+
+        // Check if the persistent variable has already been initialized
+        builder.SetInsertPoint(is_callable_block);
+        llvm::Value *const persistence_flags = ctx.allocations.at("flint.stack.persistence_flags");
+        llvm::Value *const persistence_id = builder.getInt64(declaration_node->persistence_id);
+        llvm::Value *is_init_ptr = builder.CreateGEP(builder.getInt8Ty(), persistence_flags, persistence_id, "is_init_ptr");
+        llvm::Value *const is_initialized = IR::aligned_load(builder, builder.getInt8Ty(), is_init_ptr, "is_initialized");
+        llvm::Value *const is_init_bool = builder.CreateICmpEQ(is_initialized, builder.getInt8(1), "is_init_bool");
+        builder.CreateCondBr(is_init_bool, merge_block, declaration_block);
+
+        // The decl finished block essentially just stores a '1' in the is_init_ptr field
+        builder.SetInsertPoint(decl_finished_block);
+        is_init_ptr = builder.CreateGEP(builder.getInt8Ty(), persistence_flags, persistence_id, "is_init_ptr");
+        IR::aligned_store(builder, builder.getInt8(1), is_init_ptr);
+        builder.CreateBr(merge_block);
+
+        builder.SetInsertPoint(declaration_block);
+    }
     const unsigned int scope_id = ctx.scope->variables.at(declaration_node->name).scope_id;
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
@@ -1534,6 +1570,12 @@ bool Generator::Statement::generate_declaration( //
             case Type::Variation::TUPLE: {
                 assert(expr_val.value().size() == 1);
                 IR::aligned_store(builder, expr_val.value().front(), alloca);
+                if (declaration_node->is_persistent) {
+                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                    decl_finished_block->moveAfter(builder.GetInsertBlock());
+                    merge_block->moveAfter(decl_finished_block);
+                    builder.SetInsertPoint(merge_block);
+                }
                 return true;
             }
             case Type::Variation::OPTIONAL: {
@@ -1564,6 +1606,12 @@ bool Generator::Statement::generate_declaration( //
                 store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
+                if (declaration_node->is_persistent) {
+                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                    decl_finished_block->moveAfter(builder.GetInsertBlock());
+                    merge_block->moveAfter(decl_finished_block);
+                    builder.SetInsertPoint(merge_block);
+                }
                 return true;
             }
             case Type::Variation::VARIANT: {
@@ -1595,6 +1643,12 @@ bool Generator::Statement::generate_declaration( //
                 store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context, "Store actual variant value in var '" + declaration_node->name + "'")));
+                if (declaration_node->is_persistent) {
+                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                    decl_finished_block->moveAfter(builder.GetInsertBlock());
+                    merge_block->moveAfter(decl_finished_block);
+                    builder.SetInsertPoint(merge_block);
+                }
                 return true;
             }
         }
@@ -1640,31 +1694,43 @@ bool Generator::Statement::generate_declaration( //
             llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             builder.CreateCall(clone_fn, {expression, alloca, type_id});
+            if (declaration_node->is_persistent) {
+                builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                decl_finished_block->moveAfter(builder.GetInsertBlock());
+                merge_block->moveAfter(decl_finished_block);
+                builder.SetInsertPoint(merge_block);
+            }
             return true;
         } else if (                                                                                                  //
             is_optional && initializer_type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
         ) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
             llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
-            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
+            llvm::BasicBlock *opt_merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
 
             builder.SetInsertPoint(current_block);
             llvm::Value *has_value = builder.CreateExtractValue(expression, 0, "rhs_has_value");
-            builder.CreateCondBr(has_value, retain_block, merge_block);
+            builder.CreateCondBr(has_value, retain_block, opt_merge_block);
 
             builder.SetInsertPoint(retain_block);
             llvm::Value *value = builder.CreateExtractValue(expression, 1, "rhs_value");
             llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
             builder.CreateCall(retain_fn, {value});
-            builder.CreateBr(merge_block);
+            builder.CreateBr(opt_merge_block);
 
-            builder.SetInsertPoint(merge_block);
+            builder.SetInsertPoint(opt_merge_block);
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the variable
     llvm::StoreInst *store = IR::aligned_store(builder, expression, alloca);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store the actual val of '" + declaration_node->name + "'")));
+    if (declaration_node->is_persistent) {
+        builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+        decl_finished_block->moveAfter(builder.GetInsertBlock());
+        merge_block->moveAfter(decl_finished_block);
+        builder.SetInsertPoint(merge_block);
+    }
     return true;
 }
 

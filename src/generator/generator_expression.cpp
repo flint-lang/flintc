@@ -2136,8 +2136,13 @@ llvm::Value *Generator::Expression::generate_function_reference( //
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(referenced_fn_id);
     llvm::Value *const frame_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), called_fn_type));
     // The "actual frame size" is the frame size + 8 bytes. The first 8 bytes contain the pointer to the called function
-    llvm::Value *const actual_frame_size = builder.CreateAdd(frame_size, builder.getInt64(8));
+    // To that we add the number of persistent local variables, one byte each, as *after* the fn frame the "is_initialized" flags of the
+    // persistent locals will follow
+    const size_t frame_additional_size = 8 + ref_node->referenced_function->persistent_count;
+    llvm::Value *const actual_frame_size = builder.CreateAdd(frame_size, builder.getInt64(frame_additional_size));
     llvm::Value *const callable_frame = builder.CreateCall(c_functions.at(MALLOC), {actual_frame_size}, "callable_frame");
+    // Zero-initialize the whole allocated memory (including the persistence bytes at the very end)
+    builder.CreateCall(c_functions.at(MEMSET), {callable_frame, builder.getInt32(0), actual_frame_size});
     // Store the pointer to the function in the first 8 bytes of the callable frame
     llvm::Function *const fn_ptr = Function::function_contexts.at(referenced_fn_id).function;
     IR::aligned_store(builder, fn_ptr, callable_frame);

@@ -118,7 +118,9 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     allocations.emplace("flint.stack.flags", ts_flags);
     llvm::Value *const is_callable_flag = builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
     llvm::Value *const is_callable_ctx = builder.CreateICmpEQ(ts_flags, is_callable_flag, "is_callable_ctx");
+    allocations.emplace("flint.stack.is_callable", is_callable_ctx);
     llvm::Value *next_stack_frame = builder.CreateGEP(frame_type, parent->arg_begin(), builder.getInt32(1), "next_stack_frame");
+    allocations.emplace("flint.stack.persistence_flags", next_stack_frame);
     next_stack_frame = builder.CreateSelect(is_callable_ctx, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
     allocations.emplace("flint.stack.next", next_stack_frame);
     return frame_type;

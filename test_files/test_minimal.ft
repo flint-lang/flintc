@@ -10,3 +10,7 @@ def main():
 	fn<() -> i32> c = ::counter;
 	print($"c() = {c()}\n");
 	print($"c() = {c()}\n");
+	print($"c() = {c()}\n");
+
+	print($"counter() = {counter()}\n");
+	print($"counter() = {counter()}\n");
