@@ -243,6 +243,7 @@ std::optional<FunctionNode> Parser::create_function(                            
             .scope_id = 0,
             .scope_segment = 0,
             .is_mutable = false,
+            .is_persistent = false,
             .is_fn_param = true,
             .is_pseudo_variable = true,
         });
@@ -255,6 +256,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                     .scope_id = body_scope.value()->scope_id,
                     .scope_segment = 0,
                     .is_mutable = std::get<2>(param),
+                    .is_persistent = false,
                     .is_fn_param = true,
                 }) //
         ) {
@@ -889,6 +891,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
             .scope_id = 0,
             .scope_segment = 0,
             .is_mutable = false,
+            .is_persistent = false,
             .is_fn_param = true,
             .is_pseudo_variable = true,
         });

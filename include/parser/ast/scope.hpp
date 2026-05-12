@@ -49,6 +49,10 @@ class Scope {
         /// @brief Whether this variable is mutable
         bool is_mutable;
 
+        /// @var `is_persistent`
+        /// @brief Whether this variable is persistent
+        bool is_persistent;
+
         /// @var `is_fn_param`
         /// @brief Whether this variable is a function parameter
         bool is_fn_param;
@@ -71,6 +75,7 @@ class Scope {
                 && scope_id == other.scope_id                 //
                 && scope_segment == other.scope_segment       //
                 && is_mutable == other.is_mutable             //
+                && is_persistent == other.is_persistent       //
                 && is_fn_param == other.is_fn_param           //
                 && is_reference == other.is_reference         //
                 && return_scope_ids == other.return_scope_ids //

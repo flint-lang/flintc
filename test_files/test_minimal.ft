@@ -1,13 +1,12 @@
 use Core.print
 
-data Data:
-	u64 x = 0;
-	u64 y = 1;
-	u64 z = 2;
-	Data(x, y, z);
+def counter() -> i32:
+	persistent i32 c = 0;
+	i32 val = c;
+	c++;
+	return val;
 
 def main():
-	Data[] d = Data[5](Data(_));
-
-	for (i, elem) in d:
-		print($"d[{i}] = Data(.x = {elem.x}, .y = {elem.y}, .z = {elem.z}\n");
+	fn<() -> i32> c = ::counter;
+	print($"c() = {c()}\n");
+	print($"c() = {c()}\n");

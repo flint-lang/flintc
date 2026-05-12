@@ -1343,7 +1343,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
                 err_variable_type = file_node_ptr->file_namespace->get_type_from_str(err_variable_type->to_string()).value();
             }
         }
-        if (!body_scope->add_variable(err_var.value(), {err_variable_type, body_scope->scope_id, scope_segment, false, false})) {
+        if (!body_scope->add_variable(err_var.value(), {err_variable_type, body_scope->scope_id, scope_segment, false, false, false})) {
             THROW_ERR(                                                                                                                //
                 ErrVarRedefinition, ERR_PARSING, file_hash, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
@@ -1367,7 +1367,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!file_node_ptr->file_namespace->add_type(switcher_type)) {
             switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
-        if (!body_scope->add_variable("flint.value_err", {switcher_type, body_scope->scope_id, scope_segment, false, false})) {
+        if (!body_scope->add_variable("flint.value_err", {switcher_type, body_scope->scope_id, scope_segment, false, false, false})) {
             assert(false);
             return std::nullopt;
         }
@@ -1704,7 +1704,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             assert(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = types.at(i);
-                if (!scope->add_variable(variables.at(i).second, {types.at(i), scope->scope_id, scope_segment, true, false})) {
+                if (!scope->add_variable(variables.at(i).second, {types.at(i), scope->scope_id, scope_segment, true, false, false})) {
                     // Variable shadowing
                     THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, lhs_tokens.first->line, lhs_tokens.first->column,
                         variables.at(i).second);
@@ -1717,7 +1717,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             const auto *multi_type = expression.value()->type->as<MultiType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = multi_type->base_type;
-                if (!scope->add_variable(variables.at(i).second, {multi_type->base_type, scope->scope_id, scope_segment, true, false})) {
+                if (!scope->add_variable(                                                                                    //
+                        variables.at(i).second, {multi_type->base_type, scope->scope_id, scope_segment, true, false, false}) //
+                ) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
                         lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
@@ -1758,7 +1760,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = tuple_type->types[i];
-                if (!scope->add_variable(variables.at(i).second, {tuple_type->types[i], scope->scope_id, scope_segment, true, false})) {
+                if (!scope->add_variable(                                                                                   //
+                        variables.at(i).second, {tuple_type->types[i], scope->scope_id, scope_segment, true, false, false}) //
+                ) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
                         lhs_tokens.first->line, lhs_tokens.first->column, variables.at(i).second //
@@ -1819,6 +1823,16 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     if (lhs_tokens.first->token == TOK_CONST || lhs_tokens.first->token == TOK_MUT) {
         lhs_tokens.first++;
     }
+    // Check if a persistent variable is declared
+    const bool is_persistent = lhs_tokens.first->token == TOK_PERSISTENT;
+    if (is_persistent) {
+        if (!is_mutable) {
+            // Persistent locals always must be mutable
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        lhs_tokens.first++;
+    }
 
     // Get the type if it is not inferred and get the name of the declaration
     std::shared_ptr<Type> declared_type;
@@ -1842,13 +1856,19 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     if (!has_rhs) {
         assert(!is_inferred);
         assert(declared_type != nullptr);
+        if (is_persistent) {
+            // Persistent locals require an initializer
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        if (!scope->add_variable(name, {declared_type, scope->scope_id, scope_segment, is_mutable, false})) {
+        if (!scope->add_variable(name, {declared_type, scope->scope_id, scope_segment, is_mutable, is_persistent, false})) {
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
                 name);
             return std::nullopt;
         }
-        return DeclarationNode(declared_type, name, expr);
+        return DeclarationNode(declared_type, name, is_persistent, expr);
     }
 
     // Case 2 & 3: Declaration with RHS - create expression if not provided
@@ -1897,13 +1917,13 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
 
     // Add variable to scope
-    if (!scope->add_variable(name, {final_type, scope->scope_id, scope_segment, is_mutable, false})) {
+    if (!scope->add_variable(name, {final_type, scope->scope_id, scope_segment, is_mutable, is_persistent, false})) {
         THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
             is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column, name);
         return std::nullopt;
     }
 
-    return DeclarationNode(final_type, name, rhs);
+    return DeclarationNode(final_type, name, is_persistent, rhs);
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens) {

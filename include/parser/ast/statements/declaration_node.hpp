@@ -12,9 +12,15 @@
 /// @brief Represents variable or data declarations
 class DeclarationNode : public StatementNode {
   public:
-    DeclarationNode(std::shared_ptr<Type> &type, std::string &name, std::optional<std::unique_ptr<ExpressionNode>> &initializer) :
+    DeclarationNode(                       //
+        const std::shared_ptr<Type> &type, //
+        const std::string &name,
+        const bool is_persistent,                                   //
+        std::optional<std::unique_ptr<ExpressionNode>> &initializer //
+        ) :
         type(type),
         name(name),
+        is_persistent(is_persistent),
         initializer(std::move(initializer)) {}
 
     Variation get_variation() const override {
@@ -39,6 +45,10 @@ class DeclarationNode : public StatementNode {
     /// @var `name`
     /// @brief The name of the variable
     std::string name;
+
+    /// @var `is_persistent`
+    /// @brief Whether the declared variable is persistent
+    bool is_persistent;
 
     /// @var `initializer`
     /// @brief The initial value

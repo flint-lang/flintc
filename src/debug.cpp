@@ -1260,7 +1260,11 @@ namespace Debug {
 
         void print_declaration(unsigned int indent_lvl, TreeBits &bits, const DeclarationNode &decl) {
             Local::print_header(indent_lvl, bits, "Decl ");
-            std::cout << "'" << decl.type->to_string() << " ";
+            std::cout << "'";
+            if (decl.is_persistent) {
+                std::cout << "persistent ";
+            }
+            std::cout << decl.type->to_string() << " ";
             std::cout << decl.name << "' to be";
 
             if (!decl.initializer.has_value()) {
