@@ -1262,7 +1262,7 @@ namespace Debug {
             Local::print_header(indent_lvl, bits, "Decl ");
             std::cout << "'";
             if (decl.is_persistent) {
-                std::cout << "persistent ";
+                std::cout << "persistent<" << decl.persistence_id << "> ";
             }
             std::cout << decl.type->to_string() << " ";
             std::cout << decl.name << "' to be";
@@ -1675,7 +1675,8 @@ namespace Debug {
                 std::cout << ";" << std::endl;
                 return;
             }
-            std::cout << " [s" << function.scope.value()->scope_id << "]" << std::endl;
+            std::cout << " [s" << function.scope.value()->scope_id << "]";
+            std::cout << " [p=" << function.persistent_count << "]" << std::endl;
 
             // The function body
             print_body(indent_lvl + 1, bits, function.scope.value()->body);

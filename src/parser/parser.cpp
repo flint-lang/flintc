@@ -2036,6 +2036,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
             return false;
         }
         function->scope.value()->body = std::move(body_statements.value());
+        function->scope.value()->count_persistent_locals(function->persistent_count);
         return true;
     };
 

@@ -1,5 +1,6 @@
 #include "parser/ast/scope.hpp"
 #include "parser/ast/statements/catch_node.hpp"
+#include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
 #include "parser/ast/statements/enhanced_for_loop_node.hpp"
 #include "parser/ast/statements/for_loop_node.hpp"
@@ -27,6 +28,64 @@ std::optional<std::shared_ptr<Type>> Scope::get_variable_type(const std::string 
         return std::nullopt;
     }
     return variables.at(var_name).type;
+}
+
+void Scope::count_persistent_locals(size_t &count) {
+    for (auto &stmt : body) {
+        switch (stmt->get_variation()) {
+            default:
+                continue;
+            case StatementNode::Variation::DECLARATION: {
+                auto *node = stmt->as<DeclarationNode>();
+                if (node->is_persistent) {
+                    node->persistence_id = count;
+                    count++;
+                }
+                break;
+            }
+            case StatementNode::Variation::DO_WHILE: {
+                auto *node = stmt->as<DoWhileNode>();
+                node->scope->count_persistent_locals(count);
+                break;
+            }
+            case StatementNode::Variation::ENHANCED_FOR_LOOP: {
+                auto *node = stmt->as<EnhForLoopNode>();
+                node->body->count_persistent_locals(count);
+                break;
+            }
+            case StatementNode::Variation::FOR_LOOP: {
+                auto *node = stmt->as<ForLoopNode>();
+                node->body->count_persistent_locals(count);
+                break;
+            }
+            case StatementNode::Variation::IF: {
+                auto *node = stmt->as<IfNode>();
+                node->then_scope->count_persistent_locals(count);
+                while (node->else_scope.has_value()) {
+                    if (std::holds_alternative<std::unique_ptr<IfNode>>(node->else_scope.value())) {
+                        node = std::get<std::unique_ptr<IfNode>>(node->else_scope.value()).get();
+                        node->then_scope->count_persistent_locals(count);
+                    } else {
+                        std::get<std::shared_ptr<Scope>>(node->else_scope.value())->count_persistent_locals(count);
+                        break;
+                    }
+                }
+                break;
+            }
+            case StatementNode::Variation::SWITCH: {
+                auto *node = stmt->as<SwitchStatement>();
+                for (auto &branch : node->branches) {
+                    branch.body->count_persistent_locals(count);
+                }
+                break;
+            }
+            case StatementNode::Variation::WHILE: {
+                auto *node = stmt->as<WhileNode>();
+                node->scope->count_persistent_locals(count);
+                break;
+            }
+        }
+    }
 }
 
 std::unordered_map<std::string, Scope::Variable> Scope::get_unique_variables(const unsigned int segment) const {

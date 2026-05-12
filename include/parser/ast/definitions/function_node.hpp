@@ -168,4 +168,8 @@ class FunctionNode : public DefinitionNode {
     /// @var `mangle_id`
     /// @brief The mangle id of this function, or other said the Nth function defined in the file
     std::optional<size_t> mangle_id;
+
+    /// @var `persistent_count`
+    /// @brief How many persistent locals are defined inside this function's body
+    size_t persistent_count{0};
 };

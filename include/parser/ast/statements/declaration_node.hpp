@@ -50,6 +50,10 @@ class DeclarationNode : public StatementNode {
     /// @brief Whether the declared variable is persistent
     bool is_persistent;
 
+    /// @var `persistence_id`
+    /// @brief The ID of the persistent variable within a function
+    size_t persistence_id{0};
+
     /// @var `initializer`
     /// @brief The initial value
     std::optional<std::unique_ptr<ExpressionNode>> initializer;

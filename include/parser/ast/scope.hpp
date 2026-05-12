@@ -122,6 +122,12 @@ class Scope {
     /// @return `std::optional<std::shared_ptr<Type>>` The type of the variable, nullopt if the variable doesnt exist
     std::optional<std::shared_ptr<Type>> get_variable_type(const std::string &var_name);
 
+    /// @function `count_persistent_locals`
+    /// @brief Counts the number of persistent locals and also correclty sets the IDs of every found persistent local
+    ///
+    /// @param `count` The out parameter needed to keep track of the current count for the ID setting of declarations
+    void count_persistent_locals(size_t &count);
+
     /// @function `get_unique_variables`
     /// @brief Returns all variable definitions which are unique to this scope, and not present in the parent scope. This function is used
     /// for easy handling for variables when they go out of scope
