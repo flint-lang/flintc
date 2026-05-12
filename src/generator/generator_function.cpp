@@ -223,7 +223,6 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         false,                           //
         false,                           //
         false,                           //
-        false,                           //
         test_name,                       //
         fake_fn_parameters,              //
         fake_fn_return_types,            //

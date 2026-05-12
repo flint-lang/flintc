@@ -1626,9 +1626,6 @@ namespace Debug {
         void print_function(unsigned int indent_lvl, TreeBits &bits, const FunctionNode &function) {
             Local::print_header(indent_lvl, bits, "Function ");
 
-            if (function.is_aligned) {
-                std::cout << "aligned ";
-            }
             if (function.is_const) {
                 std::cout << "const ";
             }

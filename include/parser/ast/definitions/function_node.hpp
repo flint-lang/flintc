@@ -20,7 +20,6 @@ class FunctionNode : public DefinitionNode {
         const unsigned int line,                                                       //
         const unsigned int column,                                                     //
         const unsigned int length,                                                     //
-        const bool is_aligned,                                                         //
         const bool is_const,                                                           //
         const bool is_extern,                                                          //
         const bool is_core,                                                            //
@@ -32,7 +31,6 @@ class FunctionNode : public DefinitionNode {
         const std::optional<size_t> &mangle_id                                         //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
-        is_aligned(is_aligned),
         is_const(is_const),
         is_extern(is_extern),
         is_core(is_core),
@@ -134,10 +132,6 @@ class FunctionNode : public DefinitionNode {
     // move operations
     FunctionNode(FunctionNode &&) = default;
     FunctionNode &operator=(FunctionNode &&) = default;
-
-    /// @var `is_aligned`
-    /// @brief Determines whether the function needs to be aligned
-    bool is_aligned;
 
     /// @var `is_const`
     /// @brief Determines whether the function is const, e.g. it cannot access data outise of its arguments

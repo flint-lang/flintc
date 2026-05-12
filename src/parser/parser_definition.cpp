@@ -28,7 +28,6 @@ std::optional<FunctionNode> Parser::create_function(                            
         }
     }
     std::vector<std::shared_ptr<Type>> return_types;
-    bool is_aligned = false;
     bool is_const = false;
     bool is_extern = false;
 
@@ -278,9 +277,9 @@ std::optional<FunctionNode> Parser::create_function(                            
         // If there is required data then this function is defined inside a func module, the name needs to be changed accordingly
         name = required_data.value().first + "." + name;
     }
-    FunctionNode function_node(                                                                              //
-        file_hash, line, column, length,                                                                     //
-        is_aligned, is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
+    FunctionNode function_node(                                                                  //
+        file_hash, line, column, length,                                                         //
+        is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
     );
 
     // Analyze whether all parameter types and return types are allowed in the context
