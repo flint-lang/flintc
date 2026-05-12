@@ -2216,15 +2216,32 @@ bool Generator::Statement::generate_array_assignment( //
     llvm::Value *arr_value_ptr = builder.CreateCall(access_arr_fn, {array_ptr, element_size, indices}, "arr_value_ptr");
     assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
     const std::shared_ptr<Type> &base_type = array_assignment->base_expr->type->as<ArrayType>()->type;
-    if (base_type->is_freeable()) {
-        // Call 'flint.clone' on the freeable type to clone the expression into the array element
-        llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
-        llvm::Value *type_id = builder.getInt32(base_type->get_id());
-        builder.CreateCall(clone_fn, {expression, arr_value_ptr, type_id});
-    } else {
+    if (!base_type->is_freeable()) {
         // Direct store for non-freeable types
         IR::aligned_store(builder, expression, arr_value_ptr);
+        return true;
     }
+    // Free the value stored in the array before assigning the new value
+    const auto base_type_pair = IR::get_type(ctx.parent->getParent(), base_type);
+    const bool var_is_array = base_type->get_variation() == Type::Variation::ARRAY;
+    const bool var_is_str = base_type->to_string() == "str";
+    const bool var_is_opaque = base_type->get_variation() == Type::Variation::OPAQUE;
+    llvm::Value *arr_value = arr_value_ptr;
+    if (base_type_pair.second.first || var_is_array || var_is_str || var_is_opaque) {
+        llvm::Type *type_to_load = base_type_pair.second.first ? PTR_TY : base_type_pair.first;
+        arr_value = IR::aligned_load(builder, type_to_load, arr_value_ptr, "arr_value");
+    }
+    if (base_type->get_variation() == Type::Variation::DATA) {
+        llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+        builder.CreateCall(release_fn, {Module::DIMA::get_head(base_type), arr_value});
+    } else {
+        llvm::Function *free_fn = Memory::memory_functions.at("free");
+        builder.CreateCall(free_fn, {arr_value, builder.getInt32(base_type->get_id())});
+    }
+    // Call 'flint.clone' on the freeable type to clone the expression into the array element
+    llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+    llvm::Value *type_id = builder.getInt32(base_type->get_id());
+    builder.CreateCall(clone_fn, {expression, arr_value_ptr, type_id});
     return true;
 }
 
