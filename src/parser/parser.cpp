@@ -1726,57 +1726,58 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         }
 
         tok_it = line_it->tokens.first;
-        assert(tok_it->token == TOK_FUNC);
-        tok_it++;
-        assert(tok_it->token == TOK_COLON);
-        tok_it++;
-        semicolon_found = false;
-        while (line_it != body.end()) {
-            while (tok_it != line_it->tokens.second) {
-                switch (tok_it->token) {
-                    default:
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return false;
-                    case TOK_COMMA:
-                        break;
-                    case TOK_SEMICOLON:
-                        semicolon_found = true;
-                        break;
-                    case TOK_IDENTIFIER: {
-                        auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                        if (!type.has_value()) {
+        if (tok_it->token == TOK_FUNC) {
+            tok_it++;
+            assert(tok_it->token == TOK_COLON);
+            tok_it++;
+            semicolon_found = false;
+            while (line_it != body.end()) {
+                while (tok_it != line_it->tokens.second) {
+                    switch (tok_it->token) {
+                        default:
                             THROW_BASIC_ERR(ERR_PARSING);
                             return false;
+                        case TOK_COMMA:
+                            break;
+                        case TOK_SEMICOLON:
+                            semicolon_found = true;
+                            break;
+                        case TOK_IDENTIFIER: {
+                            auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                            if (!type.has_value()) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                            }
+                            *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                            [[fallthrough]];
                         }
-                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                        [[fallthrough]];
+                        case TOK_TYPE: {
+                            if (tok_it->type->get_variation() != Type::Variation::FUNC) {
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                            }
+                            auto *func_node = tok_it->type->as<FuncType>()->func_node;
+                            if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
+                                THROW_ERR(                                                    //
+                                    ErrDefEntityDuplicateFunc, ERR_PARSING, parser.file_hash, //
+                                    tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                                );
+                                return false;
+                            }
+                            func_modules.emplace_back(func_node);
+                            break;
+                        }
                     }
-                    case TOK_TYPE: {
-                        if (tok_it->type->get_variation() != Type::Variation::FUNC) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return false;
-                        }
-                        auto *func_node = tok_it->type->as<FuncType>()->func_node;
-                        if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
-                            THROW_ERR(                                                    //
-                                ErrDefEntityDuplicateFunc, ERR_PARSING, parser.file_hash, //
-                                tok_it->line, tok_it->column, tok_it->type->to_string()   //
-                            );
-                            return false;
-                        }
-                        func_modules.emplace_back(func_node);
+                    if (semicolon_found) {
                         break;
                     }
+                    tok_it++;
                 }
+                line_it++;
+                tok_it = line_it->tokens.first;
                 if (semicolon_found) {
                     break;
                 }
-                tok_it++;
-            }
-            line_it++;
-            tok_it = line_it->tokens.first;
-            if (semicolon_found) {
-                break;
             }
         }
         if (line_it == body.end()) {

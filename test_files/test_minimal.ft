@@ -6,15 +6,9 @@ data MyData:
 	i32 z;
 	MyData(x, y, z);
 
-func MyFunc requires(MyData d):
-	def print():
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
-
 entity MyEntity:
 	data: MyData d;
-	func: MyFunc;
 	MyEntity(d);
 
 def main():
 	e := MyEntity(MyData(10, 20, 30));
-	e.print();
