@@ -753,6 +753,16 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         func_nodes.emplace(func_module);
                     }
                 }
+                // Search in the free-floating functions whether this is the function we call
+                for (const auto &function : entity_node->functions) {
+                    // Remove the 'EntityType.' from the function's name to get the "actual" name of the function
+                    const std::string fn_name = function->name.substr(entity_node->name.size() + 1);
+                    if (fn_name != function_name) {
+                        continue;
+                    }
+                    functions.emplace_back(function);
+                    // func_nodes.emplace(func_module);
+                }
                 break;
             }
             case Type::Variation::FUNC: {
@@ -881,7 +891,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // stage, but permitted at the codegen stage
     size_t arg_start_id = 0;
     if (is_instance_call) {
-        assert(func_nodes.size() == 1);
         assert(instance_variable.has_value());
         switch (instance_variable.value()->type->get_variation()) {
             default:
@@ -889,6 +898,19 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             case Type::Variation::ENTITY: {
+                if (func_nodes.empty()) {
+                    // It's an instance call of a free-floating entity function
+                    std::unique_ptr<ExpressionNode> entity_variable = std::make_unique<VariableNode>( //
+                        instance_variable.value()->as<VariableNode>()->name,                          //
+                        instance_variable.value()->type,                                              //
+                        instance_variable.value()->is_const                                           //
+                    );
+                    arguments.insert(arguments.begin(), std::make_pair(std::move(entity_variable), true));
+                    argument_types.insert(argument_types.begin(), instance_variable.value()->type);
+                    arg_start_id++;
+                    break;
+                }
+                assert(func_nodes.size() == 1);
                 const FuncNode *func_node = *func_nodes.begin();
                 const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {

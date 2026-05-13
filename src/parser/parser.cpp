@@ -1935,6 +1935,108 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     break;
             }
         }
+        // Move past the constructor
+        line_it++;
+
+        // Process all following free-floating functions, if any are following
+        while (line_it != body.end()) {
+            if (!Matcher::tokens_contain(line_it->tokens, Matcher::function_definition)) {
+                line_it++;
+                continue;
+            }
+            // Get all the body lines
+            std::vector<Line> body_lines;
+            const auto &definition_tokens = line_it->tokens;
+            const size_t definition_indent_lvl = line_it->indent_lvl;
+            line_it++;
+            while (line_it != body.end() && line_it->indent_lvl > definition_indent_lvl) {
+                body_lines.emplace_back(*line_it);
+                line_it++;
+            }
+            if (body_lines.empty()) {
+                THROW_ERR(ErrMissingBody, ERR_PARSING, parser.file_hash, definition_tokens);
+                return false;
+            }
+            // Dont actually parse the function body, only its definition
+            std::shared_ptr<Type> entity_type = std::make_shared<EntityType>(entity);
+            if (!parser.file_node_ptr->file_namespace->add_type(entity_type)) {
+                entity_type = parser.file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
+            }
+            const std::optional<std::pair<std::string, required_data_t>> required_data = std::make_pair( //
+                entity->name, required_data_t{std::make_pair(entity_type, std::string("self"))}          //
+            );
+            std::optional<FunctionNode> function_node = parser.create_function(definition_tokens, required_data);
+            if (!function_node.has_value()) {
+                return false;
+            }
+            // Check if the same function (with same signature) already exists in one of the provided func modules. We need to account for
+            // the implicitely provided data of func-module functions and the single implicit parameter of the entity-function here as well
+            for (const auto &func : entity->func_modules) {
+                for (const FunctionNode *function : func->functions) {
+                    const std::string func_fn_name = function->name.substr(func->name.size() + 1);
+                    const std::string entity_fn_name = function_node.value().name.substr(entity->name.size() + 1);
+                    if (func_fn_name != entity_fn_name) {
+                        continue;
+                    }
+                    const size_t func_fn_param_count = function->parameters.size() - func->required_data.size();
+                    const size_t entity_fn_param_count = function_node.value().parameters.size() - 1;
+                    if (func_fn_param_count != entity_fn_param_count) {
+                        continue;
+                    }
+                    bool all_match = true;
+                    for (size_t i = 0; i < func_fn_param_count; i++) {
+                        const auto &p1 = function->parameters.at(i + func->required_data.size());
+                        const auto &p2 = function_node.value().parameters.at(i + 1);
+                        if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
+                            all_match = false;
+                            break;
+                        }
+                    }
+                    if (all_match) {
+                        // Duplicate function inside entity definition, the free-floating function already exists in one of the provided
+                        // func modules
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
+                }
+            }
+            // Check if the same function (with same signature) already exists within this entity as a free-floating function
+            for (const FunctionNode *function : entity->functions) {
+                if (function->name != function_node.value().name) {
+                    continue;
+                }
+                if (function->parameters.size() != function_node.value().parameters.size()) {
+                    continue;
+                }
+                bool all_match = true;
+                for (size_t i = 0; i < function->parameters.size(); i++) {
+                    const auto &p1 = function->parameters.at(i);
+                    const auto &p2 = function_node.value().parameters.at(i);
+                    if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
+                        all_match = false;
+                        break;
+                    }
+                }
+                if (all_match) {
+                    // Duplicate function inside entity definition, the free-floating function already exists
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+            }
+            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(function_node.value(), core_namespaces);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            parser.add_open_function({added_function.value(), body_lines});
+            entity->functions.emplace_back(added_function.value());
+        }
+
+        // An entity which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
+        // error
+        if (entity->functions.empty() && entity->func_modules.empty()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
 
         return true;
     };

@@ -1551,13 +1551,37 @@ namespace Debug {
                 std::cout << "\n";
             }
 
-            TreeBits func_bits = bits.child(indent_lvl + 1, true);
-            Local::print_header(indent_lvl + 1, func_bits, "Func ");
-            std::cout << "\n";
-            for (size_t i = 0; i < entity.func_modules.size(); i++) {
-                TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == entity.func_modules.size());
-                Local::print_header(indent_lvl + 2, func_module_bits, entity.func_modules.at(i)->name + " ");
+            if (!entity.func_modules.empty()) {
+                TreeBits func_bits = bits.child(indent_lvl + 1, entity.functions.empty());
+                Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
+                for (size_t i = 0; i < entity.func_modules.size(); i++) {
+                    TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == entity.func_modules.size());
+                    Local::print_header(indent_lvl + 2, func_module_bits, entity.func_modules.at(i)->name + " ");
+                    std::cout << "\n";
+                }
+            }
+
+            if (!entity.functions.empty()) {
+                for (size_t i = 0; i < entity.functions.size(); i++) {
+                    const auto *function = entity.functions.at(i);
+                    TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == entity.functions.size());
+                    Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
+                    std::cout << function->name << "(";
+                    for (size_t j = 0; j < function->parameters.size(); j++) {
+                        const auto &param = function->parameters.at(j);
+                        if (j > 0) {
+                            std::cout << ", ";
+                        }
+                        if (std::get<2>(param)) {
+                            std::cout << "mut ";
+                        } else {
+                            std::cout << "const ";
+                        }
+                        std::cout << std::get<0>(param)->to_string() << " " << std::get<1>(param);
+                    }
+                    std::cout << ")\n";
+                }
             }
         }
 

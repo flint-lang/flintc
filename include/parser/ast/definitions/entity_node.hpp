@@ -64,6 +64,10 @@ class EntityNode : public DefinitionNode {
     /// @brief The list of all links (from -> to) inside the 'links:' part of the entity
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
 
+    /// @var `functions`
+    /// @brief A list of all functions defined as free-floating functions within this entity definition
+    std::vector<FunctionNode *> functions{};
+
     /// @var `parent_entities`
     /// @brief The parent entities, whose data and func modules and link modules will be used. The first value in the pair is the parent
     /// entity type itself, the second value is it's accessor name

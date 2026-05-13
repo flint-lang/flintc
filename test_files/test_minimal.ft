@@ -6,9 +6,31 @@ data MyData:
 	i32 z;
 	MyData(x, y, z);
 
+func MyFunc requires(MyData d):
+	def print():
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+
 entity MyEntity:
 	data: MyData d;
+	// Uncommenting this should result in a compile error (duplicate function definition)
+	//func: MyFunc;
 	MyEntity(d);
 
+	def print():
+		print("Hello, World!\n");
+		// This does not work yet
+		//print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+	
+	// Uncommenting this should result in a compile error (duplicate function definition)
+	//def print():
+	//	print("Hello, World!\n");
+
 def main():
-	e := MyEntity(MyData(10, 20, 30));
+	d := MyData(10, 20, 30);
+	e := MyEntity(d);
+	e.print();
+
+	MyFunc.print(d);
+	//MyEntity.print(e);
+
+	//fn<mut MyEntity> p = MyEntity::print;
