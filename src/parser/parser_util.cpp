@@ -2,7 +2,6 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "lexer/builtins.hpp"
-#include "lexer/lexer_utils.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
@@ -650,7 +649,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         return std::nullopt;
                     }
                     DataNode *arg_node = arg_type->as<DataType>()->data_node;
-                    if (arg_node != data_modules.at(i)) {
+                    if (arg_node != data_modules.at(i).first) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
@@ -897,7 +896,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     const auto &required_data_type = func_node->required_data.at(i - 1).first;
                     const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
                     size_t idx = 0;
-                    for (const auto &data_node : entity_node->data_modules) {
+                    for (const auto &[data_node, accessor] : entity_node->data_modules) {
                         if (data_node == required_data_node) {
                             break;
                         }

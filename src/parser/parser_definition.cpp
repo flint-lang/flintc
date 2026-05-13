@@ -588,15 +588,15 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
         assert(tok_it != definition.second);
     }
 
-    std::vector<DataNode *> data_modules;
+    std::vector<std::pair<DataNode *, std::optional<std::string>>> data_modules;
     std::vector<FuncNode *> func_modules;
     std::vector<std::unique_ptr<LinkNode>> link_nodes;
     std::vector<size_t> constructor_order;
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EntityNode(                                                                                                                  //
-        file_hash, line, column, length, entity_name, data_modules, func_modules, link_nodes, parent_entities, constructor_order, false //
+    return EntityNode(                                                                                                           //
+        file_hash, line, column, length, entity_name, data_modules, func_modules, link_nodes, parent_entities, constructor_order //
     );
 }
 

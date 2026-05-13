@@ -3713,7 +3713,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             const DataNode *data_node = func_node->required_data.at(i).first->as<DataType>()->data_node;
             size_t idx = 0;
             for (; idx < entity_node->data_modules.size(); idx++) {
-                const DataNode *data_ptr = entity_node->data_modules.at(idx);
+                const DataNode *data_ptr = entity_node->data_modules.at(idx).first;
                 if (data_ptr == data_node) {
                     break;
                 }

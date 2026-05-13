@@ -1611,9 +1611,11 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         // definition
         for (const auto &parent_entity_type : parent_entities) {
             const EntityNode *parent_entity = parent_entity_type.first->as<EntityType>()->entity_node;
-            for (DataNode *data_node : parent_entity->data_modules) {
-                if (std::find(data_modules.begin(), data_modules.end(), data_node) == data_modules.end()) {
-                    data_modules.emplace_back(data_node);
+            for (auto &[data_node, accessor] : parent_entity->data_modules) {
+                if (std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor)) == data_modules.end()) {
+                    // Accessors of parents are not moved to the child, if the parent is `e` and you want to access data `d` of it you need
+                    // to write `e.d` and are not able to write `d` directly.
+                    data_modules.emplace_back(data_node, std::nullopt);
                 }
             }
             for (FuncNode *func_node : parent_entity->func_modules) {
@@ -1630,7 +1632,11 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         // Add all data modules defined in the `data` section of the entity
         auto line_it = body.begin();
         auto tok_it = line_it->tokens.first;
-        assert(tok_it->token == TOK_DATA);
+        if (tok_it->token != TOK_DATA) {
+            // Expected a data token
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
         tok_it++;
         bool semicolon_found = false;
         if (tok_it->token == TOK_COLON) {
@@ -1662,14 +1668,35 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                                 return false;
                             }
                             auto *data_node = tok_it->type->as<DataType>()->data_node;
-                            if (std::find(data_modules.begin(), data_modules.end(), data_node) != data_modules.end()) {
+                            for (const auto &pair : data_modules) {
+                                if (pair.first != data_node) {
+                                    continue;
+                                }
                                 THROW_ERR(                                                    //
                                     ErrDefEntityDuplicateData, ERR_PARSING, parser.file_hash, //
                                     tok_it->line, tok_it->column, tok_it->type->to_string()   //
                                 );
                                 return false;
                             }
-                            data_modules.emplace_back(data_node);
+                            if (std::next(tok_it)->token == TOK_IDENTIFIER) {
+                                // An accessor follows, we need to check whether that accessor is already taken
+                                const std::string accessor(std::next(tok_it)->lexme);
+                                for (const auto &pair : data_modules) {
+                                    if (!pair.second.has_value()) {
+                                        continue;
+                                    }
+                                    if (pair.second == accessor) {
+                                        // Duplicate accessors
+                                        THROW_BASIC_ERR(ERR_PARSING);
+                                        return false;
+                                    }
+                                }
+                                data_modules.emplace_back(data_node, accessor);
+                                tok_it++;
+                            } else {
+                                // No data accessor, just the type
+                                data_modules.emplace_back(data_node, std::nullopt);
+                            }
                             break;
                         }
                     }
@@ -1762,7 +1789,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             for (const auto &required_data : func->required_data) {
                 bool contains_required_data = false;
                 const auto *required_data_node = required_data.first->as<DataType>()->data_node;
-                for (const auto &provided_data_node : data_modules) {
+                for (const auto &[provided_data_node, accessor] : data_modules) {
                     if (provided_data_node == required_data_node) {
                         contains_required_data = true;
                         break;
@@ -1814,14 +1841,16 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                                 // thrown. If duplicates arise from extended entities then it is simply skipped to the next token iteration
                                 // TODO: Update change the constructors of extended entities to be required to pass in an entity at the
                                 // position of the extended entity accessor. For now the simpler approach is chosen.
-                                for (DataNode *data_node : parent_entity->data_modules) {
+                                for (const auto &[data_node, data_accessor] : parent_entity->data_modules) {
                                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
                                         // Duplicate data constructor
                                         THROW_BASIC_ERR(ERR_PARSING);
                                         return false;
                                     }
                                     constructed_data.emplace_back(data_node);
-                                    auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
+                                    auto idx = std::find(                                                                  //
+                                        data_modules.begin(), data_modules.end(), std::make_pair(data_node, data_accessor) //
+                                    );
                                     entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                                 }
                                 parent_added = true;
@@ -1831,6 +1860,30 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                             tok_it++;
                             break;
                         }
+                    }
+                    // Check if this identifier comes from a data accessor
+                    bool accessor_found = false;
+                    for (const auto &[data_node, accessor] : data_modules) {
+                        if (!accessor.has_value()) {
+                            continue;
+                        }
+                        if (accessor.value() != identifier) {
+                            continue;
+                        }
+                        if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
+                            // Duplicate data constructor
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        }
+                        constructed_data.emplace_back(data_node);
+                        auto idx = std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor));
+                        entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                        accessor_found = true;
+                        break;
+                    }
+                    if (accessor_found) {
+                        tok_it++;
+                        break;
                     }
                     auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
                     if (!type.has_value()) {
@@ -1847,8 +1900,21 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                         return false;
                     }
                     DataNode *data_node = tok_it->type->as<DataType>()->data_node;
-                    auto idx = std::find(data_modules.begin(), data_modules.end(), data_node);
-                    if (idx == data_modules.end()) {
+                    int data_idx = -1;
+                    for (size_t i = 0; i < data_modules.size(); i++) {
+                        const auto &pair = data_modules.at(i);
+                        if (pair.first != data_node) {
+                            continue;
+                        }
+                        if (pair.second.has_value()) {
+                            // Constructing a data value with an accessor in the constructor without that accessor
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return false;
+                        }
+                        data_idx = i;
+                        break;
+                    }
+                    if (data_idx == -1) {
                         // Unknown data module
                         THROW_BASIC_ERR(ERR_PARSING);
                         return false;
@@ -1860,7 +1926,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                         return false;
                     }
                     constructed_data.emplace_back(data_node);
-                    entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                    entity->constructor_order.emplace_back(data_idx);
                     [[fallthrough]];
                 }
                 case TOK_COMMA:

@@ -1518,7 +1518,12 @@ namespace Debug {
                 if (i > 0) {
                     std::cout << ", ";
                 }
-                std::cout << entity.data_modules.at(entity.constructor_order.at(i))->name;
+                const auto &[data_type, accessor] = entity.data_modules.at(entity.constructor_order.at(i));
+                if (accessor.has_value()) {
+                    std::cout << accessor.value();
+                } else {
+                    std::cout << data_type->name;
+                }
             }
             std::cout << ")";
             if (!entity.parent_entities.empty()) {
@@ -1538,7 +1543,11 @@ namespace Debug {
             std::cout << "\n";
             for (size_t i = 0; i < entity.data_modules.size(); i++) {
                 TreeBits data_module_bits = data_bits.child(indent_lvl + 2, i + 1 == entity.data_modules.size());
-                Local::print_header(indent_lvl + 2, data_module_bits, entity.data_modules.at(i)->name + " ");
+                const auto &pair = entity.data_modules.at(i);
+                Local::print_header(indent_lvl + 2, data_module_bits, pair.first->name + " ");
+                if (pair.second.has_value()) {
+                    std::cout << pair.second.value();
+                }
                 std::cout << "\n";
             }
 

@@ -136,7 +136,7 @@ void Generator::Memory::generate_free_value( //
             const auto *entity_type = type->as<EntityType>();
             llvm::Type *struct_type = IR::get_type(module, type).first;
             for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
-                const auto &data_node = entity_type->entity_node->data_modules.at(i);
+                const DataNode *data_node = entity_type->entity_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
@@ -533,7 +533,7 @@ void Generator::Memory::generate_clone_value( //
             const auto *entity_type = type->as<EntityType>();
             llvm::Type *struct_type = IR::get_type(module, type).first;
             for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
-                const auto &data_node = entity_type->entity_node->data_modules.at(i);
+                const DataNode *data_node = entity_type->entity_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
