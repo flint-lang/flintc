@@ -25,6 +25,7 @@
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
@@ -326,20 +327,59 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     return std::nullopt;
 }
 
-std::optional<VariableNode> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_variable");
-    std::optional<VariableNode> var = std::nullopt;
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
         if (tok->token == TOK_IDENTIFIER) {
             const std::string name(tok->lexme);
-            if (scope->variables.find(name) == scope->variables.end()) {
+            if (scope->variables.find(name) != scope->variables.end()) {
+                return std::make_unique<VariableNode>(name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable);
+            }
+            if (scope->captured_entity_identifiers.find(name) == scope->captured_entity_identifiers.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
                 return std::nullopt;
             }
-            return VariableNode(name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable);
+            const auto &captured_type = scope->captured_entity_identifiers.at(name);
+            switch (captured_type->get_variation()) {
+                default:
+                    assert(false);
+                    return std::nullopt;
+                case Type::Variation::DATA: {
+                    assert(scope->variables.find("self") != scope->variables.end());
+                    const auto &self = scope->variables.at("self");
+                    assert(self.type->get_variation() == Type::Variation::ENTITY);
+                    const EntityNode *entity_node = self.type->as<EntityType>()->entity_node;
+                    const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
+                    size_t idx = 0;
+                    for (const auto &[data_node, accessor] : entity_node->data_modules) {
+                        if (data_node == required_data_node) {
+                            break;
+                        }
+                        idx++;
+                    }
+                    if (idx == entity_node->data_modules.size()) {
+                        // The data node is not present in the entity type
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>("self", self.type, false);
+                    std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
+                        file_hash,                                                             //
+                        base_expr,                                                             //
+                        std::nullopt,                                                          // Entity fields have no name
+                        idx,                                                                   // The index of the data in the entity struct
+                        captured_type                                                          //
+                    );
+                    return std::move(access);
+                }
+                case Type::Variation::ENTITY:
+                    // TODO: The parent entity is accessed... but should this even be allowed? IDK yet
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return std::nullopt;
+            }
         }
     }
-    return var;
+    return std::nullopt;
 }
 
 std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
@@ -1847,11 +1887,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::variable_expr)) {
-            std::optional<VariableNode> variable = create_variable(scope, tokens_mut);
-            if (!variable.has_value()) {
-                return std::nullopt;
-            }
-            return std::make_unique<VariableNode>(std::move(variable.value()));
+            return create_variable(scope, tokens_mut);
         } else if (tokens_mut.first->token == TOK_UNDERSCORE) {
             if (!expected_type.has_value()) {
                 // Default node at a place where it's type cannot be inferred. This is fine because when used in initializers, for example,

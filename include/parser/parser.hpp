@@ -1055,8 +1055,8 @@ class Parser {
     ///
     /// @param `scope` The scope in which the variable is defined
     /// @param `tokens` The list of tokens representing the variable
-    /// @return `std::optional<VariableNode>` An optional VariableNode if creation is successful, nullopt otherwise
-    std::optional<VariableNode> create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens);
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An optional ExpressionNode if creation is successful, nullopt otherwise
+    std::optional<std::unique_ptr<ExpressionNode>> create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens);
 
     /// @function `create_unary_op_expression`
     /// @brief Creates a UnaryOpExpression from the given tokens

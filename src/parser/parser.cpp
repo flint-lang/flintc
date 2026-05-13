@@ -1609,8 +1609,9 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
 
         // Add all data modules and func modules of all parent entities to the data modules list in the order defined in the `extends`
         // definition
-        for (const auto &parent_entity_type : parent_entities) {
-            const EntityNode *parent_entity = parent_entity_type.first->as<EntityType>()->entity_node;
+        std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers;
+        for (const auto &[parent_entity_type, parent_entity_accessor] : parent_entities) {
+            const EntityNode *parent_entity = parent_entity_type->as<EntityType>()->entity_node;
             for (auto &[data_node, accessor] : parent_entity->data_modules) {
                 if (std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor)) == data_modules.end()) {
                     // Accessors of parents are not moved to the child, if the parent is `e` and you want to access data `d` of it you need
@@ -1623,6 +1624,12 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     func_modules.emplace_back(func_node);
                 }
             }
+            if (captured_entity_identifiers.find(parent_entity_accessor) != captured_entity_identifiers.end()) {
+                // This entity identifier is already taken
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            captured_entity_identifiers[parent_entity_accessor] = parent_entity_type;
         }
 
         // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
@@ -1667,7 +1674,8 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                                 THROW_BASIC_ERR(ERR_PARSING);
                                 return false;
                             }
-                            auto *data_node = tok_it->type->as<DataType>()->data_node;
+                            const auto &data_type = tok_it->type;
+                            DataNode *const data_node = data_type->as<DataType>()->data_node;
                             for (const auto &pair : data_modules) {
                                 if (pair.first != data_node) {
                                     continue;
@@ -1691,6 +1699,12 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                                         return false;
                                     }
                                 }
+                                if (captured_entity_identifiers.find(accessor) != captured_entity_identifiers.end()) {
+                                    // This entity identifier is already taken
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return false;
+                                }
+                                captured_entity_identifiers[accessor] = data_type;
                                 data_modules.emplace_back(data_node, accessor);
                                 tok_it++;
                             } else {
@@ -2027,6 +2041,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             if (!added_function.has_value()) {
                 return false;
             }
+            added_function.value()->scope.value()->captured_entity_identifiers = captured_entity_identifiers;
             parser.add_open_function({added_function.value(), body_lines});
             entity->functions.emplace_back(added_function.value());
         }

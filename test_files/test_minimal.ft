@@ -7,30 +7,25 @@ data MyData:
 	MyData(x, y, z);
 
 func MyFunc requires(MyData d):
-	def print():
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+	def move_by(i32 diff):
+		d.(x, y, z) += (diff, diff, diff);
 
 entity MyEntity:
 	data: MyData d;
-	// Uncommenting this should result in a compile error (duplicate function definition)
-	//func: MyFunc;
+	func: MyFunc;
 	MyEntity(d);
 
 	def print():
-		print("Hello, World!\n");
-		// This does not work yet
-		//print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+		self.other_fn();
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
 	
-	// Uncommenting this should result in a compile error (duplicate function definition)
-	//def print():
-	//	print("Hello, World!\n");
+	def other_fn():
+		self.move_by(10);
 
 def main():
 	d := MyData(10, 20, 30);
 	e := MyEntity(d);
 	e.print();
-
-	MyFunc.print(d);
-	//MyEntity.print(e);
-
 	//fn<mut MyEntity> p = MyEntity::print;
+	//MyEntity.print(e);

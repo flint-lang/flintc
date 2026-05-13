@@ -161,6 +161,11 @@ class Scope {
     /// @brief All the variables visible within this scope
     std::unordered_map<std::string, Variable> variables;
 
+    /// @var `captured_entity_identifiers`
+    /// @brief A list of all "variables" (like data accessors) captured from the entity this functions scope is defined in. The name of the
+    /// captured identifier maps to it's respective type
+    std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers{};
+
   private:
     /// @function `get_next_scope_id`
     /// @brief Returns the next scope id. Ensures that each scope gets its own id for the lifetime of the program

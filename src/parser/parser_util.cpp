@@ -729,12 +729,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     std::vector<FunctionNode *> functions;
     std::unordered_set<const FuncNode *> func_nodes;
     if (is_instance_call) {
-        std::optional<VariableNode> variable_node = create_variable(scope, {tokens.first, tokens.first + 1});
+        std::optional<std::unique_ptr<ExpressionNode>> variable_node = create_variable(scope, {tokens.first, tokens.first + 1});
         if (!variable_node.has_value()) {
             return std::nullopt;
         }
         // Get the type of the variable next
-        const auto &var_type = variable_node.value().type;
+        const auto &var_type = variable_node.value()->type;
         switch (var_type->get_variation()) {
             default:
                 // Doing an instance call on a variable that's not an entity or func type
@@ -779,7 +779,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 break;
             }
         }
-        instance_variable = std::make_unique<VariableNode>(std::move(variable_node.value()));
+        instance_variable = std::move(variable_node.value());
     } else {
         functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
     }
