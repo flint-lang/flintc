@@ -46,7 +46,7 @@ def main():
 	e.print();
 	fn<mut MyEntity> p = MyEntity::print;
 	p(e);
-	//MyEntity.print(e);
+	MyEntity.print(e);
 
 	print("\n");
 	e2.print_pos();

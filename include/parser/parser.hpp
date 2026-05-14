@@ -812,14 +812,15 @@ class Parser {
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `call_namespace` The namespace the called function comes from, for example when called via an alias the namespace is the
     /// alias namepsace, when called directly it's the namespace of this file
-    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
+    /// @param `is_typed_call` Whether the call is targetting a func module's or entities function like `<FuncType>.<call>` or
+    /// `<EntityType>.<call>`
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
         const Context &ctx,                                                        //
         std::shared_ptr<Scope> &scope,                                             //
         const token_slice &tokens,                                                 //
         const Namespace *call_namespace,                                           //
-        const bool is_func_module_call = false                                     //
+        const bool is_typed_call = false                                           //
     );
 
     /// @struct `CreateUnaryOpBaseRet`
@@ -1352,14 +1353,15 @@ class Parser {
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
     /// @param `alias` The potential alias base of the call
-    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
+    /// @param `is_typed_call` Whether the call is targetting a func module's or entities function like `<FuncType>.<call>` or
+    /// `<EntityType>.<call>`
     /// @return `std::optional<std::unique_ptr<StatementNode>>` A unique pointer to the created StatementNode. It could be either a "normal"
     /// call or an instance call, that's why we return it as a statement node instead
     std::optional<std::unique_ptr<StatementNode>> create_call_statement( //
         std::shared_ptr<Scope> &scope,                                   //
         const token_slice &tokens,                                       //
         const std::optional<Namespace *> &alias,                         //
-        const bool is_func_module_call = false                           //
+        const bool is_typed_call = false                                 //
     );
 
     /// @function `create_throw`

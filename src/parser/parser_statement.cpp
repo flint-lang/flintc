@@ -14,6 +14,7 @@
 #include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
@@ -33,15 +34,15 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
     std::shared_ptr<Scope> &scope,                                           //
     const token_slice &tokens,                                               //
     const std::optional<Namespace *> &alias,                                 //
-    const bool is_func_module_call                                           //
+    const bool is_typed_call                                                 //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
     std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value(), is_func_module_call);
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value(), is_typed_call);
     } else {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_module_call);
+        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_typed_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -2500,16 +2501,31 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         // within a call)
         token_slice tokens_mut = tokens;
         if (tokens_mut.first->token == TOK_TYPE) {
-            if (tokens_mut.first->type->get_variation() != Type::Variation::FUNC) {
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return std::nullopt;
-            }
-            const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
-            if (func_node->file_hash.to_string() != file_hash.to_string()) {
-                auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
-                statement_node = create_call_statement(scope, tokens_mut, func_namespace, true);
-            } else {
-                statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
+            switch (tokens_mut.first->type->get_variation()) {
+                default:
+                    // Aliased function calls are only allowed on entities or func modules, no other *type* can contain functions
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                case Type::Variation::ENTITY: {
+                    const auto *entity_node = tokens_mut.first->type->as<EntityType>()->entity_node;
+                    if (entity_node->file_hash.to_string() != file_hash.to_string()) {
+                        auto *entity_namespace = Resolver::get_namespace_from_hash(entity_node->file_hash);
+                        statement_node = create_call_statement(scope, tokens_mut, entity_namespace, true);
+                    } else {
+                        statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
+                    }
+                    break;
+                }
+                case Type::Variation::FUNC: {
+                    const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
+                    if (func_node->file_hash.to_string() != file_hash.to_string()) {
+                        auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
+                        statement_node = create_call_statement(scope, tokens_mut, func_namespace, true);
+                    } else {
+                        statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
+                    }
+                    break;
+                }
             }
         } else {
             assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);

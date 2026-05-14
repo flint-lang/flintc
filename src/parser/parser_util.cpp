@@ -491,7 +491,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     std::shared_ptr<Scope> &scope,                                                             //
     const token_slice &tokens,                                                                 //
     const Namespace *call_namespace,                                                           //
-    const bool is_func_module_call                                                             //
+    const bool is_typed_call                                                                   //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
@@ -499,9 +499,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
-    if (is_func_module_call) {
+    if (is_typed_call) {
         assert(tokens.first->token == TOK_TYPE);
-        assert(tokens.first->type->get_variation() == Type::Variation::FUNC);
+        const auto &type_var = tokens.first->type->get_variation();
+        assert(type_var == Type::Variation::FUNC || type_var == Type::Variation::ENTITY);
         assert((tokens.first + 1)->token == TOK_DOT);
         assert((tokens.first + 2)->token == TOK_IDENTIFIER);
     }
@@ -570,7 +571,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     }
 
     // Check if it's an initializer
-    const auto &name_token = is_func_module_call ? tokens.first + 2 : tokens.first;
+    const auto &name_token = is_typed_call ? tokens.first + 2 : tokens.first;
     if (name_token->token == TOK_TYPE) {
         if (name_token->type->get_variation() == Type::Variation::ALIAS) {
             name_token->type = name_token->type->as<AliasType>()->type;
@@ -710,7 +711,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     for (; tok != tokens.second; ++tok) {
         // Get the function name
         if (tok->token == TOK_IDENTIFIER) {
-            if (is_func_module_call) {
+            if (is_typed_call) {
                 function_name = tokens.first->type->to_string() + "." + std::string(tok->lexme);
             } else {
                 function_name = tok->lexme;
