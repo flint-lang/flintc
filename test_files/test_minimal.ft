@@ -38,10 +38,14 @@ entity InheritedEntity extends(MyEntity e):
 def main():
 	d := MyData(10, 20, 30);
 	e := MyEntity(d);
+	e2 := InheritedEntity(d);
+
+	d.(x, y, z) = (0, 0, 0);
+
+	// Print MyEntity first
 	e.print();
 
 	print("\n");
-	e2 := InheritedEntity(d);
 	e2.print_pos();
 	e2.move_by(10);
 	e2.print_pos();

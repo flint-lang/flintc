@@ -2331,10 +2331,13 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
         case Type::Variation::ENTITY: {
             // Create an empty entity first and then simply store the pointers to the data values in it and return the constructed entity
             // structure
-            llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-            llvm::Value *initialized_entity = IR::get_default_value_of_type(entity_type);
+            llvm::Type *const entity_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Value *const default_entity = IR::get_default_value_of_type(entity_type);
+            // Store the empty entity in the scratchspace
+            IR::aligned_store(builder, default_entity, scratchspace);
             for (size_t i = 0; i < initializer->args.size(); i++) {
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                const auto &arg = initializer->args.at(i);
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -2344,11 +2347,14 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                // The initializer is of type `i8*` and we need to cast it to `T*` before storing it
-                llvm::Value *expr_val = expr_result.value().front();
-                llvm::Value *cast_expr = builder.CreatePointerCast(expr_val, PTR_TY);
-                initialized_entity = builder.CreateInsertValue(initialized_entity, cast_expr, i, "entity_init_" + std::to_string(i));
+                // Do a GEP in the initialized entity (scratchspace) to be able to call `flint.clone`
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(entity_type, scratchspace, i, "entity_init_" + std::to_string(i));
+                // Call `flint.clone` to store the data in the entity
+                llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+                llvm::Value *const expr_val = expr_result.value().front();
+                builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(arg->type->get_id())});
             }
+            llvm::Value *const initialized_entity = IR::aligned_load(builder, entity_type, scratchspace, "initialized_entity");
             return std::vector<llvm::Value *>{initialized_entity};
         }
         case Type::Variation::MULTI: {
