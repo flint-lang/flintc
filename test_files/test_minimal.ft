@@ -44,6 +44,9 @@ def main():
 
 	// Print MyEntity first
 	e.print();
+	fn<mut MyEntity> p = MyEntity::print;
+	p(e);
+	//MyEntity.print(e);
 
 	print("\n");
 	e2.print_pos();
@@ -53,6 +56,3 @@ def main():
 	// Does not exist on InheritedEntity
 	//e2.print();
 	e2.print_pos();
-	
-	//fn<mut MyEntity> p = MyEntity::print;
-	//MyEntity.print(e);

@@ -852,18 +852,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference
     [[maybe_unused]] std::shared_ptr<Scope> &scope,                               //
     const token_slice &tokens                                                     //
 ) {
-    // If the first token is a type then it's a func module's function reference, so we need to search for the referenced function
-    // within that func module type
+    // If the first token is a type then it's a func module's or entities' function reference, so we need to search for the referenced
+    // function within that func module / entity type
     token_slice tokens_mut = tokens;
     std::string referenced_fn_name = "";
     if (tokens.first->token == TOK_TYPE) {
-        if (tokens.first->type->get_variation() != Type::Variation::FUNC) {
-            // Referencing functions is only allowed when referencing functions of func modules
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
+        switch (tokens.first->type->get_variation()) {
+            default:
+                // Referencing functions is only allowed when referencing functions of func modules or entities (yet)
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case Type::Variation::ENTITY:
+                [[fallthrough]];
+            case Type::Variation::FUNC:
+                referenced_fn_name = tokens.first->type->to_string() + ".";
+                tokens_mut.first++;
+                break;
         }
-        referenced_fn_name = tokens.first->type->to_string() + ".";
-        tokens_mut.first++;
     }
 
     // TODO: Support aliased func-module types before the reference operator (`alias.FuncType::function`)
