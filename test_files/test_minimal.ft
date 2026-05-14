@@ -23,9 +23,32 @@ entity MyEntity:
 	def other_fn():
 		self.move_by(10);
 
+func InheritedFunc requires(MyData d):
+	def other_operation():
+		d.(x, y, z) *= d.(x, y, z);
+	
+	def print_pos():
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+
+entity InheritedEntity extends(MyEntity e):
+	data;
+	func: InheritedFunc;
+	InheritedEntity(e);
+
 def main():
 	d := MyData(10, 20, 30);
 	e := MyEntity(d);
 	e.print();
+
+	print("\n");
+	e2 := InheritedEntity(d);
+	e2.print_pos();
+	e2.move_by(10);
+	e2.print_pos();
+	e2.other_operation();
+	// Does not exist on InheritedEntity
+	//e2.print();
+	e2.print_pos();
+	
 	//fn<mut MyEntity> p = MyEntity::print;
 	//MyEntity.print(e);

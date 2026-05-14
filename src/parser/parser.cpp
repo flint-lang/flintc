@@ -1863,9 +1863,13 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                                         return false;
                                     }
                                     constructed_data.emplace_back(data_node);
-                                    auto idx = std::find(                                                                  //
-                                        data_modules.begin(), data_modules.end(), std::make_pair(data_node, data_accessor) //
+                                    auto idx = std::find(                                                                 //
+                                        data_modules.begin(), data_modules.end(), std::make_pair(data_node, std::nullopt) //
                                     );
+                                    if (idx == data_modules.end()) {
+                                        THROW_BASIC_ERR(ERR_PARSING);
+                                        return false;
+                                    }
                                     entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                                 }
                                 parent_added = true;
