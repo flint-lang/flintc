@@ -1495,12 +1495,21 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
         while (!body_mut.empty()) {
             const Line function_definition_line = body_mut.front();
             body_mut.erase(body_mut.begin());
-            if (body_mut.empty()) {
-                // Function has no body
-                // TODO: When "virtual" (linked) functions are implemented this case could be allowed if the function is only a definition
-                // and not a declaration
-                THROW_BASIC_ERR(ERR_PARSING);
+            std::pair<std::string, required_data_t> required_data_pair{func->name, func->required_data};
+            std::optional<FunctionNode> fn = parser.create_function(function_definition_line.tokens, required_data_pair);
+            if (!fn.has_value()) {
                 return false;
+            }
+            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(fn.value(), core_namespaces);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            if (body_mut.empty()) {
+                // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
+                // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
+                // of any func module which is not linked to a different concrete function, an error will be thrown.
+                func->functions.emplace_back(added_function.value());
+                continue;
             }
             std::vector<Line> function_body_lines;
             for (auto it = body_mut.begin(); it != body_mut.end();) {
@@ -1513,15 +1522,6 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
             }
             if (function_body_lines.empty()) {
                 THROW_BASIC_ERR(ERR_PARSING);
-                return false;
-            }
-            std::pair<std::string, required_data_t> required_data_pair{func->name, func->required_data};
-            std::optional<FunctionNode> fn = parser.create_function(function_definition_line.tokens, required_data_pair);
-            if (!fn.has_value()) {
-                return false;
-            }
-            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(fn.value(), core_namespaces);
-            if (!added_function.has_value()) {
                 return false;
             }
             parser.add_open_function({added_function.value(), function_body_lines});

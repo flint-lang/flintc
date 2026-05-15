@@ -185,9 +185,20 @@ std::optional<FunctionNode> Parser::create_function(                            
             tok_it += 2;
         }
     }
+    // Check if a body should follow (`:`) or if it's just a function declaration (`;`)
+    if (tok_it->token != TOK_COLON && tok_it->token != TOK_SEMICOLON) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const bool is_declaration = tok_it->token == TOK_SEMICOLON;
 
     // If its the main function, change its name
     if (name == "main") {
+        if (is_declaration) {
+            // The main function is not allowed to be just a declaration
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         if (required_data.has_value()) {
             // It is not allowed to define the main function within a func module
             THROW_BASIC_ERR(ERR_PARSING);
@@ -224,44 +235,47 @@ std::optional<FunctionNode> Parser::create_function(                            
     }
 
     // Create the body scope
-    std::optional<std::shared_ptr<Scope>> body_scope = std::make_shared<Scope>();
-    std::shared_ptr<Type> return_type = nullptr;
-    if (return_types.size() > 1) {
-        return_type = std::make_shared<GroupType>(return_types);
-        if (!file_node_ptr->file_namespace->add_type(return_type)) {
-            return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
+    std::optional<std::shared_ptr<Scope>> body_scope = std::nullopt;
+    if (!is_declaration) {
+        body_scope = std::make_shared<Scope>();
+        std::shared_ptr<Type> return_type = nullptr;
+        if (return_types.size() > 1) {
+            return_type = std::make_shared<GroupType>(return_types);
+            if (!file_node_ptr->file_namespace->add_type(return_type)) {
+                return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
+            }
+        } else if (return_types.empty()) {
+            return_type = Type::get_primitive_type("void");
+        } else {
+            return_type = return_types.front();
         }
-    } else if (return_types.empty()) {
-        return_type = Type::get_primitive_type("void");
-    } else {
-        return_type = return_types.front();
-    }
-    body_scope.value()->add_variable("flint.return_type",
-        {
-            .type = return_type,
-            .scope_id = 0,
-            .scope_segment = 0,
-            .is_mutable = false,
-            .is_persistent = false,
-            .is_fn_param = true,
-            .is_pseudo_variable = true,
-        });
+        body_scope.value()->add_variable("flint.return_type",
+            {
+                .type = return_type,
+                .scope_id = 0,
+                .scope_segment = 0,
+                .is_mutable = false,
+                .is_persistent = false,
+                .is_fn_param = true,
+                .is_pseudo_variable = true,
+            });
 
-    // Add the parameters to the list of variables
-    for (const auto &param : parameters) {
-        if (!body_scope.value()->add_variable(std::get<1>(param),
-                {
-                    .type = std::get<0>(param),
-                    .scope_id = body_scope.value()->scope_id,
-                    .scope_segment = 0,
-                    .is_mutable = std::get<2>(param),
-                    .is_persistent = false,
-                    .is_fn_param = true,
-                }) //
-        ) {
-            // Variable already exists in the func definition list
-            THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, std::get<1>(param));
-            return std::nullopt;
+        // Add the parameters to the list of variables
+        for (const auto &param : parameters) {
+            if (!body_scope.value()->add_variable(std::get<1>(param),
+                    {
+                        .type = std::get<0>(param),
+                        .scope_id = body_scope.value()->scope_id,
+                        .scope_segment = 0,
+                        .is_mutable = std::get<2>(param),
+                        .is_persistent = false,
+                        .is_fn_param = true,
+                    }) //
+            ) {
+                // Variable already exists in the func definition list
+                THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, std::get<1>(param));
+                return std::nullopt;
+            }
         }
     }
     // Dont parse the body yet, it will be parsed in the second pass of the parser

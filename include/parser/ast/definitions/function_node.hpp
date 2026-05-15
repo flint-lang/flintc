@@ -162,7 +162,7 @@ class FunctionNode : public DefinitionNode {
     std::vector<std::shared_ptr<Type>> error_types;
 
     /// @var `scope`
-    /// @brief The scope of the function containing all statements or nullopt if the function is just a definition
+    /// @brief The scope of the function containing all statements or nullopt if the function is just a declaration
     std::optional<std::shared_ptr<Scope>> scope;
 
     /// @var `mangle_id`

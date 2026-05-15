@@ -330,6 +330,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         if (is_test && function_node->name == "_main") {
             continue;
         }
+        if (!function_node->scope.has_value()) {
+            // Don't generate declaration-only functions
+            continue;
+        }
         if (!Function::generate_function_setup(module.get(), function_node)) {
             return std::nullopt;
         }

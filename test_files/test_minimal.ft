@@ -1,58 +1,51 @@
 use Core.print
 
-data MyData:
-	i32 x;
-	i32 y;
-	i32 z;
-	MyData(x, y, z);
+func IMovement:
+	def move();
 
-func MyFunc requires(MyData d):
-	def move_by(i32 diff):
-		d.(x, y, z) += (diff, diff, diff);
+data DPlayer:
+	i32x2 pos;
+	i32x2 dir;
+	DPlayer(pos, dir);
 
-entity MyEntity:
-	data: MyData d;
-	func: MyFunc;
-	MyEntity(d);
+func FPlayer requires(DPlayer d):
+	def move():
+		print($"Player moved from {d.pos} to");
+		d.pos += d.dir;
+		print($"{d.pos}\n");
 
-	def print():
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
-		self.other_fn();
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
-	
-	def other_fn():
-		self.move_by(10);
+entity Player:
+	data: DPlayer;
+	func: /*IMovement,*/ FPlayer;
+	//link: IMovement::move -> FPlayer::move;
+	Player(DPlayer);
 
-func InheritedFunc requires(MyData d):
-	def other_operation():
-		d.(x, y, z) *= d.(x, y, z);
-	
-	def print_pos():
-		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+data DComputer:
+	i32x2 pos;
+	i32x2 dir;
+	i32 speed;
+	DComputer(pos, dir, speed);
 
-entity InheritedEntity extends(MyEntity e):
-	data;
-	func: InheritedFunc;
-	InheritedEntity(e);
+func FComputer requires(DComputer d):
+	def move():
+		print($"Computer moved from {d.pos} to");
+		d.pos += d.dir * d.speed;
+		print($"{d.pos}\n");
+
+entity Computer:
+	data: DComputer;
+	func: /*IMovement,*/ FComputer;
+	//link: IMovement::move -> FComputer::move;
+	Computer(DComputer);
+
+//def apply_movement(mut IMovement m):
+//	m.move();
 
 def main():
-	d := MyData(10, 20, 30);
-	e := MyEntity(d);
-	e2 := InheritedEntity(d);
+	p := Player(DPlayer(i32x2(10, 20), i32x2(3, 2)));
+	p.move();
+	//apply_movement(p);
 
-	d.(x, y, z) = (0, 0, 0);
-
-	// Print MyEntity first
-	e.print();
-	fn<mut MyEntity> p = MyEntity::print;
-	p(e);
-	MyEntity.print(e);
-
-	print("\n");
-	e2.print_pos();
-	e2.move_by(10);
-	e2.print_pos();
-	e2.other_operation();
-	// Does not exist on InheritedEntity
-	//e2.print();
-	e2.print_pos();
+	c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
+	c.move();
+	//apply_movement(c);
