@@ -750,6 +750,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         if (fn_name != function_name) {
                             continue;
                         }
+                        if (entity_node->ctdt.find(function->get_id()) != entity_node->ctdt.end()) {
+                            // This function is linked to a different function, so it "does not exist" when doing a direct instance call
+                            continue;
+                        }
                         functions.emplace_back(function);
                         func_nodes.emplace(func_module);
                     }

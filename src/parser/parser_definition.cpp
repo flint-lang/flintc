@@ -602,47 +602,32 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
         assert(tok_it != definition.second);
     }
 
-    std::vector<std::pair<DataNode *, std::optional<std::string>>> data_modules;
-    std::vector<FuncNode *> func_modules;
-    std::vector<std::unique_ptr<LinkNode>> link_nodes;
-    std::vector<size_t> constructor_order;
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EntityNode(                                                                                                           //
-        file_hash, line, column, length, entity_name, data_modules, func_modules, link_nodes, parent_entities, constructor_order //
-    );
+    return EntityNode(file_hash, line, column, length, entity_name, parent_entities);
 }
 
-std::vector<std::unique_ptr<LinkNode>> Parser::create_links([[maybe_unused]] const std::vector<Line> &body) {
-    PROFILE_CUMULATIVE("Parser::create_links");
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    std::vector<std::unique_ptr<LinkNode>> links;
-    return links;
-}
-
-LinkNode Parser::create_link(const token_slice &tokens) {
+std::optional<LinkNode> Parser::create_link(const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_link");
-    std::vector<std::string> from_references;
-    std::vector<std::string> to_references;
 
-    std::vector<uint2> references = Matcher::get_match_ranges(tokens, Matcher::reference);
-
-    for (unsigned int i = references.at(0).first; i < references.at(0).second; i++) {
-        if ((tokens.first + i)->token == TOK_IDENTIFIER) {
-            from_references.emplace_back((tokens.first + i)->lexme);
-        }
+    std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
+    assert(arrow_range.has_value());
+    const token_slice src_tokens = {tokens.first, tokens.first + arrow_range.value().second - 1};
+    const token_slice dest_tokens = {src_tokens.second + 1, tokens.second};
+    auto src = create_function_reference(src_tokens);
+    if (!src.has_value()) {
+        return std::nullopt;
     }
-    for (unsigned int i = references.at(1).first; i < references.at(1).second; i++) {
-        if ((tokens.first + i)->token == TOK_IDENTIFIER) {
-            to_references.emplace_back((tokens.first + i)->lexme);
-        }
+    auto dest = create_function_reference(dest_tokens);
+    if (!dest.has_value()) {
+        return std::nullopt;
     }
 
     const unsigned int line = tokens.first->line;
     const unsigned int column = tokens.first->column;
     const unsigned int length = tokens.second->column - tokens.first->column;
-    return LinkNode(file_hash, line, column, length, from_references, to_references);
+    return LinkNode(file_hash, line, column, length, src.value(), dest.value());
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {

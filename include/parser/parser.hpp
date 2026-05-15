@@ -48,7 +48,6 @@
 #include "ast/expressions/optional_chain_node.hpp"
 #include "ast/expressions/switch_expression.hpp"
 #include "ast/expressions/unary_op_expression.hpp"
-#include "ast/expressions/variable_node.hpp"
 #include "ast/expressions/variant_extraction_node.hpp"
 #include "ast/statements/throw_node.hpp"
 
@@ -1114,15 +1113,9 @@ class Parser {
     /// @function `creat_function_reference`
     /// @brief Creates a FunctionReferenceNode from the given tokens
     ///
-    /// @param `ctx` The parsing context
-    /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the function reference
-    /// @return `std::optional<std::unique_ptr<CallNodeExpression>>` A unique pointer to the created function reference node
-    std::optional<std::unique_ptr<ExpressionNode>> create_function_reference( //
-        const Context &ctx,                                                   //
-        std::shared_ptr<Scope> &scope,                                        //
-        const token_slice &tokens                                             //
-    );
+    /// @return `std::optional<std::unique_ptr<FunctionReferenceNode>>` A unique pointer to the created function reference node
+    std::optional<std::unique_ptr<FunctionReferenceNode>> create_function_reference(const token_slice &tokens);
 
     /// @function `create_initializer`
     /// @brief Creates a InitializerNode from the given tokens
@@ -1130,7 +1123,7 @@ class Parser {
     /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the initializer is defined
     /// @param `tokens` The list of tokens representing the initializer
-    /// @return `std::optional<std::unique_ptr<InitializerNode>>` A unique pointer to the created InitializerNod3
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` A unique pointer to the created InitializerNode
     std::optional<std::unique_ptr<ExpressionNode>> create_initializer( //
         const Context &ctx,                                            //
         std::shared_ptr<Scope> &scope,                                 //
@@ -1945,19 +1938,12 @@ class Parser {
     /// @return `std::optional<EntityNode>` The created entity, or nullopt if it's creation failed
     std::optional<EntityNode> create_entity(const token_slice &definition);
 
-    /// @function `create_links`
-    /// @brief Creates a list of LinkNode's from a given body containing those links
-    ///
-    /// @param `body` The list of tokens forming the body containing all the link statements
-    /// @return `std::vector<std::unique_ptr<LinkNode>>` A vector of created LinkNode
-    std::vector<std::unique_ptr<LinkNode>> create_links(const std::vector<Line> &body);
-
     /// @function `create_link`
     /// @brief Creates a LinkNode from the given list of tokens
     ///
     /// @param `tokens` The list of tokens representing the link
     /// @return `LinkNode` The created LinkNode
-    LinkNode create_link(const token_slice &tokens);
+    std::optional<LinkNode> create_link(const token_slice &tokens);
 
     /// @function `create_enum`
     /// @brief Creates an EnumNode from the given definition and body tokens

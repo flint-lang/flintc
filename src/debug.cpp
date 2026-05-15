@@ -1552,12 +1552,27 @@ namespace Debug {
             }
 
             if (!entity.func_modules.empty()) {
-                TreeBits func_bits = bits.child(indent_lvl + 1, entity.functions.empty());
+                TreeBits func_bits = bits.child(indent_lvl + 1, entity.link_nodes.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
                 for (size_t i = 0; i < entity.func_modules.size(); i++) {
                     TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == entity.func_modules.size());
                     Local::print_header(indent_lvl + 2, func_module_bits, entity.func_modules.at(i)->name + " ");
+                    std::cout << "\n";
+                }
+            }
+
+            if (!entity.link_nodes.empty()) {
+                TreeBits link_bits = bits.child(indent_lvl + 1, entity.functions.empty());
+                Local::print_header(indent_lvl + 1, link_bits, "Links ");
+                std::cout << "\n";
+                for (size_t i = 0; i < entity.link_nodes.size(); i++) {
+                    TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == entity.link_nodes.size());
+                    Local::print_header(indent_lvl + 2, link_node_bits, "Link ");
+                    const auto &link_node = entity.link_nodes.at(i);
+                    std::cout << link_node->src->referenced_function->name;
+                    std::cout << " -> ";
+                    std::cout << link_node->dest->referenced_function->name;
                     std::cout << "\n";
                 }
             }

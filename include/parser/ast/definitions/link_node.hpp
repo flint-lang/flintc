@@ -1,36 +1,37 @@
 #pragma once
 
 #include "parser/ast/definitions/definition_node.hpp"
+#include "parser/ast/definitions/func_node.hpp"
 
-#include <string>
-#include <utility>
-#include <vector>
+// Forward-declaration of function reference node
+class FunctionReferenceNode;
 
-/// LinkNode
-///     Represents links within entities
+/// @class `LinkNode`
+/// @brief Represents links within entities which link one function to another function
 class LinkNode : public DefinitionNode {
   public:
-    explicit LinkNode(                  //
-        const Hash &file_hash,          //
-        const unsigned int line,        //
-        const unsigned int column,      //
-        const unsigned int length,      //
-        std::vector<std::string> &from, //
-        std::vector<std::string> &to    //
-        ) :
-        DefinitionNode(file_hash, line, column, length, {}),
-        from(std::move(from)),
-        to(std::move(to)) {}
+    explicit LinkNode(                               //
+        const Hash &file_hash,                       //
+        const unsigned int line,                     //
+        const unsigned int column,                   //
+        const unsigned int length,                   //
+        std::unique_ptr<FunctionReferenceNode> &src, //
+        std::unique_ptr<FunctionReferenceNode> &dest //
+    );
+
+    ~LinkNode() override;
+    LinkNode(LinkNode &&);
+    LinkNode &operator=(LinkNode &&);
 
     Variation get_variation() const override {
         return Variation::LINK;
     }
 
-  private:
-    /// from
-    ///     The function reference of the function that gets shadowed
-    std::vector<std::string> from;
-    // to
-    //      The function reference of the function that gets referenced
-    std::vector<std::string> to;
+    /// @var `src`
+    /// @brief The source function reference of the link
+    std::unique_ptr<FunctionReferenceNode> src;
+
+    // @var `dest`
+    // @brief The destination function reference of the link
+    std::unique_ptr<FunctionReferenceNode> dest;
 };

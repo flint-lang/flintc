@@ -10,14 +10,14 @@ data DPlayer:
 
 func FPlayer requires(DPlayer d):
 	def move():
-		print($"Player moved from {d.pos} to");
+		print($"Player moved from {d.pos} to ");
 		d.pos += d.dir;
 		print($"{d.pos}\n");
 
 entity Player:
 	data: DPlayer;
-	func: /*IMovement,*/ FPlayer;
-	//link: IMovement::move -> FPlayer::move;
+	func: IMovement, FPlayer;
+	link: IMovement::move -> FPlayer::move;
 	Player(DPlayer);
 
 data DComputer:
@@ -28,14 +28,14 @@ data DComputer:
 
 func FComputer requires(DComputer d):
 	def move():
-		print($"Computer moved from {d.pos} to");
+		print($"Computer moved from {d.pos} to ");
 		d.pos += d.dir * d.speed;
 		print($"{d.pos}\n");
 
 entity Computer:
 	data: DComputer;
-	func: /*IMovement,*/ FComputer;
-	//link: IMovement::move -> FComputer::move;
+	func: IMovement, FComputer;
+	link: IMovement::move -> FComputer::move;
 	Computer(DComputer);
 
 //def apply_movement(mut IMovement m):

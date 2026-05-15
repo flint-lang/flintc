@@ -847,11 +847,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     }
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_function_reference( //
-    [[maybe_unused]] const Context &ctx,                                          //
-    [[maybe_unused]] std::shared_ptr<Scope> &scope,                               //
-    const token_slice &tokens                                                     //
-) {
+std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_reference(const token_slice &tokens) {
     // If the first token is a type then it's a func module's or entities' function reference, so we need to search for the referenced
     // function within that func module / entity type
     token_slice tokens_mut = tokens;
@@ -2197,7 +2193,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::function_reference)) {
         if (token_size == 2 || token_size == 3) {
-            return create_function_reference(ctx, scope, tokens_mut);
+            return create_function_reference(tokens_mut);
         }
     }
     if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_chain, Matcher::expression_separator)) {

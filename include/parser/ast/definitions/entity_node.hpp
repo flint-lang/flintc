@@ -1,9 +1,9 @@
 #pragma once
 
-#include "link_node.hpp"
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
+#include "parser/ast/definitions/link_node.hpp"
 
 #include <memory>
 #include <string>
@@ -14,25 +14,17 @@
 /// @brief Represents entities and their func / data relationships
 class EntityNode : public DefinitionNode {
   public:
-    explicit EntityNode(                                                                    //
-        const Hash &file_hash,                                                              //
-        const unsigned int line,                                                            //
-        const unsigned int column,                                                          //
-        const unsigned int length,                                                          //
-        const std::string &name,                                                            //
-        const std::vector<std::pair<DataNode *, std::optional<std::string>>> &data_modules, //
-        const std::vector<FuncNode *> &func_modules,                                        //
-        std::vector<std::unique_ptr<LinkNode>> &link_nodes,                                 //
-        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &parent_entities,  //
-        const std::vector<size_t> &constructor_order                                        //
+    explicit EntityNode(                                                                  //
+        const Hash &file_hash,                                                            //
+        const unsigned int line,                                                          //
+        const unsigned int column,                                                        //
+        const unsigned int length,                                                        //
+        const std::string &name,                                                          //
+        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &parent_entities //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
-        data_modules(data_modules),
-        func_modules(func_modules),
-        link_nodes(std::move(link_nodes)),
-        parent_entities(parent_entities),
-        constructor_order(constructor_order) {}
+        parent_entities(parent_entities) {}
 
     Variation get_variation() const override {
         return Variation::ENTITY;
@@ -76,4 +68,9 @@ class EntityNode : public DefinitionNode {
     /// @var `constructor_order`
     /// @brief The order of the data modules in which they have to be constructed
     std::vector<size_t> constructor_order;
+
+    /// @var `ctdt`
+    /// @brief The compile-time dispatch-table which is needed to resolve all links of an entity, all *source* function IDs won't be added
+    /// to the list of functions the entity "provides"
+    std::unordered_map<size_t, size_t> ctdt;
 };

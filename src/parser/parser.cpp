@@ -4,6 +4,7 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
+#include "lexer/token.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/entity_type.hpp"
@@ -1607,8 +1608,8 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         auto &func_modules = entity->func_modules;
         auto &parent_entities = entity->parent_entities;
 
-        // Add all data modules and func modules of all parent entities to the data modules list in the order defined in the `extends`
-        // definition
+        // Add all data modules, func modules, links and the CTDT of all parent entities to the data modules list in the order defined in
+        // the `extends` definition
         std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers;
         for (const auto &[parent_entity_type, parent_entity_accessor] : parent_entities) {
             const EntityNode *parent_entity = parent_entity_type->as<EntityType>()->entity_node;
@@ -1623,6 +1624,14 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                 if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
                     func_modules.emplace_back(func_node);
                 }
+            }
+            for (const auto &[src_id, dest_id] : parent_entity->ctdt) {
+                if (entity->ctdt.find(src_id) != entity->ctdt.end()) {
+                    // Duplicate link, the same source function is linked twice
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                entity->ctdt[src_id] = dest_id;
             }
             if (captured_entity_identifiers.find(parent_entity_accessor) != captured_entity_identifiers.end()) {
                 // This entity identifier is already taken
@@ -1820,11 +1829,108 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             }
         }
 
-        std::vector<std::unique_ptr<LinkNode>> link_nodes;
+        auto &link_nodes = entity->link_nodes;
+        auto &ctdt = entity->ctdt;
         if (tok_it->token == TOK_LINK) {
-            // TODO: Parse all links once links are implemented
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return false;
+            tok_it++;
+            assert(tok_it->token == TOK_COLON);
+            tok_it++;
+            if (tok_it->token == TOK_EOL) {
+                line_it++;
+                tok_it = line_it->tokens.first;
+            }
+            token_slice link_tokens = {tok_it, tok_it};
+            while (link_tokens.second->token != TOK_SEMICOLON) {
+                link_tokens.second++;
+            }
+            parser.collapse_types_in_slice(link_tokens, parser.file_node_ptr->tokens);
+            while (true) {
+                auto next_link_range = Matcher::get_next_match_range(link_tokens, Matcher::until_comma);
+                const bool is_last = !next_link_range.has_value();
+                token_slice next_link_tokens;
+                if (is_last) {
+                    next_link_tokens = link_tokens;
+                } else {
+                    next_link_tokens = {link_tokens.first, link_tokens.second + next_link_range.value().second};
+                }
+                auto link_node = parser.create_link(next_link_tokens);
+                if (!link_node.has_value()) {
+                    return false;
+                }
+                const FunctionNode *src_fn = link_node.value().src->referenced_function;
+                const std::string &src_name = src_fn->name;
+                const size_t src_id = src_fn->get_id();
+                const auto src_dot_it = std::find(src_name.begin(), src_name.end(), '.');
+                if (src_dot_it == src_name.end()) {
+                    // It is not allowed to reference functions not coming from func modules
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const size_t src_dot_idx = std::distance(src_name.begin(), src_dot_it);
+                const std::string src_type_name = src_name.substr(0, src_dot_idx);
+                const auto src_type = parser.file_node_ptr->file_namespace->get_type_from_str(src_type_name).value();
+                if (src_type->get_variation() != Type::Variation::FUNC) {
+                    // It is not allowed to reference functions not coming from func modules
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const FuncNode *src_func = src_type->as<FuncType>()->func_node;
+                if (std::find(func_modules.begin(), func_modules.end(), src_func) == func_modules.end()) {
+                    // Referencing a function from a func module not present in this entity
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const FunctionNode *dest_fn = link_node.value().dest->referenced_function;
+                const std::string &dest_name = dest_fn->name;
+                const size_t dest_id = dest_fn->get_id();
+                const auto dest_dot_it = std::find(dest_name.begin(), dest_name.end(), '.');
+                if (dest_dot_it == dest_name.end()) {
+                    // It is not allowed to reference functions not coming from func modules
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const size_t dest_dot_idx = std::distance(dest_name.begin(), dest_dot_it);
+                const std::string dest_type_name = dest_name.substr(0, dest_dot_idx);
+                const auto dest_type = parser.file_node_ptr->file_namespace->get_type_from_str(dest_type_name).value();
+                if (dest_type->get_variation() != Type::Variation::FUNC) {
+                    // It is not allowed to reference functions not coming from func modules
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
+                if (std::find(func_modules.begin(), func_modules.end(), dest_func) == func_modules.end()) {
+                    // Referencing a function from a func module not present in this entity
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                const std::string src_fn_name = src_name.substr(src_dot_idx + 1);
+                const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
+                if (src_fn_name != dest_fn_name) {
+                    // It is not allowed to link two functions with different names
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                if (ctdt.find(src_id) != ctdt.end()) {
+                    // The same source function was linked from twice
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                ctdt[src_id] = dest_id;
+                link_nodes.emplace_back(std::make_unique<LinkNode>(std::move(link_node.value())));
+                if (is_last) {
+                    line_it++;
+                    tok_it = line_it->tokens.first;
+                    break;
+                }
+
+                link_tokens.first = next_link_tokens.second;
+                assert(link_tokens.first->token == TOK_COMMA);
+                link_tokens.first++;
+                if (link_tokens.first->token == TOK_EOL) {
+                    line_it++;
+                    link_tokens.first = line_it->tokens.first;
+                }
+            }
         }
 
         assert(tok_it->token == TOK_IDENTIFIER);
