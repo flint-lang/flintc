@@ -78,20 +78,23 @@ class FunctionNode : public DefinitionNode {
             }
             ss << return_types.at(i)->to_string();
         }
-        ss << "){";
+        ss << ")";
         // TODO: implement a way to re-use variable allocations within nested scopes to reduce the frame sizes
-        size_t i = 0;
-        for (const auto &[variable_name, variable] : scope.value()->get_all_variables()) {
-            if (variable.is_fn_param || variable.is_pseudo_variable) {
-                continue;
+        if (scope.has_value()) {
+            ss << "{";
+            size_t i = 0;
+            for (const auto &[variable_name, variable] : scope.value()->get_all_variables()) {
+                if (variable.is_fn_param || variable.is_pseudo_variable) {
+                    continue;
+                }
+                if (i > 0) {
+                    ss << ",";
+                }
+                ss << variable.type->to_string();
+                i++;
             }
-            if (i > 0) {
-                ss << ",";
-            }
-            ss << variable.type->to_string();
-            i++;
+            ss << "}";
         }
-        ss << "}";
         const std::string hash_str = ss.str();
         static std::unordered_map<std::string, size_t> ids;
         if (ids.find(hash_str) != ids.end()) {
