@@ -68,4 +68,21 @@ class EntityNode : public DefinitionNode {
     /// @var `edg`
     /// @brief The entity dispatch graph is a simple graph of function IDs built through all link directives of this entity / it's parents
     EntityDispatchGraph edg;
+
+    /// @function `get_fn_from_id`
+    /// @brief Returns the function of the func module from the given function ID
+    ///
+    /// @param `id` The ID of the function to search for
+    /// @return `std::optional<std::pair<FuncNode *, FunctionNode *>>` A pair containing the func node the function is defined in + the
+    /// function node itself, nullopt of the given function ID is not present in any of this entities func modules
+    std::optional<std::pair<const FuncNode *, const FunctionNode *>> get_fn_from_id(const size_t id) const {
+        for (const FuncNode *func : func_modules) {
+            for (const FunctionNode *function : func->functions) {
+                if (function->get_id() == id) {
+                    return std::make_pair(func, function);
+                }
+            }
+        }
+        return std::nullopt;
+    }
 };
