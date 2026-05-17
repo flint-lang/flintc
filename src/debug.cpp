@@ -57,7 +57,6 @@ PersistentThreadPool thread_pool;
 #include <memory>
 #include <ostream>
 #include <string>
-#include <typeinfo>
 #include <variant>
 
 namespace Debug {
@@ -264,11 +263,6 @@ namespace Debug {
                     case DefinitionNode::Variation::IMPORT: {
                         const auto *node = def->as<ImportNode>();
                         print_import(0, bits, *node);
-                        break;
-                    }
-                    case DefinitionNode::Variation::LINK: {
-                        const auto *node = def->as<LinkNode>();
-                        print_link(0, bits, *node);
                         break;
                     }
                     case DefinitionNode::Variation::TEST: {
@@ -1551,8 +1545,9 @@ namespace Debug {
                 std::cout << "\n";
             }
 
+            const std::unordered_map<size_t, size_t> edg_mappings = entity.edg.get_all_mappings();
             if (!entity.func_modules.empty()) {
-                TreeBits func_bits = bits.child(indent_lvl + 1, entity.link_nodes.empty());
+                TreeBits func_bits = bits.child(indent_lvl + 1, edg_mappings.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
                 for (size_t i = 0; i < entity.func_modules.size(); i++) {
@@ -1562,17 +1557,17 @@ namespace Debug {
                 }
             }
 
-            if (!entity.link_nodes.empty()) {
+            if (!edg_mappings.empty()) {
                 TreeBits link_bits = bits.child(indent_lvl + 1, entity.functions.empty());
                 Local::print_header(indent_lvl + 1, link_bits, "Links ");
                 std::cout << "\n";
-                for (size_t i = 0; i < entity.link_nodes.size(); i++) {
-                    TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == entity.link_nodes.size());
+                for (auto it = edg_mappings.begin(); it != edg_mappings.end(); it++) {
+                    const size_t i = std::distance(edg_mappings.begin(), it);
+                    TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == edg_mappings.size());
                     Local::print_header(indent_lvl + 2, link_node_bits, "Link ");
-                    const auto &link_node = entity.link_nodes.at(i);
-                    std::cout << link_node->src->referenced_function->name;
+                    std::cout << std::to_string(it->first);
                     std::cout << " -> ";
-                    std::cout << link_node->dest->referenced_function->name;
+                    std::cout << std::to_string(it->second);
                     std::cout << "\n";
                 }
             }
@@ -1756,13 +1751,6 @@ namespace Debug {
             }
 
             std::cout << std::endl;
-        }
-
-        /// print_link
-        ///     Prints the content of the generated LinkNode
-        void print_link([[maybe_unused]] unsigned int indent_lvl, [[maybe_unused]] TreeBits &bits, [[maybe_unused]] const LinkNode &link) {
-            Local::print_header(indent_lvl, bits, "Link ");
-            std::cout << typeid(link).name() << "\n";
         }
 
         /// print_variant

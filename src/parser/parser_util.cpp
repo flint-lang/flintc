@@ -743,6 +743,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 return std::nullopt;
             case Type::Variation::ENTITY: {
                 const EntityNode *entity_node = var_type->as<EntityType>()->entity_node;
+                const auto edg_mappings = entity_node->edg.get_all_mappings();
                 for (const auto &func_module : entity_node->func_modules) {
                     for (const auto &function : func_module->functions) {
                         // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
@@ -750,8 +751,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         if (fn_name != function_name) {
                             continue;
                         }
-                        if (entity_node->ctdt.find(function->get_id()) != entity_node->ctdt.end()) {
-                            // This function is linked to a different function, so it "does not exist" when doing a direct instance call
+                        if (edg_mappings.find(function->get_id()) != edg_mappings.end()) {
+                            // This function is linked to a different function, so it "does not exist" when doing a direct instance call,
+                            // only the mapped-to function is available to be called
                             continue;
                         }
                         functions.emplace_back(function);

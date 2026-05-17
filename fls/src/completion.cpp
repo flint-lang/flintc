@@ -53,9 +53,6 @@ void LspServer::add_nodes_from_namespace_to_completions( //
                 }
                 break;
             }
-            case DefinitionNode::Variation::LINK:
-                // Links are not supported yet
-                break;
             case DefinitionNode::Variation::TEST:
                 // Tests don't need any completions since they cannot be referenced
                 break;

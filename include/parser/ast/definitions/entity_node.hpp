@@ -3,7 +3,7 @@
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
-#include "parser/ast/definitions/link_node.hpp"
+#include "parser/entity_dispatch_graph.hpp"
 
 #include <memory>
 #include <string>
@@ -52,10 +52,6 @@ class EntityNode : public DefinitionNode {
     /// @brief The list of func modules used inside the entity
     std::vector<FuncNode *> func_modules;
 
-    /// @var `link_nodes`
-    /// @brief The list of all links (from -> to) inside the 'links:' part of the entity
-    std::vector<std::unique_ptr<LinkNode>> link_nodes;
-
     /// @var `functions`
     /// @brief A list of all functions defined as free-floating functions within this entity definition
     std::vector<FunctionNode *> functions{};
@@ -69,8 +65,7 @@ class EntityNode : public DefinitionNode {
     /// @brief The order of the data modules in which they have to be constructed
     std::vector<size_t> constructor_order;
 
-    /// @var `ctdt`
-    /// @brief The compile-time dispatch-table which is needed to resolve all links of an entity, all *source* function IDs won't be added
-    /// to the list of functions the entity "provides"
-    std::unordered_map<size_t, size_t> ctdt;
+    /// @var `edg`
+    /// @brief The entity dispatch graph is a simple graph of function IDs built through all link directives of this entity / it's parents
+    EntityDispatchGraph edg;
 };

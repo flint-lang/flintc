@@ -169,7 +169,6 @@ fn buildFLS(
             "src/error/err_expr_call_of_undefined_function.cpp",
             "src/parser/error_node.cpp",
             "src/parser/file_node.cpp",
-            "src/parser/link_node.cpp",
             "src/parser/namespace.cpp",
             "src/parser/parser.cpp",
             "src/parser/parser_definition.cpp",

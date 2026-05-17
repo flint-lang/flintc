@@ -16,7 +16,6 @@
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
 #include "ast/definitions/import_node.hpp"
-#include "ast/definitions/link_node.hpp"
 #include "ast/definitions/test_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 
@@ -1942,8 +1941,11 @@ class Parser {
     /// @brief Creates a LinkNode from the given list of tokens
     ///
     /// @param `tokens` The list of tokens representing the link
-    /// @return `LinkNode` The created LinkNode
-    std::optional<LinkNode> create_link(const token_slice &tokens);
+    /// @param `entity` The entity in which the link is defined. Needed to check whether the given functions do exit within that entity at
+    /// all
+    /// @return `std::optional<std::pair<size_t, size_t>>` The mapping of the source function ID to the dest function ID, nullopt if the
+    /// link is faulty
+    std::optional<std::pair<size_t, size_t>> create_link(const token_slice &tokens, const EntityNode *entity);
 
     /// @function `create_enum`
     /// @brief Creates an EnumNode from the given definition and body tokens

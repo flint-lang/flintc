@@ -9,7 +9,6 @@
 #include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
-#include "parser/ast/definitions/link_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
@@ -218,7 +217,6 @@ namespace Debug {
         void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func);
         void print_function(unsigned int indent_lvl, TreeBits &bits, const FunctionNode &function);
         void print_import(unsigned int indent_lvl, TreeBits &bits, const ImportNode &import);
-        void print_link(unsigned int indent_lvl, TreeBits &bits, const LinkNode &link);
         void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant);
         void print_test(unsigned int indent_lvl, TreeBits &bits, const TestNode &test);
         void print_annotations(unsigned int indent_lvl, TreeBits &bits, const std::vector<AnnotationNode> &annotations);

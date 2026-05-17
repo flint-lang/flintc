@@ -6,6 +6,7 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
@@ -608,7 +609,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
     return EntityNode(file_hash, line, column, length, entity_name, parent_entities);
 }
 
-std::optional<LinkNode> Parser::create_link(const token_slice &tokens) {
+std::optional<std::pair<size_t, size_t>> Parser::create_link(const token_slice &tokens, const EntityNode *entity) {
     PROFILE_CUMULATIVE("Parser::create_link");
 
     std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
@@ -624,10 +625,60 @@ std::optional<LinkNode> Parser::create_link(const token_slice &tokens) {
         return std::nullopt;
     }
 
-    const unsigned int line = tokens.first->line;
-    const unsigned int column = tokens.first->column;
-    const unsigned int length = tokens.second->column - tokens.first->column;
-    return LinkNode(file_hash, line, column, length, src.value(), dest.value());
+    const FunctionNode *src_fn = src.value()->referenced_function;
+    const std::string &src_name = src_fn->name;
+    const size_t src_id = src_fn->get_id();
+    const auto src_dot_it = std::find(src_name.begin(), src_name.end(), '.');
+    if (src_dot_it == src_name.end()) {
+        // It is not allowed to reference functions not coming from func modules
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const size_t src_dot_idx = std::distance(src_name.begin(), src_dot_it);
+    const std::string src_type_name = src_name.substr(0, src_dot_idx);
+    const auto src_type = file_node_ptr->file_namespace->get_type_from_str(src_type_name).value();
+    if (src_type->get_variation() != Type::Variation::FUNC) {
+        // It is not allowed to reference functions not coming from func modules
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const FuncNode *src_func = src_type->as<FuncType>()->func_node;
+    if (std::find(entity->func_modules.begin(), entity->func_modules.end(), src_func) == entity->func_modules.end()) {
+        // Referencing a function from a func module not present in this entity
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const FunctionNode *dest_fn = dest.value()->referenced_function;
+    const std::string &dest_name = dest_fn->name;
+    const size_t dest_id = dest_fn->get_id();
+    const auto dest_dot_it = std::find(dest_name.begin(), dest_name.end(), '.');
+    if (dest_dot_it == dest_name.end()) {
+        // It is not allowed to reference functions not coming from func modules
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const size_t dest_dot_idx = std::distance(dest_name.begin(), dest_dot_it);
+    const std::string dest_type_name = dest_name.substr(0, dest_dot_idx);
+    const auto dest_type = file_node_ptr->file_namespace->get_type_from_str(dest_type_name).value();
+    if (dest_type->get_variation() != Type::Variation::FUNC) {
+        // It is not allowed to reference functions not coming from func modules
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
+    if (std::find(entity->func_modules.begin(), entity->func_modules.end(), dest_func) == entity->func_modules.end()) {
+        // Referencing a function from a func module not present in this entity
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    const std::string src_fn_name = src_name.substr(src_dot_idx + 1);
+    const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
+    if (src_fn_name != dest_fn_name) {
+        // It is not allowed to link two functions with different names
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    return std::make_pair(src_id, dest_id);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {

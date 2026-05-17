@@ -58,7 +58,6 @@ class DefinitionNode : public ASTNode {
         FUNC,
         FUNCTION,
         IMPORT,
-        LINK,
         TEST,
         VARIANT,
     };

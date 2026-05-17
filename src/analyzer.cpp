@@ -157,8 +157,6 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
         }
         case DefinitionNode::Variation::IMPORT:
             break;
-        case DefinitionNode::Variation::LINK:
-            break;
         case DefinitionNode::Variation::TEST: {
             const auto *node = definition->as<TestNode>();
             result = analyze_scope(ctx, node->scope.get());
