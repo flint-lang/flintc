@@ -1855,7 +1855,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                 if (is_last) {
                     next_link_tokens = link_tokens;
                 } else {
-                    next_link_tokens = {link_tokens.first, link_tokens.second + next_link_range.value().second};
+                    next_link_tokens = {link_tokens.first, link_tokens.first + next_link_range.value().second};
                 }
                 auto link_mapping = parser.create_link(next_link_tokens, entity);
                 if (!link_mapping.has_value()) {
