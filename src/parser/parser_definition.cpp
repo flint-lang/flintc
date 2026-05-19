@@ -183,10 +183,11 @@ std::optional<FunctionNode> Parser::create_function(                            
                 return std::nullopt;
             }
             error_types.emplace_back(err_type.value());
-            if (std::next(tok_it)->token == TOK_RIGHT_BRACE) {
+            const bool is_last = std::next(tok_it)->token == TOK_RIGHT_BRACE;
+            tok_it += 2;
+            if (is_last) {
                 break;
             }
-            tok_it += 2;
         }
     }
     // Check if a body should follow (`:`) or if it's just a function declaration (`;`)
