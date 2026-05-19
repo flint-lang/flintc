@@ -3,6 +3,7 @@
 #include "generator/generator.hpp"
 
 #include "lexer/lexer_utils.hpp"
+#include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/entity_type.hpp"
@@ -12,6 +13,7 @@
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 
@@ -164,6 +166,172 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
             module->getOrInsertFunction(function_name, function_type);
             file_function_names.at(file_node.file_name).emplace_back(function_name);
         }
+    }
+}
+
+void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
+    llvm::FunctionType *const dispatch_fn_type = llvm::FunctionType::get( //
+        PTR_TY,                                                           // ptr to argument start or whether an error happened
+        {
+            PTR_TY,                          // ptr inreg stack
+            PTR_TY,                          // ptr entity
+            llvm::Type::getInt64Ty(context), // u64 fn_id
+            llvm::Type::getInt1Ty(context)   // bool is_setup
+        },                                   //
+        false                                //
+    );
+
+    for (const EntityNode *entity : Parser::get_all_entities()) {
+        const std::string dispatch_fn_name = entity->file_hash.to_string() + "." + entity->name + ".dispatch";
+        llvm::Function *const dispatch_fn = llvm::Function::Create(                     //
+            dispatch_fn_type, llvm::Function::ExternalLinkage, dispatch_fn_name, module //
+        );
+
+        llvm::Argument *const arg_stack = dispatch_fn->args().begin();
+        arg_stack->setName("stack");
+        arg_stack->addAttr(llvm::Attribute::InReg);
+
+        llvm::Argument *const arg_entity = dispatch_fn->args().begin() + 1;
+        arg_entity->setName("entity");
+
+        llvm::Argument *const arg_fn_id = dispatch_fn->args().begin() + 2;
+        arg_fn_id->setName("fn_id");
+
+        llvm::Argument *const arg_is_setup = dispatch_fn->args().begin() + 3;
+        arg_is_setup->setName("is_setup");
+
+        // We need a switch instructions with as many branches as functions defined across all functions of the entity
+        llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", dispatch_fn);
+        llvm::BasicBlock *const setup_entry_block = llvm::BasicBlock::Create(context, "setup_entry", dispatch_fn);
+        llvm::BasicBlock *const execute_entry_block = llvm::BasicBlock::Create(context, "execute_entry", dispatch_fn);
+        llvm::BasicBlock *const default_block = llvm::BasicBlock::Create(context, "default", dispatch_fn);
+
+        llvm::IRBuilder<> builder(entry_block);
+        builder.CreateCondBr(arg_is_setup, setup_entry_block, execute_entry_block);
+
+        builder.SetInsertPoint(setup_entry_block);
+        llvm::SwitchInst *const setup_switch = builder.CreateSwitch(arg_fn_id, default_block);
+        builder.SetInsertPoint(execute_entry_block);
+        llvm::SwitchInst *const execute_switch = builder.CreateSwitch(arg_fn_id, default_block);
+
+        // Generate all basic block targets
+        std::unordered_map<size_t, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
+        for (const FuncNode *func : entity->func_modules) {
+            for (const FunctionNode *function_node : func->functions) {
+                const size_t src_fn_id = function_node->get_id();
+                const size_t dest_fn_id = entity->edg.get_mapped_fn(function_node->get_id()).value();
+                if (src_fn_id != dest_fn_id) {
+                    // Function linked to other function, do not generate branch for it
+                    continue;
+                }
+                std::string branch_name = "_case_" + function_node->name;
+                for (size_t i = func->required_data.size(); i < function_node->parameters.size(); i++) {
+                    if (i == func->required_data.size()) {
+                        branch_name += "_";
+                    }
+                    branch_name += "_" + std::get<0>(function_node->parameters.at(i))->to_string();
+                }
+                llvm::BasicBlock *const setup_block = llvm::BasicBlock::Create(context, "setup" + branch_name, dispatch_fn);
+                llvm::BasicBlock *const execute_block = llvm::BasicBlock::Create(context, "execute" + branch_name, dispatch_fn);
+                branches[src_fn_id] = {setup_block, execute_block};
+            }
+        }
+
+        // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
+        for (const FuncNode *func : entity->func_modules) {
+            for (const FunctionNode *function_node : func->functions) {
+                const size_t fn_id = function_node->get_id();
+                if (branches.find(fn_id) == branches.end()) {
+                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
+                    const size_t target_fn_id = entity->edg.get_mapped_fn(fn_id).value();
+                    setup_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn_id).first);
+                    continue;
+                }
+                setup_switch->addCase(builder.getInt64(fn_id), branches.at(fn_id).first);
+                builder.SetInsertPoint(branches.at(fn_id).first);
+
+                // Store the default function frame in the TS
+                llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
+                llvm::GlobalVariable *const default_frame = Module::ThreadStack::ts_defaults.at(fn_id);
+                llvm::Value *const loaded_default = IR::aligned_load(builder, called_fn_frame_ty, default_frame, "default_frame");
+                IR::aligned_store(builder, loaded_default, arg_stack);
+                const uint32_t field_id = 1 + function_node->return_types.size() + func->required_data.size();
+                const uint32_t safe_field_id = std::min(field_id, called_fn_frame_ty->getNumElements() - 1);
+                llvm::Value *const arg_start_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, safe_field_id, "arg_start_ptr");
+                builder.CreateRet(arg_start_ptr);
+            }
+        }
+
+        // Generate all the bodies of the basic blocks, being the calls to the linked-to functions
+        for (const FuncNode *func : entity->func_modules) {
+            for (const FunctionNode *function_node : func->functions) {
+                const size_t fn_id = function_node->get_id();
+                if (branches.find(fn_id) == branches.end()) {
+                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
+                    const size_t target_fn_id = entity->edg.get_mapped_fn(fn_id).value();
+                    execute_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn_id).second);
+                    continue;
+                }
+                execute_switch->addCase(builder.getInt64(fn_id), branches.at(fn_id).second);
+                builder.SetInsertPoint(branches.at(fn_id).second);
+                std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+                if (function_node->mangle_id.has_value()) {
+                    assert(!function_node->is_extern);
+                    function_name += "." + std::to_string(function_node->mangle_id.value());
+                }
+                llvm::Function *const function = module->getFunction(function_name);
+                assert(function != nullptr);
+
+                // Store the data values of the entity inside the implicit parameters of the targetted function
+                llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
+                std::vector<std::pair<llvm::Value *, llvm::Value *>> data_ptr_pairs;
+                for (size_t i = 0; i < func->required_data.size(); i++) {
+                    const auto &[data_type, accessor] = func->required_data.at(i);
+                    size_t data_id = 0;
+                    for (; data_id < entity->data_modules.size(); data_id++) {
+                        // Since data nodes are generated as unique pointers, the raw pointers can be compared directly
+                        if (entity->data_modules.at(data_id).first == data_type->as<DataType>()->data_node) {
+                            break;
+                        }
+                    }
+                    // The required data definitely should be part of the entity, otherwise the parser would have crashed
+                    assert(data_id != entity->data_modules.size());
+                    // Load the data pointer from the passed-in entity
+                    llvm::Value *const data_ptr_ptr = builder.CreateGEP(PTR_TY, arg_entity, builder.getInt32(data_id), "data_ptr_ptr");
+                    llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
+                    const std::string arg_ptr_str = "arg_" + std::to_string(i) + "_ptr";
+                    const size_t arg_ptr_id = 1 + function_node->return_types.size() + i;
+                    llvm::Value *const fn_frame_arg_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, arg_ptr_id, arg_ptr_str);
+                    IR::aligned_store(builder, data_ptr, fn_frame_arg_ptr);
+                    data_ptr_pairs.emplace_back(data_ptr_ptr, fn_frame_arg_ptr);
+                }
+
+                // Now that the required data is stored in the function frame, we can call the targetted function
+                llvm::Value *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+
+                // Store back the data values of the function frame to the entity if the local data has been overwritten
+                for (const auto &[entity_data, fn_frame_data] : data_ptr_pairs) {
+                    llvm::Value *const new_data = IR::aligned_load(builder, PTR_TY, fn_frame_data, "new_data");
+                    IR::aligned_store(builder, new_data, entity_data);
+                }
+                // We return "garbage" in the case of error, nullpointer if no error happened. This return value of the dispatch function
+                // should *never* be read when calling the dispatch function in execute mode
+                llvm::Value *const err_ptr = builder.CreateSelect(call_err, arg_stack, llvm::ConstantPointerNull::get(PTR_TY), "err_ptr");
+                builder.CreateRet(err_ptr);
+            }
+        }
+
+        // The default block is an error block since that type ID should not be possible
+        builder.SetInsertPoint(default_block);
+        llvm::Value *dispatch_err_msg = IR::generate_const_string(module, "Error: Unknown function ID in dispatch: %lu\n");
+        builder.CreateCall(c_functions.at(PRINTF), {dispatch_err_msg, arg_fn_id});
+        builder.CreateCall(c_functions.at(ABORT), {});
+        builder.CreateUnreachable();
+
+        // It is safe to cast away the const here using `const_cast` since the lifetime of the entity type is *very* short
+        const uint32_t entity_type_id = std::make_shared<EntityType>(const_cast<EntityNode *const>(entity))->get_id();
+        assert(entity_dispatch_functions.find(entity_type_id) == entity_dispatch_functions.end());
+        entity_dispatch_functions[entity_type_id] = dispatch_fn;
     }
 }
 
@@ -535,20 +703,12 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             if (type_map.find(type_str) != type_map.end()) {
                 return {type_map.at(type_str), {false, true}};
             }
-            // Check if the func type even requires any data. If it does not then it's type cannot be created
-            // TODO: Once CTDTs exist this check is no longer required as then any function could be linked to / hooked into any other
-            // function and the call is determined at runtime via a vtable-like system. But until this is implemented all
-            // func-modules-as-interfaces are static and compile-time known which means they need at least one required data to even be a
-            // valid type, since a struct with no members would crash llvm
-            if (func_type->func_node->required_data.empty()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return {nullptr, {false, true}};
-            }
-            // Create the func type, it's just a struct containing pointers to the defined data
-            std::vector<llvm::Type *> field_types;
-            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
-                field_types.emplace_back(PTR_TY);
-            }
+            // Because a func module can only exist through an entity being stored on it, a func module is a rather simple structure
+            // contianing of:
+            // - A pointer to the entity assigned to the func-module instance
+            // - A pointer to the entity dispatch function to call
+            // - The Type ID of the entity stored in the func-module instance
+            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, llvm::Type::getInt32Ty(context)};
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }

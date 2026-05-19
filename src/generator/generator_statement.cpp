@@ -146,7 +146,14 @@ bool Generator::Statement::generate_statement(      //
         }
         case StatementNode::Variation::INSTANCE_CALL: {
             const auto *node = statement->as<InstanceCallNodeStatement>();
-            group_mapping gm = Expression::generate_instance_call(builder, ctx, static_cast<const InstanceCallNodeBase *>(node));
+            Expression::garbage_type garbage;
+            group_mapping gm = Expression::generate_instance_call(                        //
+                builder, ctx, garbage, 0, static_cast<const InstanceCallNodeBase *>(node) //
+            );
+            if (!clear_garbage(builder, garbage)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
             return gm.has_value();
         }
         case StatementNode::Variation::RETURN: {

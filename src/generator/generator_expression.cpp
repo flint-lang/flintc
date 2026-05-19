@@ -13,7 +13,6 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
-#include "parser/type/data_type.hpp"
 #include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -23,6 +22,7 @@
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
@@ -93,7 +93,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
-            return generate_instance_call(builder, ctx, static_cast<const InstanceCallNodeBase *>(node));
+            return generate_instance_call(builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node));
         }
         case ExpressionNode::Variation::LITERAL: {
             const auto *node = expression_node->as<LiteralNode>();
@@ -2111,14 +2111,128 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 Generator::group_mapping Generator::Expression::generate_instance_call( //
     llvm::IRBuilder<> &builder,                                         //
     GenerationContext &ctx,                                             //
+    garbage_type &garbage,                                              //
+    const unsigned int expr_depth,                                      //
     const InstanceCallNodeBase *call_node                               //
 ) {
     switch (call_node->instance_variable->type->get_variation()) {
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
-        case Type::Variation::FUNC:
-            [[fallthrough]];
+        case Type::Variation::FUNC: {
+            auto result = generate_expression(builder, ctx, garbage, expr_depth, call_node->instance_variable.get(), true);
+            if (!result.has_value()) {
+                return std::nullopt;
+            }
+            assert(result.value().size() == 1);
+            llvm::Value *const func_instance = result.value().front();
+
+            // Prepare all the arguments we pass to the function
+            std::vector<llvm::Value *> args;
+            std::vector<std::pair<std::shared_ptr<Type>, bool>> parameters;
+            for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
+                parameters.emplace_back(param_type, param_is_mutable);
+            }
+            if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters)) {
+                return std::nullopt;
+            }
+
+            // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
+            llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+            llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
+            llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+            llvm::Value *const ts_ptr_ptr = builder.CreateStructGEP(                              //
+                ts_fn_ty, next_stack_frame, Module::ThreadStack::FUNCTION::THREAD_STACK, "ts_ptr" //
+            );
+            IR::aligned_store(builder, ts_ptr_ptr, ts_ptr);
+
+            // Set up the frame by calling the dispatch function in setup-mode
+            const FuncType *func_type = call_node->instance_variable->type->as<FuncType>();
+            llvm::StructType *const func_ty = type_map.at(func_type->get_type_string());
+            llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
+            llvm::Value *const entity_ptr_ptr = builder.CreateStructGEP(func_ty, func_instance, 0, "entity_ptr_ptr");
+            llvm::Value *const entity_ptr = IR::aligned_load(builder, PTR_TY, entity_ptr_ptr, "entity_ptr");
+            llvm::Value *const dispatch_fn_ptr = builder.CreateStructGEP(func_ty, func_instance, 1, "dispatch_fn_ptr");
+            llvm::Value *const dispatch_fn_raw = IR::aligned_load(builder, PTR_TY, dispatch_fn_ptr, "dispatch_fn");
+            llvm::FunctionType *const dispatch_fn_ty = llvm::FunctionType::get(            //
+                PTR_TY, {PTR_TY, PTR_TY, builder.getInt64Ty(), builder.getInt1Ty()}, false //
+            );
+            llvm::FunctionCallee dispatch_fn(dispatch_fn_ty, dispatch_fn_raw);
+            llvm::CallInst *const setup_call = builder.CreateCall(                                     //
+                dispatch_fn, {next_stack_frame, entity_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
+            );
+            setup_call->addParamAttr(0, llvm::Attribute::InReg);
+            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                // Add the 'tailcc' to every user-defined call
+                setup_call->setCallingConv(llvm::CallingConv::Tail);
+                setup_call->setTailCall();
+            }
+
+            // Store all function parameters starting at the returned arg pointer
+            llvm::Value *arg_ptr = setup_call;
+            for (size_t i = 0; i < args.size(); i++) {
+                const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
+                llvm::Value *arg_value = args[i];
+                if (is_arg_reference(call_node->arguments[i], param_type)) {
+                    const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
+                    llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
+                    arg_value = IR::aligned_load(builder, param_ty, arg_value);
+                }
+                // arg_value->dump();
+                IR::aligned_store(builder, arg_value, arg_ptr);
+                arg_ptr = builder.CreateGEP(arg_value->getType(), arg_ptr, builder.getInt32(1), "arg_ptr_" + std::to_string(i + 1));
+            }
+
+            // Call dispatch function in execute mode to actually call the targetted function
+            llvm::CallInst *call = builder.CreateCall(                         //
+                dispatch_fn,                                                   //
+                {next_stack_frame, entity_ptr, fn_id, builder.getInt1(false)}, //
+                func_type->func_node->name + "_dispatch__call"                 //
+            );
+            call->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Call of dispatch function '" + call_node->function->name + "'")));
+            call->addParamAttr(0, llvm::Attribute::InReg);
+            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                // Add the 'tailcc' to every user-defined call
+                call->setCallingConv(llvm::CallingConv::Tail);
+                call->setTailCall();
+            }
+            llvm::Value *const call_is_err = builder.CreateICmpNE(call, llvm::ConstantPointerNull::get(PTR_TY), "call_is_err");
+            last_err_values = {call_is_err, next_stack_frame};
+
+            // Do all the common call cleanup on the arguments of the call
+            if (!generate_call_arg_cleanup(                                                                         //
+                    builder, ctx, args, garbage, std::nullopt, next_stack_frame, call_node->function->return_types, //
+                    call_node->arguments, parameters, call_node->function->name)                                    //
+            ) {
+                return std::nullopt;
+            }
+
+            // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
+            if (!call_node->has_catch) {
+                generate_rethrow(builder, ctx, call_node, call_node->function->name);
+            }
+
+            // Extract all the return values from the call
+            std::vector<llvm::Value *> return_value;
+            llvm::Value *ret_ptr = nullptr;
+            for (unsigned int i = 0; i < call_node->function->return_types.size(); i++) {
+                if (i == 0) {
+                    ret_ptr = builder.CreateGEP(type_map.at("type.ts.function"), next_stack_frame, builder.getInt32(1), "ret_ptr_0");
+                }
+                const std::shared_ptr<Type> &ret_type = call_node->function->return_types.at(i);
+                const auto ret_pair = IR::get_type(ctx.parent->getParent(), ret_type);
+                llvm::Type *const ret_ty = ret_pair.second.first ? PTR_TY : ret_pair.first;
+                llvm::LoadInst *ret_value = IR::aligned_load(builder,                                                         //
+                    ret_ty,                                                                                                   //
+                    ret_ptr,                                                                                                  //
+                    call_node->function->name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+                );
+                return_value.emplace_back(ret_value);
+                ret_ptr = builder.CreateGEP(ret_ty, arg_ptr, builder.getInt32(1), "ret_ptr_" + std::to_string(i + 1));
+            }
+            return return_value;
+        }
         case Type::Variation::ENTITY:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node));
     }
@@ -3569,8 +3683,10 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         }
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
     }
-    // First, generate the expression
-    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get());
+    // First, generate the expression. The base expresson must be a reference if we cast entities (entities can only be cast to func module
+    // instances, e.g. interfaces, and for that we need their allocations directly)
+    const bool is_reference = type_cast_node->expr->type->get_variation() == Type::Variation::ENTITY;
+    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get(), is_reference);
     if (!expr_res.has_value()) {
         return std::nullopt;
     }
@@ -3708,26 +3824,15 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
         }
     } else if (from_type->get_variation() == Type::Variation::ENTITY && to_type->get_variation() == Type::Variation::FUNC) {
-        // We "cast" an entity to a func module by extracting the required data of the func module from the entity and storing it in the
-        // func module. Whenever we extract and store a data value from the entity to the func module we call `dima.retain` on that value
-        // first for proper ARC-tracking
+        // We "cast" an entity to a func module by storing the pointer to the entity alongside the pointer to the dispatch function and the
+        // ID of the entity in a new structure.
+        const EntityType *entity_type = from_type->as<EntityType>();
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
-        const EntityNode *entity_node = from_type->as<EntityType>()->entity_node;
-        const FuncNode *func_node = to_type->as<FuncType>()->func_node;
-        llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
-        for (size_t i = 0; i < func_node->required_data.size(); i++) {
-            const DataNode *data_node = func_node->required_data.at(i).first->as<DataType>()->data_node;
-            size_t idx = 0;
-            for (; idx < entity_node->data_modules.size(); idx++) {
-                const DataNode *data_ptr = entity_node->data_modules.at(idx).first;
-                if (data_ptr == data_node) {
-                    break;
-                }
-            }
-            llvm::Value *ext_data = builder.CreateExtractValue(expr, idx, "extracted_data_" + std::to_string(idx));
-            builder.CreateCall(retain_fn, {ext_data});
-            func_value = builder.CreateInsertValue(func_value, ext_data, i, "func_value__insert_" + std::to_string(i));
-        }
+        const std::string &cast_name = entity_type->to_string() + "_to_" + to_type->to_string();
+        llvm::Function *entity_dispatch_fn = entity_dispatch_functions.at(entity_type->get_id());
+        func_value = builder.CreateInsertValue(func_value, expr, 0);
+        func_value = builder.CreateInsertValue(func_value, entity_dispatch_fn, 1);
+        func_value = builder.CreateInsertValue(func_value, builder.getInt32(entity_type->get_id()), 2, cast_name);
         return func_value;
     } else if (from_type_str == "u8") {
         if (to_type_str == "str") {

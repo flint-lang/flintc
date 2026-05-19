@@ -339,6 +339,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
     }
 
+    // Generate all the entity dispatch functions
+    IR::generate_entity_dispatch_functions(module.get());
+
     // Start with the tips of the dependency graph and then work towards the root node. First, get all tips of the graph:
     std::vector<std::weak_ptr<DepNode>> tips;
     Resolver::get_dependency_graph_tips(dep_graph, tips);

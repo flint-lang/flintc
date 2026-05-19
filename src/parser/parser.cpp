@@ -1209,20 +1209,33 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
             }
         }
     }
-    // Go through all instances of the parser and collect all errors from all instances
+    // Go through all instances of the parser and collect all functions from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
-                const auto *function_node = definition->as<FunctionNode>();
-                if (function_node->is_extern) {
-                    // We do not collect extern functions, they are not TS-managed but are direct calls instead
-                    continue;
-                }
-                functions.emplace_back(function_node);
+            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                continue;
             }
+            const auto *function_node = definition->as<FunctionNode>();
+            if (function_node->is_extern) {
+                // We do not collect extern functions, they are not TS-managed but are direct calls instead
+                continue;
+            }
+            functions.emplace_back(function_node);
         }
     }
     return functions;
+}
+
+std::vector<const EntityNode *> Parser::get_all_entities() {
+    std::vector<const EntityNode *> entities;
+    for (const auto &instance : Parser::instances) {
+        for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() == DefinitionNode::Variation::ENTITY) {
+                entities.emplace_back(definition->as<EntityNode>());
+            }
+        }
+    }
+    return entities;
 }
 
 std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
@@ -1505,13 +1518,6 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
             if (!added_function.has_value()) {
                 return false;
             }
-            if (body_mut.empty()) {
-                // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
-                // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
-                // of any func module which is not linked to a different concrete function, an error will be thrown.
-                func->functions.emplace_back(added_function.value());
-                continue;
-            }
             std::vector<Line> function_body_lines;
             for (auto it = body_mut.begin(); it != body_mut.end();) {
                 if (it->indent_lvl > function_definition_line.indent_lvl) {
@@ -1522,8 +1528,11 @@ bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
                 break;
             }
             if (function_body_lines.empty()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return false;
+                // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
+                // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
+                // of any func module which is not linked to a different concrete function, an error will be thrown.
+                func->functions.emplace_back(added_function.value());
+                continue;
             }
             parser.add_open_function({added_function.value(), function_body_lines});
             func->functions.emplace_back(added_function.value());
@@ -1855,7 +1864,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                 if (is_last) {
                     next_link_tokens = link_tokens;
                 } else {
-                    next_link_tokens = {link_tokens.first, link_tokens.first + next_link_range.value().second};
+                    next_link_tokens = {link_tokens.first, link_tokens.first + next_link_range.value().second - 1};
                 }
                 auto link_mapping = parser.create_link(next_link_tokens, entity);
                 if (!link_mapping.has_value()) {

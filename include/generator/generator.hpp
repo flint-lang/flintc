@@ -363,6 +363,11 @@ class Generator {
     /// file B can call the extern-defined functions defined in file A)
     static inline std::unordered_map<std::string, FunctionNode *> extern_functions;
 
+    /// @var `entity_dispatch_functions`
+    /// @brief A map of all entity dispatch functions. The key is the type ID of the entity, the value is the generated entity dispatch
+    /// function needed for proper function dispatch when calling functions of func module instances (interfaces).
+    static inline std::unordered_map<uint32_t, llvm::Function *> entity_dispatch_functions;
+
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
     /// @note This class cannot be initialized and all functions within this class are static
@@ -436,6 +441,12 @@ class Generator {
         /// @param `module` The module the forward declarations are declared inside
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
+
+        /// @function `generate_entity_dispatch_functions`
+        /// @brief Generates all entity dispatch functions of every entity type defined in the program
+        ///
+        /// @param `module` THe module in which to generate the entity dispatch functions in
+        static void generate_entity_dispatch_functions(llvm::Module *module);
 
         /// @function `get_extern_type`
         /// @brief Returns the llvm Type from a given Type for the use with FIP
@@ -1710,11 +1721,15 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `call_node` The call node to generate
         /// @return `group_mapping` The value(s) containing the result of the instance call
         static group_mapping generate_instance_call( //
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
+            garbage_type &garbage,                   //
+            const unsigned int expr_depth,           //
             const InstanceCallNodeBase *call_node    //
         );
 

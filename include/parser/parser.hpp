@@ -253,6 +253,12 @@ class Parser {
     /// @return `std::vector<const FunctionNode *>` A list of all functions from all files
     static std::vector<const FunctionNode *> get_all_functions(const bool include_core = false);
 
+    /// @function `get_all_entities`
+    /// @brief Collects and returns all entities defined across all files
+    ///
+    /// @return `std::vector<const EntityNode *>` A list of all entities from all files
+    static std::vector<const EntityNode *> get_all_entities();
+
     /// @function `get_all_data_types`
     /// @brief Collects and returns all data types from all files
     ///
