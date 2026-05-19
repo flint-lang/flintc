@@ -37,3 +37,9 @@ test "Day 6":
 	str path = "aoc/2025/6";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "part_1 = 5784380717354\npart_2 = 7996218225744\n");
+
+#test_performance
+test "Day 7":
+	str path = "aoc/2025/7";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "part_1 = 1562\npart_2 = 24292631346665\n");
