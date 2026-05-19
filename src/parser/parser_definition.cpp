@@ -160,6 +160,9 @@ std::optional<FunctionNode> Parser::create_function(                            
                     }
                     return_types.emplace_back(return_type.value());
                     last_type_begin = tok_it + 1;
+                    if (tok_it->token == TOK_RIGHT_PAREN) {
+                        break;
+                    }
                 }
                 tok_it++;
             }
