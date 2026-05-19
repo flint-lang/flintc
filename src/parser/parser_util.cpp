@@ -501,7 +501,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     );
     if (is_typed_call) {
         assert(tokens.first->token == TOK_TYPE);
-        const auto &type_var = tokens.first->type->get_variation();
+        [[maybe_unused]] const auto &type_var = tokens.first->type->get_variation();
         assert(type_var == Type::Variation::FUNC || type_var == Type::Variation::ENTITY);
         assert((tokens.first + 1)->token == TOK_DOT);
         assert((tokens.first + 2)->token == TOK_IDENTIFIER);
