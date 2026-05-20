@@ -21,6 +21,10 @@ class AliasType : public Type {
         return type->is_freeable();
     }
 
+    bool is_dima_managed() const override {
+        return type->is_dima_managed();
+    }
+
     Hash get_hash() const override {
         return type->get_hash();
     }

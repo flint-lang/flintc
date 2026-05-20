@@ -20,6 +20,10 @@ class OptionalType : public Type {
         return base_type->is_freeable();
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return base_type->get_hash();
     }

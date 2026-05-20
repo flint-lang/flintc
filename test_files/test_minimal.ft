@@ -62,7 +62,10 @@ def apply_movement(mut IMovement m):
 
 def main():
 	p := Player(DPlayer(i32x2(10, 20), i32x2(3, 2)));
-	apply_movement(p);
+	IMovement m = p;
+	apply_movement(m);
 
-	c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
-	apply_movement(c);
+	if true:
+		c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
+		m = c;
+	apply_movement(m);

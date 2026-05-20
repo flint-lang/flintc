@@ -951,9 +951,8 @@ void Generator::Expression::convert_data_type_from_ext( //
     builder.SetInsertPoint(current_block);
     builder.CreateBr(convert_type_from_ext_block);
     builder.SetInsertPoint(convert_type_from_ext_block);
-    const bool is_data = type->get_variation() == Type::Variation::DATA;
     llvm::Value *result_ptr = nullptr;
-    if (is_data) {
+    if (type->is_dima_managed()) {
         llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
         result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(type)}, "result_ptr");
     } else {
@@ -1500,7 +1499,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
         const Type::Variation arg_var = arg_type->get_variation();
         const Type::Variation param_var = param_type->get_variation();
         const bool is_tmp_opt = param_var == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
-        const bool is_data = param_var == Type::Variation::DATA && arg_var == Type::Variation::DATA;
+        const bool is_dima_managed = param_type->is_dima_managed() && arg_type->is_dima_managed();
         if (is_tmp_opt) {
             // We are passing a non-optional value to a function expecting an optional, so we build up the optional struct which is later
             // stored in the TS frame of the called function
@@ -1513,7 +1512,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt1(true), 0);
             temp_opt = builder.CreateInsertValue(temp_opt, expr_val, 1, "temp_opt");
             expr_val = temp_opt;
-        } else if (is_data) {
+        } else if (is_dima_managed) {
             // Call `dima.retain` to increment the ARC before passing the argument to the function
             // Data is always passed by reference
             llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
@@ -1599,7 +1598,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
     // assigning back the potentially modified parameters of the called function (the next loop).
     for (size_t i = 0; i < arguments.size(); i++) {
         const auto &arg = arguments[i];
-        if (arg.first->type->get_variation() != Type::Variation::DATA) {
+        if (!arg.first->type->is_dima_managed()) {
             continue;
         }
         // Call `dima.release` to decrement the ARC after the function call
@@ -1885,10 +1884,10 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
         return_value.emplace_back(builder.CreateCall(func_decl, args));
         for (size_t i = 0; i < call_node->arguments.size(); i++) {
             const auto &arg = call_node->arguments[i];
-            if (arg.first->type->get_variation() != Type::Variation::DATA) {
+            if (!arg.first->type->is_dima_managed()) {
                 continue;
             }
-            if (call_node->arguments.at(i).first->type->get_variation() != Type::Variation::DATA) {
+            if (!call_node->arguments.at(i).first->type->is_dima_managed()) {
                 continue;
             }
             // Call `dima.release` to decrement the ARC after the function call
@@ -1922,10 +1921,10 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
     // Call 'dima.release' on the retained function arguments
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
-        if (arg.first->type->get_variation() != Type::Variation::DATA) {
+        if (!arg.first->type->is_dima_managed()) {
             continue;
         }
-        if (call_node->arguments.at(i).first->type->get_variation() != Type::Variation::DATA) {
+        if (!call_node->arguments.at(i).first->type->is_dima_managed()) {
             continue;
         }
         // Call `dima.release` to decrement the ARC after the function call
@@ -2443,12 +2442,14 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             return std::vector<llvm::Value *>{data_ptr};
         }
         case Type::Variation::ENTITY: {
-            // Create an empty entity first and then simply store the pointers to the data values in it and return the constructed entity
-            // structure
-            llvm::Type *const entity_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
-            llvm::Value *const default_entity = IR::get_default_value_of_type(entity_type);
-            // Store the empty entity in the scratchspace
-            IR::aligned_store(builder, default_entity, scratchspace);
+            // Allocate space for the entity
+            llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+            llvm::GlobalVariable *const entity_head = Module::DIMA::get_head(initializer->type);
+            llvm::Value *const entity_ptr = builder.CreateCall(                                         //
+                dima_allocate_fn, {entity_head}, "initializer.entity." + initializer->type->to_string() //
+            );
+            llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+
             for (size_t i = 0; i < initializer->args.size(); i++) {
                 const auto &arg = initializer->args.at(i);
                 auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
@@ -2461,15 +2462,14 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                // Do a GEP in the initialized entity (scratchspace) to be able to call `flint.clone`
-                llvm::Value *const dest_ptr = builder.CreateStructGEP(entity_type, scratchspace, i, "entity_init_" + std::to_string(i));
+                // Do a GEP in the initialized entity to be able to call `flint.clone`
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, entity_ptr, i, "entity_init_" + std::to_string(i));
                 // Call `flint.clone` to store the data in the entity
                 llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
                 llvm::Value *const expr_val = expr_result.value().front();
                 builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(arg->type->get_id())});
             }
-            llvm::Value *const initialized_entity = IR::aligned_load(builder, entity_type, scratchspace, "initialized_entity");
-            return std::vector<llvm::Value *>{initialized_entity};
+            return std::vector<llvm::Value *>{entity_ptr};
         }
         case Type::Variation::MULTI: {
             // Create an "empty" vector of the multi-type
@@ -2929,7 +2929,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     }
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
     const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
-    llvm::Type *element_type = initializer->element_type->get_variation() == Type::Variation::DATA ? PTR_TY : elem_type_pair.first;
+    llvm::Type *element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
     llvm::CallInst *created_array = builder.CreateCall(        //
         Module::Array::array_manip_functions.at("create_arr"), //
@@ -3238,8 +3238,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     const bool is_reference                                           //
 ) {
     // First, generate the base expression to get the value of the data variable
-    const bool base_ref = data_access->base_expr->type->get_variation() == Type::Variation::ENTITY;
-    group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, data_access->base_expr.get(), base_ref);
+    group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, data_access->base_expr.get());
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
@@ -3300,7 +3299,6 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             return values;
         }
         case Type::Variation::ENTITY: {
-            assert(base_ref);
             llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
             llvm::Value *data_ptr = builder.CreateStructGEP(entity_type, expr_val, data_access->field_id, "entity_data_ptr_gep");
             if (!is_reference) {
@@ -3683,10 +3681,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         }
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
     }
-    // First, generate the expression. The base expresson must be a reference if we cast entities (entities can only be cast to func module
-    // instances, e.g. interfaces, and for that we need their allocations directly)
-    const bool is_reference = type_cast_node->expr->type->get_variation() == Type::Variation::ENTITY;
-    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get(), is_reference);
+    // First, generate the expression
+    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get());
     if (!expr_res.has_value()) {
         return std::nullopt;
     }
@@ -3829,10 +3825,14 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         const EntityType *entity_type = from_type->as<EntityType>();
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
         const std::string &cast_name = entity_type->to_string() + "_to_" + to_type->to_string();
-        llvm::Function *entity_dispatch_fn = entity_dispatch_functions.at(entity_type->get_id());
+        llvm::Function *const entity_dispatch_fn = entity_dispatch_functions.at(entity_type->get_id());
+        const std::string head_key = entity_type->entity_node->file_hash.to_string() + "." + entity_type->entity_node->name;
+        llvm::Value *const entity_dima_head = Module::DIMA::dima_heads.at(head_key);
+        llvm::Function *const dima_retain_fn = Module::DIMA::dima_functions.at("retain");
+        builder.CreateCall(dima_retain_fn, {expr});
         func_value = builder.CreateInsertValue(func_value, expr, 0);
         func_value = builder.CreateInsertValue(func_value, entity_dispatch_fn, 1);
-        func_value = builder.CreateInsertValue(func_value, builder.getInt32(entity_type->get_id()), 2, cast_name);
+        func_value = builder.CreateInsertValue(func_value, entity_dima_head, 2, cast_name);
         return func_value;
     } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
@@ -4342,8 +4342,8 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 const std::shared_ptr<Type> &base_type = pointer_type->base_type;
                 assert(base_type == expression->type);
                 assert(operand.size() == 1);
-                if (base_type->get_variation() == Type::Variation::DATA) {
-                    // We need to load the pointer since the operand points to the allocation in which the pointer to the data is located at
+                if (base_type->is_dima_managed()) {
+                    // We need to load the pointer since the operand points to the allocation in which the pointer to the allocated slot
                     operand.front() = IR::aligned_load(builder, PTR_TY, operand.front(), "loaded_data_ptr");
                 }
                 // Check if the base type is a complex type and whether it needs to be passed by value or by reference

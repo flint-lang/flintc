@@ -18,6 +18,10 @@ class EntityType : public Type {
         return true;
     }
 
+    bool is_dima_managed() const override {
+        return true;
+    }
+
     Hash get_hash() const override {
         return entity_node->file_hash;
     }

@@ -21,6 +21,10 @@ class GroupType : public Type {
         return false;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         std::vector<Hash> value_hashes;
         for (const auto &type : types) {

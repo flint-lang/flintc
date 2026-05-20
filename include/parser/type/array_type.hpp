@@ -21,6 +21,10 @@ class ArrayType : public Type {
         return true;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return type->get_hash();
     }

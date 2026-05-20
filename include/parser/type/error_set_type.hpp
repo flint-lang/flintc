@@ -18,6 +18,10 @@ class ErrorSetType : public Type {
         return true;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return error_node->file_hash;
     }

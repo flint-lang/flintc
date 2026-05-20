@@ -70,6 +70,12 @@ class Type {
     /// @return `bool` Whether this type is freeable
     virtual bool is_freeable() const = 0;
 
+    /// @function `is_dima_managed`
+    /// @brief Whether this type is DIMA-managed
+    ///
+    /// @return `bool` Whether this type is DIMA-managed
+    virtual bool is_dima_managed() const = 0;
+
     /// @function `get_hash`
     /// @brief Returns the hash of the file this type was defined in. If it's a type which is possible to be placed at global scope, for
     /// example like `str[]` or all other primitive types, then the Hash will be empty, e.g. "00000000". The `get_hash` function is needed

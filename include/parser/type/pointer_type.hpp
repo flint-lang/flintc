@@ -20,6 +20,10 @@ class PointerType : public Type {
         return false;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return base_type->get_hash();
     }

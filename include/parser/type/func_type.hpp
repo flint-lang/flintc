@@ -15,7 +15,10 @@ class FuncType : public Type {
     }
 
     bool is_freeable() const override {
-        // TODO: Make it freeable once func-modules-as-variables are implemented
+        return true;
+    }
+
+    bool is_dima_managed() const override {
         return false;
     }
 

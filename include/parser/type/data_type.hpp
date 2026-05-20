@@ -18,6 +18,10 @@ class DataType : public Type {
         return !data_node->is_const && !data_node->is_shared;
     }
 
+    bool is_dima_managed() const override {
+        return true;
+    }
+
     Hash get_hash() const override {
         return data_node->file_hash;
     }

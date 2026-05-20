@@ -79,7 +79,7 @@ void Generator::Memory::generate_free_value( //
             if (element_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 arr_value = IR::aligned_load(*builder, element_type, arr_value_ptr, "arr_value");
             }
-            if (array_type->type->get_variation() == Type::Variation::DATA) {
+            if (array_type->type->is_dima_managed()) {
                 // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                 llvm::Value *dima_head = Module::DIMA::get_head(array_type->type);
                 llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
@@ -120,7 +120,7 @@ void Generator::Memory::generate_free_value( //
                         *builder, field_type_ptr, data_field_ptr, "data_field_" + field.name //
                     );
                 }
-                if (field.type->get_variation() == Type::Variation::DATA) {
+                if (field.type->is_dima_managed()) {
                     // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                     llvm::Value *dima_head = Module::DIMA::get_head(field.type);
                     llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
@@ -155,10 +155,18 @@ void Generator::Memory::generate_free_value( //
             builder->CreateCall(c_functions.at(FREE), {err_message});
             break;
         }
-        case Type::Variation::FUNC:
-            // TODO: Implement freeing logic for func modules once func-modules as-interfaces work
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case Type::Variation::FUNC: {
+            // To free a func module we just pass it's entity instance to the `dima.release` function alongside the pointer to the dima head
+            // stored in the func-module instance
+            llvm::Type *const func_type = IR::get_type(module, type).first;
+            llvm::Value *const entity_instance_ptr = builder->CreateStructGEP(func_type, value, 0, "entity_instance_ptr");
+            llvm::Value *const entity_instance = IR::aligned_load(*builder, PTR_TY, entity_instance_ptr, "entity_instance");
+            llvm::Value *const dima_head_ptr_ptr = builder->CreateStructGEP(func_type, value, 2, "dima_head_ptr_ptr");
+            llvm::Value *const dima_head_ptr = IR::aligned_load(*builder, PTR_TY, dima_head_ptr_ptr, "dima_head_ptr");
+            llvm::Function *const release_fn = Module::DIMA::dima_functions.at("release");
+            builder->CreateCall(release_fn, {dima_head_ptr, entity_instance});
             break;
+        }
         case Type::Variation::FN: {
             // TODO: We need to call a special function to free a fn frame, as we need to free the persitent locals too (eventually)
             // For now, it is enough to simply call the free function on the passed value
@@ -232,7 +240,7 @@ void Generator::Memory::generate_free_value( //
             if (base_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
                 opt_value = IR::aligned_load(*builder, PTR_TY, opt_value_ptr, "opt_value");
             }
-            if (optional_type->base_type->get_variation() == Type::Variation::DATA) {
+            if (optional_type->base_type->is_dima_managed()) {
                 // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                 llvm::Value *dima_head = Module::DIMA::get_head(optional_type->base_type);
                 llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
@@ -261,7 +269,7 @@ void Generator::Memory::generate_free_value( //
                 if (elem_type_pair.second.first || elem_is_array || elem_is_str || elem_is_opaque) {
                     elem_ptr = IR::aligned_load(*builder, PTR_TY, elem_ptr, "elem");
                 }
-                if (elem_type->get_variation() == Type::Variation::DATA) {
+                if (elem_type->is_dima_managed()) {
                     // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                     llvm::Value *dima_head = Module::DIMA::get_head(elem_type);
                     llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
@@ -326,7 +334,7 @@ void Generator::Memory::generate_free_value( //
                     if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {
                         variant_value = IR::aligned_load(*builder, PTR_TY, variant_value_ptr, "variant_value");
                     }
-                    if (variant_type_ptr->get_variation() == Type::Variation::DATA) {
+                    if (variant_type_ptr->is_dima_managed()) {
                         // Data is released in DIMA. If the ARC falls to 0 then DIMA will call the free function of the data
                         llvm::Value *dima_head = Module::DIMA::get_head(variant_type_ptr);
                         llvm::Function *dima_release_fn = Module::DIMA::dima_functions.at("release");
@@ -531,7 +539,10 @@ void Generator::Memory::generate_clone_value( //
         }
         case Type::Variation::ENTITY: {
             const auto *entity_type = type->as<EntityType>();
-            llvm::Type *struct_type = IR::get_type(module, type).first;
+            llvm::Type *const struct_type = IR::get_type(module, type).first;
+            llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+            llvm::Value *const entity_head = Module::DIMA::get_head(type);
+            llvm::Value *const new_entity_ptr = builder->CreateCall(dima_allocate_fn, {entity_head}, "new_data_value");
             for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
                 const DataNode *data_node = entity_type->entity_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
@@ -539,10 +550,11 @@ void Generator::Memory::generate_clone_value( //
                 const std::string data_type_str = data_type->to_string();
                 llvm::Value *src_field_ptr = builder->CreateStructGEP(struct_type, src, i, "src_field_" + data_type_str + "_ptr");
                 llvm::Value *src_field = IR::aligned_load(*builder, PTR_TY, src_field_ptr, "src_field");
-                llvm::Value *dest_field_ptr = builder->CreateStructGEP(struct_type, dest, i, "dest_field_" + data_type_str + "_ptr");
+                llvm::Value *dest_field_ptr = builder->CreateStructGEP(struct_type, new_entity_ptr, i, "field_" + data_type_str + "_ptr");
                 llvm::Value *data_type_id = builder->getInt32(data_type->get_id());
                 builder->CreateCall(clone_fn, {src_field, dest_field_ptr, data_type_id});
             }
+            IR::aligned_store(*builder, new_entity_ptr, dest);
             break;
         }
         case Type::Variation::ERROR_SET: {

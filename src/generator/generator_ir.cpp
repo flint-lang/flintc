@@ -682,7 +682,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Check if it's a known entity type
             const std::string type_str = entity_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {false, true}};
+                return {type_map.at(type_str), {true, true}};
             }
             // Create the entity type, it's just a struct containing pointers to the entities' defined data
             std::vector<llvm::Type *> field_types;
@@ -690,7 +690,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 field_types.emplace_back(PTR_TY);
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {false, true}};
+            return {type_map.at(type_str), {true, true}};
         }
         case Type::Variation::ENUM:
             return {llvm::Type::getInt32Ty(context), {false, false}};
@@ -707,8 +707,8 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // contianing of:
             // - A pointer to the entity assigned to the func-module instance
             // - A pointer to the entity dispatch function to call
-            // - The Type ID of the entity stored in the func-module instance
-            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, llvm::Type::getInt32Ty(context)};
+            // - A pointer to the entitie's DIMA head
+            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, PTR_TY};
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }

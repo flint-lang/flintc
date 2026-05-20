@@ -18,6 +18,10 @@ class PrimitiveType : public Type {
         return type_name == "str";
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return Hash(std::string(""));
     }

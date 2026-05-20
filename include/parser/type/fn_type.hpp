@@ -28,6 +28,10 @@ class FnType : public Type {
         return true;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return Hash(std::string(""));
     }

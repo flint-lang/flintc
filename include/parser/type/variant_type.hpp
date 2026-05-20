@@ -28,6 +28,10 @@ class VariantType : public Type {
         return false;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         if (std::holds_alternative<VariantNode *const>(var_or_list)) {
             return std::get<VariantNode *const>(var_or_list)->file_hash;

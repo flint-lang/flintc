@@ -23,6 +23,10 @@ class OpaqueType : public Type {
         return opaque_leak_mode != OpaqueLeakMode::SILENT;
     }
 
+    bool is_dima_managed() const override {
+        return false;
+    }
+
     Hash get_hash() const override {
         return Hash(std::string(""));
     }

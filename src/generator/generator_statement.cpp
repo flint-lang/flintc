@@ -309,7 +309,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             llvm::Type *type_to_load = variable_type.second.first ? PTR_TY : variable_type.first;
             variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
         }
-        if (var_type->get_variation() == Type::Variation::DATA) {
+        if (var_type->is_dima_managed()) {
             llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
             builder.CreateCall(release_fn, {Module::DIMA::get_head(var_type), variable_value});
         } else {
@@ -389,7 +389,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                 // If this return value is a variable, is freeable and is a function parameter then we clone it into the return value
                 if (exprs != nullptr                                                               //
                     && exprs->at(i)->type->is_freeable()                                           //
-                    && exprs->at(i)->type->get_variation() != Type::Variation::DATA                //
+                    && !exprs->at(i)->type->is_dima_managed()                                      //
                     && exprs->at(i)->get_variation() == ExpressionNode::Variation::VARIABLE        //
                     && ctx.scope->variables.at(exprs->at(i)->as<VariableNode>()->name).is_fn_param //
                 ) {
@@ -902,7 +902,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         // The values start right after the lengths
         value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         const auto type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
-        element_type = array_type->type->get_variation() == Type::Variation::DATA ? PTR_TY : type_pair.first;
+        element_type = array_type->type->is_dima_managed() ? PTR_TY : type_pair.first;
     } else if (is_range) {
         assert(iterable.value().size() == 2);
         lower_bound = iterable.value().front();
@@ -1679,6 +1679,7 @@ bool Generator::Statement::generate_declaration( //
         const Type::Variation initializer_type_variation = initializer_type->get_variation();
         const std::string &initializer_type_str = declaration_node->initializer.value()->type->to_string();
         const bool is_optional = initializer_type_variation == Type::Variation::OPTIONAL;
+        const bool is_interface = initializer_type_variation == Type::Variation::FUNC;
         const bool is_initializer = initializer_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = initializer_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = initializer_variaiton == ExpressionNode::Variation::CALL;
@@ -1693,7 +1694,8 @@ bool Generator::Statement::generate_declaration( //
                 }
             }
         }
-        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice &&
+            !is_interface) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we declared. However, function returns, array initializers, initializers, optional none literals and string
             // interpolation expressions  do not need to be cloned, as they all *produce* something themselves
@@ -1708,9 +1710,7 @@ bool Generator::Statement::generate_declaration( //
                 builder.SetInsertPoint(merge_block);
             }
             return true;
-        } else if (                                                                                                  //
-            is_optional && initializer_type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
-        ) {
+        } else if (is_optional && initializer_type->as<OptionalType>()->base_type->is_dima_managed()) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
             llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
             llvm::BasicBlock *opt_merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
@@ -1878,6 +1878,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
         const std::string &expression_type_str = assignment_node->expression->type->to_string();
         const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
+        const bool is_interface = expression_type_variation == Type::Variation::FUNC;
         const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
         const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
@@ -1893,7 +1894,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             }
         }
         llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
-        if (is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA) {
+        if (is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->is_dima_managed()) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
             llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
             llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
@@ -1919,7 +1920,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             llvm::Type *type_to_load = var_type.second.first ? PTR_TY : var_type.first;
             lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
         }
-        if (lhs_type->get_variation() == Type::Variation::DATA) {
+        if (lhs_type->is_dima_managed()) {
             // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
             // however, which means we first need to load the data pointer from it
             // llvm::Value *data_ptr = IR::aligned_load(builder, PTR_TY, lhs_value, "data_ptr");
@@ -1931,7 +1932,8 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             llvm::Function *free_fn = Memory::memory_functions.at("free");
             builder.CreateCall(free_fn, {lhs_value, type_id});
         }
-        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice) {
+        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice &&
+            !is_interface) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // variable we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
@@ -2092,6 +2094,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         const Type::Variation expression_type_variation = data_field_assignment->expression->type->get_variation();
         const std::string &expression_type_str = data_field_assignment->expression->type->to_string();
         const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
+        const bool is_interface = expression_type_variation == Type::Variation::FUNC;
         const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
         const bool is_variant_initializer = expression_variaiton == ExpressionNode::Variation::LITERAL //
             && std::holds_alternative<LitVariant>(data_field_assignment->expression->as<LiteralNode>()->value);
@@ -2110,16 +2113,13 @@ bool Generator::Statement::generate_data_field_assignment( //
         }
         llvm::Value *type_id = builder.getInt32(data_field_assignment->expression->type->get_id());
         if (!is_optional && !is_initializer && !is_variant_initializer && !is_array_initializer && !is_fn_return &&
-            !is_string_interpolation && !is_slice) {
+            !is_string_interpolation && !is_slice && !is_interface) {
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // field we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             builder.CreateCall(clone_fn, {expr_val, field_ptr, type_id});
             return true;
-        } else if ( //
-            is_optional &&
-            data_field_assignment->expression->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::DATA //
-        ) {
+        } else if (is_optional && data_field_assignment->expression->type->as<OptionalType>()->base_type->is_dima_managed()) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
             llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
             llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
@@ -2304,7 +2304,7 @@ bool Generator::Statement::generate_array_assignment( //
         llvm::Type *type_to_load = base_type_pair.second.first ? PTR_TY : base_type_pair.first;
         arr_value = IR::aligned_load(builder, type_to_load, arr_value_ptr, "arr_value");
     }
-    if (base_type->get_variation() == Type::Variation::DATA) {
+    if (base_type->is_dima_managed()) {
         llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
         builder.CreateCall(release_fn, {Module::DIMA::get_head(base_type), arr_value});
     } else {
