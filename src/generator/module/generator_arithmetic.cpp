@@ -9,6 +9,7 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
     const bool only_declarations                                   //
 ) {
     llvm::IntegerType *i8_type = llvm::Type::getInt8Ty(context);
+    llvm::IntegerType *i16_type = llvm::Type::getInt16Ty(context);
     llvm::IntegerType *i32_type = llvm::Type::getInt32Ty(context);
     llvm::IntegerType *i64_type = llvm::Type::getInt64Ty(context);
     // Generate no arithmetic functions for the unsafe mode, as they are never called in unsafe mode annyway
@@ -20,11 +21,11 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
         generate_uint_safe_div(builder, module, only_declarations, i8_type, "u8");
         generate_int_safe_mod(builder, module, only_declarations, i8_type, "u8", false);
         // u16 functions
-        generate_uint_safe_add(builder, module, only_declarations, i8_type, "u16");
-        generate_uint_safe_sub(builder, module, only_declarations, i8_type, "u16");
-        generate_uint_safe_mul(builder, module, only_declarations, i8_type, "u16");
-        generate_uint_safe_div(builder, module, only_declarations, i8_type, "u16");
-        generate_int_safe_mod(builder, module, only_declarations, i8_type, "u16", false);
+        generate_uint_safe_add(builder, module, only_declarations, i16_type, "u16");
+        generate_uint_safe_sub(builder, module, only_declarations, i16_type, "u16");
+        generate_uint_safe_mul(builder, module, only_declarations, i16_type, "u16");
+        generate_uint_safe_div(builder, module, only_declarations, i16_type, "u16");
+        generate_int_safe_mod(builder, module, only_declarations, i16_type, "u16", false);
         // u32 functions
         generate_uint_safe_add(builder, module, only_declarations, i32_type, "u32");
         generate_uint_safe_sub(builder, module, only_declarations, i32_type, "u32");
@@ -44,11 +45,11 @@ void Generator::Module::Arithmetic::generate_arithmetic_functions( //
         generate_int_safe_div(builder, module, only_declarations, i32_type, "i8");
         generate_int_safe_mod(builder, module, only_declarations, i32_type, "i8", true);
         // i16 functions
-        generate_int_safe_add(builder, module, only_declarations, i32_type, "i16");
-        generate_int_safe_sub(builder, module, only_declarations, i32_type, "i16");
-        generate_int_safe_mul(builder, module, only_declarations, i32_type, "i16");
-        generate_int_safe_div(builder, module, only_declarations, i32_type, "i16");
-        generate_int_safe_mod(builder, module, only_declarations, i32_type, "i16", true);
+        generate_int_safe_add(builder, module, only_declarations, i16_type, "i16");
+        generate_int_safe_sub(builder, module, only_declarations, i16_type, "i16");
+        generate_int_safe_mul(builder, module, only_declarations, i16_type, "i16");
+        generate_int_safe_div(builder, module, only_declarations, i16_type, "i16");
+        generate_int_safe_mod(builder, module, only_declarations, i16_type, "i16", true);
         // i32 functions
         generate_int_safe_add(builder, module, only_declarations, i32_type, "i32");
         generate_int_safe_sub(builder, module, only_declarations, i32_type, "i32");
