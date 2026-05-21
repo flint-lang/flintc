@@ -830,6 +830,9 @@ class Matcher {
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr anonymous_error = sequence({
+        token(TOK_ERROR), token(TOK_DOT), token(TOK_IDENTIFIER), optional(sequence({token(TOK_LEFT_PAREN), until_right_paren})) //
+    });
     static const inline PatternPtr stackable_basic_expr = one_of({
         // Method call: .call()
         sequence({token(TOK_DOT), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren}),

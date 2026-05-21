@@ -18,6 +18,7 @@ class Scope {
     explicit Scope(std::shared_ptr<Scope> parent, const unsigned int parent_scope_segment) :
         parent_scope(parent),
         parent_scope_segment(parent_scope_segment) {
+        function = parent_scope->function;
         clone_variables(parent);
     }
 
@@ -28,7 +29,9 @@ class Scope {
         ) :
         body(std::move(body)),
         parent_scope(parent),
-        parent_scope_segment(parent_scope_segment) {}
+        parent_scope_segment(parent_scope_segment) {
+        function = parent_scope->function;
+    }
 
     /// @type `Variable`
     /// @brief A simple struct contianing all information needed for tracking a variable's declaration
@@ -98,6 +101,7 @@ class Scope {
     /// @param `parent` The new parent of this scope
     void set_parent(std::shared_ptr<Scope> parent) {
         parent_scope = parent;
+        function = parent->function;
     }
 
     /// @function `clone_variable_types`
@@ -165,6 +169,10 @@ class Scope {
     /// @brief A list of all "variables" (like data accessors) captured from the entity this functions scope is defined in. The name of the
     /// captured identifier maps to it's respective type
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers{};
+
+    /// @var `function`
+    /// @brief The parent function this scope is defined in
+    FunctionNode *function;
 
   private:
     /// @function `get_next_scope_id`

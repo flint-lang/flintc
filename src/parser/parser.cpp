@@ -2311,6 +2311,47 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
     }
     Profiler::end_task("Refine function body lines");
 
+    // Go through all open functions and call all values for the anonymous error set of that function
+    Profiler::start_task("Create all anonymous error sets");
+    for (const auto &[parser, function, body] : open_functions) {
+        if (function->is_extern) {
+            continue;
+        }
+        if (!function->scope.has_value()) {
+            continue;
+        }
+        std::vector<std::string> err_values;
+        for (const auto &line : body) {
+            const auto &next_range = Matcher::get_next_match_range(line.tokens, Matcher::anonymous_error);
+            if (!next_range.has_value()) {
+                continue;
+            }
+            const token_slice range_tokens = {
+                line.tokens.first + next_range.value().first,
+                line.tokens.first + next_range.value().second,
+            };
+            assert(range_tokens.first->token == TOK_ERROR);
+            assert((range_tokens.first + 1)->token == TOK_DOT);
+            assert((range_tokens.first + 2)->token == TOK_IDENTIFIER);
+            const std::string err_value((range_tokens.first + 2)->lexme);
+            if (std::find(err_values.begin(), err_values.end(), err_value) == err_values.end()) {
+                err_values.emplace_back(err_value);
+            }
+        }
+        if (err_values.empty()) {
+            continue;
+        }
+        const std::vector<std::string> default_values(err_values.size(), "");
+        const std::string err_type_name = "error." + std::to_string(function->get_id());
+        ErrorNode error_node = ErrorNode(                                                                                               //
+            parser.file_hash, function->line, function->column, function->length, err_type_name, "anyerror", err_values, default_values //
+        );
+        if (!parser.file_node_ptr->add_error(error_node)) {
+            return false;
+        }
+    }
+    Profiler::end_task("Create all anonymous error sets");
+
     bool result = true;
     if (parse_parallel) {
         // Enqueue tasks in the global thread pool

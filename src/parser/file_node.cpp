@@ -165,6 +165,9 @@ std::optional<FunctionNode *> FileNode::add_function(                           
         assert(!Parser::main_function.load().has_value());
         Parser::main_function.store(added_function, std::memory_order_release);
     }
+    if (added_function->scope.has_value()) {
+        added_function->scope.value()->function = added_function;
+    }
     return added_function;
 }
 

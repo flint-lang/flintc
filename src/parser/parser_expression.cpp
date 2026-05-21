@@ -6,6 +6,7 @@
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
+#include "parser/ast/expressions/literal_node.hpp"
 #include "parser/parser.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -439,6 +440,42 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
         un_op.type = ptr_type;
     }
     return un_op;
+}
+
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( //
+    const Context &ctx,                                                        //
+    std::shared_ptr<Scope> &scope,                                             //
+    const token_slice &tokens                                                  //
+) {
+    PROFILE_CUMULATIVE("Parser::create_anonymous_error");
+    assert(tokens.first->token == TOK_ERROR);
+    assert(std::next(tokens.first)->token == TOK_DOT);
+    assert((tokens.first + 2)->token == TOK_IDENTIFIER);
+    const std::string err_type_name = "error." + std::to_string(scope->function->get_id());
+    const auto error_type = file_node_ptr->file_namespace->get_type_from_str(err_type_name).value();
+    const std::string err_value((tokens.first + 2)->lexme);
+    std::optional<std::unique_ptr<ExpressionNode>> message;
+    if (tokens.first + 3 != tokens.second) {
+        assert(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
+        assert((tokens.first + 3)->token == TOK_LEFT_PAREN);
+        assert(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
+        if (tokens.first + 4 == tokens.second - 1) {
+            // Empty expression between parenthesis of throwing the error
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const token_slice message_tokens = {tokens.first + 4, tokens.second - 1};
+        message = create_expression(ctx, scope, message_tokens, Type::get_primitive_type("str"));
+        if (!message.has_value()) {
+            return std::nullopt;
+        }
+    }
+    LitValue literal = LitError{
+        .error_type = error_type,
+        .value = err_value,
+        .message = std::move(message),
+    };
+    return std::make_unique<LiteralNode>(literal, error_type);
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
@@ -2090,6 +2127,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return type_cast;
         }
+    }
+    if (Matcher::tokens_match(tokens_mut, Matcher::anonymous_error)) {
+        return create_anonymous_error(ctx, scope, tokens_mut);
     }
     if (Matcher::tokens_start_with_continuous(tokens_mut, Matcher::unary_pre_operator, Matcher::expression_separator)   //
         || Matcher::tokens_end_with_continuous(tokens_mut, Matcher::unary_post_operator, Matcher::expression_separator) //

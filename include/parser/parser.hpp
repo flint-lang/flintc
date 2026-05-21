@@ -1076,6 +1076,19 @@ class Parser {
         const token_slice &tokens                                //
     );
 
+    /// @function `create_anonymous_error`
+    /// @brief Creates an anonymous error from the given tokens
+    ///
+    /// @param `ctx` The parsing context
+    /// @param `scope` The scope the anonymous error is thrown in
+    /// @param `tokens` The tokens which contain the anonymous error
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The created anonymous error, being an error literal
+    std::optional<std::unique_ptr<ExpressionNode>> create_anonymous_error( //
+        const Context &ctx,                                                //
+        std::shared_ptr<Scope> &scope,                                     //
+        const token_slice &tokens                                          //
+    );
+
     /// @function `create_literal`
     /// @brief Creates a LiteralNode from the given tokens
     ///

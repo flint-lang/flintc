@@ -1,71 +1,16 @@
 use Core.print
 
-func IMovement:
-	def move();
-	def move_by(i32x2 diff);
+def crash(i32 v):
+    switch v:
+        0: throw error.Crash("Custom Message");
+        1: throw error.CrashOther;
+        else: throw error.CrashLast("LAST");
 
-
-data DPlayer:
-	i32x2 pos;
-	i32x2 dir;
-	DPlayer(pos, dir);
-
-func FPlayer requires(DPlayer d):
-	def move():
-		print($"Player moved from {d.pos} to ");
-		d.pos += d.dir;
-		print($"{d.pos}\n");
-
-	def move_by(i32x2 diff):
-		print($"Player moved by {diff} from {d.pos} to ");
-		d.pos += diff;
-		print($"{d.pos}\n");
-
-entity Player:
-	data: DPlayer;
-	func: IMovement, FPlayer;
-	link:
-		IMovement::move -> FPlayer::move,
-		IMovement::move_by -> FPlayer::move_by;
-	Player(DPlayer);
-
-
-data DComputer:
-	i32x2 pos;
-	i32x2 dir;
-	i32 speed;
-	DComputer(pos, dir, speed);
-
-func FComputer requires(DComputer d):
-	def move():
-		print($"Computer moved from {d.pos} to ");
-		d.pos += d.dir * d.speed;
-		print($"{d.pos}\n");
-
-	def move_by(i32x2 diff):
-		print($"Computer moved by {diff} from {d.pos} to ");
-		d.pos += diff;
-		print($"{d.pos}\n");
-
-entity Computer:
-	data: DComputer;
-	func: IMovement, FComputer;
-	link:
-		IMovement::move -> FComputer::move,
-		IMovement::move_by -> FComputer::move_by;
-	Computer(DComputer);
-
-
-def apply_movement(mut IMovement m):
-	m.move();
-	m.move_by(i32x2(3, 3));
+def print_crash(i32 v):
+    crash(v) catch err:
+        print($"{err}: \"{err.message}\"\n");
 
 def main():
-	p := Player(DPlayer(i32x2(10, 20), i32x2(3, 2)));
-	IMovement m = p;
-	apply_movement(m);
-
-	if true:
-		c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
-		m = c;
-	apply_movement(m);
+    print_crash(0);
+    print_crash(1);
+    print_crash(2);
