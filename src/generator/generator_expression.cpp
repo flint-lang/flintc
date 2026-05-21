@@ -2518,10 +2518,20 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
         }
         case Type::Variation::MULTI: {
             // Create an "empty" vector of the multi-type
-            llvm::Type *vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Type *const vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            if (initializer->args.size() == 1) {
+                const auto &arg = initializer->args[0];
+                assert(arg->type->get_variation() == Type::Variation::MULTI);
+                const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
+                if (!expr_result.has_value()) {
+                    return std::nullopt;
+                }
+                llvm::Value *const result = generate_type_cast(builder, ctx, expr_result.value().front(), arg->type, initializer->type);
+                return std::vector<llvm::Value *>{result};
+            }
             llvm::Value *initialized_value = IR::get_default_value_of_type(vector_type);
             for (unsigned int i = 0; i < initializer->args.size(); i++) {
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -3863,6 +3873,21 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         } else if (to_type_str == "str") {
             llvm::Function *cast_fn = Module::TypeCast::typecast_functions.at(from_type_str + "_to_str");
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
+        } else if (to_type->get_variation() == Type::Variation::MULTI) {
+            const MultiType *from_mult = from_type->as<MultiType>();
+            const MultiType *to_mult = to_type->as<MultiType>();
+            assert(from_mult->width == to_mult->width);
+            llvm::Type *const dest_el_type = IR::get_type(ctx.parent->getParent(), to_mult->base_type).first;
+            llvm::VectorType *const dest_vec_type = llvm::VectorType::get(dest_el_type, from_mult->width, false);
+            llvm::Value *cast_multitype = llvm::UndefValue::get(dest_vec_type);
+            for (unsigned int i = 0; i < from_mult->width; i++) {
+                llvm::Value *const elem = builder.CreateExtractElement(expr, builder.getInt64(i), "src_el_" + std::to_string(i));
+                llvm::Value *const cast_elem = generate_type_cast(builder, ctx, elem, from_mult->base_type, to_mult->base_type);
+                cast_multitype = builder.CreateInsertElement(                                      //
+                    cast_multitype, cast_elem, builder.getInt64(i), "cast_el_" + std::to_string(i) //
+                );
+            }
+            return cast_multitype;
         }
     } else if (from_type->get_variation() == Type::Variation::ENTITY && to_type->get_variation() == Type::Variation::FUNC) {
         // We "cast" an entity to a func module by storing the pointer to the entity alongside the pointer to the dispatch function and the

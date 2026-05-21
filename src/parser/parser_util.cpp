@@ -668,14 +668,26 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 const auto *multi_type = name_token->type->as<MultiType>();
                 const std::shared_ptr<Type> base_type = multi_type->base_type;
                 const unsigned int width = multi_type->width;
-                if (arguments.size() != width) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                for (size_t i = 0; i < arguments.size(); i++) {
-                    if (!check_castability(base_type, arguments[i].first, false)) {
+                if (arguments.size() == 1) {
+                    // The "argument" needs to be a compatible multi-type
+                    if (arguments[0].first->type->get_variation() != Type::Variation::MULTI) {
+                        // Unable to cast non-multi-type as the only expression inside the to-multi-type cast
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
+                    }
+                    assert(primitive_casting_table.find(name_token->type->to_string()) != primitive_casting_table.end());
+                    [[maybe_unused]] const auto &to_types = primitive_casting_table.at(name_token->type->to_string());
+                    assert(std::find(to_types.begin(), to_types.end(), arguments[0].first->type->to_string()) != to_types.end());
+                } else {
+                    if (arguments.size() != width) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    for (size_t i = 0; i < arguments.size(); i++) {
+                        if (!check_castability(base_type, arguments[i].first, false)) {
+                            THROW_BASIC_ERR(ERR_PARSING);
+                            return std::nullopt;
+                        }
                     }
                 }
                 return CreateCallOrInitializerBaseRet{
