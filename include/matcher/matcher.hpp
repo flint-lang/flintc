@@ -682,7 +682,7 @@ class Matcher {
     static const inline PatternPtr relational_binop = one_of({token(TOK_EQUAL_EQUAL), token(TOK_NOT_EQUAL), token(TOK_LESS),
         token(TOK_LESS_EQUAL), token(TOK_GREATER), token(TOK_GREATER_EQUAL)});
     static const inline PatternPtr boolean_binop = one_of({token(TOK_AND), token(TOK_OR)});
-    static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop});
+    static const inline PatternPtr binary_operator = one_of({operational_binop, relational_binop, boolean_binop, token(TOK_CATCH)});
     static const inline PatternPtr unary_pre_operator = one_of({token(TOK_NOT), token(TOK_MINUS), token(TOK_BIT_AND)});
     static const inline PatternPtr unary_post_operator = one_of({token(TOK_INCREMENT), token(TOK_DECREMENT)});
     static const inline PatternPtr inbetween_operator = one_of({token(TOK_QUESTION), token(TOK_EXCLAMATION)});

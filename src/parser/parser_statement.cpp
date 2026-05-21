@@ -2674,9 +2674,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(do_while_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement) //
-        || Matcher::tokens_contain(definition, Matcher::token(TOK_CATCH))    //
-    ) {
+    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
         std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(  //
             scope, scope_segment, definition, scoped_body.value(), statements //
         );

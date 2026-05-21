@@ -2525,6 +2525,26 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         rhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), rhs.value());
     }
 
+    // Check it the binary operator is a `catch` keyword, if so the lhs should be a function call. We then set it's "has_catch" field to
+    // true
+    if (pivot_token == TOK_CATCH) {
+        switch (lhs.value()->get_variation()) {
+            default:
+                // Not allowed lhs expression to catch binop
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case ExpressionNode::Variation::CALL:
+                lhs.value()->as<CallNodeExpression>()->has_catch = true;
+                break;
+            case ExpressionNode::Variation::CALLABLE_CALL:
+                lhs.value()->as<CallableCallNodeExpression>()->has_catch = true;
+                break;
+            case ExpressionNode::Variation::INSTANCE_CALL:
+                lhs.value()->as<InstanceCallNodeExpression>()->has_catch = true;
+                break;
+        }
+    }
+
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
         return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool"));

@@ -4447,13 +4447,19 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
         return std::nullopt;
     }
     std::vector<llvm::Value *> lhs = lhs_maybe.value();
-    const bool rhs_is_reference = bin_op_node->right->type->get_variation() == Type::Variation::VARIANT;
-    auto rhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->right.get(), rhs_is_reference);
-    if (!rhs_maybe.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
-        return std::nullopt;
+    std::vector<llvm::Value *> rhs;
+    if (bin_op_node->operator_token != TOK_CATCH) {
+        const bool rhs_is_reference = bin_op_node->right->type->get_variation() == Type::Variation::VARIANT;
+        auto rhs_maybe = generate_expression(builder, ctx, garbage, expr_depth + 1, bin_op_node->right.get(), rhs_is_reference);
+        if (!rhs_maybe.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        rhs = rhs_maybe.value();
+    } else {
+        // Create as many rhs "values" as present in the lhs
+        rhs = std::vector<llvm::Value *>(lhs.size(), nullptr);
     }
-    std::vector<llvm::Value *> rhs = rhs_maybe.value();
     if (lhs.size() != rhs.size()) {
         assert(lhs.size() == 1 || rhs.size() == 1);
         auto result = generate_binary_op_set_cmp(builder, ctx, garbage, expr_depth, bin_op_node, lhs, rhs);
@@ -5023,6 +5029,34 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
             llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
             return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
+        }
+        case TOK_CATCH: {
+            llvm::BasicBlock *const current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *const catch_expr_block = llvm::BasicBlock::Create(context, "catch_expr", ctx.parent);
+            llvm::BasicBlock *const catch_expr_merge_block = llvm::BasicBlock::Create(context, "catch_expr_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            llvm::Value *const call_had_error = last_err_values.first;
+            builder.CreateCondBr(call_had_error, catch_expr_block, catch_expr_merge_block);
+
+            builder.SetInsertPoint(catch_expr_block);
+            const group_mapping rhs_value = generate_expression(builder, ctx, garbage, expr_depth, bin_op_node->right);
+            if (!rhs_value.has_value()) {
+                return std::nullopt;
+            }
+            if (rhs_value.value().size() > 1) {
+                // Linearization of function calls returning groups is not possible yet
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            rhs = rhs_value.value().front();
+            builder.CreateBr(catch_expr_merge_block);
+
+            builder.SetInsertPoint(catch_expr_merge_block);
+            llvm::PHINode *expr_result = builder.CreatePHI(lhs->getType(), 2, "catch_expr_result");
+            expr_result->addIncoming(lhs, current_block);
+            expr_result->addIncoming(rhs, catch_expr_block);
+            return expr_result;
         }
         case TOK_AND:
         case TOK_OR:

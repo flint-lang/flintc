@@ -1,16 +1,30 @@
 use Core.print
 
-def crash(i32 v):
-    switch v:
-        0: throw error.Crash("Custom Message");
-        1: throw error.CrashOther;
-        else: throw error.CrashLast("LAST");
+error MyError:
+	VAL1, VAL2, VAL3;
 
-def print_crash(i32 v):
-    crash(v) catch err:
-        print($"{err}: \"{err.message}\"\n");
+def foo(bool crash) -> i32:
+	if crash:
+		throw MyError.VAL1("foo failed");
+	return 42;
+
+def bar(bool crash) -> i32 {MyError}:
+	if crash:
+		throw MyError.VAL2("bar failed");
+	return 69;
 
 def main():
-    print_crash(0);
-    print_crash(1);
-    print_crash(2);
+	i32 x = foo(false);
+	print($"x = {x}\n");
+	x = foo(true) catch 20;
+	print($"x = {x}\n");
+
+	i32 y = bar(false);
+	print($"y = {y}\n");
+	y = foo(true) catch 20;
+	print($"y = {y}\n");
+
+	i32 z = foo(false) + bar(false);
+	print($"z = {z}\n");
+	z = foo(true) catch 10 + bar(true) catch 30;
+	print($"z = {z}\n");
