@@ -403,8 +403,9 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             // Check if the tuple is the same type as a multi-type, such tuples are not allowed either
             const std::shared_ptr<Type> &first_type = subtypes.front();
             const std::string front_type_str = first_type->to_string();
-            if (front_type_str == "bool" || front_type_str == "i32" || front_type_str == "f32" || front_type_str == "i64" ||
-                front_type_str == "f64") {
+            if (front_type_str == "bool" || front_type_str == "u8" || front_type_str == "i8" || front_type_str == "u16" ||
+                front_type_str == "i16" || front_type_str == "u32" || front_type_str == "i32" || front_type_str == "u64" ||
+                front_type_str == "i64" || front_type_str == "f32" || front_type_str == "f64") {
                 const size_t subtypes_size = subtypes.size();
                 if (subtypes_size == 2 || subtypes_size == 3 || subtypes_size == 4 || subtypes_size == 8) {
                     // Now check if all types are equal

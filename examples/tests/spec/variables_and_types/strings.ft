@@ -109,72 +109,167 @@ test "23. String interpolate u8x8":
 	str s = $"v8c = {v8c}";
 	assert(s == "v8c = (1, 2, 3, 4, 5, 6, 7, 8)");
 
-test "24. String interpolate i32x2":
+test "24. String interpolate i8x2":
+	i8x2 v = i8x2(-10, 20);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20)");
+
+test "25. String interpolate i8x3":
+	i8x3 v = i8x3(-10, 20, -30);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30)");
+
+test "26. String interpolate i8x4":
+	i8x4 v = i8x4(-10, 20, -30, 40);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30, 40)");
+
+test "27. String interpolate i8x8":
+	i8x8 v = i8x8(-10, 20, -30, 40, -50, 60, -70, 80);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30, 40, -50, 60, -70, 80)");
+
+test "28. String interpolate u16x2":
+	u16x2 v = u16x2(10, 20);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20)");
+
+test "29. String interpolate u16x3":
+	u16x3 v = u16x3(10, 20, 30);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30)");
+
+test "30. String interpolate u16x4":
+	u16x4 v = u16x4(10, 20, 30, 40);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30, 40)");
+
+test "31. String interpolate u16x8":
+	u16x8 v = u16x8(10, 20, 30, 40, 50, 60, 70, 80);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30, 40, 50, 60, 70, 80)");
+
+test "32. String interpolate i16x2":
+	i16x2 v = i16x2(-10, 20);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20)");
+
+test "33. String interpolate i16x3":
+	i16x3 v = i16x3(-10, 20, -30);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30)");
+
+test "34. String interpolate i16x4":
+	i16x4 v = i16x4(-10, 20, -30, 40);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30, 40)");
+
+test "35. String interpolate i16x8":
+	i16x8 v = i16x8(-10, 20, -30, 40, -50, 60, -70, 80);
+	str s = $"v = {v}";
+	assert(s == "v = (-10, 20, -30, 40, -50, 60, -70, 80)");
+
+test "36. String interpolate u32x2":
+	u32x2 v = u32x2(10, 20);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20)");
+
+test "37. String interpolate u32x3":
+	u32x3 v = u32x3(10, 20, 30);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30)");
+
+test "38. String interpolate u32x4":
+	u32x4 v = u32x4(10, 20, 30, 40);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30, 40)");
+
+test "39. String interpolate u32x8":
+	u32x8 v = u32x8(10, 20, 30, 40, 50, 60, 70, 80);
+	str s = $"v = {v}";
+	assert(s == "v = (10, 20, 30, 40, 50, 60, 70, 80)");
+
+test "40. String interpolate i32x2":
 	i32x2 v2i = (-10, -20);
 	str s = $"v2i = {v2i}";
 	assert(s == "v2i = (-10, -20)");
 
-test "25. String interpolate i32x3":
+test "41. String interpolate i32x3":
 	i32x3 v3i = (-10, -20, -30);
 	str s = $"v3i = {v3i}";
 	assert(s == "v3i = (-10, -20, -30)");
 
-test "26. String interpolate i32x4":
+test "42. String interpolate i32x4":
 	i32x4 v4i = (-10, -20, -30, -40);
 	str s = $"v4i = {v4i}";
 	assert(s == "v4i = (-10, -20, -30, -40)");
 
-test "27. String interpolate i32x8":
+test "43. String interpolate i32x8":
 	i32x8 v8i = (-10, -20, -30, -40, -50, -60, -70, -80);
 	str s = $"v8i = {v8i}";
 	assert(s == "v8i = (-10, -20, -30, -40, -50, -60, -70, -80)");
 
-test "28. String interpolate i64x2":
+test "44. String interpolate u64x2":
+	u64x2 v = u64x2(100, 200);
+	str s = $"v = {v}";
+	assert(s == "v = (100, 200)");
+
+test "45. String interpolate u64x3":
+	u64x3 v = u64x3(100, 200, 300);
+	str s = $"v = {v}";
+	assert(s == "v = (100, 200, 300)");
+
+test "46. String interpolate u64x4":
+	u64x4 v = u64x4(100, 200, 300, 400);
+	str s = $"v = {v}";
+	assert(s == "v = (100, 200, 300, 400)");
+
+test "47. String interpolate i64x2":
 	i64x2 v2l = (-100, -200);
 	str s = $"v2l = {v2l}";
 	assert(s == "v2l = (-100, -200)");
 
-test "29. String interpolate i64x3":
+test "48. String interpolate i64x3":
 	i64x3 v3l = (-100, -200, -300);
 	str s = $"v3l = {v3l}";
 	assert(s == "v3l = (-100, -200, -300)");
 
-test "30. String interpolate i64x4":
+test "49. String interpolate i64x4":
 	i64x4 v4l = (-100, -200, -300, -400);
 	str s = $"v4l = {v4l}";
 	assert(s == "v4l = (-100, -200, -300, -400)");
 
-test "31. String interpolate f32x2":
+test "50. String interpolate f32x2":
 	f32x2 v2f = (-1.1, 2.2);
 	str s = $"v2f = {v2f}";
 	assert(s == "v2f = (-1.1, 2.2)");
 
-test "32. String interpolate f32x3":
+test "51. String interpolate f32x3":
 	f32x3 v3f = (-1.1, 2.2, -3.3);
 	str s = $"v3f = {v3f}";
 	assert(s == "v3f = (-1.1, 2.2, -3.3)");
 
-test "33. String interpolate f32x4":
+test "52. String interpolate f32x4":
 	f32x4 v4f = (-1.1, 2.2, -3.3, 4.4);
 	str s = $"v4f = {v4f}";
 	assert(s == "v4f = (-1.1, 2.2, -3.3, 4.4)");
 
-test "34. String interpolate f32x8":
+test "53. String interpolate f32x8":
 	f32x8 v8f = (-1.1, 2.2, -3.3, 4.4, -5.5, 6.6, -7.7, 8.8);
 	str s = $"v8f = {v8f}";
 	assert(s == "v8f = (-1.1, 2.2, -3.3, 4.4, -5.5, 6.6, -7.7, 8.8)");
 
-test "35. String interpolate f64x2":
+test "54. String interpolate f64x2":
 	f64x2 v2d = (-1.123, 2.234);
 	str s = $"v2d = {v2d}";
 	assert(s == "v2d = (-1.123, 2.234)");
 
-test "36. String interpolate f64x3":
+test "55. String interpolate f64x3":
 	f64x3 v3d = (-1.123, 2.234, -3.345);
 	str s = $"v3d = {v3d}";
 	assert(s == "v3d = (-1.123, 2.234, -3.345)");
 
-test "37. String interpolate f64x4":
+test "56. String interpolate f64x4":
 	f64x4 v4d = (-1.123, 2.234, -3.345, 4.456);
 	str s = $"v4d = {v4d}";
 	assert(s == "v4d = (-1.123, 2.234, -3.345, 4.456)");

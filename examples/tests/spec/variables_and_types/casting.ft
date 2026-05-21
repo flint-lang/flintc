@@ -70,147 +70,242 @@ test "13. Cast u8x8 to str":
 	str s = str(u);
 	assert(s == "(10, 20, 30, 40, 50, 60, 70, 80)");
 
-test "14. Cast i32x2 to str":
+test "14. Cast i8x2 to str":
+	i8x2 v = i8x2(-10, 20);
+	str s = str(v);
+	assert(s == "(-10, 20)");
+
+test "15. Cast i8x3 to str":
+	i8x3 v = i8x3(-10, 20, -30);
+	str s = str(v);
+	assert(s == "(-10, 20, -30)");
+
+test "16. Cast i8x4 to str":
+	i8x4 v = i8x4(-10, 20, -30, 40);
+	str s = str(v);
+	assert(s == "(-10, 20, -30, 40)");
+
+test "17. Cast i8x8 to str":
+	i8x8 v = i8x8(-10, 20, -30, 40, -50, 60, -70, 80);
+	str s = str(v);
+	assert(s == "(-10, 20, -30, 40, -50, 60, -70, 80)");
+
+test "18. Cast u16x2 to str":
+	u16x2 v = u16x2(10, 20);
+	str s = str(v);
+	assert(s == "(10, 20)");
+
+test "19. Cast u16x3 to str":
+	u16x3 v = u16x3(10, 20, 30);
+	str s = str(v);
+	assert(s == "(10, 20, 30)");
+
+test "20. Cast u16x4 to str":
+	u16x4 v = u16x4(10, 20, 30, 40);
+	str s = str(v);
+	assert(s == "(10, 20, 30, 40)");
+
+test "21. Cast u16x8 to str":
+	u16x8 v = u16x8(10, 20, 30, 40, 50, 60, 70, 80);
+	str s = str(v);
+	assert(s == "(10, 20, 30, 40, 50, 60, 70, 80)");
+
+test "22. Cast i16x2 to str":
+	i16x2 v = i16x2(-10, 20);
+	str s = str(v);
+	assert(s == "(-10, 20)");
+
+test "23. Cast i16x3 to str":
+	i16x3 v = i16x3(-10, 20, -30);
+	str s = str(v);
+	assert(s == "(-10, 20, -30)");
+
+test "24. Cast i16x4 to str":
+	i16x4 v = i16x4(-10, 20, -30, 40);
+	str s = str(v);
+	assert(s == "(-10, 20, -30, 40)");
+
+test "25. Cast i16x8 to str":
+	i16x8 v = i16x8(-10, 20, -30, 40, -50, 60, -70, 80);
+	str s = str(v);
+	assert(s == "(-10, 20, -30, 40, -50, 60, -70, 80)");
+
+test "26. Cast u32x2 to str":
+	u32x2 v = u32x2(10, 20);
+	str s = str(v);
+	assert(s == "(10, 20)");
+
+test "27. Cast u32x3 to str":
+	u32x3 v = u32x3(10, 20, 30);
+	str s = str(v);
+	assert(s == "(10, 20, 30)");
+
+test "28. Cast u32x4 to str":
+	u32x4 v = u32x4(10, 20, 30, 40);
+	str s = str(v);
+	assert(s == "(10, 20, 30, 40)");
+
+test "29. Cast u32x8 to str":
+	u32x8 v = u32x8(10, 20, 30, 40, 50, 60, 70, 80);
+	str s = str(v);
+	assert(s == "(10, 20, 30, 40, 50, 60, 70, 80)");
+
+test "30. Cast i32x2 to str":
 	i32x2 i = i32x2(-10, 20);
 	str s = str(i);
 	assert(s == "(-10, 20)");
 
-test "15. Cast i32x3 to str":
+test "31. Cast i32x3 to str":
 	i32x3 i = i32x3(-10, 20, -30);
 	str s = str(i);
 	assert(s == "(-10, 20, -30)");
 
-test "16. Cast i32x4 to str":
+test "32. Cast i32x4 to str":
 	i32x4 i = i32x4(-10, 20, -30, 40);
 	str s = str(i);
 	assert(s == "(-10, 20, -30, 40)");
 
-test "17. Cast i32x8 to str":
+test "33. Cast i32x8 to str":
 	i32x8 i = i32x8(-10, 20, -30, 40, -50, 60, -70, 80);
 	str s = str(i);
 	assert(s == "(-10, 20, -30, 40, -50, 60, -70, 80)");
 
-test "18. Cast i64x2 to str":
+test "34. Cast u64x2 to str":
+	u64x2 v = u64x2(100, 200);
+	str s = str(v);
+	assert(s == "(100, 200)");
+
+test "35. Cast u64x3 to str":
+	u64x3 v = u64x3(100, 200, 300);
+	str s = str(v);
+	assert(s == "(100, 200, 300)");
+
+test "36. Cast u64x4 to str":
+	u64x4 v = u64x4(100, 200, 300, 400);
+	str s = str(v);
+	assert(s == "(100, 200, 300, 400)");
+
+test "37. Cast i64x2 to str":
 	i64x2 i = i64x2(-100, 200);
 	str s = str(i);
 	assert(s == "(-100, 200)");
 
-test "19. Cast i64x3 to str":
+test "38. Cast i64x3 to str":
 	i64x3 i = i64x3(-100, 200, -300);
 	str s = str(i);
 	assert(s == "(-100, 200, -300)");
 
-test "20. Cast i64x4 to str":
+test "39. Cast i64x4 to str":
 	i64x4 i = i64x4(-100, 200, -300, 400);
 	str s = str(i);
 	assert(s == "(-100, 200, -300, 400)");
 
-test "21. Cast f32x2 to str":
+test "40. Cast f32x2 to str":
 	f32x2 f = f32x2(1.1, -2.2);
 	str s = str(f);
 	assert(s == "(1.1, -2.2)");
 
-test "22. Cast f32x3 to str":
+test "41. Cast f32x3 to str":
 	f32x3 f = f32x3(1.1, -2.2, 3.3);
 	str s = str(f);
 	assert(s == "(1.1, -2.2, 3.3)");
 
-test "23. Cast f32x4 to str":
+test "42. Cast f32x4 to str":
 	f32x4 f = f32x4(1.1, -2.2, 3.3, -4.4);
 	str s = str(f);
 	assert(s == "(1.1, -2.2, 3.3, -4.4)");
 
-test "24. Cast f32x8 to str":
+test "43. Cast f32x8 to str":
 	f32x8 f = f32x8(1.1, -2.2, 3.3, -4.4, 5.5, -6.6, 7.7, -8.8);
 	str s = str(f);
 	assert(s == "(1.1, -2.2, 3.3, -4.4, 5.5, -6.6, 7.7, -8.8)");
 
-test "25. Cast f64x2 to str":
+test "44. Cast f64x2 to str":
 	f64x2 f = f64x2(1.1, -2.2);
 	str s = str(f);
 	assert(s == "(1.1, -2.2)");
 
-test "26. Cast f64x3 to str":
+test "45. Cast f64x3 to str":
 	f64x3 f = f64x3(1.1, -2.2, 3.3);
 	str s = str(f);
 	assert(s == "(1.1, -2.2, 3.3)");
 
-test "27. Cast f64x4 to str":
+test "46. Cast f64x4 to str":
 	f64x4 f = f64x4(1.1, -2.2, 3.3, -4.4);
 	str s = str(f);
 	assert(s == "(1.1, -2.2, 3.3, -4.4)");
 
-test "28. Cast bool 'false' to u8":
+test "47. Cast bool 'false' to u8":
 	bool b = false;
 	u8 u = u8(b);
 	assert(u == 0);
 
-test "29. Cast bool 'true'  to u8":
+test "48. Cast bool 'true'  to u8":
 	bool b = true;
 	u8 u = u8(b);
 	assert(u == 1);
 
-test "30. Cast bool 'false' to u32":
+test "49. Cast bool 'false' to u32":
 	bool b = false;
 	u32 u = u32(b);
 	assert(u == 0);
 
-test "31. Cast bool 'true'  to u32":
+test "50. Cast bool 'true'  to u32":
 	bool b = true;
 	u32 u = u32(b);
 	assert(u == 1);
 
-test "32. Cast bool 'false' to u64":
+test "51. Cast bool 'false' to u64":
 	bool b = false;
 	u64 u = u64(b);
 	assert(u == 0);
 
-test "33. Cast bool 'true'  to u64":
+test "52. Cast bool 'true'  to u64":
 	bool b = true;
 	u64 u = u64(b);
 	assert(u == 1);
 
-test "34. Cast bool 'false' to i32":
+test "53. Cast bool 'false' to i32":
 	bool b = false;
 	i32 u = i32(b);
 	assert(u == 0);
 
-test "35. Cast bool 'true'  to i32":
+test "54. Cast bool 'true'  to i32":
 	bool b = true;
 	i32 i = i32(b);
 	assert(i == 1);
 
-test "36. Cast bool 'false' to i64":
+test "55. Cast bool 'false' to i64":
 	bool b = false;
 	i64 i = i64(b);
 	assert(i == 0);
 
-test "37. Cast bool 'true'  to i64":
+test "56. Cast bool 'true'  to i64":
 	bool b = true;
 	i64 i = i64(b);
 	assert(i == 1);
 
-test "38. Cast bool 'false' to f32":
+test "57. Cast bool 'false' to f32":
 	bool b = false;
 	f32 f = f32(b);
 	assert(f == 0.0);
 
-test "39. Cast bool 'true'  to f32":
+test "58. Cast bool 'true'  to f32":
 	bool b = true;
 	f32 f = f32(b);
 	assert(f == 1.0);
 
-test "40. Cast bool 'false' to f64":
+test "59. Cast bool 'false' to f64":
 	bool b = false;
 	f64 d = f64(b);
 	assert(d == 0.0);
 
-test "41. Cast bool 'true'  to f64":
+test "60. Cast bool 'true'  to f64":
 	bool b = true;
 	f64 d = f64(b);
 	assert(d == 1.0);
 
-test "42. Cast 'u8' to 'bool8'":
+test "61. Cast 'u8' to 'bool8'":
 	u8 u = 13;
 	bool8 b8 = bool8(u);
 	assert(str(b8) == "00001101");

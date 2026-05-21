@@ -347,17 +347,24 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         // We now see how each multi-type looks
         //
         //  bool8 -> i8 (handled in the normal `get_type` function)
-        //  u8x2 -> i16
-        //  u8x3 -> i24
-        //  u8x4 -> i32
-        //  u8x8 -> i64
+        //  u8x2 / i8x2 -> i16
+        //  u8x3 / i8x3 -> i24
+        //  u8x4 / i8x4 -> i32
+        //  u8x8 / i8x8 -> i64
         //
-        //  i32x2 -> { i32, i32 } -> i64
-        //  i32x3 -> { i32, i32, i32 } -> { i64, i32 }
-        //  i32x4 -> { i32, i32, i32, i32 } -> { i64, i64 }
+        //  u16x2 / i16x2 -> i32
+        //  u16x3 / i16x3 -> i48
+        //  u16x4 / i16x4 -> i64
+        //  u16x8 / i16x8 -> { i64, i64 }
         //
-        //  i64x2 -> { i64, i64 }
-        //  i64x3 and i64x4 are greater than 16 bytes
+        //  u32x2 / i32x2 -> { i32, i32 } -> i64
+        //  u32x3 / i32x3 -> { i32, i32, i32 } -> { i64, i32 }
+        //  u32x4 / i32x4 -> { i32, i32, i32, i32 } -> { i64, i64 }
+        //  u32x8 / i32x8 are greater than 16 bytes
+        //
+        //  u64x2 / i64x2 -> { i64, i64 }
+        //  u64x3 / i64x3 are greater than 16 bytes
+        //  u64x4 / i64x4 are greater than 16 bytes
         //
         //  f32x2 -> { f32, f32 } -> <2 x f32>
         //  f32x3 -> { f32, f32, f32 } -> { <2 x f32>, f32 }
@@ -372,28 +379,37 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             // Handle the `bool8` type in the normal `get_type` function
             return std::nullopt;
         }
-        if (multi_type->base_type->to_string() == "u8") {
+        const std::string base_type_str = multi_type->base_type->to_string();
+        if (base_type_str == "u8" || base_type_str == "i8") {
             return llvm::Type::getIntNTy(context, multi_type->width * 8);
+        }
+        llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+        if (base_type_str == "u16" || base_type_str == "i16") {
+            if (multi_type->width <= 4) {
+                return llvm::Type::getIntNTy(context, multi_type->width * 16);
+            } else if (type_map.find(type_str) == type_map.end()) {
+                type_map[type_str] = IR::create_struct_type(type_str, {i64_ty, i64_ty});
+            }
+            return type_map.at(type_str);
         }
         if (type_map.find(type_str) == type_map.end()) {
             std::vector<llvm::Type *> types;
             llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
-            const std::string base_type_str = multi_type->base_type->to_string();
-            if (base_type_str == "f64" || base_type_str == "i64") {
+            if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
                 for (size_t i = 0; i < multi_type->width; i++) {
                     types.emplace_back(element_type);
                 }
             } else if (multi_type->width == 2) {
                 if (base_type_str == "f32") {
                     return vec2_type;
-                } else if (base_type_str == "i32") {
-                    return llvm::Type::getInt64Ty(context);
+                } else if (base_type_str == "u32" || base_type_str == "i32") {
+                    return i64_ty;
                 }
             } else if (multi_type->width == 3) {
                 if (base_type_str == "f32") {
                     types.emplace_back(vec2_type);
-                } else if (base_type_str == "i32") {
-                    types.emplace_back(llvm::Type::getInt64Ty(context));
+                } else if (base_type_str == "u32" || base_type_str == "i32") {
+                    types.emplace_back(i64_ty);
                 }
                 types.emplace_back(element_type);
             } else {
@@ -401,11 +417,10 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
                     if (base_type_str == "f32") {
                         types.emplace_back(vec2_type);
                     } else {
-                        types.emplace_back(llvm::Type::getInt64Ty(context));
+                        types.emplace_back(i64_ty);
                     }
                 }
             }
-
             type_map[type_str] = IR::create_struct_type(type_str, types);
         }
         return type_map.at(type_str);

@@ -3,20 +3,83 @@ use Core.assert
 def test_mult_fn(i32x4 v4, i32 m) -> i32x4:
     return v4 * m;
 
-def test_single_value_expansion():
-    f32x4 v4 = 8.0;
-    assert(v4 == (8.0, 8.0, 8.0, 8.0));
+def test_i8x2_fn(i8x2 v) -> i8x2:
+    return v * i8x2(2, 2);
 
-    v4 /= 2.0;
-    assert(v4 == 4.0);
+def test_u16x2_fn(u16x2 v, u16 m) -> u16x2:
+    return v * m;
 
-    v4.(r, b) = (3.0, 5.0);
-    assert(v4 == (3.0, 4.0, 5.0, 4.0));
+test "i8x2 function call":
+    i8x2 inp = i8x2(1, 2);
+    i8x2 out = test_i8x2_fn(inp);
+    assert(out == (2, 4));
 
-    v4 = 0.0;
-    assert(v4 == 0.0);
+test "i8x4 arithmetic":
+    i8x4 a = i8x4(1, 2, 3, 4);
+    i8x4 b = i8x4(5, 6, 7, 8);
+    i8x4 r = a + b;
+    assert(r == (6, 8, 10, 12));
 
-def test_simple_operations():
+    r -= i8x4(1, 1, 1, 1);
+    assert(r == (5, 7, 9, 11));
+
+    r *= i8x4(2, 2, 2, 2);
+    assert(r == (10, 14, 18, 22));
+
+    r /= i8x4(2, 2, 2, 2);
+    assert(r == (5, 7, 9, 11));
+
+test "u16x2 function call":
+    u16x2 inp = u16x2(100, 200);
+    u16x2 out = test_u16x2_fn(inp, 3);
+    assert(out == (300, 600));
+
+test "u16x4 arithmetic":
+    u16x4 a = u16x4(100, 200, 300, 400);
+    u16x4 b = u16x4(50, 50, 50, 50);
+    u16x4 r = a + b;
+    assert(r == (150, 250, 350, 450));
+
+    r -= u16x4(10, 20, 30, 40);
+    assert(r == (140, 230, 320, 410));
+
+    r *= u16x4(2, 2, 2, 2);
+    assert(r == (280, 460, 640, 820));
+
+    r /= u16x4(2, 2, 2, 2);
+    assert(r == (140, 230, 320, 410));
+
+test "i16x4 arithmetic":
+    i16x4 a = i16x4(10, -20, 30, -40);
+    i16x4 b = i16x4(5, 5, 5, 5);
+    i16x4 r = a + b;
+    assert(r == (15, -15, 35, -35));
+
+    r -= i16x4(5, -5, 5, -5);
+    assert(r == (10, -10, 30, -30));
+
+    r *= i16x4(2, 2, 2, 2);
+    assert(r == (20, -20, 60, -60));
+
+    r /= i16x4(2, 2, 2, 2);
+    assert(r == (10, -10, 30, -30));
+
+test "u32x4 arithmetic":
+    u32x4 a = u32x4(1000, 2000, 3000, 4000);
+    u32x4 b = u32x4(500, 500, 500, 500);
+    u32x4 r = a + b;
+    assert(r == (1500, 2500, 3500, 4500));
+
+    r -= u32x4(100, 200, 300, 400);
+    assert(r == (1400, 2300, 3200, 4100));
+
+    r *= u32x4(2, 2, 2, 2);
+    assert(r == (2800, 4600, 6400, 8200));
+
+    r /= u32x4(2, 2, 2, 2);
+    assert(r == (1400, 2300, 3200, 4100));
+
+test "i32x3 basic operations":
     i32x3 int3 = (1, 2, 3);
     int3.(x, y, z) = (5, 3, 8);
     i32x3 int32 = (88, 3, 44);
@@ -34,9 +97,37 @@ def test_simple_operations():
     result /= temp2;
     assert(result == (178, 4, 96));
 
-def test_multi_types():
-    test_simple_operations();
-    test_single_value_expansion();
+test "i32x4 function call":
     i32x4 input = (1, 2, 3, 4);
     i32x4 out = test_mult_fn(input, 3);
     assert(out == (3, 6, 9, 12));
+
+test "u64x4 arithmetic":
+    u64x4 a = u64x4(10000, 20000, 30000, 40000);
+    u64x4 b = u64x4(5000, 5000, 5000, 5000);
+    u64x4 r = a + b;
+    assert(r == (15000, 25000, 35000, 45000));
+
+    r -= u64x4(1000, 2000, 3000, 4000);
+    assert(r == (14000, 23000, 32000, 41000));
+
+    r *= u64x4(2, 2, 2, 2);
+    assert(r == (28000, 46000, 64000, 82000));
+
+    r /= u64x4(2, 2, 2, 2);
+    assert(r == (14000, 23000, 32000, 41000));
+
+test "single value expansion":
+    f32x4 v4 = 8.0;
+    assert(v4 == (8.0, 8.0, 8.0, 8.0));
+
+    v4 /= 2.0;
+    assert(v4 == 4.0);
+
+    v4.(r, b) = (3.0, 5.0);
+    assert(v4 == (3.0, 4.0, 5.0, 4.0));
+
+    v4 = 0.0;
+    assert(v4 == 0.0);
+
+

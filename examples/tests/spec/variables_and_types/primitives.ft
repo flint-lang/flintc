@@ -47,24 +47,53 @@ test "6.  Declare u8xN vectors":
 	u8x4 v4c = u8x4(1, 2, 3, 4);
 	u8x8 v8c = u8x8(1, 2, 3, 4, 5, 6, 7, 8);
 
-test "7.  Declare i32xN vectors":
+test "7.  Declare i8xN vectors":
+	i8x2 v2 = i8x2(10, 20);
+	i8x3 v3 = i8x3(10, 20, 30);
+	i8x4 v4 = i8x4(10, 20, 30, 40);
+	i8x8 v8 = i8x8(10, 20, 30, 40, 50, 60, 70, 80);
+
+test "8.  Declare u16xN vectors":
+	u16x2 v2 = u16x2(10, 20);
+	u16x3 v3 = u16x3(10, 20, 30);
+	u16x4 v4 = u16x4(10, 20, 30, 40);
+	u16x8 v8 = u16x8(10, 20, 30, 40, 50, 60, 70, 80);
+
+test "9.  Declare i16xN vectors":
+	i16x2 v2 = i16x2(10, 20);
+	i16x3 v3 = i16x3(10, 20, 30);
+	i16x4 v4 = i16x4(10, 20, 30, 40);
+	i16x8 v8 = i16x8(10, 20, 30, 40, 50, 60, 70, 80);
+
+test "10. Declare u32xN vectors":
+	u32x2 v2 = u32x2(10, 20);
+	u32x3 v3 = u32x3(10, 20, 30);
+	u32x4 v4 = u32x4(10, 20, 30, 40);
+	u32x8 v8 = u32x8(10, 20, 30, 40, 50, 60, 70, 80);
+
+test "11. Declare i32xN vectors":
 	i32x2 v2i = (10, 20);
 	i32x3 v3i = (10, 20, 30);
 	i32x4 v4i = (10, 20, 30, 40);
 	i32x8 v8i = (10, 20, 30, 40, 50, 60, 70, 80);
 
-test "8.  Declare i64xN vectors":
+test "12. Declare u64xN vectors":
+	u64x2 v2 = u64x2(100, 200);
+	u64x3 v3 = u64x3(100, 200, 300);
+	u64x4 v4 = u64x4(100, 200, 300, 400);
+
+test "13. Declare i64xN vectors":
 	i64x2 v2l = (100, 200);
 	i64x3 v3l = (100, 200, 300);
 	i64x4 v4l = (100, 200, 300, 400);
 
-test "9.  Declare f32xN vectors":
+test "14. Declare f32xN vectors":
 	f32x2 v2f = (10.0, 20.0);
 	f32x3 v3f = (10.0, 20.0, 30.0);
 	f32x4 v4f = (10.0, 20.0, 30.0, 40.0);
 	f32x8 v8f = (10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0);
 
-test "10. Declare f64xN vectors":
+test "15. Declare f64xN vectors":
 	f64x2 v2d = (100.0, 200.0);
 	f64x3 v3d = (100.0, 200.0, 300.0);
 	f64x4 v4d = (100.0, 200.0, 300.0, 400.0);

@@ -1,30 +1,18 @@
 use Core.print
 
-error MyError:
-	VAL1, VAL2, VAL3;
-
-def foo(bool crash) -> i32:
-	if crash:
-		throw MyError.VAL1("foo failed");
-	return 42;
-
-def bar(bool crash) -> i32 {MyError}:
-	if crash:
-		throw MyError.VAL2("bar failed");
-	return 69;
-
 def main():
-	i32 x = foo(false);
-	print($"x = {x}\n");
-	x = foo(true) catch 20;
-	print($"x = {x}\n");
+	u32x2 u_2 = (10, 20);
+	print($"u_2 = {u_2}\n");
+	u32x3 u_3 = (10, 20, 30);
+	print($"u_3 = {u_3}\n");
+	u32x4 u_4 = (10, 20, 30, 40);
+	print($"u_4 = {u_4}\n");
+	u32x8 u_8 = (10, 20, 30, 40, 50, 60, 70, 80);
+	print($"u_8 = {u_8}\n");
 
-	i32 y = bar(false);
-	print($"y = {y}\n");
-	y = foo(true) catch 20;
-	print($"y = {y}\n");
-
-	i32 z = foo(false) + bar(false);
-	print($"z = {z}\n");
-	z = foo(true) catch 10 + bar(true) catch 30;
-	print($"z = {z}\n");
+	u64x2 u6_2 = (10, 20);
+	print($"u6_2 = {u6_2}\n");
+	u64x3 u6_3 = (10, 20, 30);
+	print($"u6_3 = {u6_3}\n");
+	u64x4 u6_4 = (10, 20, 30, 40);
+	print($"u6_4 = {u6_4}\n");

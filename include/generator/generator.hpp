@@ -2536,27 +2536,79 @@ class Generator {
                 {"i64_safe_mul", nullptr},
                 {"i64_safe_div", nullptr},
                 {"i64_pow", nullptr},
-                // TODO: Unsigned Multi Types of length 2
-                // {"u8x2_safe_add", nullptr},
-                // {"u8x2_safe_sub", nullptr},
-                // {"u8x2_safe_mul", nullptr},
-                // {"u8x2_safe_div", nullptr},
-                // TODO: Unsigned Multi Types of length 3
-                // {"u8x3_safe_add", nullptr},
-                // {"u8x3_safe_sub", nullptr},
-                // {"u8x3_safe_mul", nullptr},
-                // {"u8x3_safe_div", nullptr},
-                // TODO: Unsigned Multi Types of length 4
-                // {"u8x4_safe_add", nullptr},
-                // {"u8x4_safe_sub", nullptr},
-                // {"u8x4_safe_mul", nullptr},
-                // {"u8x4_safe_div", nullptr},
-                // TODO: Unsigned Multi Types of length 8
-                // {"u8x8_safe_add", nullptr},
-                // {"u8x8_safe_sub", nullptr},
-                // {"u8x8_safe_mul", nullptr},
-                // {"u8x8_safe_div", nullptr},
+                // Unsigned Multi Types of length 2
+                {"u8x2_safe_add", nullptr},
+                {"u8x2_safe_sub", nullptr},
+                {"u8x2_safe_mul", nullptr},
+                {"u8x2_safe_div", nullptr},
+                {"u16x2_safe_add", nullptr},
+                {"u16x2_safe_sub", nullptr},
+                {"u16x2_safe_mul", nullptr},
+                {"u16x2_safe_div", nullptr},
+                {"u32x2_safe_add", nullptr},
+                {"u32x2_safe_sub", nullptr},
+                {"u32x2_safe_mul", nullptr},
+                {"u32x2_safe_div", nullptr},
+                {"u64x2_safe_add", nullptr},
+                {"u64x2_safe_sub", nullptr},
+                {"u64x2_safe_mul", nullptr},
+                {"u64x2_safe_div", nullptr},
+                // Unsigned Multi Types of length 3
+                {"u8x3_safe_add", nullptr},
+                {"u8x3_safe_sub", nullptr},
+                {"u8x3_safe_mul", nullptr},
+                {"u8x3_safe_div", nullptr},
+                {"u16x3_safe_add", nullptr},
+                {"u16x3_safe_sub", nullptr},
+                {"u16x3_safe_mul", nullptr},
+                {"u16x3_safe_div", nullptr},
+                {"u32x3_safe_add", nullptr},
+                {"u32x3_safe_sub", nullptr},
+                {"u32x3_safe_mul", nullptr},
+                {"u32x3_safe_div", nullptr},
+                {"u64x3_safe_add", nullptr},
+                {"u64x3_safe_sub", nullptr},
+                {"u64x3_safe_mul", nullptr},
+                {"u64x3_safe_div", nullptr},
+                // Unsigned Multi Types of length 4
+                {"u8x4_safe_add", nullptr},
+                {"u8x4_safe_sub", nullptr},
+                {"u8x4_safe_mul", nullptr},
+                {"u8x4_safe_div", nullptr},
+                {"u16x4_safe_add", nullptr},
+                {"u16x4_safe_sub", nullptr},
+                {"u16x4_safe_mul", nullptr},
+                {"u16x4_safe_div", nullptr},
+                {"u32x4_safe_add", nullptr},
+                {"u32x4_safe_sub", nullptr},
+                {"u32x4_safe_mul", nullptr},
+                {"u32x4_safe_div", nullptr},
+                {"u64x4_safe_add", nullptr},
+                {"u64x4_safe_sub", nullptr},
+                {"u64x4_safe_mul", nullptr},
+                {"u64x4_safe_div", nullptr},
+                // Unsigned Multi Types of length 8
+                {"u8x8_safe_add", nullptr},
+                {"u8x8_safe_sub", nullptr},
+                {"u8x8_safe_mul", nullptr},
+                {"u8x8_safe_div", nullptr},
+                {"u16x8_safe_add", nullptr},
+                {"u16x8_safe_sub", nullptr},
+                {"u16x8_safe_mul", nullptr},
+                {"u16x8_safe_div", nullptr},
+                {"u32x8_safe_add", nullptr},
+                {"u32x8_safe_sub", nullptr},
+                {"u32x8_safe_mul", nullptr},
+                {"u32x8_safe_div", nullptr},
                 // Signed Multi Types of length 2
+                {"i8x2_safe_add", nullptr},
+                {"i8x2_safe_sub", nullptr},
+                {"i8x2_safe_mul", nullptr},
+                {"i8x2_safe_div", nullptr},
+                {"i16x2_safe_add", nullptr},
+                {"i16x2_safe_sub", nullptr},
+                {"i16x2_safe_mul", nullptr},
+                {"i16x2_safe_div", nullptr},
                 {"i32x2_safe_add", nullptr},
                 {"i32x2_safe_sub", nullptr},
                 {"i32x2_safe_mul", nullptr},
@@ -2566,6 +2618,14 @@ class Generator {
                 {"i64x2_safe_mul", nullptr},
                 {"i64x2_safe_div", nullptr},
                 // Signed Multi Types of length 3
+                {"i8x3_safe_add", nullptr},
+                {"i8x3_safe_sub", nullptr},
+                {"i8x3_safe_mul", nullptr},
+                {"i8x3_safe_div", nullptr},
+                {"i16x3_safe_add", nullptr},
+                {"i16x3_safe_sub", nullptr},
+                {"i16x3_safe_mul", nullptr},
+                {"i16x3_safe_div", nullptr},
                 {"i32x3_safe_add", nullptr},
                 {"i32x3_safe_sub", nullptr},
                 {"i32x3_safe_mul", nullptr},
@@ -2575,6 +2635,14 @@ class Generator {
                 {"i64x3_safe_mul", nullptr},
                 {"i64x3_safe_div", nullptr},
                 // Signed Multi Types of length 4
+                {"i8x4_safe_add", nullptr},
+                {"i8x4_safe_sub", nullptr},
+                {"i8x4_safe_mul", nullptr},
+                {"i8x4_safe_div", nullptr},
+                {"i16x4_safe_add", nullptr},
+                {"i16x4_safe_sub", nullptr},
+                {"i16x4_safe_mul", nullptr},
+                {"i16x4_safe_div", nullptr},
                 {"i32x4_safe_add", nullptr},
                 {"i32x4_safe_sub", nullptr},
                 {"i32x4_safe_mul", nullptr},
@@ -2584,6 +2652,14 @@ class Generator {
                 {"i64x4_safe_mul", nullptr},
                 {"i64x4_safe_div", nullptr},
                 // Signed Multi Types of length 8
+                {"i8x8_safe_add", nullptr},
+                {"i8x8_safe_sub", nullptr},
+                {"i8x8_safe_mul", nullptr},
+                {"i8x8_safe_div", nullptr},
+                {"i16x8_safe_add", nullptr},
+                {"i16x8_safe_sub", nullptr},
+                {"i16x8_safe_mul", nullptr},
+                {"i16x8_safe_div", nullptr},
                 {"i32x8_safe_add", nullptr},
                 {"i32x8_safe_sub", nullptr},
                 {"i32x8_safe_mul", nullptr},
@@ -2861,6 +2937,78 @@ class Generator {
                 llvm::VectorType *vector_int_type,    //
                 const unsigned int vector_width,      //
                 const std::string &name               //
+            );
+
+            /// @function `generate_uint_vector_safe_add`
+            /// @brief Creates a safe addition of two unsigned integer vector types
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `uMxN_safe_add` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `vector_int_type` The vector type to generate the function for
+            /// @param `vector_width` The width of the vector
+            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            static void generate_uint_vector_safe_add( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations,          //
+                llvm::VectorType *vector_int_type,     //
+                const unsigned int vector_width,       //
+                const std::string &name                //
+            );
+
+            /// @function `generate_uint_vector_safe_sub`
+            /// @brief Creates a safe subtraction of two unsigned integer vector types
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `iMxN_safe_sub` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `vector_int_type` The vector type to generate the function for
+            /// @param `vector_width` The width of the vector
+            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            static void generate_uint_vector_safe_sub( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations,          //
+                llvm::VectorType *vector_int_type,     //
+                const unsigned int vector_width,       //
+                const std::string &name                //
+            );
+
+            /// @function `generate_uint_vector_safe_mul`
+            /// @brief Creates a safe multiplication of two unsigned integer vector types
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `iMxN_safe_mul` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `vector_int_type` The vector type to generate the function for
+            /// @param `vector_width` The width of the vector
+            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            static void generate_uint_vector_safe_mul( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations,          //
+                llvm::VectorType *vector_int_type,     //
+                const unsigned int vector_width,       //
+                const std::string &name                //
+            );
+
+            /// @function `generate_uint_vector_safe_div`
+            /// @brief Creates a safe division of two unsigned integer vector types
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `iMxN_safe_div` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            /// @param `vector_int_type` The vector type to generate the function for
+            /// @param `vector_width` The width of the vector
+            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            static void generate_uint_vector_safe_div( //
+                llvm::IRBuilder<> *builder,            //
+                llvm::Module *module,                  //
+                const bool only_declarations,          //
+                llvm::VectorType *vector_int_type,     //
+                const unsigned int vector_width,       //
+                const std::string &name                //
             );
         }; // subclass Arithmetic
 
@@ -4306,10 +4454,29 @@ class Generator {
                 {"u8x3_to_str", nullptr},
                 {"u8x4_to_str", nullptr},
                 {"u8x8_to_str", nullptr},
+                {"i8x2_to_str", nullptr},
+                {"i8x3_to_str", nullptr},
+                {"i8x4_to_str", nullptr},
+                {"i8x8_to_str", nullptr},
+                {"u16x2_to_str", nullptr},
+                {"u16x3_to_str", nullptr},
+                {"u16x4_to_str", nullptr},
+                {"u16x8_to_str", nullptr},
+                {"i16x2_to_str", nullptr},
+                {"i16x3_to_str", nullptr},
+                {"i16x4_to_str", nullptr},
+                {"i16x8_to_str", nullptr},
+                {"u32x2_to_str", nullptr},
+                {"u32x3_to_str", nullptr},
+                {"u32x4_to_str", nullptr},
+                {"u32x8_to_str", nullptr},
                 {"i32x2_to_str", nullptr},
                 {"i32x3_to_str", nullptr},
                 {"i32x4_to_str", nullptr},
                 {"i32x8_to_str", nullptr},
+                {"u64x2_to_str", nullptr},
+                {"u64x3_to_str", nullptr},
+                {"u64x4_to_str", nullptr},
                 {"i64x2_to_str", nullptr},
                 {"i64x3_to_str", nullptr},
                 {"i64x4_to_str", nullptr},

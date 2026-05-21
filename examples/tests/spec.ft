@@ -18,6 +18,9 @@ test "variables_and_types/casting":
 test "control_flow/primitive":
 	test_test("tests/spec/control_flow", "if.ft");
 
+test "data/multi_types":
+	test_test("tests/spec/data", "multi_types.ft");
+
 // test "control_flow/loops":
 // 	test_test("tests/spec/control_flow", "loops.ft");
 // 

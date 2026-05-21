@@ -528,16 +528,19 @@ void Generator::Expression::convert_type_to_ext( //
             // A vector type of size 3 is split into a two-component vector type + a scalar value
             // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
             const std::string base_type_str = multi_type->base_type->to_string();
-            if (base_type_str == "f64" || base_type_str == "i64") {
+            if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
                 for (size_t i = 0; i < multi_type->width; i++) {
                     args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
                 }
                 return;
             } else if (multi_type->width == 2) {
-                if (base_type_str == "u8") {
+                if (base_type_str == "u8" || base_type_str == "i8") {
                     // We need to pack the two u8 values as one i16
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt16Ty()));
-                } else if (base_type_str == "i32") {
+                } else if (base_type_str == "u16" || base_type_str == "i16") {
+                    // We need to pack the two i16s as one i32
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt32Ty()));
+                } else if (base_type_str == "u32" || base_type_str == "i32") {
                     // We need to pack the two i32s as one i64
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
                 } else {
@@ -545,14 +548,18 @@ void Generator::Expression::convert_type_to_ext( //
                 }
                 return;
             } else if (multi_type->width == 3) {
-                if (base_type_str == "u8") {
+                if (base_type_str == "u8" || base_type_str == "i8") {
                     // We can simply cast the u8x3 to a i24 value
                     args.emplace_back(builder.CreateBitCast(value, builder.getIntNTy(24)));
+                    return;
+                } else if (base_type_str == "u16" || base_type_str == "i16") {
+                    // We can simply cast the (u/i)16x3 to a i48 value
+                    args.emplace_back(builder.CreateBitCast(value, builder.getIntNTy(48)));
                     return;
                 }
                 // Extract the first two elements as a vector type
                 llvm::Value *first_two = builder.CreateShuffleVector(value, {0, 1});
-                if (base_type_str == "i32") {
+                if (base_type_str == "u32" || base_type_str == "i32") {
                     // Pack the two i32s as one i64
                     args.emplace_back(builder.CreateBitCast(first_two, builder.getInt64Ty()));
                 } else {
@@ -563,7 +570,7 @@ void Generator::Expression::convert_type_to_ext( //
                 args.emplace_back(third);
                 return;
             }
-            if (base_type_str == "u8") {
+            if (base_type_str == "u8" || base_type_str == "i8") {
                 // Since all following multi-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
                 // the argument list
                 if (multi_type->width == 4) {
@@ -574,13 +581,25 @@ void Generator::Expression::convert_type_to_ext( //
                     assert(false);
                 }
                 return;
+            } else if (base_type_str == "u16" || base_type_str == "i16") {
+                if (multi_type->width == 4) {
+                    args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
+                } else if (multi_type->width == 8) {
+                    for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 4) {
+                        llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1, i + 2, i + 3});
+                        args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
+                    }
+                } else {
+                    assert(false);
+                }
+                return;
             }
 
             // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
             // numbers
             for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 2) {
                 llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1});
-                if (base_type_str == "i32") {
+                if (base_type_str == "u32" || base_type_str == "i32") {
                     args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
                 } else {
                     args.emplace_back(next_shuffle);
@@ -844,7 +863,7 @@ void Generator::Expression::convert_type_from_ext( //
             llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
             llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
             const std::string base_type_str = multi_type->base_type->to_string();
-            if (base_type_str == "f64" || base_type_str == "i64") {
+            if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
                 llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
                 for (size_t i = 0; i < multi_type->width; i++) {
                     llvm::Value *elem_i = builder.CreateExtractValue(value, i);
@@ -852,18 +871,25 @@ void Generator::Expression::convert_type_from_ext( //
                 }
                 value = result_vec;
             } else if (multi_type->width == 2) {
-                if (base_type_str == "u8") {
+                if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i16` value
                     value = builder.CreateBitCast(value, target_vector_type);
-                } else if (base_type_str == "i32") {
+                } else if (base_type_str == "u16" || base_type_str == "i16") {
+                    // Value returned as `i32` value
+                    value = builder.CreateBitCast(value, target_vector_type);
+                } else if (base_type_str == "u32" || base_type_str == "i32") {
                     value = builder.CreateBitCast(value, vec2_i32);
                 } else {
                     // vec2 is returned as <2 x T> directly for floats - no conversion needed
                     return;
                 }
             } else if (multi_type->width == 3) {
-                if (base_type_str == "u8") {
+                if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i24` value
+                    value = builder.CreateBitCast(value, target_vector_type);
+                    return;
+                } else if (base_type_str == "u16" || base_type_str == "i16") {
+                    // Value returned as `i48` value
                     value = builder.CreateBitCast(value, target_vector_type);
                     return;
                 }
@@ -878,7 +904,7 @@ void Generator::Expression::convert_type_from_ext( //
                 llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
 
                 // The first element of the struct is `i64` not a vector so we need to cast it first
-                if (base_type_str == "i32") {
+                if (base_type_str == "u32" || base_type_str == "i32") {
                     vec2_part = builder.CreateBitCast(vec2_part, vec2_i32);
                 }
 
@@ -892,9 +918,30 @@ void Generator::Expression::convert_type_from_ext( //
 
                 value = result_vec;
             } else {
-                if (base_type_str == "u8") {
-                    // Value returned as `i32` value (u8x4) or `i64` value (u8x8)
+                if (base_type_str == "u8" || base_type_str == "i8") {
+                    // Value returned as `i32` value (u8x4 / i8x4) or `i64` value (u8x8 / i8x8)
                     value = builder.CreateBitCast(value, target_vector_type);
+                    return;
+                } else if (base_type_str == "u16" || base_type_str == "i16") {
+                    if (multi_type->width == 4) {
+                        // Value returned as `i64` value directly
+                        value = builder.CreateBitCast(value, target_vector_type);
+                        return;
+                    } else if (multi_type->width == 8) {
+                        // Value returned as a struct of two i64 values
+                        llvm::Value *lhs_i64 = builder.CreateExtractValue(value, 0, "chunk_vec_left4");
+                        llvm::Value *rhs_i64 = builder.CreateExtractValue(value, 1, "chunk_vec_right4");
+                        llvm::VectorType *vec4_i16 = llvm::VectorType::get(element_type, 4, false);
+                        auto *left4 = builder.CreateBitCast(lhs_i64, vec4_i16);
+                        auto *right4 = builder.CreateBitCast(rhs_i64, vec4_i16);
+
+                        llvm::Value *result = llvm::UndefValue::get(target_vector_type);
+                        result = builder.CreateInsertVector(target_vector_type, result, left4, builder.getInt64(0));
+                        result = builder.CreateInsertVector(target_vector_type, result, right4, builder.getInt64(4));
+                        value = result;
+                    } else {
+                        assert(false);
+                    }
                     return;
                 }
                 // vecN (N > 3) is returned as { <2 x T>, <2 x T>, ... } struct from extern calls
@@ -907,15 +954,13 @@ void Generator::Expression::convert_type_from_ext( //
                     llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
 
                     // The first element of the struct is `i64` not a vector so we need to cast it first
-                    if (base_type_str == "i32") {
+                    if (base_type_str == "u32" || base_type_str == "i32") {
                         chunk_vec = builder.CreateBitCast(chunk_vec, vec2_i32);
                     }
 
                     // Extract elements from this chunk
-                    for (size_t i = 0; i < 2 && element_index < multi_type->width; i++, element_index++) {
-                        llvm::Value *elem = builder.CreateExtractElement(chunk_vec, builder.getInt64(i));
-                        result_vec = builder.CreateInsertElement(result_vec, elem, builder.getInt64(element_index));
-                    }
+                    result_vec = builder.CreateInsertVector(target_vector_type, result_vec, chunk_vec, builder.getInt64(element_index));
+                    element_index += 2;
                 }
                 value = result_vec;
             }
@@ -5269,6 +5314,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
     llvm::Value *rhs                                                           //
 ) {
     const bool is_float = lhs->getType()->getScalarType()->isFloatTy();
+    const bool is_signed = bin_op_node->type->to_string()[0] == 'i';
     switch (bin_op_node->operator_token) {
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -5329,8 +5375,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             llvm::Value *cmp_result;
             if (is_float) {
                 cmp_result = builder.CreateFCmpOLT(lhs, rhs, "vec_lt");
-            } else {
+            } else if (is_signed) {
                 cmp_result = builder.CreateICmpSLT(lhs, rhs, "vec_lt");
+            } else {
+                cmp_result = builder.CreateICmpULT(lhs, rhs, "vec_lt");
             }
             // Create the intrinsic declaration for vector_reduce_and
             llvm::Type *cmp_type = cmp_result->getType();
@@ -5344,8 +5392,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             llvm::Value *cmp_result;
             if (is_float) {
                 cmp_result = builder.CreateFCmpOGT(lhs, rhs, "vec_gt");
-            } else {
+            } else if (is_signed) {
                 cmp_result = builder.CreateICmpSGT(lhs, rhs, "vec_gt");
+            } else {
+                cmp_result = builder.CreateICmpUGT(lhs, rhs, "vec_gt");
             }
             llvm::Type *cmp_type = cmp_result->getType();
             llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
@@ -5357,8 +5407,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             llvm::Value *cmp_result;
             if (is_float) {
                 cmp_result = builder.CreateFCmpOLE(lhs, rhs, "vec_le");
-            } else {
+            } else if (is_signed) {
                 cmp_result = builder.CreateICmpSLE(lhs, rhs, "vec_le");
+            } else {
+                cmp_result = builder.CreateICmpULE(lhs, rhs, "vec_le");
             }
             llvm::Type *cmp_type = cmp_result->getType();
             llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
@@ -5370,8 +5422,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             llvm::Value *cmp_result;
             if (is_float) {
                 cmp_result = builder.CreateFCmpOGE(lhs, rhs, "vec_ge");
-            } else {
+            } else if (is_signed) {
                 cmp_result = builder.CreateICmpSGE(lhs, rhs, "vec_ge");
+            } else {
+                cmp_result = builder.CreateICmpUGE(lhs, rhs, "vec_ge");
             }
             llvm::Type *cmp_type = cmp_result->getType();
             llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //

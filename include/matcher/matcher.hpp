@@ -330,10 +330,29 @@ class Matcher {
         {TOK_U8X3, std::make_shared<TokenTypeMatcher>(TOK_U8X3)},
         {TOK_U8X4, std::make_shared<TokenTypeMatcher>(TOK_U8X4)},
         {TOK_U8X8, std::make_shared<TokenTypeMatcher>(TOK_U8X8)},
+        {TOK_I8X2, std::make_shared<TokenTypeMatcher>(TOK_I8X2)},
+        {TOK_I8X3, std::make_shared<TokenTypeMatcher>(TOK_I8X3)},
+        {TOK_I8X4, std::make_shared<TokenTypeMatcher>(TOK_I8X4)},
+        {TOK_I8X8, std::make_shared<TokenTypeMatcher>(TOK_I8X8)},
+        {TOK_U16X2, std::make_shared<TokenTypeMatcher>(TOK_U16X2)},
+        {TOK_U16X3, std::make_shared<TokenTypeMatcher>(TOK_U16X3)},
+        {TOK_U16X4, std::make_shared<TokenTypeMatcher>(TOK_U16X4)},
+        {TOK_U16X8, std::make_shared<TokenTypeMatcher>(TOK_U16X8)},
+        {TOK_I16X2, std::make_shared<TokenTypeMatcher>(TOK_I16X2)},
+        {TOK_I16X3, std::make_shared<TokenTypeMatcher>(TOK_I16X3)},
+        {TOK_I16X4, std::make_shared<TokenTypeMatcher>(TOK_I16X4)},
+        {TOK_I16X8, std::make_shared<TokenTypeMatcher>(TOK_I16X8)},
+        {TOK_U32X2, std::make_shared<TokenTypeMatcher>(TOK_U32X2)},
+        {TOK_U32X3, std::make_shared<TokenTypeMatcher>(TOK_U32X3)},
+        {TOK_U32X4, std::make_shared<TokenTypeMatcher>(TOK_U32X4)},
+        {TOK_U32X8, std::make_shared<TokenTypeMatcher>(TOK_U32X8)},
         {TOK_I32X2, std::make_shared<TokenTypeMatcher>(TOK_I32X2)},
         {TOK_I32X3, std::make_shared<TokenTypeMatcher>(TOK_I32X3)},
         {TOK_I32X4, std::make_shared<TokenTypeMatcher>(TOK_I32X4)},
         {TOK_I32X8, std::make_shared<TokenTypeMatcher>(TOK_I32X8)},
+        {TOK_U64X2, std::make_shared<TokenTypeMatcher>(TOK_U64X2)},
+        {TOK_U64X3, std::make_shared<TokenTypeMatcher>(TOK_U64X3)},
+        {TOK_U64X4, std::make_shared<TokenTypeMatcher>(TOK_U64X4)},
         {TOK_I64X2, std::make_shared<TokenTypeMatcher>(TOK_I64X2)},
         {TOK_I64X3, std::make_shared<TokenTypeMatcher>(TOK_I64X3)},
         {TOK_I64X4, std::make_shared<TokenTypeMatcher>(TOK_I64X4)},
@@ -544,13 +563,21 @@ class Matcher {
   public:
     static const inline PatternPtr anytoken = std::make_shared<TokenTypeAnytoken>();
     static const inline PatternPtr type_prim = one_of({
-        token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_I64), token(TOK_U64), //
+        token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_U64), token(TOK_I64), //
         token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL), token(TOK_OPAQUE)                          //
     });
     static const inline PatternPtr type_prim_mult = one_of({
-        token(TOK_BOOL8), token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),                                         //
-        token(TOK_I32X2), token(TOK_I32X3), token(TOK_I32X4), token(TOK_I32X8), token(TOK_I64X2), token(TOK_I64X3), token(TOK_I64X4), //
-        token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)  //
+        token(TOK_BOOL8),                                                       //
+        token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),     //
+        token(TOK_I8X2), token(TOK_I8X3), token(TOK_I8X4), token(TOK_I8X8),     //
+        token(TOK_U16X2), token(TOK_U16X3), token(TOK_U16X4), token(TOK_U16X8), //
+        token(TOK_I16X2), token(TOK_I16X3), token(TOK_I16X4), token(TOK_I16X8), //
+        token(TOK_U32X2), token(TOK_U32X3), token(TOK_U32X4), token(TOK_U32X8), //
+        token(TOK_I32X2), token(TOK_I32X3), token(TOK_I32X4), token(TOK_I32X8), //
+        token(TOK_U64X2), token(TOK_U64X3), token(TOK_U64X4),                   //
+        token(TOK_I64X2), token(TOK_I64X3), token(TOK_I64X4),                   //
+        token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), //
+        token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)                    //
     });
     static const inline PatternPtr literal = one_of({
         token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
