@@ -17,6 +17,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
@@ -3746,6 +3747,44 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     switch (type_cast_node->type->get_variation()) {
         default:
             to_type = type_cast_node->type;
+            break;
+        case Type::Variation::PRIMITIVE:
+            if (type_cast_node->type->to_string() == "str" && type_cast_node->expr->type->get_variation() == Type::Variation::GROUP) {
+                const GroupType *group_type = type_cast_node->expr->type->as<GroupType>();
+                std::vector<llvm::Value *> str_values;
+                std::vector<size_t> temporaries;
+                for (size_t i = 0; i < group_type->types.size(); i++) {
+                    const auto &elem_type = group_type->types.at(i);
+                    if (elem_type->to_string() == "str") {
+                        str_values.emplace_back(expr.at(i));
+                        continue;
+                    }
+                    llvm::Value *str_val = generate_type_cast(builder, ctx, expr.at(i), elem_type, type_cast_node->type);
+                    str_values.emplace_back(str_val);
+                    temporaries.emplace_back(i);
+                }
+                llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
+                llvm::Function *const append_str_fn = Module::String::string_manip_functions.at("append_str");
+                llvm::Function *const append_lit_fn = Module::String::string_manip_functions.at("append_lit");
+                llvm::Function *const free_fn = c_functions.at(FREE);
+                llvm::Value *const open_paren = IR::generate_const_string(ctx.parent->getParent(), "(");
+                llvm::Value *const close_paren = IR::generate_const_string(ctx.parent->getParent(), ")");
+                llvm::Value *const comma_sep = IR::generate_const_string(ctx.parent->getParent(), ", ");
+                llvm::Value *result = builder.CreateCall(init_str_fn, {open_paren, builder.getInt64(1)}, "group_str");
+                IR::aligned_store(builder, result, scratchspace);
+                for (size_t i = 0; i < str_values.size(); i++) {
+                    if (i > 0) {
+                        builder.CreateCall(append_lit_fn, {scratchspace, comma_sep, builder.getInt64(2)});
+                    }
+                    builder.CreateCall(append_str_fn, {scratchspace, str_values[i]});
+                }
+                builder.CreateCall(append_lit_fn, {scratchspace, close_paren, builder.getInt64(1)});
+                for (const auto &tmp_idx : temporaries) {
+                    builder.CreateCall(free_fn, {str_values[tmp_idx]});
+                }
+                result = IR::aligned_load(builder, PTR_TY, scratchspace, "group_str_result");
+                return std::vector<llvm::Value *>{result};
+            }
             break;
         case Type::Variation::GROUP: {
             const auto *group_type = type_cast_node->type->as<GroupType>();
