@@ -1620,7 +1620,7 @@ namespace Debug {
         //     Prints the content of the generated ErrorNode
         void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error) {
             Local::print_header(indent_lvl, bits, "Error ");
-            std::cout << error.name << "(" << error.parent_error << ") ID [" << error.error_id << "]" << std::endl;
+            std::cout << error.name << "(" << error.parent_error << ") [id=" << error.error_id << "]" << std::endl;
 
             indent_lvl++;
             for (size_t i = 0; i < error.values.size(); i++) {
@@ -1725,7 +1725,8 @@ namespace Debug {
                 return;
             }
             std::cout << " [s" << function.scope.value()->scope_id << "]";
-            std::cout << " [p=" << function.persistent_count << "]" << std::endl;
+            std::cout << " [p=" << function.persistent_count << "]";
+            std::cout << " [id=" << std::to_string(function.get_id()) << "]" << std::endl;
 
             // The function body
             print_body(indent_lvl + 1, bits, function.scope.value()->body);
