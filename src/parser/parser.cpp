@@ -1634,7 +1634,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     func_modules.emplace_back(func_node);
                 }
                 for (FunctionNode *function : func_node->functions) {
-                    entity->edg.add_id(function->get_id());
+                    entity->edg.add_fn(function);
                 }
             }
             for (const auto &[src_id, dest_id] : parent_entity->edg.get_all_mappings()) {
@@ -1840,7 +1840,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                 }
             }
             for (const FunctionNode *function : func->functions) {
-                entity->edg.add_id(function->get_id());
+                entity->edg.add_fn(function);
             }
         }
 

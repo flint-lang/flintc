@@ -1964,9 +1964,9 @@ class Parser {
     /// @param `tokens` The list of tokens representing the link
     /// @param `entity` The entity in which the link is defined. Needed to check whether the given functions do exit within that entity at
     /// all
-    /// @return `std::optional<std::pair<size_t, size_t>>` The mapping of the source function ID to the dest function ID, nullopt if the
-    /// link is faulty
-    std::optional<std::pair<size_t, size_t>> create_link(const token_slice &tokens, const EntityNode *entity);
+    /// @return `std::optional<std::pair<const FunctionNode *, const FunctionNode *>>` The mapping of the source function to the dest
+    /// function, nullopt if the link is faulty
+    std::optional<std::pair<const FunctionNode *, const FunctionNode *>> create_link(const token_slice &tokens, const EntityNode *entity);
 
     /// @function `create_enum`
     /// @brief Creates an EnumNode from the given definition and body tokens

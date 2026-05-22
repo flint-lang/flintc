@@ -215,12 +215,11 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         llvm::SwitchInst *const execute_switch = builder.CreateSwitch(arg_fn_id, default_block);
 
         // Generate all basic block targets
-        std::unordered_map<size_t, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
+        std::unordered_map<const FunctionNode *, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
         for (const FuncNode *func : entity->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
-                const size_t src_fn_id = function_node->get_id();
-                const size_t dest_fn_id = entity->edg.get_mapped_fn(function_node->get_id()).value();
-                if (src_fn_id != dest_fn_id) {
+                const FunctionNode *dest_fn = entity->edg.get_mapped_fn(function_node).value();
+                if (function_node != dest_fn) {
                     // Function linked to other function, do not generate branch for it
                     continue;
                 }
@@ -233,7 +232,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 }
                 llvm::BasicBlock *const setup_block = llvm::BasicBlock::Create(context, "setup" + branch_name, dispatch_fn);
                 llvm::BasicBlock *const execute_block = llvm::BasicBlock::Create(context, "execute" + branch_name, dispatch_fn);
-                branches[src_fn_id] = {setup_block, execute_block};
+                branches[function_node] = {setup_block, execute_block};
             }
         }
 
@@ -241,14 +240,14 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         for (const FuncNode *func : entity->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(fn_id) == branches.end()) {
+                if (branches.find(function_node) == branches.end()) {
                     // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const size_t target_fn_id = entity->edg.get_mapped_fn(fn_id).value();
-                    setup_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn_id).first);
+                    const FunctionNode *target_fn = entity->edg.get_mapped_fn(function_node).value();
+                    setup_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).first);
                     continue;
                 }
-                setup_switch->addCase(builder.getInt64(fn_id), branches.at(fn_id).first);
-                builder.SetInsertPoint(branches.at(fn_id).first);
+                setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
+                builder.SetInsertPoint(branches.at(function_node).first);
 
                 // Store the default function frame in the TS
                 llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
@@ -266,14 +265,14 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         for (const FuncNode *func : entity->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(fn_id) == branches.end()) {
+                if (branches.find(function_node) == branches.end()) {
                     // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const size_t target_fn_id = entity->edg.get_mapped_fn(fn_id).value();
-                    execute_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn_id).second);
+                    const FunctionNode *target_fn = entity->edg.get_mapped_fn(function_node).value();
+                    execute_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).second);
                     continue;
                 }
-                execute_switch->addCase(builder.getInt64(fn_id), branches.at(fn_id).second);
-                builder.SetInsertPoint(branches.at(fn_id).second);
+                execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
+                builder.SetInsertPoint(branches.at(function_node).second);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
                 if (function_node->mangle_id.has_value()) {
                     assert(!function_node->is_extern);

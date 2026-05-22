@@ -2,7 +2,6 @@
 
 #include "error/error.hpp"
 
-#include <cstddef>
 #include <optional>
 #include <unordered_map>
 
@@ -16,40 +15,40 @@ struct EntityDispatchGraph {
     /// through it's included func modules. These N "start" nodes map to M "end nodes" through atmost N graphs. Every
     struct Node {
         /// @var `fn_id`
-        /// @brief The function ID of this node
-        size_t fn_id;
+        /// @brief The function pointer of this node
+        const FunctionNode *fn;
 
         // @var `next`
-        // @brief The next ID in this graph, nullopt if this function ID does not point to any other ID
-        std::optional<size_t> next;
+        // @brief The next function in this graph, nullopt if this function does not point to any other function
+        std::optional<const FunctionNode *> next;
     };
 
     EntityDispatchGraph() = default;
-    EntityDispatchGraph(std::unordered_map<size_t, Node> nodes) :
+    EntityDispatchGraph(std::unordered_map<const FunctionNode *, Node> nodes) :
         nodes(nodes) {}
 
     /// @var `nodes`
     /// @brief The node_mapping is a simple map which maps the function ID to it's respective node. This is the owner of all nodes of this
     /// EDG.
-    std::unordered_map<size_t, Node> nodes;
+    std::unordered_map<const FunctionNode *, Node> nodes;
 
-    /// @function `add_id`
-    /// @brief Adds a function ID, e.g. a new node to the EDG. Does nothing if the ID is already present in the EDG
+    /// @function `add_fn`
+    /// @brief Adds a function, e.g. a new node, to the EDG. Does nothing if the function is already present in the EDG
     ///
-    /// @param `id` The function ID to add to the EDG
-    void add_id(const size_t id) {
-        if (nodes.find(id) == nodes.end()) {
-            nodes[id] = Node{.fn_id = id, .next = std::nullopt};
+    /// @param `fn` The function to add to the EDG
+    void add_fn(const FunctionNode *fn) {
+        if (nodes.find(fn) == nodes.end()) {
+            nodes[fn] = Node{.fn = fn, .next = std::nullopt};
         }
     }
 
     /// @function `add_mapping`
-    /// @brief Adds a mapping of a source function ID to a dest function ID and checks whether the graph would form circles
+    /// @brief Adds a mapping of a source function to a dest function and checks whether the graph would form circles
     ///
-    /// @param `src` The source function ID to map to the dest function ID
-    /// @param `dest` The dest function ID being mapped to from the src function ID
+    /// @param `src` The source function to map to the dest function
+    /// @param `dest` The dest function being mapped to from the src function
     /// @return `bool` Whether adding the mapping failed
-    [[nodiscard]] bool add_mapping(const size_t src, const size_t dest) {
+    [[nodiscard]] bool add_mapping(const FunctionNode *src, const FunctionNode *dest) {
         if (src == dest) {
             // Cannot map src to itself
             THROW_BASIC_ERR(ERR_PARSING);
@@ -86,12 +85,12 @@ struct EntityDispatchGraph {
     }
 
     /// @function `get_mapped_fn`
-    /// @brief Returns the function ID of the function the given source function ID ultimately maps to. Returns nullopt if the given source
-    /// function ID is not part of the EDG.
+    /// @brief Returns the function of the function the given source function ultimately maps to. Returns nullopt if the given source
+    /// function is not part of the EDG.
     ///
-    /// @param `src` The source function ID to get the mapped-to function ID from
-    /// @return `std::optional<size_t>` The mapped-to function ID, nullopt of `src` is not part of the EDG
-    std::optional<size_t> get_mapped_fn(const size_t src) const {
+    /// @param `src` The source function to get the mapped-to function from
+    /// @return `std::optional<const FunctionNode *>` The mapped-to function, nullopt of `src` is not part of the EDG
+    std::optional<const FunctionNode *> get_mapped_fn(const FunctionNode *src) const {
         if (nodes.find(src) == nodes.end()) {
             return std::nullopt;
         }
@@ -99,15 +98,15 @@ struct EntityDispatchGraph {
         while (node.next.has_value()) {
             node = nodes.at(node.next.value());
         }
-        return node.fn_id;
+        return node.fn;
     }
 
     /// @function `get_all_mappings`
-    /// @brief Returns all src->dest function ID mappings of this EDG
+    /// @brief Returns all src->dest function mappings of this EDG
     ///
-    /// @return `std::unordered_map<size_t, size_t>` A mapping of all function IDs this EDG maps from->to
-    std::unordered_map<size_t, size_t> get_all_mappings() const {
-        std::unordered_map<size_t, size_t> mapping;
+    /// @return `std::unordered_map<const FunctionNode *, const FunctionNode *>` A mapping of all functions this EDG maps from->to
+    std::unordered_map<const FunctionNode *, const FunctionNode *> get_all_mappings() const {
+        std::unordered_map<const FunctionNode *, const FunctionNode *> mapping;
         for (const auto &[id, node] : nodes) {
             if (!node.next.has_value()) {
                 continue;
@@ -116,7 +115,7 @@ struct EntityDispatchGraph {
             while (next.next.has_value()) {
                 next = nodes.at(next.next.value());
             }
-            mapping[id] = next.fn_id;
+            mapping[id] = next.fn;
         }
         return mapping;
     }

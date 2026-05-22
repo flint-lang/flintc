@@ -1546,7 +1546,7 @@ namespace Debug {
                 std::cout << "\n";
             }
 
-            const std::unordered_map<size_t, size_t> edg_mappings = entity.edg.get_all_mappings();
+            const auto &edg_mappings = entity.edg.get_all_mappings();
             if (!entity.func_modules.empty()) {
                 TreeBits func_bits = bits.child(indent_lvl + 1, edg_mappings.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
@@ -1566,15 +1566,13 @@ namespace Debug {
                     const size_t i = std::distance(edg_mappings.begin(), it);
                     TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == edg_mappings.size());
                     Local::print_header(indent_lvl + 2, link_node_bits, "Link ");
-                    const auto src = entity.get_fn_from_id(it->first).value();
-                    const auto src_name = src.second->name;
+                    const auto src_name = it->first->name;
                     const size_t src_start_idx = std::distance(src_name.begin(), std::find(src_name.begin(), src_name.end(), '.')) + 1;
-                    std::cout << src.first->name << "::" << src_name.substr(src_start_idx);
+                    std::cout << it->first->name << "::" << src_name.substr(src_start_idx);
                     std::cout << " -> ";
-                    const auto dest = entity.get_fn_from_id(it->second).value();
-                    const auto dest_name = dest.second->name;
+                    const auto dest_name = it->second->name;
                     const size_t dest_start_idx = std::distance(dest_name.begin(), std::find(dest_name.begin(), dest_name.end(), '.')) + 1;
-                    std::cout << dest.first->name << "::" << dest_name.substr(dest_start_idx);
+                    std::cout << it->second->name << "::" << dest_name.substr(dest_start_idx);
                     std::cout << "\n";
                 }
             }

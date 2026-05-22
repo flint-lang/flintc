@@ -763,7 +763,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         if (fn_name != function_name) {
                             continue;
                         }
-                        if (edg_mappings.find(function->get_id()) != edg_mappings.end()) {
+                        if (edg_mappings.find(function) != edg_mappings.end()) {
                             // This function is linked to a different function, so it "does not exist" when doing a direct instance call,
                             // only the mapped-to function is available to be called
                             continue;

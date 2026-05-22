@@ -95,15 +95,14 @@ data Mesh:
 	f32 tangents;
 	u8 colors;
 	u16 indices;
+	i32 boneCount;
+	u8 boneIndices;
+	f32 boneWeights;
 	f32 animVertices;
 	f32 animNormals;
-	u8 boneIds;
-	f32 boneWeights;
-	Matrix boneMatrices;
-	i32 boneCount;
 	u32 vaoId;
 	u32 vboId;
-	Mesh(vertexCount, triangleCount, vertices, texcoords, texcoords2, normals, tangents, colors, indices, animVertices, animNormals, boneIds, boneWeights, boneMatrices, boneCount, vaoId, vboId);
+	Mesh(vertexCount, triangleCount, vertices, texcoords, texcoords2, normals, tangents, colors, indices, boneCount, boneIndices, boneWeights, animVertices, animNormals, vaoId, vboId);
 
 data Shader:
 	u32 id;
@@ -148,10 +147,9 @@ data Wave:
 	Wave(frameCount, sampleRate, sampleSize, channels, _data);
 
 data FilePathList:
-	u32 capacity;
 	u32 count;
 	str paths;
-	FilePathList(capacity, count, paths);
+	FilePathList(count, paths);
 
 enum ConfigFlags:
 	FLAG_VSYNC_HINT = 64,
@@ -385,7 +383,8 @@ enum ShaderLocationIndex:
 	SHADER_LOC_MAP_BRDF = 25,
 	SHADER_LOC_VERTEX_BONEIDS = 26,
 	SHADER_LOC_VERTEX_BONEWEIGHTS = 27,
-	SHADER_LOC_BONE_MATRICES = 28;
+	SHADER_LOC_MATRIX_BONETRANSFORMS = 28,
+	SHADER_LOC_VERTEX_INSTANCETRANSFORM = 29;
 
 enum ShaderUniformDataType:
 	SHADER_UNIFORM_FLOAT = 0,
@@ -396,7 +395,11 @@ enum ShaderUniformDataType:
 	SHADER_UNIFORM_IVEC2 = 5,
 	SHADER_UNIFORM_IVEC3 = 6,
 	SHADER_UNIFORM_IVEC4 = 7,
-	SHADER_UNIFORM_SAMPLER2D = 8;
+	SHADER_UNIFORM_UINT = 8,
+	SHADER_UNIFORM_UIVEC2 = 9,
+	SHADER_UNIFORM_UIVEC3 = 10,
+	SHADER_UNIFORM_UIVEC4 = 11,
+	SHADER_UNIFORM_SAMPLER2D = 12;
 
 enum ShaderAttributeDataType:
 	SHADER_ATTRIB_FLOAT = 0,
@@ -598,8 +601,8 @@ extern def UnloadRandomSequence(mut i32* sequence);
 extern def TakeScreenshot(const str fileName);
 extern def SetConfigFlags(mut u32 flags);
 extern def OpenURL(const str url);
-extern def TraceLog(mut i32 logLevel, const str text);
 extern def SetTraceLogLevel(mut i32 logLevel);
+extern def TraceLog(mut i32 logLevel, const str text);
 extern def MemAlloc(mut u32 size) -> opaque;
 extern def MemRealloc(mut opaque ptr, mut u32 size) -> opaque;
 extern def MemFree(mut opaque ptr);
@@ -609,11 +612,18 @@ extern def SaveFileData(const str fileName, mut opaque _data, mut i32 dataSize) 
 extern def ExportDataAsCode(const u8* _data, mut i32 dataSize, const str fileName) -> bool;
 extern def LoadFileText(const str fileName) -> str;
 extern def UnloadFileText(mut str text);
-extern def SaveFileText(const str fileName, mut str text) -> bool;
+extern def SaveFileText(const str fileName, const str text) -> bool;
+extern def FileRename(const str fileName, const str fileRename) -> i32;
+extern def FileRemove(const str fileName) -> i32;
+extern def FileCopy(const str srcPath, const str dstPath) -> i32;
+extern def FileMove(const str srcPath, const str dstPath) -> i32;
+extern def FileTextReplace(const str fileName, const str search, const str replacement) -> i32;
+extern def FileTextFindIndex(const str fileName, const str search) -> i32;
 extern def FileExists(const str fileName) -> bool;
 extern def DirectoryExists(const str dirPath) -> bool;
 extern def IsFileExtension(const str fileName, const str ext) -> bool;
 extern def GetFileLength(const str fileName) -> i32;
+extern def GetFileModTime(const str fileName) -> i64;
 extern def GetFileExtension(const str fileName) -> str;
 extern def GetFileName(const str filePath) -> str;
 extern def GetFileNameWithoutExt(const str filePath) -> str;
@@ -622,7 +632,7 @@ extern def GetPrevDirectoryPath(const str dirPath) -> str;
 extern def GetWorkingDirectory() -> str;
 extern def GetApplicationDirectory() -> str;
 extern def MakeDirectory(const str dirPath) -> i32;
-extern def ChangeDirectory(const str dir) -> bool;
+extern def ChangeDirectory(const str dirPath) -> bool;
 extern def IsPathFile(const str path) -> bool;
 extern def IsFileNameValid(const str fileName) -> bool;
 extern def LoadDirectoryFiles(const str dirPath) -> FilePathList;
@@ -631,14 +641,16 @@ extern def UnloadDirectoryFiles(mut FilePathList files);
 extern def IsFileDropped() -> bool;
 extern def LoadDroppedFiles() -> FilePathList;
 extern def UnloadDroppedFiles(mut FilePathList files);
-extern def GetFileModTime(const str fileName) -> i64;
+extern def GetDirectoryFileCount(const str dirPath) -> u32;
+extern def GetDirectoryFileCountEx(const str basePath, const str filter, mut bool scanSubdirs) -> u32;
 extern def CompressData(const u8* _data, mut i32 dataSize, mut i32* compDataSize) -> u8*;
 extern def DecompressData(const u8* compData, mut i32 compDataSize, mut i32* dataSize) -> u8*;
 extern def EncodeDataBase64(const u8* _data, mut i32 dataSize, mut i32* outputSize) -> str;
-extern def DecodeDataBase64(const u8* _data, mut i32* outputSize) -> u8*;
+extern def DecodeDataBase64(const str text, mut i32* outputSize) -> u8*;
 extern def ComputeCRC32(mut u8* _data, mut i32 dataSize) -> u32;
 extern def ComputeMD5(mut u8* _data, mut i32 dataSize) -> u32*;
 extern def ComputeSHA1(mut u8* _data, mut i32 dataSize) -> u32*;
+extern def ComputeSHA256(mut u8* _data, mut i32 dataSize) -> u32*;
 extern def SetAutomationEventBaseFrame(mut i32 frame);
 extern def StartAutomationEventRecording();
 extern def StopAutomationEventRecording();
@@ -649,6 +661,7 @@ extern def IsKeyReleased(mut i32 key) -> bool;
 extern def IsKeyUp(mut i32 key) -> bool;
 extern def GetKeyPressed() -> i32;
 extern def GetCharPressed() -> i32;
+extern def GetKeyName(mut i32 key) -> str;
 extern def SetExitKey(mut i32 key);
 extern def IsGamepadAvailable(mut i32 gamepad) -> bool;
 extern def GetGamepadName(mut i32 gamepad) -> str;
@@ -700,15 +713,18 @@ extern def DrawLineV(mut Vector2 startPos, mut Vector2 endPos, mut Color color);
 extern def DrawLineEx(mut Vector2 startPos, mut Vector2 endPos, mut f32 thick, mut Color color);
 extern def DrawLineStrip(const Vector2* points, mut i32 pointCount, mut Color color);
 extern def DrawLineBezier(mut Vector2 startPos, mut Vector2 endPos, mut f32 thick, mut Color color);
+extern def DrawLineDashed(mut Vector2 startPos, mut Vector2 endPos, mut i32 dashSize, mut i32 spaceSize, mut Color color);
 extern def DrawCircle(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color color);
+extern def DrawCircleV(mut Vector2 center, mut f32 radius, mut Color color);
+extern def DrawCircleGradient(mut Vector2 center, mut f32 radius, mut Color inner, mut Color outer);
 extern def DrawCircleSector(mut Vector2 center, mut f32 radius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
 extern def DrawCircleSectorLines(mut Vector2 center, mut f32 radius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
-extern def DrawCircleGradient(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color inner, mut Color outer);
-extern def DrawCircleV(mut Vector2 center, mut f32 radius, mut Color color);
 extern def DrawCircleLines(mut i32 centerX, mut i32 centerY, mut f32 radius, mut Color color);
 extern def DrawCircleLinesV(mut Vector2 center, mut f32 radius, mut Color color);
 extern def DrawEllipse(mut i32 centerX, mut i32 centerY, mut f32 radiusH, mut f32 radiusV, mut Color color);
+extern def DrawEllipseV(mut Vector2 center, mut f32 radiusH, mut f32 radiusV, mut Color color);
 extern def DrawEllipseLines(mut i32 centerX, mut i32 centerY, mut f32 radiusH, mut f32 radiusV, mut Color color);
+extern def DrawEllipseLinesV(mut Vector2 center, mut f32 radiusH, mut f32 radiusV, mut Color color);
 extern def DrawRing(mut Vector2 center, mut f32 innerRadius, mut f32 outerRadius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
 extern def DrawRingLines(mut Vector2 center, mut f32 innerRadius, mut f32 outerRadius, mut f32 startAngle, mut f32 endAngle, mut i32 segments, mut Color color);
 extern def DrawRectangle(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color color);
@@ -717,7 +733,7 @@ extern def DrawRectangleRec(mut Rectangle rec, mut Color color);
 extern def DrawRectanglePro(mut Rectangle rec, mut Vector2 origin, mut f32 rotation, mut Color color);
 extern def DrawRectangleGradientV(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color top, mut Color bottom);
 extern def DrawRectangleGradientH(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color left, mut Color right);
-extern def DrawRectangleGradientEx(mut Rectangle rec, mut Color topLeft, mut Color bottomLeft, mut Color topRight, mut Color bottomRight);
+extern def DrawRectangleGradientEx(mut Rectangle rec, mut Color topLeft, mut Color bottomLeft, mut Color bottomRight, mut Color topRight);
 extern def DrawRectangleLines(mut i32 posX, mut i32 posY, mut i32 width, mut i32 height, mut Color color);
 extern def DrawRectangleLinesEx(mut Rectangle rec, mut f32 lineThick, mut Color color);
 extern def DrawRectangleRounded(mut Rectangle rec, mut f32 roundness, mut i32 segments, mut Color color);
@@ -830,8 +846,8 @@ extern def ImageDrawRectangleLines(mut Image* dst, mut Rectangle rec, mut i32 th
 extern def ImageDrawTriangle(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
 extern def ImageDrawTriangleEx(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color c1, mut Color c2, mut Color c3);
 extern def ImageDrawTriangleLines(mut Image* dst, mut Vector2 v1, mut Vector2 v2, mut Vector2 v3, mut Color color);
-extern def ImageDrawTriangleFan(mut Image* dst, mut Vector2* points, mut i32 pointCount, mut Color color);
-extern def ImageDrawTriangleStrip(mut Image* dst, mut Vector2* points, mut i32 pointCount, mut Color color);
+extern def ImageDrawTriangleFan(mut Image* dst, const Vector2* points, mut i32 pointCount, mut Color color);
+extern def ImageDrawTriangleStrip(mut Image* dst, const Vector2* points, mut i32 pointCount, mut Color color);
 extern def ImageDraw(mut Image* dst, mut Image src, mut Rectangle srcRec, mut Rectangle dstRec, mut Color tint);
 extern def ImageDrawText(mut Image* dst, const str text, mut i32 posX, mut i32 posY, mut i32 fontSize, mut Color color);
 extern def ImageDrawTextEx(mut Image* dst, mut Font font, const str text, mut Vector2 position, mut f32 fontSize, mut f32 spacing, mut Color tint);
@@ -873,11 +889,11 @@ extern def SetPixelColor(mut opaque dstPtr, mut Color color, mut i32 format);
 extern def GetPixelDataSize(mut i32 width, mut i32 height, mut i32 format) -> i32;
 extern def GetFontDefault() -> Font;
 extern def LoadFont(const str fileName) -> Font;
-extern def LoadFontEx(const str fileName, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount) -> Font;
+extern def LoadFontEx(const str fileName, mut i32 fontSize, const i32* codepoints, mut i32 codepointCount) -> Font;
 extern def LoadFontFromImage(mut Image image, mut Color key, mut i32 firstChar) -> Font;
-extern def LoadFontFromMemory(const str fileType, const u8* fileData, mut i32 dataSize, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount) -> Font;
+extern def LoadFontFromMemory(const str fileType, const u8* fileData, mut i32 dataSize, mut i32 fontSize, const i32* codepoints, mut i32 codepointCount) -> Font;
 extern def IsFontValid(mut Font font) -> bool;
-extern def LoadFontData(const u8* fileData, mut i32 dataSize, mut i32 fontSize, mut i32* codepoints, mut i32 codepointCount, mut i32 _type) -> GlyphInfo*;
+extern def LoadFontData(const u8* fileData, mut i32 dataSize, mut i32 fontSize, const i32* codepoints, mut i32 codepointCount, mut i32 _type, mut i32* glyphCount) -> GlyphInfo*;
 extern def GenImageFontAtlas(const GlyphInfo* glyphs, mut Rectangle[] glyphRecs, mut i32 glyphCount, mut i32 fontSize, mut i32 padding, mut i32 packMethod) -> Image;
 extern def UnloadFontData(mut GlyphInfo* glyphs, mut i32 glyphCount);
 extern def UnloadFont(mut Font font);
@@ -891,6 +907,7 @@ extern def DrawTextCodepoints(mut Font font, const i32* codepoints, mut i32 code
 extern def SetTextLineSpacing(mut i32 spacing);
 extern def MeasureText(const str text, mut i32 fontSize) -> i32;
 extern def MeasureTextEx(mut Font font, const str text, mut f32 fontSize, mut f32 spacing) -> Vector2;
+extern def MeasureTextCodepoints(mut Font font, const i32* codepoints, mut i32 length, mut f32 fontSize, mut f32 spacing) -> Vector2;
 extern def GetGlyphIndex(mut Font font, mut i32 codepoint) -> i32;
 extern def GetGlyphInfo(mut Font font, mut i32 codepoint) -> GlyphInfo;
 extern def GetGlyphAtlasRec(mut Font font, mut i32 codepoint) -> Rectangle;
@@ -903,17 +920,25 @@ extern def GetCodepoint(const str text, mut i32* codepointSize) -> i32;
 extern def GetCodepointNext(const str text, mut i32* codepointSize) -> i32;
 extern def GetCodepointPrevious(const str text, mut i32* codepointSize) -> i32;
 extern def CodepointToUTF8(mut i32 codepoint, mut i32* utf8Size) -> str;
+extern def LoadTextLines(const str text, mut i32* count) -> str*;
+extern def UnloadTextLines(mut str* text, mut i32 lineCount);
 extern def TextCopy(mut str dst, const str src) -> i32;
 extern def TextIsEqual(const str text1, const str text2) -> bool;
 extern def TextLength(const str text) -> u32;
 extern def TextFormat(const str text) -> str;
 extern def TextSubtext(const str text, mut i32 position, mut i32 length) -> str;
-extern def TextReplace(const str text, const str replace, const str by) -> str;
+extern def TextRemoveSpaces(const str text) -> str;
+extern def GetTextBetween(const str text, const str begin, const str end) -> str;
+extern def TextReplace(const str text, const str search, const str replacement) -> str;
+extern def TextReplaceAlloc(const str text, const str search, const str replacement) -> str;
+extern def TextReplaceBetween(const str text, const str begin, const str end, const str replacement) -> str;
+extern def TextReplaceBetweenAlloc(const str text, const str begin, const str end, const str replacement) -> str;
 extern def TextInsert(const str text, const str insert, mut i32 position) -> str;
-extern def TextJoin(const str* textList, mut i32 count, const str delimiter) -> str;
+extern def TextInsertAlloc(const str text, const str insert, mut i32 position) -> str;
+extern def TextJoin(mut str* textList, mut i32 count, const str delimiter) -> str;
 extern def TextSplit(const str text, mut i8 delimiter, mut i32* count) -> str*;
 extern def TextAppend(mut str text, const str append, mut i32* position);
-extern def TextFindIndex(const str text, const str find) -> i32;
+extern def TextFindIndex(const str text, const str search) -> i32;
 extern def TextToUpper(const str text) -> str;
 extern def TextToLower(const str text) -> str;
 extern def TextToPascal(const str text) -> str;

@@ -613,7 +613,10 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
     return EntityNode(file_hash, line, column, length, entity_name, parent_entities);
 }
 
-std::optional<std::pair<size_t, size_t>> Parser::create_link(const token_slice &tokens, const EntityNode *entity) {
+std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::create_link( //
+    const token_slice &tokens,                                                            //
+    const EntityNode *entity                                                              //
+) {
     PROFILE_CUMULATIVE("Parser::create_link");
 
     std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
@@ -631,7 +634,6 @@ std::optional<std::pair<size_t, size_t>> Parser::create_link(const token_slice &
 
     const FunctionNode *src_fn = src.value()->referenced_function;
     const std::string &src_name = src_fn->name;
-    const size_t src_id = src_fn->get_id();
     const auto src_dot_it = std::find(src_name.begin(), src_name.end(), '.');
     if (src_dot_it == src_name.end()) {
         // It is not allowed to reference functions not coming from func modules
@@ -654,7 +656,6 @@ std::optional<std::pair<size_t, size_t>> Parser::create_link(const token_slice &
     }
     const FunctionNode *dest_fn = dest.value()->referenced_function;
     const std::string &dest_name = dest_fn->name;
-    const size_t dest_id = dest_fn->get_id();
     const auto dest_dot_it = std::find(dest_name.begin(), dest_name.end(), '.');
     if (dest_dot_it == dest_name.end()) {
         // It is not allowed to reference functions not coming from func modules
@@ -682,7 +683,7 @@ std::optional<std::pair<size_t, size_t>> Parser::create_link(const token_slice &
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return std::make_pair(src_id, dest_id);
+    return std::make_pair(src_fn, dest_fn);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
