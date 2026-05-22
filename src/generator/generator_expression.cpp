@@ -3785,6 +3785,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 result = IR::aligned_load(builder, PTR_TY, scratchspace, "group_str_result");
                 return std::vector<llvm::Value *>{result};
             }
+            to_type = type_cast_node->type;
             break;
         case Type::Variation::GROUP: {
             const auto *group_type = type_cast_node->type->as<GroupType>();
