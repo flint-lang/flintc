@@ -303,6 +303,8 @@ class CLIParserMain : public CLIParserBase {
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
                 PRINT_CUMULATIVE_PROFILE_RESULTS = true;
+            } else if (arg == "--no-fip") {
+                FIP_ENABLED = false;
             } else if (arg == "--no-token-stream") {
                 PRINT_TOK_STREAM = false;
             } else if (arg == "--no-dep-tree") {
@@ -408,6 +410,8 @@ class CLIParserMain : public CLIParserBase {
         std::cout
             << "      --profile-cumulative        Enables the cumulative profiling output, by default only the profile tree view is shown\n";
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
+        std::cout << "      --no-fip                    Disables the Flint Interop Protocol entirely\n";
+        std::cout << "                                  HINT: Extern declarations are assumed to be present and no longer chcecked\n";
         std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
         std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";

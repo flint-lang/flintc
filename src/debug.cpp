@@ -18,6 +18,7 @@
 #include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
 
+bool FIP_ENABLED = true;
 bool PRINT_TOK_STREAM = true;
 bool PRINT_DEP_TREE = true;
 bool PRINT_AST = true;

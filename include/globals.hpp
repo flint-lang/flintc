@@ -20,6 +20,7 @@ constexpr inline bool DEBUG_MODE = false;
 #define BUILD_DATE "unknown"
 #endif
 
+extern bool FIP_ENABLED;
 extern bool PRINT_TOK_STREAM;
 extern bool PRINT_DEP_TREE;
 extern bool PRINT_AST;

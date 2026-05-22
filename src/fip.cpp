@@ -9,6 +9,7 @@ fip_log_level_e LOG_LEVEL = FIP_ERROR;
 fip_master_state_t master_state;
 
 #include "error/error.hpp"
+#include "globals.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -108,6 +109,9 @@ bool FIP::init(                //
     const unsigned int length  //
 ) {
     PROFILE_SCOPE("FIP init");
+    if (!FIP_ENABLED) {
+        return true;
+    }
     if (is_active) {
         // Initializing an active FIP is considered an error case as this should not happen, but it's a me-problem, not a user problem
         assert(false);
@@ -342,8 +346,11 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
 }
 
 bool FIP::resolve_function(FunctionNode *function) {
-    PROFILE_SCOPE("FIP resolve '" + function->name + "'");
     PROFILE_CUMULATIVE("FIP::resolve_function");
+    PROFILE_SCOPE("FIP resolve '" + function->name + "'");
+    if (!FIP_ENABLED) {
+        return true;
+    }
     if (!is_active) {
         // Try to initialize the FIP if it's not running yet
         if (!init(function->file_hash, function->line, function->column, function->length)) {
@@ -461,12 +468,15 @@ bool FIP::resolve_function(FunctionNode *function) {
 }
 
 bool FIP::resolve_module_import(ImportNode *import) {
+    PROFILE_CUMULATIVE("FIP::resolve_module_import");
+    if (!FIP_ENABLED) {
+        return false;
+    }
     assert(!std::holds_alternative<Hash>(import->path));
     const std::vector<std::string> &import_path = std::get<std::vector<std::string>>(import->path);
     assert(import_path.size() == 2);
     const std::string module_tag = import_path.back();
     PROFILE_SCOPE("FIP resolve import 'Fip." + module_tag + "'");
-    PROFILE_CUMULATIVE("FIP::resolve_module_import");
     if (!is_active) {
         // Try to initialize the FIP if it's not running yet
         if (!init(import->file_hash, import->line, import->column, import->length)) {
@@ -516,8 +526,11 @@ bool FIP::resolve_module_import(ImportNode *import) {
 }
 
 bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module_tag) {
-    PROFILE_SCOPE("FIP generate bindings file '" + module_tag + ".ft'");
     PROFILE_CUMULATIVE("FIP::generate_bindings_file");
+    PROFILE_SCOPE("FIP generate bindings file '" + module_tag + ".ft'");
+    if (!FIP_ENABLED) {
+        return false;
+    }
     const std::filesystem::path fip_path = get_fip_path().value();
     const std::filesystem::path generated_dir = fip_path / "generated";
     if (!std::filesystem::exists(generated_dir)) {
