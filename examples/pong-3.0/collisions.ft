@@ -21,9 +21,9 @@ def check_collisions(mut Ball ball, mut Cpu cpu, mut Player player) -> GameState
 		return GameState.RUNNING;
 
 	// Check if the ball passed one of the players
-	if ball.passed_cpu(cpu):
+	if ball.passed(cpu):
 		return GameState.P2_WON;
-	if ball.passed_player(player):
+	if ball.passed(player):
 		return GameState.P1_WON;
 	
 	return GameState.RUNNING;

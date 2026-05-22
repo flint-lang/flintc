@@ -1,0 +1,48 @@
+use Core.print
+use Fip.raylib
+
+use "main.ft"
+use "ball.ft"
+
+data DPaddle:
+	i32x2 size;
+	f32x2 pos;
+	f32 speed;
+	DPaddle(size, pos, speed);
+
+func FPaddleCommon requires(DPaddle paddle):
+	def draw():
+		i32 render_pos_x = i32(paddle.pos.x) - (paddle.size.x / 2);
+		i32 render_pos_y = i32(paddle.pos.y) - (paddle.size.y / 2);
+		Rectangle rec = Rectangle(render_pos_x, render_pos_y, paddle.size.x, paddle.size.y);
+		DrawRectangleRounded(rec, 0.8, 0, Colors.white);
+
+	def get_x() -> f32:
+		return paddle.pos.x;
+
+	def clamp_position():
+		if paddle.pos.y - f32(paddle.size.y / 2) < 10.0:
+			paddle.pos = f32x2(paddle.pos.x, f32(paddle.size.y / 2) + 10.0);
+		else if paddle.pos.y + f32(paddle.size.y / 2) > f32(GetScreenHeight() - 10):
+			paddle.pos = f32x2(paddle.pos.x, GetScreenHeight() - paddle.size.y / 2 - 10);
+
+	def collides_with(mut Ball ball) -> bool:
+		const bool below = ball.get_y() > paddle.pos.y + f32(paddle.size.y / 2) + ball.get_radius() / 2.0;
+		const bool above = ball.get_y() < paddle.pos.y - f32(paddle.size.y / 2) - ball.get_radius() / 2.0;
+		if below or above:
+			return false;
+
+		// Left/right paddles differ only in which side of the ball matters.
+		// This shared function assumes "the paddle" decides what direction it occupies
+		// through the concrete entity that links to it.
+		f32 x_paddle = paddle.pos.x;
+		f32 x_ball = ball.get_x();
+
+		if x_ball < x_paddle:
+			x_ball += ball.get_radius();
+			x_paddle -= f32(paddle.size.x / 2);
+			return x_ball > x_paddle;
+		else:
+			x_ball -= ball.get_radius();
+			x_paddle += f32(paddle.size.x / 2);
+			return x_ball < x_paddle;

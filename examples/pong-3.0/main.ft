@@ -8,6 +8,7 @@ use "ball.ft"
 use "player.ft"
 use "cpu.ft"
 use "collisions.ft"
+use "paddle.ft"
 
 const data Colors:
 	Color black = Color(0, 0, 0, 255);
@@ -35,8 +36,8 @@ def main():
 	// Objects
 	i32x2 player_size = (24, 120);
 	Ball ball = Ball(DBall(f32x2(0, 0), f32x2(0, 0), 0.0, 20.0));
-	Cpu p1 = Cpu(DPlayer(player_size, f32x2(0, 0), 370.0));
-	Player p2 = Player(DPlayer(player_size, f32x2(0, 0), 370.0));
+	Cpu p1 = Cpu(DPaddle(player_size, f32x2(0, 0), 370.0));
+	Player p2 = Player(DPaddle(player_size, f32x2(0, 0), 370.0));
 	reset_objects(ball, p1, p2);
 
 
