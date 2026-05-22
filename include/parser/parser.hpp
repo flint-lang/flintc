@@ -284,13 +284,6 @@ class Parser {
     /// @return `bool` Whether all data modules were able to be parsed
     static bool parse_all_open_data_modules(const bool parse_parallel);
 
-    /// @function `parse_all_open_func_modules`
-    /// @brief Parses all still open func module bodies
-    ///
-    /// @param `parse_parallel` Whether to parse the open func modules in parallel
-    /// @return `bool` Wheter all func modules were able to be parsed
-    static bool parse_all_open_func_modules(const bool parse_parallel);
-
     /// @function `parse_all_open_entities`
     /// @brief Parses all still open entity bodies
     ///
@@ -354,10 +347,6 @@ class Parser {
     /// @var `open_data_list`
     /// @brief The list of all open data modules which will be parsed in the second phase of the parser
     std::vector<DataNode *> open_data_list{};
-
-    /// @var `open_func_list`
-    /// @brief The list of all open func modules which will be parsed in the second phase of the parser
-    std::vector<std::pair<FuncNode *, std::vector<Line>>> open_func_list{};
 
     /// @var `open_entity_list`
     /// @brief The list of all open entities which will be parsed in the second phase of the parser
@@ -574,16 +563,6 @@ class Parser {
         open_data_list.push_back(std::move(open_data));
     }
 
-    /// @function `add_open_func`
-    /// @brief Adds a open func module to the list of all open func modules
-    ///
-    /// @param `open_func` A rvalue reference to the OpenFuncModule to add to the list
-    ///
-    /// @attention This function takes ownership of the `open_func` parameter
-    void add_open_func(std::pair<FuncNode *, std::vector<Line>> &&open_func) {
-        open_func_list.push_back(std::move(open_func));
-    }
-
     /// @function `add_open_entity`
     /// @brief Adds a open entity to the list of all open entities
     ///
@@ -616,20 +595,6 @@ class Parser {
         DataNode *od = std::move(open_data_list.back());
         open_data_list.pop_back();
         return od;
-    }
-
-    /// @function `get_next_open_func`
-    /// @brief Returns the next open func module to parse
-    ///
-    /// @return `std::optional<std::pair<FuncNode *, std::vector<Line>>>` The next open func module to parse. Returns a nullopt if there
-    /// are no open funct modules left
-    std::optional<std::pair<FuncNode *, std::vector<Line>>> get_next_open_func() {
-        if (open_func_list.empty()) {
-            return std::nullopt;
-        }
-        std::pair<FuncNode *, std::vector<Line>> of = std::move(open_func_list.back());
-        open_func_list.pop_back();
-        return of;
     }
 
     /// @function `get_next_open_entity`
@@ -1941,11 +1906,12 @@ class Parser {
     /// @function `create_func`
     /// @brief Creates a FuncNode from the given definition and body tokens
     ///
-    /// @param `definition` The list of tokens representing the function definition
+    /// @param `definition` The list of tokens representing the func definition
+    /// @param `body` The list of tokens representing the func body
     /// @return `std::optional<FuncNode>` The created FuncNode or nullopt if creation failed
     ///
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
-    std::optional<FuncNode> create_func(const token_slice &definition);
+    std::optional<FuncNode> create_func(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens
@@ -1955,8 +1921,9 @@ class Parser {
     /// then will be added to the AST too. "Monolithic" entities are no different to modular ones internally.
     ///
     /// @param `definition` The list of tokens representing the entity definition
+    /// @param `body` The list of tokens representing the entity body
     /// @return `std::optional<EntityNode>` The created entity, or nullopt if it's creation failed
-    std::optional<EntityNode> create_entity(const token_slice &definition);
+    std::optional<EntityNode> create_entity(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_link`
     /// @brief Creates a LinkNode from the given list of tokens

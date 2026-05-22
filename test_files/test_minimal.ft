@@ -1,7 +1,8 @@
 use Core.print
 
-def get_values() -> (i32, i32):
-	return (69, 240);
+use "imported.ft"
 
 def main():
-	print($"get_values() = {get_values()}\n");
+	b := BaseData(10);
+	bf := BaseFunc::base;
+	bf(b);

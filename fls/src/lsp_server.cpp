@@ -104,11 +104,6 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         parser_cleanup();
         return std::nullopt;
     }
-    parsed_successful = Parser::parse_all_open_func_modules(parse_parallel);
-    if (!parsed_successful) {
-        parser_cleanup();
-        return std::nullopt;
-    }
     parsed_successful = Parser::parse_all_open_entities(parse_parallel);
     if (!parsed_successful) {
         parser_cleanup();

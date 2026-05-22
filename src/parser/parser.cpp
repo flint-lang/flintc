@@ -1086,6 +1086,35 @@ bool Parser::resolve_all_unknown_types() {
             switch (definition->get_variation()) {
                 default:
                     break;
+                case DefinitionNode::Variation::FUNC: {
+                    auto *func = definition->as<FuncNode>();
+                    for (auto &required_data : func->required_data) {
+                        switch (required_data.first->get_variation()) {
+                            case Type::Variation::DATA:
+                                // All ok
+                                break;
+                            case Type::Variation::UNKNOWN: {
+                                const UnknownType *unknown_type = required_data.first->as<UnknownType>();
+                                auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
+                                if (!type.has_value()) {
+                                    // Unknown type in requires clausel of func module
+                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    return false;
+                                }
+                                if (type.value()->get_variation() == Type::Variation::DATA) {
+                                    required_data.first = type.value();
+                                    break;
+                                }
+                                [[fallthrough]];
+                            }
+                            default:
+                                // The required type is not a data type
+                                THROW_BASIC_ERR(ERR_PARSING);
+                                return false;
+                        }
+                    }
+                    break;
+                }
                 case DefinitionNode::Variation::FUNCTION: {
                     auto *function_node = definition->as<FunctionNode>();
                     if (!function_node->is_extern) {
@@ -1467,114 +1496,6 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
         }
         for (auto &[parser, data] : nonconst_data) {
             result = result && process_function(parser, data);
-        }
-    }
-    return result;
-}
-
-bool Parser::parse_all_open_func_modules(const bool parse_parallel) {
-    PROFILE_THREADED_SCOPE("Parse Open Func Modules", parse_parallel);
-
-    // Define a task to process a single func module
-    auto process_function = [](Parser &parser, FuncNode *func, std::vector<Line> body) -> bool {
-        PROFILE_SCOPE("Process func module '" + func->name + "'");
-        // Go through all required data of the func module and resolve them if they are unknown and throw an error if they are not data
-        for (auto &required_data : func->required_data) {
-            switch (required_data.first->get_variation()) {
-                case Type::Variation::DATA:
-                    // All ok
-                    break;
-                case Type::Variation::UNKNOWN: {
-                    const UnknownType *unknown_type = required_data.first->as<UnknownType>();
-                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
-                    if (!type.has_value()) {
-                        // Unknown type in requires clausel of func module
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return false;
-                    }
-                    if (type.value()->get_variation() == Type::Variation::DATA) {
-                        required_data.first = type.value();
-                        break;
-                    }
-                    [[fallthrough]];
-                }
-                default:
-                    // The required type is not a data type
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
-            }
-        }
-
-        std::vector<Line> body_mut = body;
-        while (!body_mut.empty()) {
-            const Line function_definition_line = body_mut.front();
-            body_mut.erase(body_mut.begin());
-            std::pair<std::string, required_data_t> required_data_pair{func->name, func->required_data};
-            std::optional<FunctionNode> fn = parser.create_function(function_definition_line.tokens, required_data_pair);
-            if (!fn.has_value()) {
-                return false;
-            }
-            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(fn.value(), core_namespaces);
-            if (!added_function.has_value()) {
-                return false;
-            }
-            std::vector<Line> function_body_lines;
-            for (auto it = body_mut.begin(); it != body_mut.end();) {
-                if (it->indent_lvl > function_definition_line.indent_lvl) {
-                    function_body_lines.emplace_back(*it);
-                    body_mut.erase(it);
-                    continue;
-                }
-                break;
-            }
-            if (function_body_lines.empty()) {
-                // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
-                // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
-                // of any func module which is not linked to a different concrete function, an error will be thrown.
-                func->functions.emplace_back(added_function.value());
-                continue;
-            }
-            parser.add_open_function({added_function.value(), function_body_lines});
-            func->functions.emplace_back(added_function.value());
-        }
-        return true;
-    };
-
-    // Collect all open func modules
-    Profiler::start_task("Collect all open func modules");
-    std::vector<std::tuple<Parser &, FuncNode *, std::vector<Line>>> open_func_modules;
-    for (auto &parser : Parser::instances) {
-        while (auto next = parser.get_next_open_func()) {
-            auto &[func, body] = next.value();
-            open_func_modules.emplace_back(parser, func, body);
-        }
-    }
-    Profiler::end_task("Collect all open func modules");
-
-    // Go through all open func modules and refine their body lines before the loop
-    Profiler::start_task("Refine func modules body lines");
-    for (auto &[parser, func, body] : open_func_modules) {
-        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
-    }
-    Profiler::end_task("Refine func modules body lines");
-
-    bool result = true;
-    if (parse_parallel) {
-        // Enqueue tasks in the global thread pool
-        std::vector<std::future<bool>> futures;
-        // Iterate through all open func modules
-        for (auto &[parser, func, body] : open_func_modules) {
-            // Enqueue a task for each func module
-            futures.emplace_back(thread_pool.enqueue(process_function, std::ref(parser), func, body));
-        }
-        // Collect results from all tasks
-        for (auto &future : futures) {
-            result = result && future.get(); // Combine results using logical AND
-        }
-    } else {
-        // Process func modules sequentially
-        for (auto &[parser, func, body] : open_func_modules) {
-            result = result && process_function(parser, func, body);
         }
     }
     return result;
@@ -2015,58 +1936,29 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     break;
             }
         }
-        // Move past the constructor
-        line_it++;
 
-        // Process all following free-floating functions, if any are following
-        while (line_it != body.end()) {
-            if (!Matcher::tokens_contain(line_it->tokens, Matcher::function_definition)) {
-                line_it++;
-                continue;
-            }
-            // Get all the body lines
-            std::vector<Line> body_lines;
-            const auto &definition_tokens = line_it->tokens;
-            const size_t definition_indent_lvl = line_it->indent_lvl;
-            line_it++;
-            while (line_it != body.end() && line_it->indent_lvl > definition_indent_lvl) {
-                body_lines.emplace_back(*line_it);
-                line_it++;
-            }
-            if (body_lines.empty()) {
-                THROW_ERR(ErrMissingBody, ERR_PARSING, parser.file_hash, definition_tokens);
-                return false;
-            }
-            // Dont actually parse the function body, only its definition
-            std::shared_ptr<Type> entity_type = std::make_shared<EntityType>(entity);
-            if (!parser.file_node_ptr->file_namespace->add_type(entity_type)) {
-                entity_type = parser.file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
-            }
-            const std::optional<std::pair<std::string, required_data_t>> required_data = std::make_pair( //
-                entity->name, required_data_t{std::make_pair(entity_type, std::string("self"))}          //
-            );
-            std::optional<FunctionNode> function_node = parser.create_function(definition_tokens, required_data);
-            if (!function_node.has_value()) {
-                return false;
-            }
-            // Check if the same function (with same signature) already exists in one of the provided func modules. We need to account for
-            // the implicitely provided data of func-module functions and the single implicit parameter of the entity-function here as well
+        // Check if there are any duplications between functions defined as free-floating and defined in func-modules this enttiy includes.
+        // We need to account for the implicitely provided data of func-module functions and the single implicit parameter of the
+        // entity-function here as well
+        for (const auto *free_floating_fn : entity->functions) {
+            // Set the captured identifiers list of the function
+            free_floating_fn->scope.value()->captured_entity_identifiers = captured_entity_identifiers;
             for (const auto &func : entity->func_modules) {
                 for (const FunctionNode *function : func->functions) {
                     const std::string func_fn_name = function->name.substr(func->name.size() + 1);
-                    const std::string entity_fn_name = function_node.value().name.substr(entity->name.size() + 1);
+                    const std::string entity_fn_name = free_floating_fn->name.substr(entity->name.size() + 1);
                     if (func_fn_name != entity_fn_name) {
                         continue;
                     }
                     const size_t func_fn_param_count = function->parameters.size() - func->required_data.size();
-                    const size_t entity_fn_param_count = function_node.value().parameters.size() - 1;
+                    const size_t entity_fn_param_count = free_floating_fn->parameters.size() - 1;
                     if (func_fn_param_count != entity_fn_param_count) {
                         continue;
                     }
                     bool all_match = true;
                     for (size_t i = 0; i < func_fn_param_count; i++) {
                         const auto &p1 = function->parameters.at(i + func->required_data.size());
-                        const auto &p2 = function_node.value().parameters.at(i + 1);
+                        const auto &p2 = free_floating_fn->parameters.at(i + 1);
                         if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
                             all_match = false;
                             break;
@@ -2080,36 +1972,6 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     }
                 }
             }
-            // Check if the same function (with same signature) already exists within this entity as a free-floating function
-            for (const FunctionNode *function : entity->functions) {
-                if (function->name != function_node.value().name) {
-                    continue;
-                }
-                if (function->parameters.size() != function_node.value().parameters.size()) {
-                    continue;
-                }
-                bool all_match = true;
-                for (size_t i = 0; i < function->parameters.size(); i++) {
-                    const auto &p1 = function->parameters.at(i);
-                    const auto &p2 = function_node.value().parameters.at(i);
-                    if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
-                        all_match = false;
-                        break;
-                    }
-                }
-                if (all_match) {
-                    // Duplicate function inside entity definition, the free-floating function already exists
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
-                }
-            }
-            std::optional<FunctionNode *> added_function = parser.file_node_ptr->add_function(function_node.value(), core_namespaces);
-            if (!added_function.has_value()) {
-                return false;
-            }
-            added_function.value()->scope.value()->captured_entity_identifiers = captured_entity_identifiers;
-            parser.add_open_function({added_function.value(), body_lines});
-            entity->functions.emplace_back(added_function.value());
         }
 
         // An entity which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile

@@ -172,7 +172,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         add_open_data(added_data.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
-        std::optional<FuncNode> func_node = create_func(definition_tokens);
+        std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
         if (!func_node.has_value()) {
             return false;
         }
@@ -180,9 +180,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!added_func.has_value()) {
             return false;
         }
-        add_open_func({added_func.value(), body_lines});
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::entity_definition)) {
-        std::optional<EntityNode> entity_node = create_entity(definition_tokens);
+        std::optional<EntityNode> entity_node = create_entity(definition_tokens, body_lines);
         if (!entity_node.has_value()) {
             return false;
         }
@@ -739,7 +738,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // Get the function from it's name and the argument types
     // It's not a builtin call, so we need to get the function from it's name
     const bool is_aliased = call_namespace->namespace_hash.to_string() != file_node_ptr->file_namespace->namespace_hash.to_string();
-    std::vector<FunctionNode *> functions;
+    std::vector<std::pair<FunctionNode *, size_t>> functions;
     std::unordered_set<const FuncNode *> func_nodes;
     if (is_instance_call) {
         std::optional<std::unique_ptr<ExpressionNode>> variable_node = create_variable(scope, {tokens.first, tokens.first + 1});
@@ -768,7 +767,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                             // only the mapped-to function is available to be called
                             continue;
                         }
-                        functions.emplace_back(function);
+                        const size_t implicit_param_count = func_module->required_data.size();
+                        if (function->parameters.size() - implicit_param_count != argument_types.size()) {
+                            // Wrong arg count
+                            continue;
+                        }
+                        functions.emplace_back(function, implicit_param_count);
                         func_nodes.emplace(func_module);
                     }
                 }
@@ -779,8 +783,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     if (fn_name != function_name) {
                         continue;
                     }
-                    functions.emplace_back(function);
-                    // func_nodes.emplace(func_module);
+                    if (function->parameters.size() - 1 != argument_types.size()) {
+                        // Wrong arg count
+                        continue;
+                    }
+                    functions.emplace_back(function, 1);
                 }
                 break;
             }
@@ -792,7 +799,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     if (fn_name != function_name) {
                         continue;
                     }
-                    functions.emplace_back(function);
+                    const size_t implicit_param_count = func_node->required_data.size();
+                    if (function->parameters.size() - implicit_param_count != argument_types.size()) {
+                        // Wrong arg count
+                        continue;
+                    }
+                    functions.emplace_back(function, implicit_param_count);
                     func_nodes.emplace(func_node);
                 }
                 break;
@@ -800,7 +812,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
         instance_variable = std::move(variable_node.value());
     } else {
-        functions = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+        auto fns = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+        for (FunctionNode *fn : fns) {
+            functions.emplace_back(fn, 0);
+        }
     }
     if (functions.empty()) {
         // Check if the called function is a callable by looking in this scope for a variable wihth the same name as the called function
@@ -877,10 +892,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         // of a few functions. In this case we check if there is an overload of the function which matches our argument types *exactly*. If
         // no function matches exactly then it's an error since the call is ambiguous and we cannot tell for sure which version to call.
         FunctionNode *exact_function = nullptr;
-        for (FunctionNode *fn : functions) {
+        size_t implicit_param_count;
+        for (auto &fn : functions) {
             bool all_match = true;
-            for (size_t i = 0; i < fn->parameters.size(); i++) {
-                const auto &param_type = std::get<0>(fn->parameters.at(i));
+            for (size_t i = 0; i < argument_types.size(); i++) {
+                const auto &param_type = std::get<0>(fn.first->parameters.at(i + fn.second));
                 if (!param_type->equals(argument_types.at(i))) {
                     all_match = false;
                     break;
@@ -892,7 +908,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                exact_function = fn;
+                exact_function = fn.first;
+                implicit_param_count = fn.second;
             }
         }
 
@@ -902,7 +919,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             return std::nullopt;
         }
         functions.clear();
-        functions.emplace_back(exact_function);
+        functions.emplace_back(exact_function, implicit_param_count);
     }
     // If it's an instanced function we need to add the implicit arguments of the called function to the arguments of the call. The implicit
     // parameters are "field accesses" of the entities data fields
@@ -992,7 +1009,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
     // Check if the argument count does match the parameter count
-    const auto &parameters = functions.front()->parameters;
+    FunctionNode *function = functions.front().first;
+    const auto &parameters = function->parameters;
     [[maybe_unused]] const unsigned int param_count = parameters.size();
     [[maybe_unused]] const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_functions_from_call_types` function would
@@ -1008,7 +1026,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         if (arg_str == "int" || arg_str == "float") {
             // Set the type of the argument to the expected parameter type, since we know it's compatible, otherwise the function would
             // never been suggested as a possible function to call in the first place
-            arguments[i].first->type = std::get<0>(functions.front()->parameters[i]);
+            arguments[i].first->type = std::get<0>(parameters[i]);
         }
         const auto &param_type = std::get<0>(parameters.at(i));
         if (!check_castability(param_type, arguments[i].first)) {
@@ -1038,7 +1056,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             }
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
-                if (!scope->variables.at(variable_node->name).is_mutable && std::get<2>(functions.front()->parameters[i])) {
+                if (!scope->variables.at(variable_node->name).is_mutable && std::get<2>(parameters[i])) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
@@ -1046,7 +1064,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
 
-    types return_types = functions.front()->return_types;
+    types return_types = function->return_types;
     std::shared_ptr<Type> return_type;
     if (return_types.empty()) {
         return_type = Type::get_primitive_type("void");
@@ -1063,7 +1081,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         .args = std::move(arguments),
         .type = return_type,
         .is_initializer = false,
-        .function = functions.front(),
+        .function = function,
         .instance_variable = std::move(instance_variable),
         .callable = std::nullopt,
     };

@@ -90,10 +90,6 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
     if (!parsed_successful) {
         return std::nullopt;
     }
-    parsed_successful = Parser::parse_all_open_func_modules(parse_parallel);
-    if (!parsed_successful) {
-        return std::nullopt;
-    }
     parsed_successful = Parser::parse_all_open_entities(parse_parallel);
     if (!parsed_successful) {
         return std::nullopt;

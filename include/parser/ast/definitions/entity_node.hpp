@@ -20,10 +20,12 @@ class EntityNode : public DefinitionNode {
         const unsigned int column,                                                        //
         const unsigned int length,                                                        //
         const std::string &name,                                                          //
+        const std::vector<FunctionNode *> &functions,                                     //
         const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &parent_entities //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
+        functions(functions),
         parent_entities(parent_entities) {}
 
     Variation get_variation() const override {
@@ -54,7 +56,7 @@ class EntityNode : public DefinitionNode {
 
     /// @var `functions`
     /// @brief A list of all functions defined as free-floating functions within this entity definition
-    std::vector<FunctionNode *> functions{};
+    std::vector<FunctionNode *> functions;
 
     /// @var `parent_entities`
     /// @brief The parent entities, whose data and func modules and link modules will be used. The first value in the pair is the parent

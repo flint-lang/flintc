@@ -10,6 +10,7 @@
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
+#include "parser/type/unknown_type.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -510,7 +511,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     return DataNode(file_hash, line, column, length, is_const, is_shared, name, ordered_fields);
 }
 
-std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
+std::optional<FuncNode> Parser::create_func(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_func");
     token_slice token_mut = definition;
     assert(token_mut.first->token == TOK_FUNC);
@@ -559,6 +560,38 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
     }
 
     std::vector<FunctionNode *> functions;
+    std::vector<Line> body_mut = body;
+    while (!body_mut.empty()) {
+        const Line function_definition_line = body_mut.front();
+        body_mut.erase(body_mut.begin());
+        std::pair<std::string, required_data_t> required_data_pair{func_name, required_data};
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair);
+        if (!fn.has_value()) {
+            return std::nullopt;
+        }
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return std::nullopt;
+        }
+        std::vector<Line> function_body_lines;
+        for (auto it = body_mut.begin(); it != body_mut.end();) {
+            if (it->indent_lvl > function_definition_line.indent_lvl) {
+                function_body_lines.emplace_back(*it);
+                body_mut.erase(it);
+                continue;
+            }
+            break;
+        }
+        if (function_body_lines.empty()) {
+            // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
+            // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
+            // of any func module which is not linked to a different concrete function, an error will be thrown.
+            functions.emplace_back(added_function.value());
+            continue;
+        }
+        add_open_function({added_function.value(), function_body_lines});
+        functions.emplace_back(added_function.value());
+    }
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
@@ -573,7 +606,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition) {
     );
 }
 
-std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
+std::optional<EntityNode> Parser::create_entity(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_entity");
     auto tok_it = definition.first;
     assert(tok_it->token == TOK_ENTITY);
@@ -607,10 +640,78 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition) {
         assert(tok_it != definition.second);
     }
 
+    // Process all free-floating functions, if any are following
+    std::vector<FunctionNode *> functions;
+    auto line_it = body.begin();
+    while (line_it != body.end()) {
+        if (!Matcher::tokens_contain(line_it->tokens, Matcher::function_definition)) {
+            const size_t definition_indent = line_it->indent_lvl;
+            line_it++;
+            while (line_it != body.end() && line_it->indent_lvl > definition_indent) {
+                line_it++;
+            }
+            continue;
+        }
+        // Get all the body lines
+        std::vector<Line> body_lines;
+        const auto &definition_tokens = line_it->tokens;
+        const size_t definition_indent_lvl = line_it->indent_lvl;
+        line_it++;
+        while (line_it != body.end() && line_it->indent_lvl > definition_indent_lvl) {
+            body_lines.emplace_back(*line_it);
+            line_it++;
+        }
+        if (body_lines.empty()) {
+            THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, definition_tokens);
+            return std::nullopt;
+        }
+        // Dont actually parse the function body, only its definition
+        std::shared_ptr<Type> entity_type = std::make_shared<UnknownType>(entity_name);
+        if (!file_node_ptr->file_namespace->add_type(entity_type)) {
+            entity_type = file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
+        }
+        const std::optional<std::pair<std::string, required_data_t>> required_data = std::make_pair( //
+            entity_name, required_data_t{std::make_pair(entity_type, std::string("self"))}           //
+        );
+        std::optional<FunctionNode> function_node = create_function(definition_tokens, required_data);
+        if (!function_node.has_value()) {
+            return std::nullopt;
+        }
+        // Check if the same function (with same signature) already exists within this entity as a free-floating function
+        for (const FunctionNode *function : functions) {
+            if (function->name != function_node.value().name) {
+                continue;
+            }
+            if (function->parameters.size() != function_node.value().parameters.size()) {
+                continue;
+            }
+            bool all_match = true;
+            for (size_t i = 0; i < function->parameters.size(); i++) {
+                const auto &p1 = function->parameters.at(i);
+                const auto &p2 = function_node.value().parameters.at(i);
+                if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
+                    all_match = false;
+                    break;
+                }
+            }
+            if (all_match) {
+                // Duplicate function inside entity definition, the free-floating function already exists
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return std::nullopt;
+        }
+        add_open_function({added_function.value(), body_lines});
+        functions.emplace_back(added_function.value());
+    }
+
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EntityNode(file_hash, line, column, length, entity_name, parent_entities);
+    return EntityNode(file_hash, line, column, length, entity_name, functions, parent_entities);
 }
 
 std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::create_link( //
