@@ -339,6 +339,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
     }
 
+    // Generate the callable frame cleanup function now that all ts_frames are populated
+    Memory::generate_free_callable_function(builder.get(), module.get(), false);
+
     // Generate all the entity dispatch functions
     IR::generate_entity_dispatch_functions(module.get());
 

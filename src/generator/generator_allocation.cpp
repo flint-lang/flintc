@@ -537,6 +537,14 @@ bool Generator::Allocation::generate_declaration_allocations(             //
         }
     }
 
+    // Add the persistent local for later use in the `free.callable` code generation code
+    if (declaration_node->is_persistent) {
+        const auto &pl = Module::ThreadStack::PersistentLocal{struct_types.size(), declaration_node->type};
+        const size_t fn_id = scope->function->get_id();
+        auto &locals = Module::ThreadStack::persistent_locals[fn_id];
+        locals.emplace_back(pl);
+    }
+
     const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
     auto type = IR::get_type(parent->getParent(), declaration_node->type);
     struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);

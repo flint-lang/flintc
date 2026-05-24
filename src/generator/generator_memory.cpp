@@ -12,8 +12,94 @@
 const std::string prefix = "flint.";
 
 void Generator::Memory::generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
+    // Always generate only the declaration, it's body is generated at a later stage because other functions (function setup for all
+    // functions) need to be executed first
+    generate_free_callable_function(builder, module, true);
     generate_free_function(builder, module, only_declarations);
     generate_clone_function(builder, module, only_declarations);
+}
+
+void Generator::Memory::generate_free_callable_function( //
+    llvm::IRBuilder<> *builder,                          //
+    llvm::Module *module,                                //
+    const bool only_declarations                         //
+) {
+    llvm::FunctionType *const free_callable_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                                     // Returns void
+        {
+            PTR_TY // ptr callable_frame
+        },
+        false // No vaargs
+    );
+    llvm::Function *free_callable_fn = module->getFunction(prefix + "free.callable");
+    if (free_callable_fn == nullptr) {
+        free_callable_fn = llvm::Function::Create( //
+            free_callable_type,                    //
+            llvm::Function::ExternalLinkage,       //
+            prefix + "free.callable",              //
+            module                                 //
+        );
+    }
+    memory_functions["free.callable"] = free_callable_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", free_callable_fn);
+    llvm::BasicBlock *const default_block = llvm::BasicBlock::Create(context, "default");
+
+    llvm::Argument *const arg_callable = free_callable_fn->arg_begin();
+    arg_callable->setName("callable");
+
+    builder->SetInsertPoint(entry_block);
+
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+    llvm::Value *const fn_frame = builder->CreateGEP(PTR_TY, arg_callable, builder->getInt32(1), "fn_frame");
+    llvm::Value *const fn_id_ptr = builder->CreateStructGEP(                  //
+        ts_fn_ty, fn_frame, Module::ThreadStack::FUNCTION::FN_ID, "fn_id_ptr" //
+    );
+    llvm::Value *const fn_id = IR::aligned_load(*builder, builder->getInt64Ty(), fn_id_ptr, "fn_id");
+
+    const size_t num_cases = Module::ThreadStack::persistent_locals.size();
+    llvm::SwitchInst *const switch_inst = builder->CreateSwitch(fn_id, default_block, num_cases);
+
+    for (const auto &[func_id, plocals] : Module::ThreadStack::persistent_locals) {
+        llvm::BasicBlock *const case_block = llvm::BasicBlock::Create(context, "case_fn_" + std::to_string(func_id), free_callable_fn);
+        switch_inst->addCase(builder->getInt64(func_id), case_block);
+
+        builder->SetInsertPoint(case_block);
+        llvm::StructType *const frame_type = Module::ThreadStack::ts_frames.at(func_id);
+        for (const auto &pl : plocals) {
+            llvm::Value *const field_ptr = builder->CreateStructGEP(         //
+                frame_type, fn_frame, pl.field_index, "persistent_field_ptr" //
+            );
+
+            const auto &type_pair = IR::get_type(module, pl.type);
+            llvm::Value *field_value = field_ptr;
+            const bool is_array = pl.type->get_variation() == Type::Variation::ARRAY;
+            const bool is_str = pl.type->to_string() == "str";
+            const bool is_opaque = pl.type->get_variation() == Type::Variation::OPAQUE;
+            if (type_pair.second.first || is_array || is_str || is_opaque) {
+                llvm::Type *const type_to_load = type_pair.second.first ? PTR_TY : type_pair.first;
+                field_value = IR::aligned_load(*builder, type_to_load, field_ptr, "persistent_field");
+            }
+
+            if (pl.type->is_dima_managed()) {
+                llvm::Value *const dima_head = Module::DIMA::get_head(pl.type);
+                llvm::Function *const dima_release_fn = Module::DIMA::dima_functions.at("release");
+                builder->CreateCall(dima_release_fn, {dima_head, field_value});
+            } else {
+                llvm::Function *const free_fn = memory_functions.at("free");
+                builder->CreateCall(free_fn, {field_value, builder->getInt32(pl.type->get_id())});
+            }
+        }
+        builder->CreateBr(default_block);
+    }
+
+    default_block->insertInto(free_callable_fn);
+    builder->SetInsertPoint(default_block);
+    builder->CreateCall(c_functions.at(FREE), {arg_callable});
+    builder->CreateRetVoid();
 }
 
 void Generator::Memory::generate_free_value( //
@@ -168,10 +254,7 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::FN: {
-            // TODO: We need to call a special function to free a fn frame, as we need to free the persitent locals too (eventually)
-            // For now, it is enough to simply call the free function on the passed value
-            // llvm::Value *const fn_ptr = IR::aligned_load(*builder, PTR_TY, value, "fn_ptr");
-            builder->CreateCall(c_functions.at(FREE), {value});
+            builder->CreateCall(memory_functions.at("free.callable"), {value});
             break;
         }
         case Type::Variation::PRIMITIVE: {

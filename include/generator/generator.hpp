@@ -2369,6 +2369,7 @@ class Generator {
         static inline std::unordered_map<std::string_view, llvm::Function *> memory_functions = {
             {"free", nullptr},
             {"clone", nullptr},
+            {"free.callable", nullptr},
         };
 
         /// @function `generate_memory_functions`
@@ -2378,6 +2379,15 @@ class Generator {
         /// @param `module` The module in which the functions are generated in
         /// @param `only_declarations` Whether to only generate the declarations for the functions
         static void generate_memory_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = false);
+
+        /// @function `generate_free_callable_function`
+        /// @brief Generates the `free.callable` function to free a callable function frame, and to free all potential persistent locals of
+        /// that function frame
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        /// @param `only_declarations` Whether to only generate the declaration for the `free.callable` function
+        static void generate_free_callable_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
         /// @function `generate_free_value`
         /// @brief Generates the IR code to free the given type
@@ -4413,6 +4423,25 @@ class Generator {
             /// @key `size_t` The 64 bit function id of the frame
             /// @value `llvm::GlobalVariable *` The default value of the function frame as a global variable
             static inline std::unordered_map<size_t, llvm::GlobalVariable *> ts_defaults;
+
+            /// @struct `PersistentLocal`
+            /// @brief Information about a persistent local variable needed for freeing it during callable frame cleanup
+            struct PersistentLocal {
+                /// @var `field_index`
+                /// @brief The index of this variable's field in the frame struct type
+                size_t field_index;
+
+                /// @var `type`
+                /// @brief The type of the persistent variable
+                std::shared_ptr<Type> type;
+            };
+
+            /// @var `persistent_locals`
+            /// @brief Maps function IDs to their persistent local variables info
+            ///
+            /// @key `size_t` The 64 bit function id of the frame
+            /// @value `std::vector<PersistentLocal>` The list of persistent locals for this function
+            static inline std::map<size_t, std::vector<PersistentLocal>> persistent_locals;
 
             /// @function `generate_types`
             /// @brief Generates the struct types for everything thread-stack related
