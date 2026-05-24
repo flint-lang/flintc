@@ -537,8 +537,8 @@ bool Generator::Allocation::generate_declaration_allocations(             //
         }
     }
 
-    // Add the persistent local for later use in the `free.callable` code generation code
-    if (declaration_node->is_persistent) {
+    // Add the persistent local for later use in the `free.callable` code generation code if the variable is freeable
+    if (declaration_node->is_persistent && declaration_node->type->is_freeable()) {
         const auto &pl = Module::ThreadStack::PersistentLocal{struct_types.size(), declaration_node->type};
         const size_t fn_id = scope->function->get_id();
         auto &locals = Module::ThreadStack::persistent_locals[fn_id];

@@ -1,23 +1,22 @@
 use Core.print
-use Core.time
 
-def execute_function():
-	print("Executed\n");
+enum State:
+	S1, S2, S3;
 
-def execute_maybe(fn<> e) -> bool:
-	persistent TimeStamp ts = now();
-	TimeStamp n = now();
-	Duration d = duration(ts, n);
-	if as_unit(d, TimeUnit.S) < 1.0:
-		return false;
-	e();
-	ts = n;
-	return true;
+def execute_next_phase():
+	persistent State state = State.S1;
+	switch state:
+		S1:
+			print("Executed State 1\n");
+			state = State.S2;
+		S2:
+			print("Executed State 2\n");
+			state = State.S3;
+		S3:
+			print("Executed State 3\n");
+			state = State.S1;
 
 def main():
-	fn<> e_fn = ::execute_function;
-	fn<fn<> -> bool> e = ::execute_maybe;
-	i32 c = 0;
-	while c < 4:
-		if e(e_fn):
-			c++;
+	fn<> state_handler = ::execute_next_phase;
+	for (_, _) in 0..6:
+		state_handler();
