@@ -20,12 +20,13 @@
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
-#include "llvm/IR/BasicBlock.h"
+
+#include <llvm/IR/BasicBlock.h>
+#include <llvm/IR/Instructions.h>
+#include <llvm/IR/Metadata.h>
 
 #include <algorithm>
 #include <array>
-#include <llvm/IR/Instructions.h>
-#include <llvm/IR/Metadata.h>
 #include <memory>
 #include <string>
 
@@ -253,6 +254,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
     llvm::BasicBlock *prev_block = builder.GetInsertBlock();
     llvm::Instruction *prev_terminator = prev_block->getTerminator();
     llvm::BasicBlock *end_of_scope_block = nullptr;
+    llvm::BasicBlock *end_of_scope_persistent_block = nullptr;
     llvm::BasicBlock *merge_block = nullptr;
     bool blocks_created = false;
     for (const auto &[var_name, variable] : variables) {
@@ -285,11 +287,25 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             end_of_scope_block = llvm::BasicBlock::Create(                                 //
                 context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
             );
+            if (ctx.scope->function->persistent_count > 0) {
+                end_of_scope_persistent_block = llvm::BasicBlock::Create(                                           //
+                    context, "end_of_scope_persistent_" + std::to_string(ctx.scope->scope_id) + "block", ctx.parent //
+                );
+            }
             merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
             builder.SetInsertPoint(prev_block);
-            builder.CreateBr(end_of_scope_block);
-            builder.SetInsertPoint(end_of_scope_block);
+            if (ctx.scope->function->persistent_count > 0) {
+                llvm::Value *const is_callable = ctx.allocations.at("flint.stack.is_callable");
+                builder.CreateCondBr(is_callable, end_of_scope_block, end_of_scope_persistent_block);
+            } else {
+                builder.CreateBr(end_of_scope_block);
+            }
             blocks_created = true;
+        }
+        if (variable.is_persistent) {
+            builder.SetInsertPoint(end_of_scope_persistent_block);
+        } else {
+            builder.SetInsertPoint(end_of_scope_block);
         }
         // Check if the variable is an alias type
         std::shared_ptr<Type> var_type = variable.type;
@@ -321,6 +337,11 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         // There were no variables which *actually* needed to be freed, so we can just return since we have not emitted any IR code
         return true;
     }
+    if (ctx.scope->function->persistent_count > 0) {
+        builder.SetInsertPoint(end_of_scope_persistent_block);
+        builder.CreateBr(end_of_scope_block);
+    }
+    builder.SetInsertPoint(end_of_scope_block);
     builder.CreateBr(merge_block);
     merge_block->insertInto(ctx.parent);
     builder.SetInsertPoint(merge_block);
