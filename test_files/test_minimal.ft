@@ -1,8 +1,23 @@
 use Core.print
+use Core.time
 
-use "imported.ft"
+def execute_function():
+	print("Executed\n");
+
+def execute_maybe(fn<> e) -> bool:
+	persistent TimeStamp ts = now();
+	TimeStamp n = now();
+	Duration d = duration(ts, n);
+	if as_unit(d, TimeUnit.S) < 1.0:
+		return false;
+	e();
+	ts = n;
+	return true;
 
 def main():
-	b := BaseData(10);
-	bf := BaseFunc::base;
-	bf(b);
+	fn<> e_fn = ::execute_function;
+	fn<fn<> -> bool> e = ::execute_maybe;
+	i32 c = 0;
+	while c < 4:
+		if e(e_fn):
+			c++;

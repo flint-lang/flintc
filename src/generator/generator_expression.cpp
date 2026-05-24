@@ -1673,7 +1673,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         for (const auto &return_type : fn_ret_types) {
             const size_t return_size = Allocation::get_type_size(module, IR::get_type(module, return_type).first);
             // Add alignment
-            offset += offset % return_size;
+            offset += (return_size - (offset % return_size)) % return_size;
             // Add the param size
             offset += return_size;
         }
@@ -1733,7 +1733,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
             assert(param_start_ptr != nullptr);
             const size_t type_size = Allocation::get_type_size(ctx.parent->getParent(), param_ty);
             // Make the offset aligned to the parameter
-            offset += offset % type_size;
+            offset += (type_size - (offset % type_size)) % type_size;
             value_ptr = builder.CreateGEP(                                                                          //
                 builder.getInt8Ty(), param_start_ptr, builder.getInt64(offset), "arg_" + std::to_string(i) + "_ptr" //
             );
@@ -2064,7 +2064,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         llvm::Type *const return_ty = type_pair.second.first ? PTR_TY : type_pair.first;
         const size_t return_size = Allocation::get_type_size(module, return_ty);
         // Add alignment
-        offset += offset % return_size;
+        offset += (return_size - (offset % return_size)) % return_size;
         // Add the ret type size
         offset += return_size;
     }
@@ -2075,7 +2075,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         llvm::Type *const param_ty = type_pair.second.first ? PTR_TY : type_pair.first;
         const size_t param_size = Allocation::get_type_size(module, param_ty);
         // Add alignment
-        offset += offset % param_size;
+        offset += (param_size - (offset % param_size)) % param_size;
         // Store arg i at offset in the callable frame
         llvm::Value *const value_ptr = builder.CreateGEP(                                                                      //
             builder.getInt8Ty(), callable_frame, builder.getInt64(offset), fn_name + "_call_arg_" + std::to_string(i) + "_ptr" //
@@ -2132,7 +2132,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         const auto &return_type = fn_type->return_types.at(i);
         const size_t return_type_size = Allocation::get_type_size(module, IR::get_type(module, return_type).first);
         // Add alignment for the return type
-        offset += offset % return_type_size;
+        offset += (return_type_size - (offset % return_type_size)) % return_type_size;
         llvm::Value *const elem_ptr = builder.CreateGEP(                                                //
             builder.getInt8Ty(),                                                                        //
             callable_frame,                                                                             //
