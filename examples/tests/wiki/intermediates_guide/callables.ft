@@ -40,17 +40,37 @@ test "7_pass_callable_by_ref.ft":
 	str file = "7_pass_callable_by_ref.ft";
 	test_file_ok($"{path}/{file}", "res = 30\nres = 10\n");
 
-test "8_err_bubble_up.ft":
+test "8_persistent_counter.ft":
 	str path = "tests/wiki/intermediates_guide/callables";
-	str file = "8_err_bubble_up.ft";
+	str file = "8_persistent_counter.ft";
+	test_file_ok($"{path}/{file}", "c1() = 0\nc1() = 1\nc2() = 0\nc2() = 1\nc1() = 2\ncounter() = 0\ncounter() = 0\n");
+
+test "9_persistent_rate_limiter.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "9_persistent_rate_limiter.ft";
+	test_file_ok($"{path}/{file}", "Executed\nExecuted\nExecuted\nExecuted\n");
+
+test "10_persistent_state_machine.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "10_persistent_state_machine.ft";
+	test_file_ok($"{path}/{file}", "Executed State 1\nExecuted State 2\nExecuted State 3\nExecuted State 1\nExecuted State 2\nExecuted State 3\n");
+
+test "11_persistent_accumulator.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "11_persistent_accumulator.ft";
+	test_file_ok($"{path}/{file}", "applying '10' to accumulator results in: 10\napplying '9' to accumulator results in: 1\napplying '8' to accumulator results in: 8\napplying '7' to accumulator results in: 1\nresult = 1\n");
+
+test "12_err_bubble_up.ft":
+	str path = "tests/wiki/intermediates_guide/callables";
+	str file = "12_err_bubble_up.ft";
 	test_file_crash($"{path}/{file}", "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n");
 
-test "9_specifying_err_set.ft":
+test "13_specifying_err_set.ft":
 	str path = "tests/wiki/intermediates_guide/callables";
-	str file = "9_specifying_err_set.ft";
+	str file = "13_specifying_err_set.ft";
 	test_file_crash($"{path}/{file}", "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n");
 
-test "10_catching_callables.ft":
+test "14_catching_callables.ft":
 	str path = "tests/wiki/intermediates_guide/callables";
-	str file = "10_catching_callables.ft";
+	str file = "14_catching_callables.ft";
 	test_file_ok($"{path}/{file}", "fail = false\nfail = true\nErrAssert = ErrAssert.AssertionFailed\n");

@@ -1,0 +1,25 @@
+use Core.print
+use Core.time
+
+def execute_function():
+	print("Executed\n");
+
+def execute_maybe(fn<> function) -> bool:
+	persistent TimeStamp last = now();
+	TimeStamp current = now();
+	Duration elapsed = duration(last, current);
+	
+	if as_unit(elapsed, TimeUnit.S) < 1.0:
+		return false;
+	
+	function();
+	last = current;
+	return true;
+
+def main():
+	fn<> task = ::execute_function;
+	fn<fn<> -> bool> throttled = ::execute_maybe;
+	i32 c = 0;
+	while c < 4:
+		if throttled(task):
+			c++;

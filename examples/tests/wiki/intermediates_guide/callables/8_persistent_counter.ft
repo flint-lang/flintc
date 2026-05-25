@@ -1,0 +1,20 @@
+use Core.print
+
+def counter() -> i32:
+	persistent i32 c = 0;
+	// ++ does not work in expression contexts yet
+	i32 current = c;
+	c++;
+	return current;
+
+def main():
+	fn<() -> i32> c1 = ::counter;
+	fn<() -> i32> c2 = ::counter;
+	print($"c1() = {c1()}\n");
+	print($"c1() = {c1()}\n");
+	print($"c2() = {c2()}\n");
+	print($"c2() = {c2()}\n");
+	print($"c1() = {c1()}\n");
+	
+	print($"counter() = {counter()}\n");
+	print($"counter() = {counter()}\n");
