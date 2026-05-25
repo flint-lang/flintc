@@ -1,0 +1,167 @@
+use Core.assert
+use Core.print
+use Core.filesystem
+use Core.parse
+
+data Edge:
+	u64 a = 0;
+	u64 b = 0;
+	u64 dist = 0;
+	Edge(a, b, dist);
+
+data DisjointSetUnion:
+	u64[] parent;
+	u64[] size;
+	DisjointSetUnion(parent, size);
+
+def find(mut DisjointSetUnion dsu, u64 x) -> u64:
+	if dsu.parent[x] == x:
+		return x;
+	dsu.parent[x] = find(dsu, dsu.parent[x]);
+	return dsu.parent[x];
+
+def unite(mut DisjointSetUnion dsu, mut u64 a, mut u64 b) -> bool:
+	a = find(dsu, a);
+	b = find(dsu, b);
+	
+	if a == b:
+		return false;
+	
+	if dsu.size[a] < dsu.size[b]:
+		(a, b) = (b, a);
+	
+	dsu.parent[b] = a;
+	dsu.size[a] += dsu.size[b];
+	return true;
+
+def dist2(i64x3 p0, i64x3 p1) -> i64:
+	i64x3 dist = p1 - p0;
+	dist *= dist;
+	return dist.x + dist.y + dist.z;
+
+def split(str input, u8 separator) -> str[]:
+	u64 separator_count = 0;
+	for (_, c) in input:
+		if c == separator:
+			separator_count++;
+	str[] results = str[separator_count + 1]("");
+
+	u64 result_id = 0;
+	u64 last_id = 0;
+	for (i, c) in input:
+		if c != separator:
+			continue;
+		results[result_id] = input[last_id..i];
+		last_id = i + 1;
+		result_id++;
+	assert(result_id == separator_count);
+	results[result_id] = input[last_id..];
+	return results;
+
+def push_max_heap(mut Edge[] heap, u64 size, Edge e, u64 K) -> u64:
+	if size < K:
+		heap[size] = e;
+		u64 i = size;
+		while i > 0:
+			u64 p = (i - 1) / 2;
+			if heap[p].dist >= heap[i].dist:
+				break;
+			heap.[p, i] = heap.[i, p];
+			i = p;
+		return size + 1;
+	else if e.dist < heap[0].dist:
+		heap[0] = e;
+		u64 i = 0;
+		while true:
+			u64 l = 2 * i + 1;
+			u64 r = 2 * i + 2;
+			u64 m = i;
+			if l < K and heap[l].dist > heap[m].dist:
+				m = l;
+			if r < K and heap[r].dist > heap[m].dist:
+				m = r;
+			if m == i:
+				break;
+			heap.[i, m] = heap.[m, i];
+			i = m;
+	return size;
+
+def main():
+	str[] lines = read_lines("input.txt");
+	
+	i64x3[] coords = i64x3[lines.len](i64x3(0, 0, 0));
+	for (i, line) in lines:
+		nums := split(line, ',');
+		coords[i] = i64x3(parse_i64(nums[0]), parse_i64(nums[1]), parse_i64(nums[2]));
+	
+	// Pre-allocate all (i<j) edges — no append-copy, just direct assignment
+	u64 total = coords.len * (coords.len - 1) / 2;
+	Edge[] edges = Edge[total](Edge(_));
+	u64 idx = 0;
+	for (i, p0) in coords:
+		for (j, p1) in coords:
+			if j <= i:
+				continue;
+			edges[idx] = Edge(i, j, dist2(p0, p1));
+			idx++;
+
+	// Max-heap to select the 1000 smallest edges without sorting all 500k
+	u64 K = 1000;
+	Edge[] heap = Edge[K](Edge(_));
+	u64 heap_size = 0;
+	for (_, e) in edges:
+		heap_size = push_max_heap(heap, heap_size, e, K);
+
+	// Extract the K smallest from the heap (they come out in descending order)
+	Edge[] top_edges = Edge[K](Edge(_));
+	u64 remaining = K;
+	for (i, _) in 0..K:
+		top_edges[i] = heap[0];
+		remaining--;
+		heap[0] = heap[remaining];
+		u64 j = 0;
+		while true:
+			u64 l = 2 * j + 1;
+			u64 r = 2 * j + 2;
+			u64 m = j;
+			if l < remaining and heap[l].dist > heap[m].dist:
+				m = l;
+			if r < remaining and heap[r].dist > heap[m].dist:
+				m = r;
+			if m == j:
+				break;
+			heap.[j, m] = heap.[m, j];
+			j = m;
+
+	// Union-find on the 1000 smallest edges
+	DisjointSetUnion dsu = DisjointSetUnion(u64[coords.len](0), u64[coords.len](1));
+	
+	for (i, _) in 0..coords.len:
+		dsu.parent[i] = i;
+	
+	for (_, edge) in top_edges:
+		unite(dsu, edge.a, edge.b);
+	
+	// collect component sizes
+	u64 largest1 = 0;
+	u64 largest2 = 0;
+	u64 largest3 = 0;
+	
+	for (i, _) in 0..coords.len:
+		r := find(dsu, i);
+		if r != i:
+			continue;
+		s := dsu.size[r];
+		
+		if s > largest1:
+			largest3 = largest2;
+			largest2 = largest1;
+			largest1 = s;
+		else if s > largest2:
+			largest3 = largest2;
+			largest2 = s;
+		else if s > largest3:
+			largest3 = s;
+	
+	print($"part_1 = {largest1 * largest2 * largest3}\n");
+	print("part_2 = TODO\n");
