@@ -1021,8 +1021,9 @@ void Generator::Module::DIMA::generate_release_function( //
     builder->SetInsertPoint(loop_body_block);
     llvm::Value *new_size_m1 = builder->CreateSub(new_size_value, builder->getInt64(1), "new_size_m1");
     llvm::Value *check_block_ptr = builder->CreateGEP(PTR_TY, blocks_ptr, new_size_m1, "check_block_ptr");
-    llvm::Value *block_is_null = builder->CreateICmpEQ(check_block_ptr, block_nullptr, "block_is_null");
-    builder->CreateCondBr(block_is_null, realloc_block, loop_postcondition_block);
+    llvm::Value *check_block = IR::aligned_load(*builder, PTR_TY, check_block_ptr, "check_block");
+    llvm::Value *block_is_null = builder->CreateICmpEQ(check_block, block_nullptr, "block_is_null");
+    builder->CreateCondBr(block_is_null, loop_postcondition_block, realloc_block);
 
     builder->SetInsertPoint(loop_postcondition_block);
     IR::aligned_store(*builder, new_size_m1, new_size);
