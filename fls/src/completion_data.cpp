@@ -35,6 +35,7 @@ const std::vector<CompletionItem> CompletionData::types_ = {
     {"bool", CompletionItemKind::TypeParameter, "Boolean type", "bool", false},
     {"bool8", CompletionItemKind::TypeParameter, "8-bit boolean type", "bool8", false},
     {"anyerror", CompletionItemKind::TypeParameter, "Any error type", "anyerror", false},
+    {"opaque", CompletionItemKind::TypeParameter, "An opaque pointer type", "opaque", false},
 
     // Integer types
     {"i8", CompletionItemKind::TypeParameter, "8-bit signed integer", "i8", false},
@@ -56,11 +57,40 @@ const std::vector<CompletionItem> CompletionData::types_ = {
     {"u8x4", CompletionItemKind::TypeParameter, "4-element u8 vector", "u8x4", false},
     {"u8x8", CompletionItemKind::TypeParameter, "8-element u8 vector", "u8x8", false},
 
+    // Vector types - i8
+    {"i8x2", CompletionItemKind::TypeParameter, "2-element i8 vector", "i8x2", false},
+    {"i8x3", CompletionItemKind::TypeParameter, "3-element i8 vector", "i8x3", false},
+    {"i8x4", CompletionItemKind::TypeParameter, "4-element i8 vector", "i8x4", false},
+    {"i8x8", CompletionItemKind::TypeParameter, "8-element i8 vector", "i8x8", false},
+
+    // Vector types - u16
+    {"u16x2", CompletionItemKind::TypeParameter, "2-element u16 vector", "u16x2", false},
+    {"u16x3", CompletionItemKind::TypeParameter, "3-element u16 vector", "u16x3", false},
+    {"u16x4", CompletionItemKind::TypeParameter, "4-element u16 vector", "u16x4", false},
+    {"u16x8", CompletionItemKind::TypeParameter, "8-element u16 vector", "u16x8", false},
+
+    // Vector types - i16
+    {"i16x2", CompletionItemKind::TypeParameter, "2-element i16 vector", "i16x2", false},
+    {"i16x3", CompletionItemKind::TypeParameter, "3-element i16 vector", "i16x3", false},
+    {"i16x4", CompletionItemKind::TypeParameter, "4-element i16 vector", "i16x4", false},
+    {"i16x8", CompletionItemKind::TypeParameter, "8-element i16 vector", "i16x8", false},
+
+    // Vector types - u32
+    {"u32x2", CompletionItemKind::TypeParameter, "2-element u32 vector", "u32x2", false},
+    {"u32x3", CompletionItemKind::TypeParameter, "3-element u32 vector", "u32x3", false},
+    {"u32x4", CompletionItemKind::TypeParameter, "4-element u32 vector", "u32x4", false},
+    {"u32x8", CompletionItemKind::TypeParameter, "8-element u32 vector", "u32x8", false},
+
     // Vector types - i32
     {"i32x2", CompletionItemKind::TypeParameter, "2-element i32 vector", "i32x2", false},
     {"i32x3", CompletionItemKind::TypeParameter, "3-element i32 vector", "i32x3", false},
     {"i32x4", CompletionItemKind::TypeParameter, "4-element i32 vector", "i32x4", false},
     {"i32x8", CompletionItemKind::TypeParameter, "8-element i32 vector", "i32x8", false},
+
+    // Vector types - u64
+    {"u64x2", CompletionItemKind::TypeParameter, "2-element u64 vector", "u64x2", false},
+    {"u64x3", CompletionItemKind::TypeParameter, "3-element u64 vector", "u64x3", false},
+    {"u64x4", CompletionItemKind::TypeParameter, "4-element u64 vector", "u64x4", false},
 
     // Vector types - i64
     {"i64x2", CompletionItemKind::TypeParameter, "2-element i64 vector", "i64x2", false},
@@ -103,12 +133,14 @@ const std::vector<CompletionItem> CompletionData::storage_classes_ = {
     {"const", CompletionItemKind::Keyword, "Constant declaration", "const ", false},
     {"mut", CompletionItemKind::Keyword, "Mutable declaration", "mut ", false},
     {"shared", CompletionItemKind::Keyword, "Shared declaration", "shared ", false},
+    {"persistent", CompletionItemKind::Keyword, "Persistent declaration", "persistent ", false},
 };
 
 const std::vector<CompletionItem> CompletionData::constants_ = {
     {"true", CompletionItemKind::Constant, "Boolean true", "true", false},
     {"false", CompletionItemKind::Constant, "Boolean false", "false", false},
-    {"none", CompletionItemKind::Constant, "None value", "none", false},
+    {"none", CompletionItemKind::Constant, "Optional none value", "none", false},
+    {"null", CompletionItemKind::Constant, "Opaque nullpointer value", "null", false},
 };
 
 const std::vector<CompletionItem> &CompletionData::get_keywords() {
