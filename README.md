@@ -66,7 +66,7 @@ def main():
 
 ### Higher Order Functions
 
-Flint has a very unique runtime enabling advanced features like callables, higher order functions, variable persistence and many more. As it's transparent about what it does under the hood, you will be able to easily tell exactly what that Flint program above is doing and how it works.
+Flint has a very unique runtime enabling advanced features like callables, higher order functions, variable persistence and many more. As it's transparent about what it does under the hood, you will be able to easily tell exactly what that Flint program below is doing and how it works.
 
 <details>
   <summary>Show Code</summary>
