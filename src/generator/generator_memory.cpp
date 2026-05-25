@@ -15,6 +15,8 @@ void Generator::Memory::generate_memory_functions(llvm::IRBuilder<> *builder, ll
     // Always generate only the declaration, it's body is generated at a later stage because other functions (function setup for all
     // functions) need to be executed first
     generate_free_callable_function(builder, module, true);
+    generate_clone_callable_function(builder, module, true);
+
     generate_free_function(builder, module, only_declarations);
     generate_clone_function(builder, module, only_declarations);
 }
@@ -100,6 +102,114 @@ void Generator::Memory::generate_free_callable_function( //
     builder->SetInsertPoint(default_block);
     builder->CreateCall(c_functions.at(FREE), {arg_callable});
     builder->CreateRetVoid();
+}
+
+void Generator::Memory::generate_clone_callable_function( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations                          //
+) {
+    llvm::FunctionType *const clone_callable_type = llvm::FunctionType::get( //
+        PTR_TY,                                                              // Returns ptr to newly created, cloned frame
+        {
+            PTR_TY // ptr src_callable
+        },
+        false // No vaargs
+    );
+    llvm::Function *clone_callable_fn = module->getFunction(prefix + "clone.callable");
+    if (clone_callable_fn == nullptr) {
+        clone_callable_fn = llvm::Function::Create( //
+            clone_callable_type,                    //
+            llvm::Function::ExternalLinkage,        //
+            prefix + "clone.callable",              //
+            module                                  //
+        );
+    }
+    memory_functions["clone.callable"] = clone_callable_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", clone_callable_fn);
+    llvm::BasicBlock *const default_block = llvm::BasicBlock::Create(context, "default");
+
+    llvm::Argument *const arg_callable = clone_callable_fn->arg_begin();
+    arg_callable->setName("src_callable");
+
+    builder->SetInsertPoint(entry_block);
+
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+    llvm::Value *const fn_frame = builder->CreateGEP(PTR_TY, arg_callable, builder->getInt32(1), "fn_frame");
+    llvm::Value *const fn_id_ptr = builder->CreateStructGEP(                  //
+        ts_fn_ty, fn_frame, Module::ThreadStack::FUNCTION::FN_ID, "fn_id_ptr" //
+    );
+    llvm::Value *const fn_id = IR::aligned_load(*builder, builder->getInt64Ty(), fn_id_ptr, "fn_id");
+
+    // Build a map of function IDs to their total persistent count
+    std::map<size_t, size_t> persistent_counts;
+    for (const auto *func : Parser::get_all_functions()) {
+        if (Module::ThreadStack::ts_frames.find(func->get_id()) != Module::ThreadStack::ts_frames.end()) {
+            persistent_counts[func->get_id()] = func->persistent_count;
+        }
+    }
+
+    const size_t num_cases = Module::ThreadStack::ts_frames.size();
+    llvm::SwitchInst *const switch_inst = builder->CreateSwitch(fn_id, default_block, num_cases);
+
+    for (const auto &[func_id, frame_type] : Module::ThreadStack::ts_frames) {
+        llvm::BasicBlock *const case_block = llvm::BasicBlock::Create(context, "case_fn_" + std::to_string(func_id), clone_callable_fn);
+        switch_inst->addCase(builder->getInt64(func_id), case_block);
+
+        builder->SetInsertPoint(case_block);
+
+        // Compute total size: fn_ptr (8) + frame struct + persistent initialized flags
+        llvm::Value *const frame_size = builder->getInt64(Allocation::get_type_size(module, frame_type));
+        const size_t total_persistent_count = persistent_counts.at(func_id);
+        llvm::Value *const total_size = builder->CreateAdd(
+            frame_size, builder->getInt64(8 + total_persistent_count), "total_size"
+        );
+
+        // Allocate a new block and memcpy the entire callable block
+        llvm::Value *const new_block = builder->CreateCall(c_functions.at(MALLOC), {total_size}, "new_callable");
+        builder->CreateCall(c_functions.at(MEMCPY), {new_block, arg_callable, total_size});
+
+        llvm::Value *const new_fn_frame = builder->CreateGEP(PTR_TY, new_block, builder->getInt32(1), "new_fn_frame");
+
+        // Clone freeable persistent locals (only freeable ones are stored in persistent_locals)
+        const auto plocals_it = Module::ThreadStack::persistent_locals.find(func_id);
+        if (plocals_it != Module::ThreadStack::persistent_locals.end()) {
+            for (const auto &pl : plocals_it->second) {
+                llvm::Value *const old_field_ptr = builder->CreateStructGEP(
+                    frame_type, fn_frame, pl.field_index, "old_persistent_field_ptr"
+                );
+
+                const auto &type_pair = IR::get_type(module, pl.type);
+                llvm::Value *old_field_value = old_field_ptr;
+                const bool is_array = pl.type->get_variation() == Type::Variation::ARRAY;
+                const bool is_str = pl.type->to_string() == "str";
+                const bool is_opaque = pl.type->get_variation() == Type::Variation::OPAQUE;
+                if (type_pair.second.first || is_array || is_str || is_opaque) {
+                    llvm::Type *const type_to_load = type_pair.second.first ? PTR_TY : type_pair.first;
+                    old_field_value = IR::aligned_load(*builder, type_to_load, old_field_ptr, "old_persistent_field");
+                }
+
+                llvm::Value *const new_field_ptr = builder->CreateStructGEP(
+                    frame_type, new_fn_frame, pl.field_index, "new_persistent_field_ptr"
+                );
+                llvm::Function *const clone_fn = memory_functions.at("clone");
+                builder->CreateCall(clone_fn, {old_field_value, new_field_ptr, builder->getInt32(pl.type->get_id())});
+            }
+        }
+
+        builder->CreateRet(new_block);
+    }
+
+    default_block->insertInto(clone_callable_fn);
+    builder->SetInsertPoint(default_block);
+    llvm::Value *const err_msg = IR::generate_const_string(module, "Unknown fn_id for 'flint.clone.callable': %lu\n");
+    builder->CreateCall(c_functions.at(PRINTF), {err_msg, fn_id});
+    builder->CreateCall(c_functions.at(ABORT), {});
+    builder->CreateUnreachable();
 }
 
 void Generator::Memory::generate_free_value( //
@@ -669,11 +779,9 @@ void Generator::Memory::generate_clone_value( //
             break;
         }
         case Type::Variation::FN: {
-            // TODO: We need to call a special function to clone a fn frame, as we need to clone the persitent locals too (eventually)
-            // And cloning also means that we need to know the size of the function frame
-            // For now, it is enough to simply load and store the value into the destination
-            // llvm::Value *const fn_ptr = IR::aligned_load(*builder, PTR_TY, src, "fn_ptr");
-            IR::aligned_store(*builder, src, dest);
+            llvm::Function *const clone_callable_fn = memory_functions.at("clone.callable");
+            llvm::Value *const new_callable = builder->CreateCall(clone_callable_fn, {src}, "new_callable");
+            IR::aligned_store(*builder, new_callable, dest);
             break;
         }
         case Type::Variation::PRIMITIVE: {

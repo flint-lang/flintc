@@ -1,22 +1,35 @@
 use Core.print
 
-enum State:
-	S1, S2, S3;
+def add(i32 x, i32 y) -> i32:
+	return x + y;
 
-def execute_next_phase():
-	persistent State state = State.S1;
-	switch state:
-		S1:
-			print("Executed State 1\n");
-			state = State.S2;
-		S2:
-			print("Executed State 2\n");
-			state = State.S3;
-		S3:
-			print("Executed State 3\n");
-			state = State.S1;
+def sub(i32 x, i32 y) -> i32:
+	return x - y;
+
+def mul(i32 x, i32 y) -> i32:
+	return x * y;
+
+def div(i32 x, i32 y) -> i32:
+	return x / y;
+
+def accumulator(fn<i32, i32 -> i32>? operation, i32 y) -> i32:
+	persistent i32 x = 0;
+	switch operation:
+		none:
+			return x;
+		op:
+			x = op(x, y);
+			return x;
 
 def main():
-	fn<> state_handler = ::execute_next_phase;
-	for (_, _) in 0..6:
-		state_handler();
+	 operations := fn<i32, i32 -> i32>[4](::add);
+	 operations[1] = ::sub;
+	 operations[2] = ::mul;
+	 operations[3] = ::div;
+
+	a := ::accumulator;
+	for (i, op) in operations:
+		i32 r = a(op, i32(10 - i));
+		print($"applying '{10 - i}' to accumulator results in: {r}\n");
+	i32 result = a(none, 0);
+	print($"result = {result}\n");

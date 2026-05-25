@@ -2389,6 +2389,15 @@ class Generator {
         /// @param `only_declarations` Whether to only generate the declaration for the `free.callable` function
         static void generate_free_callable_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
+        /// @function `generate_clone_callable_function`
+        /// @brief Generates the `clone.callable` function to clone a callable function frame, and to clone all potential persistent locals
+        /// of that function frame
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        /// @param `only_declarations` Whether to only generate the declaration for the `clone.callable` function
+        static void generate_clone_callable_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
         /// @function `generate_free_value`
         /// @brief Generates the IR code to free the given type
         ///
