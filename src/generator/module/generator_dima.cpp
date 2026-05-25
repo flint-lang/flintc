@@ -654,12 +654,14 @@ void Generator::Module::DIMA::generate_allocate_function( //
 
     { // if (head->block_count == 0) {
         builder->SetInsertPoint(no_heads_block);
-        IR::aligned_store(*builder, builder->getInt64(1), head_block_count_ptr);
         llvm::Value *new_head_value = builder->CreateCall(                                            //
             realloc_fn, {head_value, builder->getInt64(head_size + block_ptr_size)}, "new_head_value" //
         );
         IR::aligned_store(*builder, new_head_value, arg_head_ref);
-        IR::aligned_store(*builder, builder->getInt64(1), head_block_count_ptr);
+        llvm::Value *new_head_block_count_ptr = builder->CreateStructGEP(       //
+            dima_head_type, new_head_value, HEAD_BLOCK_COUNT, "new_head_block_count_ptr" //
+        );
+        IR::aligned_store(*builder, builder->getInt64(1), new_head_block_count_ptr);
         llvm::Value *new_block = builder->CreateCall(create_block_fn, {type_size, builder->getInt64(BASE_CAPACITY)}, "new_block");
         llvm::Value *blocks_ptr = builder->CreateStructGEP(dima_head_type, new_head_value, HEAD_BLOCKS, "blocks_ptr");
         IR::aligned_store(*builder, new_block, blocks_ptr);
