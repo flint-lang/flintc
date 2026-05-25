@@ -914,8 +914,8 @@ void Generator::Module::DIMA::generate_release_function( //
     llvm::ConstantPointerNull *block_nullptr = llvm::ConstantPointerNull::get(PTR_TY);
 
     const size_t dima_slot_size = Allocation::get_type_size(module, dima_slot_type);
-    const size_t dima_block_size = Allocation::get_type_size(module, dima_block_type);
     const size_t dima_head_size = Allocation::get_type_size(module, dima_head_type);
+    const size_t block_ptr_size = Allocation::get_type_size(module, PTR_TY);
 
     llvm::FunctionType *release_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                         // return void
@@ -1031,7 +1031,7 @@ void Generator::Module::DIMA::generate_release_function( //
 
     builder->SetInsertPoint(realloc_block);
     new_size_value = IR::aligned_load(*builder, builder->getInt64Ty(), new_size, "new_size_value");
-    llvm::Value *block_part_size = builder->CreateMul(builder->getInt64(dima_block_size), new_size_value, "block_part_size");
+    llvm::Value *block_part_size = builder->CreateMul(builder->getInt64(block_ptr_size), new_size_value, "block_part_size");
     llvm::Value *realloc_size = builder->CreateAdd(builder->getInt64(dima_head_size), block_part_size, "realloc_size");
     llvm::Value *new_head = builder->CreateCall(realloc_fn, {head, realloc_size}, "new_head");
     IR::aligned_store(*builder, new_head, arg_head_ref);
