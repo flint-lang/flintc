@@ -184,23 +184,47 @@ void Generator::Memory::generate_clone_callable_function( //
         // Compute total size: fn_ptr (8) + frame struct + persistent initialized flags
         llvm::Value *const frame_size = builder->getInt64(Allocation::get_type_size(module, frame_type));
         const size_t total_persistent_count = persistent_counts.at(func_id);
-        llvm::Value *const total_size = builder->CreateAdd(
-            frame_size, builder->getInt64(8 + total_persistent_count), "total_size"
-        );
+        llvm::Value *const total_size = builder->CreateAdd(frame_size, builder->getInt64(8 + total_persistent_count), "total_size");
 
         // Allocate a new block and memcpy the entire callable block
         llvm::Value *const new_block = builder->CreateCall(c_functions.at(MALLOC), {total_size}, "new_callable");
         builder->CreateCall(c_functions.at(MEMCPY), {new_block, arg_callable, total_size});
-
         llvm::Value *const new_fn_frame = builder->CreateGEP(PTR_TY, new_block, builder->getInt32(1), "new_fn_frame");
 
-        // Clone freeable persistent locals (only freeable ones are stored in persistent_locals)
+        // Clone freeable persistent locals which have been initialized
         const auto plocals_it = Module::ThreadStack::persistent_locals.find(func_id);
-        if (plocals_it != Module::ThreadStack::persistent_locals.end()) {
-            for (const auto &pl : plocals_it->second) {
-                llvm::Value *const old_field_ptr = builder->CreateStructGEP(
-                    frame_type, fn_frame, pl.field_index, "old_persistent_field_ptr"
-                );
+        if (plocals_it != Module::ThreadStack::persistent_locals.end() && !plocals_it->second.empty()) {
+            llvm::Value *const new_persistence_flags = builder->CreateGEP(              //
+                frame_type, new_fn_frame, builder->getInt32(1), "new_persistence_flags" //
+            );
+
+            const size_t num_plocals = plocals_it->second.size();
+            std::vector<llvm::BasicBlock *> check_blocks;
+            std::vector<llvm::BasicBlock *> clone_blocks;
+            for (size_t i = 0; i < num_plocals; i++) {
+                check_blocks.push_back(llvm::BasicBlock::Create(context,
+                    "check_pers_" + std::to_string(plocals_it->second[i].persistence_id), clone_callable_fn));
+                clone_blocks.push_back(llvm::BasicBlock::Create(context,
+                    "clone_pers_" + std::to_string(plocals_it->second[i].persistence_id), clone_callable_fn));
+            }
+            llvm::BasicBlock *const done_block = llvm::BasicBlock::Create(context, "pers_clone_done", clone_callable_fn);
+            builder->CreateBr(check_blocks[0]);
+
+            for (size_t i = 0; i < num_plocals; i++) {
+                const auto &pl = plocals_it->second[i];
+
+                // Check if this persistent local is initialized
+                builder->SetInsertPoint(check_blocks[i]);
+                llvm::Value *const flag_ptr =
+                    builder->CreateGEP(builder->getInt8Ty(), new_persistence_flags, builder->getInt64(pl.persistence_id), "flag_ptr");
+                llvm::Value *const flag = IR::aligned_load(*builder, builder->getInt8Ty(), flag_ptr, "flag");
+                llvm::Value *const is_init = builder->CreateICmpEQ(flag, builder->getInt8(1), "is_init");
+                builder->CreateCondBr(is_init, clone_blocks[i], (i + 1 < num_plocals) ? check_blocks[i + 1] : done_block);
+
+                // Clone the persistent local value
+                builder->SetInsertPoint(clone_blocks[i]);
+                llvm::Value *const old_field_ptr =
+                    builder->CreateStructGEP(frame_type, fn_frame, pl.field_index, "old_persistent_field_ptr");
 
                 const auto &type_pair = IR::get_type(module, pl.type);
                 llvm::Value *old_field_value = old_field_ptr;
@@ -212,12 +236,14 @@ void Generator::Memory::generate_clone_callable_function( //
                     old_field_value = IR::aligned_load(*builder, type_to_load, old_field_ptr, "old_persistent_field");
                 }
 
-                llvm::Value *const new_field_ptr = builder->CreateStructGEP(
-                    frame_type, new_fn_frame, pl.field_index, "new_persistent_field_ptr"
-                );
+                llvm::Value *const new_field_ptr =
+                    builder->CreateStructGEP(frame_type, new_fn_frame, pl.field_index, "new_persistent_field_ptr");
                 llvm::Function *const clone_fn = memory_functions.at("clone");
                 builder->CreateCall(clone_fn, {old_field_value, new_field_ptr, builder->getInt32(pl.type->get_id())});
+                builder->CreateBr((i + 1 < num_plocals) ? check_blocks[i + 1] : done_block);
             }
+
+            builder->SetInsertPoint(done_block);
         }
 
         builder->CreateRet(new_block);
