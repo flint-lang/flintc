@@ -71,11 +71,27 @@ void Generator::Memory::generate_free_callable_function( //
 
         builder->SetInsertPoint(case_block);
         llvm::StructType *const frame_type = Module::ThreadStack::ts_frames.at(func_id);
-        for (const auto &pl : plocals) {
+        llvm::Value *const persistence_flags = builder->CreateGEP(frame_type, fn_frame, builder->getInt32(1), "persistence_flags");
+
+        for (size_t i = 0; i < plocals.size(); i++) {
+            const auto &pl = plocals[i];
+            llvm::Value *const flag_ptr = builder->CreateGEP(                                             //
+                builder->getInt8Ty(), persistence_flags, builder->getInt64(pl.persistence_id), "flag_ptr" //
+            );
+            llvm::Value *const flag = IR::aligned_load(*builder, builder->getInt8Ty(), flag_ptr, "flag");
+            llvm::Value *const is_init = builder->CreateICmpEQ(flag, builder->getInt8(1), "is_init");
+            llvm::BasicBlock *const free_pers_block = llvm::BasicBlock::Create(             //
+                context, "free_pers_" + std::to_string(pl.persistence_id), free_callable_fn //
+            );
+            llvm::BasicBlock *const next_pers_block = llvm::BasicBlock::Create(             //
+                context, "next_pers_" + std::to_string(pl.persistence_id), free_callable_fn //
+            );
+            builder->CreateCondBr(is_init, free_pers_block, next_pers_block);
+
+            builder->SetInsertPoint(free_pers_block);
             llvm::Value *const field_ptr = builder->CreateStructGEP(         //
                 frame_type, fn_frame, pl.field_index, "persistent_field_ptr" //
             );
-
             const auto &type_pair = IR::get_type(module, pl.type);
             llvm::Value *field_value = field_ptr;
             const bool is_array = pl.type->get_variation() == Type::Variation::ARRAY;
@@ -94,6 +110,9 @@ void Generator::Memory::generate_free_callable_function( //
                 llvm::Function *const free_fn = memory_functions.at("free");
                 builder->CreateCall(free_fn, {field_value, builder->getInt32(pl.type->get_id())});
             }
+            builder->CreateBr(next_pers_block);
+
+            builder->SetInsertPoint(next_pers_block);
         }
         builder->CreateBr(default_block);
     }
