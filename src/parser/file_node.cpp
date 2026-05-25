@@ -210,5 +210,7 @@ bool FileNode::add_variant(VariantNode &variant) {
 TestNode *FileNode::add_test(TestNode &test) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<TestNode>(std::move(test)));
-    return static_cast<TestNode *>(definitions.back().get());
+    TestNode *test_node = static_cast<TestNode *>(definitions.back().get());
+    test_node->scope->function = test_node;
+    return test_node;
 }

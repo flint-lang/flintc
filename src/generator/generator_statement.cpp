@@ -251,6 +251,8 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         // Do not generate any branches if no variables went out of scope and need to be freed
         return true;
     }
+    const bool has_persistents = std::holds_alternative<FunctionNode *>(ctx.scope->function) //
+        && std::get<FunctionNode *>(ctx.scope->function)->persistent_count > 0;
     llvm::BasicBlock *prev_block = builder.GetInsertBlock();
     llvm::Instruction *prev_terminator = prev_block->getTerminator();
     llvm::BasicBlock *end_of_scope_block = nullptr;
@@ -287,14 +289,14 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             end_of_scope_block = llvm::BasicBlock::Create(                                 //
                 context, "end_of_scope_" + std::to_string(ctx.scope->scope_id), ctx.parent //
             );
-            if (ctx.scope->function->persistent_count > 0) {
+            if (has_persistents) {
                 end_of_scope_persistent_block = llvm::BasicBlock::Create(                                           //
                     context, "end_of_scope_persistent_" + std::to_string(ctx.scope->scope_id) + "block", ctx.parent //
                 );
             }
             merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
             builder.SetInsertPoint(prev_block);
-            if (ctx.scope->function->persistent_count > 0) {
+            if (has_persistents) {
                 llvm::Value *const is_callable = ctx.allocations.at("flint.stack.is_callable");
                 builder.CreateCondBr(is_callable, end_of_scope_block, end_of_scope_persistent_block);
             } else {
@@ -337,7 +339,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         // There were no variables which *actually* needed to be freed, so we can just return since we have not emitted any IR code
         return true;
     }
-    if (ctx.scope->function->persistent_count > 0) {
+    if (has_persistents) {
         builder.SetInsertPoint(end_of_scope_persistent_block);
         builder.CreateBr(end_of_scope_block);
     }

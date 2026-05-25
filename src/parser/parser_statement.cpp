@@ -1832,6 +1832,11 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        if (std::holds_alternative<TestNode *>(scope->function)) {
+            // Persistent locals are not allowed within a test function
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
         lhs_tokens.first++;
     }
 

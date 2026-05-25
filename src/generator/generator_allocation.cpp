@@ -539,8 +539,10 @@ bool Generator::Allocation::generate_declaration_allocations(             //
 
     // Add the persistent local for later use in the `free.callable` code generation code if the variable is freeable
     if (declaration_node->is_persistent && declaration_node->type->is_freeable()) {
+        // Test scopes are not allowed to contain any persistent locals
+        assert(std::holds_alternative<FunctionNode *>(scope->function));
         const auto &pl = Module::ThreadStack::PersistentLocal{struct_types.size(), declaration_node->type};
-        const size_t fn_id = scope->function->get_id();
+        const size_t fn_id = std::get<FunctionNode *>(scope->function)->get_id();
         auto &locals = Module::ThreadStack::persistent_locals[fn_id];
         locals.emplace_back(pl);
     }

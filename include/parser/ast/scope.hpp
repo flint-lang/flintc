@@ -7,7 +7,10 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <variant>
 #include <vector>
+
+class TestNode;
 
 /// @class `Scope`
 /// @brief This class represents a scope and is responsible for keeping track of all variable declarations
@@ -171,8 +174,8 @@ class Scope {
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers{};
 
     /// @var `function`
-    /// @brief The parent function this scope is defined in
-    FunctionNode *function;
+    /// @brief The parent function this scope is defined in, or the parent test this scope is defined in
+    std::variant<FunctionNode *, TestNode *> function;
 
   private:
     /// @function `get_next_scope_id`

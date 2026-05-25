@@ -451,7 +451,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( /
     assert(tokens.first->token == TOK_ERROR);
     assert(std::next(tokens.first)->token == TOK_DOT);
     assert((tokens.first + 2)->token == TOK_IDENTIFIER);
-    const std::string err_type_name = "error." + std::to_string(scope->function->get_id());
+    std::string err_type_name = "error.";
+    if (std::holds_alternative<FunctionNode *>(scope->function)) {
+        err_type_name += std::to_string(std::get<FunctionNode *>(scope->function)->get_id());
+    } else {
+        err_type_name += "test." + std::to_string(std::get<TestNode *>(scope->function)->test_id);
+    }
     const auto error_type = file_node_ptr->file_namespace->get_type_from_str(err_type_name).value();
     const std::string err_value((tokens.first + 2)->lexme);
     std::optional<std::unique_ptr<ExpressionNode>> message;
