@@ -4434,11 +4434,15 @@ class Generator {
             static inline std::unordered_map<size_t, llvm::GlobalVariable *> ts_defaults;
 
             /// @struct `PersistentLocal`
-            /// @brief Information about a persistent local variable needed for freeing it during callable frame cleanup
+            /// @brief Information about a persistent local variable needed for freeing and cloning it during callable frame cleanup
             struct PersistentLocal {
                 /// @var `field_index`
                 /// @brief The index of this variable's field in the frame struct type
                 size_t field_index;
+
+                /// @var `persistence_id`
+                /// @brief The id used to index into the initialized flags at the end of the callable block
+                size_t persistence_id;
 
                 /// @var `type`
                 /// @brief The type of the persistent variable
