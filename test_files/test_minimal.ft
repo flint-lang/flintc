@@ -1,35 +1,57 @@
 use Core.print
 
-def add(i32 x, i32 y) -> i32:
-	return x + y;
+data Data:
+    i32 x;
+    i32 y;
+    Data(x, y);
 
-def sub(i32 x, i32 y) -> i32:
-	return x - y;
+func Func requires(Data d):
+    def move(i32x2 diff):
+        d.(x, y) += diff.(x, y);
 
-def mul(i32 x, i32 y) -> i32:
-	return x * y;
+    def get_x() -> i32:
+        return d.x;
 
-def div(i32 x, i32 y) -> i32:
-	return x / y;
+    def get_y() -> i32:
+        return d.y;
 
-def accumulator(fn<i32, i32 -> i32>? operation, i32 y) -> i32:
-	persistent i32 x = 0;
-	switch operation:
-		none:
-			return x;
-		op:
-			x = op(x, y);
-			return x;
+entity Entity:
+    data: Data;
+    func: Func;
+    Entity(Data);
+
+data Data2:
+    i32 z;
+    i32 speed;
+    Data2(z, speed);
+
+func Func2 requires(Data d, Data2 d2):
+    def move2(f32x3 direction):
+        f32x3 diff = direction * f32(d2.speed);
+        d.(x, y) += i32x2(diff.x, diff.y);
+        d2.z += i32(diff.z);
+
+    def get_z() -> i32:
+        return d2.z;
+
+entity Entity2 extends(Entity e):
+    data: Data2;
+    func: Func2;
+    Entity2(e, Data2);
+
+def apply_move_operation(mut Func f, i32x2 diff):
+    f.move(diff);
 
 def main():
-	 operations := fn<i32, i32 -> i32>[4](::add);
-	 operations[1] = ::sub;
-	 operations[2] = ::mul;
-	 operations[3] = ::div;
+    Func f;
+    if true:
+        e1 := Entity(Data(10, 20));
+        f = e1;
+    print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
+    apply_move_operation(f, i32x2(5, 5));
+    print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
 
-	a := ::accumulator;
-	for (i, op) in operations:
-		i32 r = a(op, i32(10 - i));
-		print($"applying '{10 - i}' to accumulator results in: {r}\n");
-	i32 result = a(none, 0);
-	print($"result = {result}\n");
+    e2 := Entity2(Data(10, 20), Data2(30, 3));
+    print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
+    apply_move_operation(e2, i32x2(5, 5));
+    print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");

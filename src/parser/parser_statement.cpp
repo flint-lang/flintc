@@ -1867,6 +1867,11 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        if (declared_type->is_freeable()) {
+            // Freeable types are not allowed to not have an initializer
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
 
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
         if (!scope->add_variable(name, {declared_type, scope->scope_id, scope_segment, is_mutable, is_persistent, false})) {
