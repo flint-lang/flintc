@@ -1,0 +1,29 @@
+use Core.print
+
+data Data:
+    i32 value;
+    Data(value);
+
+func Func1 requires(Data d):
+    def fn1():
+        print($"fn1: {d.value}\n");
+
+func Func2 requires(Data d):
+    def fn2():
+        print($"fn2: {d.value}\n");
+
+entity Entity:
+    data:
+        Data d;
+    func:
+        Func1, Func2;
+    Entity(d);
+
+    def do_stuff():
+        self.fn1();
+        d.value += 5;
+        self.fn2();
+
+def main():
+    e := Entity(Data(10));
+    e.do_stuff();

@@ -59,3 +59,23 @@ test "11_duplicate_data_modules.ft":
 	str path = "tests/wiki/beginners_guide/entities";
 	str file = "11_duplicate_data_modules.ft";
 	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/entities/11_duplicate_data_modules.ft:38:11\n└──┬┤E0000│\n37 │ entity Entity3 extends(Entity2 e2):\n38 │ »   data: Data2, Data3;\n┌──┴───────────┘\n└─ Entity type defines data module 'Data2' twice\n");
+
+test "12_simple_entity_functions.ft":
+	str path = "tests/wiki/beginners_guide/entities";
+	str file = "12_simple_entity_functions.ft";
+	test_file_ok($"{path}/{file}", "c.get() = 15\n");
+
+test "13_entity_functions.ft":
+	str path = "tests/wiki/beginners_guide/entities";
+	str file = "13_entity_functions.ft";
+	test_file_ok($"{path}/{file}", "fn1: 10\nfn2: 15\n");
+
+test "14_interfaces.ft":
+	str path = "tests/wiki/beginners_guide/entities";
+	str file = "14_interfaces.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "15_interfaces_lifetime.ft":
+	str path = "tests/wiki/beginners_guide/entities";
+	str file = "15_interfaces_lifetime.ft";
+	test_file_ok($"{path}/{file}", "f.(x, y) = (10, 20)\nf.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
