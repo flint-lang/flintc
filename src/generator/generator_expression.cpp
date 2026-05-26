@@ -1679,6 +1679,12 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
             // Add the param size
             offset += return_size;
         }
+        // Align to the first parameter's alignment so the parameter area starts on a correct boundary
+        if (!parameters.empty()) {
+            const size_t first_param_align = Allocation::calculate_type_alignment(
+                IR::get_type(module, parameters.front().first).first);
+            offset += (first_param_align - (offset % first_param_align)) % first_param_align;
+        }
         param_start_ptr = builder.CreateGEP(builder.getInt8Ty(), next_stack_frame, builder.getInt64(offset), "param_start_ptr");
     }
 
