@@ -78,4 +78,4 @@ test "14_interfaces.ft":
 test "15_interfaces_lifetime.ft":
 	str path = "tests/wiki/beginners_guide/entities";
 	str file = "15_interfaces_lifetime.ft";
-	test_file_ok($"{path}/{file}", "f.(x, y) = (10, 20)\nf.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+	test_file_ok($"{path}/{file}", "f.(x, y) = (10, 20)\nf.(x, y) = (15, 25)\nf.(x, y) = (30, 50)\nf.(x, y) = (35, 55)\n");

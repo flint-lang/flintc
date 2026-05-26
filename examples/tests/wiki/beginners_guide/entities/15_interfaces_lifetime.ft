@@ -43,15 +43,15 @@ def apply_move_operation(mut Func f, i32x2 diff):
     f.move(diff);
 
 def main():
-    Func f;
-    if true:
-        e1 := Entity(Data(10, 20));
-        f = e1;
+    e1 := Entity(Data(10, 20));
+    Func f = e1;
     print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
     apply_move_operation(f, i32x2(5, 5));
     print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
 
-    e2 := Entity2(Data(10, 20), Data2(30, 3));
-    print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
-    apply_move_operation(e2, i32x2(5, 5));
-    print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
+    if true:
+        e2 := Entity2(Data(30, 50), Data2(30, 3));
+        f = e2;
+    print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
+    apply_move_operation(f, i32x2(5, 5));
+    print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
