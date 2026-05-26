@@ -2220,9 +2220,12 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 setup_call->setTailCall();
             }
 
-            // Store all function parameters starting at the returned arg pointer
+            // Store extra function parameters starting at the returned arg pointer
+            // The dispatch function's setup mode already handles required_data args from the entity,
+            // so only store the remaining extra arguments.
+            const size_t required_data_count = func_type->func_node->required_data.size();
             llvm::Value *arg_ptr = setup_call;
-            for (size_t i = 0; i < args.size(); i++) {
+            for (size_t i = required_data_count; i < args.size(); i++) {
                 const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
                 llvm::Value *arg_value = args[i];
                 if (is_arg_reference(call_node->arguments[i], param_type)) {
@@ -2230,7 +2233,6 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                     llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
                     arg_value = IR::aligned_load(builder, param_ty, arg_value);
                 }
-                // arg_value->dump();
                 IR::aligned_store(builder, arg_value, arg_ptr);
                 arg_ptr = builder.CreateGEP(arg_value->getType(), arg_ptr, builder.getInt32(1), "arg_ptr_" + std::to_string(i + 1));
             }
