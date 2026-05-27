@@ -25,6 +25,11 @@ token_list Lexer::scan() {
 
     // Special case for when lexing string interpolation expressions: If the token list only contains one entry, early return
     if (tokens.size() == 1) {
+        // If the file we parse is empty, then the only token is an EOL token, in this case we need to return an empty list of tokens
+        // instead
+        if (tokens.front().token == TOK_EOL) {
+            tokens.clear();
+        }
         return tokens;
     }
 
