@@ -1,8 +1,29 @@
 use Core.print
 
-func Func:
-	def function();
+func IMove:
+	def move();
+	def print_pos();
+
+data DPosition:
+	i32x2 pos;
+	DPosition(pos);
+
+func FMovable requires(DPosition d):
+	def move():
+		d.pos += 10;
+
+	def print_pos():
+		print($"d.pos = {d.pos}\n");
+
+entity Player:
+	data: DPosition;
+	func: IMove, FMovable;
+	Player(DPosition);
+
+def apply(mut IMove m):
+	m.move();
+	m.print_pos();
 
 def main():
-	print("Hello, World!\n");
-	Func.function();
+	p := Player(DPosition(i32x2(10, 20));
+	apply(p);

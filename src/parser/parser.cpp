@@ -1981,6 +1981,21 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             return false;
         }
 
+        // An entity containing unresolved virtual functions is a compilation error, all virtual functions need to be linked to concrete
+        // function implementations
+        const auto &mappings = entity->edg.get_all_mappings();
+        for (const auto &[src, node] : entity->edg.nodes) {
+            const FunctionNode *to = src;
+            if (mappings.find(to) != mappings.end()) {
+                to = mappings.at(to);
+            }
+            if (!to->scope.has_value()) {
+                // Virtual function as target of mapping, not allowed
+                THROW_ERR(ErrDefEntityUnresolvedVirtual, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length, to);
+                return false;
+            }
+        }
+
         return true;
     };
 
