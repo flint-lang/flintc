@@ -784,6 +784,74 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
         THROW_ERR(ErrDefEntityLinkNameMismatch, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
+
+    // Check if the source function and dest function signatures match
+    std::stringstream src_fn_sig;
+    src_fn_sig << src_fn_name << "(";
+    for (size_t i = src_func->required_data.size(); i < src_fn->parameters.size(); i++) {
+        if (i > src_func->required_data.size()) {
+            src_fn_sig << ", ";
+        }
+        const auto &[param_type, param_name, param_is_mut] = src_fn->parameters.at(i);
+        if (param_is_mut) {
+            src_fn_sig << "mut ";
+        }
+        src_fn_sig << param_type->to_string();
+    }
+    src_fn_sig << ")";
+    if (!src_fn->return_types.empty()) {
+        src_fn_sig << " -> ";
+        if (src_fn->return_types.size() == 1) {
+            src_fn_sig << src_fn->return_types.front()->to_string();
+        } else {
+            src_fn_sig << "(";
+            for (size_t i = 0; i < src_fn->return_types.size(); i++) {
+                if (i > 0) {
+                    src_fn_sig << ", ";
+                }
+                src_fn_sig << src_fn->return_types.at(i)->to_string();
+            }
+            src_fn_sig << ")";
+        }
+    }
+    std::stringstream dest_fn_sig;
+    dest_fn_sig << dest_fn_name << "(";
+    for (size_t i = dest_func->required_data.size(); i < dest_fn->parameters.size(); i++) {
+        if (i > dest_func->required_data.size()) {
+            dest_fn_sig << ", ";
+        }
+        const auto &[param_type, param_name, param_is_mut] = dest_fn->parameters.at(i);
+        if (param_is_mut) {
+            dest_fn_sig << "mut ";
+        }
+        dest_fn_sig << param_type->to_string();
+    }
+    dest_fn_sig << ")";
+    if (!dest_fn->return_types.empty()) {
+        dest_fn_sig << " -> ";
+        if (dest_fn->return_types.size() == 1) {
+            dest_fn_sig << dest_fn->return_types.front()->to_string();
+        } else {
+            dest_fn_sig << "(";
+            for (size_t i = 0; i < dest_fn->return_types.size(); i++) {
+                if (i > 0) {
+                    dest_fn_sig << ", ";
+                }
+                dest_fn_sig << dest_fn->return_types.at(i)->to_string();
+            }
+            dest_fn_sig << ")";
+        }
+    }
+    const std::string src_fn_sig_str = src_fn_sig.str();
+    const std::string dest_fn_sig_str = dest_fn_sig.str();
+    if (src_fn_sig_str != dest_fn_sig_str) {
+        THROW_ERR(                                                                                  //
+            ErrDefEntityLinkSignatureMismatch, ERR_PARSING, file_hash,                              //
+            tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column, //
+            src_fn_sig_str, dest_fn_sig_str                                                         //
+        );
+        return std::nullopt;
+    }
     return std::make_pair(src_fn, dest_fn);
 }
 

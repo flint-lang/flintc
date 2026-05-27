@@ -24,6 +24,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_duplicate_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_duplicate_func.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_link_name_mismatch.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_link_signature_mismatch.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_missing_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_unresolved_virtual.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_wrong_constructor_name.hpp"

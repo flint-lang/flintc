@@ -9,8 +9,8 @@ data DPosition:
 	DPosition(pos);
 
 func FMovable requires(DPosition d):
-	def move():
-		d.pos += 10;
+	def move(i32 value):
+		d.pos += value;
 
 	def print_pos():
 		print($"d.pos = {d.pos}\n");
@@ -18,6 +18,9 @@ func FMovable requires(DPosition d):
 entity Player:
 	data: DPosition;
 	func: IMove, FMovable;
+	link:
+		IMove::move -> FMovable::move,
+		IMove::print_pos -> FMovable::print_pos;
 	Player(DPosition);
 
 def apply(mut IMove m):
@@ -25,5 +28,6 @@ def apply(mut IMove m):
 	m.print_pos();
 
 def main():
-	p := Player(DPosition(i32x2(10, 20));
+	p := Player(DPosition(i32x2(10, 20)));
+	p.print_pos();
 	apply(p);
