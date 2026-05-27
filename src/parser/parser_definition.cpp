@@ -781,7 +781,7 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
     if (src_fn_name != dest_fn_name) {
         // It is not allowed to link two functions with different names
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrDefEntityLinkNameMismatch, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
     return std::make_pair(src_fn, dest_fn);
