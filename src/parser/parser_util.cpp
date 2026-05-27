@@ -1064,6 +1064,15 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
 
+    // Check if the targetted function inside the func module is virtual, it cannot be called directly in this case
+    if (is_typed_call                                                   //
+        && tokens.first->type->get_variation() == Type::Variation::FUNC //
+        && !function->scope.has_value()                                 //
+    ) {
+        THROW_ERR(ErrExprCallOfVirtualFunction, ERR_PARSING, file_hash, tokens);
+        return std::nullopt;
+    }
+
     types return_types = function->return_types;
     std::shared_ptr<Type> return_type;
     if (return_types.empty()) {
