@@ -3047,7 +3047,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         ? builder.getInt32(initializer->element_type->get_id())     //
         : builder.getInt32(0);
     llvm::Value *initializer_ptr = initializer_expression;
-    if (!elem_type_pair.second.first) {
+    if (!initializer_expression->getType()->isPointerTy()) {
         IR::aligned_store(builder, initializer_expression, scratchspace);
         initializer_ptr = scratchspace;
     }

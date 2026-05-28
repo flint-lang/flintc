@@ -2337,7 +2337,7 @@ bool Generator::Statement::generate_array_assignment( //
     }
     // Call 'flint.clone' on the freeable type to clone the expression into the array element
     llvm::Value *clone_src = expression;
-    if (!base_type_pair.second.first) {
+    if (!expression->getType()->isPointerTy()) {
         IR::aligned_store(builder, expression, scratchspace);
         clone_src = scratchspace;
     }
