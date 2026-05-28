@@ -1740,8 +1740,8 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             return false;
         }
 
-        // Make sure that all required data from all func modules is present in the entity, also make sure that every function ID of every
-        // function in all func modules is present in the EDG
+        // Make sure that all required data from all func modules is present in the entity, also make sure that every function of all func
+        // modules is present in the EDG
         for (const auto &func : func_modules) {
             for (const auto &required_data : func->required_data) {
                 bool contains_required_data = false;
@@ -1763,6 +1763,10 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             for (const FunctionNode *function : func->functions) {
                 entity->edg.add_fn(function);
             }
+        }
+        // Make sure that all free-floating functions are present in the EDG
+        for (const auto &function : entity->functions) {
+            entity->edg.add_fn(function);
         }
 
         if (tok_it->token == TOK_LINK) {
@@ -1964,9 +1968,9 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                             break;
                         }
                     }
-                    if (all_match) {
+                    if (all_match && entity->edg.get_mapped_fn(function) != free_floating_fn) {
                         // Duplicate function inside entity definition, the free-floating function already exists in one of the provided
-                        // func modules
+                        // func modules and the function from the func-module is not linked to the free-floating entity function
                         THROW_BASIC_ERR(ERR_PARSING);
                         return false;
                     }

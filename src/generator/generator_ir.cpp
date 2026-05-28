@@ -235,6 +235,18 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 branches[function_node] = {setup_block, execute_block};
             }
         }
+        for (const FunctionNode *function_node : entity->functions) {
+            std::string branch_name = "_case_" + function_node->name;
+            for (size_t i = 1; i < function_node->parameters.size(); i++) {
+                if (i == 1) {
+                    branch_name += "_";
+                }
+                branch_name += "_" + std::get<0>(function_node->parameters.at(i))->to_string();
+            }
+            llvm::BasicBlock *const setup_block = llvm::BasicBlock::Create(context, "setup" + branch_name, dispatch_fn);
+            llvm::BasicBlock *const execute_block = llvm::BasicBlock::Create(context, "execute" + branch_name, dispatch_fn);
+            branches[function_node] = {setup_block, execute_block};
+        }
 
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
         for (const FuncNode *func : entity->func_modules) {
@@ -259,6 +271,23 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 llvm::Value *const arg_start_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, safe_field_id, "arg_start_ptr");
                 builder.CreateRet(arg_start_ptr);
             }
+        }
+        // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
+        for (const FunctionNode *function_node : entity->functions) {
+            const size_t fn_id = function_node->get_id();
+            assert(branches.find(function_node) != branches.end());
+            setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
+            builder.SetInsertPoint(branches.at(function_node).first);
+
+            // Store the default function frame in the TS
+            llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
+            llvm::GlobalVariable *const default_frame = Module::ThreadStack::ts_defaults.at(fn_id);
+            llvm::Value *const loaded_default = IR::aligned_load(builder, called_fn_frame_ty, default_frame, "default_frame");
+            IR::aligned_store(builder, loaded_default, arg_stack);
+            const uint32_t field_id = 1 + function_node->return_types.size() + 1;
+            const uint32_t safe_field_id = std::min(field_id, called_fn_frame_ty->getNumElements() - 1);
+            llvm::Value *const arg_start_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, safe_field_id, "arg_start_ptr");
+            builder.CreateRet(arg_start_ptr);
         }
 
         // Generate all the bodies of the basic blocks, being the calls to the linked-to functions
@@ -318,6 +347,36 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 llvm::Value *const err_ptr = builder.CreateSelect(call_err, arg_stack, llvm::ConstantPointerNull::get(PTR_TY), "err_ptr");
                 builder.CreateRet(err_ptr);
             }
+        }
+        // Generate all the bodies of the entity branches
+        for (const FunctionNode *function_node : entity->functions) {
+            const size_t fn_id = function_node->get_id();
+            assert(branches.find(function_node) != branches.end());
+            execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
+            builder.SetInsertPoint(branches.at(function_node).second);
+            std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
+            if (function_node->mangle_id.has_value()) {
+                assert(!function_node->is_extern);
+                function_name += "." + std::to_string(function_node->mangle_id.value());
+            }
+            llvm::Function *const function = module->getFunction(function_name);
+            assert(function != nullptr);
+
+            // Store the entity value in the called entity-function
+            // Store the data values of the entity inside the implicit parameters of the targetted function
+            llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
+            const std::string arg_ptr_str = "arg_self_ptr";
+            const size_t arg_ptr_id = 1 + function_node->return_types.size();
+            llvm::Value *const arg_self_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, arg_ptr_id, "arg_self_ptr");
+            IR::aligned_store(builder, arg_entity, arg_self_ptr);
+
+            // Now that the entity is stored in the function frame, we can call the function
+            llvm::Value *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+
+            // We return "garbage" in the case of error, nullpointer if no error happened. This return value of the dispatch function
+            // should *never* be read when calling the dispatch function in execute mode
+            llvm::Value *const err_ptr = builder.CreateSelect(call_err, arg_stack, llvm::ConstantPointerNull::get(PTR_TY), "err_ptr");
+            builder.CreateRet(err_ptr);
         }
 
         // The default block is an error block since that type ID should not be possible

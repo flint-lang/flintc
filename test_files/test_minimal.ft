@@ -14,20 +14,19 @@ data DCircle:
 	i32 radius;
 	DCircle(pos, radius);
 
-func FCircle requires(DCircle d):
+entity Circle:
+	data: DCircle d;
+	func: IShape;
+	link:
+		IShape::draw -> Circle::draw,
+		IShape::area -> Circle::area;
+	Circle(d);
+	
 	def draw():
 		print($"Drawing circle at [pos={d.pos}, r={d.radius}]\n");
 
 	def area() -> i32:
 		return i32(Constants.PI * f32(d.radius ** 2));
-
-entity Circle:
-	data: DCircle;
-	func: IShape, FCircle;
-	link:
-		IShape::draw -> FCircle::draw,
-		IShape::area -> FCircle::area;
-	Circle(DCircle);
 
 
 data DRectangle:
@@ -35,20 +34,19 @@ data DRectangle:
 	i32x2 size;
 	DRectangle(pos, size);
 
-func FRectangle requires(DRectangle d):
+entity Rectangle:
+	data: DRectangle d;
+	func: IShape;
+	link:
+		IShape::draw -> Rectangle::draw,
+		IShape::area -> Rectangle::area;
+	Rectangle(d);
+
 	def draw():
 		print($"Drawing rectangle at [pos={d.pos}, width={d.size.x}, height={d.size.y}\n");
 
 	def area() -> i32:
 		return d.size.x * d.size.y;
-
-entity Rectangle:
-	data: DRectangle;
-	func: IShape, FRectangle;
-	link:
-		IShape::draw -> FRectangle::draw,
-		IShape::area -> FRectangle::area;
-	Rectangle(DRectangle);
 
 
 def draw_shapes(mut IShape[] shapes):

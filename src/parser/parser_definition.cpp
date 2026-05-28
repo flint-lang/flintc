@@ -6,6 +6,7 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
+#include "parser/type/entity_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
@@ -766,16 +767,32 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     const size_t dest_dot_idx = std::distance(dest_name.begin(), dest_dot_it);
     const std::string dest_type_name = dest_name.substr(0, dest_dot_idx);
     const auto dest_type = file_node_ptr->file_namespace->get_type_from_str(dest_type_name).value();
-    if (dest_type->get_variation() != Type::Variation::FUNC) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
-    if (std::find(entity->func_modules.begin(), entity->func_modules.end(), dest_func) == entity->func_modules.end()) {
-        // Referencing a function from a func module not present in this entity
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    size_t dest_start_id = 0;
+    switch (dest_type->get_variation()) {
+        default:
+            // It is not allowed link to functions not coming from func modules or the entity type itself
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        case Type::Variation::FUNC: {
+            const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
+            if (std::find(entity->func_modules.begin(), entity->func_modules.end(), dest_func) == entity->func_modules.end()) {
+                // Referencing a function from a func module not present in this entity
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            dest_start_id = dest_func->required_data.size();
+            break;
+        }
+        case Type::Variation::ENTITY: {
+            const EntityNode *entity_node = dest_type->as<EntityType>()->entity_node;
+            if (entity_node != entity) {
+                // The target function of the link is not allowed to come from a different entity than ourselve
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            dest_start_id = 1;
+            break;
+        }
     }
     const std::string src_fn_name = src_name.substr(src_dot_idx + 1);
     const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
@@ -816,8 +833,8 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     }
     std::stringstream dest_fn_sig;
     dest_fn_sig << dest_fn_name << "(";
-    for (size_t i = dest_func->required_data.size(); i < dest_fn->parameters.size(); i++) {
-        if (i > dest_func->required_data.size()) {
+    for (size_t i = dest_start_id; i < dest_fn->parameters.size(); i++) {
+        if (i > dest_start_id) {
             dest_fn_sig << ", ";
         }
         const auto &[param_type, param_name, param_is_mut] = dest_fn->parameters.at(i);
