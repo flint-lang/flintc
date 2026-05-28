@@ -4,7 +4,6 @@
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/entity_type.hpp"
-#include "parser/type/func_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -806,21 +805,14 @@ void Generator::Memory::generate_clone_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            const auto *func_node = type->as<FuncType>()->func_node;
-            llvm::Type *func_type = IR::get_type(module, type).first;
-            for (size_t i = 0; i < func_node->required_data.size(); i++) {
-                llvm::Value *required_data_src = builder->CreateStructGEP(           //
-                    func_type, src, i, "required_data_" + std::to_string(i) + "_ptr" //
-                );
-                llvm::Value *required_data = IR::aligned_load(           //
-                    *builder, PTR_TY, required_data_src, "required_data" //
-                );
-                llvm::Value *required_data_dest = builder->CreateStructGEP(          //
-                    func_type, src, i, "required_data_" + std::to_string(i) + "_ptr" //
-                );
-                llvm::Value *type_id = builder->getInt32(func_node->required_data.at(i).first->get_id());
-                builder->CreateCall(clone_fn, {required_data, required_data_dest, type_id});
-            }
+            llvm::Type *const func_type = IR::get_type(module, type).first;
+            const size_t func_size = Allocation::get_type_size(module, func_type);
+            llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+            builder->CreateCall(memcpy_fn, {dest, src, builder->getInt64(func_size)});
+            llvm::Value *const entity_ptr_ptr = builder->CreateStructGEP(func_type, dest, 0, "entity_ptr_ptr");
+            llvm::Value *const entity_ptr = IR::aligned_load(*builder, PTR_TY, entity_ptr_ptr, "entity_ptr");
+            llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder->CreateCall(retain_fn, {entity_ptr});
             break;
         }
         case Type::Variation::FN: {
