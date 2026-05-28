@@ -88,3 +88,8 @@ test "[f]16_infer_catch.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
 	str file = "16_infer_catch.ft";
 	test_file_ok($"{path}/{file}", "doing nothing\ndoing nothing\ndoing nothing\ndoing nothing\nspecial error thrown\n");
+
+test "17_linearization.ft":
+	str path = "tests/wiki/intermediates_guide/error_sets";
+	str file = "17_linearization.ft";
+	test_file_ok($"{path}/{file}", "x = 42\nx = 20\ny = 69\ny = 20\nz = 111\nz = 40\n");
