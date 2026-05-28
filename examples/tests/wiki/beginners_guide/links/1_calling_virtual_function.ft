@@ -1,0 +1,8 @@
+use Core.print
+
+func IMove:
+    def move();
+
+def main():
+    print("Hello, World!\n");
+    IMove.move();

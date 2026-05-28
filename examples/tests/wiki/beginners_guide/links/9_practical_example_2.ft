@@ -1,0 +1,73 @@
+use Core.print
+
+const data Constants:
+    float PI = 3.14159265358979323846;
+
+// A shape can be drawn and its area can be calculated
+func IShape:
+    def draw();
+    def area() -> i32;
+
+
+data DCircle:
+    i32x2 pos;
+    i32 radius;
+    DCircle(pos, radius);
+
+entity Circle:
+    data: DCircle d;
+    func: IShape;
+    link:
+        IShape::draw -> Circle::draw,
+        IShape::area -> Circle::area;
+    Circle(d);
+    
+    def draw():
+        print($"Drawing circle at [pos={d.pos}, r={d.radius}]\n");
+
+    def area() -> i32:
+        return i32(Constants.PI * f32(d.radius ** 2));
+
+
+data DRectangle:
+    i32x2 pos;
+    i32x2 size;
+    DRectangle(pos, size);
+
+entity Rectangle:
+    data: DRectangle d;
+    func: IShape;
+    link:
+        IShape::draw -> Rectangle::draw,
+        IShape::area -> Rectangle::area;
+    Rectangle(d);
+
+    def draw():
+        print($"Drawing rectangle at [pos={d.pos}, width={d.size.x}, height={d.size.y}\n");
+
+    def area() -> i32:
+        return d.size.x * d.size.y;
+
+
+def draw_shapes(mut IShape[] shapes):
+    for (_, s) in shapes:
+        s.draw();
+
+def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
+    i32 sum = 0;
+    for (i, s) in shapes:
+        i32 area = s.area();
+        print($"shapes[{i}].area() = {area}\n");
+        sum += area;
+    return sum;
+
+def main():
+    IShape[] shapes = IShape[4](Circle(DCircle((11, 2), 5)));
+    shapes[1] = Rectangle(DRectangle((10, 20), (4, 5)));
+    shapes[2] = Circle(DCircle((3, 5), 10));
+    shapes[3] = Rectangle(DRectangle((0, 0), (4, 2)));
+
+    draw_shapes(shapes);
+    print("\n");
+    i32 sum = sum_areas_of_shapes(shapes);
+    print($"sum of areas = {sum}\n");
