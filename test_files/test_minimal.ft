@@ -1,64 +1,54 @@
 use Core.print
-use Core.math
 
-// A shape can be drawn and it's area can be calculated
+const data Constants:
+	float PI = 3.14159265358979323846;
+
+// A shape can be drawn and its area can be calculated
 func IShape:
 	def draw();
 	def area() -> i32;
-	
 
-data DTriangle:
-	i32x2 p1;
-	i32x2 p2;
-	i32x2 p3;
-	DTriangle(p1, p2, p3);
 
-func FTriangle requires(DTriangle d):
+data DCircle:
+	i32x2 pos;
+	i32 radius;
+	DCircle(pos, radius);
+
+func FCircle requires(DCircle d):
 	def draw():
-		print($"Drawing triangle {d.p1}->{d.p2}->{d.p3}\n");
+		print($"Drawing circle at [pos={d.pos}, r={d.radius}]\n");
 
 	def area() -> i32:
-		i32 diff1 = d.p1.x * (d.p2.y - d.p3.y);
-		i32 diff2 = d.p2.x * (d.p3.y - d.p1.y);
-		i32 diff3 = d.p3.x * (d.p1.y - d.p2.y);
-		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3));
-		return abs(signed_area);
+		return i32(Constants.PI * f32(d.radius ** 2));
 
-entity Triangle:
-	data: DTriangle;
-	func: IShape, FTriangle;
+entity Circle:
+	data: DCircle;
+	func: IShape, FCircle;
 	link:
-		IShape::draw -> FTriangle::draw,
-		IShape::area -> FTriangle::area;
-	Triangle(DTriangle);
+		IShape::draw -> FCircle::draw,
+		IShape::area -> FCircle::area;
+	Circle(DCircle);
 
 
-data DQuad:
-	i32x2 p1;
-	i32x2 p2;
-	i32x2 p3;
-	i32x2 p4;
-	DQuad(p1, p2, p3, p4);
+data DRectangle:
+	i32x2 pos;
+	i32x2 size;
+	DRectangle(pos, size);
 
-func FQuad requires(DQuad d):
+func FRectangle requires(DRectangle d):
 	def draw():
-		print($"Drawing quad {d.p1}:{d.p2} {d.p3}:{d.p4}\n");
+		print($"Drawing rectangle at [pos={d.pos}, width={d.size.x}, height={d.size.y}\n");
 
 	def area() -> i32:
-		i32 diff1 = d.p1.x * d.p2.y - d.p2.x * d.p1.y;
-		i32 diff2 = d.p2.x * d.p3.y - d.p3.x * d.p2.y;
-		i32 diff3 = d.p3.x * d.p4.y - d.p4.x * d.p3.y;
-		i32 diff4 = d.p4.x * d.p1.y - d.p1.x * d.p4.y;
-		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3 + diff4));
-		return abs(signed_area);
+		return d.size.x * d.size.y;
 
-entity Quad:
-	data: DQuad;
-	func: IShape, FQuad;
+entity Rectangle:
+	data: DRectangle;
+	func: IShape, FRectangle;
 	link:
-		IShape::draw -> FQuad::draw,
-		IShape::area -> FQuad::area;
-	Quad(DQuad);
+		IShape::draw -> FRectangle::draw,
+		IShape::area -> FRectangle::area;
+	Rectangle(DRectangle);
 
 
 def draw_shapes(mut IShape[] shapes):
@@ -67,15 +57,19 @@ def draw_shapes(mut IShape[] shapes):
 
 def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
 	i32 sum = 0;
-	for (_, s) in shapes:
-		sum += s.area();
+	for (i, s) in shapes:
+		i32 area = s.area();
+		print($"shapes[{i}].area() = {area}\n");
+		sum += area;
+	return sum;
 
 def main():
-	t1 := Triangle(DTriangle((0, 0), (4, 0), (0, 3)));
-	IShape[] shapes = IShape[4](t1);
-	shapes[1] = Quad(DQuad((0, 0), (4, 0), (5, 3), (1, 4)));
-	shapes[2] = Triangle(DTriangle((1, 1), (5, 2), (2,4)));
-	shapes[3] = Quad(DQuad((0, 0), (4, 2), (2, 1), (4, 4)));
+	IShape[] shapes = IShape[4](Circle(DCircle((11, 2), 5)));
+	shapes[1] = Rectangle(DRectangle((10, 20), (4, 5)));
+	shapes[2] = Circle(DCircle((3, 5), 10));
+	shapes[3] = Rectangle(DRectangle((0, 0), (4, 2)));
 
 	draw_shapes(shapes);
+	print("\n");
 	i32 sum = sum_areas_of_shapes(shapes);
+	print($"sum of areas = {sum}\n");
