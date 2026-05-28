@@ -73,6 +73,9 @@ def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
 def main():
 	t1 := Triangle(DTriangle((0, 0), (4, 0), (0, 3)));
 	IShape[] shapes = IShape[4](t1);
+	shapes[1] = Quad(DQuad((0, 0), (4, 0), (5, 3), (1, 4)));
+	shapes[2] = Triangle(DTriangle((1, 1), (5, 2), (2,4)));
+	shapes[3] = Quad(DQuad((0, 0), (4, 2), (2, 1), (4, 4)));
 
 	draw_shapes(shapes);
 	i32 sum = sum_areas_of_shapes(shapes);

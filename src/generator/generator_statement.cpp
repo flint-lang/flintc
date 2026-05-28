@@ -2335,9 +2335,14 @@ bool Generator::Statement::generate_array_assignment( //
         builder.CreateCall(free_fn, {arr_value, builder.getInt32(base_type->get_id())});
     }
     // Call 'flint.clone' on the freeable type to clone the expression into the array element
+    llvm::Value *clone_src = expression;
+    if (!base_type_pair.second.first) {
+        IR::aligned_store(builder, expression, scratchspace);
+        clone_src = scratchspace;
+    }
     llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
     llvm::Value *type_id = builder.getInt32(base_type->get_id());
-    builder.CreateCall(clone_fn, {expression, arr_value_ptr, type_id});
+    builder.CreateCall(clone_fn, {clone_src, arr_value_ptr, type_id});
     return true;
 }
 
