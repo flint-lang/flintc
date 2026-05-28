@@ -1844,10 +1844,11 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             const bool is_type_cast = assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST;
             const bool is_opt_literal = is_type_cast && //
                 assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
-            if (is_type_cast && !is_opt_literal) {
+            const bool types_match = expr.value().front()->getType() == var_type;
+            if (is_type_cast && !is_opt_literal && !types_match) {
                 llvm::Value *opt_aggregate = IR::get_default_value_of_type(builder, ctx.parent->getParent(), variable_type);
                 opt_aggregate = builder.CreateInsertValue(opt_aggregate, builder.getInt1(true), 0, "opt_agg_has_value");
-                opt_aggregate = builder.CreateInsertValue(opt_aggregate, expr.value().front(), 0, "opt_agg_value");
+                opt_aggregate = builder.CreateInsertValue(opt_aggregate, expr.value().front(), 1, "opt_agg_value");
                 expr.value().front() = opt_aggregate;
             }
         }
