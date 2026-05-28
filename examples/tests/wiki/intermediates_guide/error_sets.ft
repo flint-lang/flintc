@@ -57,17 +57,15 @@ test "10_context.ft":
 	str file = "10_context.ft";
 	test_file_ok($"{path}/{file}", "ErrSpecial.S1: \"Special Error 1\"\nErrSpecial.S2: \"Overwritten message: true\"\n");
 
-#test_should_fail
-test "[f]11_anonymous_simple.ft":
+test "11_anonymous_simple.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
 	str file = "11_anonymous_simple.ft";
-	test_file_ok($"{path}/{file}", "err.type_id = 0123456789\nerr.value_id = 0\nerr.message = Custom Message\n");
+	test_file_ok($"{path}/{file}", "error.17591431759785607604.Crash: \"Custom Message\"\n");
 
-#test_should_fail
-test "[f]12_anonymous_complex.ft":
+test "12_anonymous_complex.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
 	str file = "12_anonymous_complex.ft";
-	test_file_ok($"{path}/{file}", "err.type_id = 0\nerr.value_id = 0\nerr.message = Custom Message\n\nerr.type_id = 0\nerr.value_id = 1\nerr.message = \n\nerr.type_id = 0\nerr.value_id = 2\nerr.message = LAST\n");
+	test_file_ok($"{path}/{file}", "error.18152922749114152985.Crash: \"Custom Message\"\nerror.18152922749114152985.CrashOther: \"\"\nerror.18152922749114152985.CrashLast: \"LAST\"\n");
 
 test "13_inline_catch.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
