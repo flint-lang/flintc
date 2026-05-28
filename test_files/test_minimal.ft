@@ -1,33 +1,78 @@
 use Core.print
+use Core.math
 
-func IMove:
-	def move();
-	def print_pos();
+// A shape can be drawn and it's area can be calculated
+func IShape:
+	def draw();
+	def area() -> i32;
+	
 
-data DPosition:
-	i32x2 pos;
-	DPosition(pos);
+data DTriangle:
+	i32x2 p1;
+	i32x2 p2;
+	i32x2 p3;
+	DTriangle(p1, p2, p3);
 
-func FMovable requires(DPosition d):
-	def move(i32 value):
-		d.pos += value;
+func FTriangle requires(DTriangle d):
+	def draw():
+		print($"Drawing triangle {d.p1}->{d.p2}->{d.p3}\n");
 
-	def print_pos():
-		print($"d.pos = {d.pos}\n");
+	def area() -> i32:
+		i32 diff1 = d.p1.x * (d.p2.y - d.p3.y);
+		i32 diff2 = d.p2.x * (d.p3.y - d.p1.y);
+		i32 diff3 = d.p3.x * (d.p1.y - d.p2.y);
+		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3));
+		return abs(signed_area);
 
-entity Player:
-	data: DPosition;
-	func: IMove, FMovable;
+entity Triangle:
+	data: DTriangle;
+	func: IShape, FTriangle;
 	link:
-		IMove::move -> FMovable::move,
-		IMove::print_pos -> FMovable::print_pos;
-	Player(DPosition);
+		IShape::draw -> FTriangle::draw,
+		IShape::area -> FTriangle::area;
+	Triangle(DTriangle);
 
-def apply(mut IMove m):
-	m.move();
-	m.print_pos();
+
+data DQuad:
+	i32x2 p1;
+	i32x2 p2;
+	i32x2 p3;
+	i32x2 p4;
+	DQuad(p1, p2, p3, p4);
+
+func FQuad requires(DQuad d):
+	def draw():
+		print($"Drawing quad {d.p1}:{d.p2} {d.p3}:{d.p4}\n");
+
+	def area() -> i32:
+		i32 diff1 = d.p1.x * d.p2.y - d.p2.x * d.p1.y;
+		i32 diff2 = d.p2.x * d.p3.y - d.p3.x * d.p2.y;
+		i32 diff3 = d.p3.x * d.p4.y - d.p4.x * d.p3.y;
+		i32 diff4 = d.p4.x * d.p1.y - d.p1.x * d.p4.y;
+		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3 + diff4));
+		return abs(signed_area);
+
+entity Quad:
+	data: DQuad;
+	func: IShape, FQuad;
+	link:
+		IShape::draw -> FQuad::draw,
+		IShape::area -> FQuad::area;
+	Quad(DQuad);
+
+
+def draw_shapes(mut IShape[] shapes):
+	for (_, s) in shapes:
+		s.draw();
+
+def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
+	i32 sum = 0;
+	for (_, s) in shapes:
+		sum += s.area();
 
 def main():
-	p := Player(DPosition(i32x2(10, 20)));
-	p.print_pos();
-	apply(p);
+	t1 := Triangle(DTriangle((0, 0), (4, 0), (0, 3)));
+	IShape[] shapes = IShape[4](t1);
+
+	draw_shapes(shapes);
+	i32 sum = sum_areas_of_shapes(shapes);

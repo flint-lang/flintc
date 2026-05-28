@@ -1681,8 +1681,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         }
         // Align to the first parameter's alignment so the parameter area starts on a correct boundary
         if (!parameters.empty()) {
-            const size_t first_param_align = Allocation::calculate_type_alignment(
-                IR::get_type(module, parameters.front().first).first);
+            const size_t first_param_align = Allocation::calculate_type_alignment(IR::get_type(module, parameters.front().first).first);
             offset += (first_param_align - (offset % first_param_align)) % first_param_align;
         }
         param_start_ptr = builder.CreateGEP(builder.getInt8Ty(), next_stack_frame, builder.getInt64(offset), "param_start_ptr");
@@ -3044,12 +3043,11 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
         }
     }
-    llvm::Value *type_id = nullptr;
+    llvm::Value *type_id = initializer->element_type->is_freeable() //
+        ? builder.getInt32(initializer->element_type->get_id())     //
+        : builder.getInt32(0);
     llvm::Value *initializer_ptr = initializer_expression;
-    if (initializer->element_type->is_freeable()) {
-        type_id = builder.getInt32(initializer->element_type->get_id());
-    } else {
-        type_id = builder.getInt32(0);
+    if (!elem_type_pair.second.first) {
         IR::aligned_store(builder, initializer_expression, scratchspace);
         initializer_ptr = scratchspace;
     }
