@@ -6,6 +6,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
 #include <cstdlib>
+#include <unordered_set>
 
 static const std::string prefix = "flint.dima.";
 
@@ -64,19 +65,45 @@ llvm::GlobalVariable *Generator::Module::DIMA::get_head(const std::shared_ptr<Ty
 void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
     const std::vector<std::shared_ptr<Type>> data_types = Parser::get_all_data_types();
     llvm::ConstantPointerNull *const nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
+
+    // Collect DIMA head names for core module types (already provided by the builtins library)
+    std::unordered_set<std::string> core_head_names;
+    for (const auto &[module_name, types] : core_module_data_types) {
+        Hash module_hash(std::string{module_name});
+        for (const auto &type_tuple : types) {
+            core_head_names.insert(
+                module_hash.to_string() + ".dima.head.data." + std::string{std::get<0>(type_tuple)}
+            );
+        }
+    }
+
     for (const auto &data_type : data_types) {
         const DataNode *data_node = data_type->as<DataType>()->data_node;
         if (data_node->is_const || data_node->is_shared) {
             continue;
         }
         const std::string head_var_str = data_node->file_hash.to_string() + ".dima.head.data." + data_node->name;
+        const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
+
+        // Core module types already have their DIMA heads defined in the builtins library (libbuiltins.lib).
+        // Create only an external reference (declaration) to avoid duplicate symbol errors on Windows
+        if (core_head_names.find(head_var_str) != core_head_names.end()) {
+            llvm::GlobalVariable *existing_head = module->getGlobalVariable(head_var_str);
+            if (!existing_head) {
+                existing_head = new llvm::GlobalVariable(                              //
+                    *module, PTR_TY, false, llvm::GlobalValue::ExternalLinkage, nullptr, head_var_str //
+                );
+            }
+            dima_heads[heads_key] = existing_head;
+            continue;
+        }
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"
         llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                          //
             *module, PTR_TY, false, llvm::GlobalValue::WeakODRLinkage, nullpointer, head_var_str //
         );
 #pragma GCC diagnostic pop
-        const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
         dima_heads[heads_key] = head_variable;
     }
 
