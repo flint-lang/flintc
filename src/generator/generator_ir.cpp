@@ -1020,6 +1020,37 @@ bool Generator::IR::generate_enum_value_strings(                         //
     if (enum_name_arrays_map.find(key) != enum_name_arrays_map.end()) {
         return true;
     }
+
+    // Check if this enum belongs to a core module (already defined in libbuiltins.lib).
+    // If so, only create external declarations to avoid duplicate symbol errors on Windows.
+    bool is_core_module_enum = false;
+    if (!generating_builtin_module) {
+        for (const auto &[module_name, enum_types] : core_module_enum_types) {
+            for (const auto &type : enum_types) {
+                Hash module_hash(std::string{module_name});
+                if (hash == module_hash.to_string() && enum_name == std::string(std::get<0>(type))) {
+                    is_core_module_enum = true;
+                    break;
+                }
+            }
+            if (is_core_module_enum) break;
+        }
+    }
+
+    if (is_core_module_enum) {
+        // Core module enum: only declare an external reference to the names array (definitions are in libbuiltins.lib)
+        const std::string names_str = hash + ".enum." + enum_name + ".names";
+        llvm::GlobalVariable *existing_array = module->getGlobalVariable(names_str);
+        if (!existing_array) {
+            llvm::ArrayType *array_type = llvm::ArrayType::get(PTR_TY, enum_values.size());
+            existing_array = new llvm::GlobalVariable(                                            //
+                *module, array_type, true, llvm::GlobalValue::ExternalLinkage, nullptr, names_str //
+            );
+        }
+        enum_name_arrays_map[key] = existing_array;
+        return true;
+    }
+
     std::vector<llvm::Constant *> string_pointers;
 
     for (size_t i = 0; i < enum_values.size(); ++i) {
