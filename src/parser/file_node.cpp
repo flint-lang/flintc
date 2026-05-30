@@ -162,7 +162,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
     public_definitions.emplace_back(std::make_unique<FunctionNode>(std::move(function)));
     FunctionNode *added_function = static_cast<FunctionNode *>(public_definitions.back().get());
     if (added_function->name == "_main") {
-        assert(!Parser::main_function.load().has_value());
+        assert(Parser::main_function.load() == nullptr);
         Parser::main_function.store(added_function, std::memory_order_release);
     }
     if (added_function->scope.has_value()) {

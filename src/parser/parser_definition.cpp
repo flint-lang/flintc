@@ -54,7 +54,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         token_slice err_tokens = {std::prev(tok_it), definition.second};
         THROW_ERR(ErrFnReservedName, ERR_PARSING, file_hash, err_tokens, name);
         return std::nullopt;
-    } else if (name == "main" && main_function.load().has_value()) {
+    } else if (name == "main" && main_function.load() != nullptr) {
         // Redefinition of the main function
         token_slice err_tokens = {std::prev(tok_it), definition.second};
         THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens);

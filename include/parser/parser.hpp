@@ -312,7 +312,7 @@ class Parser {
     /// @brief Clears all parser instances
     static void clear_instances() {
         instances.clear();
-        main_function.store({}, std::memory_order_release);
+        main_function.store(nullptr, std::memory_order_release);
         TestNode::clear_test_names();
 
         // Clear all the other static containers that hold pointers to parser data
@@ -338,7 +338,7 @@ class Parser {
 
     /// @var `main_function`
     /// @brief The main function of the parsed program
-    static inline std::atomic<std::optional<FunctionNode *>> main_function{std::nullopt};
+    static inline std::atomic<FunctionNode *> main_function{nullptr};
 
     /// @var `main_file_hash`
     /// @brief The hash of the file contianing the main function

@@ -9,8 +9,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
-    const bool main_function_has_args = !Parser::main_function.load().value()->parameters.empty();
-    const bool main_function_has_ret = !Parser::main_function.load().value()->return_types.empty();
+    const bool main_function_has_args = !Parser::main_function.load()->parameters.empty();
+    const bool main_function_has_ret = !Parser::main_function.load()->return_types.empty();
     if (main_function_has_args) {
         std::optional<std::shared_ptr<Type>> str_arr_type = Type::get_type_from_str("str[]");
         if (!str_arr_type.has_value()) {
@@ -104,7 +104,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
 
     // Store the default-value of the main function in the TS data section
-    const size_t main_fn_id = Parser::main_function.load().value()->get_id();
+    const size_t main_fn_id = Parser::main_function.load()->get_id();
     llvm::StructType *const main_frame_type = Module::ThreadStack::ts_frames.at(main_fn_id);
     llvm::Value *const main_default_value = Module::ThreadStack::ts_defaults.at(main_fn_id);
     llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");

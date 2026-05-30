@@ -72,7 +72,7 @@ std::optional<std::unique_ptr<llvm::Module>> generate_program( //
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
         return std::nullopt;
     }
-    if (!Parser::main_function.load().has_value() && !is_test) {
+    if (Parser::main_function.load() == nullptr && !is_test) {
         // No main function found
         THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, Hash(source_file_path));
         return std::nullopt;
