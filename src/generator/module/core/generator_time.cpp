@@ -244,11 +244,11 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     llvm::Value *counter_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), counter_field_ptr, "counter_value");
 
     // Load frequency from global
-    llvm::GlobalVariable *freq_global = module->getNamedGlobal(prefix + "global.time_frequency");
+    llvm::GlobalVariable *freq_global = module->getNamedGlobal(prefix + "global.frequency");
     llvm::Value *freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_global, "freq_value");
 
     // Calculate: (counter * 1000000000ULL) / frequency
-    llvm::Value *counter_ns = builder->CreateMul(counter_value, builder->getInt64(1000000000ULL), "counter_ns");
+    llvm::Value *counter_ns = builder->CreateMul(counter_value, builder->getInt64(1'000'000'000ULL), "counter_ns");
     llvm::Value *stamp_value = builder->CreateUDiv(counter_ns, freq_value, "stamp_value");
 
 #else
