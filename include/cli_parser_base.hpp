@@ -91,8 +91,8 @@ class CLIParserBase {
 
     static std::filesystem::path get_absolute(const std::filesystem::path &cwd, const std::string &path) {
         std::filesystem::path file_path;
-        if (path[0] == '/') {
-            // Absolute path
+        if (path[0] == '/' || (path.size() > 2 && path[1] == ':')) {
+            // Absolute path (Unix or Windows drive letter)
             file_path = path;
         } else {
             // Relative path
