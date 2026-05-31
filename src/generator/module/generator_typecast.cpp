@@ -1251,7 +1251,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     buffer->setAlignment(llvm::Align(8));
     llvm::Value *buffer_ptr = builder->CreateBitCast(buffer, PTR_TY, "buffer_ptr");
     // Create the len variable
-    llvm::AllocaInst *len_var = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "len_var");
+    llvm::AllocaInst *len_var = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "len_var");
     llvm::Value *d_pow = builder->CreateFMul(arg_dvalue, arg_dvalue, "d_pow");
     llvm::Constant *min_pow = llvm::ConstantFP::get(builder->getDoubleTy(), static_cast<double>(1.0e-8f));
     llvm::Constant *max_pow = llvm::ConstantFP::get(builder->getDoubleTy(), static_cast<double>(1.0e30f));
