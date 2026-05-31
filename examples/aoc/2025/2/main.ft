@@ -49,7 +49,9 @@ def main():
 	u64 start_id = 0;
 	for (idx, char) in input:
 		switch char:
-			'\n', ',':
+			'\n', '\r', ',':
+				if idx_start >= idx:
+					continue;
 				str id_str = input[idx_start..idx];
 				u64 end_id = parse_u64(id_str);
 				for u64 i = start_id; i <= end_id; i++:
