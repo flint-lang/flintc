@@ -1028,14 +1028,23 @@ bool Generator::IR::generate_enum_value_strings(                         //
     bool is_core_module_enum = false;
     if (!generating_builtin_module) {
         for (const auto &[module_name, enum_types] : core_module_enum_types) {
+            const Hash module_hash(std::string{module_name});
+            const std::string module_prefix = module_hash.to_string();
+            if (hash.size() < module_prefix.size()) {
+                continue;
+            }
+            if (hash.substr(0, module_prefix.size()) != module_prefix) {
+                continue;
+            }
             for (const auto &type : enum_types) {
-                Hash module_hash(std::string{module_name});
-                if (hash == module_hash.to_string() && enum_name == std::string(std::get<0>(type))) {
+                if (enum_name == std::string(std::get<0>(type))) {
                     is_core_module_enum = true;
                     break;
                 }
             }
-            if (is_core_module_enum) break;
+            if (is_core_module_enum) {
+                break;
+            }
         }
     }
 
