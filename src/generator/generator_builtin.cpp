@@ -263,7 +263,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // free
     {
         llvm::FunctionType *free_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context),                      // Return type: void
+            llvm::Type::getVoidTy(context),                      // Return type: void
             {PTR_TY},                                            // Argument: void*
             false                                                // No vaarg
         );
@@ -343,7 +343,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     {
         // Create the exit call (calling the C exit() function)
         llvm::FunctionType *exit_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context),                      // return void
+            llvm::Type::getVoidTy(context),                      // return void
             llvm::Type::getInt32Ty(context),                     // takes i32
             false                                                // No vaarg
         );
@@ -352,7 +352,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     }
     // abort
     {
-        llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getInt8Ty(context), false);
+        llvm::FunctionType *abort_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
         llvm::Function *abort_fn = llvm::Function::Create(abort_type, llvm::Function::ExternalLinkage, "abort", module);
         c_functions[ABORT] = abort_fn;
     }
@@ -509,7 +509,7 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // rewind
     {
         llvm::FunctionType *rewind_type = llvm::FunctionType::get( //
-            llvm::Type::getInt8Ty(context),                        // return void
+            llvm::Type::getVoidTy(context),                        // return void
             {PTR_TY},                                              // FILE* stream
             false                                                  // No vaarg
         );
