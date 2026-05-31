@@ -118,7 +118,7 @@ def main():
 	for u32 y = 0; y < Y; y++:
 		for u32 x = 0; x < X; x++:
 			// We need to add y to it to skip each \n of each line end
-			const u32 offset = y * Y + x + y;
+			const u32 offset = y * X + x + y;
 			roll_map[x, y] = input[offset] == '@';
 
 	part_1(roll_map);
