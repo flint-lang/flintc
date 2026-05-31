@@ -4,6 +4,7 @@
 #include "fip.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "io.hpp"
 #include "lexer/lexer.hpp"
 #include "linker/linker.hpp"
 #include "parser/ast/file_node.hpp"
@@ -210,7 +211,7 @@ bool compile_program(                         //
     std::optional<std::vector<std::array<char, 9>>> fip_objects = FIP::gather_objects();
     if (!fip_objects.has_value()) {
         Profiler::end_task("Linking " + obj_file + " to a binary");
-        std::filesystem::remove(std::filesystem::path(obj_file));
+        remove_with_retry(std::filesystem::path(obj_file));
         return false;
     }
     for (const auto &fip_obj : fip_objects.value()) {
@@ -232,7 +233,7 @@ bool compile_program(                         //
 
     // Clean up object file
     if (!DEBUG_MODE) {
-        std::filesystem::remove(std::filesystem::path(obj_file));
+        remove_with_retry(std::filesystem::path(obj_file));
     }
     return true;
 }
