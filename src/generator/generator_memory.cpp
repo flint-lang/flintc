@@ -88,8 +88,8 @@ void Generator::Memory::generate_free_callable_function( //
             builder->CreateCondBr(is_init, free_pers_block, next_pers_block);
 
             builder->SetInsertPoint(free_pers_block);
-            llvm::Value *const field_ptr = builder->CreateStructGEP(         //
-                frame_type, fn_frame, pl.field_index, "persistent_field_ptr" //
+            llvm::Value *const field_ptr = builder->CreateStructGEP(             //
+                frame_type, fn_frame, pl.field_index + 1, "persistent_field_ptr" //
             );
             const auto &type_pair = IR::get_type(module, pl.type);
             llvm::Value *field_value = field_ptr;
@@ -222,8 +222,9 @@ void Generator::Memory::generate_clone_callable_function( //
 
                 // Clone the persistent local value
                 builder->SetInsertPoint(clone_blocks[i]);
-                llvm::Value *const old_field_ptr =
-                    builder->CreateStructGEP(frame_type, fn_frame, pl.field_index, "old_persistent_field_ptr");
+                llvm::Value *const old_field_ptr = builder->CreateStructGEP(             //
+                    frame_type, fn_frame, pl.field_index + 1, "old_persistent_field_ptr" //
+                );
 
                 const auto &type_pair = IR::get_type(module, pl.type);
                 llvm::Value *old_field_value = old_field_ptr;
@@ -235,8 +236,9 @@ void Generator::Memory::generate_clone_callable_function( //
                     old_field_value = IR::aligned_load(*builder, type_to_load, old_field_ptr, "old_persistent_field");
                 }
 
-                llvm::Value *const new_field_ptr =
-                    builder->CreateStructGEP(frame_type, new_fn_frame, pl.field_index, "new_persistent_field_ptr");
+                llvm::Value *const new_field_ptr = builder->CreateStructGEP(                 //
+                    frame_type, new_fn_frame, pl.field_index + 1, "new_persistent_field_ptr" //
+                );
                 llvm::Function *const clone_fn = memory_functions.at("clone");
                 builder->CreateCall(clone_fn, {old_field_value, new_field_ptr, builder->getInt32(pl.type->get_id())});
                 builder->CreateBr((i + 1 < num_plocals) ? check_blocks[i + 1] : done_block);
