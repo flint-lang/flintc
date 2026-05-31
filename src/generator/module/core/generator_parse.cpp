@@ -43,10 +43,10 @@ void Generator::Module::Parse::generate_parse_int_function( //
 ) {
     // THE C IMPLEMENTATION:
     // intN_t parse_iN(const str* input) {
-    //     long len = input->len;
+    //     long long len = input->len;
     //     char *endptr = NULL;
     //     errno = 0;
-    //     long value = strtol(&input->value, &endptr, 10);
+    //     long long value = strtoll(&input->value, &endptr, 10);
     //     if (endptr < &input->value + len) {
     //         printf("Not whole buffer read!\n");
     //         abort();
@@ -65,7 +65,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
     //     }
     //     return (intN_t)value;
     // }
-    llvm::Function *strtol_fn = c_functions.at(STRTOL);
+    llvm::Function *strtoll_fn = c_functions.at(STRTOLL);
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("i" + std::to_string(bit_width));
@@ -121,13 +121,13 @@ void Generator::Module::Parse::generate_parse_int_function( //
     llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
-    // Call strtol: long value = strtol(input.c_str, &endptr, 10)
+    // Call strtoll: long long value = strtoll(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
     llvm::Value *errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
+    llvm::Value *value = builder->CreateCall(strtoll_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
-    // Load the endptr value after strtol call
+    // Load the endptr value after strtoll call
     llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
@@ -217,10 +217,10 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 ) {
     // THE C IMPLEMENTATION:
     // uintN_t parse_uN(const str* input) {
-    //     long len = input->len;
+    //     long long len = input->len;
     //     char *endptr = NULL;
     //     errno = 0;
-    //     long value = strtol(&input->value, &endptr, 10);
+    //     unsigned long long value = strtoull(&input->value, &endptr, 10);
     //     if (endptr < &input->value + len) {
     //         printf("Not whole buffer read!\n");
     //         abort();
@@ -229,17 +229,13 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     //         printf("Uint value out of bounds!\n");
     //         abort();
     //     }
-    //     if (value < 0) {
-    //         printf("Uint values cannot be negative!\n");
-    //         abort();
-    //     }
-    //     if (value >= MAX(uN)) {
+    //     if (value > MAX(uN)) {
     //         printf("Uint out of bounds of target type!\n");
     //         abort();
     //     }
     //     return (uintN_t)value;
     // }
-    llvm::Function *strtol_fn = c_functions.at(STRTOL);
+    llvm::Function *strtoull_fn = c_functions.at(STRTOULL);
     llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("u" + std::to_string(bit_width));
@@ -295,13 +291,13 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
-    // Call strtol: long value = strtol(input.c_str, &endptr, 10)
+    // Call strtoull: unsigned long long value = strtoull(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
     llvm::Value *errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
+    llvm::Value *value = builder->CreateCall(strtoull_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
-    // Load the endptr value after strtol call
+    // Load the endptr value after strtoull call
     llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)

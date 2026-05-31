@@ -396,6 +396,20 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *strtol_fn = llvm::Function::Create(strtol_type, llvm::Function::ExternalLinkage, "strtol", module);
         c_functions[STRTOL] = strtol_fn;
     }
+    // strtoll
+    {
+        llvm::FunctionType *strtoll_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                        // return i64
+            {
+                PTR_TY,                         // char* buffer
+                PTR_TY,                         // char** endptr
+                llvm::Type::getInt32Ty(context) // i32 base
+            },                                  //
+            false                               // No vaarg
+        );
+        llvm::Function *strtoll_fn = llvm::Function::Create(strtoll_type, llvm::Function::ExternalLinkage, "strtoll", module);
+        c_functions[STRTOLL] = strtoll_fn;
+    }
     // strtoul
     {
         llvm::FunctionType *strtoul_type = llvm::FunctionType::get( //
@@ -409,6 +423,20 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         );
         llvm::Function *strtoul_fn = llvm::Function::Create(strtoul_type, llvm::Function::ExternalLinkage, "strtoul", module);
         c_functions[STRTOUL] = strtoul_fn;
+    }
+    // strtoull
+    {
+        llvm::FunctionType *strtoull_type = llvm::FunctionType::get( //
+            llvm::Type::getInt64Ty(context),                         // return i64
+            {
+                PTR_TY,                         // char* buffer
+                PTR_TY,                         // char** endptr
+                llvm::Type::getInt32Ty(context) // i32 base
+            },                                  //
+            false                               // No vaarg
+        );
+        llvm::Function *strtoull_fn = llvm::Function::Create(strtoull_type, llvm::Function::ExternalLinkage, "strtoull", module);
+        c_functions[STRTOULL] = strtoull_fn;
     }
     // strtof
     {
@@ -868,7 +896,9 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[FGETC] = module->getFunction("fgetc");
     c_functions[MEMMOVE] = module->getFunction("memmove");
     c_functions[STRTOL] = module->getFunction("strtol");
+    c_functions[STRTOLL] = module->getFunction("strtoll");
     c_functions[STRTOUL] = module->getFunction("strtoul");
+    c_functions[STRTOULL] = module->getFunction("strtoull");
     c_functions[STRTOF] = module->getFunction("strtof");
     c_functions[STRTOD] = module->getFunction("strtod");
     c_functions[STRLEN] = module->getFunction("strlen");
