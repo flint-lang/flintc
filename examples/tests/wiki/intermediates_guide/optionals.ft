@@ -13,6 +13,7 @@ test "1_tuple.ft":
 	str file = "1_tuple.ft";
 	test_file_ok($"{path}/{file}", "");
 
+use Core.print
 test "2_unwrap_err.ft":
 	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "2_unwrap_err.ft";
@@ -20,7 +21,9 @@ test "2_unwrap_err.ft":
 	assert(exit_code == 0);
 	assert(output == "");
 	(exit_code, output) = system_command("./main");
-	assert(exit_code == 134);
+	print($"output='{output}'\n");
+	print($"exit_code={exit_code}\n");
+	assert(exit_code == (134 /*Linux*/, -1073740791 /*Windows*/));
 	// assert(output == "maybe = 10\nBad optional access occurred\n");
 	// TODO: The output here is wrong, the `system_command` call does have an
 	// empty output if the executed subprogram crashes, i do not know yet why
