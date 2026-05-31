@@ -921,7 +921,6 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
 llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Types
     llvm::Type *i8_type = builder->getInt8Ty();
-    llvm::Type *i32_type = builder->getInt32Ty();
     llvm::Type *i64_type = builder->getInt64Ty();
 
     // visible_width(char* str, i64 len) -> i64
@@ -955,7 +954,7 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     llvm::AllocaInst *idx_alloc = builder->CreateAlloca(i64_type, nullptr, "i");
     llvm::AllocaInst *count_alloc = builder->CreateAlloca(i64_type, nullptr, "count");
     builder->CreateStore(llvm::ConstantInt::get(i64_type, 0), idx_alloc);
-    builder->CreateStore(llvm::ConstantInt::get(i32_type, 0), count_alloc);
+    builder->CreateStore(llvm::ConstantInt::get(i64_type, 0), count_alloc);
     builder->CreateBr(loop_cond);
 
     // loop_cond: if i < len -> load_char else ret
