@@ -253,6 +253,9 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         // Store the type size in the head
         llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
+        // Initialize the block count to 0
+        llvm::Value *block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
+        IR::aligned_store(*builder, builder->getInt64(0), block_count_ptr);
         // Allocate enough memory for the default value and set it to 0 for now
         // TODO: Once data has default values we need to set the fields of the data here too
         llvm::Value *default_value = builder->CreateCall(                                      //
@@ -289,6 +292,9 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         // Store the type size in the head
         llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
+        // Initialize the block count to 0
+        llvm::Value *block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
+        IR::aligned_store(*builder, builder->getInt64(0), block_count_ptr);
         // Allocate enough memory for the default value and set it to 0
         llvm::Value *default_value = builder->CreateCall(                                   //
             malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + entity->name //
