@@ -1403,6 +1403,19 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     );
     builder->SetInsertPoint(entry_block);
 
+#ifdef __WIN32__
+    // Setting the console output to UTF-8 that the tree characters render correctly
+    llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
+        {llvm::Type::getInt32Ty(context)},                                 // UINT
+        false                                                              // No vaargs
+    );
+    llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
+        SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
+    );
+    builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(65001)});
+#endif
+
     // Handle the case that there are no tests to run
     if (tests.empty()) {
         llvm::Value *msg = IR::generate_const_string(module, "There are no tests to run\n");
