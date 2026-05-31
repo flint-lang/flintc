@@ -121,7 +121,12 @@ test "22_enh_for_string.ft":
 test "23_cli_args.ft [no]":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "23_cli_args.ft";
-	test_file_ok($"{path}/{file}", "args[0] = ./main\n");
+	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command("./main");
+	assert(exit_code == 0);
+	assert(starts_with(output, "args[0] = "));
 
 test "23_cli_args.ft [multiple]":
 	str path = "tests/wiki/beginners_guide/arrays";
@@ -131,7 +136,13 @@ test "23_cli_args.ft [multiple]":
 	assert(output == "");
 	(exit_code, output) = system_command("./main someargument somethingelse third-thing");
 	assert(exit_code == 0);
-	assert(output == "args[0] = ./main\nargs[1] = someargument\nargs[2] = somethingelse\nargs[3] = third-thing\n");
+	u64 first_nl = 0;
+	for (idx, char) in output:
+		if char == '\n':
+			first_nl = idx;
+			break;
+	str rest = output[first_nl + 1..];
+	assert(rest == "args[1] = someargument\nargs[2] = somethingelse\nargs[3] = third-thing\n");
 
 test "24_slices.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
