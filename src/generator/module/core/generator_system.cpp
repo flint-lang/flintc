@@ -6,6 +6,8 @@ static const std::string prefix = hash.to_string() + ".system.";
 
 void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     if (!only_declarations) {
+#ifndef __WIN32__
+        // They don't exist on Windows, we get them dynamically
         system_variables["stdout"] = module->getGlobalVariable("stdout");
         if (system_variables.at("stdout") == nullptr) {
             system_variables["stdout"] = new llvm::GlobalVariable(                            //
@@ -18,6 +20,7 @@ void Generator::Module::System::generate_system_functions(llvm::IRBuilder<> *bui
                 *module, PTR_TY, false, llvm::GlobalValue::ExternalLinkage, nullptr, "stderr" //
             );
         }
+#endif
         llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
         system_variables["orig_stdout_fd"] = new llvm::GlobalVariable(                                             //
             *module, i32_ty, false, llvm::GlobalVariable::InternalLinkage, builder->getInt32(-1), "orig_stdout_fd" //
@@ -700,8 +703,11 @@ void Generator::Module::System::generate_start_capture_function( //
     llvm::Function *const tmpfile_fn = c_functions.at(TMPFILE);
     llvm::Function *const dup2_fn = c_functions.at(DUP2);
 
+#ifndef __WIN32__
+    // Don't needed on Windows since they don't exist anyways
     llvm::GlobalVariable *const stdout_gv = system_variables.at("stdout");
     llvm::GlobalVariable *const stderr_gv = system_variables.at("stderr");
+#endif
     llvm::GlobalVariable *const orig_stdout_fd_gv = system_variables.at("orig_stdout_fd");
     llvm::GlobalVariable *const orig_stderr_fd_gv = system_variables.at("orig_stderr_fd");
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
@@ -740,8 +746,15 @@ void Generator::Module::System::generate_start_capture_function( //
 
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
+#ifdef __WIN32__
+    llvm::FunctionType *acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
+    llvm::FunctionCallee acrt_iob_fn = module->getOrInsertFunction("__acrt_iob_func", acrt_iob_ty);
+    llvm::Value *stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
+    llvm::Value *stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
+#else
     llvm::Value *stdout_ptr = builder->CreateLoad(PTR_TY, stdout_gv, "stdout_load");
     llvm::Value *stderr_ptr = builder->CreateLoad(PTR_TY, stderr_gv, "stderr_load");
+#endif
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
 
@@ -830,8 +843,11 @@ void Generator::Module::System::generate_end_capture_function( //
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
 
+#ifndef __WIN32__
+    // Don't needed on Windows since they don't exist anyways
     llvm::GlobalVariable *const stdout_gv = system_variables.at("stdout");
     llvm::GlobalVariable *const stderr_gv = system_variables.at("stderr");
+#endif
     llvm::GlobalVariable *const orig_stdout_fd_gv = system_variables.at("orig_stdout_fd");
     llvm::GlobalVariable *const orig_stderr_fd_gv = system_variables.at("orig_stderr_fd");
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
@@ -877,8 +893,15 @@ void Generator::Module::System::generate_end_capture_function( //
 
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
+#ifdef __WIN32__
+    llvm::FunctionType *acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
+    llvm::FunctionCallee acrt_iob_fn = module->getOrInsertFunction("__acrt_iob_func", acrt_iob_ty);
+    llvm::Value *stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
+    llvm::Value *stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
+#else
     llvm::Value *stdout_ptr = IR::aligned_load(*builder, PTR_TY, stdout_gv, "stdout_load");
     llvm::Value *stderr_ptr = IR::aligned_load(*builder, PTR_TY, stderr_gv, "stderr_load");
+#endif
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
     builder->CreateBr(restore_block);
