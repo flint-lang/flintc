@@ -5,6 +5,26 @@
 static const Hash hash(std::string("parse"));
 static const std::string prefix = hash.to_string() + ".parse.";
 
+static llvm::Value *get_errno_ptr(llvm::IRBuilder<> *builder, llvm::Module *module) {
+#ifdef __WIN32__
+    llvm::FunctionType *errno_fn_type = llvm::FunctionType::get(
+        llvm::PointerType::getUnqual(builder->getInt32Ty()), {}, false
+    );
+    llvm::Function *errno_fn = module->getFunction("_errno");
+    if (!errno_fn) {
+        errno_fn = llvm::Function::Create(
+            errno_fn_type, llvm::Function::ExternalLinkage, "_errno", module
+        );
+    }
+    return builder->CreateCall(errno_fn, {}, "errno_ptr");
+#else
+    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
+    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
+    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
+    return errno_addr;
+#endif
+}
+
 void Generator::Module::Parse::generate_parse_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_parse_uint_function(builder, module, only_declarations, 8);
     generate_parse_int_function(builder, module, only_declarations, 32);
@@ -103,10 +123,8 @@ void Generator::Module::Parse::generate_parse_int_function( //
 
     // Call strtol: long value = strtol(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
-    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
-    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
-    IR::aligned_store(*builder, builder->getInt32(0), errno_addr);
+    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
     llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtol call
@@ -132,7 +150,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `i64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_addr);
+    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
     llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
@@ -279,10 +297,8 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 
     // Call strtol: long value = strtol(input.c_str, &endptr, 10)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
-    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
-    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
-    IR::aligned_store(*builder, builder->getInt32(0), errno_addr);
+    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
     llvm::Value *value = builder->CreateCall(strtol_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtol call
@@ -308,7 +324,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `u64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_addr);
+    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
     llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
@@ -434,10 +450,8 @@ void Generator::Module::Parse::generate_parse_f32_function( //
 
     // Call strtof: float value = strtof(input.c_str, &endptr)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
-    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
-    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
-    IR::aligned_store(*builder, builder->getInt32(0), errno_addr);
+    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
     llvm::Value *value = builder->CreateCall(strtof_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
@@ -463,7 +477,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f32`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_addr);
+    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
     llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 
@@ -554,10 +568,8 @@ void Generator::Module::Parse::generate_parse_f64_function( //
 
     // Call strtof: float value = strtod(input.c_str, &endptr)
     llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
-    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
-    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
-    IR::aligned_store(*builder, builder->getInt32(0), errno_addr);
+    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
     llvm::Value *value = builder->CreateCall(strtod_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
@@ -583,7 +595,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_addr);
+    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
     llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 
