@@ -1427,12 +1427,14 @@ Generator::group_mapping Generator::Expression::generate_call( //
         function_name + std::to_string(call_node->call_id) + "_call" //
     );
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + function_name + "'")));
+#ifndef __WIN32__
     call->addParamAttr(0, llvm::Attribute::InReg);
     if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
         // Add the 'tailcc' to every user-defined call
         call->setCallingConv(llvm::CallingConv::Tail);
         call->setTailCall();
     }
+#endif
     last_err_values = {call, next_stack_frame};
 
     // Do all the common call cleanup on the arguments of the call
@@ -2111,12 +2113,14 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     const llvm::FunctionCallee fn_to_call = llvm::FunctionCallee(ctx.parent->getFunctionType(), fn_ptr);
     llvm::CallInst *const call = builder.CreateCall(fn_to_call, {callable_frame}, fn_name + std::to_string(call_node->call_id) + "_call");
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + fn_name + "'")));
+#ifndef __WIN32__
     call->addParamAttr(0, llvm::Attribute::InReg);
     if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
         // Add the 'tailcc' to every user-defined call, including callable calls as well, let's see how LLVM reacts to it...
         call->setCallingConv(llvm::CallingConv::Tail);
         call->setTailCall();
     }
+#endif
     last_err_values = {call, callable_frame};
 
     // Reset the ts flags to their original value
@@ -2218,12 +2222,14 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             llvm::CallInst *const setup_call = builder.CreateCall(                                     //
                 dispatch_fn, {next_stack_frame, entity_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
             );
+#ifndef __WIN32__
             setup_call->addParamAttr(0, llvm::Attribute::InReg);
             if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
                 // Add the 'tailcc' to every user-defined call
                 setup_call->setCallingConv(llvm::CallingConv::Tail);
                 setup_call->setTailCall();
             }
+#endif
 
             // Store extra function parameters starting at the returned arg pointer
             // The dispatch function's setup mode already handles required_data args from the entity,
@@ -2250,12 +2256,14 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             );
             call->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Call of dispatch function '" + call_node->function->name + "'")));
+#ifndef __WIN32__
             call->addParamAttr(0, llvm::Attribute::InReg);
             if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
                 // Add the 'tailcc' to every user-defined call
                 call->setCallingConv(llvm::CallingConv::Tail);
                 call->setTailCall();
             }
+#endif
             llvm::Value *const call_is_err = builder.CreateICmpNE(call, llvm::ConstantPointerNull::get(PTR_TY), "call_is_err");
             last_err_values = {call_is_err, next_stack_frame};
 

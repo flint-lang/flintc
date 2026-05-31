@@ -184,9 +184,11 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
     llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
+#ifndef __WIN32__
     main_call->addParamAttr(0, llvm::Attribute::InReg);
     main_call->setCallingConv(llvm::CallingConv::Tail);
     main_call->setTailCall();
+#endif
     llvm::Value *main_exit_code = builder->getInt32(0);
     if (main_function_has_ret) {
         llvm::Value *main_exit_code_ptr = builder->CreateStructGEP(main_frame_type, ts_stack_data_ptr, 1, "main_exit_code_ptr");
@@ -1210,7 +1212,9 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     );
     llvm::FunctionCallee test_fn(test_function_type, arg_test_fn_ptr);
     llvm::CallInst *test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
+#ifndef __WIN32__
     test_fail->addParamAttr(0, llvm::Attribute::InReg);
+#endif
     builder->CreateCondBr(arg_is_perf_test, perf_test_end_block, perf_test_end_merge_block);
 
     builder->SetInsertPoint(perf_test_end_block);

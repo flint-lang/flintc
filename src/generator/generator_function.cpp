@@ -94,8 +94,10 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
         }
     }
     if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+#ifndef __WIN32__
         // Add 'tailcc' to every user-defined function
         function->setCallingConv(llvm::CallingConv::Tail);
+#endif
     }
 
     if (!function_node->scope.has_value()) {
@@ -106,7 +108,9 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     assert(function->arg_size() == 1);
     llvm::Argument *const stack_arg = function->args().begin();
     stack_arg->setName("stack");
+#ifndef __WIN32__
     stack_arg->addAttr(llvm::Attribute::InReg);
+#endif
 
     // Create the functions setup block
     llvm::BasicBlock *setup_block = llvm::BasicBlock::Create( //
@@ -199,7 +203,9 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     llvm::Function *const test_function = llvm::Function::Create(test_type, llvm::Function::ExternalLinkage, test_name, module);
     llvm::Argument *const stack_arg = test_function->args().begin();
     stack_arg->setName("stack");
+#ifndef __WIN32__
     stack_arg->addAttr(llvm::Attribute::InReg);
+#endif
 
     // Create the entry block
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
