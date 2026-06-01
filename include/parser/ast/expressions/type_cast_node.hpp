@@ -22,6 +22,10 @@ class TypeCastNode : public ExpressionNode {
         return expr->is_literal();
     }
 
+    bool is_comptime_known() const override {
+        return expr->is_comptime_known();
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> expr_clone = expr->clone(scope_id);
         return std::make_unique<TypeCastNode>(type, expr_clone);

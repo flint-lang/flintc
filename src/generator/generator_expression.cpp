@@ -3965,6 +3965,15 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         func_value = builder.CreateInsertValue(func_value, entity_dispatch_fn, 1);
         func_value = builder.CreateInsertValue(func_value, entity_dima_head, 2, cast_name);
         return func_value;
+    } else if (from_type->get_variation() == Type::Variation::ARRAY && to_type->get_variation() == Type::Variation::ARRAY) {
+        [[maybe_unused]] const ArrayType *from_array = from_type->as<ArrayType>();
+        [[maybe_unused]] const ArrayType *to_array = to_type->as<ArrayType>();
+        assert(from_array->type->equals(to_array->type));
+        assert(from_array->dimensionality == to_array->dimensionality);
+        assert(from_array->sizes.has_value());
+        assert(!to_array->sizes.has_value());
+        // TODO: Implement proper "const array" to "dynamic array" casting in the future, for now they are the exact same thing at runtime
+        return expr;
     } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
             // Create a new string of size 1 and set its first byte to the char

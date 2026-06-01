@@ -103,6 +103,10 @@ class LiteralNode : public ExpressionNode {
         return true;
     }
 
+    bool is_comptime_known() const override {
+        return true;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         LitValue value_clone;
         if (std::holds_alternative<LitEnum>(value)) {

@@ -12,12 +12,8 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     const bool main_function_has_args = !Parser::main_function.load()->parameters.empty();
     const bool main_function_has_ret = !Parser::main_function.load()->return_types.empty();
     if (main_function_has_args) {
-        std::optional<std::shared_ptr<Type>> str_arr_type = Type::get_type_from_str("str[]");
-        if (!str_arr_type.has_value()) {
-            str_arr_type = std::make_shared<ArrayType>(1, Type::get_primitive_type("str"));
-            Type::add_type(str_arr_type.value());
-        }
-        parameters.emplace_back(std::make_tuple(str_arr_type.value(), "args", false));
+        std::shared_ptr<Type> str_arr_type = Type::get_type_from_str("str[]").value();
+        parameters.emplace_back(std::make_tuple(str_arr_type, "args", false));
     }
     std::vector<std::shared_ptr<Type>> return_types;
     std::optional<std::shared_ptr<Scope>> scope;

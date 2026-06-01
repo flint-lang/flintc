@@ -82,6 +82,14 @@ class ExpressionNode : public ASTNode {
         return false;
     }
 
+    /// @function `is_comptime_known`
+    /// @brief Whether this expression can be resolved at compile-time
+    ///
+    /// @return `bool` Whether this expression can be resolved at compile-time
+    virtual bool is_comptime_known() const {
+        return false;
+    }
+
     /// @function `clone`
     /// @brief Clones this expression by creating a new expression node from this one
     ///

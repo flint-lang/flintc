@@ -518,6 +518,23 @@ Parser::CastDirection Parser::check_castability( //
                 }
             }
         }
+        const ArrayType *lhs_arr = dynamic_cast<const ArrayType *>(lhs_type.get());
+        const ArrayType *rhs_arr = dynamic_cast<const ArrayType *>(rhs_type.get());
+        if (lhs_arr != nullptr && rhs_arr != nullptr) {
+            if (!lhs_arr->type->equals(rhs_arr->type)) {
+                return CastDirection::not_castable();
+            }
+            if (lhs_arr->dimensionality != rhs_arr->dimensionality) {
+                return CastDirection::not_castable();
+            }
+            if (!lhs_arr->sizes.has_value() && rhs_arr->sizes.has_value()) {
+                return CastDirection::rhs_to_lhs();
+            }
+            if (lhs_arr->sizes.has_value() && !rhs_arr->sizes.has_value()) {
+                return CastDirection::lhs_to_rhs();
+            }
+            return CastDirection::not_castable();
+        }
         return check_primitive_castability(lhs_type, rhs_type, is_implicit);
     } else if (lhs_group == nullptr && rhs_group != nullptr) {
         // Left is no group, right is group

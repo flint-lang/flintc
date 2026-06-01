@@ -1304,15 +1304,51 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_initializer");
     token_list toks = clone_from_slice(tokens);
-    token_slice tokens_mut = tokens;
-    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
-        tokens_mut, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
+    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction( //
+        tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET)    //
     );
     if (!length_expression_range.has_value()) {
-        return std::nullopt;
+        // If there are no length expressions, check if the first token is an array type token in which the sizes are comptime-known
+        if (tokens.first->type->get_variation() != Type::Variation::ARRAY) {
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> &array_type = tokens.first->type;
+        const ArrayType *arr_type = array_type->as<ArrayType>();
+        if (!arr_type->sizes.has_value()) {
+            return std::nullopt;
+        }
+
+        // Get the initializer tokens (...) and remove the surrounding parenthesis
+        token_slice initializer_tokens = {tokens.first + 1, tokens.second};
+        remove_surrounding_paren(initializer_tokens);
+        // Now we can create the initializer expression
+        std::optional<std::unique_ptr<ExpressionNode>> initializer;
+        if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
+            initializer = std::make_unique<DefaultNode>(arr_type->type);
+        } else {
+            initializer = create_expression(ctx, scope, initializer_tokens);
+        }
+        if (!initializer.has_value()) {
+            return std::nullopt;
+        }
+        if (!check_castability(arr_type->type, initializer.value(), true)) {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, arr_type->type, initializer.value()->type);
+            return std::nullopt;
+        }
+
+        // Create all the literal expressions for all the const sizes
+        std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
+        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+        for (const size_t len : arr_type->sizes.value()) {
+            LitValue value = LitInt{.value = APInt(std::to_string(len))};
+            length_expressions.emplace_back(std::make_unique<LiteralNode>(value, u64_ty));
+        }
+
+        return ArrayInitializerNode(array_type, length_expressions, initializer.value());
     }
 
     // Get the element type of the array
+    token_slice tokens_mut = tokens;
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
     std::optional<std::shared_ptr<Type>> element_type = file_node_ptr->file_namespace->get_type(type_tokens);
@@ -1358,11 +1394,34 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         return std::nullopt;
     }
 
-    std::string actual_type_str = element_type.value()->to_string() + "[" + std::string(length_expressions.value().size() - 1, ',') + "]";
+    std::vector<size_t> known_sizes;
+    for (const auto &expr : length_expressions.value()) {
+        std::optional<size_t> size = get_size_from_expr(expr);
+        if (size.has_value()) {
+            known_sizes.emplace_back(size.value());
+        }
+    }
+    std::string actual_type_str = element_type.value()->to_string() + "[";
+    const bool is_const_array = known_sizes.size() == length_expressions.value().size();
+    if (is_const_array) {
+        for (size_t i = 0; i < known_sizes.size(); i++) {
+            if (i > 0) {
+                actual_type_str += ", ";
+            }
+            actual_type_str += std::to_string(known_sizes.at(i));
+        }
+        actual_type_str += "]";
+    } else {
+        actual_type_str += std::string(length_expressions.value().size() - 1, ',') + "]";
+    }
     std::optional<std::shared_ptr<Type>> actual_array_type = file_node_ptr->file_namespace->get_type_from_str(actual_type_str);
     if (!actual_array_type.has_value()) {
         // This type does not yet exist, so we need to create it
-        actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value());
+        if (is_const_array) {
+            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value(), known_sizes);
+        } else {
+            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value(), std::nullopt);
+        }
         file_node_ptr->file_namespace->add_type(actual_array_type.value());
     }
     return ArrayInitializerNode(    //
@@ -1454,7 +1513,8 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
     if (dimensionality == 0) {
         return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
     } else {
-        std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type);
+        // TODO: Known Sizes
+        std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type, std::nullopt);
         if (!file_node_ptr->file_namespace->add_type(new_arr_type)) {
             new_arr_type = file_node_ptr->file_namespace->get_type_from_str(new_arr_type->to_string()).value();
         }
@@ -2111,6 +2171,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
         if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
+            if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
+                // It's an array initializer
+                std::optional<ArrayInitializerNode> initializer = create_array_initializer(ctx, scope, tokens);
+                if (!initializer.has_value()) {
+                    return std::nullopt;
+                }
+                return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
+            }
             // It's an initializer
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
             if (!initializer.has_value()) {

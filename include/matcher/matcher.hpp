@@ -561,43 +561,7 @@ class Matcher {
     }
 
   public:
-    static const inline PatternPtr anytoken = std::make_shared<TokenTypeAnytoken>();
-    static const inline PatternPtr type_prim = one_of({
-        token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_U64), token(TOK_I64), //
-        token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL), token(TOK_OPAQUE)                          //
-    });
-    static const inline PatternPtr type_prim_mult = one_of({
-        token(TOK_BOOL8),                                                       //
-        token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),     //
-        token(TOK_I8X2), token(TOK_I8X3), token(TOK_I8X4), token(TOK_I8X8),     //
-        token(TOK_U16X2), token(TOK_U16X3), token(TOK_U16X4), token(TOK_U16X8), //
-        token(TOK_I16X2), token(TOK_I16X3), token(TOK_I16X4), token(TOK_I16X8), //
-        token(TOK_U32X2), token(TOK_U32X3), token(TOK_U32X4), token(TOK_U32X8), //
-        token(TOK_I32X2), token(TOK_I32X3), token(TOK_I32X4), token(TOK_I32X8), //
-        token(TOK_U64X2), token(TOK_U64X3), token(TOK_U64X4),                   //
-        token(TOK_I64X2), token(TOK_I64X3), token(TOK_I64X4),                   //
-        token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), //
-        token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)                    //
-    });
-    static const inline PatternPtr literal = one_of({
-        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
-        token(TOK_NONE), token(TOK_NULL) //
-    });
-    static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
-    static const inline PatternPtr type = one_of({
-        sequence({
-            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA), token(TOK_VARIANT), token(TOK_FN)}),                  // Single base type
-            optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})),               // <..> Type group
-            zero_or_more(sequence({token(TOK_LEFT_BRACKET), zero_or_more(token(TOK_COMMA)), token(TOK_RIGHT_BRACKET)})), // [][,][,,] Arrays
-            optional(one_of({
-                token(TOK_QUESTION), // ? for optionals
-                token(TOK_MULT)      // * for pointers
-            }))                      //
-        }),                          //
-        token(TOK_TYPE)              //
-    });
-
-    // Symbols
+    // --- Symbols ---
     static const inline PatternPtr symbol_single = one_of({
         token(TOK_LEFT_PAREN),
         token(TOK_RIGHT_PAREN),
@@ -664,7 +628,7 @@ class Matcher {
         symbol_bitwise,
     });
 
-    // Keywords
+    // --- Keywords ---
     static const inline PatternPtr keyword_relational = one_of({token(TOK_AND), token(TOK_OR), token(TOK_NOT)});
     static const inline PatternPtr keyword_branching = one_of({token(TOK_IF), token(TOK_ELSE), token(TOK_SWITCH)});
     static const inline PatternPtr keyword_looping = one_of({
@@ -696,6 +660,63 @@ class Matcher {
         keyword_threading,
         keyword_modifiers,
         keyword_test,
+    });
+
+    // --- UNTILS ---
+    static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
+    static const inline PatternPtr until_right_brace = balanced_match_until(token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1);
+    static const inline PatternPtr until_right_bracket = balanced_match_until(     //
+        token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0 //
+    );
+    static const inline PatternPtr until_comma = balanced_match_until(                                                              //
+        one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
+    );
+    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
+    static const inline PatternPtr until_arrow = balanced_match_until(token(TOK_LESS), token(TOK_ARROW), token(TOK_GREATER), 0);
+    static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
+    static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
+    static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));
+    static const inline PatternPtr until_col_or_semicolon = match_until(one_of({token(TOK_COLON), token(TOK_SEMICOLON)}));
+
+    // --- TYPES ---
+    static const inline PatternPtr anytoken = std::make_shared<TokenTypeAnytoken>();
+    static const inline PatternPtr type_prim = one_of({
+        token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_U64), token(TOK_I64), //
+        token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL), token(TOK_OPAQUE)                          //
+    });
+    static const inline PatternPtr type_prim_mult = one_of({
+        token(TOK_BOOL8),                                                       //
+        token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),     //
+        token(TOK_I8X2), token(TOK_I8X3), token(TOK_I8X4), token(TOK_I8X8),     //
+        token(TOK_U16X2), token(TOK_U16X3), token(TOK_U16X4), token(TOK_U16X8), //
+        token(TOK_I16X2), token(TOK_I16X3), token(TOK_I16X4), token(TOK_I16X8), //
+        token(TOK_U32X2), token(TOK_U32X3), token(TOK_U32X4), token(TOK_U32X8), //
+        token(TOK_I32X2), token(TOK_I32X3), token(TOK_I32X4), token(TOK_I32X8), //
+        token(TOK_U64X2), token(TOK_U64X3), token(TOK_U64X4),                   //
+        token(TOK_I64X2), token(TOK_I64X3), token(TOK_I64X4),                   //
+        token(TOK_F32X2), token(TOK_F32X3), token(TOK_F32X4), token(TOK_F32X8), //
+        token(TOK_F64X2), token(TOK_F64X3), token(TOK_F64X4)                    //
+    });
+    static const inline PatternPtr literal = one_of({
+        token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
+        token(TOK_NONE), token(TOK_NULL) //
+    });
+    static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
+    static const inline PatternPtr type = one_of({
+        sequence({
+            one_of({token(TOK_TYPE), simple_type, token(TOK_DATA), token(TOK_VARIANT), token(TOK_FN)}),    // Single base type
+            optional(sequence({token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1)})), // <..> Type group
+            zero_or_more(sequence({
+                token(TOK_LEFT_BRACKET),                                                                                    //
+                optional(token(TOK_INT_VALUE)), zero_or_more(sequence({token(TOK_COMMA), optional(token(TOK_INT_VALUE))})), //
+                token(TOK_RIGHT_BRACKET)                                                                                    //
+            })), // [][,][,,] Arrays
+            optional(one_of({
+                token(TOK_QUESTION), // ? for optionals
+                token(TOK_MULT)      // * for pointers
+            }))                      //
+        }),                          //
+        token(TOK_TYPE)              //
     });
 
     static const inline PatternPtr balancer_left = one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET), token(TOK_LEFT_BRACE)});
@@ -731,22 +752,6 @@ class Matcher {
     static const inline PatternPtr expression_separator = one_of({
         operational_binop, relational_binop, boolean_binop, unary_pre_operator, unary_post_operator, token(TOK_RANGE) //
     });
-
-    // --- UNTILS ---
-    static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
-    static const inline PatternPtr until_right_brace = balanced_match_until(token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1);
-    static const inline PatternPtr until_right_bracket = balanced_match_until(     //
-        token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0 //
-    );
-    static const inline PatternPtr until_comma = balanced_match_until(                                                              //
-        one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
-    );
-    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
-    static const inline PatternPtr until_arrow = balanced_match_until(token(TOK_LESS), token(TOK_ARROW), token(TOK_GREATER), 0);
-    static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
-    static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
-    static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({token(TOK_EQUAL), token(TOK_COLON_EQUAL)}));
-    static const inline PatternPtr until_col_or_semicolon = match_until(one_of({token(TOK_COLON), token(TOK_SEMICOLON)}));
 
     // --- DEFINITIONS ---
     static const inline PatternPtr use_reference = sequence({

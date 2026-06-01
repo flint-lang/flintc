@@ -841,7 +841,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     continue;
                 }
                 // Check if argument can be implicitly cast to parameter type
-                if (!Parser::check_castability(param_type, arguments.at(i).first)) {
+                if (!check_castability(param_type, arguments.at(i).first)) {
                     types_match = false;
                     break;
                 }
@@ -1744,7 +1744,8 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
             assert(dimensionality == 1);
             result_type = Type::get_primitive_type("str");
         } else {
-            result_type = std::make_shared<ArrayType>(dimensionality, base_type);
+            // TODO: Known Sizes
+            result_type = std::make_shared<ArrayType>(dimensionality, base_type, std::nullopt);
             if (!file_node_ptr->file_namespace->add_type(result_type)) {
                 result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
             }
@@ -1844,4 +1845,28 @@ bool Parser::enusure_no_annotation_leftovers() {
     }
     THROW_BASIC_ERR(ERR_PARSING);
     return false;
+}
+
+std::optional<size_t> Parser::get_size_from_expr(const std::unique_ptr<ExpressionNode> &expr) {
+    if (!expr->is_comptime_known()) {
+        return std::nullopt;
+    }
+    const ExpressionNode *expression = expr.get();
+    // Somehow get the size, the length expr should be either a literal or a cast literal
+    if (expression->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+        expression = expr->as<TypeCastNode>()->expr.get();
+    }
+    if (expression->get_variation() != ExpressionNode::Variation::LITERAL) {
+        // Comptime is not advanced enough for anything else yet
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    const LiteralNode *lit = expression->as<LiteralNode>();
+    if (!std::holds_alternative<LitInt>(lit->value)) {
+        // Comptime is not advanced enough for anything else yet
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+    const APInt &size = std::get<LitInt>(lit->value).value;
+    return size.to_iN<size_t>();
 }

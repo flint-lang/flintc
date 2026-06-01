@@ -101,7 +101,7 @@ void Type::init_types() {
     add_type(std::make_shared<MultiType>(f64_type, 3));
     add_type(std::make_shared<MultiType>(f64_type, 4));
 
-    add_type(std::make_shared<ArrayType>(1, str_type));
+    add_type(std::make_shared<ArrayType>(1, str_type, std::nullopt));
 }
 
 void Type::clear_types() {

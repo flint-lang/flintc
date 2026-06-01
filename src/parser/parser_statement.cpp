@@ -2321,7 +2321,8 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     const auto &base_type = access_base.value().base_expr->type->as<ArrayType>()->type;
     std::shared_ptr<Type> result_type = nullptr;
     if (dimensionality > 0) {
-        result_type = std::make_shared<ArrayType>(dimensionality, base_type);
+        // TODO: Known Sizes
+        result_type = std::make_shared<ArrayType>(dimensionality, base_type, std::nullopt);
         if (!file_node_ptr->file_namespace->add_type(result_type)) {
             result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
         }

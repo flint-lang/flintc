@@ -974,6 +974,13 @@ class Parser {
     /// @return `bool` True if all is fine, false if there were leftovers
     bool enusure_no_annotation_leftovers();
 
+    /// @function `get_size_from_expr`
+    /// @brief Returns the size of a potential comptime expression, if it's comptime-known at all
+    ///
+    /// @param `expr` The expression to get the size from
+    /// @return `std::optional<size_t>` The size (APInt as size_t) of the expression, nullopt if not comptime-known
+    std::optional<size_t> get_size_from_expr(const std::unique_ptr<ExpressionNode> &expr);
+
     /**************************************************************************************************************************************
      * @region `Util` END
      *************************************************************************************************************************************/

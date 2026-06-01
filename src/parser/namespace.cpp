@@ -16,6 +16,8 @@
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
 
+#include <algorithm>
+
 std::optional<std::shared_ptr<Type>> Namespace::get_type_from_str(const std::string &type_str) const {
     // First check the global types since they are the most common
     if (const auto type = Type::get_type_from_str(type_str)) {
@@ -319,23 +321,39 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
     if (std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET) {
         tokens_mut.second--; // Remove the ]
         // Now, check how many commas follow (in reverse order) to get the dimensionality
+        std::vector<size_t> sizes;
         size_t dimensionality = 1;
-        while (std::prev(tokens_mut.second)->token == TOK_COMMA) {
-            dimensionality++;
+        while (std::prev(tokens_mut.second)->token != TOK_LEFT_BRACKET) {
+            switch (std::prev(tokens_mut.second)->token) {
+                default:
+                    // Unknown token
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                case TOK_COMMA:
+                    dimensionality++;
+                    break;
+                case TOK_INT_VALUE:
+                    sizes.emplace_back(std::stoull(std::string(std::prev(tokens_mut.second)->lexme)));
+                    break;
+            }
             tokens_mut.second--;
         }
-        // Now, check if the last element is either a literal or a [ token
-        if (std::prev(tokens_mut.second)->token == TOK_LEFT_BRACKET) {
-            tokens_mut.second--; // Remove the [
-            std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut);
-            if (!arr_type.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            return std::make_shared<ArrayType>(dimensionality, arr_type.value());
-        } else {
+        std::reverse(sizes.begin(), sizes.end());
+        // Now, check if the last element is a [ token
+        if (std::prev(tokens_mut.second)->token != TOK_LEFT_BRACKET) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        }
+        tokens_mut.second--; // Remove the [
+        std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut);
+        if (!arr_type.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (sizes.empty()) {
+            return std::make_shared<ArrayType>(dimensionality, arr_type.value(), std::nullopt);
+        } else {
+            return std::make_shared<ArrayType>(dimensionality, arr_type.value(), sizes);
         }
     } else if (std::prev(tokens_mut.second)->token == TOK_GREATER) {
         // Its a nested type

@@ -1,14 +1,7 @@
 use Core.print
 
-data MyData:
-	i32 x;
-	f32 y;
-	str v;
-	MyData(x, y, v);
-
 def main():
-	MyData? ref = none;
-	if true:
-		MyData val = MyData(10, 3.14, "segfault");
-		ref = val;
-	print($"ref.x = {ref!.x}\n");
+	i32[3] v3 = i32[3](0);
+	v3.[0, 1, 2] = (10, 20, 30);
+	for (i, elem) in v3:
+		print($"v3[{i}] = {elem}\n");
