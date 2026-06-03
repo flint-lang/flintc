@@ -229,6 +229,10 @@ class Generator {
         /// @var `short_circuit_block`
         /// @brief The block to branch to within an optional chain if any of the chain operations fails
         std::optional<llvm::BasicBlock *> short_circuit_block = std::nullopt;
+
+        /// @var `dest`
+        /// @brief Optional destination pointer for expressions that write directly (e.g. const array initializers)
+        llvm::Value *dest = nullptr;
     };
 
     /// @var `type_map`

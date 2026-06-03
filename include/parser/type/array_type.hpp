@@ -22,7 +22,8 @@ class ArrayType : public Type {
     }
 
     bool is_freeable() const override {
-        return true;
+        // Dynamic arrays are always freeable, static arrays only when their contained type is freeable
+        return type->is_freeable() || !sizes.has_value();
     }
 
     bool is_dima_managed() const override {

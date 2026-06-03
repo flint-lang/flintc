@@ -525,13 +525,22 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::AllocaInst *null_str_ptr = builder->CreateAlloca(PTR_TY, 0, "null_str_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), null_str_ptr);
 
-    // Fill array with NULL pointers
+    // Extract the data pointer from the str*: data = (char*)(str->value + str->len * sizeof(size_t))
+    llvm::Value *fill_arr_len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "fill_arr_len_ptr");
+    llvm::Value *fill_arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), fill_arr_len_ptr, "fill_arr_dim");
+    llvm::Value *fill_arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "fill_arr_dim_lengths");
+    llvm::Value *fill_arr_data = builder->CreateBitCast(
+        builder->CreateGEP(builder->getInt64Ty(), fill_arr_dim_lengths, fill_arr_dim, "fill_arr_data"), PTR_TY);
+
+    // Fill array with NULL pointers using new fill_arr signature
     builder->CreateCall(fill_arr_fn,
         {
-            lines_array,                       // Array to fill
-            builder->getInt64(sizeof(void *)), // Size of element
-            null_str_ptr,                      // Value to fill with
-            builder->getInt32(0)               // type_id == 0 to fill inline
+            fill_arr_data,                          // char* data
+            fill_arr_dim,                           // size_t dim
+            fill_arr_dim_lengths,                    // size_t* dim_lengths
+            builder->getInt64(sizeof(void *)),      // size_t value_size
+            null_str_ptr,                           // void* value
+            builder->getInt32(0)                    // i32 type_id
         });
 
     // Allocate buffer for reading lines (4096 bytes)
@@ -632,7 +641,12 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     IR::aligned_store(*builder, i, idx_alloca);
 
     // Access array element: access_arr(lines_array, sizeof(str*), idx)
-    llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn, {lines_array, builder->getInt64(sizeof(void *)), idx_alloca}, "elem_ptr");
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "len_ptr");
+    llvm::Value *arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
+    llvm::Value *arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths");
+    llvm::Value *arr_access_data = builder->CreateBitCast(
+        builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_access_data"), PTR_TY);
+    llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn, {builder->getInt64(sizeof(void *)), arr_access_data, arr_dim, arr_dim_lengths, idx_alloca}, "elem_ptr");
 
     // Load the string pointer
     llvm::Value *elem_str_ptr = IR::aligned_load(*builder, PTR_TY, elem_ptr, "elem_str_ptr");
@@ -673,8 +687,12 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     IR::aligned_store(*builder, current_idx, idx_alloca);
 
     // Access array element: access_arr(lines_array, sizeof(str*), idx)
+    llvm::Value *len_ptr_2 = builder->CreateStructGEP(str_type, lines_array, 0, "len_ptr_2");
+    llvm::Value *arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
+    llvm::Value *arr_dim_lengths_2 = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths_2");
+    llvm::Value *arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
     llvm::Value *line_elem_ptr = builder->CreateCall(                                                //
-        access_arr_fn, {lines_array, builder->getInt64(sizeof(void *)), idx_alloca}, "line_elem_ptr" //
+        access_arr_fn, {builder->getInt64(sizeof(void *)), arr_data_2, arr_dim_2, arr_dim_lengths_2, idx_alloca}, "line_elem_ptr" //
     );
 
     // Store the string pointer in the array

@@ -1187,7 +1187,11 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     line_string->addIncoming(empty_line_string, empty_line_block);
     line_string->addIncoming(slice_line_string, slice_line_block);
     llvm::Value *ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
-    llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {output_array, ptr_size, output_id_alloca}, "element_ptr");
+    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr");
+    llvm::Value *arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
+    llvm::Value *arr_dim_lengths = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths");
+    llvm::Value *arr_data = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
+    llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {ptr_size, arr_data, arr_dim, arr_dim_lengths, output_id_alloca}, "element_ptr");
     IR::aligned_store(*builder, line_string, element_ptr);
     llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
     llvm::Value *next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");
@@ -1214,7 +1218,11 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::Value *trailing_line_string = builder->CreateCall(                                         //
         get_str_slice_fn, {captured_buffer, trailing_line_start, buffer_len}, "trailing_line_string" //
     );
-    element_ptr = builder->CreateCall(access_arr_fn, {output_array, ptr_size, output_id_alloca}, "element_ptr");
+    llvm::Value *len_ptr_2 = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr_2");
+    llvm::Value *arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
+    llvm::Value *arr_dim_lengths_2 = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths_2");
+    llvm::Value *arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
+    element_ptr = builder->CreateCall(access_arr_fn, {ptr_size, arr_data_2, arr_dim_2, arr_dim_lengths_2, output_id_alloca}, "element_ptr");
     IR::aligned_store(*builder, trailing_line_string, element_ptr);
     builder->CreateBr(cleanup_block);
 

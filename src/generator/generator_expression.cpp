@@ -13,6 +13,7 @@
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/array_type.hpp"
 #include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -2464,7 +2465,18 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
 
             for (unsigned int i = 0; i < initializer->args.size(); i++) {
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+                const auto &arg_expr = initializer->args.at(i);
+                const std::shared_ptr<Type> &elem_type = arg_expr->type;
+                const bool is_fixed_arr_init =                                                //
+                    arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_INITIALIZER //
+                    && elem_type->get_variation() == Type::Variation::ARRAY                   //
+                    && elem_type->as<ArrayType>()->sizes.has_value();
+                if (is_fixed_arr_init) {
+                    llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
+                    ctx.dest = builder.CreatePointerCast(field_ptr, PTR_TY);
+                }
+
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get());
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -2474,11 +2486,16 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+
+                // Skip the rest on initializers for static arrays
+                if (is_fixed_arr_init) {
+                    ctx.dest = nullptr;
+                    continue;
+                }
+
                 llvm::Value *expr_val = expr_result.value().front();
                 llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
-                const std::shared_ptr<Type> &elem_type = initializer->args.at(i)->type;
-                const auto &arg_expr = initializer->args.at(i);
                 const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
                 const bool is_opt_literal =                                              //
                     arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
@@ -3009,20 +3026,8 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
     llvm::Type *element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.first;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
-    llvm::CallInst *created_array = builder.CreateCall(        //
-        Module::Array::array_manip_functions.at("create_arr"), //
-        {
-            builder.getInt64(length_expressions.size()), // dimensionality
-            builder.getInt64(element_size_in_bytes),     // element_size
-            length_array                                 // lengths array
-        },                                               //
-        "created_array"                                  //
-    );
-    created_array->setMetadata("comment",
-        llvm::MDNode::get(context,
-            llvm::MDString::get(context,
-                "Create an array of type " + initializer->element_type->to_string() + "[" +
-                    std::string(length_expressions.size() - 1, ',') + "]")));
+
+    // Generate the initializer expression (shared between const and dynamic paths)
     llvm::Value *initializer_expression = nullptr;
     bool is_default_init = initializer->initializer_value->get_variation() == ExpressionNode::Variation::DEFAULT;
 
@@ -3059,9 +3064,47 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         IR::aligned_store(builder, initializer_expression, scratchspace);
         initializer_ptr = scratchspace;
     }
-    llvm::CallInst *fill_call = builder.CreateCall(                                        //
-        Module::Array::array_manip_functions.at("fill_arr"),                               //
-        {created_array, builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
+
+    llvm::Function *fill_arr_fn = Module::Array::array_manip_functions.at("fill_arr");
+    llvm::Value *dim_val = builder.getInt64(length_expressions.size());
+
+    if (ctx.dest != nullptr) {
+        // Const array: fill directly into destination memory using fill_arr
+        llvm::CallInst *fill_call = builder.CreateCall(                            //
+            fill_arr_fn,                                                           //
+            {ctx.dest, dim_val, length_array,                                      //
+                builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
+        );
+        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the const array")));
+        return ctx.dest;
+    }
+
+    llvm::CallInst *created_array = builder.CreateCall(        //
+        Module::Array::array_manip_functions.at("create_arr"), //
+        {
+            dim_val,                                 // dimensionality
+            builder.getInt64(element_size_in_bytes), // element_size
+            length_array                             // lengths array
+        },                                           //
+        "created_array"                              //
+    );
+    created_array->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
+                "Create an array of type " + initializer->element_type->to_string() + "[" +
+                    std::string(length_expressions.size() - 1, ',') + "]")));
+
+    // Extract the data pointer from the str*: data_start = (char*)(str->value + str->len * sizeof(size_t))
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, created_array, 1, "arr_dim_lengths");
+    llvm::Value *const loaded_dim =
+        IR::aligned_load(builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim");
+    llvm::Value *const data_start =
+        builder.CreateBitCast(builder.CreateGEP(builder.getInt64Ty(), dim_lengths, loaded_dim, "data_start"), PTR_TY);
+
+    llvm::CallInst *fill_call = builder.CreateCall(                                                              //
+        fill_arr_fn,                                                                                             //
+        {data_start, loaded_dim, dim_lengths, builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
     );
     fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the array")));
     return created_array;
@@ -3182,7 +3225,10 @@ llvm::Value *Generator::Expression::generate_array_access(           //
     if (base_expr_value.has_value()) {
         array_ptr = base_expr_value.value();
     } else {
-        group_mapping base_expression = generate_expression(builder, ctx, garbage, expr_depth, base_expr.get());
+        const bool base_is_static =                                    //
+            base_expr->type->get_variation() == Type::Variation::ARRAY //
+            && base_expr->type->as<ArrayType>()->sizes.has_value();
+        group_mapping base_expression = generate_expression(builder, ctx, garbage, expr_depth, base_expr.get(), base_is_static);
         if (!base_expression.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return nullptr;
@@ -3258,9 +3304,34 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
         case Type::Variation::MULTI: {
+            assert(base_expr->type->get_variation() == Type::Variation::ARRAY);
+            const ArrayType *base_arr_type = base_expr->type->as<ArrayType>();
             llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
-            llvm::Value *const elem_ptr = builder.CreateCall(                                                             //
-                access_arr_fn, {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}, "access_arr_ptr" //
+            llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
+            llvm::Value *arr_dim = nullptr;
+            llvm::Value *arr_dim_lengths = nullptr;
+            llvm::Value *arr_data = nullptr;
+            if (base_arr_type->sizes.has_value()) {
+                // It's a static array
+                arr_dim = builder.getInt64(base_arr_type->sizes.value().size());
+                for (size_t i = 0; i < base_arr_type->sizes.value().size(); i++) {
+                    llvm::Value *const arr_len_i_ptr = builder.CreateGEP(                                                //
+                        builder.getInt64Ty(), scratchspace, builder.getInt64(i), "arr_len_" + std::to_string(i) + "_ptr" //
+                    );
+                    IR::aligned_store(builder, builder.getInt64(base_arr_type->sizes.value().at(i)), arr_len_i_ptr);
+                }
+                arr_dim_lengths = scratchspace;
+                arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
+            } else {
+                // It's a dynamic array
+                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+                llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
+                arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
+                arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
+                arr_data = builder.CreateGEP(builder.getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
+            }
+            llvm::Value *const elem_ptr = builder.CreateCall(                                                               //
+                access_arr_fn, {arr_element_size, arr_data, arr_dim, arr_dim_lengths, temp_array_indices}, "access_arr_ptr" //
             );
             if (is_reference && result_type->get_variation() != Type::Variation::DATA) {
                 // Always load data as it's stored as pointers within the array

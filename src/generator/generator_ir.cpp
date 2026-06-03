@@ -725,8 +725,20 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             return get_type(module, alias_type->type, is_extern);
         }
         case Type::Variation::ARRAY: {
-            // Arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
-            return {PTR_TY, {false, false}};
+            const auto *array_type = type->as<ArrayType>();
+            if (!array_type->sizes.has_value()) {
+                // Dynamic arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
+                return {PTR_TY, {false, false}};
+            }
+            // "Static" arrays (comptime-known sizes) are direct arrays
+            size_t num_elems = 1;
+            for (const size_t len : array_type->sizes.value()) {
+                num_elems *= len;
+            }
+            const auto elem_type_pair = IR::get_type(module, array_type->type);
+            llvm::Type *const elem_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+            llvm::ArrayType *const arr_type = llvm::ArrayType::get(elem_type, num_elems);
+            return {arr_type, {false, true}};
         }
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();

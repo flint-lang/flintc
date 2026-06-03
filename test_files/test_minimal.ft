@@ -1,7 +1,13 @@
 use Core.print
 
+data Vector4:
+	f32[4] values;
+	Vector4(values);
+
 def main():
-	i32[3] v3 = i32[3](0);
-	v3.[0, 1, 2] = (10, 20, 30);
-	for (i, elem) in v3:
-		print($"v3[{i}] = {elem}\n");
+	v := Vector4(f32[4](0.0));
+	v.values[1] = 1.0;
+	v.values[2] = 4.0;
+	v.values[3] = 9.0;
+	for (i, elem) in v.values:
+		print($"v.values[{i}] = {elem}\n");

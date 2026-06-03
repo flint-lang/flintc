@@ -275,20 +275,32 @@ void Generator::Memory::generate_free_value( //
                 builder->CreateCall(free_fn, {value});
                 break;
             }
-            // If the element of the array is freeable then we need to generate the freeing code for every single value of the array
-            // This means we need to generate a loop and shit like that
-            llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
-            llvm::Value *dim_ptr = builder->CreateStructGEP(str_type, value, 0, "dim_ptr");
-            llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), dim_ptr, "dimensionality");
-            llvm::Value *length = builder->getInt64(1);
-            llvm::Value *len_ptr = builder->CreateStructGEP(str_type, value, 1, "len_ptr");
-            for (size_t i = 0; i < array_type->dimensionality; i++) {
-                llvm::Value *single_len_ptr = builder->CreateGEP(builder->getInt64Ty(), len_ptr, builder->getInt64(i));
-                llvm::Value *single_len = IR::aligned_load(*builder, builder->getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
-                length = builder->CreateMul(length, single_len);
+            llvm::Value *length = nullptr;
+            llvm::Value *value_ptr = nullptr;
+            const bool is_array_static = array_type->sizes.has_value();
+            if (is_array_static) {
+                size_t len = 1;
+                for (const size_t l : array_type->sizes.value()) {
+                    len *= l;
+                }
+                length = builder->getInt64(len);
+                value_ptr = value;
+            } else {
+                // If the element of the array is freeable then we need to generate the freeing code for every single value of the array
+                // This means we need to generate a loop and shit like that
+                llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+                llvm::Value *dim_ptr = builder->CreateStructGEP(str_type, value, 0, "dim_ptr");
+                llvm::Value *dimensionality = IR::aligned_load(*builder, builder->getInt64Ty(), dim_ptr, "dimensionality");
+                length = builder->getInt64(1);
+                llvm::Value *len_ptr = builder->CreateStructGEP(str_type, value, 1, "len_ptr");
+                for (size_t i = 0; i < array_type->dimensionality; i++) {
+                    llvm::Value *single_len_ptr = builder->CreateGEP(builder->getInt64Ty(), len_ptr, builder->getInt64(i));
+                    llvm::Value *single_len = IR::aligned_load(*builder, builder->getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
+                    length = builder->CreateMul(length, single_len);
+                }
+                // The values start right after the lengths
+                value_ptr = builder->CreateGEP(builder->getInt64Ty(), len_ptr, dimensionality);
             }
-            // The values start right after the lengths
-            llvm::Value *value_ptr = builder->CreateGEP(builder->getInt64Ty(), len_ptr, dimensionality);
             llvm::AllocaInst *idx = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "idx");
             IR::aligned_store(*builder, builder->getInt64(0), idx);
             // Now we iterate through the whole array and generate the free falue for each element, we only do this once of course
@@ -315,7 +327,9 @@ void Generator::Memory::generate_free_value( //
             llvm::Type *element_type = element_type_pair.second.first ? PTR_TY : element_type_pair.first;
             llvm::Value *arr_value_ptr = builder->CreateGEP(element_type, value_ptr, idx_value, "arr_value_ptr");
             llvm::Value *arr_value = arr_value_ptr;
-            const bool base_is_array = array_type->type->get_variation() == Type::Variation::ARRAY;
+            const bool base_is_array =                                      //
+                array_type->type->get_variation() == Type::Variation::ARRAY //
+                && !array_type->type->as<ArrayType>()->sizes.has_value();
             const bool base_is_str = array_type->type->to_string() == "str";
             const bool base_is_opaque = array_type->type->get_variation() == Type::Variation::OPAQUE;
             if (element_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
@@ -335,8 +349,10 @@ void Generator::Memory::generate_free_value( //
             builder->CreateBr(loop_cond_block);
 
             builder->SetInsertPoint(loop_merge_block);
-            // Lastly, free the array itself
-            builder->CreateCall(c_functions.at(FREE), {value});
+            // Lastly, free the array itself if it's a dynamic array
+            if (!is_array_static) {
+                builder->CreateCall(c_functions.at(FREE), {value});
+            }
             break;
         }
         case Type::Variation::DATA: {
@@ -353,7 +369,9 @@ void Generator::Memory::generate_free_value( //
                 llvm::Value *data_field_ptr = builder->CreateStructGEP(data_type, value, i, "data_field_ptr_" + field.name);
                 auto field_type_pair = IR::get_type(module, field.type);
                 llvm::Value *data_field = data_field_ptr;
-                const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
+                const bool field_is_array =                               //
+                    field.type->get_variation() == Type::Variation::ARRAY //
+                    && !field.type->as<ArrayType>()->sizes.has_value();
                 const bool field_is_str = field.type->to_string() == "str";
                 const bool field_is_opaque = field.type->get_variation() == Type::Variation::OPAQUE;
                 if (field_type_pair.second.first || field_is_array || field_is_str || field_is_opaque) {
@@ -473,7 +491,9 @@ void Generator::Memory::generate_free_value( //
             llvm::Value *opt_value_ptr = builder->CreateStructGEP(opt_struct_type, value, 1, "opt_value_ptr");
             auto base_type_pair = IR::get_type(module, optional_type->base_type);
             llvm::Value *opt_value = opt_value_ptr;
-            const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
+            const bool base_is_array =                                              //
+                optional_type->base_type->get_variation() == Type::Variation::ARRAY //
+                && !optional_type->base_type->as<ArrayType>()->sizes.has_value();
             const bool base_is_str = optional_type->base_type->to_string() == "str";
             const bool base_is_opaque = optional_type->base_type->get_variation() == Type::Variation::OPAQUE;
             if (base_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
@@ -502,7 +522,9 @@ void Generator::Memory::generate_free_value( //
                 }
                 auto elem_type_pair = IR::get_type(module, elem_type);
                 llvm::Value *elem_ptr = builder->CreateStructGEP(tuple_struct_type, value, i, "elem_ptr");
-                const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
+                const bool elem_is_array =                               //
+                    elem_type->get_variation() == Type::Variation::ARRAY //
+                    && !elem_type->as<ArrayType>()->sizes.has_value();
                 const bool elem_is_str = elem_type->to_string() == "str";
                 const bool elem_is_opaque = elem_type->get_variation() == Type::Variation::OPAQUE;
                 if (elem_type_pair.second.first || elem_is_array || elem_is_str || elem_is_opaque) {
@@ -567,7 +589,9 @@ void Generator::Memory::generate_free_value( //
                     const auto &variant_type_ptr = possible_types.at(value_id).second;
                     auto value_type = IR::get_type(module, variant_type_ptr);
                     llvm::Value *variant_value = variant_value_ptr;
-                    const bool value_is_array = variant_type_ptr->get_variation() == Type::Variation::ARRAY;
+                    const bool value_is_array =                                     //
+                        variant_type_ptr->get_variation() == Type::Variation::ARRAY //
+                        && !variant_type_ptr->as<ArrayType>()->sizes.has_value();
                     const bool value_is_str = variant_type_ptr->to_string() == "str";
                     const bool value_is_opaque = variant_type_ptr->get_variation() == Type::Variation::OPAQUE;
                     if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {
@@ -665,6 +689,61 @@ void Generator::Memory::generate_clone_value( //
             break;
         case Type::Variation::ARRAY: {
             const auto *array_type = type->as<ArrayType>();
+            const bool is_array_static = array_type->sizes.has_value();
+            if (is_array_static) {
+                size_t len = 1;
+                for (const size_t l : array_type->sizes.value()) {
+                    len *= l;
+                }
+                llvm::Value *const length = builder->getInt64(len);
+                const auto elem_type_pair = IR::get_type(module, array_type->type);
+                llvm::Type *const elem_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+                llvm::Value *const sizeof_elem_type = builder->getInt64(Allocation::get_type_size(module, elem_type));
+                if (!array_type->type->is_freeable()) {
+                    llvm::Value *const total_size = builder->CreateMul(sizeof_elem_type, length);
+                    builder->CreateCall(c_functions.at(MEMCPY), {dest, src, total_size});
+                    break;
+                }
+                llvm::AllocaInst *const idx = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "idx");
+                IR::aligned_store(*builder, builder->getInt64(0), idx);
+                llvm::BasicBlock *const current_block = builder->GetInsertBlock();
+                llvm::BasicBlock *const loop_cond_block = llvm::BasicBlock::Create(       //
+                    context, type->to_string() + "_loop_cond", current_block->getParent() //
+                );
+                llvm::BasicBlock *const loop_body_block = llvm::BasicBlock::Create(       //
+                    context, type->to_string() + "_loop_body", current_block->getParent() //
+                );
+                llvm::BasicBlock *const loop_merge_block = llvm::BasicBlock::Create(       //
+                    context, type->to_string() + "_loop_merge", current_block->getParent() //
+                );
+                builder->SetInsertPoint(current_block);
+                builder->CreateBr(loop_cond_block);
+
+                builder->SetInsertPoint(loop_cond_block);
+                llvm::Value *const idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), idx, "idx_value");
+                llvm::Value *const idx_lt_length = builder->CreateICmpULT(idx_value, length, "idx_lt_length");
+                builder->CreateCondBr(idx_lt_length, loop_body_block, loop_merge_block);
+
+                builder->SetInsertPoint(loop_body_block);
+                llvm::Value *const arr_value_ptr = builder->CreateGEP(elem_type, src, idx_value, "arr_value_ptr");
+                llvm::Value *arr_value = arr_value_ptr;
+                const bool base_is_array =                                      //
+                    array_type->type->get_variation() == Type::Variation::ARRAY //
+                    && !array_type->type->as<ArrayType>()->sizes.has_value();
+                const bool base_is_str = array_type->type->to_string() == "str";
+                const bool base_is_opaque = array_type->type->get_variation() == Type::Variation::OPAQUE;
+                if (elem_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
+                    arr_value = IR::aligned_load(*builder, elem_type, arr_value_ptr, "arr_value");
+                }
+                llvm::Value *new_arr_value_ptr = builder->CreateGEP(elem_type, dest, idx_value, "new_arr_value_ptr");
+                builder->CreateCall(clone_fn, {arr_value, new_arr_value_ptr, builder->getInt32(array_type->type->get_id())});
+                llvm::Value *idx_value_p1 = builder->CreateAdd(idx_value, builder->getInt64(1), "idx_value_p1");
+                IR::aligned_store(*builder, idx_value_p1, idx);
+                builder->CreateBr(loop_cond_block);
+
+                builder->SetInsertPoint(loop_merge_block);
+                break;
+            }
             llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *const sizeof_str_type = builder->getInt64(Allocation::get_type_size(module, str_type));
             auto elem_type_pair = IR::get_type(module, array_type->type);
@@ -724,13 +803,14 @@ void Generator::Memory::generate_clone_value( //
             builder->CreateCondBr(idx_lt_length, loop_body_block, loop_merge_block);
 
             builder->SetInsertPoint(loop_body_block);
-            llvm::Value *arr_value_ptr = builder->CreateGEP(elem_type, value_ptr, idx_value, "arr_value_ptr");
-            llvm::Value *arr_value = arr_value_ptr;
-            const bool base_is_array = array_type->type->get_variation() == Type::Variation::ARRAY;
+            llvm::Value *arr_value = builder->CreateGEP(elem_type, value_ptr, idx_value, "arr_value_ptr");
+            const bool base_is_array =                                      //
+                array_type->type->get_variation() == Type::Variation::ARRAY //
+                && !array_type->type->as<ArrayType>()->sizes.has_value();
             const bool base_is_str = array_type->type->to_string() == "str";
             const bool base_is_opaque = array_type->type->get_variation() == Type::Variation::OPAQUE;
             if (elem_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
-                arr_value = IR::aligned_load(*builder, elem_type, arr_value_ptr, "arr_value");
+                arr_value = IR::aligned_load(*builder, elem_type, arr_value, "arr_value");
             }
             llvm::Value *new_arr_value_ptr = builder->CreateGEP(elem_type, new_value_ptr, idx_value, "new_arr_value_ptr");
             builder->CreateCall(clone_fn, {arr_value, new_arr_value_ptr, builder->getInt32(array_type->type->get_id())});
@@ -756,7 +836,9 @@ void Generator::Memory::generate_clone_value( //
                 llvm::Value *field_src = field_src_ptr;
                 auto field_type_pair = IR::get_type(module, field.type);
                 llvm::Type *field_type_ptr = field_type_pair.first;
-                const bool field_is_array = field.type->get_variation() == Type::Variation::ARRAY;
+                const bool field_is_array =                               //
+                    field.type->get_variation() == Type::Variation::ARRAY //
+                    && !field.type->as<ArrayType>()->sizes.has_value();
                 const bool field_is_str = field.type->to_string() == "str";
                 const bool field_is_opaque = field.type->get_variation() == Type::Variation::OPAQUE;
                 if (field_type_pair.second.first || field_is_array || field_is_str || field_is_opaque) {
@@ -870,7 +952,9 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *opt_value_ptr = builder->CreateStructGEP(opt_struct_type, src, 1, "opt_value_ptr");
             auto base_type_pair = IR::get_type(module, optional_type->base_type);
             llvm::Value *opt_value = opt_value_ptr;
-            const bool base_is_array = optional_type->base_type->get_variation() == Type::Variation::ARRAY;
+            const bool base_is_array =                                              //
+                optional_type->base_type->get_variation() == Type::Variation::ARRAY //
+                && !optional_type->base_type->as<ArrayType>()->sizes.has_value();
             const bool base_is_str = optional_type->base_type->to_string() == "str";
             const bool base_is_opaque = optional_type->base_type->get_variation() == Type::Variation::OPAQUE;
             if (base_type_pair.second.first || base_is_array || base_is_str || base_is_opaque) {
@@ -905,7 +989,9 @@ void Generator::Memory::generate_clone_value( //
                     builder->CreateCall(c_functions.at(MEMCPY), {dest_elem_ptr, src_elem_ptr, elem_size});
                     continue;
                 }
-                const bool elem_is_array = elem_type->get_variation() == Type::Variation::ARRAY;
+                const bool elem_is_array =                               //
+                    elem_type->get_variation() == Type::Variation::ARRAY //
+                    && !elem_type->as<ArrayType>()->sizes.has_value();
                 const bool elem_is_str = elem_type->to_string() == "str";
                 const bool elem_is_opaque = elem_type->get_variation() == Type::Variation::OPAQUE;
                 if (elem_type_pair.second.first || elem_is_array || elem_is_str || elem_is_opaque) {
@@ -965,7 +1051,9 @@ void Generator::Memory::generate_clone_value( //
                     const auto &variant_type_ptr = possible_types.at(value_id).second;
                     auto value_type = IR::get_type(module, variant_type_ptr);
                     llvm::Value *variant_value = src_value_ptr;
-                    const bool value_is_array = variant_type_ptr->get_variation() == Type::Variation::ARRAY;
+                    const bool value_is_array =                                     //
+                        variant_type_ptr->get_variation() == Type::Variation::ARRAY //
+                        && !variant_type_ptr->as<ArrayType>()->sizes.has_value();
                     const bool value_is_str = variant_type_ptr->to_string() == "str";
                     const bool value_is_opaque = variant_type_ptr->get_variation() == Type::Variation::OPAQUE;
                     if (value_type.second.first || value_is_array || value_is_str || value_is_opaque) {

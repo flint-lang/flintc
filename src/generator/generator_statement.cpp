@@ -320,7 +320,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         llvm::Value *const alloca = ctx.allocations.at(alloca_name);
         llvm::Value *variable_value = alloca;
         std::pair<llvm::Type *, std::pair<bool, bool>> variable_type = IR::get_type(ctx.parent->getParent(), var_type);
-        const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY;
+        const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY && !var_type->as<ArrayType>()->sizes.has_value();
         const bool var_is_str = var_type->to_string() == "str";
         const bool var_is_opaque = var_type->get_variation() == Type::Variation::OPAQUE;
         if ((variable_type.second.first || var_is_array || var_is_str || var_is_opaque) && !variable.is_fn_param) {
@@ -890,7 +890,10 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     // Generate the iterable expression
     builder.SetInsertPoint(pred_block);
     Expression::garbage_type garbage{};
-    group_mapping iterable = Expression::generate_expression(builder, ctx, garbage, 0, for_node->iterable.get());
+    const bool iterable_is_static =                                         //
+        for_node->iterable->type->get_variation() == Type::Variation::ARRAY //
+        && for_node->iterable->type->as<ArrayType>()->sizes.has_value();
+    const group_mapping iterable = Expression::generate_expression(builder, ctx, garbage, 0, for_node->iterable.get(), iterable_is_static);
     if (!iterable.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -899,8 +902,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    llvm::Value *iterable_expr = iterable.value().front();
-    llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Value *const iterable_expr = iterable.value().front();
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
@@ -909,21 +912,32 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     const bool is_range = for_node->iterable->type->get_variation() == Type::Variation::RANGE;
     if (for_node->iterable->type->get_variation() == Type::Variation::ARRAY) {
         const auto *array_type = for_node->iterable->type->as<ArrayType>();
-        llvm::Value *dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
-        llvm::Value *dimensionality = IR::aligned_load(builder, builder.getInt64Ty(), dim_ptr, "dimensionality");
-        llvm::AllocaInst *length_alloca = builder.CreateAlloca(builder.getInt64Ty(), 0, nullptr, "length_alloca");
-        IR::aligned_store(builder, builder.getInt64(1), length_alloca);
-        llvm::Value *len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "len_ptr");
-        for (size_t i = 0; i < array_type->dimensionality; i++) {
-            llvm::Value *single_len_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, builder.getInt64(i));
-            llvm::Value *single_len = IR::aligned_load(builder, builder.getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
-            llvm::Value *len_val = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca);
-            len_val = builder.CreateMul(len_val, single_len);
-            IR::aligned_store(builder, len_val, length_alloca);
+        if (iterable_is_static) {
+            // Is a static array
+            size_t length_sum = 1;
+            for (const size_t len : array_type->sizes.value()) {
+                length_sum *= len;
+            }
+            length = builder.getInt64(length_sum);
+            value_ptr = builder.CreateBitCast(iterable_expr, PTR_TY);
+        } else {
+            // Is a dynamic array
+            llvm::Value *const dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
+            llvm::Value *const dimensionality = IR::aligned_load(builder, builder.getInt64Ty(), dim_ptr, "dimensionality");
+            llvm::AllocaInst *const length_alloca = builder.CreateAlloca(builder.getInt64Ty(), 0, nullptr, "length_alloca");
+            IR::aligned_store(builder, builder.getInt64(1), length_alloca);
+            llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "len_ptr");
+            for (size_t i = 0; i < array_type->dimensionality; i++) {
+                llvm::Value *const single_len_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, builder.getInt64(i));
+                llvm::Value *const single_len = IR::aligned_load(builder, builder.getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
+                llvm::Value *len_val = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca);
+                len_val = builder.CreateMul(len_val, single_len);
+                IR::aligned_store(builder, len_val, length_alloca);
+            }
+            length = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca, "length");
+            // The values start right after the lengths
+            value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         }
-        length = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca, "length");
-        // The values start right after the lengths
-        value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         const auto type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
         element_type = array_type->type->is_dima_managed() ? PTR_TY : type_pair.first;
     } else if (is_range) {
@@ -1580,11 +1594,35 @@ bool Generator::Statement::generate_declaration( //
 
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
+        const bool is_const_array_init =                                         //
+            declaration_node->type->get_variation() == Type::Variation::ARRAY && //
+            declaration_node->type->as<ArrayType>()->sizes.has_value() &&        //
+            declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::ARRAY_INITIALIZER;
+        if (is_const_array_init) {
+            ctx.dest = alloca;
+        }
         Expression::garbage_type garbage;
         auto expr_val = Expression::generate_expression(builder, ctx, garbage, 0, declaration_node->initializer.value().get());
         if (!expr_val.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
+        }
+        ctx.dest = nullptr;
+        if (is_const_array_init) {
+            if (garbage.count(0) > 0) {
+                garbage.at(0).clear();
+            }
+            if (!clear_garbage(builder, garbage)) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            if (declaration_node->is_persistent) {
+                builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                decl_finished_block->moveAfter(builder.GetInsertBlock());
+                merge_block->moveAfter(decl_finished_block);
+                builder.SetInsertPoint(merge_block);
+            }
+            return true;
         }
         // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
         if (garbage.count(0) > 0) {
@@ -1938,7 +1976,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         // Free the lhs before assigning
         llvm::Value *lhs_value = lhs;
         std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
-        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY;
+        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY && !lhs_type->as<ArrayType>()->sizes.has_value();
         const bool var_is_str = lhs_type->to_string() == "str";
         if (var_type.second.first || var_is_array || var_is_str) {
             llvm::Type *type_to_load = var_type.second.first ? PTR_TY : var_type.first;
@@ -2283,7 +2321,12 @@ bool Generator::Statement::generate_array_assignment( //
         idx_expressions.emplace_back(idx_expr.value().front());
     }
     // Get the array value
-    Generator::group_mapping base_expr = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->base_expr.get());
+    const bool is_const_array =                                                      //
+        array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY //
+        && array_assignment->base_expr->type->as<ArrayType>()->sizes.has_value();
+    Generator::group_mapping base_expr = Expression::generate_expression(           //
+        builder, ctx, garbage, 0, array_assignment->base_expr.get(), is_const_array //
+    );
     if (!base_expr.has_value()) {
         return false;
     }
@@ -2307,12 +2350,38 @@ bool Generator::Statement::generate_array_assignment( //
         llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
     }
-    llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
-    const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
-    llvm::Value *element_size = builder.getInt64(element_size_bytes);
-    llvm::Value *arr_value_ptr = builder.CreateCall(access_arr_fn, {array_ptr, element_size, indices}, "arr_value_ptr");
     assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
-    const std::shared_ptr<Type> &base_type = array_assignment->base_expr->type->as<ArrayType>()->type;
+    const ArrayType *array_type = array_assignment->base_expr->type->as<ArrayType>();
+    const std::shared_ptr<Type> &base_type = array_type->type;
+    const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
+    llvm::Type *const element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+    const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
+    llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
+    llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
+    llvm::Value *arr_dim = nullptr;
+    llvm::Value *arr_dim_lengths = nullptr;
+    llvm::Value *arr_data = nullptr;
+    if (is_const_array) {
+        const auto &sizes = array_type->sizes.value();
+        arr_dim = builder.getInt64(sizes.size());
+        for (size_t j = 0; j < sizes.size(); j++) {
+            llvm::Value *const arr_len_j_ptr = builder.CreateGEP(                                                //
+                builder.getInt64Ty(), scratchspace, builder.getInt64(j), "arr_len_" + std::to_string(j) + "_ptr" //
+            );
+            IR::aligned_store(builder, builder.getInt64(sizes.at(j)), arr_len_j_ptr);
+        }
+        arr_dim_lengths = scratchspace;
+        arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
+    } else {
+        llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+        llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
+        arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
+        arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
+        arr_data = builder.CreateGEP(builder.getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
+    }
+    llvm::Value *const arr_value_ptr = builder.CreateCall(                                               //
+        access_arr_fn, {arr_element_size, arr_data, arr_dim, arr_dim_lengths, indices}, "access_arr_ptr" //
+    );
     if (!base_type->is_freeable()) {
         // Direct store for non-freeable types
         IR::aligned_store(builder, expression, arr_value_ptr);
@@ -2320,7 +2389,7 @@ bool Generator::Statement::generate_array_assignment( //
     }
     // Free the value stored in the array before assigning the new value
     const auto base_type_pair = IR::get_type(ctx.parent->getParent(), base_type);
-    const bool var_is_array = base_type->get_variation() == Type::Variation::ARRAY;
+    const bool var_is_array = base_type->get_variation() == Type::Variation::ARRAY && !base_type->as<ArrayType>()->sizes.has_value();
     const bool var_is_str = base_type->to_string() == "str";
     const bool var_is_opaque = base_type->get_variation() == Type::Variation::OPAQUE;
     llvm::Value *arr_value = arr_value_ptr;
@@ -2365,7 +2434,14 @@ bool Generator::Statement::generate_grouped_array_assignment( //
     }
 
     // Generate the base expression for the grouped array assignment
-    Generator::group_mapping base_expr = Expression::generate_expression(builder, ctx, garbage, 0, array_assignment->base_expr.get());
+    std::optional<ArrayType *> array_type;
+    if (array_assignment->base_expr->type->to_string() != "str") {
+        array_type = array_assignment->base_expr->type->as<ArrayType>();
+    }
+    const bool is_const_array = array_type.has_value() && array_type.value()->sizes.has_value();
+    Generator::group_mapping base_expr = Expression::generate_expression(           //
+        builder, ctx, garbage, 0, array_assignment->base_expr.get(), is_const_array //
+    );
     if (!base_expr.has_value()) {
         return false;
     }
@@ -2377,10 +2453,6 @@ bool Generator::Statement::generate_grouped_array_assignment( //
     llvm::Value *array_ptr = base_expr.value().front();
 
     // Assign all results of the expression result on their respective index in the array
-    std::optional<ArrayType *> array_type;
-    if (array_assignment->base_expr->type->to_string() != "str") {
-        array_type = array_assignment->base_expr->type->as<ArrayType>();
-    }
     const GroupType *expr_type = array_assignment->expression->type->as<GroupType>();
     for (size_t i = 0; i < array_assignment->indexing_expressions.size(); i++) {
         llvm::Value *const expression = expression_result.value().at(i);
@@ -2416,12 +2488,37 @@ bool Generator::Statement::generate_grouped_array_assignment( //
             llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(j), "idx_ptr_" + std::to_string(j));
             IR::aligned_store(builder, idx_expressions.value().at(j), idx_ptr);
         }
+        const ArrayType *const_arr_type = array_assignment->base_expr->type->as<ArrayType>();
+        const std::shared_ptr<Type> &base_type = const_arr_type->type;
+        const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), const_arr_type->type);
+        llvm::Type *const element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+        const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
         llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
-        const unsigned int element_size_bytes = Allocation::get_type_size(ctx.parent->getParent(), expression->getType());
-        llvm::Value *element_size = builder.getInt64(element_size_bytes);
-        llvm::Value *arr_value_ptr = builder.CreateCall(access_arr_fn, {array_ptr, element_size, indices}, "arr_value_ptr");
-        assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
-        const std::shared_ptr<Type> &base_type = array_type.value()->type;
+        llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
+        llvm::Value *arr_dim = nullptr;
+        llvm::Value *arr_dim_lengths = nullptr;
+        llvm::Value *arr_data = nullptr;
+        if (is_const_array) {
+            const auto &sizes = array_type.value()->sizes.value();
+            arr_dim = builder.getInt64(sizes.size());
+            for (size_t j = 0; j < sizes.size(); j++) {
+                llvm::Value *const arr_len_j_ptr = builder.CreateGEP(                                                //
+                    builder.getInt64Ty(), scratchspace, builder.getInt64(j), "arr_len_" + std::to_string(j) + "_ptr" //
+                );
+                IR::aligned_store(builder, builder.getInt64(sizes.at(j)), arr_len_j_ptr);
+            }
+            arr_dim_lengths = scratchspace;
+            arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
+        } else {
+            llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+            llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
+            arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
+            arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
+            arr_data = builder.CreateGEP(builder.getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
+        }
+        llvm::Value *const arr_value_ptr = builder.CreateCall(                                               //
+            access_arr_fn, {arr_element_size, arr_data, arr_dim, arr_dim_lengths, indices}, "access_arr_ptr" //
+        );
         if (base_type->is_freeable()) {
             // Call 'flint.clone' on the freeable type to clone the expression into the array element
             llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
