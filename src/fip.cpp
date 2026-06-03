@@ -247,10 +247,16 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const std::string type_str = type->to_string();
             if (type_str == "u8") {
                 dest->u.prim = FIP_U8;
+            } else if (type_str == "u16") {
+                dest->u.prim = FIP_U16;
             } else if (type_str == "u32") {
                 dest->u.prim = FIP_U32;
             } else if (type_str == "u64") {
                 dest->u.prim = FIP_U64;
+            } else if (type_str == "i8") {
+                dest->u.prim = FIP_I8;
+            } else if (type_str == "i16") {
+                dest->u.prim = FIP_I16;
             } else if (type_str == "i32") {
                 dest->u.prim = FIP_I32;
             } else if (type_str == "i64") {
