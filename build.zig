@@ -130,6 +130,7 @@ fn buildFLS(
             .target = target,
             .optimize = optimize,
             .link_libcpp = true,
+            .pic = true,
         }),
         .version = try .parse(FLINTC_VERSION),
     });
@@ -236,6 +237,7 @@ fn buildFlintc(
             .target = target,
             .optimize = optimize,
             .link_libcpp = true,
+            .pic = true,
         }),
         .version = try .parse(FLINTC_VERSION),
     });
@@ -368,17 +370,17 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
         b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
         "-DCMAKE_BUILD_TYPE=MinSizeRel",
         b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;cc",
+            .linux => "zig;cc;-target;x86_64-linux-musl",
             .windows => "zig;cc;-target;x86_64-windows-gnu",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_CXX_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;c++",
+            .linux => "zig;c++;-target;x86_64-linux-musl",
             .windows => "zig;c++;-target;x86_64-windows-gnu",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
         b.fmt("-DCMAKE_ASM_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;cc",
+            .linux => "zig;cc;-target;x86_64-linux-musl",
             .windows => "zig;cc;-target;x86_64-windows-gnu",
             else => return error.TargetNeedsToBeLinuxOrWindows,
         }}),
@@ -399,7 +401,6 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
         "-DLLVM_ENABLE_FFI=OFF",
         "-DLLVM_ENABLE_LIBEDIT=OFF",
         "-DLLVM_ENABLE_LIBXML2=OFF",
-        "-DLLVM_ENABLE_PIC=OFF", // To avoid "error: unsupported linker arg:", "-Bsymbolic-functions"
         "-DLLVM_ENABLE_Z3_SOLVER=OFF",
         "-DLLVM_ENABLE_ZLIB=OFF",
         "-DLLVM_ENABLE_ZSTD=OFF",
@@ -432,7 +433,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
         b.fmt("-DLLVM_PARALLEL_LINK_JOBS={d}", .{jobs}),
     });
     setup_llvm.setEnvironmentVariable("CC", "zig;cc");
-    setup_llvm.setEnvironmentVariable("CXX", "zig;cxx");
+    setup_llvm.setEnvironmentVariable("CXX", "zig;c++");
     setup_llvm.setEnvironmentVariable("ASM", "zig;cc");
     setup_llvm.setName("llvm_setup");
     setup_llvm.step.dependOn(previous_step);
@@ -722,20 +723,16 @@ fn hasInternetConnection(b: *std.Build) bool {
 fn targets(b: *std.Build) [2]std.Build.ResolvedTarget {
     return [_]std.Build.ResolvedTarget{
         b.resolveTargetQuery(.{
-            .cpu_arch = .x86_64,
             .cpu_model = .baseline,
+            .cpu_arch = .x86_64,
             .os_tag = .linux,
-            .os_version_min = .{ .semver = .{ .major = 6, .minor = 12, .patch = 0 } },
-            .abi = .gnu,
-            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
+            .abi = .musl,
         }),
         b.resolveTargetQuery(.{
-            .cpu_arch = .x86_64,
             .cpu_model = .baseline,
+            .cpu_arch = .x86_64,
             .os_tag = .windows,
-            .os_version_min = .{ .windows = .win7 },
             .abi = .gnu,
-            .glibc_version = .{ .major = 2, .minor = 40, .patch = 0 },
         }),
     };
 }
