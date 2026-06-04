@@ -484,6 +484,7 @@ fail:
         case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
             // Should be unreachable code
             assert(false);
+            break;
         case Result::ERR_HANDLED:
             // No further printing needed
             break;

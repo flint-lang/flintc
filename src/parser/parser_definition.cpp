@@ -1,5 +1,6 @@
 #include "analyzer/analyzer.hpp"
 #include "error/error_type.hpp"
+#include "error/error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
@@ -202,8 +203,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     // If its the main function, change its name
     if (name == "main") {
         if (is_declaration) {
-            // The main function is not allowed to be just a declaration
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrFnMainInvalid, ERR_PARSING, file_hash, definition);
             return std::nullopt;
         }
         if (required_data.has_value()) {
@@ -411,8 +411,10 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 for (; token_it != line_it->tokens.second - 2; ++token_it) {
                     if (token_it->token == TOK_IDENTIFIER) {
                         if (std::find(order.begin(), order.end(), token_it->lexme) != order.end()) {
-                            // The same field name is written down twice in the initializer
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(                                                         //
+                                ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash,          //
+                                token_it->line, token_it->column, std::string(token_it->lexme) //
+                            );
                             return std::nullopt;
                         }
                         order.emplace_back(token_it->lexme);
@@ -433,7 +435,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 const token_slice type_tokens = {token_it, token_it + range.value().second};
                 std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
                 if (!field_type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, type_tokens);
                     return std::nullopt;
                 }
                 token_it += range.value().second;

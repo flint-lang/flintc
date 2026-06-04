@@ -2697,7 +2697,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         case Analyzer::Result::ERR_HANDLED:
             return std::nullopt;
         case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-            THROW_BASIC_ERR(ERR_ANALYZING);
+            __builtin_unreachable();
             return std::nullopt;
     }
     return expression;

@@ -1,6 +1,7 @@
 #include "analyzer/analyzer.hpp"
 #include "debug.hpp"
 #include "error/error.hpp"
+#include "error/error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
@@ -56,8 +57,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         for (const auto &imported_file : imported_files) {
             if (imported_file->path == import_node.value().path) {
-                // The same use statement was written twice in the same file
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_hash, &import_node.value());
                 return false;
             }
         }

@@ -52,8 +52,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
         assert(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
         if (scope->variables.find(instance_var->name) == scope->variables.end()) {
-            // Instance call on nonexistent instance variable
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, instance_var->line, instance_var->column, instance_var->name);
             return std::nullopt;
         }
         if (!scope->variables.at(instance_var->name).is_mutable) {
@@ -2585,7 +2584,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         case Analyzer::Result::ERR_HANDLED:
             return std::nullopt;
         case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-            THROW_BASIC_ERR(ERR_ANALYZING);
+            __builtin_unreachable();
             return std::nullopt;
     }
     return statement_node;
