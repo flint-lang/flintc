@@ -1,21 +1,23 @@
 use Core.print
 
+entity Entity extends(Data e):
+	data;
+	Entity();
+
+	def function():
+		print("Nothing\n");
+
 data Data:
 	i32 x;
 	i32 y;
 	Data(x, y);
 
-func Func2 requires(Func d):
-	def func1():
-		print("Stuff\n");
+entity Entity2 extends(Glibber e):
+	data;
+	Entity2();
 
-func Func requires(Glibber d):
-	def func1():
-		print("Stuff\n");
-
-func Func3 requires(Func d):
-	def func1():
-		print("Stuff\n");
+	def function():
+		print("Nothing\n");
 
 def main():
 	print("Hello, World!\n");

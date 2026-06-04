@@ -1101,6 +1101,39 @@ bool Parser::resolve_all_unknown_types() {
             switch (definition->get_variation()) {
                 default:
                     break;
+                case DefinitionNode::Variation::ENTITY: {
+                    auto *entity = definition->as<EntityNode>();
+                    for (auto &parent_entity : entity->parent_entities) {
+                        switch (parent_entity.type->get_variation()) {
+                            case Type::Variation::ENTITY:
+                                // All ok
+                                break;
+                            case Type::Variation::UNKNOWN: {
+                                const UnknownType *unknown_type = parent_entity.type->as<UnknownType>();
+                                auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
+                                if (!type.has_value()) {
+                                    THROW_ERR(                                                                  //
+                                        ErrDefEntityExtendedTypeUnknown, ERR_PARSING, parser.file_hash,         //
+                                        parent_entity.line, parent_entity.column, unknown_type->type_str.size() //
+                                    );
+                                    return false;
+                                }
+                                if (type.value()->get_variation() == Type::Variation::ENTITY) {
+                                    parent_entity.type = type.value();
+                                    break;
+                                }
+                                [[fallthrough]];
+                            }
+                            default:
+                                THROW_ERR(                                                                           //
+                                    ErrDefEntityExtendedTypeNotEntity, ERR_PARSING, parser.file_hash,                //
+                                    parent_entity.line, parent_entity.column, parent_entity.type->to_string().size() //
+                                );
+                                return false;
+                        }
+                    }
+                    break;
+                }
                 case DefinitionNode::Variation::FUNC: {
                     auto *func = definition->as<FuncNode>();
                     for (auto &required_data : func->required_data) {
@@ -1526,33 +1559,6 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
     // Define a task to process a single entity
     auto process_function = [](Parser &parser, EntityNode *entity, std::vector<Line> body) -> bool {
         PROFILE_SCOPE("Process entity '" + entity->name + "'");
-        // Go through all extended entities and resolve all unknown types and ensure that the extended entities are entities at all
-        for (auto &parent_entity : entity->parent_entities) {
-            switch (parent_entity.first->get_variation()) {
-                case Type::Variation::ENTITY:
-                    // All ok
-                    break;
-                case Type::Variation::UNKNOWN: {
-                    const UnknownType *unknown_type = parent_entity.first->as<UnknownType>();
-                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
-                    if (!type.has_value()) {
-                        // Unknown type in extends clausel of entity
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return false;
-                    }
-                    if (type.value()->get_variation() == Type::Variation::ENTITY) {
-                        parent_entity.first = type.value();
-                        break;
-                    }
-                    [[fallthrough]];
-                }
-                default:
-                    // The required type is not a data type
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
-            }
-        }
-
         auto &data_modules = entity->data_modules;
         auto &func_modules = entity->func_modules;
         auto &parent_entities = entity->parent_entities;
@@ -1560,16 +1566,16 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         // Add all data modules, func modules, links and the CTDT of all parent entities to the data modules list in the order defined in
         // the `extends` definition
         std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers;
-        for (const auto &[parent_entity_type, parent_entity_accessor] : parent_entities) {
-            const EntityNode *parent_entity = parent_entity_type->as<EntityType>()->entity_node;
-            for (auto &[data_node, accessor] : parent_entity->data_modules) {
+        for (const auto &parent_entity : parent_entities) {
+            const EntityNode *parent_entity_node = parent_entity.type->as<EntityType>()->entity_node;
+            for (auto &[data_node, accessor] : parent_entity_node->data_modules) {
                 if (std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor)) == data_modules.end()) {
                     // Accessors of parents are not moved to the child, if the parent is `e` and you want to access data `d` of it you need
                     // to write `e.d` and are not able to write `d` directly.
                     data_modules.emplace_back(data_node, std::nullopt);
                 }
             }
-            for (FuncNode *func_node : parent_entity->func_modules) {
+            for (FuncNode *func_node : parent_entity_node->func_modules) {
                 if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
                     func_modules.emplace_back(func_node);
                 }
@@ -1577,19 +1583,19 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     entity->edg.add_fn(function);
                 }
             }
-            for (const auto &[src_id, dest_id] : parent_entity->edg.get_all_mappings()) {
+            for (const auto &[src_id, dest_id] : parent_entity_node->edg.get_all_mappings()) {
                 if (entity->edg.add_mapping(src_id, dest_id)) {
                     // Mapping already present in entity, maybe from different parent entity?
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
             }
-            if (captured_entity_identifiers.find(parent_entity_accessor) != captured_entity_identifiers.end()) {
+            if (captured_entity_identifiers.find(parent_entity.accessor_name) != captured_entity_identifiers.end()) {
                 // This entity identifier is already taken
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
-            captured_entity_identifiers[parent_entity_accessor] = parent_entity_type;
+            captured_entity_identifiers[parent_entity.accessor_name] = parent_entity.type;
         }
 
         // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
@@ -1854,15 +1860,15 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     if (!parent_entities.empty()) {
                         // Search if the identifier is one of the parent entities' accessors
                         bool parent_added = false;
-                        for (const auto &[parent_entity_type, accessor] : parent_entities) {
-                            const EntityNode *parent_entity = parent_entity_type->as<EntityType>()->entity_node;
-                            if (identifier == accessor) {
+                        for (const auto &parent_entity : parent_entities) {
+                            const EntityNode *parent_entity_node = parent_entity.type->as<EntityType>()->entity_node;
+                            if (identifier == parent_entity.accessor_name) {
                                 // For now we simply add the parent's data modules to the data constructor list and to the data modules of
                                 // this entity. If any data module is defined duplicately afterwards (explicit, below) then an error will be
                                 // thrown. If duplicates arise from extended entities then it is simply skipped to the next token iteration
                                 // TODO: Update change the constructors of extended entities to be required to pass in an entity at the
                                 // position of the extended entity accessor. For now the simpler approach is chosen.
-                                for (const auto &[data_node, data_accessor] : parent_entity->data_modules) {
+                                for (const auto &[data_node, data_accessor] : parent_entity_node->data_modules) {
                                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
                                         // Duplicate data constructor
                                         THROW_BASIC_ERR(ERR_PARSING);
@@ -2051,12 +2057,12 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             node.parser = &parser;
             node.entity = entity;
             node.body = std::move(body);
-            for (auto &[parent_type, accessor_name] : entity->parent_entities) {
-                if (parent_type->get_variation() == Type::Variation::UNKNOWN) {
-                    const std::string &unknown_type_str = parent_type->as<UnknownType>()->type_str;
-                    parent_type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type_str).value();
+            for (auto &parent : entity->parent_entities) {
+                if (parent.type->get_variation() == Type::Variation::UNKNOWN) {
+                    const std::string &unknown_type_str = parent.type->as<UnknownType>()->type_str;
+                    parent.type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type_str).value();
                 }
-                const EntityNode *parent_entity = parent_type->as<EntityType>()->entity_node;
+                const EntityNode *parent_entity = parent.type->as<EntityType>()->entity_node;
                 const std::string parent_key = parent_entity->file_hash.to_string() + "." + parent_entity->name;
                 node.parents.emplace_back(parent_key);
                 DepNode &parent_node = get_or_create_node(parent_key);

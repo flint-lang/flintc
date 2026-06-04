@@ -14,14 +14,21 @@
 /// @brief Represents entities and their func / data relationships
 class EntityNode : public DefinitionNode {
   public:
-    explicit EntityNode(                                                                  //
-        const Hash &file_hash,                                                            //
-        const unsigned int line,                                                          //
-        const unsigned int column,                                                        //
-        const unsigned int length,                                                        //
-        const std::string &name,                                                          //
-        const std::vector<FunctionNode *> &functions,                                     //
-        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &parent_entities //
+    struct ParentEntity {
+        std::shared_ptr<Type> type;
+        std::string accessor_name;
+        size_t line;
+        size_t column;
+    };
+
+    explicit EntityNode(                                 //
+        const Hash &file_hash,                           //
+        const unsigned int line,                         //
+        const unsigned int column,                       //
+        const unsigned int length,                       //
+        const std::string &name,                         //
+        const std::vector<FunctionNode *> &functions,    //
+        const std::vector<ParentEntity> &parent_entities //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
@@ -59,9 +66,8 @@ class EntityNode : public DefinitionNode {
     std::vector<FunctionNode *> functions;
 
     /// @var `parent_entities`
-    /// @brief The parent entities, whose data and func modules and link modules will be used. The first value in the pair is the parent
-    /// entity type itself, the second value is it's accessor name
-    std::vector<std::pair<std::shared_ptr<Type>, std::string>> parent_entities;
+    /// @brief The parent entities, whose data and func modules and link modules will be used.
+    std::vector<ParentEntity> parent_entities;
 
     /// @var `constructor_order`
     /// @brief The order of the data modules in which they have to be constructed

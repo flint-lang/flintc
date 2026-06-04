@@ -624,7 +624,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
     assert(tok_it->token == TOK_IDENTIFIER);
     const std::string entity_name(tok_it->lexme);
     tok_it++;
-    std::vector<std::pair<std::shared_ptr<Type>, std::string>> parent_entities;
+    std::vector<EntityNode::ParentEntity> parent_entities;
     if (tok_it->token == TOK_EXTENDS) {
         tok_it++;
         assert(tok_it->token == TOK_LEFT_PAREN);
@@ -635,16 +635,24 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
             if (!extended_entity_type.has_value()) {
                 return std::nullopt;
             }
-            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY &&
-                extended_entity_type.value()->get_variation() != Type::Variation::UNKNOWN) {
-                // Entities are only allowed to be extended from other entities
-                THROW_BASIC_ERR(ERR_PARSING);
+            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY     //
+                && extended_entity_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            ) {
+                THROW_ERR(                                                                         //
+                    ErrDefEntityExtendedTypeNotEntity, ERR_PARSING, file_hash,                     //
+                    tok_it->line, tok_it->column, extended_entity_type.value()->to_string().size() //
+                );
                 return std::nullopt;
             }
             // The next token is the extended entity accessor name
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
-            parent_entities.emplace_back(extended_entity_type.value(), access_name);
+            parent_entities.emplace_back(EntityNode::ParentEntity{
+                .type = extended_entity_type.value(),
+                .accessor_name = access_name,
+                .line = tok_it->line,
+                .column = tok_it->column,
+            });
             tok_it += 2;
         }
         assert(tok_it != definition.second);
