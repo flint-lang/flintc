@@ -1689,9 +1689,18 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     } else {
         // This entity does not provide any data on it's own. This is fine if it extends another entity, otherwise this would be an
         // error
-        assert(tok_it->token == TOK_SEMICOLON);
-        assert(!parent_entities.empty());
-        assert(!data_modules.empty());
+        if (tok_it->token != TOK_SEMICOLON) {
+            THROW_ERR(                                                                                    //
+                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                    //
+                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON, TOK_SEMICOLON}, tok_it->token //
+            );
+            return false;
+        }
+        // An entity can only be extended when it contains data itself, which means if we have parents, we *definitely* have data too.
+        if (parent_entities.empty()) {
+            THROW_ERR(ErrDefEntityNoData, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+            return false;
+        }
         line_it++;
         tok_it = line_it->tokens.first;
     }

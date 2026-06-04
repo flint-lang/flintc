@@ -1,23 +1,11 @@
 use Core.print
 
-entity Entity extends(Data e):
+entity E2:
 	data;
-	Entity();
+	E2();
 
-	def function():
-		print("Nothing\n");
-
-data Data:
-	i32 x;
-	i32 y;
-	Data(x, y);
-
-entity Entity2 extends(Glibber e):
-	data;
-	Entity2();
-
-	def function():
-		print("Nothing\n");
+	def f2():
+		print("f2\n");
 
 def main():
 	print("Hello, World!\n");
