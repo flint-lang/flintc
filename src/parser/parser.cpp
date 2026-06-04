@@ -1580,8 +1580,6 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
         for (const auto &[src_id, dest_id] : parent_entity_node->edg.get_all_mappings()) {
             if (entity->edg.add_mapping(src_id, dest_id)) {
-                // Mapping already present in entity, maybe from different parent entity?
-                THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
         }

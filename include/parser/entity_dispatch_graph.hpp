@@ -67,7 +67,11 @@ struct EntityDispatchGraph {
         Node &src_node = nodes.at(src);
         Node dest_node = nodes.at(dest);
         if (src_node.next.has_value()) {
-            // Src ID is already mapped to other function
+            if (get_mapped_fn(src) == dest) {
+                // Nothing to do, mapping already exists
+                return false;
+            }
+            // Src ID is already mapped to other function than 'dest'. Mapping one 'src' to multiple 'dest' is not allowed
             THROW_BASIC_ERR(ERR_PARSING);
             return true;
         }
