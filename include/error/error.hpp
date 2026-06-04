@@ -24,6 +24,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_duplicate_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_duplicate_func.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_duplicate_parent.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_duplicate_parent_accessor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_extended_type_not_entity.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_extended_type_unknown.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_link_name_mismatch.hpp"

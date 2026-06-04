@@ -1584,8 +1584,11 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
         }
         if (captured_entity_identifiers.find(parent_entity.accessor_name) != captured_entity_identifiers.end()) {
-            // This entity identifier is already taken
-            THROW_BASIC_ERR(ERR_PARSING);
+            const size_t type_len = parent_entity.type->to_string().size() + 1;
+            THROW_ERR(                                                                           //
+                ErrDefEntityDuplicateParentAccessor, ERR_PARSING, parser.file_hash,              //
+                parent_entity.line, parent_entity.column + type_len, parent_entity.accessor_name //
+            );
             return false;
         }
         captured_entity_identifiers[parent_entity.accessor_name] = parent_entity.type;
