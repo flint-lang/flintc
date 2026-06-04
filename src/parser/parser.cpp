@@ -1872,18 +1872,14 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                             // position of the extended entity accessor. For now the simpler approach is chosen.
                             for (const auto &[data_node, data_accessor] : parent_entity_node->data_modules) {
                                 if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                                    // Duplicate data constructor
-                                    THROW_BASIC_ERR(ERR_PARSING);
-                                    return false;
+                                    // Duplicate data constructor from another parent entity, skip it
+                                    continue;
                                 }
                                 constructed_data.emplace_back(data_node);
                                 auto idx = std::find(                                                                 //
                                     data_modules.begin(), data_modules.end(), std::make_pair(data_node, std::nullopt) //
                                 );
-                                if (idx == data_modules.end()) {
-                                    THROW_BASIC_ERR(ERR_PARSING);
-                                    return false;
-                                }
+                                assert(idx != data_modules.end());
                                 entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                             }
                             parent_added = true;

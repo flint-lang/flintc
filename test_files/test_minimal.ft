@@ -9,7 +9,7 @@ func Interface:
 	def print();
 
 func Func requires(Data d):
-	print():
+	def print():
 		print($"d.(x, y) = {d.(x, y)}\n");
 
 entity E1:
