@@ -650,6 +650,13 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 );
                 return std::nullopt;
             }
+            // Check if this entity type is already present in the extension list
+            for (const auto &pe : parent_entities) {
+                if (pe.type->equals(extended_entity_type.value())) {
+                    THROW_ERR(ErrDefEntityDuplicateParent, ERR_PARSING, file_hash, tok_it->line, tok_it->column, pe.type->to_string());
+                    return std::nullopt;
+                }
+            }
             // The next token is the extended entity accessor name
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
