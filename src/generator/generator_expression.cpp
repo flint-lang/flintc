@@ -620,6 +620,63 @@ void Generator::Expression::convert_type_to_ext( //
     }
 }
 
+/// @function `expand_type_with_path`
+/// @brief Recursively expands array types into scalar elements, recording the full GEP path for each.
+///        Struct fields like `[3 x float]` produce 3 scalar entries, each with a GEP path
+///        (e.g. `{0, 0, 0}`, `{0, 0, 1}`, `{0, 0, 2}`) so the emission phase can issue correct
+///        `getelementptr` into the array rather than treating each as a separate struct field.
+///
+/// @param `t` The LLVM type to expand (may be an array or scalar).
+/// @param `path` The GEP indices accumulated from outer arrays, including the leading `0` for struct dereference and ending with the
+///               current struct field index.
+/// @param `elem_types` Output: flat list of scalar element types.
+/// @param `elem_gep_path` Output: `elem_gep_path[i]` is the complete GEP index list for `elem_types[i]`, usable directly with `CreateGEP`.
+static void expand_type_with_path(                  //
+    llvm::Type *const t,                            //
+    std::vector<size_t> path,                       //
+    std::vector<llvm::Type *> &elem_types,          //
+    std::vector<std::vector<size_t>> &elem_gep_path //
+) {
+    if (llvm::ArrayType *const arr_ty = llvm::dyn_cast<llvm::ArrayType>(t)) {
+        for (size_t j = 0; j < arr_ty->getNumElements(); j++) {
+            auto child_path = path;
+            child_path.push_back(j);
+            expand_type_with_path(arr_ty->getElementType(), std::move(child_path), elem_types, elem_gep_path);
+        }
+    } else {
+        elem_types.push_back(t);
+        elem_gep_path.push_back(std::move(path));
+    }
+}
+
+/// @function `create_expanded_gep`
+/// @brief Emits a `getelementptr` using the pre-computed GEP path for an expanded array element.
+///        This replaces a `CreateStructGEP` call when the element index refers to an array field
+///        that was expanded by `expand_type_with_path`. For a `{ [3 x float] }` struct, elem 1
+///        (which is `float` in the expanded view) maps to the GEP path `{0, 0, 1}` — field 0 of
+///        the struct, element 1 of the array.
+///
+/// @param `builder` The LLVM IR Builder.
+/// @param `struct_type` The LLVM struct type (e.g. `{ [3 x float] }`).
+/// @param `ptr` Pointer to the struct value.
+/// @param `elem_gep_path` The mapping built by `expand_type_with_path`.
+/// @param `idx` Index into `elem_gep_path` (the expanded element index).
+/// @return `llvm::Value *` Pointer to the scalar element at the expanded index.
+static llvm::Value *create_expanded_gep(                   //
+    llvm::IRBuilder<> &builder,                            //
+    llvm::Type *struct_type,                               //
+    llvm::Value *ptr,                                      //
+    const std::vector<std::vector<size_t>> &elem_gep_path, //
+    size_t idx                                             //
+) {
+    std::vector<llvm::Value *> indices;
+    indices.reserve(elem_gep_path[idx].size());
+    for (size_t i : elem_gep_path[idx]) {
+        indices.push_back(builder.getInt32(i));
+    }
+    return builder.CreateGEP(struct_type, ptr, indices);
+}
+
 void Generator::Expression::convert_data_type_to_ext( //
     llvm::IRBuilder<> &builder,                       //
     GenerationContext &ctx,                           //
@@ -650,8 +707,15 @@ void Generator::Expression::convert_data_type_to_ext( //
     // applies
     // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
     // sub-64-byte packed results like packing 5 u8 values into one i40.
-    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    llvm::StructType *const struct_type = llvm::cast<llvm::StructType>(_struct_type);
+    std::vector<llvm::Type *> elem_types;
+    std::vector<std::vector<size_t>> elem_gep_path;
+    size_t field_idx = 0;
+    for (llvm::Type *const elem : struct_type->elements()) {
+        expand_type_with_path(elem, {0u, field_idx}, elem_types, elem_gep_path);
+        field_idx++;
+    }
+
     std::array<std::stack<unsigned int>, 2> stacks;
     unsigned int offset = 0;
     unsigned int first_size = 0;
@@ -710,6 +774,7 @@ void Generator::Expression::convert_data_type_to_ext( //
     }
     assert(elem_idx == elem_types.size());
     elem_idx = 0;
+
     // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
     if (stacks[1].empty()) {
         // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
@@ -717,7 +782,7 @@ void Generator::Expression::convert_data_type_to_ext( //
         if (stacks[0].size() == first_size) {
             llvm::Value *result = builder.getIntN(first_size * 8, 0);
             for (; elem_idx < elem_types.size(); elem_idx++) {
-                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+                llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
                 llvm::Value *elem = IR::aligned_load(builder, builder.getInt8Ty(), elem_ptr);
                 // We now need to store the `elem` byte at the `elem_idx`th byte in the `result` integer. I think we can achieve this by
                 // just extending the single byte to the integer type, then bit shifting the whole number for elem_idx elements and then
@@ -747,7 +812,7 @@ void Generator::Expression::convert_data_type_to_ext( //
     elem_idx = 0;
     const size_t stacks_0_size = stacks[0].size();
     if (stacks[0].size() == 1) {
-        llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+        llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
         llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
         args.emplace_back(elem);
         elem_idx++;
@@ -756,11 +821,11 @@ void Generator::Expression::convert_data_type_to_ext( //
             // We can create a single `<2 x float>` vector as the argument
             llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
             llvm::Value *result = IR::get_default_value_of_type(vec2_type);
-            llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_1_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
             llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
             result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
             elem_idx++;
-            llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_2_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
             llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
             result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
             args.emplace_back(result);
@@ -773,7 +838,7 @@ void Generator::Expression::convert_data_type_to_ext( //
         llvm::Value *result = builder.getInt64(0);
         for (; elem_idx < stacks_0_size; elem_idx++) {
             const size_t actual_elem_idx = stacks_0_size - elem_idx - 1;
-            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+            llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, actual_elem_idx);
             llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
             if (elem->getType()->isFloatTy()) {
                 elem = builder.CreateBitCast(elem, builder.getInt32Ty());
@@ -792,7 +857,7 @@ void Generator::Expression::convert_data_type_to_ext( //
         assert(stacks[0].empty());
     }
     if (stacks[1].size() == 1) {
-        llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+        llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
         llvm::Value *elem = IR::aligned_load(builder, elem_types.at(elem_idx), elem_ptr);
         args.emplace_back(elem);
         elem_idx++;
@@ -801,11 +866,11 @@ void Generator::Expression::convert_data_type_to_ext( //
             // We can create a single `<2 x float>` vector as the argument
             llvm::Type *vec2_type = llvm::VectorType::get(elem_types.at(elem_idx), 2, false);
             llvm::Value *result = IR::get_default_value_of_type(vec2_type);
-            llvm::Value *elem_1_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_1_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
             llvm::Value *elem_1 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_1_ptr);
             result = builder.CreateInsertElement(result, elem_1, static_cast<size_t>(0));
             elem_idx++;
-            llvm::Value *elem_2_ptr = builder.CreateStructGEP(_struct_type, value, elem_idx);
+            llvm::Value *elem_2_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, elem_idx);
             llvm::Value *elem_2 = IR::aligned_load(builder, elem_types.at(elem_idx), elem_2_ptr);
             result = builder.CreateInsertElement(result, elem_2, static_cast<size_t>(1));
             args.emplace_back(result);
@@ -819,7 +884,7 @@ void Generator::Expression::convert_data_type_to_ext( //
         const size_t stack_size = stacks[1].size();
         for (; elem_idx < stacks_0_size + stack_size; elem_idx++) {
             const size_t actual_elem_idx = stacks_0_size * 2 + stack_size - elem_idx - 1;
-            llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, value, actual_elem_idx);
+            llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, value, elem_gep_path, actual_elem_idx);
             llvm::Value *elem = IR::aligned_load(builder, elem_types.at(actual_elem_idx), elem_ptr);
             if (elem->getType()->isFloatTy()) {
                 elem = builder.CreateBitCast(elem, builder.getInt32Ty());
@@ -1015,7 +1080,13 @@ void Generator::Expression::convert_data_type_from_ext( //
     // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
     // sub-64-byte packed results like packing 5 u8 values into one i40.
     llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    std::vector<llvm::Type *> elem_types;
+    std::vector<std::vector<size_t>> elem_gep_path;
+    size_t field_idx = 0;
+    for (llvm::Type *const elem : struct_type->elements()) {
+        expand_type_with_path(elem, {0u, field_idx}, elem_types, elem_gep_path);
+        field_idx++;
+    }
     std::array<std::stack<unsigned int>, 2> stacks;
     unsigned int offset = 0;
     unsigned int first_size = 0;
@@ -1074,6 +1145,7 @@ void Generator::Expression::convert_data_type_from_ext( //
     }
     assert(elem_idx == elem_types.size());
     elem_idx = 0;
+
     // Now we reach the second phase, we have figured out where to put the elements in the respective chunks
     if (stacks[1].empty()) {
         // Special case for when the number of elements in the first stack is equal to the size of the first structure. This means that
@@ -1084,7 +1156,7 @@ void Generator::Expression::convert_data_type_from_ext( //
                 llvm::Value *elem_shift = builder.CreateLShr(value, elem_idx * 8);
                 // Now we truncate the result to get the single element which we can store in the output structure
                 llvm::Value *elem = builder.CreateTrunc(elem_shift, builder.getInt8Ty());
-                llvm::Value *elem_ptr = builder.CreateStructGEP(_struct_type, result_ptr, elem_idx);
+                llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
                 IR::aligned_store(builder, elem, elem_ptr);
             }
             value = result_ptr;
@@ -1098,7 +1170,7 @@ void Generator::Expression::convert_data_type_from_ext( //
     const size_t stacks_0_size = stacks[0].size();
     if (stacks[0].size() == 1) {
         llvm::Value *elem = builder.CreateExtractValue(value, 0);
-        llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+        llvm::Value *res_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
         IR::aligned_store(builder, elem, res_ptr);
         elem_idx++;
     } else if (stacks[0].size() == 2) {
@@ -1107,12 +1179,12 @@ void Generator::Expression::convert_data_type_from_ext( //
             llvm::Value *vec_val = builder.CreateExtractValue(value, 0);
 
             llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-            llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            llvm::Value *elem_1_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
             IR::aligned_store(builder, elem_1, elem_1_ptr);
             elem_idx++;
 
             llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-            llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            llvm::Value *elem_2_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
             IR::aligned_store(builder, elem_2, elem_2_ptr);
             elem_idx++;
         } else {
@@ -1133,7 +1205,7 @@ void Generator::Expression::convert_data_type_from_ext( //
                 elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
             }
             // Bitwise or with the result to form the new result contianing the shifted element in it
-            llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+            llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, actual_elem_idx);
             IR::aligned_store(builder, elem_smol, elem_ptr);
             stacks[0].pop();
         }
@@ -1141,7 +1213,7 @@ void Generator::Expression::convert_data_type_from_ext( //
     }
     if (stacks[1].size() == 1) {
         llvm::Value *elem = builder.CreateExtractValue(value, 1);
-        llvm::Value *res_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+        llvm::Value *res_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
         IR::aligned_store(builder, elem, res_ptr);
         elem_idx++;
     } else if (stacks[1].size() == 2) {
@@ -1150,12 +1222,12 @@ void Generator::Expression::convert_data_type_from_ext( //
             llvm::Value *vec_val = builder.CreateExtractValue(value, 1);
 
             llvm::Value *elem_1 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-            llvm::Value *elem_1_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            llvm::Value *elem_1_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
             IR::aligned_store(builder, elem_1, elem_1_ptr);
             elem_idx++;
 
             llvm::Value *elem_2 = builder.CreateExtractElement(vec_val, static_cast<size_t>(elem_idx));
-            llvm::Value *elem_2_ptr = builder.CreateStructGEP(struct_type, result_ptr, elem_idx);
+            llvm::Value *elem_2_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, elem_idx);
             IR::aligned_store(builder, elem_2, elem_2_ptr);
             elem_idx++;
         } else {
@@ -1177,7 +1249,7 @@ void Generator::Expression::convert_data_type_from_ext( //
                 elem_smol = builder.CreateTrunc(elem_big, elem_types.at(actual_elem_idx));
             }
             // Bitwise or with the result to form the new result contianing the shifted element in it
-            llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, result_ptr, actual_elem_idx);
+            llvm::Value *elem_ptr = create_expanded_gep(builder, _struct_type, result_ptr, elem_gep_path, actual_elem_idx);
             IR::aligned_store(builder, elem_smol, elem_ptr);
             stacks[1].pop();
         }

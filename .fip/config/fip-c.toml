@@ -1,2 +1,7 @@
 [raylib]
 headers = ["/usr/include/raylib.h"]
+
+[c]
+headers = ["test_files/extern.h"]
+sources = ["test_files/extern.h"]
+command = ["clang", "-c", "-x", "c", "__SOURCES__", "-o", "__OUTPUT__"]

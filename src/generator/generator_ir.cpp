@@ -395,6 +395,24 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
     }
 }
 
+/// @brief Recursively expands array types into their scalar element types.
+///        Used by `get_extern_type` to flatten struct fields like `[3 x float]`
+///        into individual `float` entries for the extern ABI packing algorithm.
+///        Unlike `expand_type_with_path` in `generator_expression.cpp`, this does
+///        not track GEP paths since `get_extern_type` only computes the packed
+///        return type and never emits GEP instructions.
+///
+/// @param `t` The LLVM type to expand (array or scalar).
+/// @param `elem_types` Output: flat list of scalar element types.
+static void expand_type(llvm::Type *const t, std::vector<llvm::Type *> &elem_types) {
+    if (llvm::ArrayType *const arr_ty = llvm::dyn_cast<llvm::ArrayType>(t)) {
+        for (size_t j = 0; j < arr_ty->getNumElements(); j++)
+            expand_type(arr_ty->getElementType(), elem_types);
+    } else {
+        elem_types.push_back(t);
+    }
+}
+
 std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     llvm::Module *module,                                   //
     const std::shared_ptr<Type> &type                       //
@@ -593,7 +611,10 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
     // sub-64-byte packed results like packing 5 u8 values into one i40.
     llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
-    std::vector<llvm::Type *> elem_types = struct_type->elements();
+    std::vector<llvm::Type *> elem_types;
+    for (llvm::Type *const elem : struct_type->elements()) {
+        expand_type(elem, elem_types);
+    }
     std::array<std::stack<unsigned int>, 2> stacks;
     unsigned int offset = 0;
     unsigned int first_size = 0;

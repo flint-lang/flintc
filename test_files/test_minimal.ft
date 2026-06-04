@@ -1,13 +1,14 @@
 use Core.print
 
-data Vector4:
-	f32[4] values;
-	Vector4(values);
+use Fip.c as c
 
 def main():
-	v := Vector4(f32[4](0.0));
-	v.values[1] = 1.0;
-	v.values[2] = 4.0;
-	v.values[3] = 9.0;
-	for (i, elem) in v.values:
-		print($"v.values[{i}] = {elem}\n");
+	c.Vec3 v1 = c.Vec3(f32[3](0.0));
+	v1.values.[0, 1, 2] = (10.0, 20.0, 30.0);
+
+	c.Vec3 v2 = c.Vec3(f32[3](0.0));
+	v2.values.[0, 1, 2] = (50.0, 20.0, 40.0);
+
+	c.add(&v1, v2);
+	for (i, elem) in v1.values:
+		print($"v1.values[{i}] = {elem}\n");

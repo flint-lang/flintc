@@ -239,6 +239,24 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         default:
             // Unsupported type, return false
             return false;
+        case Type::Variation::ARRAY: {
+            const auto *type = src->as<ArrayType>();
+            if (!type->sizes.has_value()) {
+                // Only static arrays are allowed, dynamic arrays are not allowed
+                return false;
+            }
+            size_t size = 1;
+            for (const size_t len : type->sizes.value()) {
+                size *= len;
+            }
+            dest->type = FIP_TYPE_ARRAY;
+            dest->u.array.size = size;
+            dest->u.array.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+            if (!convert_type(dest->u.array.base_type, type->type, is_mutable)) {
+                return false;
+            }
+            break;
+        }
         case Type::Variation::PRIMITIVE: {
             const auto *type = src->as<PrimitiveType>();
             dest->type = FIP_TYPE_PRIMITIVE;
@@ -273,7 +291,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
                 // Unknown primitive type
                 return false;
             }
-            return true;
+            break;
         }
         case Type::Variation::MULTI: {
             const auto *type = src->as<MultiType>();
@@ -286,7 +304,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
                     return false;
                 }
             }
-            return true;
+            break;
         }
         case Type::Variation::DATA: {
             const auto *type = src->as<DataType>();
@@ -300,7 +318,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
                     return false;
                 }
             }
-            return true;
+            break;
         }
         case Type::Variation::TUPLE: {
             const auto *type = src->as<TupleType>();
@@ -313,7 +331,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
                     return false;
                 }
             }
-            return true;
+            break;
         }
         case Type::Variation::OPAQUE: {
             dest->type = FIP_TYPE_PTR;
@@ -321,7 +339,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             dest->u.ptr.base_type->type = FIP_TYPE_PRIMITIVE;
             dest->u.ptr.base_type->is_mutable = true;
             dest->u.ptr.base_type->u.prim = FIP_VOID;
-            return true;
+            break;
         }
         case Type::Variation::POINTER: {
             const auto *type = src->as<PointerType>();
@@ -331,7 +349,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             if (!convert_type(dest->u.ptr.base_type, type->base_type, is_mutable)) {
                 return false;
             }
-            return true;
+            break;
         }
         case Type::Variation::ENUM: {
             const auto *type = src->as<EnumType>();
@@ -346,9 +364,10 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             for (size_t i = 0; i < enum_node->values.size(); i++) {
                 dest->u.enum_t.values[i] = enum_node->values.at(i).second;
             }
-            return true;
+            break;
         }
     }
+    return true;
 }
 
 bool FIP::resolve_function(FunctionNode *function) {
@@ -798,6 +817,13 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             file << "}";
             break;
         }
+        case FIP_TYPE_ARRAY:
+            const fip_type_array_t *a = &type->u.array;
+            generate_fip_type(a->base_type, file, false);
+            file << "[";
+            file << std::to_string(a->size);
+            file << "]";
+            break;
     }
 }
 

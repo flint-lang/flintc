@@ -115,11 +115,47 @@ data MaterialMap:
 	f32 value;
 	MaterialMap(texture, color, value);
 
+data Material:
+	Shader shader;
+	MaterialMap maps;
+	f32[4] params;
+	Material(shader, maps, params);
+
 data Transform:
 	Vector3 translation;
 	Vector4 rotation;
 	Vector3 scale;
 	Transform(translation, rotation, scale);
+
+data BoneInfo:
+	i8[32] name;
+	i32 parent;
+	BoneInfo(name, parent);
+
+data ModelSkeleton:
+	i32 boneCount;
+	BoneInfo bones;
+	Transform bindPose;
+	ModelSkeleton(boneCount, bones, bindPose);
+
+data Model:
+	Matrix transform;
+	i32 meshCount;
+	i32 materialCount;
+	Mesh meshes;
+	Material materials;
+	i32 meshMaterial;
+	ModelSkeleton skeleton;
+	Transform currentPose;
+	Matrix boneMatrices;
+	Model(transform, meshCount, materialCount, meshes, materials, meshMaterial, skeleton, currentPose, boneMatrices);
+
+data ModelAnimation:
+	i8[32] name;
+	i32 boneCount;
+	i32 keyframeCount;
+	Transform[] keyframePoses;
+	ModelAnimation(name, boneCount, keyframeCount, keyframePoses);
 
 data Ray:
 	Vector3 position;
@@ -146,10 +182,66 @@ data Wave:
 	opaque _data;
 	Wave(frameCount, sampleRate, sampleSize, channels, _data);
 
+data AudioStream:
+	opaque buffer;
+	opaque processor;
+	u32 sampleRate;
+	u32 sampleSize;
+	u32 channels;
+	AudioStream(buffer, processor, sampleRate, sampleSize, channels);
+
+data Sound:
+	AudioStream stream;
+	u32 frameCount;
+	Sound(stream, frameCount);
+
+data Music:
+	AudioStream stream;
+	u32 frameCount;
+	bool looping;
+	i32 ctxType;
+	opaque ctxData;
+	Music(stream, frameCount, looping, ctxType, ctxData);
+
+data VrDeviceInfo:
+	i32 hResolution;
+	i32 vResolution;
+	f32 hScreenSize;
+	f32 vScreenSize;
+	f32 eyeToScreenDistance;
+	f32 lensSeparationDistance;
+	f32 interpupillaryDistance;
+	f32[4] lensDistortionValues;
+	f32[4] chromaAbCorrection;
+	VrDeviceInfo(hResolution, vResolution, hScreenSize, vScreenSize, eyeToScreenDistance, lensSeparationDistance, interpupillaryDistance, lensDistortionValues, chromaAbCorrection);
+
+data VrStereoConfig:
+	Matrix[2] projection;
+	Matrix[2] viewOffset;
+	f32[2] leftLensCenter;
+	f32[2] rightLensCenter;
+	f32[2] leftScreenCenter;
+	f32[2] rightScreenCenter;
+	f32[2] scale;
+	f32[2] scaleIn;
+	VrStereoConfig(projection, viewOffset, leftLensCenter, rightLensCenter, leftScreenCenter, rightScreenCenter, scale, scaleIn);
+
 data FilePathList:
 	u32 count;
 	str paths;
 	FilePathList(count, paths);
+
+data AutomationEvent:
+	u32 frame;
+	u32 _type;
+	i32[4] params;
+	AutomationEvent(frame, _type, params);
+
+data AutomationEventList:
+	u32 capacity;
+	u32 count;
+	AutomationEvent events;
+	AutomationEventList(capacity, count, events);
 
 enum ConfigFlags:
 	FLAG_VSYNC_HINT = 64,
@@ -568,7 +660,10 @@ extern def BeginBlendMode(mut i32 mode);
 extern def EndBlendMode();
 extern def BeginScissorMode(mut i32 x, mut i32 y, mut i32 width, mut i32 height);
 extern def EndScissorMode();
+extern def BeginVrStereoMode(mut VrStereoConfig config);
 extern def EndVrStereoMode();
+extern def LoadVrStereoConfig(mut VrDeviceInfo device) -> VrStereoConfig;
+extern def UnloadVrStereoConfig(mut VrStereoConfig config);
 extern def LoadShader(const str vsFileName, const str fsFileName) -> Shader;
 extern def LoadShaderFromMemory(const str vsCode, const str fsCode) -> Shader;
 extern def IsShaderValid(mut Shader shader) -> bool;
@@ -651,9 +746,14 @@ extern def ComputeCRC32(mut u8* _data, mut i32 dataSize) -> u32;
 extern def ComputeMD5(mut u8* _data, mut i32 dataSize) -> u32*;
 extern def ComputeSHA1(mut u8* _data, mut i32 dataSize) -> u32*;
 extern def ComputeSHA256(mut u8* _data, mut i32 dataSize) -> u32*;
+extern def LoadAutomationEventList(const str fileName) -> AutomationEventList;
+extern def UnloadAutomationEventList(mut AutomationEventList list);
+extern def ExportAutomationEventList(mut AutomationEventList list, const str fileName) -> bool;
+extern def SetAutomationEventList(mut AutomationEventList* list);
 extern def SetAutomationEventBaseFrame(mut i32 frame);
 extern def StartAutomationEventRecording();
 extern def StopAutomationEventRecording();
+extern def PlayAutomationEvent(mut AutomationEvent event);
 extern def IsKeyPressed(mut i32 key) -> bool;
 extern def IsKeyPressedRepeat(mut i32 key) -> bool;
 extern def IsKeyDown(mut i32 key) -> bool;
@@ -967,6 +1067,15 @@ extern def DrawCapsuleWires(mut Vector3 startPos, mut Vector3 endPos, mut f32 ra
 extern def DrawPlane(mut Vector3 centerPos, mut Vector2 size, mut Color color);
 extern def DrawRay(mut Ray ray, mut Color color);
 extern def DrawGrid(mut i32 slices, mut f32 spacing);
+extern def LoadModel(const str fileName) -> Model;
+extern def LoadModelFromMesh(mut Mesh mesh) -> Model;
+extern def IsModelValid(mut Model model) -> bool;
+extern def UnloadModel(mut Model model);
+extern def GetModelBoundingBox(mut Model model) -> BoundingBox;
+extern def DrawModel(mut Model model, mut Vector3 position, mut f32 scale, mut Color tint);
+extern def DrawModelEx(mut Model model, mut Vector3 position, mut Vector3 rotationAxis, mut f32 rotationAngle, mut Vector3 scale, mut Color tint);
+extern def DrawModelWires(mut Model model, mut Vector3 position, mut f32 scale, mut Color tint);
+extern def DrawModelWiresEx(mut Model model, mut Vector3 position, mut Vector3 rotationAxis, mut f32 rotationAngle, mut Vector3 scale, mut Color tint);
 extern def DrawBoundingBox(mut BoundingBox box, mut Color color);
 extern def DrawBillboard(mut Camera3D camera, mut Texture texture, mut Vector3 position, mut f32 scale, mut Color tint);
 extern def DrawBillboardRec(mut Camera3D camera, mut Texture texture, mut Rectangle source, mut Vector3 position, mut Vector2 size, mut Color tint);
@@ -974,6 +1083,8 @@ extern def DrawBillboardPro(mut Camera3D camera, mut Texture texture, mut Rectan
 extern def UploadMesh(mut Mesh* mesh, mut bool dynamic);
 extern def UpdateMeshBuffer(mut Mesh mesh, mut i32 index, const opaque _data, mut i32 dataSize, mut i32 offset);
 extern def UnloadMesh(mut Mesh mesh);
+extern def DrawMesh(mut Mesh mesh, mut Material material, mut Matrix transform);
+extern def DrawMeshInstanced(mut Mesh mesh, mut Material material, const Matrix* transforms, mut i32 instances);
 extern def GetMeshBoundingBox(mut Mesh mesh) -> BoundingBox;
 extern def GenMeshTangents(mut Mesh* mesh);
 extern def ExportMesh(mut Mesh mesh, const str fileName) -> bool;
@@ -989,6 +1100,17 @@ extern def GenMeshTorus(mut f32 radius, mut f32 size, mut i32 radSeg, mut i32 si
 extern def GenMeshKnot(mut f32 radius, mut f32 size, mut i32 radSeg, mut i32 sides) -> Mesh;
 extern def GenMeshHeightmap(mut Image heightmap, mut Vector3 size) -> Mesh;
 extern def GenMeshCubicmap(mut Image cubicmap, mut Vector3 cubeSize) -> Mesh;
+extern def LoadMaterials(const str fileName, mut i32* materialCount) -> Material*;
+extern def LoadMaterialDefault() -> Material;
+extern def IsMaterialValid(mut Material material) -> bool;
+extern def UnloadMaterial(mut Material material);
+extern def SetMaterialTexture(mut Material* material, mut i32 mapType, mut Texture texture);
+extern def SetModelMeshMaterial(mut Model* model, mut i32 meshId, mut i32 materialId);
+extern def LoadModelAnimations(const str fileName, mut i32* animCount) -> ModelAnimation*;
+extern def UpdateModelAnimation(mut Model model, mut ModelAnimation anim, mut f32 frame);
+extern def UpdateModelAnimationEx(mut Model model, mut ModelAnimation animA, mut f32 frameA, mut ModelAnimation animB, mut f32 frameB, mut f32 blend);
+extern def UnloadModelAnimations(mut ModelAnimation* animations, mut i32 animCount);
+extern def IsModelAnimationValid(mut Model model, mut ModelAnimation anim) -> bool;
 extern def CheckCollisionSpheres(mut Vector3 center1, mut f32 radius1, mut Vector3 center2, mut f32 radius2) -> bool;
 extern def CheckCollisionBoxes(mut BoundingBox box1, mut BoundingBox box2) -> bool;
 extern def CheckCollisionBoxSphere(mut BoundingBox box, mut Vector3 center, mut f32 radius) -> bool;
@@ -1005,12 +1127,56 @@ extern def GetMasterVolume() -> f32;
 extern def LoadWave(const str fileName) -> Wave;
 extern def LoadWaveFromMemory(const str fileType, const u8* fileData, mut i32 dataSize) -> Wave;
 extern def IsWaveValid(mut Wave wave) -> bool;
+extern def LoadSound(const str fileName) -> Sound;
+extern def LoadSoundFromWave(mut Wave wave) -> Sound;
+extern def LoadSoundAlias(mut Sound source) -> Sound;
+extern def IsSoundValid(mut Sound sound) -> bool;
+extern def UpdateSound(mut Sound sound, const opaque _data, mut i32 sampleCount);
 extern def UnloadWave(mut Wave wave);
+extern def UnloadSound(mut Sound sound);
+extern def UnloadSoundAlias(mut Sound alias);
 extern def ExportWave(mut Wave wave, const str fileName) -> bool;
 extern def ExportWaveAsCode(mut Wave wave, const str fileName) -> bool;
+extern def PlaySound(mut Sound sound);
+extern def StopSound(mut Sound sound);
+extern def PauseSound(mut Sound sound);
+extern def ResumeSound(mut Sound sound);
+extern def IsSoundPlaying(mut Sound sound) -> bool;
+extern def SetSoundVolume(mut Sound sound, mut f32 volume);
+extern def SetSoundPitch(mut Sound sound, mut f32 pitch);
+extern def SetSoundPan(mut Sound sound, mut f32 pan);
 extern def WaveCopy(mut Wave wave) -> Wave;
 extern def WaveCrop(mut Wave* wave, mut i32 initFrame, mut i32 finalFrame);
 extern def WaveFormat(mut Wave* wave, mut i32 sampleRate, mut i32 sampleSize, mut i32 channels);
 extern def LoadWaveSamples(mut Wave wave) -> f32*;
 extern def UnloadWaveSamples(mut f32* samples);
+extern def LoadMusicStream(const str fileName) -> Music;
+extern def LoadMusicStreamFromMemory(const str fileType, const u8* _data, mut i32 dataSize) -> Music;
+extern def IsMusicValid(mut Music music) -> bool;
+extern def UnloadMusicStream(mut Music music);
+extern def PlayMusicStream(mut Music music);
+extern def IsMusicStreamPlaying(mut Music music) -> bool;
+extern def UpdateMusicStream(mut Music music);
+extern def StopMusicStream(mut Music music);
+extern def PauseMusicStream(mut Music music);
+extern def ResumeMusicStream(mut Music music);
+extern def SeekMusicStream(mut Music music, mut f32 position);
+extern def SetMusicVolume(mut Music music, mut f32 volume);
+extern def SetMusicPitch(mut Music music, mut f32 pitch);
+extern def SetMusicPan(mut Music music, mut f32 pan);
+extern def GetMusicTimeLength(mut Music music) -> f32;
+extern def GetMusicTimePlayed(mut Music music) -> f32;
+extern def LoadAudioStream(mut u32 sampleRate, mut u32 sampleSize, mut u32 channels) -> AudioStream;
+extern def IsAudioStreamValid(mut AudioStream stream) -> bool;
+extern def UnloadAudioStream(mut AudioStream stream);
+extern def UpdateAudioStream(mut AudioStream stream, const opaque _data, mut i32 frameCount);
+extern def IsAudioStreamProcessed(mut AudioStream stream) -> bool;
+extern def PlayAudioStream(mut AudioStream stream);
+extern def PauseAudioStream(mut AudioStream stream);
+extern def ResumeAudioStream(mut AudioStream stream);
+extern def IsAudioStreamPlaying(mut AudioStream stream) -> bool;
+extern def StopAudioStream(mut AudioStream stream);
+extern def SetAudioStreamVolume(mut AudioStream stream, mut f32 volume);
+extern def SetAudioStreamPitch(mut AudioStream stream, mut f32 pitch);
+extern def SetAudioStreamPan(mut AudioStream stream, mut f32 pan);
 extern def SetAudioStreamBufferSizeDefault(mut i32 size);
