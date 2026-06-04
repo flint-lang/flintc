@@ -32,6 +32,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_missing_constructor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_missing_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_no_data.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_provided_type_not_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_unresolved_virtual.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"

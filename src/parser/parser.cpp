@@ -1638,7 +1638,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     case TOK_TYPE: {
                         if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(ErrDefEntityProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         const auto &data_type = tok_it->type;
