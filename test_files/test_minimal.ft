@@ -1,11 +1,32 @@
 use Core.print
 
-entity E2:
-	data;
-	E2();
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
 
-	def f2():
-		print("f2\n");
+func Interface:
+	def print();
+
+func Func requires(Data d):
+	print():
+		print($"d.(x, y) = {d.(x, y)}\n");
+
+entity E1:
+	data: Data;
+	func: Interface, Func;
+	link: Interface::print -> Func::print;
+	E1(Data);
+
+entity E2:
+	data: Data;
+	func: Interface, Func;
+	link: Interface::print -> Func::print;
+	E2(Data);
+
+entity E3 extends(E1 e1, E2 e2):
+	data;
+	E3(e1, e2);
 
 def main():
 	print("Hello, World!\n");

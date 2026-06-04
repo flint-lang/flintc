@@ -654,6 +654,17 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 .column = tok_it->column,
             });
             tok_it += 2;
+            if (tok_it->token != TOK_COMMA && tok_it->token != TOK_RIGHT_PAREN) {
+                THROW_ERR(                                                                                      //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                             //
+                    tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_RIGHT_PAREN}, tok_it->token //
+                );
+                return std::nullopt;
+            }
+            if (tok_it->token == TOK_COMMA) {
+                // Skip comma, but don't skip right paren
+                tok_it++;
+            }
         }
         assert(tok_it != definition.second);
     }
