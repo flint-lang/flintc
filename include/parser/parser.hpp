@@ -277,12 +277,29 @@ class Parser {
     /// @return `std::vector<std::shared_ptr<Type>>` A list of all non-freeable types of all files
     static std::vector<std::shared_ptr<Type>> get_all_nonfreeable_types();
 
+    /// @function `parse_open_data_module`
+    /// @brief Parses a single open data module body
+    ///
+    /// @param `parser` The parser instance in which the data module is defined in
+    /// @param `data` The data module definition to parse
+    /// @return `bool` Whether the data module was able to be parsed
+    static bool parse_open_data_module(Parser &parser, DataNode *data);
+
     /// @function `parse_all_open_data_modules`
     /// @brief Parses all still open data module "bodies"
     ///
     /// @param `parse_parallel` Whether to parse the open data modules in parallel
     /// @return `bool` Whether all data modules were able to be parsed
     static bool parse_all_open_data_modules(const bool parse_parallel);
+
+    /// @function `parse_open_entity`
+    /// @brief Parses a single open entity body
+    ///
+    /// @param `parser` The parser instance in which the entity is defined in
+    /// @param `entity` The entity definition to parse
+    /// @param `body` The body of the entity to parse
+    /// @return `bool` Whether the entity was able to be parsed
+    static bool parse_open_entity(Parser &parser, EntityNode *entity, std::vector<Line> body);
 
     /// @function `parse_all_open_entities`
     /// @brief Parses all still open entity bodies
@@ -291,12 +308,30 @@ class Parser {
     /// @return `bool` Wheter all entities were able to be parsed
     static bool parse_all_open_entities(const bool parse_parallel);
 
+    /// @function `parse_open_function`
+    /// @brief Parses a single open function body
+    ///
+    /// @param `parser` The parser instance in which the function is defined in
+    /// @param `function` The function definition to parse
+    /// @param `body` The body of the function to parse
+    /// @return `bool` Whether the function was able to be parsed
+    static bool parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body);
+
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
     ///
     /// @param `parse_parallel` Whether to parse the open functions in parallel
     /// @return `bool` Wheter all functions were able to be parsed
     static bool parse_all_open_functions(const bool parse_parallel);
+
+    /// @function `parse_open_test`
+    /// @brief Parses a single open test body
+    ///
+    /// @param `parser` The parser instance in which the test is defined in
+    /// @param `test` The test definition to parse
+    /// @param `body` The body of the test to parse
+    /// @return `bool` Whether the test was able to be parsed
+    static bool parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body);
 
     /// @function `parse_all_open_tests`
     /// @brief Parses all still open test bodies
