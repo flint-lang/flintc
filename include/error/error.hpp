@@ -29,6 +29,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_extended_type_unknown.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_link_name_mismatch.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_link_signature_mismatch.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_missing_constructor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_missing_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_no_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_unresolved_virtual.hpp"

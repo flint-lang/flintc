@@ -17,7 +17,6 @@ func Func requires(Data1 d):
 entity E:
 	data: Data1 d1;
 	func: Func;
-	E(d1)
 
 entity Entity extends(E e1):
 	data:

@@ -1704,7 +1704,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         tok_it = line_it->tokens.first;
     }
     if (line_it == body.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrDefEntityMissingConstructor, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
         return false;
     }
 
@@ -1764,7 +1764,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
     if (line_it == body.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrDefEntityMissingConstructor, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
         return false;
     }
 
@@ -1799,7 +1799,13 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
 
     if (tok_it->token == TOK_LINK) {
         tok_it++;
-        assert(tok_it->token == TOK_COLON);
+        if (tok_it->token != TOK_COLON) {
+            THROW_ERR(                                                                     //
+                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
+                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
+            );
+            return false;
+        }
         tok_it++;
         if (tok_it->token == TOK_EOL) {
             line_it++;
@@ -1833,7 +1839,13 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
 
             link_tokens.first = next_link_tokens.second;
-            assert(link_tokens.first->token == TOK_COMMA);
+            if (link_tokens.first->token != TOK_COMMA) {
+                THROW_ERR(                                                                                                      //
+                    ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                                      //
+                    link_tokens.first->line, link_tokens.first->column, std::vector<Token>{TOK_COMMA}, link_tokens.first->token //
+                );
+                return false;
+            }
             link_tokens.first++;
             if (link_tokens.first->token == TOK_EOL) {
                 line_it++;
