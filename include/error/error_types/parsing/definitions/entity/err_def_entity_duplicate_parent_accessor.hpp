@@ -5,15 +5,15 @@
 
 class ErrDefEntityDuplicateParentAccessor : public BaseError {
   public:
-    ErrDefEntityDuplicateParentAccessor( //
-        const ErrorType error_type,      //
-        const Hash &file_hash,           //
-        const unsigned int line,         //
-        const unsigned int column,       //
-        const std::string &parent_type   //
+    ErrDefEntityDuplicateParentAccessor(   //
+        const ErrorType error_type,        //
+        const Hash &file_hash,             //
+        const unsigned int line,           //
+        const unsigned int column,         //
+        const std::string &parent_accessor //
         ) :
-        BaseError(error_type, file_hash, line, column, parent_type.size()),
-        parent_accessor(parent_type) {}
+        BaseError(error_type, file_hash, line, column, parent_accessor.size()),
+        parent_accessor(parent_accessor) {}
 
     [[nodiscard]]
     std::string to_string() const override {

@@ -1661,9 +1661,11 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                                     continue;
                                 }
                                 if (pair.second == accessor) {
-                                    // Duplicate accessors
-                                    THROW_BASIC_ERR(ERR_PARSING);
-                                    return false;
+                                    tok_it++;
+                                    THROW_ERR(                                                            //
+                                        ErrDefEntityDuplicateDataAccessor, ERR_PARSING, parser.file_hash, //
+                                        tok_it->line, tok_it->column, accessor                            //
+                                    );
                                 }
                             }
                             if (captured_entity_identifiers.find(accessor) != captured_entity_identifiers.end()) {

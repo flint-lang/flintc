@@ -1,32 +1,24 @@
 use Core.print
 
-data Data:
+data Data1:
 	i32 x;
 	i32 y;
-	Data(x, y);
+	Data1(x, y);
 
-func Interface:
-	def print();
+data Data2:
+	i32 z;
+	i32 w;
+	Data2(z, w);
 
-func Func requires(Data d):
+entity Entity:
+	data:
+		Data1 d1,
+		Data2 d1;
+	Entity(d1, d2);
+
 	def print():
-		print($"d.(x, y) = {d.(x, y)}\n");
-
-entity E1:
-	data: Data;
-	func: Interface, Func;
-	link: Interface::print -> Func::print;
-	E1(Data);
-
-entity E2:
-	data: Data;
-	func: Interface, Func;
-	link: Interface::print -> Func::print;
-	E2(Data);
-
-entity E3 extends(E1 e1, E2 e1):
-	data;
-	E3(e1, e2);
+		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
 
 def main():
-	print("Hello, World!\n");
+	e := Entity(Data1(10, 20), Data2(30, 40));
+	e.print();
