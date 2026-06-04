@@ -316,11 +316,11 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
                 std::vector<std::pair<llvm::Value *, llvm::Value *>> data_ptr_pairs;
                 for (size_t i = 0; i < func->required_data.size(); i++) {
-                    const auto &[data_type, accessor] = func->required_data.at(i);
+                    const auto &required_data = func->required_data.at(i);
                     size_t data_id = 0;
                     for (; data_id < entity->data_modules.size(); data_id++) {
                         // Since data nodes are generated as unique pointers, the raw pointers can be compared directly
-                        if (entity->data_modules.at(data_id).first == data_type->as<DataType>()->data_node) {
+                        if (entity->data_modules.at(data_id).first == required_data.type->as<DataType>()->data_node) {
                             break;
                         }
                     }

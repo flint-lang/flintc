@@ -1,14 +1,21 @@
 use Core.print
 
-use Fip.c as c
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
+func Func2 requires(Func d):
+	def func1():
+		print("Stuff\n");
+
+func Func requires(Glibber d):
+	def func1():
+		print("Stuff\n");
+
+func Func3 requires(Func d):
+	def func1():
+		print("Stuff\n");
 
 def main():
-	c.Vec3 v1 = c.Vec3(f32[3](0.0));
-	v1.values.[0, 1, 2] = (10.0, 20.0, 30.0);
-
-	c.Vec3 v2 = c.Vec3(f32[3](0.0));
-	v2.values.[0, 1, 2] = (50.0, 20.0, 40.0);
-
-	c.add(&v1, v2);
-	for (i, elem) in v1.values:
-		print($"v1.values[{i}] = {elem}\n");
+	print("Hello, World!\n");

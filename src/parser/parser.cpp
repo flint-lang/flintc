@@ -444,8 +444,6 @@ Parser::CastDirection Parser::check_castability( //
         const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
         const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
         if (lhs_var != nullptr && rhs_var != nullptr) {
-            // Variants of different types cannot be cast to one another in any way
-            THROW_BASIC_ERR(ERR_PARSING);
             return CastDirection::not_castable();
         } else if (lhs_var != nullptr) {
             const std::string lhs_type_str = lhs_type->to_string();
@@ -1106,27 +1104,31 @@ bool Parser::resolve_all_unknown_types() {
                 case DefinitionNode::Variation::FUNC: {
                     auto *func = definition->as<FuncNode>();
                     for (auto &required_data : func->required_data) {
-                        switch (required_data.first->get_variation()) {
+                        switch (required_data.type->get_variation()) {
                             case Type::Variation::DATA:
                                 // All ok
                                 break;
                             case Type::Variation::UNKNOWN: {
-                                const UnknownType *unknown_type = required_data.first->as<UnknownType>();
+                                const UnknownType *unknown_type = required_data.type->as<UnknownType>();
                                 auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
                                 if (!type.has_value()) {
-                                    // Unknown type in requires clausel of func module
-                                    THROW_BASIC_ERR(ERR_PARSING);
+                                    THROW_ERR(                                                                  //
+                                        ErrDefFuncRequiredTypeUnknown, ERR_PARSING, parser.file_hash,           //
+                                        required_data.line, required_data.column, unknown_type->type_str.size() //
+                                    );
                                     return false;
                                 }
                                 if (type.value()->get_variation() == Type::Variation::DATA) {
-                                    required_data.first = type.value();
+                                    required_data.type = type.value();
                                     break;
                                 }
                                 [[fallthrough]];
                             }
                             default:
-                                // The required type is not a data type
-                                THROW_BASIC_ERR(ERR_PARSING);
+                                THROW_ERR(                                                                           //
+                                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, parser.file_hash,                    //
+                                    required_data.line, required_data.column, required_data.type->to_string().size() //
+                                );
                                 return false;
                         }
                     }
@@ -1762,7 +1764,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         for (const auto &func : func_modules) {
             for (const auto &required_data : func->required_data) {
                 bool contains_required_data = false;
-                const auto *required_data_node = required_data.first->as<DataType>()->data_node;
+                const auto *required_data_node = required_data.type->as<DataType>()->data_node;
                 for (const auto &[provided_data_node, accessor] : data_modules) {
                     if (provided_data_node == required_data_node) {
                         contains_required_data = true;

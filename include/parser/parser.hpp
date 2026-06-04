@@ -1879,9 +1879,6 @@ class Parser {
      * @brief This region is responsible for parsing everything about definitions
      *************************************************************************************************************************************/
 
-    /// The type of the required data for func modules
-    using required_data_t = std::vector<std::pair<std::shared_ptr<Type>, std::string>>;
-
     /// @function `create_function`
     /// @brief Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional
     /// creation of AST Nodes for the body
@@ -1889,9 +1886,9 @@ class Parser {
     /// @param `definition` The list of tokens representing the function definition
     /// @param `required_data` A list of required data if the function is defined within a func module
     /// @return `std::optional<FunctionNode>` The created FunctionNode
-    std::optional<FunctionNode> create_function(                                    //
-        const token_slice &definition,                                              //
-        const std::optional<std::pair<std::string, required_data_t>> &required_data //
+    std::optional<FunctionNode> create_function(                                                        //
+        const token_slice &definition,                                                                  //
+        const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data //
     );
 
     /// @function `create_extern_function`

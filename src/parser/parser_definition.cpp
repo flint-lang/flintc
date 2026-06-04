@@ -18,9 +18,9 @@
 #include <optional>
 #include <string>
 
-std::optional<FunctionNode> Parser::create_function(                            //
-    const token_slice &definition,                                              //
-    const std::optional<std::pair<std::string, required_data_t>> &required_data //
+std::optional<FunctionNode> Parser::create_function(                                                //
+    const token_slice &definition,                                                                  //
+    const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data //
 ) {
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
@@ -28,7 +28,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     if (required_data.has_value()) {
         // Add all the required data as implicit mutable parameters
         for (auto &data_param : required_data.value().second) {
-            parameters.emplace_back(data_param.first, data_param.second, true);
+            parameters.emplace_back(data_param.type, data_param.accessor_name, true);
         }
     }
     std::vector<std::shared_ptr<Type>> return_types;
@@ -84,8 +84,8 @@ std::optional<FunctionNode> Parser::create_function(                            
                 const std::string param_name(tok_it->lexme);
                 if (required_data.has_value()) {
                     // Check if there are any overlaps with required data
-                    for (const auto &[required_data_type, required_data_name] : required_data.value().second) {
-                        if (required_data_name == param_name) {
+                    for (const auto &required_data_value : required_data.value().second) {
+                        if (required_data_value.accessor_name == param_name) {
                             THROW_ERR(                                                                                                  //
                                 ErrFnParamShadowsRequiredData, ERR_PARSING, file_hash, token_slice{last_param_begin, std::next(tok_it)} //
                             );
@@ -522,7 +522,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     assert(token_mut.first->token == TOK_IDENTIFIER);
     const std::string func_name(token_mut.first->lexme);
     token_mut.first++;
-    required_data_t required_data;
+    std::vector<FuncNode::RequiredData> required_data;
     if (token_mut.first->token == TOK_REQUIRES) {
         auto tok_it = token_mut.first + 1;
         assert(tok_it->token == TOK_LEFT_PAREN);
@@ -533,18 +533,20 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             if (!required_data_type.has_value()) {
                 return std::nullopt;
             }
-            if (required_data_type.value()->get_variation() != Type::Variation::DATA &&
-                required_data_type.value()->get_variation() != Type::Variation::UNKNOWN) {
-                // Only data is allowed to be required by a func module. If it's unknown then the type will be resolved later, but then also
-                // only data types are allowed
-                THROW_BASIC_ERR(ERR_PARSING);
+            if (required_data_type.value()->get_variation() != Type::Variation::DATA       //
+                && required_data_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            ) {
+                THROW_ERR(                                                                       //
+                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, file_hash,                       //
+                    tok_it->line, tok_it->column, required_data_type.value()->to_string().size() //
+                );
                 return std::nullopt;
             }
             // The next token is the required data accessor name
             assert((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
             for (const auto &present : required_data) {
-                if (present.first->equals(required_data_type.value())) {
+                if (present.type->equals(required_data_type.value())) {
                     THROW_ERR(                                                      //
                         ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,   //
                         token_slice{tok_it, tok_it + 2}, required_data_type.value() //
@@ -552,7 +554,12 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
                     return std::nullopt;
                 }
             }
-            required_data.emplace_back(required_data_type.value(), access_name);
+            required_data.emplace_back(FuncNode::RequiredData{
+                .type = required_data_type.value(),
+                .accessor_name = access_name,
+                .line = tok_it->line,
+                .column = tok_it->column,
+            });
             if ((tok_it + 2)->token == TOK_RIGHT_PAREN) {
                 tok_it += 2;
             } else {
@@ -567,7 +574,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     while (!body_mut.empty()) {
         const Line function_definition_line = body_mut.front();
         body_mut.erase(body_mut.begin());
-        std::pair<std::string, required_data_t> required_data_pair{func_name, required_data};
+        std::pair<std::string, std::vector<FuncNode::RequiredData>> required_data_pair{func_name, required_data};
         std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair);
         if (!fn.has_value()) {
             return std::nullopt;
@@ -673,8 +680,14 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
         if (!file_node_ptr->file_namespace->add_type(entity_type)) {
             entity_type = file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
         }
-        const std::optional<std::pair<std::string, required_data_t>> required_data = std::make_pair( //
-            entity_name, required_data_t{std::make_pair(entity_type, std::string("self"))}           //
+        const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> required_data = std::make_pair( //
+            entity_name,
+            std::vector<FuncNode::RequiredData>{FuncNode::RequiredData{
+                .type = entity_type,
+                .accessor_name = "self",
+                .line = 0,
+                .column = 0,
+            }} //
         );
         std::optional<FunctionNode> function_node = create_function(definition_tokens, required_data);
         if (!function_node.has_value()) {

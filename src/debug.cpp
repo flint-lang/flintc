@@ -1643,7 +1643,7 @@ namespace Debug {
                         std::cout << ", ";
                     }
                     const auto &rd = func.required_data.at(i);
-                    std::cout << rd.first->to_string() << " " << rd.second;
+                    std::cout << rd.type->to_string() << " " << rd.accessor_name;
                 }
                 std::cout << ")";
             }

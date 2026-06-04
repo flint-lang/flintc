@@ -951,7 +951,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {
                     // Get the index of the required data in the entity
-                    const auto &required_data_type = func_node->required_data.at(i - 1).first;
+                    const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
                     size_t idx = 0;
                     for (const auto &[data_node, accessor] : entity_node->data_modules) {
@@ -987,7 +987,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 const FuncNode *func_node = *func_nodes.begin();
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {
                     // The indices of the required data are the same as the func module itself
-                    const auto &required_data_type = func_node->required_data.at(i - 1).first;
+                    const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
