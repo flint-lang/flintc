@@ -40,6 +40,7 @@
 #include "error_types/parsing/definitions/func/err_def_func_requiring_same_data_twice.hpp"
 #include "error_types/parsing/definitions/function/err_def_function_redefinition.hpp"
 #include "error_types/parsing/definitions/function/err_fn_cannot_return_tuple.hpp"
+#include "error_types/parsing/definitions/function/err_fn_def_missing.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_err_set.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_no_returns.hpp"
 #include "error_types/parsing/definitions/function/err_fn_main_redefinition.hpp"

@@ -37,6 +37,7 @@ std::optional<FunctionNode> Parser::create_function(                            
 
     auto tok_it = definition.first;
     // Parse everything before the parameters
+    bool def_missing = true;
     while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_LEFT_PAREN) {
         if (tok_it->token == TOK_CONST) {
             is_const = true;
@@ -46,8 +47,13 @@ std::optional<FunctionNode> Parser::create_function(                            
         }
         if (tok_it->token == TOK_DEF) {
             name = std::next(tok_it)->lexme;
+            def_missing = false;
         }
         tok_it++;
+    }
+    if (def_missing) {
+        THROW_ERR(ErrFnDefMissing, ERR_PARSING, file_hash, definition);
+        return std::nullopt;
     }
     assert(tok_it != definition.second);
     // Check if the name is reserved
