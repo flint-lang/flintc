@@ -1602,8 +1602,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     auto line_it = body.begin();
     auto tok_it = line_it->tokens.first;
     if (tok_it->token != TOK_DATA) {
-        // Expected a data token
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                    //
+            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                    //
+            tok_it->line, tok_it->column, std::vector<Token>{TOK_DATA}, tok_it->token //
+        );
         return false;
     }
     tok_it++;
@@ -1615,7 +1617,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             while (tok_it != line_it->tokens.second) {
                 switch (tok_it->token) {
                     default:
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(                                                                                              //
+                            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
+                            tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
+                        );
                         return false;
                     case TOK_COMMA:
                         break;
@@ -1625,7 +1630,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     case TOK_IDENTIFIER: {
                         auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
                         if (!type.has_value()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
