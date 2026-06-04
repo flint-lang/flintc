@@ -7,9 +7,9 @@ class ErrDefEntityExtendedTypeUnknown : public BaseError {
     ErrDefEntityExtendedTypeUnknown( //
         const ErrorType error_type,  //
         const Hash &file_file,       //
-        const size_t line,           //
-        const size_t column,         //
-        const size_t length          //
+        const unsigned int line,     //
+        const unsigned int column,   //
+        const unsigned int length    //
         ) :
         BaseError(error_type, file_file, line, column, length) {}
 
