@@ -1965,8 +1965,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
             case TOK_TYPE: {
                 if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                    // Only data types allowed in constructor
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrDefEntityConstructorNotData, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type);
                     return false;
                 }
                 DataNode *data_node = tok_it->type->as<DataType>()->data_node;
