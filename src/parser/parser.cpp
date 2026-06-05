@@ -1986,8 +1986,9 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     break;
                 }
                 if (data_idx == -1) {
-                    // Unknown data module
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(                                                                                                           //
+                        ErrDefEntityConstructorDataNotPresent, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type //
+                    );
                     return false;
                 }
                 // Check if the module has already been added to the constructed data

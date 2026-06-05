@@ -21,6 +21,7 @@
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_constructor_data_not_present.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_data_without_accessor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_duplicate_accessor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_missing.hpp"

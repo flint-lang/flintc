@@ -10,6 +10,11 @@ data Data2:
 	i32 w;
 	Data2(z, w);
 
+data Data3:
+	f32 u;
+	f32 v;
+	Data3(u, v);
+
 func Func requires(Data1 d):
 	def fun():
 		print("fun\n");
@@ -19,7 +24,7 @@ entity Entity:
 		Data1 d1,
 		Data2 d2;
 	func: Func;
-	Entity(Data1, d2);
+	Entity(d1, d2, Data3);
 
 	def print():
 		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
