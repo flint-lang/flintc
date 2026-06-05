@@ -28,7 +28,7 @@ class ErrDefEntityUnresolvedVirtual : public BaseError {
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Virtual function '" + YELLOW + virt_fn->name + DEFAULT + "' not linked to concrete function";
+        d.message = "Virtual function '" + virt_fn->name + "' not linked to concrete function";
         return d;
     }
 
