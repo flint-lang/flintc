@@ -1,6 +1,7 @@
 #include "analyzer/analyzer.hpp"
 #include "debug.hpp"
 #include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "error/error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
@@ -1268,6 +1269,47 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 .field_id = field_id,
                 .field_type = field_type,
             };
+        }
+        case Type::Variation::ENTITY: {
+            const EntityNode *entity_node = base_type->as<EntityType>()->entity_node;
+            assert(base_expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+            // The base variable has the "name" of the captured parent entity type but the "type" of the child entity (for the "self"
+            // parameter)
+            VariableNode *base_var = base_expr.value()->as<VariableNode>();
+            const auto captured_entity_it = scope->captured_entity_identifiers.find(base_var->name);
+            if (captured_entity_it == scope->captured_entity_identifiers.end()) {
+                // Not a parent accessor — regular entity variable, can't resolve field access
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const std::shared_ptr<Type> captured_entity_type = captured_entity_it->second;
+            assert(captured_entity_type->get_variation() == Type::Variation::ENTITY);
+            const EntityNode *parent_entity = captured_entity_type->as<EntityType>()->entity_node;
+            for (const auto &[data_node, accessor] : parent_entity->data_modules) {
+                if (!accessor.has_value() || accessor.value() != field_name) {
+                    continue;
+                }
+                for (size_t i = 0; i < entity_node->data_modules.size(); i++) {
+                    const auto &child_data_node = entity_node->data_modules.at(i).first;
+                    if (child_data_node != data_node) {
+                        continue;
+                    }
+                    base_var->name = "self";
+                    auto data_type = file_node_ptr->file_namespace->get_type_from_str(data_node->name);
+                    assert(data_type.has_value());
+                    return CreateFieldAccessBaseRet{
+                        .base_expr = std::move(base_expr.value()),
+                        .field_name = std::nullopt,
+                        .field_id = static_cast<unsigned int>(i),
+                        .field_type = data_type.value(),
+                    };
+                }
+                __builtin_unreachable();
+            }
+            // TODO: This should be a nested parent (like e.e.d) and I think we would need to iterate the parent entities parents for
+            // this...
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
         }
         case Type::Variation::PRIMITIVE:
             if (base_type->to_string() != "anyerror") {

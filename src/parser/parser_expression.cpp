@@ -374,9 +374,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     return std::move(access);
                 }
                 case Type::Variation::ENTITY:
-                    // TODO: The parent entity is accessed... but should this even be allowed? IDK yet
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return std::nullopt;
+                    assert(scope->variables.find("self") != scope->variables.end());
+                    const auto &self = scope->variables.at("self");
+                    assert(self.type->get_variation() == Type::Variation::ENTITY);
+                    // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
+                    // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
+                    // `create_field_access_base` function.
+                    return std::make_unique<VariableNode>(name, self.type, false);
             }
         }
     }

@@ -15,17 +15,16 @@ func Func requires(Data1 d):
 		print("fun\n");
 
 entity E:
-	data: Func d1;
+	data: Data1 d1;
 	func: Func;
 	E(d1)
 
 entity Entity extends(E e1):
-	data:
-		Data2 e1;
+	data: Data2 d2;
 	Entity(e1, d2);
 
 	def print():
-		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
+		print($"d1.(x, y) = {e1.d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
 
 def main():
 	e := Entity(Data1(10, 20), Data2(30, 40));
