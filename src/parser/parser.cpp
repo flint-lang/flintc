@@ -1976,8 +1976,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         continue;
                     }
                     if (pair.second.has_value()) {
-                        // Constructing a data value with an accessor in the constructor without that accessor
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(                                                                    //
+                            ErrDefEntityConstructorDataWitoutAccessor, ERR_PARSING, parser.file_hash, //
+                            tok_it->line, tok_it->column, tok_it->type, pair.second.value()           //
+                        );
                         return false;
                     }
                     data_idx = i;
