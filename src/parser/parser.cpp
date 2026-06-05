@@ -1711,14 +1711,23 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     tok_it = line_it->tokens.first;
     if (tok_it->token == TOK_FUNC) {
         tok_it++;
-        assert(tok_it->token == TOK_COLON);
+        if (tok_it->token != TOK_COLON) {
+            THROW_ERR(                                                                     //
+                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
+                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
+            );
+            return false;
+        }
         tok_it++;
         semicolon_found = false;
         while (line_it != body.end()) {
             while (tok_it != line_it->tokens.second) {
                 switch (tok_it->token) {
                     default:
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(                                                                                              //
+                            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
+                            tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
+                        );
                         return false;
                     case TOK_COMMA:
                         break;
@@ -1728,7 +1737,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     case TOK_IDENTIFIER: {
                         auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
                         if (!type.has_value()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
@@ -1736,7 +1745,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     case TOK_TYPE: {
                         if (tok_it->type->get_variation() != Type::Variation::FUNC) {
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(ErrDefEntityProvidedTypeNotFunc, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         auto *func_node = tok_it->type->as<FuncType>()->func_node;
