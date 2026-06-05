@@ -1863,24 +1863,45 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
 
-    assert(tok_it->token == TOK_IDENTIFIER);
+    if (tok_it->token != TOK_IDENTIFIER) {
+        THROW_ERR(                                                                          //
+            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                          //
+            tok_it->line, tok_it->column, std::vector<Token>{TOK_IDENTIFIER}, tok_it->token //
+        );
+        return false;
+    }
     if (tok_it->lexme != entity->name) {
-        // Incorrect constructor name
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                 //
+            ErrDefEntityWrongConstructorName, ERR_PARSING, parser.file_hash,       //
+            tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
+        );
         return false;
     }
     tok_it++;
-    assert(tok_it->token == TOK_LEFT_PAREN);
+    if (tok_it->token != TOK_LEFT_PAREN) {
+        THROW_ERR(                                                                          //
+            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                          //
+            tok_it->line, tok_it->column, std::vector<Token>{TOK_LEFT_PAREN}, tok_it->token //
+        );
+        return false;
+    }
     tok_it++;
     std::vector<DataNode *> constructed_data;
     while (tok_it != line_it->tokens.second && tok_it->token != TOK_RIGHT_PAREN) {
         switch (tok_it->token) {
             default:
-                // Not allowed token in constructor
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(                                                                                               //
+                    ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                               //
+                    tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_IDENTIFIER, TOK_TYPE}, tok_it->token //
+                );
                 return false;
             case TOK_IDENTIFIER: {
                 const std::string identifier(tok_it->lexme);
+                const auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
+                if (!type.has_value()) {
+                    THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                    return false;
+                }
                 if (!parent_entities.empty()) {
                     // Search if the identifier is one of the parent entities' accessors
                     bool parent_added = false;
@@ -1935,11 +1956,6 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                 if (accessor_found) {
                     tok_it++;
                     break;
-                }
-                auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
-                if (!type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return false;
                 }
                 *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
                 [[fallthrough]];
