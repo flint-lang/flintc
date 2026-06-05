@@ -1897,11 +1897,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                 return false;
             case TOK_IDENTIFIER: {
                 const std::string identifier(tok_it->lexme);
-                const auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
-                if (!type.has_value()) {
-                    THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                    return false;
-                }
+                const auto identifier_token = tok_it;
                 if (!parent_entities.empty()) {
                     // Search if the identifier is one of the parent entities' accessors
                     bool parent_added = false;
@@ -1943,7 +1939,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         continue;
                     }
                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                        // Duplicate data constructor
+                        // Duplicate data in constructor
                         THROW_BASIC_ERR(ERR_PARSING);
                         return false;
                     }
@@ -1956,6 +1952,11 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                 if (accessor_found) {
                     tok_it++;
                     break;
+                }
+                const auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
+                if (!type.has_value()) {
+                    THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{identifier_token, identifier_token + 1});
+                    return false;
                 }
                 *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
                 [[fallthrough]];
