@@ -1939,8 +1939,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         continue;
                     }
                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                        // Duplicate data in constructor
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(                                                                     //
+                            ErrDefEntityDuplicateAccessorInConstructor, ERR_PARSING, parser.file_hash, //
+                            identifier_token->line, identifier_token->column, identifier               //
+                        );
                         return false;
                     }
                     constructed_data.emplace_back(data_node);

@@ -19,7 +19,7 @@ entity Entity:
 		Data1 d1,
 		Data2 d2;
 	func: Func;
-	Entity(d1, d2);
+	Entity(d1, d1, d2);
 
 	def print():
 		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
