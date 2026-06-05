@@ -24,6 +24,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_data_not_present.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_data_without_accessor.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_duplicate_accessor.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_constructor_duplicate_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_missing.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_not_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_constructor_wrong_name.hpp"

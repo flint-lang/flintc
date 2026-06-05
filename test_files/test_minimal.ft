@@ -22,9 +22,9 @@ func Func requires(Data1 d):
 entity Entity:
 	data:
 		Data1 d1,
-		Data2 d2;
+		Data2;
 	func: Func;
-	Entity(d1, d2, Data3);
+	Entity(d1, Data2, Data2);
 
 	def print():
 		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");

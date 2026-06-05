@@ -1993,8 +1993,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                 }
                 // Check if the module has already been added to the constructed data
                 if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                    // Duplicate data type
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(                                                               //
+                        ErrDefEntityConstructorDuplicateData, ERR_PARSING, parser.file_hash, //
+                        tok_it->line, tok_it->column, tok_it->type->to_string()              //
+                    );
                     return false;
                 }
                 constructed_data.emplace_back(data_node);
