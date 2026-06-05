@@ -2,9 +2,9 @@
 
 #include "error/error_types/base_error.hpp"
 
-class ErrDefEntityMissingConstructor : public BaseError {
+class ErrDefEntityConstructorMissing : public BaseError {
   public:
-    ErrDefEntityMissingConstructor( //
+    ErrDefEntityConstructorMissing( //
         const ErrorType error_type, //
         const Hash &file_hash,      //
         const unsigned int line,    //

@@ -3,14 +3,14 @@
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
-class ErrDefEntityDuplicateAccessorInConstructor : public BaseError {
+class ErrDefEntityConstructorDuplicateAccessor : public BaseError {
   public:
-    ErrDefEntityDuplicateAccessorInConstructor( //
-        const ErrorType error_type,             //
-        const Hash &file_hash,                  //
-        const unsigned int line,                //
-        const unsigned int column,              //
-        const std::string &accessor             //
+    ErrDefEntityConstructorDuplicateAccessor( //
+        const ErrorType error_type,           //
+        const Hash &file_hash,                //
+        const unsigned int line,              //
+        const unsigned int column,            //
+        const std::string &accessor           //
         ) :
         BaseError(error_type, file_hash, line, column, accessor.size()),
         accessor(accessor) {}

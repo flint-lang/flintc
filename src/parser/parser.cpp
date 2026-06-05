@@ -1704,7 +1704,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         tok_it = line_it->tokens.first;
     }
     if (line_it == body.end()) {
-        THROW_ERR(ErrDefEntityMissingConstructor, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        THROW_ERR(ErrDefEntityConstructorMissing, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
         return false;
     }
 
@@ -1773,7 +1773,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
     if (line_it == body.end()) {
-        THROW_ERR(ErrDefEntityMissingConstructor, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        THROW_ERR(ErrDefEntityConstructorMissing, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
         return false;
     }
 
@@ -1872,7 +1872,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     }
     if (tok_it->lexme != entity->name) {
         THROW_ERR(                                                                 //
-            ErrDefEntityWrongConstructorName, ERR_PARSING, parser.file_hash,       //
+            ErrDefEntityConstructorWrongName, ERR_PARSING, parser.file_hash,       //
             tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
         );
         return false;
@@ -1939,9 +1939,9 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         continue;
                     }
                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                        THROW_ERR(                                                                     //
-                            ErrDefEntityDuplicateAccessorInConstructor, ERR_PARSING, parser.file_hash, //
-                            identifier_token->line, identifier_token->column, identifier               //
+                        THROW_ERR(                                                                   //
+                            ErrDefEntityConstructorDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                            identifier_token->line, identifier_token->column, identifier             //
                         );
                         return false;
                     }

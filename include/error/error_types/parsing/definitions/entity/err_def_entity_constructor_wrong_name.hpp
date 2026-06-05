@@ -3,9 +3,9 @@
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
-class ErrDefEntityWrongConstructorName : public BaseError {
+class ErrDefEntityConstructorWrongName : public BaseError {
   public:
-    ErrDefEntityWrongConstructorName(     //
+    ErrDefEntityConstructorWrongName(     //
         const ErrorType error_type,       //
         const Hash &file_hash,            //
         const unsigned int line,          //
