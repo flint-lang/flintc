@@ -103,7 +103,6 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
         if (!added_import.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
         if (added_import.value()->alias.has_value()) {
@@ -604,8 +603,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         || arguments.empty()                                                 //
                         || arguments.back().first->type->to_string() != "type.flint.default" //
                     ) {
-                        // Mismatch between number of initializer values and expected field count
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(ErrExprDataInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, fields.size(), arguments.size());
                         return std::nullopt;
                     }
                     // It's a single default-initializer at the end of the initializer list, so we fill all remaining initializers with the

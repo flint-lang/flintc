@@ -1,11 +1,10 @@
-use Core.print
+use Core.print as p
 
-def add(i32 x, i32 y) -> i32:
-    return x + y;
-
-def print(i32 x):
-    print($"x: {x}\n");
+use Fip.c as c
 
 def main():
-    i32 thirty = add(10, 20);
-    print(thirty);
+	v1 := c.Vec3(f32[3](0.0), 1);
+	v1.values.[0, 1, 2] = (10, 20, 30);
+	v2 := c.Vec3(f32[3](10.0));
+	c.add(&v1, v2);
+	p.print($"v1.values = {v1.values.[0, 1, 2]}\n");

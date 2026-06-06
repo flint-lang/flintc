@@ -80,6 +80,7 @@
 
 #include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
+#include "error_types/parsing/expressions/err_expr_data_initializer_wrong_arg_count.hpp"
 #include "error_types/parsing/expressions/err_expr_interpolation_only_one_expr.hpp"
 #include "error_types/parsing/expressions/err_expr_nested_group.hpp"
 #include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
