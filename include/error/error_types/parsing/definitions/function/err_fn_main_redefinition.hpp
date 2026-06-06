@@ -20,8 +20,8 @@ class ErrFnMainRedefinition : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Redefinition of the '" << YELLOW << "main" << DEFAULT << "' function\n";
-        oss << "├─ First defined at " << GREEN << cwd_relative(first_main->file_hash.path) << ":" << first_main->line << ":"
-            << first_main->column << DEFAULT << "\n";
+        oss << "├─ First defined at " << GREEN << cwd_relative(first_main->file_hash, first_main->line, first_main->column) << DEFAULT
+            << "\n";
         oss << "└─ Each project is only allowed to contain a single main function";
         return oss.str();
     }

@@ -28,8 +28,7 @@ class ErrFnRedefinition : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Redefinition of function: " << YELLOW << function_string << DEFAULT << "\n";
-        oss << "└─ First defined at: " << GREEN << cwd_relative(original->file_hash.path) << ":" << original->line << ":"
-            << original->column << DEFAULT;
+        oss << "└─ First defined at: " << GREEN << cwd_relative(original->file_hash, original->line, original->column) << DEFAULT;
         return oss.str();
     }
 

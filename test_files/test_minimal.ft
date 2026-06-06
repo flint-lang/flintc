@@ -1,17 +1,11 @@
-use Core.print as p
+use Core.print
 
-data Data1:
-	i32 x;
-	i32 y;
-	Data1(x, y);
+def add(i32 x, i32 y) -> i32:
+    return x + y;
 
-entity Entity:
-	data: Data1 d1;
-	Entity(d1);
-
-	def print():
-		p.print($"d1.(x, y) = {d1.(x, y)}\n");
+def print(i32 x):
+    print($"x: {x}\n");
 
 def main():
-	e := Entity(Data1(10, 20));
-	e.print();
+    i32 thirty = add(10, 20);
+    print(thirty);

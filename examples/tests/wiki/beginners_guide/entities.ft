@@ -8,7 +8,7 @@ test "0_simple_func_module.ft":
 test "1_function_collision.ft":
 	str path = "tests/wiki/beginners_guide/entities";
 	str file = "1_function_collision.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/entities/1_function_collision.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Bmm6x3ZN:0:0\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/entities/1_function_collision.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
 
 test "2_requiring_data.ft":
 	str path = "tests/wiki/beginners_guide/entities";

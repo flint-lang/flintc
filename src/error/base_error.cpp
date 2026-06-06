@@ -3,6 +3,7 @@
 #include "lexer/lexer_utils.hpp"
 #include "parser/hash.hpp"
 #include "parser/parser.hpp"
+#include "resolver/resolver.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -15,9 +16,8 @@ std::string BaseError::to_string() const {
         oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << "unknown file" << DEFAULT << "\n" << "├┤E0000│\n";
         return oss.str();
     }
-    const std::string file_path_string = Hash::normalize_file_path_string(cwd_relative(hash.path));
-    oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << file_path_string << ":" << line << ":" << column
-        << DEFAULT << "\n";
+    const std::string file_path_string = Hash::normalize_file_path_string(cwd_relative(hash, line, column));
+    oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << file_path_string << DEFAULT << "\n";
     if (error_type == ERR_LEXING) {
         // The lines have not been lexed and added to the parser instances yet, so trying to print the lines will cause an exception
         // Instead, we need to do minimal printing, without the file content
@@ -252,4 +252,19 @@ size_t BaseError::slice_visual_length(const token_slice tokens) {
         return last_token_size;
     }
     return last_token->column - tokens.first->column + last_token_size;
+}
+
+std::string BaseError::cwd_relative(const Hash &hash, const unsigned int line, const unsigned int column) {
+    if (hash.path.empty()) {
+        // It's a Core Module, we return `Core.<name>` instead of the path
+        const Namespace *core_namespace = Resolver::get_namespace_from_hash(hash);
+        for (const auto &[name, space] : Parser::core_namespaces) {
+            if (space.get() == core_namespace) {
+                return "Core." + name;
+            }
+        }
+        __builtin_unreachable();
+    }
+    const std::string file_path_str = std::filesystem::relative(hash.path, std::filesystem::current_path()).string();
+    return file_path_str + ":" + std::to_string(line) + ":" + std::to_string(column);
 }

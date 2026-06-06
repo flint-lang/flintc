@@ -123,11 +123,12 @@ class BaseError {
     [[nodiscard]] static size_t slice_visual_length(const token_slice tokens);
 
     /// @function `cwd_relative`
-    /// @brief Converts the given path to be a cwd-relative path and returns that path as a string
+    /// @brief Converts the given path to be a cwd-relative path and returns that path as a string with the line and column information
+    /// added to it. If the path comes from a core module, then this function just returns `Core.<module>` instead.
     ///
-    /// @param `path` The path to "convert" to a cwd-relative path
+    /// @param `hash` The hash whose path to "convert" to a cwd-relative path
+    /// @param `line` The line of the path info
+    /// @param `column` The column of the path info
     /// @return `std::string` The converted cwd-relative path as a string
-    [[nodiscard]] static inline std::string cwd_relative(const std::filesystem::path &path) {
-        return std::filesystem::relative(path, std::filesystem::current_path()).string();
-    }
+    [[nodiscard]] static std::string cwd_relative(const Hash &hash, const unsigned int line, const unsigned int column);
 };
