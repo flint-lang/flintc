@@ -6,12 +6,18 @@ data Vec3:
 	f32 z = 0.0;
 	Vec3(x, y, z);
 
-def add(mut Vec3 v1, Vec3 v2):
-	v1.(x, y, z) += v2.(x, y, z);
+entity Entity:
+	data: Vec3 v;
+	Entity(v);
+
+	def add(Vec3 vec):
+		v.(x, y, z) += vec.(x, y, z);
+
+	def print():
+		print($"v.(x, y, z) = {v.(x, y, z)}\n");
 
 def main():
-	v1 := Vec3(_, _, _);
-	v1.(x, y, z) = (10, 20, 30);
-	v2 := Vec3(_);
-	add(v1, v2);
-	print($"v1.(x, y, z) = {v1.(x, y, z)}\n");
+	v1 := Vec3(10, 20, 30);
+	e := Entity(10);
+	e.add(v1);
+	e.print();

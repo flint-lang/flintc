@@ -651,14 +651,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     return std::nullopt;
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {
-                    std::shared_ptr<Type> arg_type = arguments.at(i).first->type;
-                    if (arg_type->get_variation() != Type::Variation::DATA) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    DataNode *arg_node = arg_type->as<DataType>()->data_node;
-                    if (arg_node != data_modules.at(i).first) {
-                        THROW_BASIC_ERR(ERR_PARSING);
+                    const std::shared_ptr<Type> &arg_type = arguments.at(i).first->type;
+                    const DataNode *data_node = data_modules.at(i).first;
+                    const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
+                    const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
+                    if (!arg_type->equals(data_type)) {
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, data_type, arg_type);
                         return std::nullopt;
                     }
                 }
