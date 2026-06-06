@@ -4,9 +4,9 @@
 #include "error/error_types/base_error.hpp"
 #include "lexer/builtins.hpp"
 
-class ErrDefUnexpectedCoreModule : public BaseError {
+class ErrImportUnexpectedCoreModule : public BaseError {
   public:
-    ErrDefUnexpectedCoreModule(             //
+    ErrImportUnexpectedCoreModule(          //
         const ErrorType error_type,         //
         const Hash &file_hash,              //
         const unsigned int line,            //

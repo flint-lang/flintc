@@ -49,7 +49,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         return add_annotation(definition_tokens);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
         if (definition_indentation > 0) {
-            THROW_ERR(ErrUseClauselNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
+            THROW_ERR(ErrImportNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
             return false;
         }
         std::optional<ImportNode> import_node = create_import(definition_tokens);
@@ -82,7 +82,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 const std::string &module_str = import_vec.back();
                 if (core_module_functions.find(module_str) == core_module_functions.end()) {
                     const auto &tok = definition_tokens.first + 3;
-                    THROW_ERR(ErrDefUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
+                    THROW_ERR(ErrImportUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
                     return false;
                 }
             } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {

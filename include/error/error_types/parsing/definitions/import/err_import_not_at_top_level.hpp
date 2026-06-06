@@ -5,9 +5,9 @@
 #include "lexer/token.hpp"
 #include "types.hpp"
 
-class ErrUseClauselNotAtTopLevel : public BaseError {
+class ErrImportNotAtTopLevel : public BaseError {
   public:
-    ErrUseClauselNotAtTopLevel(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
+    ErrImportNotAtTopLevel(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
         BaseError(error_type, file_hash, tokens),
         tokens(tokens) {}
 
