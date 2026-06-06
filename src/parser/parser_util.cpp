@@ -603,7 +603,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         || arguments.empty()                                                 //
                         || arguments.back().first->type->to_string() != "type.flint.default" //
                     ) {
-                        THROW_ERR(ErrExprDataInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, fields.size(), arguments.size());
+                        THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, fields.size(), arguments.size());
                         return std::nullopt;
                     }
                     // It's a single default-initializer at the end of the initializer list, so we fill all remaining initializers with the
@@ -647,7 +647,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 auto &data_modules = entity_type->entity_node->data_modules;
                 // Check if all initializer arguments are equal to the expected data module types
                 if (arguments.size() != data_modules.size()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, data_modules.size(), arguments.size());
                     return std::nullopt;
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {

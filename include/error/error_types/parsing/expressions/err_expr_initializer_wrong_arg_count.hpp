@@ -3,9 +3,9 @@
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 
-class ErrExprDataInitializerWrongArgCount : public BaseError {
+class ErrExprInitializerWrongArgCount : public BaseError {
   public:
-    ErrExprDataInitializerWrongArgCount( //
+    ErrExprInitializerWrongArgCount(     //
         const ErrorType error_type,      //
         const Hash &file_hash,           //
         const token_slice &tokens,       //
@@ -25,7 +25,7 @@ class ErrExprDataInitializerWrongArgCount : public BaseError {
         } else {
             oss << " arguments";
         }
-        oss << " for data initializer but got " << YELLOW << std::to_string(actual_arg_count) << DEFAULT;
+        oss << " for initializer but got " << YELLOW << std::to_string(actual_arg_count) << DEFAULT;
         return oss.str();
     }
 
@@ -38,7 +38,7 @@ class ErrExprDataInitializerWrongArgCount : public BaseError {
         } else {
             d.message.append(" arguments");
         }
-        d.message.append(" for data initializer but got ");
+        d.message.append(" for initializer but got ");
         d.message.append(std::to_string(actual_arg_count));
         return d;
     }
