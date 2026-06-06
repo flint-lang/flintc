@@ -72,7 +72,17 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         // Check if the given alias is already taken
         auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
         if (import_node.value().alias.has_value() && aliased_imports.find(import_node.value().alias.value()) != aliased_imports.end()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            const ImportNode *aliased_import = nullptr;
+            for (const auto &import : file_node_ptr->file_namespace->public_symbols.imports) {
+                if (import->alias.has_value() && import->alias.value() == import_node.value().alias.value()) {
+                    aliased_import = import.get();
+                }
+            }
+            assert(aliased_import != nullptr);
+            THROW_ERR(                                                                                                         //
+                ErrImportDuplicateAlias, ERR_PARSING, file_hash,                                                               //
+                import_node->line, import_node->column, import_node->length, import_node.value().alias.value(), aliased_import //
+            );
             return false;
         }
         if (std::holds_alternative<std::vector<std::string>>(import_node.value().path)) {

@@ -1,5 +1,8 @@
 use Core.print
 
+use "imported.ft" as i
+use "imported_2.ft" as i
+
 data Data1:
 	i32 x;
 	i32 y;
