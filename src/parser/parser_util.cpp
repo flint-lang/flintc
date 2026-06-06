@@ -620,8 +620,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         // We need to insert the default-value of the nth argument of the data type at the place of the arguments before
                         // continuing
                         if (!data_node->fields.at(i).initializer.has_value()) {
-                            // Trying to default-construct a field of data which does not have a default-value set
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            THROW_ERR(ErrExprDataInitializerMissingDefaultValue, ERR_PARSING, file_hash, tokens, fields.at(i).name);
                             return std::nullopt;
                         }
                         arguments[i].first.reset();

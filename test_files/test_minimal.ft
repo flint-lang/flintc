@@ -1,10 +1,17 @@
-use Core.print as p
+use Core.print
 
-use Fip.c as c
+data Vec3:
+	f32 x = 0.0;
+	f32 y;
+	f32 z = 0.0;
+	Vec3(x, y, z);
+
+def add(mut Vec3 v1, Vec3 v2):
+	v1.(x, y, z) += v2.(x, y, z);
 
 def main():
-	v1 := c.Vec3(f32[3](0.0), 1);
-	v1.values.[0, 1, 2] = (10, 20, 30);
-	v2 := c.Vec3(f32[3](10.0));
-	c.add(&v1, v2);
-	p.print($"v1.values = {v1.values.[0, 1, 2]}\n");
+	v1 := Vec3(_, _, _);
+	v1.(x, y, z) = (10, 20, 30);
+	v2 := Vec3(_);
+	add(v1, v2);
+	print($"v1.(x, y, z) = {v1.(x, y, z)}\n");
