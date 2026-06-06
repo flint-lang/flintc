@@ -39,6 +39,7 @@
 #include "error_types/parsing/definitions/entity/err_def_entity_link_signature_mismatch.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_missing_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_no_data.hpp"
+#include "error_types/parsing/definitions/entity/err_def_entity_no_functionality.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_provided_type_not_data.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_provided_type_not_func.hpp"
 #include "error_types/parsing/definitions/entity/err_def_entity_unresolved_virtual.hpp"

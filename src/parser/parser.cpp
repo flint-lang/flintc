@@ -2044,10 +2044,10 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
 
-    // An entity which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
-    // error
     if (entity->functions.empty() && entity->func_modules.empty()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        // An entity which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
+        // error
+        THROW_ERR(ErrDefEntityNoFunctionality, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
         return false;
     }
 
