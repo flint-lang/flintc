@@ -22,7 +22,7 @@ class ErrDefEntityFnRedefinition : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Redefinition of function: " << YELLOW << original->name << DEFAULT
-            << " from func module defined at " << GREEN << GREEN << original->file_hash.path.string() << ":" << original->line << ":"
+            << " from func module defined at " << GREEN << GREEN << cwd_relative(original->file_hash.path) << ":" << original->line << ":"
             << original->column << DEFAULT << "\n";
         oss << "├─ The explicit signatures of the function from the func-module matches the newly defined entity function and creates a collision\n";
 

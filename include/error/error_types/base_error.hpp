@@ -121,4 +121,13 @@ class BaseError {
     /// @note This function does not return the length of the slice itself (number of tokens) but the length of the string the tokens of the
     /// slice view into, and the length of that visual string slice
     [[nodiscard]] static size_t slice_visual_length(const token_slice tokens);
+
+    /// @function `cwd_relative`
+    /// @brief Converts the given path to be a cwd-relative path and returns that path as a string
+    ///
+    /// @param `path` The path to "convert" to a cwd-relative path
+    /// @return `std::string` The converted cwd-relative path as a string
+    [[nodiscard]] static inline std::string cwd_relative(const std::filesystem::path &path) {
+        return std::filesystem::relative(path, std::filesystem::current_path()).string();
+    }
 };

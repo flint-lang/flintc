@@ -15,8 +15,7 @@ std::string BaseError::to_string() const {
         oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << "unknown file" << DEFAULT << "\n" << "├┤E0000│\n";
         return oss.str();
     }
-    std::string file_path_string = std::filesystem::relative(hash.path, std::filesystem::current_path()).string();
-    file_path_string = Hash::normalize_file_path_string(file_path_string);
+    const std::string file_path_string = Hash::normalize_file_path_string(cwd_relative(hash.path));
     oss << RED << error_type_names.at(error_type) << DEFAULT << " at " << GREEN << file_path_string << ":" << line << ":" << column
         << DEFAULT << "\n";
     if (error_type == ERR_LEXING) {
