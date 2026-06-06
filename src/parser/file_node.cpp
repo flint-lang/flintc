@@ -26,8 +26,6 @@ std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
         const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
         if (import_vec.size() == 2 && import_vec.front() == "Core") {
             imported_core_modules.emplace(import_vec.back(), added_import);
-        } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
-            // Just do nothing. TODO: Do we need to do something here?
         }
     }
     return added_import;
