@@ -4,9 +4,9 @@
 #include "error/error_types/base_error.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 
-class ErrDefFunctionRedefinition : public BaseError {
+class ErrFnRedefinition : public BaseError {
   public:
-    ErrDefFunctionRedefinition(       //
+    ErrFnRedefinition(                //
         const ErrorType error_type,   //
         const Hash &file_file,        //
         const FunctionNode *function, //
@@ -28,7 +28,7 @@ class ErrDefFunctionRedefinition : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Redefinition of function: " << YELLOW << function_string << DEFAULT << "\n";
-        oss << "└─ First defined at: " << GREEN << original->file_hash.to_string() << ":" << original->line << ":" << original->column
+        oss << "└─ First defined at: " << GREEN << original->file_hash.path.string() << ":" << original->line << ":" << original->column
             << DEFAULT;
         return oss.str();
     }

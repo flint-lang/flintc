@@ -98,7 +98,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
             }
         }
         if (all_the_same) {
-            THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+            THROW_ERR(ErrFnRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
             return std::nullopt;
         }
     }
@@ -123,7 +123,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
                 }
             }
             if (all_the_same) {
-                THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+                THROW_ERR(ErrFnRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
                 return std::nullopt;
             }
         }
@@ -154,7 +154,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
                 }
             }
             if (all_the_same) {
-                THROW_ERR(ErrDefFunctionRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
+                THROW_ERR(ErrFnRedefinition, ERR_PARSING, file_namespace->namespace_hash, &function, fn_def);
                 return std::nullopt;
             }
         }
