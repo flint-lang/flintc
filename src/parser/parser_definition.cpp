@@ -64,7 +64,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     } else if (name == "main" && main_function.load() != nullptr) {
         // Redefinition of the main function
         token_slice err_tokens = {std::prev(tok_it), definition.second};
-        THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens);
+        THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens, main_function.load());
         return std::nullopt;
     }
     // Skip the left paren
@@ -1265,15 +1265,6 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
             return std::nullopt;
         }
         alias = iterator->lexme;
-    }
-
-    // Check if an alias was placed on a Core module, this is not allowed
-    if (alias.has_value() && std::holds_alternative<std::vector<std::string>>(import_path)) {
-        const std::vector<std::string> &path = std::get<std::vector<std::string>>(import_path);
-        if (path.size() == 2 && path.front() == "Core") {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
     }
 
     const unsigned int line = tokens.first->line;

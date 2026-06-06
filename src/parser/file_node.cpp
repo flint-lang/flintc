@@ -28,10 +28,6 @@ std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
             imported_core_modules.emplace(import_vec.back(), added_import);
         } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
             // Just do nothing. TODO: Do we need to do something here?
-        } else {
-            // TODO: Handle aliasing of core module imports, we need to get the imported file somehow
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            return std::nullopt;
         }
     }
     return added_import;

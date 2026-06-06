@@ -1,7 +1,4 @@
-use Core.print
-
-use "imported.ft" as i
-use "imported_2.ft" as i
+use Core.print as p
 
 data Data1:
 	i32 x;
@@ -12,6 +9,9 @@ entity Entity:
 	data: Data1 d1;
 	Entity(d1);
 
+	def print():
+		p.print($"d1.(x, y) = {d1.(x, y)}\n");
+
 def main():
-	e := Entity(Data1(10, 20), Data2(30, 40));
+	e := Entity(Data1(10, 20));
 	e.print();
