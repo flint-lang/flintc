@@ -22,12 +22,15 @@ func Func requires(Data1 d):
 entity Entity:
 	data:
 		Data1 d1,
-		Data2;
+		Data2 d2;
 	func: Func;
-	Entity(d1, Data2, Data2);
+	Entity(d1, d2);
 
 	def print():
 		print($"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\n");
+
+	def fun():
+		print("fun2\n");
 
 def main():
 	e := Entity(Data1(10, 20), Data2(30, 40));

@@ -2037,9 +2037,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                 }
                 if (all_match && entity->edg.get_mapped_fn(function) != free_floating_fn) {
-                    // Duplicate function inside entity definition, the free-floating function already exists in one of the provided
-                    // func modules and the function from the func-module is not linked to the free-floating entity function
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrDefEntityFnRedefinition, ERR_PARSING, parser.file_hash, free_floating_fn, function);
                     return false;
                 }
             }
