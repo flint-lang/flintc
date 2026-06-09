@@ -2,5 +2,5 @@ use Core.print
 
 def main():
 	data<i32, f32, str> d = (10, 3.14, "hi");
-	(x, y) := d.($1, $3);
+	(x, y) := d.($1, $2);
 	print($"x = {x}\n");

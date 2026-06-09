@@ -3613,11 +3613,20 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     }
     for (size_t i = 0; i < grouped_data_access->field_names.size(); i++) {
         const unsigned int id = grouped_data_access->field_ids.at(i);
+        llvm::Value *field_val = nullptr;
         if (is_vector_type) {
-            return_values.push_back(builder.CreateExtractElement(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
+            field_val = builder.CreateExtractElement(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val");
         } else {
-            return_values.push_back(builder.CreateExtractValue(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val"));
+            field_val = builder.CreateExtractValue(expr, id, "group_" + grouped_data_access->field_names.at(i) + "_val");
         }
+        if (group_type->types.at(i)->is_freeable()) {
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            llvm::Value *type_id = builder.getInt32(group_type->types.at(i)->get_id());
+            llvm::Value *clone_dest = builder.CreateAlloca(PTR_TY, nullptr, "clone_dest_" + grouped_data_access->field_names.at(i));
+            builder.CreateCall(clone_fn, {field_val, clone_dest, type_id});
+            field_val = IR::aligned_load(builder, PTR_TY, clone_dest, "cloned_" + grouped_data_access->field_names.at(i));
+        }
+        return_values.push_back(field_val);
     }
     return return_values;
 }
