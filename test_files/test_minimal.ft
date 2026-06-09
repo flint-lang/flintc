@@ -2,6 +2,6 @@ use Core.print
 
 def main():
 	i32x3 v3 = (10, 20, 30);
-	i32 x = v3.$2;
+	i32 x = v3.$3;
 	i32 y = x.z;
 	print($"x = {x}\n");

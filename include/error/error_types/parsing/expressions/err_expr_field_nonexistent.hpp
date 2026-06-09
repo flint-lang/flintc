@@ -7,13 +7,13 @@
 
 class ErrExprFieldNonexistent : public BaseError {
   public:
-    ErrExprFieldNonexistent(                                                                //
-        const ErrorType error_type,                                                         //
-        const Hash &file_hash,                                                              //
-        const token_slice &tokens,                                                          //
-        const std::string &field,                                                           //
-        const std::shared_ptr<Type> &type,                                                  //
-        const std::optional<std::unordered_map<std::string, std::shared_ptr<Type>>> &fields //
+    ErrExprFieldNonexistent(                                                                    //
+        const ErrorType error_type,                                                             //
+        const Hash &file_hash,                                                                  //
+        const token_slice &tokens,                                                              //
+        const std::string &field,                                                               //
+        const std::shared_ptr<Type> &type,                                                      //
+        const std::optional<std::vector<std::pair<std::string, std::shared_ptr<Type>>>> &fields //
         ) :
         BaseError(error_type, file_hash, tokens),
         field(field),
@@ -24,7 +24,7 @@ class ErrExprFieldNonexistent : public BaseError {
             assert(type->get_variation() == Type::Variation::DATA);
             const DataNode *node = type->as<DataType>()->data_node;
             for (const auto &f : node->fields) {
-                this->fields[f.name] = f.type;
+                this->fields.emplace_back(f.name, f.type);
             }
         }
     }
@@ -36,6 +36,11 @@ class ErrExprFieldNonexistent : public BaseError {
         oss << "└─ Available fields are:\n";
         size_t i = 0;
         for (const auto &[field_name, field_type] : fields) {
+            if (field_name.empty()) {
+                oss << "    │\n";
+                i++;
+                continue;
+            }
             if (i + 1 < fields.size()) {
                 oss << "    ├─ " << field_type->to_string() << " " << field_name << "\n";
             } else {
@@ -56,5 +61,5 @@ class ErrExprFieldNonexistent : public BaseError {
   private:
     std::string field;
     std::shared_ptr<Type> type;
-    std::unordered_map<std::string, std::shared_ptr<Type>> fields;
+    std::vector<std::pair<std::string, std::shared_ptr<Type>>> fields;
 };

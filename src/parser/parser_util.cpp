@@ -1194,7 +1194,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     if (base_type->to_string() == "str") {
         if (field_name != "length" && field_name != "len") {
             THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
-                std::unordered_map<std::string, std::shared_ptr<Type>>{
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
                     {"length", Type::get_primitive_type("u64")},
                     {"len", Type::get_primitive_type("u64")},
                 });
@@ -1214,7 +1214,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             const auto *array_type = base_type->as<ArrayType>();
             if (field_name != "length" && field_name != "len") {
                 THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
-                    std::unordered_map<std::string, std::shared_ptr<Type>>{
+                    std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
                         {"length", Type::get_primitive_type("u64")},
                         {"len", Type::get_primitive_type("u64")},
                     });
@@ -1341,9 +1341,8 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             if (field_name == "") {
                 field_name = "$" + std::to_string(field_id);
             }
-            auto access = create_multi_type_access(multi_type, field_name);
+            auto access = create_multi_type_access(tokens, base_type, field_name);
             if (!access.has_value()) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             return CreateFieldAccessBaseRet{
@@ -1384,10 +1383,12 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
 }
 
 std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_access( //
-    const MultiType *multi_type,                                                       //
+    const token_slice &tokens,                                                         //
+    const std::shared_ptr<Type> type,                                                  //
     const std::string &field_name                                                      //
 ) {
     PROFILE_CUMULATIVE("Parser::create_multi_type_access");
+    const MultiType *multi_type = type->as<MultiType>();
     if (multi_type->width == 2) {
         // The fields are called x and y, but can be accessed via $N
         if (field_name == "x" || field_name == "s" || field_name == "i" || field_name == "u" || field_name == "$0") {
@@ -1395,7 +1396,20 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         } else if (field_name == "y" || field_name == "t" || field_name == "j" || field_name == "v" || field_name == "$1") {
             return std::make_tuple("$1", 1);
         } else {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
+                    {"$0", multi_type->base_type},
+                    {"x", multi_type->base_type},
+                    {"s", multi_type->base_type},
+                    {"u", multi_type->base_type},
+                    {"i", multi_type->base_type},
+                    {"", nullptr},
+                    {"$1", multi_type->base_type},
+                    {"y", multi_type->base_type},
+                    {"t", multi_type->base_type},
+                    {"v", multi_type->base_type},
+                    {"j", multi_type->base_type},
+                });
             return std::nullopt;
         }
     } else if (multi_type->width == 3) {
@@ -1407,7 +1421,26 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "k" || field_name == "$2") {
             return std::make_tuple("$2", 2);
         } else {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
+                    {"$0", multi_type->base_type},
+                    {"x", multi_type->base_type},
+                    {"r", multi_type->base_type},
+                    {"s", multi_type->base_type},
+                    {"i", multi_type->base_type},
+                    {"", nullptr},
+                    {"$1", multi_type->base_type},
+                    {"y", multi_type->base_type},
+                    {"g", multi_type->base_type},
+                    {"t", multi_type->base_type},
+                    {"j", multi_type->base_type},
+                    {"", nullptr},
+                    {"$2", multi_type->base_type},
+                    {"z", multi_type->base_type},
+                    {"b", multi_type->base_type},
+                    {"p", multi_type->base_type},
+                    {"k", multi_type->base_type},
+                });
             return std::nullopt;
         }
     } else if (multi_type->width == 4) {
@@ -1421,24 +1454,59 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         } else if (field_name == "w" || field_name == "a" || field_name == "q" || field_name == "l" || field_name == "$3") {
             return std::make_tuple("$3", 3);
         } else {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
+                    {"$0", multi_type->base_type},
+                    {"x", multi_type->base_type},
+                    {"r", multi_type->base_type},
+                    {"s", multi_type->base_type},
+                    {"i", multi_type->base_type},
+                    {"", nullptr},
+                    {"$1", multi_type->base_type},
+                    {"y", multi_type->base_type},
+                    {"g", multi_type->base_type},
+                    {"t", multi_type->base_type},
+                    {"j", multi_type->base_type},
+                    {"", nullptr},
+                    {"$2", multi_type->base_type},
+                    {"z", multi_type->base_type},
+                    {"b", multi_type->base_type},
+                    {"p", multi_type->base_type},
+                    {"k", multi_type->base_type},
+                    {"", nullptr},
+                    {"$3", multi_type->base_type},
+                    {"w", multi_type->base_type},
+                    {"a", multi_type->base_type},
+                    {"q", multi_type->base_type},
+                    {"l", multi_type->base_type},
+                });
             return std::nullopt;
         }
     } else {
         // Widths of 16 are not supported by Flint yet
         assert(multi_type->width == 8);
+        const auto &field_map = std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
+            {"$0", multi_type->base_type},
+            {"$1", multi_type->base_type},
+            {"$2", multi_type->base_type},
+            {"$3", multi_type->base_type},
+            {"$4", multi_type->base_type},
+            {"$5", multi_type->base_type},
+            {"$6", multi_type->base_type},
+            {"$7", multi_type->base_type},
+        };
         // The fields are accessed via $N
         if (field_name.front() != '$') {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type, field_map);
             return std::nullopt;
         }
         if (field_name.size() != 2) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type, field_map);
             return std::nullopt;
         }
         const char id = field_name.back() - '0';
         if (static_cast<unsigned int>(id) >= multi_type->width || id < 0) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type, field_map);
             return std::nullopt;
         }
         return std::make_tuple("$" + std::to_string(id), id);
@@ -1477,17 +1545,13 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
     }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
-        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        assert(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
     }
 
     // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
     // allowed at all
     std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     std::shared_ptr<Type> base_type = base_expr.value()->type;
@@ -1519,8 +1583,10 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 ++tok_it;
                 continue;
             } else if (tok_it->token != TOK_IDENTIFIER) {
-                // Unexpected Token, expected an identifier
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(                                                                          //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                 //
+                    tok_it->line, tok_it->column, std::vector<Token>{TOK_IDENTIFIER}, tok_it->token //
+                );
                 return std::nullopt;
             }
             const std::string value(tok_it->lexme);
@@ -1601,9 +1667,8 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             std::vector<std::shared_ptr<Type>> field_types;
             std::vector<unsigned int> field_ids;
             for (const auto &field_name : field_names) {
-                auto access = create_multi_type_access(multi_type, field_name);
+                auto access = create_multi_type_access(tokens, base_type, field_name);
                 if (!access.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
                 access_field_names.emplace_back(std::get<0>(access.value()));

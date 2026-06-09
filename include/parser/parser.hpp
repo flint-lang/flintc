@@ -899,11 +899,13 @@ class Parser {
     /// @brief Checks the multi-typed acccess and returns the index as well as the field name, where the returned field name is always in
     /// the form of $N instead of the x, y, z or r, g, b, a form thats possible
     ///
-    /// @param `multi_type` The multi-type the field access is based on
+    /// @param `tokens` The tokens in which the multi-type field access happens
+    /// @param `type` The multi-type the field access is based on (asserts it to be of type 'MultiType')
     /// @param `field_name` The field name of the access
     /// @return `std::optional<std::tuple<std::string, unsigned int>>` A tuple of the "new" access name and the access id, nullopt if failed
     std::optional<std::tuple<std::string, unsigned int>> create_multi_type_access( //
-        const MultiType *multi_type,                                               //
+        const token_slice &tokens,                                                 //
+        const std::shared_ptr<Type> multi_type,                                    //
         const std::string &field_name                                              //
     );
 
