@@ -1379,7 +1379,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             }
             break;
     }
-    THROW_BASIC_ERR(ERR_PARSING);
+    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
     return std::nullopt;
 }
 
@@ -1503,7 +1503,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
         // All other types other than enums are not supported yet
         if (type->get_variation() != Type::Variation::ENUM) {
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
             return std::nullopt;
         }
         const auto *enum_type = type->as<EnumType>();
