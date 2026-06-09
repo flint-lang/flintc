@@ -1,16 +1,31 @@
 use Core.print
 
+def print_data(Data d):
+	print($"d.(x, y) = {d.(x, y)}\n");
+
 data Data:
 	i32 x;
 	i32 y;
 	Data(x, y);
 
-def main():
-	data<i32, f32, str> d = (10, 20.0, "hi");
-	str s = d.$2;
-	x := s.lenge;
-	print($"x = {x}\n");
+entity Entity1:
+	data: Data d;
+	Entity1(d);
 
-	dat := Data(10, 20);
-	i32 z = dat.z;
-	print($"z = {z}\n");
+	def print():
+		print($"d.(x, y) = {d.(x, y)}\n");
+
+entity Entity2 extends(Entity1 e):
+	data;
+	Entity2(e);
+
+	def print():
+		print_data(e.d);
+
+def print(Entity2 e):
+	print_data(e.d);
+
+def main():
+	e := Entity2(Data(10, 20));
+	e.print();
+	print(e);

@@ -73,6 +73,7 @@
 #include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"
 #include "error_types/parsing/expressions/err_expr_cast_invalid.hpp"
 #include "error_types/parsing/expressions/err_expr_cast_multi_length_mismatch.hpp"
+#include "error_types/parsing/expressions/err_expr_field_access_on_entity.hpp"
 #include "error_types/parsing/expressions/err_expr_field_nonexistent.hpp"
 #include "error_types/parsing/expressions/err_expr_fn_ref_core.hpp"
 #include "error_types/parsing/expressions/err_expr_fn_ref_nonexistent.hpp"

@@ -1275,7 +1275,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             const auto captured_entity_it = scope->captured_entity_identifiers.find(base_var->name);
             if (captured_entity_it == scope->captured_entity_identifiers.end()) {
                 // Not a parent accessor — regular entity variable, can't resolve field access
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprFieldAccessOnEntity, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
             }
             const std::shared_ptr<Type> captured_entity_type = captured_entity_it->second;
