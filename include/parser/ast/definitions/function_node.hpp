@@ -125,6 +125,80 @@ class FunctionNode : public DefinitionNode {
         return ids.at(hash_str);
     }
 
+    std::string get_signature_string(                 //
+        const size_t implicit_parameters_to_skip = 0, //
+        const bool include_modifiers = true,          //
+        const bool include_param_names = true,        //
+        const bool include_return_types = true,       //
+        const bool include_error_types = true         //
+    ) const {
+        std::ostringstream oss;
+        const auto dot_idx = std::find(name.begin(), name.end(), '.');
+        if (dot_idx == name.end()) {
+            oss << name;
+        } else {
+            oss << name.substr(std::distance(name.begin(), dot_idx) + 1);
+        }
+        oss << "(";
+        for (size_t j = implicit_parameters_to_skip; j < parameters.size(); j++) {
+            if (j > implicit_parameters_to_skip) {
+                oss << ", ";
+            }
+            const auto &[param_type, param_name, is_mut] = parameters.at(j);
+            if (include_modifiers) {
+                if (is_mut) {
+                    oss << "mut ";
+                } else {
+                    oss << "const ";
+                }
+            }
+            oss << param_type->to_string();
+            if (include_param_names) {
+                oss << " " << param_name;
+            }
+        }
+        oss << ")";
+        if (include_return_types) {
+            oss << " -> ";
+            switch (return_types.size()) {
+                case 0:
+                    oss << "void";
+                    break;
+                case 1:
+                    oss << return_types.front()->to_string();
+                    break;
+                default:
+                    oss << "(";
+                    for (size_t j = 0; j < return_types.size(); j++) {
+                        if (j > 0) {
+                            oss << ", ";
+                        }
+                        oss << return_types.at(j)->to_string();
+                    }
+                    oss << ")";
+                    break;
+            }
+        }
+        if (include_error_types) {
+            oss << " ";
+            switch (error_types.size()) {
+                case 0:
+                    break;
+                default:
+                    oss << "{";
+                    for (size_t j = 0; j < error_types.size(); j++) {
+                        if (j > 0) {
+                            oss << ", ";
+                        }
+                        oss << error_types.at(j)->to_string();
+                    }
+                    oss << "}";
+                    break;
+            }
+        }
+        return oss.str();
+    }
+
     // empty constructor
     FunctionNode() = delete;
     // deconstructor

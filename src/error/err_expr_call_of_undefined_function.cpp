@@ -36,18 +36,8 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
                 } else {
                     oss << "    └─ ";
                 }
-                oss << CYAN << function_name << "(";
-                for (auto arg_it = (*fn_it)->parameters.begin(); arg_it != (*fn_it)->parameters.end(); ++arg_it) {
-                    if (arg_it != (*fn_it)->parameters.begin()) {
-                        oss << ", ";
-                    }
-                    if (std::get<2>(*arg_it)) {
-                        oss << "mut ";
-                    }
-                    oss << std::get<0>(*arg_it)->to_string() << " ";
-                    oss << std::get<1>(*arg_it);
-                }
-                oss << ")" << DEFAULT << " from file '" << YELLOW << (*fn_it)->file_hash.path.filename().string() << DEFAULT << "'";
+                oss << CYAN << (*fn_it)->get_signature_string(0, true, true, false, false) << DEFAULT;
+                oss << " from file '" << YELLOW << (*fn_it)->file_hash.path.filename().string() << DEFAULT << "'";
                 if ((fn_it + 1) != possible_functions.end()) {
                     oss << "\n";
                 }

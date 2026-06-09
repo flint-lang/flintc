@@ -89,17 +89,6 @@ class BaseError {
     /// @return `std::string` The string representation of the given token stream
     [[nodiscard]] static std::string get_token_string(const std::vector<Token> &tokens);
 
-    /// @function `get_function_signature_string`
-    /// @brief Returns the string that represents the signature of a given function. Used to check if function signatures match
-    ///
-    /// @param `function_name` The name of the function
-    /// @param `arg_types` The types of the function arguments
-    /// @return `std::string` The string representation of the functions signature (excluding its return type)
-    [[nodiscard]] static std::string get_function_signature_string( //
-        const std::string &function_name,                           //
-        const std::vector<std::shared_ptr<Type>> &arg_types         //
-    );
-
     /// @function `space_needed`
     /// @brief Returns whether the given iterator within the tokens list needs a space after it
     ///

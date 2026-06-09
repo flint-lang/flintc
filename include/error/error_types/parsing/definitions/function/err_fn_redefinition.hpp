@@ -13,16 +13,8 @@ class ErrFnRedefinition : public BaseError {
         const FunctionNode *original  //
         ) :
         BaseError(error_type, file_file, function->line, function->column, function->length),
-        original(original) {
-        function_string = function->name + "(";
-        for (size_t i = 0; i < function->parameters.size(); i++) {
-            if (i > 0) {
-                function_string += ", ";
-            }
-            function_string += std::get<0>(function->parameters.at(i))->to_string();
-        }
-        function_string += ")";
-    }
+        original(original),
+        function_string(function->get_signature_string(0, false, false, false, false)) {}
 
     [[nodiscard]]
     std::string to_string() const override {

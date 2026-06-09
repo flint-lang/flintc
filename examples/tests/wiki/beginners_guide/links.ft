@@ -42,7 +42,7 @@ test "6_signature_mismatch.ft":
 test "7_signature_mismatch_2.ft":
 	str path = "tests/wiki/beginners_guide/links";
 	str file = "7_signature_mismatch_2.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/7_signature_mismatch_2.ft:22:9\n└──┬┤E0000│\n18 │ entity Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::move,\n┌──┴─────────┘\n├─ Linking functions with different explicit signatures is not allowed\n├─ Left signature: move()\n└─ Right signature: move(i32)\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/7_signature_mismatch_2.ft:22:9\n└──┬┤E0000│\n18 │ entity Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::move,\n┌──┴─────────┘\n├─ Linking functions with different explicit signatures is not allowed\n├─ Left signature: move() -> void {anyerror}\n└─ Right signature: move(const i32) -> void {anyerror}\n");
 
 test "8_practical_example.ft":
 	str path = "tests/wiki/beginners_guide/links";

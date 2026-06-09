@@ -212,19 +212,6 @@ std::string BaseError::get_token_string(const std::vector<Token> &tokens) {
     return trim_right(token_str.str());
 }
 
-std::string BaseError::get_function_signature_string(   //
-    const std::string &function_name,                   //
-    const std::vector<std::shared_ptr<Type>> &arg_types //
-) {
-    std::stringstream oss;
-    oss << function_name << "(";
-    for (auto arg = arg_types.begin(); arg != arg_types.end(); ++arg) {
-        oss << (*arg)->to_string() << (arg != arg_types.begin() ? ", " : "");
-    }
-    oss << ")";
-    return oss.str();
-}
-
 bool BaseError::space_needed(                  //
     const token_slice &tokens,                 //
     const token_list::const_iterator iterator, //

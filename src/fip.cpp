@@ -403,32 +403,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     msg.type = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.type = FIP_SYM_FUNCTION;
     strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
-    std::string fn_str = function->name + "(";
-    for (size_t i = 0; i < function->parameters.size(); i++) {
-        if (std::get<2>(function->parameters.at(i))) {
-            fn_str.append("mut ");
-        } else {
-            fn_str.append("const ");
-        }
-        fn_str.append(std::get<0>(function->parameters.at(i))->to_string());
-        if (i + 1 < function->parameters.size()) {
-            fn_str.append(", ");
-        }
-    }
-    fn_str.append(")");
-    if (function->return_types.size() == 1) {
-        fn_str.append("->");
-        fn_str.append(function->return_types.front()->to_string());
-    } else if (function->return_types.size() > 1) {
-        fn_str.append("->(");
-        for (size_t i = 0; i < function->return_types.size(); i++) {
-            fn_str.append(function->return_types.at(i)->to_string());
-            if (i + 1 < function->return_types.size()) {
-                fn_str.append(", ");
-            }
-        }
-        fn_str.append(")");
-    }
+    const std::string fn_str = function->get_signature_string(0, true, false, true, false);
     fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
     std::shared_ptr<Type> ret_type;

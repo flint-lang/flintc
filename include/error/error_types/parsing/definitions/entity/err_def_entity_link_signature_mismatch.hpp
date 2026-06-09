@@ -8,13 +8,11 @@ class ErrDefEntityLinkSignatureMismatch : public BaseError {
     ErrDefEntityLinkSignatureMismatch( //
         const ErrorType error_type,    //
         const Hash &file_hash,         //
-        const int line,                //
-        const int column,              //
-        const int length,              //
+        const token_slice &tokens,     //
         const std::string from_sig,    //
         const std::string to_sig       //
         ) :
-        BaseError(error_type, file_hash, line, column, length),
+        BaseError(error_type, file_hash, tokens),
         from_sig(from_sig),
         to_sig(to_sig) {}
 

@@ -1582,20 +1582,7 @@ namespace Debug {
                     const auto *function = entity.functions.at(i);
                     TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == entity.functions.size());
                     Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
-                    std::cout << function->name << "(";
-                    for (size_t j = 0; j < function->parameters.size(); j++) {
-                        const auto &param = function->parameters.at(j);
-                        if (j > 0) {
-                            std::cout << ", ";
-                        }
-                        if (std::get<2>(param)) {
-                            std::cout << "mut ";
-                        } else {
-                            std::cout << "const ";
-                        }
-                        std::cout << std::get<0>(param)->to_string() << " " << std::get<1>(param);
-                    }
-                    std::cout << ")\n";
+                    std::cout << function->get_signature_string(0, true, true, false, false) << "\n";
                 }
             }
         }
@@ -1652,20 +1639,7 @@ namespace Debug {
                 const auto *function = func.functions.at(i);
                 TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == func.functions.size());
                 Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
-                std::cout << function->name << "(";
-                for (size_t j = 0; j < function->parameters.size(); j++) {
-                    const auto &param = function->parameters.at(j);
-                    if (j > 0) {
-                        std::cout << ", ";
-                    }
-                    if (std::get<2>(param)) {
-                        std::cout << "mut ";
-                    } else {
-                        std::cout << "const ";
-                    }
-                    std::cout << std::get<0>(param)->to_string() << " " << std::get<1>(param);
-                }
-                std::cout << ")\n";
+                std::cout << function->get_signature_string(0, true, true, false, false) << "\n";
             }
         }
 
