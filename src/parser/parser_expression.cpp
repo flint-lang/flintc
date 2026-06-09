@@ -1000,7 +1000,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     assert(expr_range.value().second > expr_range.value().first);
 
     // Get the type the expression needs to be converted to
-    std::shared_ptr<Type> to_type = tokens.first->type;
+    const std::shared_ptr<Type> to_type = tokens.first->type;
     const std::string to_type_string = to_type->to_string();
 
     // Create the expression
@@ -1029,13 +1029,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     // Check if the type of the expression is castable at all
     const std::string expr_type_str = expression.value()->type->to_string();
     if (primitive_casting_table.find(expr_type_str) == primitive_casting_table.end()) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                                                              //
+            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
+            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
+        );
         return std::nullopt;
     }
     const std::vector<std::string_view> &to_types = primitive_casting_table.at(expr_type_str);
     if (std::find(to_types.begin(), to_types.end(), to_type_string) == to_types.end()) {
-        // The given expression type cannot be cast to the wanted type
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                                                              //
+            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
+            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
+        );
         return std::nullopt;
     }
     if (expr_type_str == "int" || expr_type_str == "float") {
@@ -1044,7 +1049,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     }
 
     if (!check_castability(to_type, expression.value(), false)) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                                                              //
+            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
+            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
+        );
         return std::nullopt;
     }
     // Set source location on the resulting expression

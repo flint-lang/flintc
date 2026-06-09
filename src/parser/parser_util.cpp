@@ -676,8 +676,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 if (arguments.size() == 1) {
                     // The "argument" needs to be a compatible multi-type
                     if (arguments[0].first->type->get_variation() != Type::Variation::MULTI) {
-                        // Unable to cast non-multi-type as the only expression inside the to-multi-type cast
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        const auto &arg = arguments[0].first;
+                        THROW_ERR(                                                           //
+                            ErrExprCastInvalid, ERR_PARSING, file_hash,                      //
+                            arg->line, arg->column, arg->length, name_token->type, arg->type //
+                        );
                         return std::nullopt;
                     }
                     assert(primitive_casting_table.find(name_token->type->to_string()) != primitive_casting_table.end());
@@ -690,7 +693,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     for (size_t i = 0; i < arguments.size(); i++) {
                         if (!check_castability(base_type, arguments[i].first, false)) {
-                            THROW_BASIC_ERR(ERR_PARSING);
+                            const auto &arg = arguments[i].first;
+                            THROW_ERR(                                                           //
+                                ErrExprCastInvalid, ERR_PARSING, file_hash,                      //
+                                arg->line, arg->column, arg->length, name_token->type, arg->type //
+                            );
                             return std::nullopt;
                         }
                     }
