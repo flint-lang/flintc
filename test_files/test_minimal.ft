@@ -1,13 +1,5 @@
 use Core.print
 
-def add(i32 x, i32 y) -> i32:
-	return x + y;
-
-def add(f32 x, f32 y) -> f32:
-	return x + y;
-
 def main():
-	i32 x = add(10, 20);
+	bool x = not;
 	print($"x = {x}\n");
-	f32 y = add(10, 20);
-	print($"y = {y}\n");

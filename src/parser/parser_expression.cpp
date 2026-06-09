@@ -397,7 +397,6 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
     remove_surrounding_paren(tokens_mut);
     auto unary_op_values = create_unary_op_base(ctx, scope, tokens_mut);
     if (!unary_op_values.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     Token operation = unary_op_values.value().operation;

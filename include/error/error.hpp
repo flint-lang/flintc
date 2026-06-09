@@ -76,6 +76,7 @@
 #include "error_types/parsing/expressions/err_expr_fn_ref_core.hpp"
 #include "error_types/parsing/expressions/err_expr_fn_ref_nonexistent.hpp"
 #include "error_types/parsing/expressions/err_expr_mutating_const.hpp"
+#include "error_types/parsing/expressions/err_expr_unary_op_missing_expr.hpp"
 #include "error_types/parsing/fip/err_ambiguous_module_tag.hpp"
 #include "error_types/parsing/fip/err_no_fip_directory_found.hpp"
 #include "error_types/parsing/fip/err_unknown_module_tag.hpp"

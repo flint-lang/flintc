@@ -1098,7 +1098,7 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
     // For an unary operator to work, the tokens now must have at least two tokens
     size_t tokens_size = get_slice_size(tokens_mut);
     if (tokens_size < 2) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrExprUnaryOpMissingExpr, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
 
@@ -1111,8 +1111,7 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
     } else if (Matcher::tokens_contain_in_range(tokens_mut, Matcher::unary_post_operator, right_range)) {
         is_left = false;
     } else {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+        __builtin_unreachable();
     }
 
     // Extract the operator token
