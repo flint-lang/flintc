@@ -1355,7 +1355,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
         case Type::Variation::TUPLE: {
             const auto *tuple_type = base_type->as<TupleType>();
             if (field_id >= tuple_type->types.size()) {
-                auto it = base_expr_tokens.second + 1; // 'it' now is the $ symbol
+                auto it = base_expr_tokens.second + 1;
                 THROW_ERR(ErrExprTupleAccessOOB, ERR_PARSING, file_hash, it->line, it->column, "$" + std::to_string(field_id), base_type);
                 return std::nullopt;
             }
@@ -1622,11 +1622,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         }
         access_tokens.first++;
     }
-    if (field_names.empty()) {
-        // Empty group access
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
+    ASSERT(!field_names.empty());
 
     switch (base_type->get_variation()) {
         default:
@@ -1685,7 +1681,11 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             for (size_t i = 0; i < field_names.size(); i++) {
                 size_t field_id = std::stoul(field_names.at(i).substr(1, field_names.at(i).length() - 1));
                 if (field_id >= tuple_type->types.size()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    const auto it = access_tokens.first + field_id * 2;
+                    THROW_ERR(                                                          //
+                        ErrExprTupleAccessOOB, ERR_PARSING, file_hash,                  //
+                        it->line, it->column, "$" + std::to_string(field_id), base_type //
+                    );
                     return std::nullopt;
                 }
                 field_types.emplace_back(tuple_type->types.at(field_id));
@@ -1700,7 +1700,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             };
         }
     }
-    THROW_BASIC_ERR(ERR_PARSING);
+    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
     return std::nullopt;
 }
 
@@ -1754,10 +1754,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
-        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        ASSERT(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
     }
 
     // Parse the base expression first before parsing the indexing expressions
@@ -1774,7 +1771,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     // Now parse the indexing expressions
     auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_tokens);
     if (!indexing_expressions.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast

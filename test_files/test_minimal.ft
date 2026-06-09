@@ -1,9 +1,6 @@
 use Core.print
 
-enum Enum:
-	VAL1, VAL2, VAL3;
-
 def main():
-	Enum e = Enum.VAL1;
-	if e == Enum.(VAL1, VAL2, VAL4):
-		print($"{e} is VAL1 or VAL2\n");
+	data<i32, f32, str> d = (10, 3.14, "hi");
+	(x, y) := d.($1, $3);
+	print($"x = {x}\n");

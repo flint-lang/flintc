@@ -2391,7 +2391,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     if (Matcher::tokens_contain(tokens, Matcher::group_declaration_inferred)) {
         std::optional<GroupDeclarationNode> group_decl = create_group_declaration(scope, scope_segment, tokens, rhs);
         if (!group_decl.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupDeclarationNode>(std::move(group_decl.value()));
@@ -2416,63 +2415,54 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment)) {
         std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment_shorthand)) {
         std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment)) {
         std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment_shorthand)) {
         std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::group_assignment)) {
         std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::group_assignment_shorthand)) {
         std::optional<GroupAssignmentNode> assign = create_group_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::array_assignment)) {
         std::optional<ArrayAssignmentNode> assign = create_array_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::array_assignment_shorthand)) {
         std::optional<ArrayAssignmentNode> assign = create_array_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::grouped_array_assignment)) {
         std::optional<GroupedArrayAssignmentNode> assign = create_grouped_array_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<GroupedArrayAssignmentNode>(std::move(assign.value()));
@@ -2488,7 +2478,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     } else if (Matcher::tokens_contain(tokens, Matcher::assignment_shorthand)) {
         std::optional<AssignmentNode> assign = create_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
@@ -2551,7 +2540,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     ) {
         std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
         if (!unary_op.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
@@ -2561,8 +2549,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         statement_node = std::make_unique<ContinueNode>();
     } else {
         token_list toks = clone_from_slice(tokens);
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+        UNREACHABLE();
     }
     if (!statement_node.has_value()) {
         return std::nullopt;
