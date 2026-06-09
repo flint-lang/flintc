@@ -1,5 +1,16 @@
 use Core.print
 
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
 def main():
-	bool x = not true or not false and not true;
+	data<i32, f32, str> d = (10, 20.0, "hi");
+	str s = d.$2;
+	x := s.lenge;
 	print($"x = {x}\n");
+
+	dat := Data(10, 20);
+	i32 z = dat.z;
+	print($"z = {z}\n");

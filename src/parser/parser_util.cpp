@@ -1156,33 +1156,32 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     } else if (base_expr_tokens.second->token == TOK_INT_VALUE) {
         assert(std::prev(base_expr_tokens.second)->token == TOK_DOLLAR);
         long int_value = std::stol(std::string(base_expr_tokens.second->lexme));
-        if (int_value < 0) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        assert(int_value >= 0);
         field_id = static_cast<unsigned int>(int_value);
         base_expr_tokens.second--;
     } else {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                                                             //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, base_expr_tokens.second->line,                                     //
+            base_expr_tokens.second->column, std::vector<Token>{TOK_IDENTIFIER, TOK_INT_VALUE}, base_expr_tokens.second->token //
+        );
         return std::nullopt;
     }
     base_expr_tokens.second--;
     if (base_expr_tokens.second->token != TOK_DOT) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                                       //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, base_expr_tokens.second->line,               //
+            base_expr_tokens.second->column, std::vector<Token>{TOK_DOT}, base_expr_tokens.second->token //
+        );
         return std::nullopt;
     }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
-        if (!Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator)) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
+        assert(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
     }
 
     // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
     std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     std::shared_ptr<Type> base_type = base_expr.value()->type;
@@ -1194,7 +1193,11 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     // If the base expresion is of type `str`, the only valid access is its `length` variable
     if (base_type->to_string() == "str") {
         if (field_name != "length" && field_name != "len") {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
+                std::unordered_map<std::string, std::shared_ptr<Type>>{
+                    {"length", Type::get_primitive_type("u64")},
+                    {"len", Type::get_primitive_type("u64")},
+                });
             return std::nullopt;
         }
         return CreateFieldAccessBaseRet{
@@ -1210,7 +1213,11 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
         case Type::Variation::ARRAY: {
             const auto *array_type = base_type->as<ArrayType>();
             if (field_name != "length" && field_name != "len") {
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
+                    std::unordered_map<std::string, std::shared_ptr<Type>>{
+                        {"length", Type::get_primitive_type("u64")},
+                        {"len", Type::get_primitive_type("u64")},
+                    });
                 return std::nullopt;
             }
             if (array_type->dimensionality > 1) {
@@ -1248,7 +1255,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 field_id++;
             }
             if (data_node->fields.size() == field_id) {
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type, std::nullopt);
                 return std::nullopt;
             }
             const std::shared_ptr<Type> field_type = data_node->fields.at(field_id).type;
