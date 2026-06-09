@@ -14,7 +14,7 @@ class ArrayType : public Type {
         dimensionality(dimensionality),
         type(type),
         sizes(sizes) {
-        assert(!sizes.has_value() || dimensionality == sizes.value().size());
+        ASSERT(!sizes.has_value() || dimensionality == sizes.value().size());
     }
 
     Variation get_variation() const override {
@@ -52,7 +52,7 @@ class ArrayType : public Type {
         if (!sizes.has_value()) {
             return type->to_string() + "[" + std::string(dimensionality - 1, ',') + "]";
         }
-        assert(sizes.value().size() == dimensionality);
+        ASSERT(sizes.value().size() == dimensionality);
         std::stringstream type_str;
         type_str << type->to_string() << "[";
         for (size_t i = 0; i < dimensionality; i++) {

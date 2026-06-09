@@ -1,5 +1,6 @@
 #include "analyzer/analyzer.hpp"
 
+#include "assert.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "parser/ast/definitions/function_node.hpp"
@@ -48,8 +49,6 @@
 #include "parser/type/fn_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "profiler.hpp"
-
-#include <cassert>
 
 Analyzer::Result Analyzer::analyze_file(const FileNode *file) {
     PROFILE_SCOPE("analyze '" + file->file_name + "'");
@@ -118,7 +117,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::OK:
                         break;
                     case Result::ERR_HANDLED:
-                        assert(false);
+                        UNREACHABLE();
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
                         THROW_ERR(                                                                //
                             ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,          //
@@ -138,7 +137,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::OK:
                         break;
                     case Result::ERR_HANDLED:
-                        assert(false);
+                        UNREACHABLE();
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
                         THROW_ERR(                                                       //
                             ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING, //
@@ -483,7 +482,7 @@ fail:
             [[fallthrough]];
         case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
             // Should be unreachable code
-            assert(false);
+            UNREACHABLE();
             break;
         case Result::ERR_HANDLED:
             // No further printing needed
@@ -747,7 +746,7 @@ fail:
             [[fallthrough]];
         case Result::ERR_HANDLED:
             // Those cases should not be possible at this stage
-            assert(false);
+            UNREACHABLE();
             __builtin_unreachable();
         case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
             THROW_ERR(ErrPtrNotAllowedInNonExternContext, ERR_ANALYZING, expression);

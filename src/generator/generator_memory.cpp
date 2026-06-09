@@ -432,13 +432,13 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::PRIMITIVE: {
-            assert(type->to_string() == "str");
+            ASSERT(type->to_string() == "str");
             llvm::Function *free_fn = c_functions.at(FREE);
             builder->CreateCall(free_fn, {value});
             break;
         }
         case Type::Variation::OPAQUE: {
-            assert(opaque_leak_mode != OpaqueLeakMode::SILENT);
+            ASSERT(opaque_leak_mode != OpaqueLeakMode::SILENT);
             llvm::Function *const abort_fn = c_functions.at(ABORT);
             llvm::Function *const printf_fn = c_functions.at(PRINTF);
             llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
@@ -459,7 +459,7 @@ void Generator::Memory::generate_free_value( //
                 builder->CreateCall(abort_fn, {});
                 builder->CreateUnreachable();
             } else {
-                assert(opaque_leak_mode == OpaqueLeakMode::PRINT);
+                ASSERT(opaque_leak_mode == OpaqueLeakMode::PRINT);
                 builder->CreateBr(opaque_merge_block);
             }
 
@@ -468,7 +468,7 @@ void Generator::Memory::generate_free_value( //
         }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
-            assert(optional_type->base_type->is_freeable());
+            ASSERT(optional_type->base_type->is_freeable());
             // We check if the optional holds a value and only if it does then we free anything. This means that we need a basic block for
             // the freeing code and if it does not hold a value then we simply skip it
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -906,7 +906,7 @@ void Generator::Memory::generate_clone_value( //
             break;
         }
         case Type::Variation::PRIMITIVE: {
-            assert(type->to_string() == "str");
+            ASSERT(type->to_string() == "str");
             llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *str_len_ptr = builder->CreateStructGEP(str_type, src, 0, "str_len_ptr");
             llvm::Value *str_len = IR::aligned_load(*builder, builder->getInt64Ty(), str_len_ptr, "str_len");
@@ -925,7 +925,7 @@ void Generator::Memory::generate_clone_value( //
         }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
-            assert(optional_type->base_type->is_freeable());
+            ASSERT(optional_type->base_type->is_freeable());
             // We check if the optional holds a value and only if it does then we clone anything. This means that we need a basic block
             // for the cloning code and if it does not hold a value then we store `none` in the value
             llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -984,7 +984,7 @@ void Generator::Memory::generate_clone_value( //
                 llvm::Value *src_elem_ptr = builder->CreateStructGEP(tuple_struct_type, src, i, "src_elem_ptr");
                 llvm::Value *dest_elem_ptr = builder->CreateStructGEP(tuple_struct_type, dest, i, "dest_elem_ptr");
                 if (!elem_type->is_freeable()) {
-                    assert(!elem_type_pair.second.first);
+                    ASSERT(!elem_type_pair.second.first);
                     llvm::Value *elem_size = builder->getInt64(Allocation::get_type_size(module, elem_type_pair.first));
                     builder->CreateCall(c_functions.at(MEMCPY), {dest_elem_ptr, src_elem_ptr, elem_size});
                     continue;

@@ -23,8 +23,7 @@ class ErrFnDefMissing : public BaseError {
         while (it != tokens.second && it->token != TOK_LEFT_PAREN) {
             switch (it->token) {
                 default:
-                    // Should be unreachable
-                    assert(false);
+                    UNREACHABLE();
                     break;
                 case TOK_EXTERN:
                     oss << "extern ";

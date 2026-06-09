@@ -86,7 +86,7 @@ llvm::Value *Generator::Module::TypeCast::uN_to_uN_trunc( //
     const size_t N                                        //
 ) {
     const size_t src_width = expr->getType()->getIntegerBitWidth();
-    assert(src_width > N);
+    ASSERT(src_width > N);
     const llvm::APInt max_int = llvm::APInt::getMaxValue(N).zext(src_width);
     auto max = llvm::ConstantInt::get(expr->getType(), max_int);
     auto too_large = builder.CreateICmpUGT(expr, max);
@@ -100,7 +100,7 @@ llvm::Value *Generator::Module::TypeCast::uN_to_iN_trunc( //
     const size_t N                                        //
 ) {
     const size_t src_width = expr->getType()->getIntegerBitWidth();
-    assert(src_width > N);
+    ASSERT(src_width > N);
     const llvm::APInt max_int = llvm::APInt::getSignedMaxValue(N).zext(src_width);
     auto max = llvm::ConstantInt::get(expr->getType(), max_int);
     auto too_large = builder.CreateICmpUGT(expr, max);
@@ -113,7 +113,7 @@ llvm::Value *Generator::Module::TypeCast::iN_to_uN_trunc(llvm::IRBuilder<> &buil
     const size_t N                                                                   //
 ) {
     const size_t src_width = expr->getType()->getIntegerBitWidth();
-    assert(src_width > N);
+    ASSERT(src_width > N);
     auto zero = llvm::ConstantInt::get(expr->getType(), 0);
     const llvm::APInt max_int = llvm::APInt::getMaxValue(N).zext(src_width);
     auto max = llvm::ConstantInt::get(expr->getType(), max_int);
@@ -136,7 +136,7 @@ llvm::Value *Generator::Module::TypeCast::iN_to_iN_trunc( //
     const size_t N                                        //
 ) {
     const size_t src_width = expr->getType()->getIntegerBitWidth();
-    assert(src_width > N);
+    ASSERT(src_width > N);
     const llvm::APInt min_int = llvm::APInt::getSignedMinValue(N).sext(src_width);
     const llvm::APInt max_int = llvm::APInt::getSignedMaxValue(N).sext(src_width);
     auto min = llvm::ConstantInt::get(expr->getType(), min_int);
@@ -506,7 +506,7 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     builder->SetInsertPoint(nonzero_case_block);
     // Count digits - call count_digits((uint64_t)u_value)
     llvm::Value *len = arg_uvalue;
-    assert(N <= 64);
+    ASSERT(N <= 64);
     if (N < 64) {
         llvm::Value *u64_value = builder->CreateZExt(arg_uvalue, builder->getInt64Ty());
         len = builder->CreateCall(count_digits_fn, {u64_value}, "len");
@@ -685,7 +685,7 @@ void Generator::Module::TypeCast::generate_iN_to_str( //
     llvm::Value *abs_value = builder->CreateSelect(is_negative, builder->CreateNeg(arg_ivalue, "negated"), arg_ivalue, "abs_value");
 
     // Convert to uint32_t for consistent handling
-    assert(N <= 64);
+    ASSERT(N <= 64);
     llvm::Value *value = abs_value;
     if (N < 64) {
         value = builder->CreateZExt(abs_value, builder->getInt64Ty(), "value_u64");

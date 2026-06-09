@@ -1,8 +1,8 @@
 #pragma once
 
+#include "assert.hpp"
 #include "token.hpp"
 
-#include <cassert>
 #include <memory>
 #include <string_view>
 
@@ -30,8 +30,8 @@ struct TokenContext {
         line(l),
         column(c),
         file_id(id) {
-        assert(token != TOK_TYPE);
-        assert(token != TOK_ALIAS);
+        ASSERT(token != TOK_TYPE);
+        ASSERT(token != TOK_ALIAS);
         lexme = s;
     }
 
@@ -41,7 +41,7 @@ struct TokenContext {
         line(l),
         column(c),
         file_id(id) {
-        assert(token == TOK_TYPE);
+        ASSERT(token == TOK_TYPE);
         new (&type) std::shared_ptr<Type>(t_ptr);
     }
 
@@ -51,7 +51,7 @@ struct TokenContext {
         line(l),
         column(c),
         file_id(id) {
-        assert(token == TOK_ALIAS);
+        ASSERT(token == TOK_ALIAS);
         alias_namespace = n_ptr;
     }
 

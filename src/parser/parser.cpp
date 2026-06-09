@@ -11,6 +11,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/multi_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -18,7 +19,6 @@
 #include "profiler.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -32,7 +32,7 @@
 void Parser::init_core_modules() {
     for (const auto &[module_name_view, overload_list] : core_module_functions) {
         const std::string module_name(module_name_view);
-        assert(core_namespaces.find(module_name) == core_namespaces.end());
+        ASSERT(core_namespaces.find(module_name) == core_namespaces.end());
         core_namespaces[module_name] = std::make_unique<Namespace>(module_name);
         std::unique_ptr<Namespace> &core_namespace = core_namespaces.at(module_name);
         Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace.get();
@@ -42,7 +42,7 @@ void Parser::init_core_modules() {
         if (core_module_error_sets.find(module_name) != core_module_error_sets.end()) {
             for (const auto &error_set_type : core_module_error_sets.at(module_name)) {
                 const std::string error_set_name(std::get<0>(error_set_type));
-                assert(types.find(error_set_name) == types.end());
+                ASSERT(types.find(error_set_name) == types.end());
                 const std::string error_set_parent_name(std::get<1>(error_set_type));
                 std::vector<std::string> values;
                 std::vector<std::string> default_messages;
@@ -62,7 +62,7 @@ void Parser::init_core_modules() {
         if (core_module_enum_types.find(module_name) != core_module_enum_types.end()) {
             for (const auto &[enum_name_view, enum_values] : core_module_enum_types.at(module_name)) {
                 const std::string enum_name(enum_name_view);
-                assert(types.find(enum_name) == types.end());
+                ASSERT(types.find(enum_name) == types.end());
                 std::vector<std::pair<std::string, unsigned int>> values;
                 for (const auto &[enum_tag, enum_value] : enum_values) {
                     values.emplace_back(enum_tag, enum_value);
@@ -79,12 +79,12 @@ void Parser::init_core_modules() {
         if (core_module_data_types.find(module_name) != core_module_data_types.end()) {
             for (const auto &data_type : core_module_data_types.at(module_name)) {
                 const std::string data_type_name(std::get<0>(data_type));
-                assert(types.find(data_type_name) == types.end());
+                ASSERT(types.find(data_type_name) == types.end());
                 const auto &field_pairs = std::get<1>(data_type);
                 std::vector<DataNode::Field> fields;
                 for (const auto &[field_type_view, field_name_view] : field_pairs) {
                     std::optional<std::shared_ptr<Type>> field_type = core_namespace->get_type_from_str(std::string(field_type_view));
-                    assert(field_type.has_value());
+                    ASSERT(field_type.has_value());
                     fields.emplace_back(DataNode::Field{
                         .name = std::string(field_name_view),
                         .type = field_type.value(),
@@ -178,7 +178,7 @@ std::optional<FileNode *> Parser::parse() {
     file_node_ptr = std::make_unique<FileNode>(file);
     {
         std::lock_guard<std::shared_mutex> lock(Resolver::namespace_map_mutex);
-        assert(Resolver::namespace_map.find(file_node_ptr->file_namespace->namespace_hash) == Resolver::namespace_map.end());
+        ASSERT(Resolver::namespace_map.find(file_node_ptr->file_namespace->namespace_hash) == Resolver::namespace_map.end());
         Resolver::namespace_map.emplace(file_node_ptr->file_namespace->namespace_hash, file_node_ptr->file_namespace.get());
     }
     file_node_ptr->file_namespace->file_node = file_node_ptr.get();
@@ -222,7 +222,7 @@ Parser::CastDirection Parser::check_primitive_castability( //
     PROFILE_CUMULATIVE("Parser::check_primitive_castability");
     const std::string lhs_str = lhs_type->to_string();
     const std::string rhs_str = rhs_type->to_string();
-    assert(lhs_str != rhs_str);
+    ASSERT(lhs_str != rhs_str);
 
     // Check if both sides are literals, cast int to float in that case
     if (lhs_str == "int" && rhs_str == "float") {
@@ -796,10 +796,10 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
 
     switch (target_type->get_variation()) {
         case Type::Variation::ALIAS:
-            assert(false);
+            UNREACHABLE();
             break;
         case Type::Variation::FN:
-            assert(false);
+            UNREACHABLE();
             break;
         case Type::Variation::ARRAY:
         case Type::Variation::DATA:
@@ -1025,7 +1025,7 @@ bool Parser::resolve_all_imports() {
                     continue;
                 }
                 // Not-available core modules should have been caught some time earlier
-                assert(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
+                ASSERT(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
                 imported_namespace = Parser::core_namespaces.at(import_segments.back()).get();
             }
             // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
@@ -1918,7 +1918,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                                 auto idx = std::find(                                                                 //
                                     data_modules.begin(), data_modules.end(), std::make_pair(data_node, std::nullopt) //
                                 );
-                                assert(idx != data_modules.end());
+                                ASSERT(idx != data_modules.end());
                                 entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                             }
                             parent_added = true;
@@ -2118,7 +2118,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
     // We also check in this phase that every single node's entity pointer has been set. If this is not the case something went wrong
     std::vector<std::string> tip_keys;
     for (const auto &[key, node] : nodes) {
-        assert(node.entity != nullptr);
+        ASSERT(node.entity != nullptr);
         if (node.parents.empty()) {
             tip_keys.emplace_back(key);
         }
@@ -2278,9 +2278,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel) {
                 line.tokens.first + next_range.value().first,
                 line.tokens.first + next_range.value().second,
             };
-            assert(range_tokens.first->token == TOK_ERROR);
-            assert((range_tokens.first + 1)->token == TOK_DOT);
-            assert((range_tokens.first + 2)->token == TOK_IDENTIFIER);
+            ASSERT(range_tokens.first->token == TOK_ERROR);
+            ASSERT((range_tokens.first + 1)->token == TOK_DOT);
+            ASSERT((range_tokens.first + 2)->token == TOK_IDENTIFIER);
             const std::string err_value((range_tokens.first + 2)->lexme);
             if (std::find(err_values.begin(), err_values.end(), err_value) == err_values.end()) {
                 err_values.emplace_back(err_value);
@@ -2404,8 +2404,8 @@ token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_lis
 
 token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token_list &tokens) {
     PROFILE_CUMULATIVE("Parser::clone_from_to");
-    assert(to >= from);
-    assert(to <= tokens.size());
+    ASSERT(to >= from);
+    ASSERT(to <= tokens.size());
     token_list extraction;
     if (to == from) {
         return extraction;
@@ -2417,8 +2417,8 @@ token_list Parser::clone_from_to(unsigned int from, unsigned int to, const token
 
 token_list Parser::clone_from_slice(const token_slice &slice) {
     PROFILE_CUMULATIVE("Parser::clone_from_slice");
-    assert(slice.second - slice.first > 0);
-    assert(slice.first != slice.second);
+    ASSERT(slice.second - slice.first > 0);
+    ASSERT(slice.first != slice.second);
     token_list extraction;
     extraction.reserve(std::distance(slice.first, slice.second));
     std::copy(slice.first, slice.second, std::back_inserter(extraction));

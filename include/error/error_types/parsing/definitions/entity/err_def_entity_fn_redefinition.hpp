@@ -27,12 +27,12 @@ class ErrDefEntityFnRedefinition : public BaseError {
         oss << "├─ The explicit signatures of the function from the func-module matches the newly defined entity function and creates a collision\n";
 
         const auto &original_dot_idx = std::find(original->name.begin(), original->name.end(), '.');
-        assert(original_dot_idx != original->name.end());
+        ASSERT(original_dot_idx != original->name.end());
         const size_t original_dot_pos = std::distance(original->name.begin(), original_dot_idx);
         const std::string original_ref = original->name.substr(0, original_dot_pos) + "::" + original->name.substr(original_dot_pos + 1);
 
         const auto &function_dot_idx = std::find(function->name.begin(), function->name.end(), '.');
-        assert(function_dot_idx != function->name.end());
+        ASSERT(function_dot_idx != function->name.end());
         const size_t function_dot_pos = std::distance(function->name.begin(), function_dot_idx);
         const std::string function_ref = function->name.substr(0, function_dot_pos) + "::" + function->name.substr(function_dot_pos + 1);
 

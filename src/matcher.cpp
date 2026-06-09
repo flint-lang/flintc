@@ -2,7 +2,6 @@
 
 #include "profiler.hpp"
 
-#include <cassert>
 #include <regex>
 
 std::optional<uint2> Matcher::balanced_range_extraction( //
@@ -293,8 +292,8 @@ bool Matcher::tokens_start_with_continuous(const token_slice &tokens, const Patt
 
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     PROFILE_CUMULATIVE("Matcher::tokens_contain_in_range");
-    assert(range.second <= std::distance(tokens.first, tokens.second));
-    assert(range.first <= range.second);
+    ASSERT(range.second <= std::distance(tokens.first, tokens.second));
+    ASSERT(range.first <= range.second);
 
     for (size_t i = range.first; i < range.second; i++) {
         auto result = pattern->match(tokens, i);
@@ -348,8 +347,8 @@ std::vector<uint2> Matcher::get_match_ranges(const token_slice &tokens, const Pa
 
 std::vector<uint2> Matcher::get_match_ranges_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     PROFILE_CUMULATIVE("Matcher::get_match_ranges_in_range");
-    assert(range.second <= std::distance(tokens.first, tokens.second));
-    assert(range.first <= range.second);
+    ASSERT(range.second <= std::distance(tokens.first, tokens.second));
+    ASSERT(range.first <= range.second);
 
     std::vector<uint2> results;
     for (size_t i = range.first; i < range.second; i++) {

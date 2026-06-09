@@ -123,7 +123,6 @@
 #include "error_types/analyzing/err_ptr_not_allowed_in_non_extern_context.hpp"
 #include "error_types/analyzing/err_ptr_not_allowed_in_variant_definition.hpp"
 
-#include <cassert>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -137,7 +136,7 @@ inline void throw_err(ErrorType error_type, const char *file = __FILE__, const i
         std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
     if (HARD_CRASH) {
-        assert(false);
+        ASSERT(false);
     }
     std::cerr << std::endl;
 }
@@ -175,7 +174,7 @@ throw_err(                                                                      
         std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
     if (HARD_CRASH) {
-        assert(false);
+        ASSERT(false);
     }
     std::cerr << "\n" << std::endl;
 #endif

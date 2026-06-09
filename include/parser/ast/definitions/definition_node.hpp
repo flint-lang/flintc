@@ -3,8 +3,6 @@
 #include "parser/ast/annotation_node.hpp"
 #include "parser/ast/ast_node.hpp"
 
-#include <cassert>
-
 /// @class `DefinitionNode`
 /// @brief Base class for all top-level definitions
 class DefinitionNode : public ASTNode {
@@ -74,7 +72,7 @@ class DefinitionNode : public ASTNode {
     std::enable_if_t<std::is_base_of_v<DefinitionNode, T> && !std::is_same_v<DefinitionNode, T>, const T *> inline as() const {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(const_cast<DefinitionNode *>(this));
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<const T *>(this);
@@ -86,7 +84,7 @@ class DefinitionNode : public ASTNode {
     template <typename T> std::enable_if_t<std::is_base_of_v<DefinitionNode, T> && !std::is_same_v<DefinitionNode, T>, T *> inline as() {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(this);
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<T *>(this);

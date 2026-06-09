@@ -18,7 +18,7 @@ void Generator::Module::Time::generate_time_functions(llvm::IRBuilder<> *builder
 
 void Generator::Module::Time::generate_types(llvm::Module *module) {
     // Create the data types of this module
-    assert(core_module_data_types.find("time") != core_module_data_types.end());
+    ASSERT(core_module_data_types.find("time") != core_module_data_types.end());
     const auto &data_types = core_module_data_types.at("time");
     for (const data_type &type : data_types) {
         const std::string type_name(std::get<0>(type));
@@ -26,7 +26,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
         // Get the global variable to the DIMA head
         const std::string head_var_str = hash.to_string() + ".dima.head.data." + type_name;
         llvm::GlobalVariable *dima_head_variable = module->getGlobalVariable(head_var_str);
-        assert(time_dima_heads.find(head_var_str) == time_dima_heads.end());
+        ASSERT(time_dima_heads.find(head_var_str) == time_dima_heads.end());
         time_dima_heads[type_name] = dima_head_variable;
 
         // Create the struct type
@@ -43,7 +43,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
     }
 
     // Generate the enum strings for this module's provided enum types
-    assert(core_module_enum_types.find("time") != core_module_enum_types.end());
+    ASSERT(core_module_enum_types.find("time") != core_module_enum_types.end());
     const auto &enum_types = core_module_enum_types.at("time");
     for (const enum_type &type : enum_types) {
         const std::string enum_name(std::get<0>(type));

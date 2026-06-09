@@ -52,7 +52,6 @@ VariantUnwrapMode var_unwrap_mode = VariantUnwrapMode::CRASH;
 
 PersistentThreadPool thread_pool;
 
-#include <cassert>
 #include <cstddef>
 #include <iostream>
 #include <memory>
@@ -471,7 +470,7 @@ namespace Debug {
 
         void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call) {
             Local::print_header(indent_lvl, bits, "Instance Call ");
-            assert(call.instance_variable->get_variation() == ExpressionNode::Variation::VARIABLE);
+            ASSERT(call.instance_variable->get_variation() == ExpressionNode::Variation::VARIABLE);
             if (!call.error_types.empty()) {
                 std::cout << "throws[";
                 for (auto it = call.error_types.begin(); it != call.error_types.end(); ++it) {

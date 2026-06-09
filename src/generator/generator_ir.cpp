@@ -44,7 +44,7 @@ llvm::StructType *Generator::IR::create_struct_type( //
     const std::vector<llvm::Type *> &elements,       //
     const bool is_packed                             //
 ) {
-    assert(!type_name.empty());
+    ASSERT(!type_name.empty());
     if (type_map.find(type_name) != type_map.end()) {
         return type_map.at(type_name);
     }
@@ -100,7 +100,7 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
         return type_map.at(type_str);
     }
     auto llvm_type = get_type(module, type, is_extern);
-    assert(llvm_type.first->isStructTy());
+    ASSERT(llvm_type.first->isStructTy());
     type_map[type_str] = llvm::cast<llvm::StructType>(llvm_type.first);
     return type_map.at(type_str);
 }
@@ -160,7 +160,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                assert(!function_node->is_extern);
+                ASSERT(!function_node->is_extern);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             module->getOrInsertFunction(function_name, function_type);
@@ -277,7 +277,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
         for (const FunctionNode *function_node : entity->functions) {
             const size_t fn_id = function_node->get_id();
-            assert(branches.find(function_node) != branches.end());
+            ASSERT(branches.find(function_node) != branches.end());
             setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
             builder.SetInsertPoint(branches.at(function_node).first);
 
@@ -306,11 +306,11 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 builder.SetInsertPoint(branches.at(function_node).second);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
                 if (function_node->mangle_id.has_value()) {
-                    assert(!function_node->is_extern);
+                    ASSERT(!function_node->is_extern);
                     function_name += "." + std::to_string(function_node->mangle_id.value());
                 }
                 llvm::Function *const function = module->getFunction(function_name);
-                assert(function != nullptr);
+                ASSERT(function != nullptr);
 
                 // Store the data values of the entity inside the implicit parameters of the targetted function
                 llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
@@ -325,7 +325,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                         }
                     }
                     // The required data definitely should be part of the entity, otherwise the parser would have crashed
-                    assert(data_id != entity->data_modules.size());
+                    ASSERT(data_id != entity->data_modules.size());
                     // Load the data pointer from the passed-in entity
                     llvm::Value *const data_ptr_ptr = builder.CreateGEP(PTR_TY, arg_entity, builder.getInt32(data_id), "data_ptr_ptr");
                     llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
@@ -353,16 +353,16 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         // Generate all the bodies of the entity branches
         for (const FunctionNode *function_node : entity->functions) {
             const size_t fn_id = function_node->get_id();
-            assert(branches.find(function_node) != branches.end());
+            ASSERT(branches.find(function_node) != branches.end());
             execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
             builder.SetInsertPoint(branches.at(function_node).second);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                assert(!function_node->is_extern);
+                ASSERT(!function_node->is_extern);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             llvm::Function *const function = module->getFunction(function_name);
-            assert(function != nullptr);
+            ASSERT(function != nullptr);
 
             // Store the entity value in the called entity-function
             // Store the data values of the entity inside the implicit parameters of the targetted function
@@ -390,7 +390,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
 
         // It is safe to cast away the const here using `const_cast` since the lifetime of the entity type is *very* short
         const uint32_t entity_type_id = std::make_shared<EntityType>(const_cast<EntityNode *const>(entity))->get_id();
-        assert(entity_dispatch_functions.find(entity_type_id) == entity_dispatch_functions.end());
+        ASSERT(entity_dispatch_functions.find(entity_type_id) == entity_dispatch_functions.end());
         entity_dispatch_functions[entity_type_id] = dispatch_fn;
     }
 }
@@ -544,7 +544,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     // First we need to check the total size of the data structure. If it's bigger than 16 bytes the 16-byte-rule applies (we pass in
     // the struct by reference or we need to pass in a pointer to the returned struct as first argument)
     llvm::Type *_struct_type = get_type(module, type, false).first;
-    assert(_struct_type->isStructTy());
+    ASSERT(_struct_type->isStructTy());
     if (Allocation::get_type_size(module, _struct_type) > 16) {
         // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
         return PTR_TY;
@@ -655,7 +655,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         size_t elem_size = Allocation::get_type_size(module, elem_types.at(elem_idx));
         // For the second stack we actually can assert that enough space is left in here, since otherwise the 16-byte rule should have
         // applied
-        assert(8 - offset >= elem_size);
+        ASSERT(8 - offset >= elem_size);
         // If the current offset is 0 we can simply put in the element into the stack without further checks
         if (offset == 0) {
             stacks[1].push(0);
@@ -667,11 +667,11 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             elem_offset = ((elem_size + offset) / elem_size) * elem_size;
         }
         // This element does not fit into this stack, this should not happen since it's the last stack
-        assert(elem_offset != 8);
+        ASSERT(elem_offset != 8);
         stacks[1].push(elem_offset);
         offset = elem_offset + elem_size;
     }
-    assert(elem_idx == elem_types.size());
+    ASSERT(elem_idx == elem_types.size());
     elem_idx = 0;
     // Now we reach the second phase, we have figured out how to put the elements into the stacks, now we can create the types
     if (stacks[1].empty()) {
@@ -717,8 +717,8 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     } else {
         types[1] = llvm::Type::getInt64Ty(context);
     }
-    assert(types[0] != nullptr);
-    assert(types[1] != nullptr);
+    ASSERT(types[0] != nullptr);
+    ASSERT(types[1] != nullptr);
 
     // Create a struct of the computed stack types
     std::vector<llvm::Type *> types_vec;

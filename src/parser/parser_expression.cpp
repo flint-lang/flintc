@@ -72,7 +72,7 @@ bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique
         }
     }
     // Should never reach here
-    assert(false);
+    UNREACHABLE();
     return false;
 }
 
@@ -117,7 +117,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     switch (operation) {
         default:
             // It should never come here, if it did something went wrong
-            assert(false);
+            UNREACHABLE();
             break;
         case TOK_PLUS:
             if (std::holds_alternative<LitInt>(lhs->value)) {
@@ -343,12 +343,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
             const auto &captured_type = scope->captured_entity_identifiers.at(name);
             switch (captured_type->get_variation()) {
                 default:
-                    assert(false);
+                    UNREACHABLE();
                     return std::nullopt;
                 case Type::Variation::DATA: {
-                    assert(scope->variables.find("self") != scope->variables.end());
+                    ASSERT(scope->variables.find("self") != scope->variables.end());
                     const auto &self = scope->variables.at("self");
-                    assert(self.type->get_variation() == Type::Variation::ENTITY);
+                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
                     const EntityNode *entity_node = self.type->as<EntityType>()->entity_node;
                     const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
                     size_t idx = 0;
@@ -374,9 +374,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     return std::move(access);
                 }
                 case Type::Variation::ENTITY:
-                    assert(scope->variables.find("self") != scope->variables.end());
+                    ASSERT(scope->variables.find("self") != scope->variables.end());
                     const auto &self = scope->variables.at("self");
-                    assert(self.type->get_variation() == Type::Variation::ENTITY);
+                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
                     // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
                     // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
                     // `create_field_access_base` function.
@@ -451,9 +451,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( /
     const token_slice &tokens                                                  //
 ) {
     PROFILE_CUMULATIVE("Parser::create_anonymous_error");
-    assert(tokens.first->token == TOK_ERROR);
-    assert(std::next(tokens.first)->token == TOK_DOT);
-    assert((tokens.first + 2)->token == TOK_IDENTIFIER);
+    ASSERT(tokens.first->token == TOK_ERROR);
+    ASSERT(std::next(tokens.first)->token == TOK_DOT);
+    ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
     std::string err_type_name = "error.";
     if (std::holds_alternative<FunctionNode *>(scope->function)) {
         err_type_name += std::to_string(std::get<FunctionNode *>(scope->function)->get_id());
@@ -464,9 +464,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( /
     const std::string err_value((tokens.first + 2)->lexme);
     std::optional<std::unique_ptr<ExpressionNode>> message;
     if (tokens.first + 3 != tokens.second) {
-        assert(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
-        assert((tokens.first + 3)->token == TOK_LEFT_PAREN);
-        assert(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
+        ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
+        ASSERT((tokens.first + 3)->token == TOK_LEFT_PAREN);
+        ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
         if (tokens.first + 4 == tokens.second - 1) {
             // Empty expression between parenthesis of throwing the error
             THROW_BASIC_ERR(ERR_PARSING);
@@ -524,19 +524,19 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 // As long as the pattern of the literal is added in the Matcher::literal pattern this branch actually is unreachable
                 // because if it would be reached it would mean that something about the Matcher went wrong, which is not a user error but a
                 // dev error
-                assert(false);
+                UNREACHABLE();
                 break;
             case TOK_NONE: {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
                 std::optional<std::shared_ptr<Type>> opt_type = file_node_ptr->file_namespace->get_type_from_str("void?");
-                assert(opt_type.has_value());
+                ASSERT(opt_type.has_value());
                 LitValue lit_val = LitOptional{};
                 return LiteralNode(lit_val, opt_type.value());
             }
             case TOK_NULL: {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
                 std::optional<std::shared_ptr<Type>> ptr_type = file_node_ptr->file_namespace->get_type_from_str("void*");
-                assert(ptr_type.has_value());
+                ASSERT(ptr_type.has_value());
                 LitValue lit_val = LitPtr{};
                 return LiteralNode(lit_val, ptr_type.value());
             }
@@ -636,7 +636,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 } else if (lexme == "\\'") {
                     char_value = '\'';
                 } else if (lexme.substr(0, 2) == "\\x") {
-                    assert(lexme.size() == 4);
+                    ASSERT(lexme.size() == 4);
                     const std::string hex_digits = lexme.substr(2, 2);
                     unsigned int hex_value = std::stoi(hex_digits, nullptr, 16);
                     char_value = static_cast<char>(hex_value);
@@ -720,7 +720,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
         if (!check_castability(str_type, expr.value(), true)) {
             // This shouldn't fail
-            assert(false);
+            UNREACHABLE();
             return std::nullopt;
         }
         interpol_content.emplace_back(std::move(expr.value()));
@@ -848,9 +848,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(!ret->is_initializer);
+    ASSERT(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
-        assert(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+        ASSERT(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
         if (scope->variables.find(instance_var->name) == scope->variables.end()) {
             // Instance call on nonexistent instance variable
@@ -922,8 +922,8 @@ std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_re
     // within that aliased imported file
 
     // If the first token is the function reference itself we need to search in the current file for a "regular" function to reference
-    assert(tokens_mut.first->token == TOK_REFERENCE);
-    assert((tokens_mut.first + 1)->token == TOK_IDENTIFIER);
+    ASSERT(tokens_mut.first->token == TOK_REFERENCE);
+    ASSERT((tokens_mut.first + 1)->token == TOK_IDENTIFIER);
     referenced_fn_name += std::string((tokens_mut.first + 1)->lexme);
     std::vector<const FunctionNode *> potential_functions = file_node_ptr->file_namespace->get_functions_with_name( //
         referenced_fn_name, false, true                                                                             //
@@ -973,7 +973,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(ret->is_initializer);
+    ASSERT(ret->is_initializer);
     std::vector<std::unique_ptr<ExpressionNode>> args;
     for (auto &arg : ret->args) {
         args.emplace_back(std::move(arg.first));
@@ -987,8 +987,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     const token_slice &tokens                                            //
 ) {
     PROFILE_CUMULATIVE("Parser::create_type_cast");
-    assert(tokens.first->token == TOK_TYPE);
-    assert(std::next(tokens.first)->token == TOK_LEFT_PAREN);
+    ASSERT(tokens.first->token == TOK_TYPE);
+    ASSERT(std::next(tokens.first)->token == TOK_LEFT_PAREN);
     token_slice tokens_mut = tokens;
     std::optional<uint2> expr_range = Matcher::balanced_range_extraction(           //
         tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
@@ -1000,7 +1000,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     // Remove the parenthesis from the expression token ranges
     expr_range.value().first++;
     expr_range.value().second--;
-    assert(expr_range.value().second > expr_range.value().first);
+    ASSERT(expr_range.value().second > expr_range.value().first);
 
     // Get the type the expression needs to be converted to
     const std::shared_ptr<Type> to_type = tokens.first->type;
@@ -1075,8 +1075,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
     // First, remove all trailing garbage from the expression tokens
     remove_trailing_garbage(tokens_mut);
     // Now, the first and the last token must be open and closing parenthesis respectively
-    assert(tokens_mut.first->token == TOK_LEFT_PAREN);
-    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_PAREN);
+    ASSERT(tokens_mut.first->token == TOK_LEFT_PAREN);
+    ASSERT(std::prev(tokens_mut.second)->token == TOK_RIGHT_PAREN);
     // Remove the open and closing parenthesis
     tokens_mut.first++;
     tokens_mut.second--;
@@ -1090,7 +1090,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
         Matcher::token(TOK_RIGHT_PAREN)                                                 //
     );
     // Its not a group expression if there is only one expression inside the parenthesis, this should never happen
-    assert(!match_ranges.empty());
+    ASSERT(!match_ranges.empty());
     // Remove all duplicates, because when the fourth token is a comma we get the ranges 0-3, 1-3 and 2-3, and we only care about the
     // first one, not all later ones
     unsigned int last_second = UINT32_MAX;
@@ -1103,7 +1103,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
         }
     }
     // All tokens from the end of the second range up to the end are the last expression of the group
-    assert(tokens_mut.first + match_ranges.back().second < tokens_mut.second);
+    ASSERT(tokens_mut.first + match_ranges.back().second < tokens_mut.second);
     match_ranges.emplace_back(match_ranges.back().second, std::distance(tokens_mut.first, tokens_mut.second));
 
     // Decrement all second matches ranges to exclude all commas from the expression (except for the last match range, it has no comma
@@ -1187,7 +1187,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         Matcher::token(TOK_LEFT_PAREN),                                                  //
         Matcher::token(TOK_RIGHT_PAREN)                                                  //
     );
-    assert(ranges.size() == 1);
+    ASSERT(ranges.size() == 1);
     const uint2 &range = ranges.front();
     const token_slice lhs_tokens = {tokens.first, tokens.first + range.first};
     const bool is_open_low = lhs_tokens.first == lhs_tokens.second;
@@ -1210,8 +1210,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
     const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
     if (is_open_low && is_open_up) {
         // It's an open-begin and open-ended range, e.g. it's just '..' meaning "from begin to end"
-        assert(!lhs_expr.has_value());
-        assert(!rhs_expr.has_value());
+        ASSERT(!lhs_expr.has_value());
+        ASSERT(!rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
         lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
@@ -1219,14 +1219,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
-        assert(!lhs_expr.has_value());
-        assert(rhs_expr.has_value());
+        ASSERT(!lhs_expr.has_value());
+        ASSERT(rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
         lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
     } else if (is_open_up) {
         // Its an open ended range expression
-        assert(lhs_expr.has_value());
-        assert(!rhs_expr.has_value());
+        ASSERT(lhs_expr.has_value());
+        ASSERT(!rhs_expr.has_value());
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
         rhs_expr = std::make_unique<LiteralNode>(rhs_max, u64_ty);
     }
@@ -1392,10 +1392,10 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     }
 
     // The first token in the tokens list should be a left bracket
-    assert(tokens_mut.first->token == TOK_LEFT_BRACKET);
+    ASSERT(tokens_mut.first->token == TOK_LEFT_BRACKET);
     tokens_mut.first++;
     // The last token in the tokens list should be a right bracket
-    assert(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
     // Now, everything left in the `tokens_mut` vector should be the length expressions [...]
     auto length_expressions = create_group_expressions(ctx, scope, tokens_mut);
@@ -1456,7 +1456,7 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
     // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
     // expression.
     token_list toks = clone_from_slice(tokens);
-    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
     token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
     token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
     unsigned int depth = 0;
@@ -1511,7 +1511,7 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         }
     }
     // The indexing expression size must match the array dimensionality
-    assert(is_array_type);
+    ASSERT(is_array_type);
     const auto *array_type = base_expr.value()->type->as<ArrayType>();
     if (indexing_expressions.value().size() != array_type->dimensionality) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1546,7 +1546,7 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     // The grouped array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an
     // opening bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the
     // base expression.
-    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
     token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
     token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
     unsigned int depth = 0;
@@ -1566,9 +1566,9 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
         indexing_tokens.first--;
         base_expr_tokens.second--;
     }
-    assert(base_expr_tokens.second->token == TOK_LEFT_BRACKET);
+    ASSERT(base_expr_tokens.second->token == TOK_LEFT_BRACKET);
     base_expr_tokens.second--;
-    assert(base_expr_tokens.second->token == TOK_DOT);
+    ASSERT(base_expr_tokens.second->token == TOK_DOT);
     // First we parse the base expression, it's type must be an array type (or string type)
     std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
     if (!base_expr.has_value()) {
@@ -1639,7 +1639,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
     }
     // If the iterator is the beginning this means that no `?` token is present in the list of tokens, this means something in the
     // matcher went wrong, not here in the parser
-    assert(iterator != tokens.first);
+    ASSERT(iterator != tokens.first);
     // Everything to the left of the iterator is the base expression and can be parsed as such
     const token_slice base_expr_tokens = {tokens.first, iterator};
 
@@ -1684,8 +1684,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         }
         --iterator;
     }
-    assert(iterator != tokens.first);
-    assert(iterator->token == TOK_EXCLAMATION);
+    ASSERT(iterator != tokens.first);
+    ASSERT(iterator->token == TOK_EXCLAMATION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
     // If nothing follows after the optional unwrap node we can return it directly
     if (iterator == tokens.second - 1) {
@@ -1797,17 +1797,17 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
         }
         --iterator;
     }
-    assert(iterator != tokens.first);
-    assert(iterator->token == TOK_QUESTION);
+    ASSERT(iterator != tokens.first);
+    ASSERT(iterator->token == TOK_QUESTION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
     ++iterator;
-    assert(iterator->token == TOK_LEFT_PAREN);
+    ASSERT(iterator->token == TOK_LEFT_PAREN);
     auto end_it = ++iterator;
     while (end_it->token != TOK_RIGHT_PAREN) {
         end_it++;
     }
-    assert(end_it->token == TOK_RIGHT_PAREN);
+    ASSERT(end_it->token == TOK_RIGHT_PAREN);
     const token_slice type_tokens = {iterator, end_it};
     auto type_expr = create_expression(ctx, scope, type_tokens);
     if (!type_expr.has_value()) {
@@ -1895,17 +1895,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
         }
         --iterator;
     }
-    assert(iterator != tokens.first);
-    assert(iterator->token == TOK_EXCLAMATION);
+    ASSERT(iterator != tokens.first);
+    ASSERT(iterator->token == TOK_EXCLAMATION);
     const token_slice base_expr_tokens = {tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
     ++iterator;
-    assert(iterator->token == TOK_LEFT_PAREN);
+    ASSERT(iterator->token == TOK_LEFT_PAREN);
     auto end_it = ++iterator;
     while (end_it->token != TOK_RIGHT_PAREN) {
         end_it++;
     }
-    assert(end_it->token == TOK_RIGHT_PAREN);
+    ASSERT(end_it->token == TOK_RIGHT_PAREN);
     const token_slice type_tokens = {iterator, end_it};
     auto type_expr = create_expression(ctx, scope, type_tokens);
     if (!type_expr.has_value()) {
@@ -1990,7 +1990,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (DEBUG_MODE) {
         toks = clone_from_slice(tokens);
     }
-    assert(tokens_mut.first != tokens_mut.second); // Assert that tokens is not empty
+    ASSERT(tokens_mut.first != tokens_mut.second); // Assert that tokens is not empty
     if (!Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
         remove_surrounding_paren(tokens_mut);
     }
@@ -2031,7 +2031,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
-            assert(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
+            ASSERT(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
             std::optional<std::unique_ptr<ExpressionNode>> interpol = create_string_interpolation( //
                 ctx, scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut           //
             );
@@ -2055,9 +2055,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                     case Type::Variation::ERROR_SET: {
                         const auto *error_type = tokens_mut.first->type->as<ErrorSetType>();
                         // It's an error literal with a message added to it
-                        assert((tokens_mut.first + 1)->token == TOK_DOT);
-                        assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
-                        assert((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
+                        ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
+                        ASSERT((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                        ASSERT((tokens_mut.first + 3)->token == TOK_LEFT_PAREN);
                         const std::string value((tokens_mut.first + 2)->lexme);
                         const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
                         if (!pair.has_value()) {
@@ -2094,9 +2094,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         const auto *variant_type = type->as<VariantType>();
                         if (!variant_type->is_err_variant && std::holds_alternative<VariantNode *const>(variant_type->var_or_list)) {
                             [[maybe_unused]] const auto *variant_node = std::get<VariantNode *const>(variant_type->var_or_list);
-                            assert((tokens_mut.first + 1)->token == TOK_DOT);
+                            ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
                             auto tag_it = tokens_mut.first + 2;
-                            assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
+                            ASSERT(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
                             const std::string tag = (tag_it->token == TOK_IDENTIFIER) //
                                 ? std::string(tag_it->lexme)                          //
                                 : tag_it->type->to_string();
@@ -2113,7 +2113,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                                 return std::nullopt;
                             }
                             tag_it++;
-                            assert(tag_it->token == TOK_LEFT_PAREN);
+                            ASSERT(tag_it->token == TOK_LEFT_PAREN);
                             std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
                             if (variation_type.value()->to_string() == "void") {
                                 if ((tag_it + 1)->token != TOK_RIGHT_PAREN) {
@@ -2149,11 +2149,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 }
             }
             // The first element should be the alias token
-            assert(tokens_mut.first->token == TOK_ALIAS);
+            ASSERT(tokens_mut.first->token == TOK_ALIAS);
             Namespace *alias_namespace = tokens_mut.first->alias_namespace;
             tokens_mut.first++;
             // Then a dot should follow
-            assert(tokens_mut.first->token == TOK_DOT);
+            ASSERT(tokens_mut.first->token == TOK_DOT);
             tokens_mut.first++;
             auto call_node = create_call_expression(ctx, scope, tokens_mut, alias_namespace);
             if (!call_node.has_value()) {
@@ -2230,7 +2230,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::type_field_access)) {
         if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
-            assert(tokens_mut.first->token == TOK_TYPE);
+            ASSERT(tokens_mut.first->token == TOK_TYPE);
             const std::shared_ptr<Type> type = tokens_mut.first->type;
             switch (type->get_variation()) {
                 default:
@@ -2242,8 +2242,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    assert((tokens_mut.first + 1)->token == TOK_DOT);
-                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
+                    ASSERT((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     const std::string field_name((tokens_mut.first + 2)->lexme);
                     const auto &fields = data_type->data_node->fields;
                     auto field = fields.begin();
@@ -2257,13 +2257,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    assert(field->initializer.has_value());
+                    ASSERT(field->initializer.has_value());
                     return field->initializer.value()->clone(scope->scope_id);
                 }
                 case Type::Variation::ENUM: {
                     const auto *enum_type = type->as<EnumType>();
-                    assert((tokens_mut.first + 1)->token == TOK_DOT);
-                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
+                    ASSERT((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     const std::string value((tokens_mut.first + 2)->lexme);
                     const auto &values = enum_type->enum_node->values;
                     bool value_exists = false;
@@ -2283,8 +2283,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 }
                 case Type::Variation::ERROR_SET: {
                     const auto *error_type = type->as<ErrorSetType>();
-                    assert((tokens_mut.first + 1)->token == TOK_DOT);
-                    assert((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
+                    ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
+                    ASSERT((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
                     const std::string value((tokens_mut.first + 2)->lexme);
                     const auto pair = error_type->error_node->get_id_msg_pair_of_value(value);
                     if (!pair.has_value()) {
@@ -2297,9 +2297,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 }
                 case Type::Variation::VARIANT: {
                     const auto *variant_type = type->as<VariantType>();
-                    assert((tokens_mut.first + 1)->token == TOK_DOT);
+                    ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
                     const auto tag_it = tokens_mut.first + 2;
-                    assert(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
+                    ASSERT(tag_it->token == TOK_IDENTIFIER || tag_it->token == TOK_TYPE);
                     const std::string tag = (tag_it->token == TOK_IDENTIFIER) ? std::string(tag_it->lexme) : tag_it->type->to_string();
                     const auto &possible_types = variant_type->get_possible_types();
                     std::optional<std::shared_ptr<Type>> variation_type;

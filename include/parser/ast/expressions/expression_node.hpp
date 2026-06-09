@@ -3,8 +3,6 @@
 #include "parser/ast/ast_node.hpp"
 #include "parser/type/type.hpp"
 
-#include <cassert>
-
 /// @class `ExpressionNode`
 /// @brief Base class for all expressions
 class ExpressionNode : public ASTNode {
@@ -103,7 +101,7 @@ class ExpressionNode : public ASTNode {
     std::enable_if_t<std::is_base_of_v<ExpressionNode, T> && !std::is_same_v<ExpressionNode, T>, const T *> inline as() const {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(const_cast<ExpressionNode *>(this));
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<const T *>(this);
@@ -115,7 +113,7 @@ class ExpressionNode : public ASTNode {
     template <typename T> std::enable_if_t<std::is_base_of_v<ExpressionNode, T> && !std::is_same_v<ExpressionNode, T>, T *> inline as() {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(this);
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<T *>(this);

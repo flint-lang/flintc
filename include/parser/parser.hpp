@@ -50,10 +50,7 @@
 #include "ast/expressions/variant_extraction_node.hpp"
 #include "ast/statements/throw_node.hpp"
 
-#include "type/multi_type.hpp"
-
 #include <atomic>
-#include <cassert>
 #include <filesystem>
 #include <memory>
 #include <mutex>

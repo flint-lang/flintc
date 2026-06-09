@@ -111,7 +111,7 @@ bool Linker::link(                                       //
             return link_windows(obj_files, output_file, flags, is_static);
             break;
     }
-    assert(false);
+    UNREACHABLE();
     return false;
 }
 

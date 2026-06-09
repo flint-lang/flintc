@@ -1,7 +1,8 @@
 #pragma once
 
+#include "assert.hpp"
+
 #include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -20,13 +21,13 @@ class APInt {
         }
         size_t index = 0;
         if (value[0] == '-') {
-            assert(value.size() > 1);
+            ASSERT(value.size() > 1);
             is_negative = true;
             index++;
         }
         while (index < value.size()) {
             const char d = value[index];
-            assert(d >= '0' && d <= '9');
+            ASSERT(d >= '0' && d <= '9');
             digits.emplace_back(static_cast<uint8_t>(d - '0'));
             index++;
         }
@@ -335,7 +336,7 @@ class APInt {
     APInt operator/(const APInt &other) const {
         // Check for division by zero
         if (other.digits.size() == 1 && other.digits[0] == 0) {
-            assert(false && "Division by zero");
+            ASSERT(false, "Division by zero");
         }
 
         APInt result("0");

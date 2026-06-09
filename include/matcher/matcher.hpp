@@ -15,7 +15,6 @@
 #include "matcher/token_type_anytoken.hpp"
 #include "matcher/token_type_matcher.hpp"
 #include "matcher/until_matcher.hpp"
-#include <cassert>
 #include <memory>
 #include <unordered_map>
 
@@ -195,7 +194,7 @@ class Matcher {
     /// @param `token` The token to match for
     /// @return `PatternPtr` The created pattern
     static inline PatternPtr token(Token token) {
-        assert(token_patterns.find(token) != token_patterns.end());
+        ASSERT(token_patterns.find(token) != token_patterns.end());
         return token_patterns.at(token);
     }
 

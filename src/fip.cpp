@@ -114,7 +114,7 @@ bool FIP::init(                //
     }
     if (is_active) {
         // Initializing an active FIP is considered an error case as this should not happen, but it's a me-problem, not a user problem
-        assert(false);
+        UNREACHABLE();
         return false;
     }
     is_active = true;
@@ -184,7 +184,7 @@ bool FIP::init(                //
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         const fip_msg_t *response = &master_state.responses[i];
         const fip_msg_connect_request_t *req = &response->u.con_req;
-        assert(response->type == FIP_MSG_CONNECT_REQUEST);
+        ASSERT(response->type == FIP_MSG_CONNECT_REQUEST);
         if (req->version.major != FIP_MAJOR    //
             || req->version.minor != FIP_MINOR //
             || req->version.patch != FIP_PATCH //
@@ -358,7 +358,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             // TODO: For now all enums in Flint are i32
             dest->u.enum_t.bit_width = 32;
             dest->u.enum_t.is_signed = true;
-            assert(enum_node->values.size() <= 255);
+            ASSERT(enum_node->values.size() <= 255);
             dest->u.enum_t.value_count = type->enum_node->values.size();
             dest->u.enum_t.values = static_cast<size_t *>(malloc(sizeof(size_t) * dest->u.enum_t.value_count));
             for (size_t i = 0; i < enum_node->values.size(); i++) {
@@ -472,9 +472,9 @@ bool FIP::resolve_module_import(ImportNode *import) {
     if (!FIP_ENABLED) {
         return false;
     }
-    assert(!std::holds_alternative<Hash>(import->path));
+    ASSERT(!std::holds_alternative<Hash>(import->path));
     const std::vector<std::string> &import_path = std::get<std::vector<std::string>>(import->path);
-    assert(import_path.size() == 2);
+    ASSERT(import_path.size() == 2);
     const std::string module_tag = import_path.back();
     PROFILE_SCOPE("FIP resolve import 'Fip." + module_tag + "'");
     if (!is_active) {
@@ -833,7 +833,7 @@ std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
     // recieved
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         const fip_msg_t *response = &master_state.responses[i];
-        assert(response->type == FIP_MSG_OBJECT_RESPONSE);
+        ASSERT(response->type == FIP_MSG_OBJECT_RESPONSE);
         if (response->u.obj_res.has_obj) {
             fip_print(0, FIP_INFO, "Object response from module: %s", response->u.obj_res.module_name);
             fip_print(0, FIP_DEBUG, "Paths: %s", response->u.obj_res.paths);

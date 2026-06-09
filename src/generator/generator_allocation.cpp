@@ -21,7 +21,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     const FunctionNode *function,                                                       //
     std::unordered_map<std::string, llvm::Value *const> &allocations                    //
 ) {
-    assert(function->scope.has_value() && !function->is_extern);
+    ASSERT(function->scope.has_value() && !function->is_extern);
     std::vector<std::pair<std::string, llvm::Type *const>> types_list;
 
     // We start with all the return values of the function for the type list for the function frame
@@ -42,7 +42,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         const auto &param = function->parameters.at(param_id);
         const std::string param_name = "s" + std::to_string(function->scope.value()->scope_id) + "::" + std::get<1>(param);
         auto param_type = IR::get_type(parent->getParent(), std::get<0>(function->parameters.at(param_id)));
-        assert(param_type.first != nullptr);
+        ASSERT(param_type.first != nullptr);
         if (param_type.second.first) {
             types_list.emplace_back(param_name, PTR_TY);
         } else {
@@ -72,11 +72,11 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     const size_t fn_id = function->get_id();
 
     // Add the frame type to the `ts_frames` map
-    assert(Module::ThreadStack::ts_frames.find(fn_id) == Module::ThreadStack::ts_frames.end());
+    ASSERT(Module::ThreadStack::ts_frames.find(fn_id) == Module::ThreadStack::ts_frames.end());
     Module::ThreadStack::ts_frames[fn_id] = frame_type;
 
     // Create the default frame of the function frame
-    assert(Module::ThreadStack::ts_defaults.find(fn_id) == Module::ThreadStack::ts_defaults.end());
+    ASSERT(Module::ThreadStack::ts_defaults.find(fn_id) == Module::ThreadStack::ts_defaults.end());
     llvm::Constant *ts_fn_default = llvm::ConstantStruct::get(ts_fn_ty,
         {
             llvm::ConstantPointerNull::get(PTR_TY),
@@ -100,7 +100,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     allocations.emplace("flint.stack", parent->arg_begin());
     for (auto type_it = types_list.begin(); type_it != types_list.end(); ++type_it) {
         const std::string &alloca_name = type_it->first;
-        assert(allocations.find(alloca_name) == allocations.end());
+        ASSERT(allocations.find(alloca_name) == allocations.end());
         const size_t idx = std::distance(types_list.begin(), type_it);
         allocations.emplace(alloca_name, builder.CreateStructGEP(frame_type, parent->arg_begin(), idx + 1, alloca_name));
     }
@@ -273,7 +273,7 @@ bool Generator::Allocation::generate_allocations(                        //
                             THROW_BASIC_ERR(ERR_GENERATING);
                             return false;
                         case Type::Variation::GROUP:
-                            assert(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
+                            ASSERT(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
                             generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
                             break;
                         case Type::Variation::MULTI:
@@ -540,8 +540,9 @@ bool Generator::Allocation::generate_declaration_allocations(             //
     // Add the persistent local for later use in the `free.callable` code generation code if the variable is freeable
     if (declaration_node->is_persistent && declaration_node->type->is_freeable()) {
         // Test scopes are not allowed to contain any persistent locals
-        assert(std::holds_alternative<FunctionNode *>(scope->function));
-        const auto &pl = Module::ThreadStack::PersistentLocal{struct_types.size(), declaration_node->persistence_id, declaration_node->type};
+        ASSERT(std::holds_alternative<FunctionNode *>(scope->function));
+        const auto &pl =
+            Module::ThreadStack::PersistentLocal{struct_types.size(), declaration_node->persistence_id, declaration_node->type};
         const size_t fn_id = std::get<FunctionNode *>(scope->function)->get_id();
         auto &locals = Module::ThreadStack::persistent_locals[fn_id];
         locals.emplace_back(pl);
@@ -685,7 +686,7 @@ bool Generator::Allocation::generate_expression_allocations(              //
                         THROW_BASIC_ERR(ERR_GENERATING);
                         return false;
                     case Type::Variation::GROUP:
-                        assert(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
+                        ASSERT(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
                         generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
                         break;
                     case Type::Variation::MULTI:

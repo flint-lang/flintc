@@ -26,7 +26,7 @@ void Generator::Module::Print::generate_print_function( //
     const PrimitivePrintType type,                      //
     const size_t N                                      //
 ) {
-    assert(N <= 64);
+    ASSERT(N <= 64);
     // Create print function type
     llvm::Type *arg_type = nullptr;
     char prefix_char = 'i';
@@ -46,7 +46,7 @@ void Generator::Module::Print::generate_print_function( //
             } else if (N == 64) {
                 arg_type = llvm::Type::getDoubleTy(context);
             } else {
-                assert(false);
+                UNREACHABLE();
             }
             break;
     }

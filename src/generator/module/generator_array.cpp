@@ -593,7 +593,7 @@ void Generator::Module::Array::generate_access_arr_function( //
                 builder->CreateUnreachable();
                 break;
             case ArrayOutOfBoundsMode::UNSAFE:
-                assert(false); // This should never be happening
+                UNREACHABLE(); // This should never be happening
                 break;
         }
     }

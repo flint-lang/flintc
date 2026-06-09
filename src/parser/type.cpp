@@ -115,7 +115,7 @@ bool Type::add_type(const std::shared_ptr<Type> &type_to_add) {
 
 std::shared_ptr<Type> Type::get_primitive_type(const std::string &type_str) {
     // Check if string is empty
-    assert(!type_str.empty() && "Identifier cannot be empty");
+    ASSERT(!type_str.empty(), "Identifier cannot be empty");
     // Check if the given type already exists in the types map
     {
         std::shared_lock<std::shared_mutex> shared_lock(types_mutex);

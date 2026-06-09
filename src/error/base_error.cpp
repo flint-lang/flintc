@@ -27,7 +27,7 @@ std::string BaseError::to_string() const {
     // Print the lines in which the error happened as a stack, as we will add prior lines to the stack and then print it in reverse
     std::stack<std::string> lines_to_print;
     std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
-    assert(parser.has_value());
+    ASSERT(parser.has_value());
     const std::vector<std::pair<unsigned int, std::string_view>> &source_code_lines = parser.value()->get_source_code_lines();
     // First, we need to get the indent level of the line the error happened in
     unsigned int indent_lvl = source_code_lines.at(line - 1).first;
@@ -40,7 +40,7 @@ std::string BaseError::to_string() const {
             err_line = err_line.substr(Lexer::TAB_SIZE);
         } else {
             // This should never come here, it's my fault if it would
-            assert(false);
+            UNREACHABLE();
         }
         leading_spaces -= Lexer::TAB_SIZE;
     }
@@ -80,7 +80,7 @@ std::string BaseError::to_string() const {
                 current_line_view = current_line_view.substr(Lexer::TAB_SIZE);
             } else {
                 // This should never come here, it's my fault if it would
-                assert(false);
+                UNREACHABLE();
             }
             leading_spaces -= Lexer::TAB_SIZE;
         }
@@ -96,7 +96,7 @@ std::string BaseError::to_string() const {
         }
         if (line_indent_lvl < indent_lvl) {
             // Double-indent difference should not be possible at all
-            assert(line_indent_lvl == indent_lvl - 1);
+            ASSERT(line_indent_lvl == indent_lvl - 1);
             line_string << std::left << std::setw(line_space) << std::to_string(current_line) << " │ " << GREY;
             for (unsigned int i = 0; i < line_indent_lvl; i++) {
                 // The `»` unicode character takes up 2 bytes, that's why we need to set the width to one more to visually end up with
@@ -227,7 +227,7 @@ std::string BaseError::get_wiki_link() {
 }
 
 size_t BaseError::slice_visual_length(const token_slice tokens) {
-    assert(tokens.first != tokens.second);
+    ASSERT(tokens.first != tokens.second);
     size_t last_token_size = 0;
     const token_list::iterator &last_token = std::prev(tokens.second);
     if (last_token->token == TOK_TYPE || last_token->token == TOK_ALIAS) {

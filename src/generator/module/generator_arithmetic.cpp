@@ -453,7 +453,7 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_add'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_add'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *temp = builder->CreateSelect(use_max, int_max, add);
@@ -549,7 +549,7 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_sub'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_sub'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
@@ -759,7 +759,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
             builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
             switch (overflow_mode) {
                 default:
-                    assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                    ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_mul'");
                     return;
                 case ArithmeticOverflowMode::PRINT: {
                     builder->CreateRet(int_max);
@@ -781,7 +781,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
             builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
             switch (overflow_mode) {
                 default:
-                    assert(false && "Not allowed overflow mode in 'generate_int_safe_mul'");
+                    ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_mul'");
                     return;
                 case ArithmeticOverflowMode::PRINT: {
                     builder->CreateRet(int_min);
@@ -860,7 +860,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul_small'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_mul_small'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *int_max_cast = builder->CreateTrunc(int_max, int_type, "int_max_cast");
@@ -889,7 +889,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
         builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_mul_small'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_mul_small'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *int_min_cast = builder->CreateTrunc(int_min, int_type, "int_min_cast");
@@ -972,7 +972,7 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
         builder->CreateCall(c_functions.at(PRINTF), {message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_safe_div'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_safe_div'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 builder->CreateRet(arg_lhs);
@@ -1092,7 +1092,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_safe_add'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_safe_add'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 builder->CreateRet(max);
@@ -1163,7 +1163,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
         builder->CreateCall(c_functions.at(PRINTF), {underflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_safe_sub'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_safe_sub'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 builder->CreateRet(zero);
@@ -1244,7 +1244,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
         builder->CreateCall(c_functions.at(PRINTF), {overflow_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_safe_mul'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_safe_mul'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 builder->CreateRet(max);
@@ -1315,7 +1315,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
         builder->CreateCall(c_functions.at(PRINTF), {div_zero_message});
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_safe_div'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_safe_div'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 builder->CreateRet(max);
@@ -1442,7 +1442,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_add'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_vector_safe_add'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *temp = builder->CreateSelect(use_max, int_max, add);
@@ -1571,7 +1571,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_sub'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_vector_safe_sub'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *temp = builder->CreateSelect(use_max, int_max, sub);
@@ -1690,7 +1690,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_mul'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_vector_safe_mul'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *temp = builder->CreateSelect(use_max, int_max, mult);
@@ -1798,7 +1798,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_int_vector_safe_div'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_int_vector_safe_div'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 // For the PRINT mode, we use the original lhs values when there's an error
@@ -1885,7 +1885,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_add( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_vector_safe_add'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_vector_safe_add'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *result = builder->CreateSelect(overflow, int_max, add);
@@ -1968,7 +1968,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_sub( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_vector_safe_sub'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_vector_safe_sub'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *result = builder->CreateSelect(underflow, zero, sub);
@@ -2062,7 +2062,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_mul( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_vector_safe_mul'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_vector_safe_mul'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *result = builder->CreateSelect(overflow, int_max, mult);
@@ -2122,7 +2122,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_div( //
     // Create vector constants
     llvm::Constant *scalar_zero = llvm::ConstantInt::get(element_type, 0);
     llvm::Constant *zero = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_zero);
-    llvm::Constant *scalar_max = llvm::ConstantInt::get(                          //
+    llvm::Constant *scalar_max = llvm::ConstantInt::get(                           //
         element_type, llvm::APInt::getMaxValue(element_type->getIntegerBitWidth()) //
     );
     llvm::Constant *max = llvm::ConstantVector::getSplat(llvm::ElementCount::get(vector_width, false), scalar_max);
@@ -2150,7 +2150,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_div( //
 
         switch (overflow_mode) {
             default:
-                assert(false && "Not allowed overflow mode in 'generate_uint_vector_safe_div'");
+                ASSERT(false, "Not allowed overflow mode in 'generate_uint_vector_safe_div'");
                 return;
             case ArithmeticOverflowMode::PRINT: {
                 llvm::Value *result = builder->CreateSelect(div_by_zero, max, div);

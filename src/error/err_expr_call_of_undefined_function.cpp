@@ -62,7 +62,7 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
     }
     if (!found_functions.empty()) {
         const std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
-        assert(parser.has_value());
+        ASSERT(parser.has_value());
         const auto &imported_core_modules = parser.value()->file_node_ptr->imported_core_modules;
         oss << "├─ Call of undefined function '" << YELLOW << function_name << "(";
         for (auto arg_it = arg_types.begin(); arg_it != arg_types.end(); ++arg_it) {

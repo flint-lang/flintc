@@ -3,7 +3,6 @@
 #include "ap_int.hpp"
 
 #include <algorithm>
-#include <cassert>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -17,7 +16,7 @@ class APFloat {
     ///
     /// @param `str` The string to parse
     explicit APFloat(const std::string str) {
-        assert(!str.empty());
+        ASSERT(!str.empty());
         std::string str_copy = str;
 
         if (!str_copy.empty() && str_copy[0] == '-') {
@@ -422,7 +421,7 @@ class APFloat {
     /// @return `APFloat` The result of the division
     APFloat operator/(const APFloat &other) const {
         if (other.digits.size() == 1 && other.digits[0] == 0) {
-            assert(false && "Division by zero");
+            ASSERT(false, "Division by zero");
         }
 
         APFloat result("0");

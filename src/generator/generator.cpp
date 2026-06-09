@@ -549,7 +549,7 @@ bool Generator::generate_file_ir(llvm::Module *module, FileNode &file, const boo
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                assert(!function_node->is_extern);
+                ASSERT(!function_node->is_extern);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             module->getOrInsertFunction(function_name, function_type);

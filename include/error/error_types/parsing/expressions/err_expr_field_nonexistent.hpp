@@ -21,7 +21,7 @@ class ErrExprFieldNonexistent : public BaseError {
         if (fields.has_value()) {
             this->fields = fields.value();
         } else {
-            assert(type->get_variation() == Type::Variation::DATA);
+            ASSERT(type->get_variation() == Type::Variation::DATA);
             const DataNode *node = type->as<DataType>()->data_node;
             for (const auto &f : node->fields) {
                 this->fields.emplace_back(f.name, f.type);

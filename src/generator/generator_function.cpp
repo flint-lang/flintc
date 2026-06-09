@@ -12,7 +12,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
             false                           //
         );
     }
-    assert(is_extern);
+    ASSERT(is_extern);
     if (function_node->return_types.empty()) {
         // If it's extern and empty it's a void return type
         return_types = llvm::Type::getVoidTy(context);
@@ -84,7 +84,7 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     } else {
         std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
         if (function_node->mangle_id.has_value()) {
-            assert(!function_node->is_extern);
+            ASSERT(!function_node->is_extern);
             function_name += "." + std::to_string(function_node->mangle_id.value());
         }
         function = module->getFunction(function_name);
@@ -105,7 +105,7 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
         return true;
     }
 
-    assert(function->arg_size() == 1);
+    ASSERT(function->arg_size() == 1);
     llvm::Argument *const stack_arg = function->args().begin();
     stack_arg->setName("stack");
 #ifndef __WIN32__
@@ -132,7 +132,7 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
 
     // Store the function and allocations in the function context to be used later in the `generate_function_body` function
     const size_t fn_id = function_node->get_id();
-    assert(function_contexts.find(fn_id) == function_contexts.end());
+    ASSERT(function_contexts.find(fn_id) == function_contexts.end());
     function_contexts[fn_id] = FunctionContext{
         .function = function,
         .function_type = fn_ty.value(),
@@ -266,7 +266,7 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
         function_name = call_node->function->file_hash.to_string() + "." + function_name;
     }
     if (call_node->function->mangle_id.has_value()) {
-        assert(!call_node->function->is_extern);
+        ASSERT(!call_node->function->is_extern);
         function_name += "." + std::to_string(call_node->function->mangle_id.value());
     }
     llvm::Function *func_decl = parent->getParent()->getFunction(function_name);
@@ -282,7 +282,7 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     }
 
     if (call_node->function->mangle_id.has_value()) {
-        assert(!call_node->function->is_extern);
+        ASSERT(!call_node->function->is_extern);
         // Function has mangle id, for example a function call from another module
         // Externally defined functions are not mangled, this is why we do not need mangling at all for them
         func_decl = main_module[0]->getFunction(function_name);

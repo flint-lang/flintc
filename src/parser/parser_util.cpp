@@ -28,7 +28,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     // Make sure that `tokens.first` does not point at the `end` iterator because it's content is undefined
     if (tokens.first == file_node_ptr->tokens.end()) {
         tokens.first = std::prev(tokens.first);
-        assert(tokens.first->token == TOK_EOF);
+        ASSERT(tokens.first->token == TOK_EOF);
     }
     if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
         definition_tokens.second--;
@@ -77,7 +77,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                     aliased_import = import.get();
                 }
             }
-            assert(aliased_import != nullptr);
+            ASSERT(aliased_import != nullptr);
             THROW_ERR(                                                                                                         //
                 ErrImportDuplicateAlias, ERR_PARSING, file_hash,                                                               //
                 import_node->line, import_node->column, import_node->length, import_node.value().alias.value(), aliased_import //
@@ -105,7 +105,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             return false;
         }
         if (added_import.value()->alias.has_value()) {
-            assert(aliased_imports.find(added_import.value()->alias.value()) == aliased_imports.end());
+            ASSERT(aliased_imports.find(added_import.value()->alias.value()) == aliased_imports.end());
             // Add a nullopt to them, we actually resolve the imports in the `resolve_all_imports` function when all namespaces are
             // available
             aliased_imports[added_import.value()->alias.value()] = nullptr;
@@ -118,8 +118,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         return true;
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::type_alias)) {
-        assert(definition_tokens.first->token == TOK_TYPE_KEYWORD);
-        assert((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
+        ASSERT(definition_tokens.first->token == TOK_TYPE_KEYWORD);
+        ASSERT((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
         const std::string type_alias((definition_tokens.first + 1)->lexme);
         auto it = definition_tokens.first + 2;
         while (it->token != TOK_EOL) {
@@ -350,14 +350,14 @@ void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
         if (Matcher::tokens_start_with(token_slice{it, slice.second}, Matcher::type)) {
             // It's a type token
             std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, slice.second}, Matcher::type);
-            assert(type_range.has_value());
-            assert(type_range.value().first == 0);
+            ASSERT(type_range.has_value());
+            ASSERT(type_range.value().first == 0);
             if (type_range.value().second == 1) {
                 // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
                 // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
                 if (it->token != TOK_TYPE) {
                     // Types of size 1 always need to be an identifier if they are not already a type (primitives)
-                    assert(it->token == TOK_IDENTIFIER);
+                    ASSERT(it->token == TOK_IDENTIFIER);
                     std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
                         std::string(it->lexme)                                                                    //
                     );
@@ -503,16 +503,16 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
     using types = std::vector<std::shared_ptr<Type>>;
-    assert(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
+    ASSERT(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
         tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
     if (is_typed_call) {
-        assert(tokens.first->token == TOK_TYPE);
+        ASSERT(tokens.first->token == TOK_TYPE);
         [[maybe_unused]] const auto &type_var = tokens.first->type->get_variation();
-        assert(type_var == Type::Variation::FUNC || type_var == Type::Variation::ENTITY);
-        assert((tokens.first + 1)->token == TOK_DOT);
-        assert((tokens.first + 2)->token == TOK_IDENTIFIER);
+        ASSERT(type_var == Type::Variation::FUNC || type_var == Type::Variation::ENTITY);
+        ASSERT((tokens.first + 1)->token == TOK_DOT);
+        ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
     }
     if (!arg_range.has_value()) {
         // Function call does not have opening and closing brackets ()
@@ -607,8 +607,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     // It's a single default-initializer at the end of the initializer list, so we fill all remaining initializers with the
                     // default initializer
-                    assert(arguments.size() >= 1);
-                    assert(arguments.back().first->type->to_string() == "type.flint.default");
+                    ASSERT(arguments.size() >= 1);
+                    ASSERT(arguments.back().first->type->to_string() == "type.flint.default");
                     for (size_t i = arguments.size(); i < fields.size(); i++) {
                         arguments.emplace_back(arguments.at(i - 1).first->clone(scope->scope_id), false);
                     }
@@ -682,9 +682,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         );
                         return std::nullopt;
                     }
-                    assert(primitive_casting_table.find(name_token->type->to_string()) != primitive_casting_table.end());
+                    ASSERT(primitive_casting_table.find(name_token->type->to_string()) != primitive_casting_table.end());
                     [[maybe_unused]] const auto &to_types = primitive_casting_table.at(name_token->type->to_string());
-                    assert(std::find(to_types.begin(), to_types.end(), arguments[0].first->type->to_string()) != to_types.end());
+                    ASSERT(std::find(to_types.begin(), to_types.end(), arguments[0].first->type->to_string()) != to_types.end());
                 } else {
                     if (arguments.size() != width) {
                         THROW_ERR(ErrExprCastMultiLengthMismatch, ERR_PARSING, file_hash, tokens, width, arguments.size());
@@ -725,12 +725,12 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     auto tok = tokens.first;
     if (is_instance_call || is_typed_call) {
         tok++;
-        assert(tok->token == TOK_DOT);
+        ASSERT(tok->token == TOK_DOT);
         tok++;
     }
 
     // It's definitely a call
-    assert(tok->token == TOK_IDENTIFIER);
+    ASSERT(tok->token == TOK_IDENTIFIER);
     const std::string function_name = is_typed_call                       //
         ? tokens.first->type->to_string() + "." + std::string(tok->lexme) //
         : std::string(tok->lexme);
@@ -833,9 +833,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             bool types_match = true;
             for (size_t i = 0; i < argument_types.size(); i++) {
                 const auto &param_type = fn_type->params.at(i).first;
-                assert(param_type->get_variation() != Type::Variation::ALIAS);
+                ASSERT(param_type->get_variation() != Type::Variation::ALIAS);
                 const auto &arg_type = argument_types.at(i);
-                assert(arg_type->get_variation() != Type::Variation::ALIAS);
+                ASSERT(arg_type->get_variation() != Type::Variation::ALIAS);
                 if (param_type->equals(arg_type)) {
                     continue;
                 }
@@ -854,7 +854,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
         if (!potential_callables.empty()) {
             // There must be exactly one potential callable because of Flint's shadowing rules and the code above
-            assert(potential_callables.size() == 1);
+            ASSERT(potential_callables.size() == 1);
             const auto &callable_var = potential_callables.front().second;
             const auto *fn_type = callable_var.type->as<FnType>();
             for (size_t i = 0; i < arguments.size(); i++) {
@@ -902,7 +902,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
             }
             if (all_match) {
-                assert(exact_function == nullptr);
+                ASSERT(exact_function == nullptr);
                 exact_function = fn.first;
                 implicit_param_count = fn.second;
             }
@@ -921,7 +921,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // stage, but permitted at the codegen stage
     size_t arg_start_id = 0;
     if (is_instance_call) {
-        assert(instance_variable.has_value());
+        ASSERT(instance_variable.has_value());
         switch (instance_variable.value()->type->get_variation()) {
             default:
                 THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
@@ -939,7 +939,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     arg_start_id++;
                     break;
                 }
-                assert(func_nodes.size() == 1);
+                ASSERT(func_nodes.size() == 1);
                 const FuncNode *func_node = *func_nodes.begin();
                 const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {
@@ -955,7 +955,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     // Since this is an instance-call and the function thus comes from a func-module, the entity is guaranteed to contain
                     // the required data here, if not something would have gone horribly wrong earlier in the entity parsing stage.
-                    assert(idx != entity_node->data_modules.size());
+                    ASSERT(idx != entity_node->data_modules.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
@@ -1006,7 +1006,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     [[maybe_unused]] const unsigned int arg_count = arguments.size();
     // Argument counts are guaranteed to match the param count because if they would not, the `get_functions_from_call_types` function would
     // have returned `an empty list`
-    assert(param_count == arg_count);
+    ASSERT(param_count == arg_count);
     // If we came until here, the argument types definitely match the function parameter types, or they can be cast to them (in the literal
     // case), otherwise no function would have been found
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references Every
@@ -1123,7 +1123,7 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
         operator_tokens = {tokens_mut.first + right_range.first, tokens_mut.first + right_range.second};
         tokens_mut.second = operator_tokens.first;
     }
-    assert(std::next(operator_tokens.first) == operator_tokens.second); // Assert operator_tokens.size() == 1
+    ASSERT(std::next(operator_tokens.first) == operator_tokens.second); // Assert operator_tokens.size() == 1
     Token operator_token = operator_tokens.first->token;
 
     // All other tokens now are the expression
@@ -1154,9 +1154,9 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     if (base_expr_tokens.second->token == TOK_IDENTIFIER) {
         field_name = base_expr_tokens.second->lexme;
     } else if (base_expr_tokens.second->token == TOK_INT_VALUE) {
-        assert(std::prev(base_expr_tokens.second)->token == TOK_DOLLAR);
+        ASSERT(std::prev(base_expr_tokens.second)->token == TOK_DOLLAR);
         long int_value = std::stol(std::string(base_expr_tokens.second->lexme));
-        assert(int_value >= 0);
+        ASSERT(int_value >= 0);
         field_id = static_cast<unsigned int>(int_value);
         base_expr_tokens.second--;
     } else {
@@ -1176,7 +1176,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
-        assert(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
+        ASSERT(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
     }
 
     // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
@@ -1268,7 +1268,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
         }
         case Type::Variation::ENTITY: {
             const EntityNode *entity_node = base_type->as<EntityType>()->entity_node;
-            assert(base_expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+            ASSERT(base_expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
             // The base variable has the "name" of the captured parent entity type but the "type" of the child entity (for the "self"
             // parameter)
             VariableNode *base_var = base_expr.value()->as<VariableNode>();
@@ -1279,7 +1279,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 return std::nullopt;
             }
             const std::shared_ptr<Type> captured_entity_type = captured_entity_it->second;
-            assert(captured_entity_type->get_variation() == Type::Variation::ENTITY);
+            ASSERT(captured_entity_type->get_variation() == Type::Variation::ENTITY);
             const EntityNode *parent_entity = captured_entity_type->as<EntityType>()->entity_node;
             for (const auto &[data_node, accessor] : parent_entity->data_modules) {
                 if (!accessor.has_value() || accessor.value() != field_name) {
@@ -1292,7 +1292,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                     }
                     base_var->name = "self";
                     auto data_type = file_node_ptr->file_namespace->get_type_from_str(data_node->name);
-                    assert(data_type.has_value());
+                    ASSERT(data_type.has_value());
                     return CreateFieldAccessBaseRet{
                         .base_expr = std::move(base_expr.value()),
                         .field_name = std::nullopt,
@@ -1484,7 +1484,7 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_multi_type_a
         }
     } else {
         // Widths of 16 are not supported by Flint yet
-        assert(multi_type->width == 8);
+        ASSERT(multi_type->width == 8);
         const auto &field_map = std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
             {"$0", multi_type->base_type},
             {"$1", multi_type->base_type},
@@ -1522,7 +1522,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
     PROFILE_CUMULATIVE("Parser::create_grouped_access_base");
     // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
     // tokens and all tokens forming the grouped access `.(..)`
-    assert((tokens.second - 1)->token == TOK_RIGHT_PAREN);
+    ASSERT((tokens.second - 1)->token == TOK_RIGHT_PAREN);
     token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
     token_slice access_tokens = {tokens.second - 1, tokens.second - 1};
     unsigned int depth = 0;
@@ -1536,7 +1536,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 access_tokens.first++;
                 // End at the . and not at the ( for the base expression
                 base_expr_tokens.second--;
-                assert(base_expr_tokens.second->token == TOK_DOT);
+                ASSERT(base_expr_tokens.second->token == TOK_DOT);
                 break;
             }
         }
@@ -1545,7 +1545,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
     }
     if (has_inbetween_operator) {
         base_expr_tokens.second--;
-        assert(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
+        ASSERT(Matcher::token_match(base_expr_tokens.second->token, Matcher::inbetween_operator));
     }
 
     // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
@@ -1617,7 +1617,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         if (access_tokens.first->token == TOK_IDENTIFIER) {
             field_names.emplace_back(access_tokens.first->lexme);
         } else if (access_tokens.first->token == TOK_DOLLAR && std::next(access_tokens.first)->token == TOK_INT_VALUE) {
-            assert(std::next(access_tokens.first)->lexme.find('_') == std::string::npos);
+            ASSERT(std::next(access_tokens.first)->lexme.find('_') == std::string::npos);
             field_names.emplace_back("$" + std::string(std::next(access_tokens.first)->lexme));
             access_tokens.first++;
         }
@@ -1714,7 +1714,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     PROFILE_CUMULATIVE("Parser::create_array_access_base");
     // Array accesses happen at the end of the expression, so we extract indexing expressions etc from left to right and then parse the
     // base expression last. The last token should be a ] symbol
-    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
     // Then we search in a balanced way for the [ symbol and count how many , symbols we came across at depth 1. This is the number of
     // indexing expressions in the tokens. Then, when we know the "bounds" of the array access we can parse the base expression and the
     // indexing expressions respectively
@@ -1743,10 +1743,10 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
     if (indexing_tokens.first == tokens.first) {
         // No [ symbol found, this should not be possible because then the matcher should not have matched an array access
-        assert(false);
+        UNREACHABLE();
         return std::nullopt;
     }
-    assert(indexing_tokens.first->token == TOK_LEFT_BRACKET);
+    ASSERT(indexing_tokens.first->token == TOK_LEFT_BRACKET);
     base_expr_tokens.second = indexing_tokens.first++;
     // Remove the '.' of the base expr, for grouped array accesses
     const bool is_grouped_access = std::prev(base_expr_tokens.second)->token == TOK_DOT;
@@ -1840,7 +1840,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     std::shared_ptr<Type> result_type = nullptr;
     if (dimensionality > 0) {
         if (base_is_str) {
-            assert(dimensionality == 1);
+            ASSERT(dimensionality == 1);
             result_type = Type::get_primitive_type("str");
         } else {
             // TODO: Known Sizes
@@ -1907,8 +1907,8 @@ bool Parser::ensure_castability_multiple(                      //
 }
 
 bool Parser::add_annotation(const token_slice &tokens) {
-    assert(tokens.first->token == TOK_ANNOTATION);
-    assert((tokens.first + 1)->token == TOK_IDENTIFIER);
+    ASSERT(tokens.first->token == TOK_ANNOTATION);
+    ASSERT((tokens.first + 1)->token == TOK_IDENTIFIER);
     const std::string annotation_name((tokens.first + 1)->lexme);
 
     if (annotation_map.find(annotation_name) == annotation_map.end()) {

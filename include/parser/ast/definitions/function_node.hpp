@@ -47,7 +47,7 @@ class FunctionNode : public DefinitionNode {
 
     size_t get_id() const {
         // Extern functions and core functions do not have id's
-        assert(!is_core && !is_extern);
+        ASSERT(!is_core && !is_extern);
         // We first build up a long-ass string for the function, this string is built deterministically
         std::stringstream ss;
         ss << file_hash.to_string();
@@ -120,7 +120,7 @@ class FunctionNode : public DefinitionNode {
         }
 
         // Shift left and handle zero case
-        assert(ids.find(hash_str) == ids.end());
+        ASSERT(ids.find(hash_str) == ids.end());
         ids[hash_str] = *reinterpret_cast<uint64_t *>(&container);
         return ids.at(hash_str);
     }

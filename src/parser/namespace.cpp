@@ -141,7 +141,7 @@ std::vector<const FunctionNode *> Namespace::get_functions_with_name( //
 }
 
 std::optional<std::shared_ptr<Type>> Namespace::get_type(const token_slice &tokens) {
-    assert(tokens.first != tokens.second);
+    ASSERT(tokens.first != tokens.second);
     const std::string type_str = Lexer::to_string(tokens);
     // Check if the map already contains the given key
     std::optional<std::shared_ptr<Type>> type = get_type_from_str(type_str);
@@ -299,13 +299,13 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
         if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim)) {
             // Its definitely a primitive type, but all primitive types should have been created by default annyway, so this should not be
             // possible
-            assert(false);
+            UNREACHABLE();
         } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_mult)) {
             // Its a multi-type
             const std::string type_string(tokens_mut.first->lexme);
             // The last character should be a number
             const char width_char = type_string.back();
-            assert(width_char >= '0' && width_char <= '9');
+            ASSERT(width_char >= '0' && width_char <= '9');
             // Skip the last character (being the number) as well as the `x`, if the last character is an 'x'
             const bool ends_with_x = type_string.at(type_string.size() - 2) == 'x';
             const std::string type_str = type_string.substr(0, type_string.size() - (ends_with_x ? 2 : 1));
@@ -464,7 +464,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                assert(next_range.value().first == 0);
+                ASSERT(next_range.value().first == 0);
                 const token_slice type_tokens = {tokens_mut.first, tokens_mut.first + next_range.value().second};
                 tokens_mut.first = type_tokens.second;
                 std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
@@ -488,7 +488,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 return std::nullopt;
             }
             tokens_mut.first++;
-            assert(std::prev(tokens_mut.second)->token == TOK_GREATER);
+            ASSERT(std::prev(tokens_mut.second)->token == TOK_GREATER);
             tokens_mut.second--;
             // We search for the arrow token. Everything to the left of it are the parameter types, everything to the right of it the return
             // types
@@ -502,8 +502,8 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             if (param_range.has_value()) {
                 param_tokens = token_slice{tokens_mut.first + param_range.value().first, tokens_mut.first + param_range.value().second - 1};
                 return_tokens = token_slice{tokens_mut.first + param_range.value().second, tokens_mut.second};
-                assert(std::prev(return_tokens.first)->token == TOK_ARROW);
-                assert(param_tokens.second->token == TOK_ARROW);
+                ASSERT(std::prev(return_tokens.first)->token == TOK_ARROW);
+                ASSERT(param_tokens.second->token == TOK_ARROW);
             } else {
                 // There is no `->` token in the fn definiton, which means everything between the `<>` are paramters and the return type is
                 // of type void, e.g. empty return_types
@@ -572,7 +572,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    assert(next_range.value().first == 0);
+                    ASSERT(next_range.value().first == 0);
                     const token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
                     const std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
                     if (!type.has_value()) {
@@ -592,7 +592,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                assert(next_range.value().first == 0);
+                ASSERT(next_range.value().first == 0);
                 const token_slice type_tokens = {return_tokens.first, return_tokens.first + next_range.value().second};
                 std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
                 if (!type.has_value()) {

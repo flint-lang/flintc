@@ -15,8 +15,8 @@ class ErrExprInterpolationOnlyOneExpr : public BaseError {
         oss << BaseError::to_string() << "├─ It is not allowed to interpolate a single expression using " << YELLOW
             << get_token_string(tokens, {}) << DEFAULT << "\n";
         oss << "└─ Use " << BLUE << "str(";
-        assert(tokens.first->token == TOK_DOLLAR);
-        assert((tokens.first + 1)->token == TOK_STR_VALUE);
+        ASSERT(tokens.first->token == TOK_DOLLAR);
+        ASSERT((tokens.first + 1)->token == TOK_STR_VALUE);
         const std::string_view &str_value = (tokens.first + 1)->lexme;
         const std::string_view expr = str_value.substr(1, str_value.size() - 2);
         oss << expr << ")" << DEFAULT << " instead!";

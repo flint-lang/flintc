@@ -18,7 +18,7 @@ class RangeExpressionNode : public ExpressionNode {
         ExpressionNode(hash, true),
         lower_bound(std::move(lower_bound)),
         upper_bound(std::move(upper_bound)) {
-        assert(this->lower_bound->type == this->upper_bound->type);
+        ASSERT(this->lower_bound->type == this->upper_bound->type);
         std::shared_ptr<Type> range_type = std::make_shared<RangeType>(this->lower_bound->type);
         Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
         if (file_namespace->add_type(range_type)) {

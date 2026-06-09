@@ -74,8 +74,8 @@ class FnType : public Type {
                 ss << return_types.at(i)->to_string();
             }
         }
-        assert(!error_types.empty());
-        assert(error_types.front()->to_string() == "anyerror");
+        ASSERT(!error_types.empty());
+        ASSERT(error_types.front()->to_string() == "anyerror");
         if (error_types.size() > 1) {
             ss << " {";
             for (size_t i = 1; i < error_types.size(); i++) {

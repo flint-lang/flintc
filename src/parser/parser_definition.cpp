@@ -55,7 +55,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         THROW_ERR(ErrFnDefMissing, ERR_PARSING, file_hash, definition);
         return std::nullopt;
     }
-    assert(tok_it != definition.second);
+    ASSERT(tok_it != definition.second);
     // Check if the name is reserved
     if (name == "_main") {
         token_slice err_tokens = {std::prev(tok_it), definition.second};
@@ -117,7 +117,7 @@ std::optional<FunctionNode> Parser::create_function(                            
             }
             tok_it++;
         }
-        assert(tok_it != definition.second);
+        ASSERT(tok_it != definition.second);
     }
     const auto arg_end_it = tok_it;
     // Skip the right paren
@@ -128,12 +128,12 @@ std::optional<FunctionNode> Parser::create_function(                            
     if (tok_it->token == TOK_ARROW) {
         tok_it++;
         ret_start_it++;
-        assert(tok_it != definition.second);
+        ASSERT(tok_it != definition.second);
         if (tok_it->token != TOK_LEFT_PAREN) {
             // There is only a single return type, so everything until the colon is considere the return type
             std::optional<uint2> type_range = Matcher::get_next_match_range({tok_it, definition.second}, Matcher::type);
-            assert(type_range.has_value());
-            assert(type_range.value().first == 0);
+            ASSERT(type_range.has_value());
+            ASSERT(type_range.value().first == 0);
             token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
             const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
             if (!return_type.has_value()) {
@@ -345,7 +345,7 @@ std::optional<FunctionNode> Parser::create_function(                            
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {
     PROFILE_CUMULATIVE("Parser::create_extern_function");
     // First we check if the definition starts with `extern`, it should
-    assert(definition.first->token == TOK_EXTERN);
+    ASSERT(definition.first->token == TOK_EXTERN);
     std::optional<FunctionNode> fn = create_function(definition, {});
     if (!fn.has_value()) {
         return std::nullopt;
@@ -437,7 +437,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                assert(range.value().first == 0);
+                ASSERT(range.value().first == 0);
                 const token_slice type_tokens = {token_it, token_it + range.value().second};
                 std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
                 if (!field_type.has_value()) {
@@ -523,15 +523,15 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
 std::optional<FuncNode> Parser::create_func(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_func");
     token_slice token_mut = definition;
-    assert(token_mut.first->token == TOK_FUNC);
+    ASSERT(token_mut.first->token == TOK_FUNC);
     token_mut.first++;
-    assert(token_mut.first->token == TOK_IDENTIFIER);
+    ASSERT(token_mut.first->token == TOK_IDENTIFIER);
     const std::string func_name(token_mut.first->lexme);
     token_mut.first++;
     std::vector<FuncNode::RequiredData> required_data;
     if (token_mut.first->token == TOK_REQUIRES) {
         auto tok_it = token_mut.first + 1;
-        assert(tok_it->token == TOK_LEFT_PAREN);
+        ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != token_mut.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
@@ -549,7 +549,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
                 return std::nullopt;
             }
             // The next token is the required data accessor name
-            assert((tok_it + 1)->token == TOK_IDENTIFIER);
+            ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
             for (const auto &present : required_data) {
                 if (present.type->equals(required_data_type.value())) {
@@ -572,7 +572,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
                 tok_it += 3;
             }
         }
-        assert(tok_it != definition.second);
+        ASSERT(tok_it != definition.second);
     }
 
     std::vector<FunctionNode *> functions;
@@ -625,15 +625,15 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
 std::optional<EntityNode> Parser::create_entity(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_entity");
     auto tok_it = definition.first;
-    assert(tok_it->token == TOK_ENTITY);
+    ASSERT(tok_it->token == TOK_ENTITY);
     tok_it++;
-    assert(tok_it->token == TOK_IDENTIFIER);
+    ASSERT(tok_it->token == TOK_IDENTIFIER);
     const std::string entity_name(tok_it->lexme);
     tok_it++;
     std::vector<EntityNode::ParentEntity> parent_entities;
     if (tok_it->token == TOK_EXTENDS) {
         tok_it++;
-        assert(tok_it->token == TOK_LEFT_PAREN);
+        ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
@@ -658,7 +658,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 }
             }
             // The next token is the extended entity accessor name
-            assert((tok_it + 1)->token == TOK_IDENTIFIER);
+            ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
             parent_entities.emplace_back(EntityNode::ParentEntity{
                 .type = extended_entity_type.value(),
@@ -679,7 +679,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 tok_it++;
             }
         }
-        assert(tok_it != definition.second);
+        ASSERT(tok_it != definition.second);
     }
 
     // Process all free-floating functions, if any are following
@@ -769,7 +769,7 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     PROFILE_CUMULATIVE("Parser::create_link");
 
     std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
-    assert(arrow_range.has_value());
+    ASSERT(arrow_range.has_value());
     const token_slice src_tokens = {tokens.first, tokens.first + arrow_range.value().second - 1};
     const token_slice dest_tokens = {src_tokens.second + 1, tokens.second};
     auto src = create_function_reference(src_tokens);
@@ -990,10 +990,10 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_variant");
-    assert(definition.first->token == TOK_VARIANT);
-    assert((definition.first + 1)->token == TOK_IDENTIFIER);
-    assert((definition.first + 2)->token == TOK_COLON);
-    assert((definition.first + 3) == definition.second);
+    ASSERT(definition.first->token == TOK_VARIANT);
+    ASSERT((definition.first + 1)->token == TOK_IDENTIFIER);
+    ASSERT((definition.first + 2)->token == TOK_COLON);
+    ASSERT((definition.first + 3) == definition.second);
     const std::string name((definition.first + 1)->lexme);
 
     std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
@@ -1015,7 +1015,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 return std::nullopt;
             }
             ++body_it;
-            assert(body_it->token == TOK_LEFT_PAREN);
+            ASSERT(body_it->token == TOK_LEFT_PAREN);
             if (std::next(body_it)->token == TOK_RIGHT_PAREN) {
                 // Empty tagged variant
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -1034,7 +1034,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                assert(type_range.value().first == 0);
+                ASSERT(type_range.value().first == 0);
                 type_tokens.second = body_it + type_range.value().second;
                 token_list toks = clone_from_slice(type_tokens);
                 const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
@@ -1070,7 +1070,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
             token_list toks = clone_from_slice(type_tokens);
             std::optional<uint2> type_range = Matcher::get_next_match_range(type_tokens, Matcher::type);
             // Now we can adjust the type token's end with our range and get the type and add it to the list
-            assert(type_range.value().first == 0);
+            ASSERT(type_range.value().first == 0);
             type_tokens.second = body_it + type_range.value().second;
             const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
             if (!type.has_value()) {

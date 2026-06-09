@@ -55,10 +55,10 @@ bool Generator::Statement::generate_statement(      //
                     return false;
                 }
                 ctx.scope_segment = ctx.scope->parent_scope_segment;
-                assert(ctx.scope->parent_scope != nullptr);
+                ASSERT(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
-            assert(ctx.scope == loop_scope);
+            ASSERT(ctx.scope == loop_scope);
             ctx.scope = loop_scope;
             if (!generate_end_of_scope(builder, ctx)) {
                 return false;
@@ -92,10 +92,10 @@ bool Generator::Statement::generate_statement(      //
                     return false;
                 }
                 ctx.scope_segment = ctx.scope->parent_scope_segment;
-                assert(ctx.scope->parent_scope != nullptr);
+                ASSERT(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
-            assert(ctx.scope == loop_scope);
+            ASSERT(ctx.scope == loop_scope);
             ctx.scope = loop_scope;
             if (!generate_end_of_scope(builder, ctx)) {
                 return false;
@@ -204,7 +204,7 @@ bool Generator::Statement::clear_garbage(                                       
             if (DEBUG_MODE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
-            assert(type->is_freeable());
+            ASSERT(type->is_freeable());
             llvm::Function *free_fn = Memory::memory_functions.at("free");
             llvm::CallInst *free_call = builder.CreateCall(free_fn, {llvm_val, builder.getInt32(type->get_id())});
             free_call->setMetadata("comment",
@@ -594,7 +594,7 @@ bool Generator::Statement::generate_if_statement( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    assert(condition_arr.value().size() == 1); // The condition must have a bool value type
+    ASSERT(condition_arr.value().size() == 1); // The condition must have a bool value type
     llvm::Value *condition = condition_arr.value().at(0);
 
     // Clear all garbage (temporary variables)
@@ -941,7 +941,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         const auto type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
         element_type = array_type->type->is_dima_managed() ? PTR_TY : type_pair.first;
     } else if (is_range) {
-        assert(iterable.value().size() == 2);
+        ASSERT(iterable.value().size() == 2);
         lower_bound = iterable.value().front();
         upper_bound = iterable.value().back();
         llvm::Value *calculated_length = builder.CreateSub(upper_bound, lower_bound, "range_length");
@@ -1049,7 +1049,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
                 IR::aligned_store(builder, current_element, element_alloca);
             } else {
                 // For non-range, replace the old nullptr alloca with the new alloca
-                assert(ctx.allocations.find(element_alloca_name) == ctx.allocations.end());
+                ASSERT(ctx.allocations.find(element_alloca_name) == ctx.allocations.end());
                 ctx.allocations.erase(element_alloca_name);
                 ctx.allocations.emplace(element_alloca_name, current_element_ptr);
             }
@@ -1383,7 +1383,7 @@ bool Generator::Statement::generate_switch_statement( //
                     const LitError &lit_err = std::get<LitError>(literal_node->value);
                     const auto *error_type = lit_err.error_type->as<ErrorSetType>();
                     const auto pair = error_type->error_node->get_id_msg_pair_of_value(lit_err.value);
-                    assert(pair.has_value());
+                    ASSERT(pair.has_value());
                     switch_inst->addCase(builder.getInt32(pair.value().first), branch_blocks[i]);
                     continue;
                 }
@@ -1485,7 +1485,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         }
     } else {
         // Generate the implicit switch on the error value
-        assert(catch_node->scope->body.size() == 1);
+        ASSERT(catch_node->scope->body.size() == 1);
         const auto *switch_statement = catch_node->scope->body.front()->as<SwitchStatement>();
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::flint.value_err";
@@ -1525,7 +1525,7 @@ bool Generator::Statement::generate_group_declaration( //
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
-    assert(declaration_node->variables.size() == expression.value().size());
+    ASSERT(declaration_node->variables.size() == expression.value().size());
 
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
     if (garbage.count(0) > 0) {
@@ -1636,7 +1636,7 @@ bool Generator::Statement::generate_declaration( //
             default:
                 break;
             case Type::Variation::TUPLE: {
-                assert(expr_val.value().size() == 1);
+                ASSERT(expr_val.value().size() == 1);
                 IR::aligned_store(builder, expr_val.value().front(), alloca);
                 if (declaration_node->is_persistent) {
                     builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
@@ -1878,7 +1878,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             // Check if RHS is already a "true" optional (no type-cast or literal) and if so, store it directly
             // If the RHS, however, is a "cast" to an optional then we need to insert the "real" value in a new optional struct
             // llvm::Value *opt_type_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), var_type));
-            assert(assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL);
+            ASSERT(assignment_node->expression->type->get_variation() == Type::Variation::OPTIONAL);
             const bool is_type_cast = assignment_node->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST;
             const bool is_opt_literal = is_type_cast && //
                 assignment_node->expression->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
@@ -2338,7 +2338,7 @@ bool Generator::Statement::generate_array_assignment( //
     llvm::Value *array_ptr = base_expr.value().front();
     if (array_assignment->base_expr->type->to_string() == "str" && array_assignment->expression->type->to_string() == "u8") {
         // We assign a single u8 value in a string
-        assert(idx_expressions.size() == 1);
+        ASSERT(idx_expressions.size() == 1);
         llvm::Function *const assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
         builder.CreateCall(assign_str_at_fn, {array_ptr, idx_expressions.front(), expression});
         return true;
@@ -2350,7 +2350,7 @@ bool Generator::Statement::generate_array_assignment( //
         llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
     }
-    assert(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
+    ASSERT(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
     const ArrayType *array_type = array_assignment->base_expr->type->as<ArrayType>();
     const std::shared_ptr<Type> &base_type = array_type->type;
     const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
@@ -2471,12 +2471,12 @@ bool Generator::Statement::generate_grouped_array_assignment( //
 
         if (!array_type.has_value() && expr_type->types.at(i)->to_string() == "u8") {
             // We assign a single u8 value in a string
-            assert(idx_expressions.value().size() == 1);
+            ASSERT(idx_expressions.value().size() == 1);
             llvm::Function *const assign_str_at_fn = Module::String::string_manip_functions.at("assign_str_at");
             builder.CreateCall(assign_str_at_fn, {array_ptr, idx_expressions.value().front(), expression});
             continue;
         }
-        assert(array_type.has_value());
+        ASSERT(array_type.has_value());
         if (idx_expressions.value().size() != array_type.value()->dimensionality) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;

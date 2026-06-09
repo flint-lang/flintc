@@ -1,5 +1,6 @@
+#include "assert.hpp"
+
 #include <atomic>
-#include <cassert>
 #include <thread>
 
 class SingleExecutorGuard {
@@ -20,7 +21,7 @@ class SingleExecutorGuard {
         } else {
             // Check if same thread (allow recursion)
             if (owner_.load(std::memory_order_acquire) != this_id) {
-                assert(false && "Concurrent access from different threads detected!");
+                ASSERT(false, "Concurrent access from different threads detected!");
             }
         }
     }

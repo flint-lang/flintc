@@ -18,6 +18,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/range_type.hpp"
@@ -47,9 +48,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
     if (!ret.has_value()) {
         return std::nullopt;
     }
-    assert(!ret->is_initializer);
+    ASSERT(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
-        assert(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
+        ASSERT(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
         if (scope->variables.find(instance_var->name) == scope->variables.end()) {
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, instance_var->line, instance_var->column, instance_var->name);
@@ -138,7 +139,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     std::optional<std::unique_ptr<ExpressionNode>> return_expr;
     if (std::next(expression_tokens.first) == expression_tokens.second) {
         // This can be asserted because of the check above
-        assert(return_type->to_string() == "void");
+        ASSERT(return_type->to_string() == "void");
         return ReturnNode(return_expr);
     }
     std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(_ctx_, scope, expression_tokens);
@@ -149,7 +150,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
         const auto *variable_node = expr.value()->as<VariableNode>();
         std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
         // Duplicate Return statement within the same scope, every scope should only have one return value
-        assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
+        ASSERT(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
         return_scopes.push_back(scope->scope_id);
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION) {
@@ -159,7 +160,7 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
                 const auto *variable_node = group_expr->as<VariableNode>();
                 std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
                 // Duplicate Return statement within the same scope, every scope should only have one return value
-                assert(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
+                ASSERT(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
                 return_scopes.push_back(scope->scope_id);
             }
         }
@@ -178,7 +179,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain //
 ) {
     PROFILE_CUMULATIVE("Parser::create_if");
-    assert(!if_chain.empty());
+    ASSERT(!if_chain.empty());
     std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
     if_chain.erase(if_chain.begin());
 
@@ -204,7 +205,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         this_if_pair.first.second--;
     }
     if (has_else && !has_if) {
-        assert(false);
+        UNREACHABLE();
         return std::nullopt;
     }
 
@@ -431,7 +432,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     remove_trailing_garbage(definition_mut);
 
     // Now the first token should be the `for` token
-    assert(definition_mut.first->token == TOK_FOR);
+    ASSERT(definition_mut.first->token == TOK_FOR);
     definition_mut.first++;
 
     // The next token should either be a `(` or an identifer. If its an identifier we use the "tupled" enhanced for loop approach
@@ -442,25 +443,25 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         definition_mut.first++;
     } else {
         // Its a group, e.g. `for (index, element) in iterable:`
-        assert(definition_mut.first->token == TOK_LEFT_PAREN);
+        ASSERT(definition_mut.first->token == TOK_LEFT_PAREN);
         definition_mut.first++;
         std::optional<std::string> index_identifier;
         if (definition_mut.first->token == TOK_IDENTIFIER) {
             index_identifier = std::string(definition_mut.first->lexme);
         }
         definition_mut.first++;
-        assert(definition_mut.first->token == TOK_COMMA);
+        ASSERT(definition_mut.first->token == TOK_COMMA);
         definition_mut.first++;
         std::optional<std::string> element_identifier;
         if (definition_mut.first->token == TOK_IDENTIFIER) {
             element_identifier = std::string(definition_mut.first->lexme);
         }
         definition_mut.first++;
-        assert(definition_mut.first->token == TOK_RIGHT_PAREN);
+        ASSERT(definition_mut.first->token == TOK_RIGHT_PAREN);
         definition_mut.first++;
         iterators = std::make_pair(index_identifier, element_identifier);
     }
-    assert(definition_mut.first->token == TOK_IN);
+    ASSERT(definition_mut.first->token == TOK_IN);
     definition_mut.first++;
 
     // Create the definition scope
@@ -567,7 +568,7 @@ bool Parser::create_switch_branch_body(                              //
     if (!is_statement) {
         // When it's a switch expression, no body will follow, ever. Only expressions are allowed to the right of the arrow, so we
         // can parse the rhs as an expression
-        assert(std::prev(tokens.second)->token == TOK_SEMICOLON);
+        ASSERT(std::prev(tokens.second)->token == TOK_SEMICOLON);
         const token_slice expression_tokens = {tokens.first + match_range.second, tokens.second - 1};
         auto expression = create_expression(_ctx_, scope, expression_tokens);
         if (!expression.has_value()) {
@@ -599,8 +600,8 @@ bool Parser::create_switch_branch_body(                              //
         return true;
     }
     // A "normal" body follows. Each line of the body needs to start with a definition, e.g. end with a colon.
-    assert(tokens.first + match_range.second == tokens.second);
-    assert(std::prev(tokens.second)->token == TOK_COLON);
+    ASSERT(tokens.first + match_range.second == tokens.second);
+    ASSERT(std::prev(tokens.second)->token == TOK_COLON);
     const unsigned int case_indent_lvl = line_it->indent_lvl;
     auto body_start = ++line_it;
     while (line_it != body.end() && line_it->indent_lvl > case_indent_lvl) {
@@ -1160,7 +1161,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     // it's a switch expression
     token_slice switcher_tokens = definition;
     const bool is_statement = switcher_tokens.first->token == TOK_SWITCH;
-    assert(std::prev(switcher_tokens.second)->token == TOK_COLON);
+    ASSERT(std::prev(switcher_tokens.second)->token == TOK_COLON);
     switcher_tokens.second--;
     if (is_statement) {
         switcher_tokens.first++;
@@ -1231,7 +1232,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     }
     // Because it's an expression which contains the switch expression as it's rhs, we still need to parse everything to the left of the
     // switch and pass the switch as the rhs expression to it.
-    assert(!e_branches.empty());
+    ASSERT(!e_branches.empty());
     // Check if all branch expressions share the same common type, throw an error if they do not. A common type for example would be when
     // one branch is of type `i32`, the next of type `int` (comptime type) and the next of type `i64`, then the common type would be `i64`.
     // A common type is definted to be a type to which all branches can be implicitely cast to or be equal to that type.
@@ -1277,7 +1278,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     auto switch_expr = std::make_unique<SwitchExpression>(switcher.value(), e_branches);
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};
-    assert(lhs_tokens.second->token == TOK_SWITCH);
+    ASSERT(lhs_tokens.second->token == TOK_SWITCH);
     auto whole_statement = create_statement(scope, scope_segment, lhs_tokens, std::move(switch_expr));
     if (!whole_statement.has_value()) {
         return std::nullopt;
@@ -1300,7 +1301,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             break;
         }
     }
-    assert(catch_id.has_value());
+    ASSERT(catch_id.has_value());
     // A call is three tokens minimum: identifier(), so everything smaller than that means the catch stands alone
     if (catch_id.value() < definition.first + 3) {
         THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_hash, definition);
@@ -1368,7 +1369,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
         if (!body_scope->add_variable("flint.value_err", {switcher_type, body_scope->scope_id, scope_segment, false, false, false})) {
-            assert(false);
+            UNREACHABLE();
             return std::nullopt;
         }
         if (!create_variant_switch_branches(body_scope, scope_segment, s_branches, e_branches, body, switcher_type, true, false)) {
@@ -1387,7 +1388,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs             //
 ) {
     token_slice tokens_mut = tokens;
-    assert(tokens_mut.first != tokens_mut.second);
+    ASSERT(tokens_mut.first != tokens_mut.second);
     // Now a left paren is expected as the start of the group assignment
     if (tokens_mut.first->token != TOK_LEFT_PAREN) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1448,7 +1449,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs                       //
 ) {
     token_slice tokens_mut = tokens;
-    assert(tokens_mut.first != tokens_mut.second);
+    ASSERT(tokens_mut.first != tokens_mut.second);
     // Now a left paren is expected as the start of the group assignment
     if (tokens_mut.first->token != TOK_LEFT_PAREN) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1502,7 +1503,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
             operation = TOK_DIV;
             break;
         default:
-            assert(false);
+            UNREACHABLE();
             break;
     }
     tokens_mut.first++;
@@ -1617,7 +1618,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
                 switch (std::next(it)->token) {
                     default:
                         // It should never come here
-                        assert(false);
+                        UNREACHABLE();
                     case TOK_PLUS_EQUALS:
                         op = TOK_PLUS;
                         break;
@@ -1663,24 +1664,24 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
     tokens_mut.first = lhs_tokens.second;
 
     // The last token now should be the COLON_EQUAL
-    assert(std::prev(lhs_tokens.second)->token == TOK_COLON_EQUAL);
+    ASSERT(std::prev(lhs_tokens.second)->token == TOK_COLON_EQUAL);
     lhs_tokens.second--;
     remove_surrounding_paren(lhs_tokens);
     while (lhs_tokens.first != lhs_tokens.second) {
         std::optional<uint2> var_range = Matcher::get_next_match_range(lhs_tokens, Matcher::until_comma);
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
-            assert(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER);
+            ASSERT(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER);
             variables.emplace_back(nullptr, std::prev(lhs_tokens.second)->lexme);
             break;
         } else {
             token_slice var_tokens = {lhs_tokens.first + var_range.value().first, lhs_tokens.first + var_range.value().second};
             lhs_tokens.first = var_tokens.second;
             // The last token now should be the comma
-            assert(std::prev(var_tokens.second)->token == TOK_COMMA);
+            ASSERT(std::prev(var_tokens.second)->token == TOK_COMMA);
             var_tokens.second--;
             // The last element is the variable name now
-            assert(std::prev(var_tokens.second)->token == TOK_IDENTIFIER);
+            ASSERT(std::prev(var_tokens.second)->token == TOK_IDENTIFIER);
             variables.emplace_back(nullptr, std::prev(var_tokens.second)->lexme);
         }
     }
@@ -1701,7 +1702,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
         case Type::Variation::GROUP: {
             const auto *group_type = expression.value()->type->as<GroupType>();
             const std::vector<std::shared_ptr<Type>> &types = group_type->types;
-            assert(variables.size() == types.size());
+            ASSERT(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = types.at(i);
                 if (!scope->add_variable(variables.at(i).second, {types.at(i), scope->scope_id, scope_segment, true, false, false})) {
@@ -1807,7 +1808,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs    //
 ) {
     token_slice tokens_mut = tokens;
-    assert(!(is_inferred && !has_rhs));
+    ASSERT(!(is_inferred && !has_rhs));
 
     token_slice lhs_tokens;
     if (has_rhs) {
@@ -1844,23 +1845,23 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     std::string name;
     if (!is_inferred) {
         if (lhs_tokens.first->token != TOK_TYPE) {
-            assert((lhs_tokens.second - 1) != lhs_tokens.first);
-            assert((lhs_tokens.second - 2) != lhs_tokens.first);
+            ASSERT((lhs_tokens.second - 1) != lhs_tokens.first);
+            ASSERT((lhs_tokens.second - 2) != lhs_tokens.first);
             THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, token_slice{lhs_tokens.first, lhs_tokens.second - 2});
             return std::nullopt;
         }
         declared_type = lhs_tokens.first->type;
-        assert(std::next(lhs_tokens.first)->token == TOK_IDENTIFIER);
+        ASSERT(std::next(lhs_tokens.first)->token == TOK_IDENTIFIER);
         name = std::next(lhs_tokens.first)->lexme;
     } else {
-        assert(lhs_tokens.first->token == TOK_IDENTIFIER);
+        ASSERT(lhs_tokens.first->token == TOK_IDENTIFIER);
         name = lhs_tokens.first->lexme;
     }
 
     // Case 1: Declaration without RHS
     if (!has_rhs) {
-        assert(!is_inferred);
-        assert(declared_type != nullptr);
+        ASSERT(!is_inferred);
+        ASSERT(declared_type != nullptr);
         if (is_persistent) {
             // Persistent locals require an initializer
             THROW_BASIC_ERR(ERR_PARSING);
@@ -1970,7 +1971,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
     }
 
     // Now the equal sign should follow, we will delete that one too
-    assert(tokens_mut.first->token == TOK_EQUAL);
+    ASSERT(tokens_mut.first->token == TOK_EQUAL);
     tokens_mut.first++;
 
     // The rest of the tokens is the expression to parse
@@ -2046,7 +2047,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
             operation = TOK_DIV;
             break;
         default:
-            assert(false);
+            UNREACHABLE();
             break;
     }
     tokens_mut.first++;
@@ -2114,7 +2115,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     }
 
     // Now the equal sign should follow, we will delete that one too
-    assert(tokens_mut.first->token == TOK_EQUAL);
+    ASSERT(tokens_mut.first->token == TOK_EQUAL);
     tokens_mut.first++;
 
     // The rest of the tokens is the expression to parse
@@ -2178,7 +2179,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
             operation = TOK_DIV;
             break;
         default:
-            assert(false);
+            UNREACHABLE();
             break;
     }
     tokens_mut.first++;
@@ -2243,7 +2244,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment( //
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    assert(lhs_tokens.second->token == TOK_EQUAL);
+    ASSERT(lhs_tokens.second->token == TOK_EQUAL);
 
     // Create the access base from the lhs tokens
     auto access_base = create_array_access_base(_ctx_, scope, lhs_tokens);
@@ -2279,7 +2280,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
         default:
             // Should not happen, at least one assignment shorthand operator should be present because otherwise the matcher would not have
             // matched this statement as an array assignment shorthand
-            assert(false);
+            UNREACHABLE();
             return std::nullopt;
         case TOK_PLUS_EQUALS:
             operation = TOK_PLUS;
@@ -2359,7 +2360,7 @@ std::optional<GroupedArrayAssignmentNode> Parser::create_grouped_array_assignmen
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    assert(lhs_tokens.second->token == TOK_EQUAL);
+    ASSERT(lhs_tokens.second->token == TOK_EQUAL);
 
     // Create the access base from the lhs tokens
     auto access_base = create_array_access_base(_ctx_, scope, lhs_tokens);
@@ -2538,7 +2539,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
                 }
             }
         } else {
-            assert(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
+            ASSERT(tokens_mut.first->token == TOK_ALIAS && std::next(tokens_mut.first)->token == TOK_DOT);
             Namespace *alias_namespace = tokens_mut.first->alias_namespace;
             tokens_mut.first += 2;
             statement_node = create_call_statement(scope, tokens_mut, alias_namespace);
@@ -2693,7 +2694,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
         statement_node = std::move(catch_node.value());
     } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
-        assert(definition.first->token == TOK_ALIAS && std::next(definition.first)->token == TOK_DOT);
+        ASSERT(definition.first->token == TOK_ALIAS && std::next(definition.first)->token == TOK_DOT);
         Namespace *alias_namespace = definition.first->alias_namespace;
         statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_namespace);
     } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {

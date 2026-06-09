@@ -168,7 +168,7 @@ struct Line {
         if (start_point < end_it) {
             if (start_point < begin_it) {
                 // Deletion starts before our range, adjust beginning and end
-                assert(start_point + length < end_it);
+                ASSERT(start_point + length < end_it);
                 unsigned int adjustment = std::min(length, static_cast<unsigned int>(std::distance(start_point, begin_it)));
                 begin_it = begin_it - adjustment;
                 end_it = end_it - adjustment;

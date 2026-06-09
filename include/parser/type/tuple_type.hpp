@@ -78,7 +78,7 @@ class TupleType : public Type {
 
     std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
         // Tuples cannot be returned from functions directly
-        assert(!is_return_type);
+        ASSERT(!is_return_type);
         std::string type_str = "type.tuple.";
         for (size_t i = 0; i < types.size(); i++) {
             if (i > 0) {

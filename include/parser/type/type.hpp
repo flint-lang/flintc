@@ -1,6 +1,7 @@
 #pragma once
 
-#include <cassert>
+#include "assert.hpp"
+
 #include <memory>
 #include <optional>
 #include <shared_mutex>
@@ -104,7 +105,7 @@ class Type {
     template <typename T> std::enable_if_t<std::is_base_of_v<Type, T> && !std::is_same_v<Type, T>, const T *> inline as() const {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(const_cast<Type *>(this));
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<const T *>(this);
@@ -116,7 +117,7 @@ class Type {
     template <typename T> std::enable_if_t<std::is_base_of_v<Type, T> && !std::is_same_v<Type, T>, T *> inline as() {
 #ifdef DEBUG_BUILD
         T *result = dynamic_cast<T *>(this);
-        assert(result && "as<T>() type mismatch - check your switch case!");
+        ASSERT(result, "as<T>() type mismatch - check your switch case!");
         return result;
 #else
         return static_cast<T *>(this);

@@ -25,7 +25,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 
     // Get the custom user-defined main function
     llvm::Function *custom_main_function = module->getFunction(function_node.name);
-    assert(custom_main_function != nullptr);
+    ASSERT(custom_main_function != nullptr);
     llvm::FunctionType *main_type = nullptr;
     if (main_function_has_args) {
         main_type = llvm::FunctionType::get( //

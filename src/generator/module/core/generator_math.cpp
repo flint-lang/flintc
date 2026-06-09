@@ -61,7 +61,7 @@ void Generator::Module::Math::generate_abs_iN_function( //
     } else if (N <= 64) {
         abs_fn = c_functions.at(LABS);
     } else {
-        assert(false);
+        UNREACHABLE();
     }
 
     // Create function type
@@ -163,7 +163,7 @@ void Generator::Module::Math::generate_min_function( //
             x_lt_y = builder->CreateICmpSLT(arg_x, arg_y);
             break;
         default:
-            assert(false);
+            UNREACHABLE();
             break;
     }
     builder->CreateCondBr(x_lt_y, x_less_block, y_less_block);
@@ -283,7 +283,7 @@ void Generator::Module::Math::generate_max_function( //
             x_gt_y = builder->CreateICmpSGT(arg_x, arg_y);
             break;
         default:
-            assert(false);
+            UNREACHABLE();
             break;
     }
     builder->CreateCondBr(x_gt_y, x_greater_block, y_greater_block);
