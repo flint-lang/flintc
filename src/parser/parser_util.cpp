@@ -750,8 +750,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         const auto &var_type = variable_node.value()->type;
         switch (var_type->get_variation()) {
             default:
-                // Doing an instance call on a variable that's not an entity or func type
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
             case Type::Variation::ENTITY: {
                 const EntityNode *entity_node = var_type->as<EntityType>()->entity_node;

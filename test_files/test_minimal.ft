@@ -1,5 +1,6 @@
 use Core.print
 
 def main():
-	i32x3 v3 = i32x3(10, 20);
+	i32x3 v3 = i32x3(10, 20, 30);
 	print($"v3 = {v3}\n");
+	v3.call();
