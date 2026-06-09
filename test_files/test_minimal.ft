@@ -1,12 +1,5 @@
 use Core.print
 
-data Vec3:
-	f32 x = 0.0;
-	f32 y;
-	f32 z = 0.0;
-	Vec3(x, y, z);
-
 def main():
-	v1 := Vec3(10, 20, 30);
-	i32 x = i32(v1);
-	print($"x = {x}\n");
+	i32x3 v3 = i32x3(10, 20);
+	print($"v3 = {v3}\n");

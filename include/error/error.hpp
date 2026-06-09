@@ -70,6 +70,7 @@
 #include "error_types/parsing/expressions/err_expr_call_of_virtual_function.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
 #include "error_types/parsing/expressions/err_expr_cast_invalid.hpp"
+#include "error_types/parsing/expressions/err_expr_cast_multi_length_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_fn_ref_core.hpp"
 #include "error_types/parsing/expressions/err_expr_fn_ref_nonexistent.hpp"
 #include "error_types/parsing/expressions/err_expr_mutating_const.hpp"

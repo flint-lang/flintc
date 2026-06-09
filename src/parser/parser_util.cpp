@@ -688,7 +688,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     assert(std::find(to_types.begin(), to_types.end(), arguments[0].first->type->to_string()) != to_types.end());
                 } else {
                     if (arguments.size() != width) {
-                        THROW_BASIC_ERR(ERR_PARSING);
+                        THROW_ERR(ErrExprCastMultiLengthMismatch, ERR_PARSING, file_hash, tokens, width, arguments.size());
                         return std::nullopt;
                     }
                     for (size_t i = 0; i < arguments.size(); i++) {
