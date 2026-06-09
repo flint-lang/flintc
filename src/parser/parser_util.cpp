@@ -914,8 +914,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
 
         if (exact_function == nullptr) {
-            // Ambigue call to function, could be one of multiple called functions
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprCallAmbiguous, ERR_PARSING, file_hash, tokens, functions);
             return std::nullopt;
         }
         functions.clear();

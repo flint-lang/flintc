@@ -1,6 +1,13 @@
 use Core.print
 
+def add(i32 x, i32 y) -> i32:
+	return x + y;
+
+def add(f32 x, f32 y) -> f32:
+	return x + y;
+
 def main():
-	i32x3 v3 = i32x3(10, 20, 30);
-	print($"v3 = {v3}\n");
-	v3.call();
+	i32 x = add(10, 20);
+	print($"x = {x}\n");
+	f32 y = add(10, 20);
+	print($"y = {y}\n");
