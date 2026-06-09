@@ -494,19 +494,23 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     }
     // If the tokens are 2 long we have a literal expression
     Token front_token = TOK_EOF;
-    token_list::iterator tok;
+    token_list::iterator tok = tokens.first;
     if (get_slice_size(tokens) == 2) {
         // Currently the only literal experssion is a minus sign in front of the literal, or a $ sign in front of the string
         if (tokens.first->token == TOK_MINUS) {
             front_token = TOK_MINUS;
-            tok = (tokens.first + 1);
         } else if (tokens.first->token == TOK_DOLLAR) {
             front_token = TOK_DOLLAR;
+        } else if (tokens.first->token == TOK_NOT) {
+            front_token = TOK_NOT;
         } else {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(                                                                                 //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                        //
+                tok->line, tok->column, std::vector<Token>{TOK_MINUS, TOK_DOLLAR, TOK_NOT}, tok->token //
+            );
+            return std::nullopt;
         }
-    } else {
-        tok = tokens.first;
+        tok++;
     }
 
     std::string lexme(tok->lexme);
@@ -609,11 +613,11 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 }
             }
             case TOK_TRUE: {
-                LitValue lit_value = LitBool{.value = true};
+                LitValue lit_value = LitBool{.value = front_token != TOK_NOT};
                 return LiteralNode(lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
-                LitValue lit_value = LitBool{.value = false};
+                LitValue lit_value = LitBool{.value = front_token == TOK_NOT};
                 return LiteralNode(lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {

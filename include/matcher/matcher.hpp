@@ -840,8 +840,9 @@ class Matcher {
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });
     static const inline PatternPtr literal_expr = one_of({
-        sequence({literal, zero_or_more(sequence({binary_operator, literal}))}), sequence({unary_pre_operator, literal}), //
-        sequence({literal, unary_post_operator})                                                                          //
+        sequence({literal, zero_or_more(sequence({binary_operator, literal}))}), //
+        sequence({unary_pre_operator, literal}),                                 //
+        sequence({literal, unary_post_operator})                                 //
     });
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});
