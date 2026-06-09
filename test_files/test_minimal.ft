@@ -1,7 +1,9 @@
 use Core.print
 
+enum Enum:
+	VAL1, VAL2, VAL3;
+
 def main():
-	i32x3 v3 = (10, 20, 30);
-	i32 x = v3.$3;
-	i32 y = x.z;
-	print($"x = {x}\n");
+	Enum e = Enum.VAL1;
+	if e == Enum.(VAL1, VAL2):
+		print($"{e} is VAL1 or VAL2\n");

@@ -1571,11 +1571,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             return std::nullopt;
         }
         const auto *enum_type = type->as<EnumType>();
-        auto tok_it = access_tokens.first + 1;
-        assert(tok_it->token == TOK_DOT);
-        tok_it++;
-        assert(tok_it->token == TOK_LEFT_PAREN);
-        tok_it++;
+        auto tok_it = access_tokens.first;
         const auto &enum_values = enum_type->enum_node->values;
         std::vector<std::string> values;
         while (tok_it->token != TOK_RIGHT_PAREN) {
