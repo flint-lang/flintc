@@ -724,29 +724,17 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         && (tokens.first + 2)->token == TOK_IDENTIFIER;
     std::optional<std::unique_ptr<ExpressionNode>> instance_variable = std::nullopt;
     auto tok = tokens.first;
-    if (is_instance_call) {
+    if (is_instance_call || is_typed_call) {
         tok++;
         assert(tok->token == TOK_DOT);
         tok++;
     }
 
     // It's definitely a call
-    std::string function_name;
-    for (; tok != tokens.second; ++tok) {
-        // Get the function name
-        if (tok->token == TOK_IDENTIFIER) {
-            if (is_typed_call) {
-                function_name = tokens.first->type->to_string() + "." + std::string(tok->lexme);
-            } else {
-                function_name = tok->lexme;
-            }
-            break;
-        } else if (std::distance(tokens.first, tok) == arg_range.value().first) {
-            // Function with no name
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-    }
+    assert(tok->token == TOK_IDENTIFIER);
+    const std::string function_name = is_typed_call                       //
+        ? tokens.first->type->to_string() + "." + std::string(tok->lexme) //
+        : std::string(tok->lexme);
 
     // Get the function from it's name and the argument types
     // It's not a builtin call, so we need to get the function from it's name
