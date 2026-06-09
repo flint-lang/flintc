@@ -1297,7 +1297,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_acces
     token_slice tokens_mut = tokens;
     auto grouped_field_access_base = create_grouped_access_base(ctx, scope, tokens_mut);
     if (!grouped_field_access_base.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     if (grouped_field_access_base->alternative_expression.has_value()) {

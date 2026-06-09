@@ -5,5 +5,5 @@ enum Enum:
 
 def main():
 	Enum e = Enum.VAL1;
-	if e == Enum.(VAL1, VAL2):
+	if e == Enum.(VAL1, VAL2, VAL4):
 		print($"{e} is VAL1 or VAL2\n");

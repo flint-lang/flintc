@@ -1594,8 +1594,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
                 }
             }
             if (!enum_contains_tag) {
-                // Enum tag not part of the enum values
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprEnumTagNotPresent, ERR_PARSING, file_hash, token_slice{tok_it, tok_it + 1}, value, type);
                 return std::nullopt;
             }
             values.emplace_back(value);
