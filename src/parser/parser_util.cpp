@@ -2,7 +2,6 @@
 #include "debug.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
-#include "error/error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
@@ -903,11 +902,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
             }
             if (all_match) {
-                if (exact_function != nullptr) {
-                    // We found two exact functions, which is an error too
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
+                assert(exact_function == nullptr);
                 exact_function = fn.first;
                 implicit_param_count = fn.second;
             }
@@ -929,8 +924,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         assert(instance_variable.has_value());
         switch (instance_variable.value()->type->get_variation()) {
             default:
-                // Instance call on non-supported instance variable type
-                THROW_BASIC_ERR(ERR_PARSING);
+                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
             case Type::Variation::ENTITY: {
                 if (func_nodes.empty()) {
@@ -959,11 +953,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         }
                         idx++;
                     }
-                    if (idx == entity_node->data_modules.size()) {
-                        // The data node is not present in the entity type
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
+                    // Since this is an instance-call and the function thus comes from a func-module, the entity is guaranteed to contain
+                    // the required data here, if not something would have gone horribly wrong earlier in the entity parsing stage.
+                    assert(idx != entity_node->data_modules.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
