@@ -4,9 +4,9 @@
 #include "error/error_types/base_error.hpp"
 #include "parser/type/type.hpp"
 
-class ErrAnnotDuplicate : public BaseError {
+class ErrAnnoDuplicate : public BaseError {
   public:
-    ErrAnnotDuplicate(                //
+    ErrAnnoDuplicate(                 //
         const ErrorType error_type,   //
         const Hash &file_hash,        //
         const token_slice &tokens,    //

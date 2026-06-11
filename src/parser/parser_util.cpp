@@ -1906,15 +1906,14 @@ bool Parser::add_annotation(const token_slice &tokens) {
     const std::string annotation_name((tokens.first + 1)->lexme);
 
     if (annotation_map.find(annotation_name) == annotation_map.end()) {
-        // Unknown annotation
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrAnnoUnknown, ERR_PARSING, file_hash, tokens, annotation_name);
         return false;
     }
     const AnnotationKind kind = annotation_map.at(annotation_name);
     // Check if the queue already contains this annotation kind, it is not allowed to define the same annotation twice
     for (const auto &annotation : annotation_queue) {
         if (annotation.kind == kind) {
-            THROW_ERR(ErrAnnotDuplicate, ERR_PARSING, file_hash, tokens, annotation_name);
+            THROW_ERR(ErrAnnoDuplicate, ERR_PARSING, file_hash, tokens, annotation_name);
             return false;
         }
     }

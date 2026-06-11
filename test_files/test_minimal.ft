@@ -1,8 +1,7 @@
 use Core.assert
 use Core.print
 
-#test_should_fail
-#test_should_fail
+#test_wololo
 test "some test":
 	assert(false);
 
