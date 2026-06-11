@@ -1763,8 +1763,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         return std::nullopt;
     }
     if (base_expr.value()->type->get_variation() != Type::Variation::ARRAY && base_expr.value()->type->to_string() != "str") {
-        // Array access on non-array type base expression
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrExprArrayAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_expr.value()->type);
         return std::nullopt;
     }
 
