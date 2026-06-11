@@ -219,7 +219,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     const bool is_test,                                        //
     const bool parse_parallel                                  //
 ) {
-    Profiler::start_scope("Parser::parse_program");
+    Profiler::start_task("Parser::parse_program", true);
     Type::init_types();
     Parser::init_core_modules();
     std::optional<Parser *> parser = Parser::create(path);
@@ -282,6 +282,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
             return std::nullopt;
         }
     }
+    Profiler::end_task("Parser::parse_program");
 
     if (PRINT_AST) {
         Debug::AST::print_all_files();
@@ -299,7 +300,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
                   << std::endl;
 
         // Parser performance
-        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parsing the program");
+        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parser::parse_program");
         auto parse_duration = std::chrono::duration_cast<std::chrono::microseconds>(parse_node->end - parse_node->start);
         std::cout << YELLOW << "[Debug Info] Parser performance\n"
                   << DEFAULT << "-- Total token count: " << token_count << "\n"
