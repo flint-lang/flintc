@@ -148,6 +148,19 @@ class Parser {
     /// @return `Parser *` A pointer to the created parser instance
     static Parser *create(const std::filesystem::path &file, const std::string &file_content);
 
+    /// @function `parse_program`
+    /// @brief Parses a whole program from the given file path
+    ///
+    /// @param `file` The "main" file to parse all included files from to form a finished program
+    /// @param `is_test` Whether the program is a test program
+    /// @param `parse_parallel` Whether to parse the files in parallel
+    /// @return `std::optional<std::shared_ptr<DepNode>>` The pointer to the main file dependency, nullopt if parsing failed
+    static std::optional<std::shared_ptr<DepNode>> parse_program( //
+        const std::filesystem::path &file,                        //
+        const bool is_test,                                       //
+        const bool parse_parallel                                 //
+    );
+
     /// @function `parse`
     /// @brief Parses the file. It will tokenize it using the Lexer and then create the AST of the file and return the parsed FileNode
     ///

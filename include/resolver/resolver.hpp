@@ -94,7 +94,7 @@ class Resolver {
     /// @return `std::optional<std::shared_ptr<DepNode>>` A shared pointer to the root of the created dependency graph, nullop if creation
     /// failed
     static std::optional<std::shared_ptr<DepNode>> create_dependency_graph( //
-        FileNode *file_node,                                                //
+        const FileNode *file_node,                                          //
         const bool run_in_parallel                                          //
     );
 
@@ -197,7 +197,7 @@ class Resolver {
     ///
     /// @param `file_node` The file node to add to the maps
     /// @return `std::optional<DepNode>` The added dependency node, nullopt if adding the dependency node failed
-    static std::optional<DepNode> add_dependencies_and_file(FileNode *file_node);
+    static std::optional<DepNode> add_dependencies_and_file(const FileNode *file_node);
 
     /// @function `extract_duplicates`
     /// @brief Extracts all duplicate dependencies (files to parse) from the given dependency map

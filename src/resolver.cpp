@@ -15,7 +15,7 @@
 #include <variant>
 
 std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
-    FileNode *file_node,                                                   //
+    const FileNode *file_node,                                             //
     const bool run_in_parallel                                             //
 ) {
     PROFILE_SCOPE("Create dependency graph");
@@ -23,13 +23,13 @@ std::optional<std::shared_ptr<DepNode>> Resolver::create_dependency_graph( //
     const Hash file_hash = file_node->file_namespace->namespace_hash;
     // Add all dependencies of the file and the file itself to the file map and the dependency map
     // Also return a created DepNode, but its dependants are not created yet
-    std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file_node);
+    const std::optional<DepNode> base_maybe = Resolver::add_dependencies_and_file(file_node);
     if (!base_maybe.has_value()) {
         // The main file already exists, this should not happen
         THROW_BASIC_ERR(ERR_RESOLVING);
         return {};
     }
-    std::shared_ptr<DepNode> base = std::make_shared<DepNode>(base_maybe.value());
+    const std::shared_ptr<DepNode> base = std::make_shared<DepNode>(base_maybe.value());
     dependency_node_map.emplace(file_hash, base);
 
     std::unordered_map<Hash, std::vector<dependency>> open_dependencies;
@@ -272,10 +272,10 @@ dependency Resolver::create_dependency(const ImportNode &node) {
     }
 }
 
-std::optional<DepNode> Resolver::add_dependencies_and_file(FileNode *file_node) {
+std::optional<DepNode> Resolver::add_dependencies_and_file(const FileNode *file_node) {
     std::lock_guard<std::mutex> lock_dep_map(dependency_map_mutex);
 
-    Hash file_hash = file_node->file_namespace->namespace_hash;
+    const Hash file_hash = file_node->file_namespace->namespace_hash;
     if (dependency_map.find(file_hash) != dependency_map.end()) {
         return std::nullopt;
     }

@@ -214,6 +214,77 @@ std::optional<FileNode *> Parser::parse() {
     return file_node_ptr.get();
 }
 
+std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
+    const std::filesystem::path &path,                         //
+    const bool is_test,                                        //
+    const bool parse_parallel                                  //
+) {
+    Profiler::start_scope("Parser::parse_program");
+    Type::init_types();
+    Parser::init_core_modules();
+    std::optional<Parser *> parser = Parser::create(path);
+    if (!parser.has_value()) {
+        std::cout << RED << "Error" << DEFAULT << ": The input file " << YELLOW << path.relative_path().string() << DEFAULT
+                  << " does not exist or is not readable" << std::endl;
+        return std::nullopt;
+    }
+    std::optional<FileNode *> file = parser.value()->parse();
+    if (!file.has_value()) {
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << path.filename() << DEFAULT << std::endl;
+        return std::nullopt;
+    }
+    switch (Analyzer::analyze_file(file.value())) {
+        case Analyzer::Result::OK:
+            break;
+        case Analyzer::Result::ERR_HANDLED:
+            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT << "' failed analyze step!"
+                      << std::endl;
+            return std::nullopt;
+        default:
+            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT
+                      << "' failed analyze step for unknown reason!" << std::endl;
+            return std::nullopt;
+    }
+    const auto dep_graph = Resolver::create_dependency_graph(file.value(), parse_parallel);
+    if (!dep_graph.has_value()) {
+        std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
+        return std::nullopt;
+    }
+    if (Parser::main_function.load() == nullptr && !is_test) {
+        // No main function found
+        THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, Hash(path));
+        return std::nullopt;
+    }
+    if (!Parser::resolve_all_imports()) {
+        return std::nullopt;
+    }
+    if (!Parser::resolve_all_unknown_types()) {
+        return std::nullopt;
+    }
+    if (PRINT_DEP_TREE) {
+        Debug::Dep::print_dep_tree(0, dep_graph.value());
+    }
+    bool parsed_successful = Parser::parse_all_open_data_modules(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_entities(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+    parsed_successful = Parser::parse_all_open_functions(parse_parallel);
+    if (!parsed_successful) {
+        return std::nullopt;
+    }
+    if (is_test) {
+        bool parsed_tests_successful = Parser::parse_all_open_tests(parse_parallel);
+        if (!parsed_tests_successful) {
+            return std::nullopt;
+        }
+    }
+    return dep_graph;
+}
+
 Parser::CastDirection Parser::check_primitive_castability( //
     const std::shared_ptr<Type> &lhs_type,                 //
     const std::shared_ptr<Type> &rhs_type,                 //
