@@ -296,7 +296,7 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
                 ll_file_path = get_absolute(cwd_path, args.at(i + 1));
-                build_exe = false;
+                output_ll_file = false;
                 i++;
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
@@ -368,7 +368,7 @@ class CLIParserMain : public CLIParserBase {
     std::filesystem::path out_file_path = "main";
     std::filesystem::path ll_file_path = "";
     std::vector<std::string> compile_flags;
-    bool build_exe{true};
+    bool output_ll_file{false};
     bool run{false};
     bool test{false};
     bool parallel{false};

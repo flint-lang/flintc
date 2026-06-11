@@ -21,21 +21,6 @@
 
 std::filesystem::path main_file_path;
 
-/// @function `write_ll_file`
-/// @brief Simply writes the given module to the given file, in IR source format
-///
-/// @param `ll_path` The path where to write the IR code to
-/// @param `module` The module containing the program to write to the given file
-void write_ll_file(const std::filesystem::path &ll_path, const llvm::Module *module) {
-    PROFILE_SCOPE("Write the ll file");
-    std::error_code EC;
-    llvm::raw_fd_ostream ll_file(ll_path.string(), EC);
-    if (!EC) {
-        ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(module));
-        ll_file.close();
-    }
-}
-
 /// @function `compile_program`
 /// @brief Compiles the given program module down to a binary
 ///
@@ -167,12 +152,14 @@ int main(int argc, char *argv[]) {
     }
     Parser::clear_instances();
 
-    if (!clp.build_exe) {
-        // Output the built module and write it to the given file
-        write_ll_file(clp.ll_file_path, program.value().get());
-        // } else if (clp.run) {
-        // Run the IR code idrectly through JIT compilation
-        // TODO
+    if (clp.output_ll_file) {
+        PROFILE_SCOPE("Write the ll file");
+        std::error_code EC;
+        llvm::raw_fd_ostream ll_file(clp.ll_file_path.string(), EC);
+        if (!EC) {
+            ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(program.value().get()));
+            ll_file.close();
+        }
     } else {
         // Compile the program and output the binary
         if (!NO_BINARY && !compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
