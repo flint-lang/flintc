@@ -1914,7 +1914,7 @@ bool Parser::add_annotation(const token_slice &tokens) {
     // Check if the queue already contains this annotation kind, it is not allowed to define the same annotation twice
     for (const auto &annotation : annotation_queue) {
         if (annotation.kind == kind) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrAnnotDuplicate, ERR_PARSING, file_hash, tokens, annotation_name);
             return false;
         }
     }

@@ -18,6 +18,7 @@
 #include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
 
 // --- PARSING ERRORS ---
+#include "error_types/parsing/annotations/err_annot_duplicate.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"

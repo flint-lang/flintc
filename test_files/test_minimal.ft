@@ -1,4 +1,10 @@
+use Core.assert
 use Core.print
+
+#test_should_fail
+#test_should_fail
+test "some test":
+	assert(false);
 
 def main():
 	data<i32, f32, str> d = (10, 3.14, "hi");
