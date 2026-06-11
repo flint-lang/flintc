@@ -1,10 +1,8 @@
 #include "cli_parser_main.hpp"
-#include "debug.hpp"
 #include "fip.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "io.hpp"
-#include "lexer/lexer.hpp"
 #include "linker/linker.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
@@ -22,69 +20,6 @@
 #include <string>
 
 std::filesystem::path main_file_path;
-
-/// @function `generate_program`
-/// @brief Generates the whole program from a given source file
-///
-/// @param `source_file_path` The source file to generate the module from
-/// @param `is_test` Whether the program has to be generated in test-mode
-/// @param `parse_parallel` Whether to parse the program in parallel
-/// @param `context` The LLVMContext in which to generate the module in
-/// @return `std::optional<std::unique_ptr<llvm::Module>>` The generated module, nullopt if generation failed
-std::optional<std::unique_ptr<llvm::Module>> generate_program( //
-    const std::filesystem::path &source_file_path,             //
-    const bool is_test,                                        //
-    const bool parse_parallel                                  //
-) {
-    ScopeProfiler sp("Generate module");
-
-    const auto &dep_graph = Parser::parse_program(source_file_path, is_test, parse_parallel);
-    if (!dep_graph.has_value()) {
-        return std::nullopt;
-    }
-    if (PRINT_AST) {
-        Debug::AST::print_all_files();
-    }
-    if (DEBUG_MODE) {
-        const unsigned int token_count = Lexer::total_token_count;
-        const uint64_t lexing_time_ns = Lexer::total_lexing_time_ns;
-        const uint64_t lexing_time_us = lexing_time_ns / 1000;
-
-        // Lexer performance
-        std::cout << YELLOW << "[Debug Info] Lexer performance\n"
-                  << DEFAULT << "-- Total token count: " << token_count << "\n"
-                  << "-- Total lexing time: " << lexing_time_us << " µs\n"
-                  << "-- Tokens per second lexing speed: " << ((token_count * 1000000000ULL) / lexing_time_ns) << " Tok/s\n"
-                  << std::endl;
-
-        // Parser performance
-        const ProfileNode *const parse_node = Profiler::profiling_durations.at("Parsing the program");
-        auto parse_duration = std::chrono::duration_cast<std::chrono::microseconds>(parse_node->end - parse_node->start);
-        std::cout << YELLOW << "[Debug Info] Parser performance\n"
-                  << DEFAULT << "-- Total token count: " << token_count << "\n"
-                  << "-- Total parsing time: " << std::to_string(parse_duration.count()) << " µs\n"
-                  << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / parse_duration.count()) << " Tok/s\n"
-                  << std::endl;
-    }
-    if (DEBUG_MODE && NO_GENERATION) {
-        sp.~ScopeProfiler();
-        FIP::shutdown();
-        Profiler::end_task("ALL");
-        if (PRINT_PROFILE_RESULTS) {
-            Profiler::print_results(Profiler::TimeUnit::MICS);
-        }
-        if (PRINT_CUMULATIVE_PROFILE_RESULTS) {
-            Profiler::print_cumulative_stats("total");
-        }
-        exit(0);
-    }
-
-    // Now we can send the compile request to all interop modules
-    FIP::send_compile_request();
-
-    // Generate the whole program
-    return Generator::generate_program_ir(is_test ? "test" : "main", dep_graph.value(), is_test);
-}
 
 /// @function `write_ll_file`
 /// @brief Simply writes the given module to the given file, in IR source format
@@ -200,7 +135,31 @@ int main(int argc, char *argv[]) {
     main_file_path = clp.source_file_path;
 
     Profiler::start_task("ALL");
-    auto program = generate_program(clp.source_file_path, clp.test, clp.parallel);
+    const auto &dep_graph = Parser::parse_program(clp.source_file_path, clp.test, clp.parallel);
+    if (!dep_graph.has_value()) {
+        Profiler::end_task("ALL");
+        FIP::shutdown();
+        return 1;
+    }
+
+    // Skip generation if requested
+    if (DEBUG_MODE && NO_GENERATION) {
+        FIP::shutdown();
+        Profiler::end_task("ALL");
+        if (PRINT_PROFILE_RESULTS) {
+            Profiler::print_results(Profiler::TimeUnit::MICS);
+        }
+        if (PRINT_CUMULATIVE_PROFILE_RESULTS) {
+            Profiler::print_cumulative_stats("total");
+        }
+        return 0;
+    }
+
+    // Send the compile request to all interop modules so they all compile their sources
+    FIP::send_compile_request();
+
+    // Generate the whole program
+    auto program = Generator::generate_program_ir(clp.test ? "test" : "main", dep_graph.value(), clp.test);
     if (!program.has_value()) {
         Profiler::end_task("ALL");
         FIP::shutdown();
