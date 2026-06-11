@@ -3622,9 +3622,8 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
         if (group_type->types.at(i)->is_freeable()) {
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             llvm::Value *type_id = builder.getInt32(group_type->types.at(i)->get_id());
-            llvm::Value *clone_dest = builder.CreateAlloca(PTR_TY, nullptr, "clone_dest_" + grouped_data_access->field_names.at(i));
-            builder.CreateCall(clone_fn, {field_val, clone_dest, type_id});
-            field_val = IR::aligned_load(builder, PTR_TY, clone_dest, "cloned_" + grouped_data_access->field_names.at(i));
+            builder.CreateCall(clone_fn, {field_val, scratchspace, type_id});
+            field_val = IR::aligned_load(builder, PTR_TY, scratchspace, "cloned_" + grouped_data_access->field_names.at(i));
         }
         return_values.push_back(field_val);
     }
