@@ -78,6 +78,21 @@ class Generator {
     /// @return `std::filesystem::path` The path to the flint cache directory
     static std::filesystem::path get_flintc_cache_path();
 
+    /// @function `compile_program`
+    /// @brief Compiles the given program module down to a binary
+    ///
+    /// @param `binary_file` The path where the built binary should be placed at
+    /// @param `module` The program to compile
+    /// @param `flags` The flags which will be forwarded to the linker
+    /// @param `is_static` Whether the program is statically linked
+    /// @return `bool` Whether compilation of the program was successful
+    static bool compile_program(                  //
+        const std::filesystem::path &binary_file, //
+        llvm::Module *module,                     //
+        const std::vector<std::string> &flags,    //
+        const bool is_static                      //
+    );
+
     /// @function `compile_module`
     /// @brief Compiles a given module and saves the .o / .obj file at the given path
     ///

@@ -3,6 +3,8 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
 #include "globals.hpp"
+#include "io.hpp"
+#include "linker/linker.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -75,6 +77,71 @@ std::filesystem::path Generator::get_flintc_cache_path() {
         std::cerr << "Error: Could not create cache path: '" << cache_path.string() << "'" << std::endl;
         return std::filesystem::path();
     }
+}
+
+bool Generator::compile_program(              //
+    const std::filesystem::path &binary_file, //
+    llvm::Module *module,                     //
+    const std::vector<std::string> &flags,    //
+    const bool is_static                      //
+) {
+    PROFILE_SCOPE("Compile program " + module->getName().str());
+
+    // Direct linking with LDD
+    if (!Generator::compile_module(module, binary_file)) {
+        llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
+        return false;
+    }
+
+    std::string obj_file = binary_file.string();
+    std::string file_ending = "";
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
+#ifdef __WIN32__
+            file_ending = ".obj";
+#else
+            file_ending = ".o";
+#endif
+            break;
+        case Target::LINUX:
+            file_ending = ".o";
+            break;
+        case Target::WINDOWS:
+            file_ending = ".obj";
+            break;
+    }
+    obj_file += file_ending;
+
+    Profiler::start_task("Linking " + obj_file + " to a binary");
+    std::vector<std::filesystem::path> obj_files{obj_file};
+    std::optional<std::vector<std::array<char, 9>>> fip_objects = FIP::gather_objects();
+    if (!fip_objects.has_value()) {
+        Profiler::end_task("Linking " + obj_file + " to a binary");
+        remove_with_retry(std::filesystem::path(obj_file));
+        return false;
+    }
+    for (const auto &fip_obj : fip_objects.value()) {
+        std::string fip_obj_path = ".fip/cache/" + std::string(fip_obj.data()) + file_ending;
+        obj_files.emplace_back(fip_obj_path);
+    }
+    bool link_success = Linker::link( //
+        obj_files,                    // input object files
+        binary_file,                  // output executable
+        flags,                        // linking flags
+        is_static                     // debug flag
+    );
+    Profiler::end_task("Linking " + obj_file + " to a binary");
+
+    if (!link_success) {
+        llvm::errs() << "Linking failed with LLD\n";
+        return false;
+    }
+
+    // Clean up object file
+    if (!DEBUG_MODE) {
+        remove_with_retry(std::filesystem::path(obj_file));
+    }
+    return true;
 }
 
 bool Generator::compile_module(llvm::Module *module, const std::filesystem::path &module_path) {

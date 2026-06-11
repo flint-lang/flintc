@@ -2,8 +2,6 @@
 #include "fip.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
-#include "io.hpp"
-#include "linker/linker.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
@@ -20,79 +18,6 @@
 #include <string>
 
 std::filesystem::path main_file_path;
-
-/// @function `compile_program`
-/// @brief Compiles the given program module down to a binary
-///
-/// @param `binary_file` The path where the built binary should be placed at
-/// @param `module` The program to compile
-/// @param `flags` The flags used during compilation and linking
-/// @param `is_static` Whether the program
-/// @return `bool` Whether compilation of the program was successful
-bool compile_program(                         //
-    const std::filesystem::path &binary_file, //
-    llvm::Module *module,                     //
-    const std::vector<std::string> &flags,    //
-    const bool is_static                      //
-) {
-    PROFILE_SCOPE("Compile program " + module->getName().str());
-
-    // Direct linking with LDD
-    if (!Generator::compile_module(module, binary_file)) {
-        llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
-        return false;
-    }
-
-    std::string obj_file = binary_file.string();
-    std::string file_ending = "";
-    switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef __WIN32__
-            file_ending = ".obj";
-#else
-            file_ending = ".o";
-#endif
-            break;
-        case Target::LINUX:
-            file_ending = ".o";
-            break;
-        case Target::WINDOWS:
-            file_ending = ".obj";
-            break;
-    }
-    obj_file += file_ending;
-
-    Profiler::start_task("Linking " + obj_file + " to a binary");
-    std::vector<std::filesystem::path> obj_files{obj_file};
-    std::optional<std::vector<std::array<char, 9>>> fip_objects = FIP::gather_objects();
-    if (!fip_objects.has_value()) {
-        Profiler::end_task("Linking " + obj_file + " to a binary");
-        remove_with_retry(std::filesystem::path(obj_file));
-        return false;
-    }
-    for (const auto &fip_obj : fip_objects.value()) {
-        std::string fip_obj_path = ".fip/cache/" + std::string(fip_obj.data()) + file_ending;
-        obj_files.emplace_back(fip_obj_path);
-    }
-    bool link_success = Linker::link( //
-        obj_files,                    // input object files
-        binary_file,                  // output executable
-        flags,                        // linking flags
-        is_static                     // debug flag
-    );
-    Profiler::end_task("Linking " + obj_file + " to a binary");
-
-    if (!link_success) {
-        llvm::errs() << "Linking failed with LLD\n";
-        return false;
-    }
-
-    // Clean up object file
-    if (!DEBUG_MODE) {
-        remove_with_retry(std::filesystem::path(obj_file));
-    }
-    return true;
-}
 
 int main(int argc, char *argv[]) {
     // Parse all the cli arguments
@@ -162,7 +87,7 @@ int main(int argc, char *argv[]) {
         }
     } else {
         // Compile the program and output the binary
-        if (!NO_BINARY && !compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
+        if (!NO_BINARY && !Generator::compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
             Resolver::clear();
             FIP::shutdown();
             Profiler::end_task("ALL");
