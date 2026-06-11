@@ -204,19 +204,25 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!enum_node.has_value()) {
             return false;
         }
-        return file_node.add_enum(enum_node.value());
+        if (!file_node.add_enum(enum_node.value())) {
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
         std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
         if (!error_node.has_value()) {
             return false;
         }
-        return file_node.add_error(error_node.value());
+        if (!file_node.add_error(error_node.value())) {
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
         std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
         if (!variant_node.has_value()) {
             return false;
         }
-        return file_node.add_variant(variant_node.value());
+        if (!file_node.add_variant(variant_node.value())) {
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
         std::optional<TestNode> test_node = create_test(definition_tokens);
         if (!test_node.has_value()) {
@@ -230,7 +236,15 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
         return false;
     }
-    return enusure_no_annotation_leftovers();
+    if (!annotation_queue.empty()) {
+        DefinitionNode *last_definition = file_node.file_namespace->public_symbols.definitions.back().get();
+        THROW_ERR(                                                                                    //
+            ErrAnnoLeftover, ERR_PARSING, file_hash,                                                  //
+            last_definition->line, last_definition->column, last_definition->length, annotation_queue //
+        );
+        return false;
+    }
+    return true;
 }
 
 token_slice Parser::get_definition_tokens(const token_slice &tokens) {
@@ -1929,14 +1943,6 @@ bool Parser::add_annotation(const token_slice &tokens) {
 
     annotation_queue.emplace_back(kind, arguments);
     return true;
-}
-
-bool Parser::enusure_no_annotation_leftovers() {
-    if (annotation_queue.empty()) {
-        return true;
-    }
-    THROW_BASIC_ERR(ERR_PARSING);
-    return false;
 }
 
 std::optional<size_t> Parser::get_size_from_expr(const std::unique_ptr<ExpressionNode> &expr) {

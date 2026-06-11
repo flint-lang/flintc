@@ -1001,13 +1001,6 @@ class Parser {
     /// @return `bool` Whether the annotation was able to be added to the queue
     bool add_annotation(const token_slice &tokens);
 
-    /// @function `ensure_no_allotation_leftovers`
-    /// @brief Checks whether the annotation queue is empty, throws an error if the queue still contains annotations. This would mean that
-    /// an annotation was defined which was unable to be consumed by the following definition / statement
-    ///
-    /// @return `bool` True if all is fine, false if there were leftovers
-    bool enusure_no_annotation_leftovers();
-
     /// @function `get_size_from_expr`
     /// @brief Returns the size of a potential comptime expression, if it's comptime-known at all
     ///

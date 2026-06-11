@@ -19,6 +19,7 @@
 
 // --- PARSING ERRORS ---
 #include "error_types/parsing/annotations/err_anno_duplicate.hpp"
+#include "error_types/parsing/annotations/err_anno_leftover.hpp"
 #include "error_types/parsing/annotations/err_anno_unknown.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_redefinition.hpp"
