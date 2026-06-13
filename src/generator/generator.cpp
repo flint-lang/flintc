@@ -190,12 +190,12 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
 
     // Create the target machine
     llvm::TargetOptions opt;
-    auto target_machine = target->createTargetMachine( //
-        target_triple,                                 //
-        llvm::sys::getHostCPUName(),                   //
-        "",                                            //
-        opt,                                           //
-        llvm::Reloc::DynamicNoPIC                      //
+    llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
+        ? llvm::CodeGenOptLevel::None                                               //
+        : llvm::CodeGenOptLevel::Default;
+    auto target_machine = target->createTargetMachine(            //
+        target_triple, llvm::sys::getHostCPUName(), "", opt,      //
+        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel //
     );
     // Enable individual sections for functions and data
     target_machine->Options.FunctionSections = true;
