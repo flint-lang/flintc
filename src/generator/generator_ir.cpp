@@ -189,9 +189,11 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
 
         llvm::Argument *const arg_stack = dispatch_fn->args().begin();
         arg_stack->setName("stack");
+        if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
 #ifndef __WIN32__
-        arg_stack->addAttr(llvm::Attribute::InReg);
+            arg_stack->addAttr(llvm::Attribute::InReg);
 #endif
+        }
 
         llvm::Argument *const arg_entity = dispatch_fn->args().begin() + 1;
         arg_entity->setName("entity");
