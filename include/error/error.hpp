@@ -140,10 +140,10 @@ inline void throw_err(ErrorType error_type, const char *file = __FILE__, const i
     if (DEBUG_MODE) {
         std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
+    std::cerr << std::endl;
     if (HARD_CRASH) {
         ASSERT(false);
     }
-    std::cerr << std::endl;
 }
 
 #define THROW_BASIC_ERR(ErrorType) throw_err(ErrorType, __FILE__, __LINE__)
@@ -178,10 +178,10 @@ throw_err(                                                                      
     if (DEBUG_MODE) {
         std::cerr << YELLOW << "\n[Debug Info]" << DEFAULT << " Called from: " << file << ":" << line;
     }
+    std::cerr << "\n" << std::endl;
     if (HARD_CRASH) {
         ASSERT(false);
     }
-    std::cerr << "\n" << std::endl;
 #endif
 }
 
