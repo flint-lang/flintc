@@ -658,6 +658,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             case Type::Variation::ENTITY: {
                 const auto *entity_type = name_token->type->as<EntityType>();
                 auto &data_modules = entity_type->entity_node->data_modules;
+                const auto &constructor_order = entity_type->entity_node->constructor_order;
                 // Check if all initializer arguments are equal to the expected data module types
                 if (arguments.size() != data_modules.size()) {
                     THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, data_modules.size(), arguments.size());
@@ -665,7 +666,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
                 for (size_t i = 0; i < arguments.size(); i++) {
                     const std::shared_ptr<Type> &arg_type = arguments.at(i).first->type;
-                    const DataNode *data_node = data_modules.at(i).first;
+                    const DataNode *data_node = data_modules.at(constructor_order.at(i)).first;
                     const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                     const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                     if (!arg_type->equals(data_type)) {
