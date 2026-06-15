@@ -296,7 +296,7 @@ class CLIParserMain : public CLIParserBase {
                     return 1;
                 }
                 ll_file_path = get_absolute(cwd_path, args.at(i + 1));
-                output_ll_file = false;
+                output_ll_file = true;
                 i++;
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
