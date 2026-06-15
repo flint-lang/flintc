@@ -719,8 +719,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         // Cast every expression inside to a str type (if it isn't already)
         const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
         if (!check_castability(str_type, expr.value(), true)) {
-            // This shouldn't fail
-            UNREACHABLE();
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expr_tokens_slice, str_type, expr.value()->type);
             return std::nullopt;
         }
         interpol_content.emplace_back(std::move(expr.value()));
