@@ -1379,7 +1379,10 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         std::unique_ptr<StatementNode> switch_statement = std::make_unique<SwitchStatement>(dummy_switcher, s_branches);
         body_scope->body.push_back(std::move(switch_statement));
     }
-    return std::make_unique<CatchNode>(err_var, body_scope, catch_base_call);
+    const unsigned int line = catch_id.value()->line;
+    const unsigned int column = catch_id.value()->column;
+    const unsigned int length = std::distance(catch_id.value(), definition.second);
+    return std::make_unique<CatchNode>(err_var, body_scope, catch_base_call, file_hash, line, column, length);
 }
 
 std::optional<GroupAssignmentNode> Parser::create_group_assignment( //

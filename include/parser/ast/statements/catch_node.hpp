@@ -6,16 +6,28 @@
 
 #include <memory>
 #include <optional>
-#include <utility>
 
 /// @class `CatchNode`
 /// @brief Represents Catch statements
 class CatchNode : public StatementNode {
   public:
-    explicit CatchNode(std::optional<std::string> &var_name, std::shared_ptr<Scope> &scope, CallNodeBase *call_node) :
-        var_name(std::move(var_name)),
-        scope(std::move(scope)),
-        call_node(call_node) {}
+    explicit CatchNode(                             //
+        const std::optional<std::string> &var_name, //
+        const std::shared_ptr<Scope> &scope,        //
+        CallNodeBase *const call_node,              //
+        const Hash &file_hash,                      //
+        const unsigned int line,                    //
+        const unsigned int column,                  //
+        const unsigned int length                   //
+        ) :
+        var_name(var_name),
+        scope(scope),
+        call_node(call_node) {
+        this->file_hash = file_hash;
+        this->line = line;
+        this->column = column;
+        this->length = length;
+    }
 
     Variation get_variation() const override {
         return Variation::CATCH;
