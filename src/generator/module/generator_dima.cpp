@@ -35,6 +35,7 @@ static const std::string prefix = "flint.dima.";
  *
  *    typedef struct dima_head_t {
  *        void *default_value;    // The default value will point to a global constant value of the type of the head
+ *        u32 type_id;            // The type ID of the stored type
  *        size_t type_size;       // The size of the type stored in this dima tree
  *        size_t block_count;     // To keep track of the number of blocks
  *        dima_block_t *blocks[]; // Variable member pattern for the block pointers
@@ -71,9 +72,7 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
     for (const auto &[module_name, types] : core_module_data_types) {
         Hash module_hash(std::string{module_name});
         for (const auto &type_tuple : types) {
-            core_head_names.insert(
-                module_hash.to_string() + ".dima.head.data." + std::string{std::get<0>(type_tuple)}
-            );
+            core_head_names.insert(module_hash.to_string() + ".dima.head.data." + std::string{std::get<0>(type_tuple)});
         }
     }
 
@@ -90,7 +89,7 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
         if (core_head_names.find(head_var_str) != core_head_names.end()) {
             llvm::GlobalVariable *existing_head = module->getGlobalVariable(head_var_str);
             if (!existing_head) {
-                existing_head = new llvm::GlobalVariable(                              //
+                existing_head = new llvm::GlobalVariable(                                             //
                     *module, PTR_TY, false, llvm::GlobalValue::ExternalLinkage, nullptr, head_var_str //
                 );
             }
@@ -691,7 +690,7 @@ void Generator::Module::DIMA::generate_allocate_function( //
             realloc_fn, {head_value, builder->getInt64(head_size + block_ptr_size)}, "new_head_value" //
         );
         IR::aligned_store(*builder, new_head_value, arg_head_ref);
-        llvm::Value *new_head_block_count_ptr = builder->CreateStructGEP(       //
+        llvm::Value *new_head_block_count_ptr = builder->CreateStructGEP(                //
             dima_head_type, new_head_value, HEAD_BLOCK_COUNT, "new_head_block_count_ptr" //
         );
         IR::aligned_store(*builder, builder->getInt64(1), new_head_block_count_ptr);

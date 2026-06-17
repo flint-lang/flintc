@@ -12,9 +12,11 @@
 #include "resolver/resolver.hpp"
 
 #include <llvm/Analysis/CGSCCPassManager.h>
+#include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/Argument.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Constants.h>
+#include <llvm/IR/DebugInfoMetadata.h>
 #include <llvm/IR/Function.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Instructions.h>
@@ -337,6 +339,13 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
 
+    // Initialize the debug info builder when in debug mode
+    if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
+        Debug::DIB = new llvm::DIBuilder(*module);
+        Debug::debug_compile_units.clear();
+        Debug::debug_files.clear();
+    }
+
     // First initialize all builtin types
     IR::init_builtin_types();
 
@@ -523,6 +532,13 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
 
         // Generate main function in the main module
         Builtin::generate_builtin_main(builder.get(), module.get());
+    }
+
+    // Finalize the debug info
+    if (Debug::DIB != nullptr) {
+        Debug::DIB->finalize();
+        delete Debug::DIB;
+        Debug::DIB = nullptr;
     }
 
     // Verify and emit the module
@@ -783,6 +799,7 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
     std::string line;
     // The regex pattern for a comment
     const std::regex comment_id_pattern(", !comment !(\\d+)");
+    const std::regex debug_pattern("^\\!(\\d+) = ");
     const std::regex comment_pattern("^\\!(\\d+) = !\\{!\"([^\"]*)\"\\}$");
     std::smatch match;
     unsigned int substr_start_id = 0;
@@ -818,10 +835,14 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             // Add the commend id to the segments list
             segments.emplace_back(std::make_pair(c_id, static_cast<unsigned int>(match.position())));
             continue;
-        } else if (line.find("!{!\"") != std::string::npos && std::regex_search(line, match, comment_pattern) && match.size() > 2) {
-            // This line is a comment line already, if it is, only comment lines will follow
+        } else if (line.find("!") != std::string::npos && std::regex_search(line, match, debug_pattern) && match.size() > 1) {
+            // This line is a debug line already, if it is, only debug lines will follow
             // Add everything until here to the segments list
             segments.emplace_back(std::make_pair(substr_start_id, substr_end_id));
+
+            // consume the debug line itself before switching to the second pass
+            substr_start_id = substr_end_id + static_cast<unsigned int>(line.length() + 1);
+            substr_end_id = substr_start_id;
 
             // Get the actual group (e.g. the commend id)
             const std::string comment_id_str = match[1].str();
@@ -837,14 +858,19 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return "";
             }
-            // Add the comment to the comments map
-            comments.emplace(c_id, match[2].str());
+            if (std::regex_search(line, match, comment_pattern) && match.size() > 2) {
+                // The debug line is a comment, so we add the comment to the comments map
+                comments.emplace(c_id, match[2].str());
+            }
             break;
         }
         // Does not contain a comment, so we just increment the end_id and move on to the next line
         substr_end_id += static_cast<unsigned int>(line.length() + 1);
     }
     while (std::getline(ir_stream, line)) {
+        const unsigned int line_start = substr_end_id;
+        const unsigned int line_end = line_start + static_cast<unsigned int>(line.length() + 1);
+
         // First, check this line is a comment line already, if it is, only comment lines will follow
         if (std::regex_search(line, match, comment_pattern) && match.size() > 2) {
             // Get the actual group (e.g. the commend id)
@@ -863,8 +889,20 @@ std::string Generator::resolve_ir_comments(const std::string &ir_string) {
             }
             // Add the comment to the comments map
             comments.emplace(c_id, match[2].str());
+            substr_start_id = line_end;
+            substr_end_id = line_end;
+            continue;
+        } else if (std::regex_search(line, match, debug_pattern) && match.size() > 1) {
+            // It's a debug pattern, we add this line to the segments list to preserve it. We do 'line_end - 1' to remove the `\n` for this
+            // debug line to make the output prettier (no empty lines between debug lines)
+            segments.emplace_back(std::make_pair(line_start, line_end - 1));
+            substr_start_id = line_end;
+            substr_end_id = line_end;
+            continue;
         } else if (line.find("!{!\"") != std::string::npos) {
             // Could be a "comment" of branch weights or other llvm metadata
+            substr_start_id = line_end;
+            substr_end_id = line_end;
             continue;
         } else {
             break;

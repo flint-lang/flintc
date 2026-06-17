@@ -1,6 +1,9 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
 
+#include <llvm/BinaryFormat/Dwarf.h>
+#include <llvm/IR/DebugInfoMetadata.h>
+
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, const FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     llvm::Type *sret_param_type = nullptr;
@@ -121,6 +124,7 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
         function                                              //
     );
     llvm::IRBuilder<> builder(setup_block);
+    Debug::create_function_debug_info(function, function_node->name, function_node);
 
     // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
@@ -172,6 +176,18 @@ bool Generator::Function::generate_function_body(                               
     builder.CreateBr(entry_block);
     builder.SetInsertPoint(entry_block);
 
+    // Set the debug location for the entry block so instructions get source locations
+    if (auto *sp = function->getSubprogram()) {
+        auto *diloc = llvm::DILocation::get(context, function_node->line, function_node->column, sp);
+        builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
+    }
+
+    // Emit debug info for all local variables at the start of the entry block
+    if (Debug::DIB != nullptr && function_node->scope.has_value()) {
+        const Hash &hash = function_node->file_hash;
+        Debug::generate_variable_debug_info(builder, function, function_node->scope.value(), fn_ctx.allocations, hash);
+    }
+
     // Generate all instructions of the functions body
     GenerationContext ctx{fn_ctx.function_type, function, function_node->scope.value(), 0, fn_ctx.allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {
@@ -211,6 +227,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         stack_arg->addAttr(llvm::Attribute::InReg);
 #endif
     }
+    Debug::create_function_debug_info(test_function, test_node->name, test_node);
 
     // Create the entry block
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
@@ -246,6 +263,19 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     if (!fn_ty.has_value()) {
         return std::nullopt;
     }
+    // Set the debug location for the entry block so instructions get source locations
+    if (auto *sp = test_function->getSubprogram()) {
+        auto *diloc = llvm::DILocation::get( //
+            context, test_node->line, test_node->column, sp);
+        builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
+    }
+
+    // Emit debug info for all local variables in the test function
+    if (Debug::DIB != nullptr && test_node->scope != nullptr) {
+        const Hash &hash = test_node->file_hash;
+        Debug::generate_variable_debug_info(builder, test_function, test_node->scope, allocations, hash);
+    }
+
     // Normally generate the tests body
     GenerationContext ctx{fn_ty.value(), test_function, test_node->scope, 0, allocations, imported_core_modules};
     if (!Statement::generate_body(builder, ctx)) {

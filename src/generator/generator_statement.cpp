@@ -35,6 +35,10 @@ bool Generator::Statement::generate_statement(      //
     GenerationContext &ctx,                         //
     const std::unique_ptr<StatementNode> &statement //
 ) {
+    if (auto *sp = ctx.parent->getSubprogram()) {
+        auto *diloc = llvm::DILocation::get(context, statement->line, statement->column, sp);
+        builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
+    }
     switch (statement->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
@@ -790,6 +794,7 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
 bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ForLoopNode *for_node) {
     // Get the current block, we need to add a branch instruction to this block to point to the while condition block
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::DebugLoc loop_dbg_location = builder.getCurrentDebugLocation();
 
     // Generate the instructions from the definition scope (it should only contain the initializer statement, for example 'i32 i = 0')
     const std::shared_ptr<Scope> current_scope = ctx.scope;
@@ -832,6 +837,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
+    builder.SetCurrentDebugLocation(loop_dbg_location);
     llvm::BranchInst *branch = builder.CreateCondBr(expression, for_blocks[1], for_blocks[3]);
     branch->setMetadata("comment",
         llvm::MDNode::get(context,
@@ -858,6 +864,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
         return false;
     }
     // Branch back to the loop's condition to finish the loop
+    builder.SetCurrentDebugLocation(loop_dbg_location);
     builder.CreateBr(for_blocks[0]);
 
     // Now add the merge block to the end of the function
@@ -874,6 +881,7 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
 
 bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, GenerationContext &ctx, const EnhForLoopNode *for_node) {
     llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::DebugLoc loop_dbg_location = builder.getCurrentDebugLocation();
 
     // Create the basic blocks for the condition check, the loop body and the merge block
     std::array<llvm::BasicBlock *, 4> for_blocks{};
@@ -1018,6 +1026,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     }
     // Then check if the index is still smaller than the length and branch accordingly
     llvm::Value *in_range = builder.CreateICmpULT(current_index, length, "in_range");
+    builder.SetCurrentDebugLocation(loop_dbg_location);
     builder.CreateCondBr(in_range, for_blocks[1], for_blocks[3]);
 
     // Now to the body itself. First we need to store the current element in its respective alloca / inside the tuple before we generate the
@@ -1078,6 +1087,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         IR::aligned_store(builder, new_index, index_alloca);
     }
     // Branch back to the loop's condition to finish the loop
+    builder.SetCurrentDebugLocation(loop_dbg_location);
     builder.CreateBr(for_blocks[0]);
 
     // Finally set the insert point to the merge block and return
@@ -1478,6 +1488,29 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
         ctx.allocations.insert({err_alloca_name, err_ptr});
+
+        // Emit debug info for the catch variable
+        llvm::DISubprogram *const subprogram = ctx.parent->getSubprogram();
+        ASSERT(subprogram != nullptr);
+        llvm::DIFile *file_meta = nullptr;
+        if (Debug::debug_files.find(catch_node->file_hash) != Debug::debug_files.end()) {
+            file_meta = Debug::debug_files.at(catch_node->file_hash);
+        }
+        if (!Debug::debug_compile_units.empty()) {
+            file_meta = Debug::debug_compile_units.begin()->second->getFile();
+        }
+        ASSERT(file_meta != nullptr);
+        const std::string &vname = catch_node->var_name.value();
+        llvm::DIType *const debug_type = Debug::get_or_create_debug_type(        //
+            ctx.parent->getParent(), catch_node->scope->variables.at(vname).type //
+        );
+        llvm::DILocalVariable *const catch_variable = Debug::DIB->createAutoVariable( //
+            subprogram, vname, file_meta, catch_node->line, debug_type, true          //
+        );
+        llvm::DIExpression *const catch_expr = Debug::DIB->createExpression({llvm::dwarf::DW_OP_deref});
+        llvm::DILocation *const catch_expr_location = llvm::DILocation::get(context, catch_node->line, 0, subprogram);
+        Debug::DIB->insertDbgValueIntrinsic(err_ptr, catch_variable, catch_expr, catch_expr_location, builder.GetInsertBlock()->end());
+
         // Generate the body of the catch block
         if (!generate_body(builder, ctx)) {
             THROW_BASIC_ERR(ERR_GENERATING);

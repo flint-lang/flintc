@@ -49,6 +49,7 @@
 #include "parser/ast/statements/while_node.hpp"
 #include "resolver/resolver.hpp"
 
+#include <llvm/IR/DIBuilder.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
@@ -2467,6 +2468,164 @@ class Generator {
         /// @param `module` The module in which the function is generated in
         /// @param `only_declatations` Whether to only generate the declaration for the `clone` function
         static void generate_clone_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+    };
+
+    /// @class `Debug`
+    /// @brief The class which contains the generation functions for debug symbols and debugging-related things
+    /// @note This class cannot be initialized and all functions within this class are static
+    class Debug {
+      public:
+        // The constructor is deleted to make this class non-initializable
+        Debug() = delete;
+
+        /// @var `DIB`
+        /// @brief The DIBuilder used for generating debug info
+        static inline llvm::DIBuilder *DIB = nullptr;
+
+        /// @var `debug_cus`
+        /// @brief The CompileUnits of each file, indexed by the file's hash
+        static inline std::unordered_map<Hash, llvm::DICompileUnit *> debug_compile_units;
+
+        /// @var `debug_files`
+        /// @brief The DIFiles of each file, indexed by the file's hash
+        static inline std::unordered_map<Hash, llvm::DIFile *> debug_files;
+
+        /// @var `debug_types`
+        /// @brief The DITypes of each Flint type, indexed by the type string name
+        static inline std::unordered_map<std::string, llvm::DIType *> debug_types;
+
+        /// @function `create_debug_type_array`
+        /// @brief Creates a DIType for a given array type
+        ///
+        /// @param `module` The module in which to create the debug array type in
+        /// @param `type` The array type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the array type
+        static llvm::DIType *create_debug_type_array(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_data`
+        /// @brief Creates a DIType for a given data type
+        ///
+        /// @param `module` The module in which to create the debug data type in
+        /// @param `type` The data type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the data type
+        static llvm::DIType *create_debug_type_data(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_entity`
+        /// @brief Creates a DIType for a given entity type
+        ///
+        /// @param `module` The module in which to create the debug entity type in
+        /// @param `type` The entity type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the entity type
+        static llvm::DIType *create_debug_type_entity(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_enum`
+        /// @brief Creates a DIType for a given enum type
+        ///
+        /// @param `module` The module in which to create the debug enum type in
+        /// @param `type` The enum type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the enum type
+        static llvm::DIType *create_debug_type_enum(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_error`
+        /// @brief Creates a DIType for a given error type
+        ///
+        /// @param `module` The module in which to create the debug error type in
+        /// @return `llvm::DIType *` The LLVM debug type of the error type
+        static llvm::DIType *create_debug_type_error(llvm::Module *const module);
+
+        /// @function `create_debug_type_func`
+        /// @brief Creates a DIType for a given func type
+        ///
+        /// @param `module` The module in which to create the debug func type in
+        /// @param `type` The func type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the func type
+        static llvm::DIType *create_debug_type_func(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_fn`
+        /// @brief Creates a DIType for a given fn type
+        ///
+        /// @param `module` The module in which to create the debug fn type in
+        /// @return `llvm::DIType *` The LLVM debug type of the fn type
+        static llvm::DIType *create_debug_type_fn(llvm::Module *const module);
+
+        /// @function `create_debug_type_multi`
+        /// @brief Creates a DIType for a given multi type
+        ///
+        /// @param `module` The module in which to create the debug multi type in
+        /// @param `type` The multi type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the multi type
+        static llvm::DIType *create_debug_type_multi(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_opaque`
+        /// @brief Creates a DIType for a given opaque type
+        ///
+        /// @param `module` The module in which to create the debug opaque type in
+        /// @return `llvm::DIType *` The LLVM debug type of the opaque type
+        static llvm::DIType *create_debug_type_opaque(llvm::Module *const module);
+
+        /// @function `create_debug_type_optional`
+        /// @brief Creates a DIType for a given optional type
+        ///
+        /// @param `module` The module in which to create the debug optional type in
+        /// @param `type` The optional type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the optional type
+        static llvm::DIType *create_debug_type_optional(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_primitive`
+        /// @brief Creates a DIType for a given primitive type
+        ///
+        /// @param `module` The module in which to create the debug primitive type in
+        /// @param `type` The primitive type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the primitive type
+        static llvm::DIType *create_debug_type_primitive(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_tuple`
+        /// @brief Creates a DIType for a given tuple type
+        ///
+        /// @param `module` The module in which to create the debug tuple type in
+        /// @param `type` The tuple type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the tuple type
+        static llvm::DIType *create_debug_type_tuple(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_variant`
+        /// @brief Creates a DIType for a given variant type
+        ///
+        /// @param `module` The module in which to create the debug variant type in
+        /// @param `type` The variant type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the variant type
+        static llvm::DIType *create_debug_type_variant(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_function_debug_info`
+        /// @brief Creates all the debug information for the given function itself
+        ///
+        /// @param `function` The function to create the debug information for
+        /// @param `function_name` The name of the function (or test)
+        /// @param `node` The ASTNode of the function (TestNode or FunctionNode)
+        static void create_function_debug_info(llvm::Function *const function, const std::string &function_name, const ASTNode *node);
+
+        /// @function `get_or_create_debug_type`
+        /// @brief Returns a DIType (or creates one) for a given type
+        ///
+        /// @param `module` The module in which to create the debug type in
+        /// @param `type` The type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type
+        static llvm::DIType *get_or_create_debug_type(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `generate_variable_debug_info`
+        /// @brief Emits debug info (dbg.declare) for all local variables in the given scope tree
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the debug info is emitted in
+        /// @param `scope` The scope tree to walk for declarations
+        /// @param `allocations` The map of all allocation GEPs
+        /// @param `hash_key` The hash of the file for looking up DIFile info
+        static void generate_variable_debug_info(                                   //
+            llvm::IRBuilder<> &builder,                                             //
+            llvm::Function *parent,                                                 //
+            const std::shared_ptr<Scope> scope,                                     //
+            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const Hash &hash_key                                                    //
+        );
     };
 
     /// @class 'Module'

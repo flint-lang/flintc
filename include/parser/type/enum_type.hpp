@@ -39,7 +39,8 @@ class EnumType : public Type {
     }
 
     std::string get_type_string(const bool is_return_type = false) const override {
-        return is_return_type ? "type.ret.i32" : "type.i32";
+        const std::string type_str = is_return_type ? ".type.ret.enum." : ".type.enum.";
+        return enum_node->file_hash.to_string() + type_str + enum_node->name;
     }
 
     /// @var `enum_node`
