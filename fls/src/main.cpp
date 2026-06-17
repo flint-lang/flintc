@@ -16,21 +16,26 @@
 std::filesystem::path main_file_path;
 
 void print_help() {
-    std::cout << "Usage: fls [OPTIONS]\n\n"                                                       //
-              << "Available Options:\n"                                                           //
-              << "  --help, -h        Shows this help message\n"                                  //
-              << "  --version, -v     Prints the version information\n\n"                         //
-              << "The Flint Language Server operates over stdio, so you actually don't need to\n" //
-              << "execute it manually, the Language Clients should start it instead."             //
+    std::cout << "Usage: fls [OPTIONS]\n\n"                                              //
+              << "Available Options:\n"                                                  //
+              << "  --help, -h        Shows this help message\n"                         //
+              << "  --version, -v     Prints the version information\n\n"                //
+              << "The Flint Language Server operates over stdio, so you don't need to\n" //
+              << "execute it manually, the Language Clients should start it instead."    //
               << std::endl;
 }
 
 void print_version() {
+#ifdef __WIN32__
+    // Setting the console output to UTF-8 that the tree characters render correctly
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     std::cout << "fls " << VERSION << " (" << COMMIT_HASH << ", " << BUILD_DATE << ")";
     if (DEBUG_MODE) {
         std::cout << " [debug]";
     }
     std::cout << " LSP v" << LspProtocol::PROTOCOL_VERSION << std::endl;
+    std::cout << " └─ Flint Interop Protocol v" << FIP_MAJOR << "." << FIP_MINOR << "." << FIP_PATCH << std::endl;
 }
 
 int main(int argc, char *argv[]) {
