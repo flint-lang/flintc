@@ -90,7 +90,7 @@ pub fn build(b: *std.Build) !void {
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
-    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date);
+    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date, external_fip_dir);
     fls_exe.step.dependOn(&flintc_exe.step);
     const fls_exe_install = b.addInstallArtifact(fls_exe, .{});
     b.getInstallStep().dependOn(&fls_exe_install.step);
@@ -105,7 +105,7 @@ pub fn build(b: *std.Build) !void {
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
-        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date);
+        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir);
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
@@ -113,7 +113,7 @@ pub fn build(b: *std.Build) !void {
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
-        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date);
+        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir);
         fls_exe_release.step.dependOn(&flintc_exe_release.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
         last_target_step = &fls_exe_release.step;
@@ -144,6 +144,7 @@ fn buildFLS(
     optimize: std.builtin.OptimizeMode,
     commit_hash: []const u8,
     build_date: []const u8,
+    external_fip_dir: ?[]const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "fls-debug" else "fls",
@@ -170,8 +171,10 @@ fn buildFLS(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
+    const fip_dir = if (external_fip_dir) |dir| dir else "vendor/sources/fip";
+
     // Add Include paths
-    exe.root_module.addIncludePath(b.path("vendor/sources/fip"));
+    exe.root_module.addIncludePath(.{ .cwd_relative = fip_dir });
     exe.root_module.addIncludePath(b.path("include"));
     exe.root_module.addIncludePath(b.path("fls/include"));
 
@@ -236,7 +239,7 @@ fn buildFLS(
 
     // Add toml C src file for FIP
     exe.root_module.addCSourceFile(.{
-        .file = b.path("vendor/sources/fip/toml/tomlc17.c"),
+        .file = .{ .cwd_relative = b.fmt("{s}/toml/tomlc17.c", .{fip_dir}) },
     });
 
     exe.step.dependOn(previous_step);
@@ -288,14 +291,14 @@ fn buildFlintc(
     const json_mini_dir = if (external_json_mini_dir) |dir| dir else "vendor/sources/json-mini";
 
     // Add Include paths
-    exe.root_module.addSystemIncludePath(b.path(b.fmt("{s}/include", .{llvm_dir})));
-    exe.root_module.addIncludePath(b.path(fip_dir));
-    exe.root_module.addIncludePath(b.path(b.fmt("{s}/include", .{json_mini_dir})));
+    exe.root_module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{llvm_dir}) });
+    exe.root_module.addIncludePath(.{ .cwd_relative = fip_dir });
+    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{json_mini_dir}) });
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 
     // Add Library paths
-    exe.root_module.addLibraryPath(b.path(b.fmt("{s}/lib", .{llvm_dir})));
+    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{llvm_dir}) });
 
     // Collect C++ files
     var src_dir: std.Io.Dir = try std.Io.Dir.cwd().openDir(b.graph.io, "src", .{ .iterate = true });
@@ -344,7 +347,7 @@ fn buildFlintc(
 
     // Add toml C src file for FIP
     exe.root_module.addCSourceFile(.{
-        .file = b.path("vendor/sources/fip/toml/tomlc17.c"),
+        .file = .{ .cwd_relative = b.fmt("{s}/toml/tomlc17.c", .{fip_dir}) },
     });
 
     // Library linking
