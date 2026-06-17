@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) !void {
     const host_target = b.resolveTargetQuery(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation (e.g. from Nix llvm.dev). Skips building LLVM.");
+    const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation.");
     const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
     const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
@@ -78,12 +78,11 @@ pub fn build(b: *std.Build) !void {
     } else try updateFip(b, &update_json_mini.step);
 
     // Update + build LLVM or use external LLVM instead
-    const llvm_step = if (external_llvm_dir) |_|
-        try makeEmptyStep(b)
-    else blk: {
-        const update_llvm = try updateLLVM(b, &update_fip.step, llvm_version);
-        break :blk try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
-    };
+    var last_step = update_fip;
+    if (external_llvm_dir == null) {
+        last_step = try updateLLVM(b, &update_fip.step, llvm_version);
+    }
+    const llvm_step = try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir);
 
     // Build flintc exe
     const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
@@ -99,7 +98,7 @@ pub fn build(b: *std.Build) !void {
     const build_all_step = b.step("all", "Build all targets");
     var last_target_step: *std.Build.Step = &fls_exe.step;
     for (targets(b)) |t| {
-        const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs);
+        const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
         const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
         flintc_exe_debug.step.dependOn(last_target_step);
@@ -364,7 +363,14 @@ fn buildFlintc(
     return exe;
 }
 
-fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.ResolvedTarget, force_rebuild: bool, jobs: usize) !*std.Build.Step.Run {
+fn buildLLVM(
+    b: *std.Build,
+    previous_step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    force_rebuild: bool,
+    jobs: usize,
+    external_llvm_dir: ?[]const u8,
+) !*std.Build.Step.Run {
     const build_name: []const u8 = switch (target.result.os.tag) {
         .linux => "linux",
         .windows => "mingw",
@@ -372,6 +378,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
     };
     const llvm_build_dir = b.fmt(".zig-cache/llvm-{s}", .{build_name});
     const install_dir = b.fmt("vendor/llvm-{s}", .{build_name});
+    const llvm_dir = if (external_llvm_dir) |dir| dir else "vendor/sources/llvm-project";
 
     if (std.Io.Dir.cwd().openDir(b.graph.io, install_dir, .{})) |_| {
         // LLVM is already built, rebuilt only if requested
@@ -391,7 +398,7 @@ fn buildLLVM(b: *std.Build, previous_step: *std.Build.Step, target: std.Build.Re
     const setup_llvm = b.addSystemCommand(&[_][]const u8{
         "cmake",
         "-S",
-        "vendor/sources/llvm-project/llvm",
+        b.fmt("{s}/llvm", .{llvm_dir}),
         "-B",
         llvm_build_dir,
         "-G",
