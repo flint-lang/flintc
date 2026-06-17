@@ -11,9 +11,15 @@
 /// @brief Represents do-while loops
 class DoWhileNode : public StatementNode {
   public:
-    DoWhileNode(std::unique_ptr<ExpressionNode> &condition, std::shared_ptr<Scope> &scope) :
+    DoWhileNode(const Hash &file_hash, const unsigned int line, const unsigned int column, const unsigned int length,
+                std::unique_ptr<ExpressionNode> &condition, std::shared_ptr<Scope> &scope) :
         condition(std::move(condition)),
-        scope(std::move(scope)) {}
+        scope(std::move(scope)) {
+        this->file_hash = file_hash;
+        this->line = line;
+        this->column = column;
+        this->length = length;
+    }
 
     Variation get_variation() const override {
         return Variation::DO_WHILE;

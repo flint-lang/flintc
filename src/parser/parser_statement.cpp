@@ -294,7 +294,10 @@ std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
-    std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>(condition.value(), body_scope);
+    std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>( //
+        file_hash, condition_line.first->line, condition_line.first->column, 0, //
+        condition.value(), body_scope                                           //
+    );
     return do_while_node;
 }
 
@@ -337,7 +340,10 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());
-    std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>(condition.value(), body_scope);
+    std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>( //
+        file_hash, definition.first->line, definition.first->column, 0,  //
+        condition.value(), body_scope                                    //
+    );
     return while_node;
 }
 
@@ -418,7 +424,9 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
         return std::nullopt;
     }
 
-    return std::make_unique<ForLoopNode>(condition.value(), definition_scope, looparound.value(), body_scope);
+    return std::make_unique<ForLoopNode>(                               //
+        file_hash, definition.first->line, definition.first->column, 0, //
+        condition.value(), definition_scope, looparound.value(), body_scope);
 }
 
 std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
@@ -549,7 +557,10 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     }
     body_scope->body = std::move(body_statements.value());
 
-    return std::make_unique<EnhForLoopNode>(iterators, iterable.value(), definition_scope, body_scope);
+    return std::make_unique<EnhForLoopNode>(                            //
+        file_hash, definition.first->line, definition.first->column, 0, //
+        iterators, iterable.value(), definition_scope, body_scope       //
+    );
 }
 
 bool Parser::create_switch_branch_body(                              //

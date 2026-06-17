@@ -14,6 +14,10 @@ class EnhForLoopNode : public StatementNode {
   public:
     /// @note Takes ownership of all its constructor arguments
     EnhForLoopNode(                                                                                                    //
+        const Hash &file_hash,                                                                                         //
+        const unsigned int line,                                                                                       //
+        const unsigned int column,                                                                                     //
+        const unsigned int length,                                                                                     //
         const std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> &iterators, //
         std::unique_ptr<ExpressionNode> &iterable,                                                                     //
         std::shared_ptr<Scope> &definition_scope,                                                                      //
@@ -22,7 +26,12 @@ class EnhForLoopNode : public StatementNode {
         iterators(iterators),
         iterable(std::move(iterable)),
         definition_scope(std::move(definition_scope)),
-        body(std::move(body)) {}
+        body(std::move(body)) {
+        this->file_hash = file_hash;
+        this->line = line;
+        this->column = column;
+        this->length = length;
+    }
 
     Variation get_variation() const override {
         return Variation::ENHANCED_FOR_LOOP;
