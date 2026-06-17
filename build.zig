@@ -14,15 +14,16 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation (e.g. from Nix llvm.dev). Skips building LLVM.");
-    const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
+    const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
 
-    if (external_llvm_dir != null and external_json_mini_dir != null and external_fip_dir != null) {
+    if (external_llvm_dir == null or external_json_mini_dir == null or external_fip_dir == null) {
         // Git is only needed when at least one source is not provided externally and thus needs to be fetched
         _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
     }
-    if (external_llvm_dir != null) {
+    if (external_llvm_dir == null) {
+        // These dependencies are only needed if no external llvm dir is provided and thus we need to build llvm ourselve
         _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
         _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
         _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
