@@ -673,7 +673,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
 }
 
 fn linkWithLLVM(b: *std.Build, previous_step: *std.Build.Step, exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, llvm_dir: []const u8) !void {
-    const llvm_config_path = b.fmt("./{s}/bin/{s}", .{ llvm_dir, switch (target.result.os.tag) {
+    const llvm_config_path = b.fmt("{s}/bin/{s}", .{ llvm_dir, switch (target.result.os.tag) {
         .linux => "llvm-config",
         .windows => "llvm-config.exe",
         else => return error.TargetNeedsToBeLinuxOrWindows,
