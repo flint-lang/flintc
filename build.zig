@@ -85,7 +85,7 @@ pub fn build(b: *std.Build) !void {
     const llvm_step = try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir);
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -100,7 +100,7 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -108,7 +108,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -253,7 +253,6 @@ fn buildFlintc(
     optimize: std.builtin.OptimizeMode,
     commit_hash: []const u8,
     build_date: []const u8,
-    external_llvm_dir: ?[]const u8,
     external_fip_dir: ?[]const u8,
     external_json_mini_dir: ?[]const u8,
 ) !*std.Build.Step.Compile {
@@ -281,7 +280,7 @@ fn buildFlintc(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
-    const llvm_dir = if (external_llvm_dir) |dir| dir else switch (target.result.os.tag) {
+    const llvm_dir = switch (target.result.os.tag) {
         .linux => "vendor/llvm-linux",
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
