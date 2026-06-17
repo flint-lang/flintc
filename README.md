@@ -256,3 +256,15 @@ https://flint-lang.github.io/wiki/v0.3.5-core/developer_guide/flintc/setup.html
 Flint is currently in late beta. The language has mostly stabilised and breaking changes are rare. We are searching for people to try it out and give feedback on the language itself and the learning experience through the Wiki.
 
 Join the [Discord server](https://discord.gg/efqCDaVmb) and let's chat about Flint.
+
+## Usage of AI
+
+As the center of Flint is transparency, it's development should be as transparent as the language is. If you wonder how and if AI is used in Flints developement, this will be clarified here.
+
+Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. While I hate AI auto-completion as it just gets in my way all the time, there still are some parts where AI was or still is involved in the developement process of Flint, as LLMs a great tool for certain things:
+
+- I still often use AI for debugging the generated LLVM IR code of Flint programs. The generator produces a couple thousand lines of IR code and finding the root cause of a bug is way too time-consuming for doing it manually. LLMs are pretty good at finding bugs (even though they are horrible at finding solutions lol). Often times the bugs are pretty hard to find manually, like a double pointer not loaded or loaded one time too often etc, especially now that the IR is based on opaque pointer types. But once found, most bugs are quite simple to fix.
+- LLMs are occasionally used for indexing tasks. For example when I can remember that i have the capability to do X somewhere but having trouble to find where it is, I use them to search for it. The codebase is quite large and Flint has been in developement for quite a long time, so I naturally forget some small things about it.
+- In the early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is. It was a great tool for learning the API and the LLVM IR code in general, as I was a total noob in both areas at the start of Flint. However, all actual code in the compiler was written by myself as those early AI-assisted parts (to get it up and running) have long been replaced and refactored with properly engineered solutions.
+
+So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
