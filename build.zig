@@ -8,16 +8,25 @@ const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 
 pub fn build(b: *std.Build) !void {
     const OSTag = enum { linux, windows };
-    _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
-    _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
-    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
-    _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
     _ = b.findProgram(&.{"ld.lld"}, &.{}) catch @panic("LLD not found on this system");
 
     const host_target = b.resolveTargetQuery(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation (e.g. from Nix llvm.dev). Skips building LLVM.");
+    const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
+    const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
+    const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
+
+    if (external_llvm_dir != null and external_json_mini_dir != null and external_fip_dir != null) {
+        // Git is only needed when at least one source is not provided externally and thus needs to be fetched
+        _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
+    }
+    if (external_llvm_dir != null) {
+        _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
+        _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
+        _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
+    }
 
     const llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION})) orelse
         DEFAULT_LLVM_VERSION;
@@ -35,7 +44,7 @@ pub fn build(b: *std.Build) !void {
     const target = targets(b)[@intFromEnum(target_option)];
 
     const commit_hash: []const u8 = blk: {
-        const hash = std.mem.trim(
+        const hash = if (external_hash) |hash| hash else std.mem.trim(
             u8,
             b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" }),
             &std.ascii.whitespace,
@@ -58,9 +67,14 @@ pub fn build(b: *std.Build) !void {
     };
     std.debug.print("-- Build Date is {s}\n", .{build_date});
 
-    // Update dependenciew (FIP + Json Mini)
-    const update_json_mini = try updateJsonMini(b);
-    const update_fip = try updateFip(b, &update_json_mini.step);
+    // Update Json Mini
+    const update_json_mini = if (external_json_mini_dir) |_| try makeEmptyStep(b) else try updateJsonMini(b);
+    // Update FIP
+    const update_fip = if (external_fip_dir) |_| blk: {
+        const step = try makeEmptyStep(b);
+        step.step.dependOn(&update_json_mini.step);
+        break :blk step;
+    } else try updateFip(b, &update_json_mini.step);
 
     // Update + build LLVM or use external LLVM instead
     const llvm_step = if (external_llvm_dir) |_|
@@ -71,7 +85,7 @@ pub fn build(b: *std.Build) !void {
     };
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_llvm_dir);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -86,7 +100,7 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_llvm_dir);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -94,7 +108,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_llvm_dir);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_llvm_dir, external_fip_dir, external_json_mini_dir);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -237,6 +251,8 @@ fn buildFlintc(
     commit_hash: []const u8,
     build_date: []const u8,
     external_llvm_dir: ?[]const u8,
+    external_fip_dir: ?[]const u8,
+    external_json_mini_dir: ?[]const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
@@ -267,11 +283,13 @@ fn buildFlintc(
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
     };
+    const fip_dir = if (external_fip_dir) |dir| dir else "vendor/sources/fip";
+    const json_mini_dir = if (external_json_mini_dir) |dir| dir else "vendor/sources/json-mini";
 
     // Add Include paths
     exe.root_module.addSystemIncludePath(b.path(b.fmt("{s}/include", .{llvm_dir})));
-    exe.root_module.addIncludePath(b.path("vendor/sources/fip"));
-    exe.root_module.addIncludePath(b.path("vendor/sources/json-mini/include"));
+    exe.root_module.addIncludePath(b.path(fip_dir));
+    exe.root_module.addIncludePath(b.path(b.fmt("{s}/include", .{json_mini_dir})));
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 
@@ -710,6 +728,7 @@ fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
 }
 
 fn hasInternetConnection(b: *std.Build) bool {
+    std.debug.print("in\n", .{});
     const hostname: std.Io.net.HostName = .{ .bytes = "google.com" };
     const conn: std.Io.net.Stream = hostname.connect(
         b.graph.io,
@@ -721,6 +740,7 @@ fn hasInternetConnection(b: *std.Build) bool {
         },
     ) catch return false;
     conn.close(b.graph.io);
+    std.debug.print("out\n", .{});
     return true;
 }
 
