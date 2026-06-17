@@ -17,6 +17,8 @@ pub fn build(b: *std.Build) !void {
     const host_target = b.resolveTargetQuery(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation (e.g. from Nix llvm.dev). Skips building LLVM.");
+
     const llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION})) orelse
         DEFAULT_LLVM_VERSION;
     const force_llvm_rebuild = b.option(bool, "rebuild-llvm", "Force rebuild LLVM") orelse
@@ -56,16 +58,20 @@ pub fn build(b: *std.Build) !void {
     };
     std.debug.print("-- Build Date is {s}\n", .{build_date});
 
-    // Update Json Mini
+    // Update dependenciew (FIP + Json Mini)
     const update_json_mini = try updateJsonMini(b);
-    // Update Fip
     const update_fip = try updateFip(b, &update_json_mini.step);
-    // Update LLVM
-    const update_llvm = try updateLLVM(b, &update_fip.step, llvm_version);
-    // Build LLVM
-    const build_llvm = try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
+
+    // Update + build LLVM or use external LLVM instead
+    const llvm_step = if (external_llvm_dir) |_|
+        try makeEmptyStep(b)
+    else blk: {
+        const update_llvm = try updateLLVM(b, &update_fip.step, llvm_version);
+        break :blk try buildLLVM(b, &update_llvm.step, target, force_llvm_rebuild, jobs);
+    };
+
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &build_llvm.step, target, optimize, commit_hash, build_date);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_llvm_dir);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -78,9 +84,9 @@ pub fn build(b: *std.Build) !void {
     const build_all_step = b.step("all", "Build all targets");
     var last_target_step: *std.Build.Step = &fls_exe.step;
     for (targets(b)) |t| {
-        const build_llvm_step = try buildLLVM(b, &update_llvm.step, t, force_llvm_rebuild, jobs);
+        const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_llvm_dir);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -88,7 +94,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_llvm_dir);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -230,6 +236,7 @@ fn buildFlintc(
     optimize: std.builtin.OptimizeMode,
     commit_hash: []const u8,
     build_date: []const u8,
+    external_llvm_dir: ?[]const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
@@ -255,7 +262,7 @@ fn buildFlintc(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
-    const llvm_dir = switch (target.result.os.tag) {
+    const llvm_dir = if (external_llvm_dir) |dir| dir else switch (target.result.os.tag) {
         .linux => "vendor/llvm-linux",
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
