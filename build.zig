@@ -9,6 +9,9 @@ const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 pub fn build(b: *std.Build) !void {
     const OSTag = enum { linux, windows };
     _ = b.findProgram(&.{"ld.lld"}, &.{}) catch @panic("LLD not found on this system");
+    _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
+    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
+    _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
 
     const host_target = b.resolveTargetQuery(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -21,12 +24,6 @@ pub fn build(b: *std.Build) !void {
     if (external_llvm_dir == null or external_json_mini_dir == null or external_fip_dir == null) {
         // Git is only needed when at least one source is not provided externally and thus needs to be fetched
         _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
-    }
-    if (external_llvm_dir == null) {
-        // These dependencies are only needed if no external llvm dir is provided and thus we need to build llvm ourselve
-        _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
-        _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
-        _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
     }
 
     const llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION})) orelse
@@ -77,7 +74,7 @@ pub fn build(b: *std.Build) !void {
         break :blk step;
     } else try updateFip(b, &update_json_mini.step);
 
-    // Update + build LLVM or use external LLVM instead
+    // Update LLVM if no external LLVM is passed
     var last_step = update_fip;
     if (external_llvm_dir == null) {
         last_step = try updateLLVM(b, &update_fip.step, llvm_version);
