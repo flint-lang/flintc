@@ -259,7 +259,10 @@ Join the [Discord server](https://discord.gg/efqCDaVmb) and let's chat about Fli
 
 ## Usage of AI
 
-As the center of Flint is transparency, it's development should be as transparent as the language is. If you wonder how and if AI is used in Flints developement, this will be clarified here.
+As the center of Flint is transparency, it's development should be as transparent as the language itself. If you wonder how and if AI is used in Flints developement, this will be clarified here.
+
+<details>
+  <summary>Show Clarifications</summary>
 
 Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. While I hate AI auto-completion as it just gets in my way all the time, there still are some parts where AI was or still is involved in the developement process of Flint, as LLMs a great tool for certain things:
 
@@ -268,3 +271,4 @@ Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. Whi
 - In the early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is. It was a great tool for learning the API and the LLVM IR code in general, as I was a total noob in both areas at the start of Flint. However, all actual code in the compiler was written by myself as those early AI-assisted parts (to get it up and running) have long been replaced and refactored with properly engineered solutions.
 
 So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
+</details>
