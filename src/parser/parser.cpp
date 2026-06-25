@@ -804,7 +804,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
     const std::string expr_type_str = expr->type->to_string();
     const std::string target_type_str = target_type->to_string();
     if (expr_type_str == "type.flint.str.lit" && target_type_str == "str") {
-        expr = std::make_unique<TypeCastNode>(target_type, expr);
+        expr = std::make_unique<TypeCastNode>(file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, target_type, expr);
         return true;
     }
 
@@ -865,7 +865,8 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                             if (elem_type_str == "int" || elem_type_str == "float") {
                                 elem_expr->type = target_elem_type;
                             } else {
-                                elem_expr = std::make_unique<TypeCastNode>(target_elem_type, elem_expr);
+                                const auto cast_pos = ASTNode::PosTriple{elem_expr->line, elem_expr->column, elem_expr->length};
+                                elem_expr = std::make_unique<TypeCastNode>(file_hash, cast_pos, target_elem_type, elem_expr);
                             }
                             new_element_types.push_back(target_elem_type);
                             any_element_changed = true;
@@ -886,11 +887,14 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             if (expr->type->equals(target_type)) {
                 return true;
             }
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(                                                       //
+                file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, target_type, expr //
+            );
             return true;
         }
     }
 
+    const ASTNode::PosTriple &expr_pos = {expr->line, expr->column, expr->length};
     switch (target_type->get_variation()) {
         case Type::Variation::ALIAS:
             UNREACHABLE();
@@ -906,7 +910,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
         case Type::Variation::FUNC:
         case Type::Variation::POINTER:
         case Type::Variation::RANGE:
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         case Type::Variation::GROUP: {
             if (expr->type->get_variation() == Type::Variation::MULTI) {
@@ -920,16 +924,16 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                         return false;
                     }
                 }
-                expr = std::make_unique<TypeCastNode>(target_type, expr);
+                expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                 return true;
             }
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         }
         case Type::Variation::MULTI: {
             const auto *multi_type = target_type->as<MultiType>();
             if (multi_type->to_string() == "bool8" && expr->type->to_string() == "u8") {
-                expr = std::make_unique<TypeCastNode>(target_type, expr);
+                expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                 return true;
             }
             if (expr->get_variation() != ExpressionNode::Variation::GROUP_EXPRESSION) {
@@ -946,7 +950,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     if (expr->type->to_string() == "int" || expr->type->to_string() == "float") {
                         expr->type = multi_type->base_type;
                     }
-                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
                 }
                 return false;
@@ -978,7 +982,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                             case CastDirection::Kind::CAST_BIDIRECTIONAL:
                                 break;
                         }
-                        elem_expr = std::make_unique<TypeCastNode>(multi_type->base_type, elem_expr);
+                        expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                         any_element_changed = true;
                     }
                 }
@@ -991,7 +995,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 }
                 expr->type = new_group_type;
             }
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         }
         case Type::Variation::OPAQUE: {
@@ -1005,23 +1009,23 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     if (opaque_type->name.has_value() || !expr->type->as<OpaqueType>()->name.has_value()) {
                         return false;
                     }
-                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
                 case Type::Variation::POINTER:
-                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
             }
         }
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = target_type->as<OptionalType>();
             if (expr->type->equals(optional_type->base_type)) {
-                expr = std::make_unique<TypeCastNode>(target_type, expr);
+                expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                 return true;
             }
             if (expr->type->get_variation() == Type::Variation::OPTIONAL) {
                 const auto *expr_opt = expr->type->as<OptionalType>();
                 if (expr_opt->base_type->equals(Type::get_primitive_type("void"))) {
-                    expr = std::make_unique<TypeCastNode>(target_type, expr);
+                    expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
                 }
                 return false;
@@ -1034,9 +1038,9 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 case CastDirection::Kind::CAST_RHS_TO_LHS:
                     if (expr_type_str == "int" || expr_type_str == "float") {
                         expr->type = optional_type->base_type;
-                        expr = std::make_unique<TypeCastNode>(target_type, expr);
+                        expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     } else {
-                        expr = std::make_unique<TypeCastNode>(optional_type->base_type, expr);
+                        expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     }
                     return true;
                 default:
@@ -1060,8 +1064,15 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     const unsigned int line = literal->line;
                     const unsigned int column = literal->column;
                     const unsigned int length = literal->length;
-                    expr = std::make_unique<LiteralNode>(new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded);
-                    expr = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expr);
+                    const ASTNode::PosTriple literal_pos = {
+                        .line = literal->line,
+                        .column = literal->column,
+                        .length = literal->length,
+                    };
+                    expr = std::make_unique<LiteralNode>(                                                                     //
+                        file_hash, literal_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded //
+                    );
+                    expr = std::make_unique<TypeCastNode>(file_hash, literal_pos, Type::get_primitive_type("str"), expr);
                     expr->line = line;
                     expr->column = column;
                     expr->length = length;
@@ -1071,12 +1082,12 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             if (expr_type_str == "int" || expr_type_str == "float") {
                 expr->type = target_type;
             } else {
-                expr = std::make_unique<TypeCastNode>(target_type, expr);
+                expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             }
             return true;
         }
         case Type::Variation::TUPLE:
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         case Type::Variation::UNKNOWN:
             return false;
@@ -1092,7 +1103,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             if (!is_valid_variant_type) {
                 return false;
             }
-            expr = std::make_unique<TypeCastNode>(target_type, expr);
+            expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         }
     }

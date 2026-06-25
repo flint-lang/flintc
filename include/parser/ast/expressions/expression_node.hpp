@@ -7,12 +7,12 @@
 /// @brief Base class for all expressions
 class ExpressionNode : public ASTNode {
   protected:
-    // constructor
-    ExpressionNode(const bool is_const) :
-        is_const(is_const) {};
-
-    explicit ExpressionNode(const Hash &hash, const bool is_const) :
-        ASTNode(hash, 0, 0, 0),
+    explicit ExpressionNode(  //
+        const Hash &hash,     //
+        const PosTriple &pos, //
+        const bool is_const   //
+        ) :
+        ASTNode(hash, pos.line, pos.column, pos.length),
         is_const(is_const) {}
 
   public:

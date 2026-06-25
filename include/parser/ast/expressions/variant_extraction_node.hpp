@@ -10,11 +10,12 @@ class VariantExtractionNode : public ExpressionNode {
   public:
     VariantExtractionNode(                           //
         const Hash &hash,                            //
+        const PosTriple &pos,                        //
         std::unique_ptr<ExpressionNode> &base_expr,  //
         const std::shared_ptr<Type> &extracted_type, //
         const uint8_t extracted_id                   //
         ) :
-        ExpressionNode(hash, base_expr->is_const),
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)),
         extracted_type(extracted_type),
         extracted_id(extracted_id) {
@@ -31,7 +32,9 @@ class VariantExtractionNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
-        return std::make_unique<VariantExtractionNode>(file_hash, base_expr_clone, extracted_type, extracted_id);
+        return std::make_unique<VariantExtractionNode>(                                               //
+            file_hash, PosTriple{line, column, length}, base_expr_clone, extracted_type, extracted_id //
+        );
     }
 
     /// @var `base_expr`

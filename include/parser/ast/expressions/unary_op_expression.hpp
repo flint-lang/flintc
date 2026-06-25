@@ -10,8 +10,14 @@
 /// @brief Represents unary operation expressions
 class UnaryOpExpression : public ExpressionNode, public UnaryOpBase {
   public:
-    explicit UnaryOpExpression(const Token operator_token, std::unique_ptr<ExpressionNode> &operand, const bool is_left) :
-        ExpressionNode(operand->is_const),
+    explicit UnaryOpExpression(                   //
+        const Hash &hash,                         //
+        const PosTriple &pos,                     //
+        const Token operator_token,               //
+        std::unique_ptr<ExpressionNode> &operand, //
+        const bool is_left                        //
+        ) :
+        ExpressionNode(hash, pos, operand->is_const),
         UnaryOpBase(operator_token, operand, is_left) {
         ExpressionNode::type = UnaryOpBase::operand->type;
     }
@@ -22,7 +28,7 @@ class UnaryOpExpression : public ExpressionNode, public UnaryOpBase {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> operand_clone = operand->clone(scope_id);
-        return std::make_unique<UnaryOpExpression>(operator_token, operand_clone, is_left);
+        return std::make_unique<UnaryOpExpression>(file_hash, PosTriple{line, column, length}, operator_token, operand_clone, is_left);
     }
 
     // deconstructor

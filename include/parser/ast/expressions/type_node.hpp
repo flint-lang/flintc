@@ -6,8 +6,12 @@
 /// @brief Represents types as expressions, for example for variant comparisons or extractions
 class TypeNode : public ExpressionNode {
   public:
-    TypeNode(const std::shared_ptr<Type> &type) :
-        ExpressionNode(true) {
+    TypeNode(                             //
+        const Hash &hash,                 //
+        const PosTriple &pos,             //
+        const std::shared_ptr<Type> &type //
+        ) :
+        ExpressionNode(hash, pos, true) {
         this->type = type;
     }
 
@@ -16,6 +20,6 @@ class TypeNode : public ExpressionNode {
     }
 
     std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
-        return std::make_unique<TypeNode>(this->type);
+        return std::make_unique<TypeNode>(file_hash, PosTriple{line, column, length}, type);
     }
 };

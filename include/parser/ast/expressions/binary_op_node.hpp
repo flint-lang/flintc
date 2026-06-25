@@ -11,13 +11,15 @@
 class BinaryOpNode : public ExpressionNode {
   public:
     explicit BinaryOpNode(                      //
+        const Hash &hash,                       //
+        const PosTriple &pos,                   //
         const Token operator_token,             //
         std::unique_ptr<ExpressionNode> &left,  //
         std::unique_ptr<ExpressionNode> &right, //
         const std::shared_ptr<Type> &type,      //
         bool is_shorthand = false               //
         ) :
-        ExpressionNode(true),
+        ExpressionNode(hash, pos, true),
         operator_token(operator_token),
         left(std::move(left)),
         right(std::move(right)),
@@ -32,7 +34,10 @@ class BinaryOpNode : public ExpressionNode {
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> left_clone = left->clone(scope_id);
         std::unique_ptr<ExpressionNode> right_clone = right->clone(scope_id);
-        return std::make_unique<BinaryOpNode>(operator_token, left_clone, right_clone, this->type, is_shorthand);
+        return std::make_unique<BinaryOpNode>(                          //
+            file_hash, PosTriple{line, column, length}, operator_token, //
+            left_clone, right_clone, type, is_shorthand                 //
+        );
     }
 
     // empty constructor

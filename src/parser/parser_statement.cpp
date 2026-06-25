@@ -663,7 +663,7 @@ bool Parser::create_switch_branches(            //
         token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
         std::vector<std::unique_ptr<ExpressionNode>> matches;
         if (std::next(match_tokens.first) == match_tokens.second && match_tokens.first->token == TOK_ELSE) {
-            matches.emplace_back(std::make_unique<DefaultNode>(switcher_type));
+            matches.emplace_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
         } else {
             auto match_expressions = create_group_expressions(_ctx_, scope, match_tokens);
             if (!match_expressions.has_value()) {
@@ -743,7 +743,7 @@ bool Parser::create_enum_switch_branches(       //
             if (match_tokens.first->token == TOK_ELSE) {
                 // The else branch, which gets matched if no other branch get's matched
                 is_default_present = true;
-                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
             } else {
                 const std::string enum_value(match_tokens.first->lexme);
                 const std::vector<std::string>::const_iterator matched_enum_id = std::find( //
@@ -768,7 +768,9 @@ bool Parser::create_enum_switch_branches(       //
                 }
                 matched_enum_values.push_back(enum_value);
                 LitValue lit_value = LitEnum{switcher_type, std::vector<std::string>{enum_value}};
-                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+                match_expressions.push_back(                                                                         //
+                    std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type) //
+                );
             }
         } else {
             // There could be multiple values here
@@ -804,7 +806,9 @@ bool Parser::create_enum_switch_branches(       //
                 }
                 matched_enum_values.push_back(enum_value);
                 LitValue lit_value = LitEnum{switcher_type, std::vector<std::string>{enum_value}};
-                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+                match_expressions.push_back(                                                                         //
+                    std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type) //
+                );
             }
         }
         if (!create_switch_branch_body(                                          //
@@ -866,7 +870,7 @@ bool Parser::create_error_switch_branches(      //
             if (match_tokens.first->token == TOK_ELSE) {
                 // The else branch, which gets matched if no other branch get's matched
                 is_default_present = true;
-                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
             } else {
                 const std::string error_value(match_tokens.first->lexme);
                 auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
@@ -882,7 +886,8 @@ bool Parser::create_error_switch_branches(      //
                 }
                 matched_ids.push_back(value_id);
                 LitValue lit_value = LitError{switcher_type, error_value, std::nullopt};
-                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+                match_expressions.push_back(
+                    std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type));
             }
         } else {
             // There could be multiple values here
@@ -909,7 +914,8 @@ bool Parser::create_error_switch_branches(      //
                 }
                 matched_ids.push_back(value_id);
                 LitValue lit_value = LitError{switcher_type, error_value, std::nullopt};
-                match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+                match_expressions.push_back(
+                    std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type));
             }
         }
         if (!create_switch_branch_body(                                          //
@@ -967,7 +973,7 @@ bool Parser::create_optional_switch_branches(   //
                 return false;
             }
             LitValue lit_value = LitOptional{};
-            match_expressions.push_back(std::make_unique<LiteralNode>(lit_value, switcher_type));
+            match_expressions.push_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type));
             if (!create_switch_branch_body(                                          //
                     scope, scope_segment, match_expressions, s_branches, e_branches, //
                     line_it, body, tokens, match_range.value(), is_statement)        //
@@ -985,11 +991,15 @@ bool Parser::create_optional_switch_branches(   //
             }
             const auto *optional_type = switcher_type->as<OptionalType>();
             const std::string match_str(match_tokens.first->lexme);
-            match_expressions.push_back(std::make_unique<SwitchMatchNode>(optional_type->base_type, match_str, 1));
+            match_expressions.push_back(                                                                                           //
+                std::make_unique<SwitchMatchNode>(file_hash, get_pos_triple(match_tokens), optional_type->base_type, match_str, 1) //
+            );
             std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope, scope_segment);
             const unsigned int scope_id = branch_scope->scope_id;
             const std::string var_name(match_tokens.first->lexme);
-            if (!branch_scope->add_variable(var_name, {optional_type->base_type, scope_id, scope_segment, is_mutable, false, true})) {
+            if (!branch_scope->add_variable(var_name,
+                    {optional_type->base_type, scope_id, scope_segment, is_mutable, false, true, false, {}, false, file_hash,
+                        match_tokens.first->line, match_tokens.first->column})) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -1052,7 +1062,7 @@ bool Parser::create_variant_switch_branches(    //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                match_expressions.push_back(std::make_unique<DefaultNode>(switcher_type));
+                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
                 if (!create_switch_branch_body(                                          //
                         scope, scope_segment, match_expressions, s_branches, e_branches, //
                         line_it, body, tokens, match_range.value(), is_statement)        //
@@ -1136,11 +1146,14 @@ bool Parser::create_variant_switch_branches(    //
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
         }
-        match_expressions.push_back(std::make_unique<SwitchMatchNode>(access_type, access_name, type_idx));
+        match_expressions.push_back(                                                                                       //
+            std::make_unique<SwitchMatchNode>(file_hash, get_pos_triple(match_tokens), access_type, access_name, type_idx) //
+        );
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope, scope_segment);
         if (access_name.has_value()) {
             if (!branch_scope->add_variable(access_name.value(),
-                    {access_type, branch_scope->scope_id, scope_segment, is_mutable, false, true})) {
+                    {access_type, branch_scope->scope_id, scope_segment, is_mutable, false, true, false, {}, false, file_hash,
+                        match_tokens.first->line, match_tokens.first->column})) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -1286,7 +1299,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             return std::nullopt;
         }
     }
-    auto switch_expr = std::make_unique<SwitchExpression>(switcher.value(), e_branches);
+    auto switch_expr = std::make_unique<SwitchExpression>(file_hash, get_pos_triple(definition), switcher.value(), e_branches);
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};
     ASSERT(lhs_tokens.second->token == TOK_SWITCH);
@@ -1386,7 +1399,9 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!create_variant_switch_branches(body_scope, scope_segment, s_branches, e_branches, body, switcher_type, true, false)) {
             return std::nullopt;
         }
-        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>("flint.value_err", switcher_type, true);
+        std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>(      //
+            file_hash, get_pos_triple(right_of_catch), "flint.value_err", switcher_type, true //
+        );
         std::unique_ptr<StatementNode> switch_statement = std::make_unique<SwitchStatement>(dummy_switcher, s_branches);
         body_scope->body.push_back(std::move(switch_statement));
     }
@@ -1474,6 +1489,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
     // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
     std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
+    std::vector<token_list::iterator> assignee_iterators;
     unsigned int index = 0;
     for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
         // The next element has to be either a comma or the right paren
@@ -1493,6 +1509,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
         }
         const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
         assignees.emplace_back(expected_type, it_lexme);
+        assignee_iterators.emplace_back(it);
         index += 2;
         if (std::next(it)->token == TOK_RIGHT_PAREN) {
             break;
@@ -1524,10 +1541,17 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
 
     // The rest of the tokens now is the expression
     std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
+    ASTNode::PosTriple rhs_pos;
     if (rhs.has_value()) {
         expr = std::move(rhs.value());
+        rhs_pos = {
+            .line = rhs.value()->line,
+            .column = rhs.value()->column,
+            .length = rhs.value()->length,
+        };
     } else {
         expr = create_expression(_ctx_, scope, tokens_mut);
+        rhs_pos = get_pos_triple(tokens_mut);
     }
     if (!expr.has_value()) {
         return std::nullopt;
@@ -1535,10 +1559,15 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
 
     // The expression now is the group of all assignees within a binop with the rhs expr
     std::vector<std::unique_ptr<ExpressionNode>> lhs_expressions;
-    for (const auto &[type, name] : assignees) {
-        lhs_expressions.emplace_back(std::make_unique<VariableNode>(name, type, false));
+    for (size_t i = 0; i < assignees.size(); i++) {
+        const auto &[type, name] = assignees.at(i);
+        const auto &it = assignee_iterators.at(i);
+        lhs_expressions.emplace_back(                                                                             //
+            std::make_unique<VariableNode>(file_hash, get_pos_triple(token_slice{it, it + 1}), name, type, false) //
+        );
     }
-    std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_expressions);
+    const auto &lhs_pos = get_pos_triple(token_slice{tokens.first, tokens_mut.first - 1});
+    std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_pos, lhs_expressions);
     if (!check_castability(lhs_expr, expr.value())) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1546,6 +1575,8 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
 
     // The "real" expression of the assignment is a binop between the lhs and the "real" expression
     expr = std::make_unique<BinaryOpNode>( //
+        file_hash,                         //
+        rhs_pos,                           //
         operation,                         //
         lhs_expr,                          //
         expr.value(),                      //
@@ -1581,7 +1612,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    return AssignmentNode(expected_type, it_lexme, rhs.value());
+                    return AssignmentNode(file_hash, tokens, expected_type, it_lexme, rhs.value());
                 }
                 // Parse the expression with the expected type passed into it
                 token_slice expression_tokens = {it + 2, tokens.second};
@@ -1590,7 +1621,7 @@ std::optional<AssignmentNode> Parser::create_assignment( //
                 if (!expression.has_value()) {
                     return std::nullopt;
                 }
-                return AssignmentNode(expected_type, it_lexme, expression.value());
+                return AssignmentNode(file_hash, tokens, expected_type, it_lexme, expression.value());
             } else {
                 return std::nullopt;
             }
@@ -1605,56 +1636,65 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs            //
 ) {
     for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->token == TOK_IDENTIFIER) {
-            const std::string it_lexme(it->lexme);
-            if (Matcher::token_match((it + 1)->token, Matcher::assignment_shorthand_operator) && (it + 2) != tokens.second) {
-                if (scope->variables.find(it_lexme) == scope->variables.end()) {
-                    THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
-                    return std::nullopt;
-                }
-                if (!scope->variables.at(it_lexme).is_mutable) {
-                    THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
-                    return std::nullopt;
-                }
-                const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
-                // Parse the expression with the expected type passed into it
-                token_slice expression_tokens = {it + 2, tokens.second};
-                std::optional<std::unique_ptr<ExpressionNode>> expression;
-                if (rhs.has_value()) {
-                    expression = std::move(rhs.value());
-                } else {
-                    expression = create_expression(_ctx_, scope, expression_tokens, expected_type);
-                }
-                if (!expression.has_value()) {
-                    return std::nullopt;
-                }
-                Token op;
-                switch (std::next(it)->token) {
-                    default:
-                        // It should never come here
-                        UNREACHABLE();
-                    case TOK_PLUS_EQUALS:
-                        op = TOK_PLUS;
-                        break;
-                    case TOK_MINUS_EQUALS:
-                        op = TOK_MINUS;
-                        break;
-                    case TOK_MULT_EQUALS:
-                        op = TOK_MULT;
-                        break;
-                    case TOK_DIV_EQUALS:
-                        op = TOK_DIV;
-                        break;
-                }
-                std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(it_lexme, expected_type, false);
-                std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>( //
-                    op, var_node, expression.value(), expected_type, true                //
-                );
-                return AssignmentNode(expected_type, it_lexme, bin_op, true);
-            } else {
-                return std::nullopt;
-            }
+        if (it->token != TOK_IDENTIFIER) {
+            continue;
         }
+        const std::string it_lexme(it->lexme);
+        if (!Matcher::token_match((it + 1)->token, Matcher::assignment_shorthand_operator) || (it + 2) == tokens.second) {
+            return std::nullopt;
+        }
+        if (scope->variables.find(it_lexme) == scope->variables.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
+            return std::nullopt;
+        }
+        if (!scope->variables.at(it_lexme).is_mutable) {
+            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
+        // Parse the expression with the expected type passed into it
+        token_slice expression_tokens = {it + 2, tokens.second};
+        std::optional<std::unique_ptr<ExpressionNode>> expression;
+        ASTNode::PosTriple rhs_pos;
+        if (rhs.has_value()) {
+            expression = std::move(rhs.value());
+            rhs_pos = {
+                .line = rhs.value()->line,
+                .column = rhs.value()->column,
+                .length = rhs.value()->length,
+            };
+        } else {
+            expression = create_expression(_ctx_, scope, expression_tokens, expected_type);
+            rhs_pos = get_pos_triple(expression_tokens);
+        }
+        if (!expression.has_value()) {
+            return std::nullopt;
+        }
+        Token op;
+        switch (std::next(it)->token) {
+            default:
+                // It should never come here
+                UNREACHABLE();
+            case TOK_PLUS_EQUALS:
+                op = TOK_PLUS;
+                break;
+            case TOK_MINUS_EQUALS:
+                op = TOK_MINUS;
+                break;
+            case TOK_MULT_EQUALS:
+                op = TOK_MULT;
+                break;
+            case TOK_DIV_EQUALS:
+                op = TOK_DIV;
+                break;
+        }
+        std::unique_ptr<ExpressionNode> var_node = std::make_unique<VariableNode>(             //
+            file_hash, get_pos_triple(token_slice{it, it + 1}), it_lexme, expected_type, false //
+        );
+        std::unique_ptr<ExpressionNode> bin_op = std::make_unique<BinaryOpNode>(      //
+            file_hash, rhs_pos, op, var_node, expression.value(), expected_type, true //
+        );
+        return AssignmentNode(file_hash, tokens, expected_type, it_lexme, bin_op, true);
     }
     return std::nullopt;
 }
@@ -2068,10 +2108,17 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
 
     // The rest of the tokens is the expression to parse
     std::optional<std::unique_ptr<ExpressionNode>> expression;
+    ASTNode::PosTriple rhs_pos;
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
+        rhs_pos = {
+            .line = rhs.value()->line,
+            .column = rhs.value()->column,
+            .length = rhs.value()->length,
+        };
     } else {
         expression = create_expression(_ctx_, scope, tokens_mut);
+        rhs_pos = get_pos_triple(tokens_mut);
     }
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -2085,6 +2132,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
     auto base_expr_clone = base_expr->clone(scope->scope_id);
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<DataAccessNode>( //
         file_hash,                                                                //
+        get_pos_triple(token_slice{tokens.first, tokens_mut.first}),              //
         base_expr_clone,                                                          //
         field_name,                                                               //
         field_id,                                                                 //
@@ -2096,6 +2144,8 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
         return std::nullopt;
     }
     expression = std::make_unique<BinaryOpNode>( //
+        file_hash,                               //
+        rhs_pos,                                 //
         operation,                               //
         binop_lhs,                               //
         expression.value(),                      //
@@ -2200,10 +2250,17 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
     // The rest of the tokens is the expression to parse
     std::optional<std::unique_ptr<ExpressionNode>> expression;
+    ASTNode::PosTriple rhs_pos;
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
+        rhs_pos = {
+            .line = rhs.value()->line,
+            .column = rhs.value()->column,
+            .length = rhs.value()->length,
+        };
     } else {
         expression = create_expression(_ctx_, scope, tokens_mut);
+        rhs_pos = get_pos_triple(tokens_mut);
     }
     if (!expression.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -2217,6 +2274,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     auto base_expr_clone = base_expr->clone(scope->scope_id);
     std::unique_ptr<ExpressionNode> binop_lhs = std::make_unique<GroupedDataAccessNode>( //
         file_hash,                                                                       //
+        get_pos_triple(token_slice{tokens.first, tokens_mut.first}),                     //
         base_expr_clone,                                                                 //
         field_names,                                                                     //
         field_ids,                                                                       //
@@ -2231,6 +2289,8 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         return std::nullopt;
     }
     expression = std::make_unique<BinaryOpNode>( //
+        file_hash,                               //
+        rhs_pos,                                 //
         operation,                               //
         binop_lhs,                               //
         expression.value(),                      //
@@ -2317,12 +2377,20 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     }
 
     // If no rhs was provided we need to parse it ourselves, otherwise we can use the provided rhs expression
+    ASTNode::PosTriple rhs_pos;
     if (!rhs.has_value()) {
         const token_slice rhs_tokens = {lhs_tokens.second + 1, tokens.second};
         rhs = create_expression(_ctx_, scope, rhs_tokens, access_base.value().result_type);
         if (!rhs.has_value()) {
             return std::nullopt;
         }
+        rhs_pos = get_pos_triple(rhs_tokens);
+    } else {
+        rhs_pos = {
+            .line = rhs.value()->line,
+            .column = rhs.value()->column,
+            .length = rhs.value()->length,
+        };
     }
 
     // Calculate the new dimensionality of the result based on the number of range expressions in the indexing expressions
@@ -2351,8 +2419,12 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     for (const auto &expr : access_base.value().indexing_exprs) {
         indexing_exprs_clone.emplace_back(expr->clone(scope->scope_id));
     }
-    std::unique_ptr<ExpressionNode> arr_access = std::make_unique<ArrayAccessNode>(base_expr_clone, result_type, indexing_exprs_clone);
-    rhs = std::make_unique<BinaryOpNode>(operation, arr_access, rhs.value(), arr_access->type, true);
+    std::unique_ptr<ExpressionNode> arr_access = std::make_unique<ArrayAccessNode>(                                                //
+        file_hash, get_pos_triple(token_slice{tokens.first, tokens_mut.first}), base_expr_clone, result_type, indexing_exprs_clone //
+    );
+    rhs = std::make_unique<BinaryOpNode>(                                              //
+        file_hash, rhs_pos, operation, arr_access, rhs.value(), arr_access->type, true //
+    );
     return ArrayAssignmentNode(access_base.value().base_expr, access_base.value().indexing_exprs, rhs.value());
 }
 

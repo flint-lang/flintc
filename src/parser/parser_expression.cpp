@@ -114,6 +114,11 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     const LiteralNode *rhs                                        //
 ) {
     PROFILE_CUMULATIVE("Parser::add_literals");
+    const auto pos_triple = ASTNode::PosTriple{
+        .line = lhs->line,
+        .column = lhs->column,
+        .length = (rhs->column - lhs->column) + rhs->length,
+    };
     switch (operation) {
         default:
             // It should never come here, if it did something went wrong
@@ -126,12 +131,12 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
                     rhs_float += lhs_int;
                     LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     APInt rhs_int = std::get<LitInt>(rhs->value).value;
                     rhs_int += lhs_int;
                     LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -149,15 +154,15 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     return std::nullopt;
                 }
                 LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitStr>(lhs->value)) {
                 const std::string new_lit = std::get<LitStr>(lhs->value).value + std::get<LitStr>(rhs->value).value;
                 LitValue lit_value = LitStr{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value + std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
         case TOK_MINUS:
@@ -167,12 +172,12 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
                     rhs_float -= lhs_int;
                     LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     APInt rhs_int = std::get<LitInt>(rhs->value).value;
                     rhs_int -= lhs_int;
                     LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -190,11 +195,11 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     return std::nullopt;
                 }
                 LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value - std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
         case TOK_MULT:
@@ -204,12 +209,12 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
                     rhs_float *= lhs_int;
                     LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     APInt rhs_int = std::get<LitInt>(rhs->value).value;
                     rhs_int *= lhs_int;
                     LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -227,11 +232,11 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     return std::nullopt;
                 }
                 LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value * std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
         case TOK_DIV:
@@ -242,12 +247,12 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     APFloat lhs_float = APFloat(lhs_int);
                     lhs_float /= rhs_float;
                     LitValue lit_value = LitFloat{.value = lhs_float};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     const APInt rhs_int = std::get<LitInt>(rhs->value).value;
                     lhs_int /= rhs_int;
                     LitValue lit_value = LitInt{.value = lhs_int};
-                    return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -265,11 +270,14 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     return std::nullopt;
                 }
                 LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = std::get<LitU8>(lhs->value).value / std::get<LitU8>(rhs->value).value;
                 LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>( //
+                    lhs->file_hash, pos_triple,       //
+                    lit_value, rhs->type, true        //
+                );
             }
             break;
         case TOK_POW:
@@ -280,12 +288,12 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     APFloat lhs_float = APFloat(lhs_int);
                     lhs_float ^= rhs_float;
                     LitValue lit_value = LitFloat{.value = lhs_float};
-                    return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else if (std::holds_alternative<LitInt>(rhs->value)) {
                     const APInt rhs_int = std::get<LitInt>(rhs->value).value;
                     lhs_int ^= rhs_int;
                     LitValue lit_value = LitInt{.value = lhs_int};
-                    return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
                 } else {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -303,25 +311,25 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                     return std::nullopt;
                 }
                 LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lit_value, rhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             } else if (std::holds_alternative<LitU8>(lhs->value)) {
                 const char new_lit = static_cast<char>(std::pow(std::get<LitU8>(lhs->value).value, std::get<LitU8>(rhs->value).value));
                 LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
         case TOK_AND:
             if (std::holds_alternative<LitBool>(lhs->value)) {
                 const bool new_lit = std::get<LitBool>(lhs->value).value && std::get<LitBool>(rhs->value).value;
                 LitValue lit_value = LitBool{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
         case TOK_OR:
             if (std::holds_alternative<LitBool>(lhs->value)) {
                 const bool new_lit = std::get<LitBool>(lhs->value).value || std::get<LitBool>(rhs->value).value;
                 LitValue lit_value = LitBool{.value = new_lit};
-                return std::make_unique<LiteralNode>(lit_value, lhs->type, true);
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
     }
@@ -334,7 +342,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
         if (tok->token == TOK_IDENTIFIER) {
             const std::string name(tok->lexme);
             if (scope->variables.find(name) != scope->variables.end()) {
-                return std::make_unique<VariableNode>(name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable);
+                return std::make_unique<VariableNode>(                                                                             //
+                    file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
+                );
             }
             if (scope->captured_entity_identifiers.find(name) == scope->captured_entity_identifiers.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
@@ -363,9 +373,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>("self", self.type, false);
+                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                        file_hash, get_pos_triple(tokens), "self", self.type, false             //
+                    );
                     std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
-                        file_hash,                                                             //
+                        file_hash, get_pos_triple(tokens),                                     //
                         base_expr,                                                             //
                         std::nullopt,                                                          // Entity fields have no name
                         idx,                                                                   // The index of the data in the entity struct
@@ -380,7 +392,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
                     // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
                     // `create_field_access_base` function.
-                    return std::make_unique<VariableNode>(name, self.type, false);
+                    return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, false);
             }
         }
     }
@@ -402,7 +414,7 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
     Token operation = unary_op_values.value().operation;
     std::unique_ptr<ExpressionNode> &base_expr = unary_op_values.value().base_expr;
     bool is_left = unary_op_values.value().is_left;
-    UnaryOpExpression un_op(operation, base_expr, is_left);
+    UnaryOpExpression un_op(file_hash, get_pos_triple(tokens), operation, base_expr, is_left);
     if (operation == TOK_EXCLAMATION) {
         if (is_left) {
             // The ! operator is only allowed on the right of the expression
@@ -483,7 +495,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( /
         .value = err_value,
         .message = std::move(message),
     };
-    return std::make_unique<LiteralNode>(literal, error_type);
+    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), literal, error_type);
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
@@ -531,26 +543,28 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 std::optional<std::shared_ptr<Type>> opt_type = file_node_ptr->file_namespace->get_type_from_str("void?");
                 ASSERT(opt_type.has_value());
                 LitValue lit_val = LitOptional{};
-                return LiteralNode(lit_val, opt_type.value());
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_val, opt_type.value());
             }
             case TOK_NULL: {
                 std::shared_ptr<Type> void_type = Type::get_primitive_type("void");
                 std::optional<std::shared_ptr<Type>> ptr_type = file_node_ptr->file_namespace->get_type_from_str("void*");
                 ASSERT(ptr_type.has_value());
                 LitValue lit_val = LitPtr{};
-                return LiteralNode(lit_val, ptr_type.value());
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_val, ptr_type.value());
             }
             case TOK_INT_VALUE: {
                 APInt lit_int = APInt(lexme);
                 lit_int.is_negative = front_token == TOK_MINUS;
                 LitValue lit_val = LitInt{.value = lit_int};
-                return LiteralNode(lit_val, file_node_ptr->file_namespace->get_type_from_str("int").value());
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_val,
+                    file_node_ptr->file_namespace->get_type_from_str("int").value());
             }
             case TOK_FLOAT_VALUE: {
                 APFloat lit_float = APFloat(lexme);
                 lit_float.is_negative = front_token == TOK_MINUS;
                 LitValue lit_val = LitFloat{.value = lit_float};
-                return LiteralNode(lit_val, file_node_ptr->file_namespace->get_type_from_str("float").value());
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_val,
+                    file_node_ptr->file_namespace->get_type_from_str("float").value());
             }
             case TOK_STR_VALUE: {
                 size_t pos = 0;
@@ -559,7 +573,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                 }
                 if (front_token == TOK_DOLLAR) {
                     LitValue lit_value = LitStr{.value = lexme};
-                    return LiteralNode(lit_value, Type::get_primitive_type("str"));
+                    return LiteralNode(file_hash, get_pos_triple(tokens), lit_value, Type::get_primitive_type("str"));
                 } else {
                     const std::string &str = lexme;
                     std::stringstream processed_str;
@@ -609,16 +623,16 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                         }
                     }
                     LitValue lit_value = LitStr{.value = processed_str.str()};
-                    return LiteralNode(lit_value, Type::get_primitive_type("type.flint.str.lit"));
+                    return LiteralNode(file_hash, get_pos_triple(tokens), lit_value, Type::get_primitive_type("type.flint.str.lit"));
                 }
             }
             case TOK_TRUE: {
                 LitValue lit_value = LitBool{.value = front_token != TOK_NOT};
-                return LiteralNode(lit_value, Type::get_primitive_type("bool"));
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_FALSE: {
                 LitValue lit_value = LitBool{.value = front_token == TOK_NOT};
-                return LiteralNode(lit_value, Type::get_primitive_type("bool"));
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_value, Type::get_primitive_type("bool"));
             }
             case TOK_CHAR_VALUE: {
                 char char_value = lexme[0];
@@ -642,7 +656,7 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
                     char_value = static_cast<char>(hex_value);
                 }
                 LitValue lit_value = LitU8{.value = char_value};
-                return LiteralNode(lit_value, Type::get_primitive_type("u8"));
+                return LiteralNode(file_hash, get_pos_triple(tokens), lit_value, Type::get_primitive_type("u8"));
             }
         }
     }
@@ -663,8 +677,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
         LitValue lit_value = LitStr{.value = interpol_string};
-        interpol_content.emplace_back(std::make_unique<LiteralNode>(lit_value, Type::get_primitive_type("str")));
-        return std::make_unique<StringInterpolationNode>(interpol_content);
+        const auto pos_triple = get_pos_triple(tokens);
+        interpol_content.emplace_back(std::make_unique<LiteralNode>(file_hash, pos_triple, lit_value, Type::get_primitive_type("str")));
+        return std::make_unique<StringInterpolationNode>(file_hash, pos_triple, interpol_content);
     }
     // First, add all the strings from the begin to the first ranges begin to the interpolation content
     for (auto it = ranges.begin(); it != ranges.end(); ++it) {
@@ -783,7 +798,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             // Non-literal expression: flush accumulated strings first
             if (has_accumulated) {
                 LitValue str_val = LitStr{accumulated_string};
-                auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("type.flint.str.lit"));
+                auto lit_node = std::make_unique<LiteralNode>(                                                 //
+                    file_hash, get_pos_triple(tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
+                );
                 optimized_content.emplace_back(std::move(lit_node));
                 accumulated_string.clear();
                 has_accumulated = false;
@@ -796,7 +813,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     // Flush any remaining accumulated strings
     if (has_accumulated) {
         LitValue str_val = LitStr{accumulated_string};
-        auto lit_node = std::make_unique<LiteralNode>(str_val, Type::get_primitive_type("type.flint.str.lit"));
+        auto lit_node = std::make_unique<LiteralNode>(                                                 //
+            file_hash, get_pos_triple(tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
+        );
         optimized_content.emplace_back(std::move(lit_node));
     }
 
@@ -825,7 +844,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     }
 
     // Otherwise, return string interpolation with optimized content
-    return std::make_unique<StringInterpolationNode>(optimized_content);
+    return std::make_unique<StringInterpolationNode>(file_hash, get_pos_triple(tokens), optimized_content);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( //
@@ -862,6 +881,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
             return std::nullopt;
         }
         std::unique_ptr<InstanceCallNodeExpression> instance_call_node = std::make_unique<InstanceCallNodeExpression>( //
+            file_hash,                                                                                                 //
+            get_pos_triple(tokens),                                                                                    //
             ret->function,                                                                                             //
             ret->args,                                                                                                 //
             ret->function->error_types,                                                                                //
@@ -874,6 +895,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     } else if (ret->callable.has_value()) {
         const auto &error_types = scope->variables.at(ret->callable.value()).type->as<FnType>()->error_types;
         std::unique_ptr<CallableCallNodeExpression> callable_call_node = std::make_unique<CallableCallNodeExpression>( //
+            file_hash,                                                                                                 //
+            get_pos_triple(tokens),                                                                                    //
             ret->args,                                                                                                 //
             error_types,                                                                                               //
             ret->type,                                                                                                 //
@@ -884,6 +907,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         return std::move(callable_call_node);
     } else {
         std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>( //
+            file_hash,                                                                               //
+            get_pos_triple(tokens),                                                                  //
             ret->function,                                                                           //
             ret->args,                                                                               //
             ret->function->error_types,                                                              //
@@ -957,7 +982,7 @@ std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_re
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    return std::make_unique<FunctionReferenceNode>(file_hash, referenced_function);
+    return std::make_unique<FunctionReferenceNode>(file_hash, get_pos_triple(tokens), referenced_function);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
@@ -977,7 +1002,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     for (auto &arg : ret->args) {
         args.emplace_back(std::move(arg.first));
     }
-    return std::make_unique<InitializerNode>(ret->type, args);
+    return std::make_unique<InitializerNode>(file_hash, get_pos_triple(tokens), ret->type, args);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
@@ -1020,11 +1045,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     // Enums are allowed to be cast to strings and to integers
     if (expression.value()->type->get_variation() == Type::Variation::ENUM) {
         if (to_type_string == "str") {
-            return std::make_unique<TypeCastNode>(to_type, expression.value());
+            return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
         } else if (to_type_string == "u8" || to_type_string == "u16" || to_type_string == "u32" || to_type_string == "u64" //
             || to_type_string == "i8" || to_type_string == "i16" || to_type_string == "i32" || to_type_string == "i64"     //
         ) {
-            return std::make_unique<TypeCastNode>(to_type, expression.value());
+            return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
         }
     }
 
@@ -1126,7 +1151,9 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
     for (unsigned int i = 0; i < expressions.size(); i++) {
         const std::string type_str = expressions[i]->type->to_string();
         if (type_str == "type.flint.str.lit") {
-            expressions[i] = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), expressions[i]);
+            expressions[i] = std::make_unique<TypeCastNode>(                                       //
+                file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), expressions[i] //
+            );
         } else if (expressions[i]->type->get_variation() == Type::Variation::GROUP) {
             // Nested groups are not allowed
             const auto match_range = match_ranges[i];
@@ -1135,7 +1162,7 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
             return std::nullopt;
         }
     }
-    return GroupExpressionNode(file_hash, expressions);
+    return GroupExpressionNode(file_hash, get_pos_triple(tokens), expressions);
 }
 
 std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions( //
@@ -1212,22 +1239,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         ASSERT(!lhs_expr.has_value());
         ASSERT(!rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
-        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
+        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lhs_zero, u64_ty);
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
-        rhs_expr = std::make_unique<LiteralNode>(rhs_max, u64_ty);
-        return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
+        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), rhs_max, u64_ty);
+        return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(tokens), lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
         ASSERT(!lhs_expr.has_value());
         ASSERT(rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
-        lhs_expr = std::make_unique<LiteralNode>(lhs_zero, u64_ty);
+        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lhs_zero, u64_ty);
     } else if (is_open_up) {
         // Its an open ended range expression
         ASSERT(lhs_expr.has_value());
         ASSERT(!rhs_expr.has_value());
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
-        rhs_expr = std::make_unique<LiteralNode>(rhs_max, u64_ty);
+        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), rhs_max, u64_ty);
     }
     if (!check_castability(u64_ty, lhs_expr.value())) {
         THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, lhs_tokens, u64_ty, lhs_expr.value()->type);
@@ -1264,7 +1291,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
             return std::nullopt;
         }
     }
-    return std::make_unique<RangeExpressionNode>(file_hash, lhs_expr.value(), rhs_expr.value());
+    return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(tokens), lhs_expr.value(), rhs_expr.value());
 }
 
 std::optional<DataAccessNode> Parser::create_data_access( //
@@ -1280,6 +1307,7 @@ std::optional<DataAccessNode> Parser::create_data_access( //
     }
     return DataAccessNode(                    //
         file_hash,                            //
+        get_pos_triple(tokens),               //
         field_access_base.value().base_expr,  //
         field_access_base.value().field_name, //
         field_access_base.value().field_id,   //
@@ -1303,6 +1331,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_acces
     }
     return std::make_unique<GroupedDataAccessNode>(    //
         file_hash,                                     //
+        get_pos_triple(tokens),                        //
         grouped_field_access_base.value().base_expr,   //
         grouped_field_access_base.value().field_names, //
         grouped_field_access_base.value().field_ids,   //
@@ -1337,7 +1366,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         // Now we can create the initializer expression
         std::optional<std::unique_ptr<ExpressionNode>> initializer;
         if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-            initializer = std::make_unique<DefaultNode>(arr_type->type);
+            initializer = std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), arr_type->type);
         } else {
             initializer = create_expression(ctx, scope, initializer_tokens);
         }
@@ -1354,10 +1383,10 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
         for (const size_t len : arr_type->sizes.value()) {
             LitValue value = LitInt{.value = APInt(std::to_string(len))};
-            length_expressions.emplace_back(std::make_unique<LiteralNode>(value, u64_ty));
+            length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), value, u64_ty));
         }
 
-        return ArrayInitializerNode(array_type, length_expressions, initializer.value());
+        return ArrayInitializerNode(file_hash, get_pos_triple(tokens), array_type, length_expressions, initializer.value());
     }
 
     // Get the element type of the array
@@ -1377,7 +1406,7 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
     if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-        initializer = std::make_unique<DefaultNode>(element_type.value());
+        initializer = std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), element_type.value());
     } else {
         initializer = create_expression(ctx, scope, initializer_tokens);
     }
@@ -1438,6 +1467,8 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         file_node_ptr->file_namespace->add_type(actual_array_type.value());
     }
     return ArrayInitializerNode(    //
+        file_hash,                  //
+        get_pos_triple(tokens),     //
         actual_array_type.value(),  //
         length_expressions.value(), //
         initializer.value()         //
@@ -1503,9 +1534,13 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
             return std::nullopt;
         }
         if (indexing_expressions.value().front()->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-            return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value());
+            return ArrayAccessNode(                                                                                                 //
+                file_hash, get_pos_triple(tokens), base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value() //
+            );
         } else {
-            return ArrayAccessNode(base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value());
+            return ArrayAccessNode(                                                                                                //
+                file_hash, get_pos_triple(tokens), base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value() //
+            );
         }
     }
     // The indexing expression size must match the array dimensionality
@@ -1524,14 +1559,14 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         }
     }
     if (dimensionality == 0) {
-        return ArrayAccessNode(base_expr.value(), array_type->type, indexing_expressions.value());
+        return ArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), array_type->type, indexing_expressions.value());
     } else {
         // TODO: Known Sizes
         std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type, std::nullopt);
         if (!file_node_ptr->file_namespace->add_type(new_arr_type)) {
             new_arr_type = file_node_ptr->file_namespace->get_type_from_str(new_arr_type->to_string()).value();
         }
-        return ArrayAccessNode(base_expr.value(), new_arr_type, indexing_expressions.value());
+        return ArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), new_arr_type, indexing_expressions.value());
     }
 }
 
@@ -1618,7 +1653,7 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     if (!Type::add_type(ret_ty)) {
         ret_ty = Type::get_type_from_str(ret_ty->to_string()).value();
     }
-    return GroupedArrayAccessNode(base_expr.value(), ret_ty, indexing_expressions.value());
+    return GroupedArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), ret_ty, indexing_expressions.value());
 }
 
 std::optional<OptionalChainNode> Parser::create_optional_chain( //
@@ -1654,7 +1689,10 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
             return std::nullopt;
         }
         operation = ChainArrayAccess{std::move(array_access_base.value().indexing_exprs)};
-        return OptionalChainNode(file_hash, array_access_base.value().base_expr, true, operation, array_access_base.value().result_type);
+        return OptionalChainNode(                                                   //
+            file_hash, get_pos_triple(tokens), array_access_base.value().base_expr, //
+            true, operation, array_access_base.value().result_type                  //
+        );
     } else if (iterator->token == TOK_DOT) {
         auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
         if (!field_access_base.has_value()) {
@@ -1662,7 +1700,9 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
             return std::nullopt;
         }
         operation = ChainFieldAccess{field_access_base.value().field_name, field_access_base.value().field_id};
-        return OptionalChainNode(file_hash, field_access_base.value().base_expr, true, operation, field_access_base.value().field_type);
+        return OptionalChainNode(                                                                                                         //
+            file_hash, get_pos_triple(tokens), field_access_base.value().base_expr, true, operation, field_access_base.value().field_type //
+        );
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
@@ -1696,7 +1736,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<OptionalUnwrapNode>(base_expr.value());
+        return std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(tokens), base_expr.value());
     }
     // Skip the `!`
     ++iterator;
@@ -1747,8 +1787,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
             return std::nullopt;
         }
-        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr.value());
-        return std::make_unique<ArrayAccessNode>(opt_unwrap, result_type, indexing_expressions.value());
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>( //
+            file_hash, get_pos_triple(tokens), base_expr.value()                           //
+        );
+        return std::make_unique<ArrayAccessNode>(                                                    //
+            file_hash, get_pos_triple(tokens), opt_unwrap, result_type, indexing_expressions.value() //
+        );
     } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
         // It's a grouped field access
         auto grouped_access_base = create_grouped_access_base(ctx, scope, tokens, true);
@@ -1757,11 +1801,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             return std::nullopt;
         }
         auto &base_expr = grouped_access_base.value().base_expr;
-        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>( //
+            file_hash, get_pos_triple(tokens), base_expr                                   //
+        );
         const auto &field_names = grouped_access_base.value().field_names;
         const auto &field_ids = grouped_access_base.value().field_ids;
         const auto &field_types = grouped_access_base.value().field_types;
-        return std::make_unique<GroupedDataAccessNode>(file_hash, opt_unwrap, field_names, field_ids, field_types);
+        return std::make_unique<GroupedDataAccessNode>(file_hash, get_pos_triple(tokens), opt_unwrap, field_names, field_ids, field_types);
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
         auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
@@ -1770,11 +1816,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             return std::nullopt;
         }
         auto &base_expr = field_access_base.value().base_expr;
-        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(base_expr);
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(tokens), base_expr);
         const auto &field_name = field_access_base.value().field_name;
         const auto &field_id = field_access_base.value().field_id;
         const auto &field_type = field_access_base.value().field_type;
-        return std::make_unique<DataAccessNode>(file_hash, opt_unwrap, field_name, field_id, field_type);
+        return std::make_unique<DataAccessNode>(file_hash, get_pos_triple(tokens), opt_unwrap, field_name, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
@@ -1863,7 +1909,7 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return VariantExtractionNode(file_hash, base_expr.value(), unwrap_tag_and_type.second, type_id.value());
+        return VariantExtractionNode(file_hash, get_pos_triple(tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value());
     }
     // Skip the `)`
     ++iterator;
@@ -1961,7 +2007,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<VariantUnwrapNode>(base_expr.value(), unwrap_tag_and_type.second, type_id.value());
+        return std::make_unique<VariantUnwrapNode>(                                                           //
+            file_hash, get_pos_triple(tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value() //
+        );
     }
     // Skip the `)`
     ++iterator;
@@ -2009,11 +2057,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 // Default node at a place where it's type cannot be inferred. This is fine because when used in initializers, for example,
                 // at the time we parse the initializer argument the type cannot be inferred as we do not know *what* we are initializing
                 // yet
-                return std::make_unique<DefaultNode>(Type::get_primitive_type("type.flint.default"));
+                return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("type.flint.default"));
             }
-            return std::make_unique<DefaultNode>(expected_type.value());
+            return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), expected_type.value());
         } else if (tokens_mut.first->token == TOK_TYPE) {
-            return std::make_unique<TypeNode>(tokens_mut.first->type);
+            return std::make_unique<TypeNode>(file_hash, get_pos_triple(tokens), tokens_mut.first->type);
         } else if (tokens_mut.first->token == TOK_RANGE) {
             std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
             if (!range.has_value()) {
@@ -2071,7 +2119,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         }
                         const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
                         LitValue lit_value = LitError{.error_type = lit_type, .value = value, .message = std::move(message.value())};
-                        return std::make_unique<LiteralNode>(lit_value, lit_type);
+                        return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, lit_type);
                     }
                     case Type::Variation::FUNC: {
                         const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
@@ -2140,7 +2188,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                                 .variation_tag = tag,
                                 .expr = std::move(expr),
                             };
-                            return std::make_unique<LiteralNode>(lit_value, type);
+                            return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
                         }
                         break;
                     }
@@ -2277,7 +2325,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitEnum{.enum_type = type, .values = std::vector<std::string>{value}};
-                    return std::make_unique<LiteralNode>(lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
                 }
                 case Type::Variation::ERROR_SET: {
                     const auto *error_type = type->as<ErrorSetType>();
@@ -2291,7 +2339,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
-                    return std::make_unique<LiteralNode>(lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
                 }
                 case Type::Variation::VARIANT: {
                     const auto *variant_type = type->as<VariantType>();
@@ -2312,7 +2360,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitVariantTag{.variant_type = type, .variation_tag = tag};
-                    return std::make_unique<LiteralNode>(lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
                 }
             }
         }
@@ -2482,7 +2530,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, lhs_opt->base_type, rhs.value()->type);
                 return std::nullopt;
             }
-            return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type);
+            return std::make_unique<BinaryOpNode>(                                                           //
+                file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type //
+            );
         } else {
             // Check if one of the sides is a homogeneous group variation of the other side
             // This only works if the *other side*s type is comparable at all. Only primitive types and enums are comparable
@@ -2605,10 +2655,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Finally check if one of the two sides are string literals, if they are they need to become a string variable
     if (lhs.value()->type->to_string() == "type.flint.str.lit") {
-        lhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), lhs.value());
+        lhs = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), lhs.value());
     }
     if (rhs.value()->type->to_string() == "type.flint.str.lit") {
-        rhs = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), rhs.value());
+        rhs = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), rhs.value());
     }
 
     // Check it the binary operator is a `catch` keyword, if so the lhs should be a function call. We then set it's "has_catch" field to
@@ -2633,9 +2683,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
-        return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool"));
+        return std::make_unique<BinaryOpNode>(                                                                         //
+            file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool") //
+        );
     }
-    return std::make_unique<BinaryOpNode>(pivot_token, lhs.value(), rhs.value(), lhs.value()->type);
+    return std::make_unique<BinaryOpNode>(                                                          //
+        file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), lhs.value()->type //
+    );
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
@@ -2686,7 +2740,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }
-                expression = std::make_unique<TypeCastNode>(expected_type.value(), expression.value());
+                expression = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), expected_type.value(), expression.value());
                 break;
             }
         }

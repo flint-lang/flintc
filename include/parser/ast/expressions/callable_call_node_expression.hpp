@@ -10,12 +10,14 @@
 class CallableCallNodeExpression : public ExpressionNode, public CallableCallNodeBase {
   public:
     explicit CallableCallNodeExpression(                                          //
+        const Hash &hash,                                                         //
+        const PosTriple &pos,                                                     //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type,                                        //
         const std::string &callable_variable                                      //
         ) :
-        ExpressionNode(true),
+        ExpressionNode(hash, pos, true),
         CallableCallNodeBase(arguments, error_types, type, callable_variable) {
         ExpressionNode::type = type;
     }
@@ -29,7 +31,10 @@ class CallableCallNodeExpression : public ExpressionNode, public CallableCallNod
         for (auto &[arg, is_reference] : arguments) {
             arguments_clone.emplace_back(arg->clone(scope_id), is_reference);
         }
-        return std::make_unique<CallableCallNodeExpression>(arguments_clone, error_types, ExpressionNode::type, callable_variable);
+        return std::make_unique<CallableCallNodeExpression>(                      //
+            file_hash, PosTriple{line, column, length},                           //
+            arguments_clone, error_types, ExpressionNode::type, callable_variable //
+        );
     }
 
     // deconstructor

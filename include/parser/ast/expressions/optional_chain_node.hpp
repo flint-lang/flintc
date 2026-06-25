@@ -35,12 +35,13 @@ class OptionalChainNode : public ExpressionNode {
   public:
     OptionalChainNode(                              //
         const Hash &hash,                           //
+        const PosTriple &pos,                       //
         std::unique_ptr<ExpressionNode> &base_expr, //
         const bool is_toplevel_chain_node,          //
         ChainOperation &operation,                  //
         const std::shared_ptr<Type> &result_type    //
         ) :
-        ExpressionNode(hash, base_expr->is_const),
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)),
         is_toplevel_chain_node(is_toplevel_chain_node),
         operation(std::move(operation)) {
@@ -80,7 +81,9 @@ class OptionalChainNode : public ExpressionNode {
         if (is_toplevel_chain_node) {
             result_type = this->type->as<OptionalType>()->base_type;
         }
-        return std::make_unique<OptionalChainNode>(file_hash, base_expr_clone, is_toplevel_chain_node, operation_clone, result_type);
+        return std::make_unique<OptionalChainNode>(                                                                           //
+            file_hash, PosTriple{line, column, length}, base_expr_clone, is_toplevel_chain_node, operation_clone, result_type //
+        );
     }
 
     /// @var `base_expr`

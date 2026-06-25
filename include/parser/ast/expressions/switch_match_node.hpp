@@ -6,8 +6,14 @@
 /// @brief Represents the match of a switch. This is used primarily for internal reasons
 class SwitchMatchNode : public ExpressionNode {
   public:
-    SwitchMatchNode(const std::shared_ptr<Type> &type, const std::optional<std::string> &name, const unsigned int id) :
-        ExpressionNode(true),
+    SwitchMatchNode(                            //
+        const Hash &hash,                       //
+        const PosTriple &pos,                   //
+        const std::shared_ptr<Type> &type,      //
+        const std::optional<std::string> &name, //
+        const unsigned int id                   //
+        ) :
+        ExpressionNode(hash, pos, true),
         name(name),
         id(id) {
         this->type = type;
@@ -18,7 +24,7 @@ class SwitchMatchNode : public ExpressionNode {
     }
 
     std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
-        return std::make_unique<SwitchMatchNode>(this->type, name, id);
+        return std::make_unique<SwitchMatchNode>(file_hash, PosTriple{line, column, length}, type, name, id);
     }
 
     /// @var `name`

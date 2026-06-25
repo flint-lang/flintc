@@ -7,8 +7,12 @@
 /// @brief Represents optional unwrapping, which is always forced
 class OptionalUnwrapNode : public ExpressionNode {
   public:
-    OptionalUnwrapNode(std::unique_ptr<ExpressionNode> &base_expr) :
-        ExpressionNode(base_expr->is_const),
+    OptionalUnwrapNode(                            //
+        const Hash &hash,                          //
+        const PosTriple &pos,                      //
+        std::unique_ptr<ExpressionNode> &base_expr //
+        ) :
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)) {
         if (this->base_expr->type->get_variation() == Type::Variation::OPTIONAL) {
             const auto *base_type = this->base_expr->type->as<OptionalType>();
@@ -24,7 +28,7 @@ class OptionalUnwrapNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
-        return std::make_unique<OptionalUnwrapNode>(base_expr_clone);
+        return std::make_unique<OptionalUnwrapNode>(file_hash, PosTriple{line, column, length}, base_expr_clone);
     }
 
     /// @var `base_expr`

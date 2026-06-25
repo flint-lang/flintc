@@ -10,11 +10,13 @@
 class ArrayAccessNode : public ExpressionNode {
   public:
     ArrayAccessNode(                                                       //
+        const Hash &hash,                                                  //
+        const PosTriple &pos,                                              //
         std::unique_ptr<ExpressionNode> &base_expr,                        //
         std::shared_ptr<Type> result_type,                                 //
         std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions //
         ) :
-        ExpressionNode(base_expr->is_const),
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)),
         indexing_expressions(std::move(indexing_expressions)) {
         this->type = result_type;
@@ -30,7 +32,9 @@ class ArrayAccessNode : public ExpressionNode {
             cloned_indexing_exprs.emplace_back(expr->clone(scope_id));
         }
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
-        return std::make_unique<ArrayAccessNode>(base_expr_clone, this->type, cloned_indexing_exprs);
+        return std::make_unique<ArrayAccessNode>(                                                          //
+            file_hash, PosTriple{line, column, length}, base_expr_clone, this->type, cloned_indexing_exprs //
+        );
     }
 
     /// @var `base_expr`

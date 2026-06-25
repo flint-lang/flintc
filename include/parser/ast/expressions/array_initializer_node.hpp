@@ -11,11 +11,13 @@
 class ArrayInitializerNode : public ExpressionNode {
   public:
     ArrayInitializerNode(                                                 //
+        const Hash &hash,                                                 //
+        const PosTriple &pos,                                             //
         const std::shared_ptr<Type> &type,                                //
         std::vector<std::unique_ptr<ExpressionNode>> &length_expressions, //
         std::unique_ptr<ExpressionNode> &initializer_value                //
         ) :
-        ExpressionNode(true),
+        ExpressionNode(hash, pos, true),
         length_expressions(std::move(length_expressions)),
         initializer_value(std::move(initializer_value)) {
         const auto *arr_type = type->as<ArrayType>();
@@ -33,7 +35,7 @@ class ArrayInitializerNode : public ExpressionNode {
             cloned_length_exprs.emplace_back(expr->clone(scope_id));
         }
         std::unique_ptr<ExpressionNode> init_value = initializer_value->clone(scope_id);
-        return std::make_unique<ArrayInitializerNode>(this->type, cloned_length_exprs, init_value);
+        return std::make_unique<ArrayInitializerNode>(file_hash, PosTriple{line, column, length}, type, cloned_length_exprs, init_value);
     }
 
     /// @var `element_type`

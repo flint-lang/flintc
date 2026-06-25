@@ -11,12 +11,14 @@
 class CallNodeExpression : public ExpressionNode, public CallNodeBase {
   public:
     explicit CallNodeExpression(                                                  //
+        const Hash &hash,                                                         //
+        const PosTriple &pos,                                                     //
         FunctionNode *function,                                                   //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type                                         //
         ) :
-        ExpressionNode(true),
+        ExpressionNode(hash, pos, true),
         CallNodeBase(function, arguments, error_types, type) {
         ExpressionNode::type = type;
     }
@@ -30,7 +32,10 @@ class CallNodeExpression : public ExpressionNode, public CallNodeBase {
         for (auto &[arg, is_reference] : arguments) {
             arguments_clone.emplace_back(arg->clone(scope_id), is_reference);
         }
-        auto fn = std::make_unique<CallNodeExpression>(function, arguments_clone, error_types, ExpressionNode::type);
+        auto fn = std::make_unique<CallNodeExpression>(                  //
+            file_hash, PosTriple{line, column, length},                  //
+            function, arguments_clone, error_types, ExpressionNode::type //
+        );
         fn->scope_id = scope_id;
         fn->has_catch = CallNodeBase::has_catch;
         return fn;

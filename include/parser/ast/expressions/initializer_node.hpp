@@ -9,8 +9,13 @@
 /// @brief Represents all initializer expressions
 class InitializerNode : public ExpressionNode {
   public:
-    InitializerNode(const std::shared_ptr<Type> &type, std::vector<std::unique_ptr<ExpressionNode>> &args) :
-        ExpressionNode(true),
+    InitializerNode(                                       //
+        const Hash &hash,                                  //
+        const PosTriple &pos,                              //
+        const std::shared_ptr<Type> &type,                 //
+        std::vector<std::unique_ptr<ExpressionNode>> &args //
+        ) :
+        ExpressionNode(hash, pos, true),
         args(std::move(args)) {
         this->type = type;
     }
@@ -24,7 +29,7 @@ class InitializerNode : public ExpressionNode {
         for (auto &arg : args) {
             args_clone.emplace_back(arg->clone(scope_id));
         }
-        return std::make_unique<InitializerNode>(this->type, args_clone);
+        return std::make_unique<InitializerNode>(file_hash, PosTriple{line, column, length}, type, args_clone);
     }
 
     /// @var `args`

@@ -11,13 +11,15 @@
 class InstanceCallNodeExpression : public ExpressionNode, public InstanceCallNodeBase {
   public:
     explicit InstanceCallNodeExpression(                                          //
+        const Hash &hash,                                                         //
+        const PosTriple &pos,                                                     //
         FunctionNode *function,                                                   //
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
         const std::vector<std::shared_ptr<Type>> &error_types,                    //
         const std::shared_ptr<Type> &type,                                        //
         std::unique_ptr<ExpressionNode> &instance_variable                        //
         ) :
-        ExpressionNode(instance_variable->is_const),
+        ExpressionNode(hash, pos, instance_variable->is_const),
         InstanceCallNodeBase(function, arguments, error_types, type, instance_variable) {
         ExpressionNode::type = type;
     }
@@ -32,8 +34,9 @@ class InstanceCallNodeExpression : public ExpressionNode, public InstanceCallNod
             arguments_clone.emplace_back(arg->clone(scope_id), is_reference);
         }
         std::unique_ptr<ExpressionNode> instance_variable_clone = instance_variable->clone(scope_id);
-        return std::make_unique<InstanceCallNodeExpression>(                                      //
-            function, arguments_clone, error_types, ExpressionNode::type, instance_variable_clone //
+        return std::make_unique<InstanceCallNodeExpression>(                       //
+            file_hash, PosTriple{line, column, length}, function, arguments_clone, //
+            error_types, ExpressionNode::type, instance_variable_clone             //
         );
     }
 

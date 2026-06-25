@@ -12,12 +12,13 @@ class GroupedDataAccessNode : public ExpressionNode {
   public:
     GroupedDataAccessNode(                                    //
         const Hash &hash,                                     //
+        const PosTriple &pos,                                 //
         std::unique_ptr<ExpressionNode> &base_expr,           //
         const std::vector<std::string> &field_names,          //
         const std::vector<unsigned int> &field_ids,           //
         const std::vector<std::shared_ptr<Type>> &field_types //
         ) :
-        ExpressionNode(hash, base_expr->is_const),
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)),
         field_names(field_names),
         field_ids(field_ids) {
@@ -39,7 +40,9 @@ class GroupedDataAccessNode : public ExpressionNode {
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
         const std::vector<std::shared_ptr<Type>> &field_types = this->type->as<GroupType>()->types;
-        return std::make_unique<GroupedDataAccessNode>(this->file_hash, base_expr_clone, field_names, field_ids, field_types);
+        return std::make_unique<GroupedDataAccessNode>(                                                      //
+            file_hash, PosTriple{line, column, length}, base_expr_clone, field_names, field_ids, field_types //
+        );
     }
 
     /// @var `base_expr`

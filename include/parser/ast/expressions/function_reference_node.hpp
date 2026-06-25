@@ -9,8 +9,12 @@
 /// @brief Represents function references
 class FunctionReferenceNode : public ExpressionNode {
   public:
-    FunctionReferenceNode(const Hash &hash, const FunctionNode *referenced_function) :
-        ExpressionNode(hash, true),
+    FunctionReferenceNode(                      //
+        const Hash &hash,                       //
+        const PosTriple &pos,                   //
+        const FunctionNode *referenced_function //
+        ) :
+        ExpressionNode(hash, pos, true),
         referenced_function(referenced_function) {
         std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
         for (const auto &[param_type, param_name, param_is_mutable] : referenced_function->parameters) {
@@ -33,7 +37,7 @@ class FunctionReferenceNode : public ExpressionNode {
     }
 
     std::unique_ptr<ExpressionNode> clone([[maybe_unused]] const unsigned int scope_id) const override {
-        return std::make_unique<FunctionReferenceNode>(this->file_hash, referenced_function);
+        return std::make_unique<FunctionReferenceNode>(file_hash, PosTriple{line, column, length}, referenced_function);
     }
 
     /// @var `referenced_function`

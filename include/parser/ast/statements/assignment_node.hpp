@@ -2,6 +2,7 @@
 
 #include "parser/ast/expressions/expression_node.hpp"
 #include "statement_node.hpp"
+#include "types.hpp"
 
 #include <memory>
 #include <string>
@@ -12,11 +13,14 @@
 class AssignmentNode : public StatementNode {
   public:
     AssignmentNode(                                  //
+        const Hash &hash,                            //
+        const token_slice &tokens,                   //
         const std::shared_ptr<Type> &type,           //
         const std::string &name,                     //
         std::unique_ptr<ExpressionNode> &expression, //
         const bool is_shorthand = false              //
         ) :
+        StatementNode(hash, tokens),
         type(type),
         name(name),
         expression(std::move(expression)),

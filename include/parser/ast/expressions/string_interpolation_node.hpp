@@ -10,8 +10,12 @@
 /// @brief Represents string interpolations
 class StringInterpolationNode : public ExpressionNode {
   public:
-    StringInterpolationNode(std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> &string_content) :
-        ExpressionNode(true),
+    StringInterpolationNode(                                                                                     //
+        const Hash &hash,                                                                                        //
+        const PosTriple &pos,                                                                                    //
+        std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> &string_content //
+        ) :
+        ExpressionNode(hash, pos, true),
         string_content(std::move(string_content)) {
         this->type = Type::get_primitive_type("str");
     }
@@ -35,7 +39,7 @@ class StringInterpolationNode : public ExpressionNode {
                 string_content_clone.emplace_back(std::move(cloned_value));
             }
         }
-        return std::make_unique<StringInterpolationNode>(string_content_clone);
+        return std::make_unique<StringInterpolationNode>(file_hash, PosTriple{line, column, length}, string_content_clone);
     }
 
     /// @var `string_content`

@@ -36,8 +36,13 @@ struct ESwitchBranch {
 /// @brief Represents switch expressions
 class SwitchExpression : public ExpressionNode, public SwitchBase {
   public:
-    SwitchExpression(std::unique_ptr<ExpressionNode> &switcher, std::vector<ESwitchBranch> &branches) :
-        ExpressionNode(switcher->is_const),
+    SwitchExpression(                              //
+        const Hash &hash,                          //
+        const PosTriple &pos,                      //
+        std::unique_ptr<ExpressionNode> &switcher, //
+        std::vector<ESwitchBranch> &branches       //
+        ) :
+        ExpressionNode(hash, pos, switcher->is_const),
         SwitchBase(switcher),
         branches(std::move(branches)) {
         this->type = this->branches.front().expr->type;

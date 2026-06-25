@@ -582,13 +582,16 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     argument_types.reserve(arguments.size());
     for (size_t i = 0; i < arguments.size(); i++) {
         // Typecast all string literals in the args to string variables
-        if (arguments[i].first->type->to_string() == "type.flint.str.lit") {
-            arguments[i].first = std::make_unique<TypeCastNode>(Type::get_primitive_type("str"), arguments[i].first);
+        auto &arg = arguments[i].first;
+        if (arg->type->to_string() == "type.flint.str.lit") {
+            arg = std::make_unique<TypeCastNode>(                                                                        //
+                file_hash, ASTNode::PosTriple{arg->line, arg->column, arg->length}, Type::get_primitive_type("str"), arg //
+            );
         }
-        if (arguments[i].first->type->get_variation() == Type::Variation::ALIAS) {
-            argument_types.emplace_back(arguments[i].first->type->as<AliasType>()->type);
+        if (arg->type->get_variation() == Type::Variation::ALIAS) {
+            argument_types.emplace_back(arg->type->as<AliasType>()->type);
         } else {
-            argument_types.emplace_back(arguments[i].first->type);
+            argument_types.emplace_back(arg->type);
         }
     }
 
@@ -945,6 +948,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 if (func_nodes.empty()) {
                     // It's an instance call of a free-floating entity function
                     std::unique_ptr<ExpressionNode> entity_variable = std::make_unique<VariableNode>( //
+                        file_hash,                                                                    //
+                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),                  //
                         instance_variable.value()->as<VariableNode>()->name,                          //
                         instance_variable.value()->type,                                              //
                         instance_variable.value()->is_const                                           //
@@ -972,12 +977,15 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     // the required data here, if not something would have gone horribly wrong earlier in the entity parsing stage.
                     ASSERT(idx != entity_node->data_modules.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                        file_hash,                                                              //
+                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
                         instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
+                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),             //
                         base_expr,                                                               //
                         std::nullopt,                                                            // Entity fields have no name
                         idx,               // The index of the data in the entity struct
@@ -995,12 +1003,15 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     // The indices of the required data are the same as the func module itself
                     const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                        file_hash,                                                              //
+                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
                         instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
+                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),             //
                         base_expr,                                                               //
                         std::nullopt,                                                            // Func fields have no name
                         i - 1,                                                                   // The index of the data in the func struct
@@ -1617,7 +1628,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         }
         LitValue lit_value = LitEnum{.enum_type = type, .values = values};
         return CreateGroupedAccessBaseRet{
-            .alternative_expression = std::make_unique<LiteralNode>(lit_value, type),
+            .alternative_expression = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type),
             .base_expr = nullptr,
             .field_names = {},
             .field_ids = {},
@@ -1908,7 +1919,7 @@ bool Parser::ensure_castability_multiple(                      //
                 return false;
             }
             case CastDirection::Kind::CAST_LHS_TO_RHS:
-                expr = std::make_unique<TypeCastNode>(to_type, expr);
+                expr = std::make_unique<TypeCastNode>(file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, to_type, expr);
                 break;
         }
     }

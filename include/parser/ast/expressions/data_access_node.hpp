@@ -10,12 +10,13 @@ class DataAccessNode : public ExpressionNode {
   public:
     DataAccessNode(                                   //
         const Hash &hash,                             //
+        const PosTriple &pos,                         //
         std::unique_ptr<ExpressionNode> &base_expr,   //
         const std::optional<std::string> &field_name, //
         const unsigned int field_id,                  //
         const std::shared_ptr<Type> &field_type       //
         ) :
-        ExpressionNode(hash, base_expr->is_const),
+        ExpressionNode(hash, pos, base_expr->is_const),
         base_expr(std::move(base_expr)),
         field_name(field_name),
         field_id(field_id) {
@@ -28,7 +29,7 @@ class DataAccessNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> base_expr_clone = base_expr->clone(scope_id);
-        return std::make_unique<DataAccessNode>(this->file_hash, base_expr_clone, field_name, field_id, this->type);
+        return std::make_unique<DataAccessNode>(file_hash, PosTriple{line, column, length}, base_expr_clone, field_name, field_id, type);
     }
 
     /// @var `base_expr`

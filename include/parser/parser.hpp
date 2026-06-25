@@ -455,6 +455,19 @@ class Parser {
     /// @return `std::optional<const Parser &>` A reference to the parser instance
     static std::optional<const Parser *> get_instance_from_hash(const Hash &hash);
 
+    /// @function `get_pos_triple`
+    /// @brief Creates a PosTriple from the given token slice
+    ///
+    /// @param `tokens` The tokens to pack into a pos triple
+    /// @return `PosTriple` A PosTriple containing a line, column and length field
+    static ASTNode::PosTriple get_pos_triple(const token_slice &tokens) {
+        return ASTNode::PosTriple{
+            .line = tokens.first->line,
+            .column = tokens.first->column,
+            .length = tokens.second->column - tokens.first->column,
+        };
+    }
+
   private:
     // The constructor is private because only the Parser (the instances list) contains the actual Parser
     explicit Parser(const std::filesystem::path &file) :

@@ -12,10 +12,11 @@ class RangeExpressionNode : public ExpressionNode {
   public:
     explicit RangeExpressionNode(                     //
         const Hash &hash,                             //
+        const PosTriple &pos,                         //
         std::unique_ptr<ExpressionNode> &lower_bound, //
         std::unique_ptr<ExpressionNode> &upper_bound  //
         ) :
-        ExpressionNode(hash, true),
+        ExpressionNode(hash, pos, true),
         lower_bound(std::move(lower_bound)),
         upper_bound(std::move(upper_bound)) {
         ASSERT(this->lower_bound->type == this->upper_bound->type);
@@ -36,7 +37,7 @@ class RangeExpressionNode : public ExpressionNode {
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> lower_bound_clone = lower_bound->clone(scope_id);
         std::unique_ptr<ExpressionNode> upper_bound_clone = upper_bound->clone(scope_id);
-        return std::make_unique<RangeExpressionNode>(file_hash, lower_bound_clone, upper_bound_clone);
+        return std::make_unique<RangeExpressionNode>(file_hash, PosTriple{line, column, length}, lower_bound_clone, upper_bound_clone);
     }
 
     /// @var `lower_bound`

@@ -85,11 +85,13 @@ using LitValue = std::variant<LitEnum, LitError, LitVariantTag, LitVariant, LitO
 class LiteralNode : public ExpressionNode {
   public:
     explicit LiteralNode(                  //
+        const Hash &hash,                  //
+        const PosTriple &pos,              //
         LitValue &value,                   //
         const std::shared_ptr<Type> &type, //
         const bool is_folded = false       //
         ) :
-        ExpressionNode(true),
+        ExpressionNode(hash, pos, true),
         value(std::move(value)),
         is_folded(is_folded) {
         this->type = type;
@@ -159,7 +161,7 @@ class LiteralNode : public ExpressionNode {
             const auto &lit = std::get<LitStr>(value);
             value_clone = lit;
         }
-        return std::make_unique<LiteralNode>(value_clone, this->type, is_folded);
+        return std::make_unique<LiteralNode>(file_hash, PosTriple{line, column, length}, value_clone, type, is_folded);
     }
 
     /// @var `value`

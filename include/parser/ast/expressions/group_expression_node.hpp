@@ -11,8 +11,12 @@
 /// @brief Represents group expression values
 class GroupExpressionNode : public ExpressionNode {
   public:
-    explicit GroupExpressionNode(const Hash &hash, std::vector<std::unique_ptr<ExpressionNode>> &expressions) :
-        ExpressionNode(hash, true),
+    explicit GroupExpressionNode(                                 //
+        const Hash &hash,                                         //
+        const PosTriple &pos,                                     //
+        std::vector<std::unique_ptr<ExpressionNode>> &expressions //
+        ) :
+        ExpressionNode(hash, pos, true),
         expressions(std::move(expressions)) {
         std::vector<std::shared_ptr<Type>> types;
         for (auto it = this->expressions.begin(); it != this->expressions.end(); ++it) {
@@ -38,7 +42,7 @@ class GroupExpressionNode : public ExpressionNode {
         for (auto &expr : expressions) {
             expressions_clone.emplace_back(expr->clone(scope_id));
         }
-        return std::make_unique<GroupExpressionNode>(this->file_hash, expressions_clone);
+        return std::make_unique<GroupExpressionNode>(file_hash, PosTriple{line, column, length}, expressions_clone);
     }
 
     /// @var `expressions`

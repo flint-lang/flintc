@@ -269,7 +269,10 @@ Generator::group_mapping Generator::Expression::generate_literal( //
             // be valid Flint code
             const APInt lit_int = lit_float.to_apint();
             LitValue lit_value = LitInt{.value = lit_int};
-            const std::unique_ptr<LiteralNode> tmp_lit_node = std::make_unique<LiteralNode>(lit_value, literal_node->type, true);
+            const ASTNode::PosTriple &lit_pos = {literal_node->line, literal_node->column, literal_node->length};
+            const std::unique_ptr<LiteralNode> tmp_lit_node = std::make_unique<LiteralNode>( //
+                literal_node->file_hash, lit_pos, lit_value, literal_node->type, true        //
+            );
             return generate_literal(builder, ctx, garbage, expr_depth, tmp_lit_node.get());
         } else if (lit_type == "float") {
             // Compile-time type of literal which was not resolved to be a different type

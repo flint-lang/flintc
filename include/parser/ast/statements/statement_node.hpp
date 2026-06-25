@@ -2,16 +2,19 @@
 
 #include "parser/ast/annotation_node.hpp"
 #include "parser/ast/ast_node.hpp"
+#include "types.hpp"
 
 /// @class `StatementNode`
 /// @brief Base class for all statements
 class StatementNode : public ASTNode {
   protected:
+    StatementNode() = default;
+
     explicit StatementNode(const std::vector<AnnotationNode> &annotations) :
         annotations(annotations) {}
 
-    // constructor
-    StatementNode() = default;
+    explicit StatementNode(const Hash &hash, const token_slice &tokens) :
+        ASTNode(hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column) {}
 
   public:
     // destructor

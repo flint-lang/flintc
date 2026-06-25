@@ -24,6 +24,12 @@ class ASTNode {
     ASTNode(ASTNode &&) = default;
     ASTNode &operator=(ASTNode &&) = default;
 
+    struct PosTriple {
+        unsigned int line;
+        unsigned int column;
+        unsigned int length;
+    };
+
     /// @var `file_hash`
     /// @brief The hash of the file this AST Node is defined in
     Hash file_hash;

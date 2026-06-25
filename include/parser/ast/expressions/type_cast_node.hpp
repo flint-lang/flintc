@@ -8,8 +8,13 @@
 /// @brief Represents type casts
 class TypeCastNode : public ExpressionNode {
   public:
-    TypeCastNode(const std::shared_ptr<Type> &type, std::unique_ptr<ExpressionNode> &expr) :
-        ExpressionNode(expr->is_const),
+    TypeCastNode(                             //
+        const Hash &hash,                     //
+        const PosTriple &pos,                 //
+        const std::shared_ptr<Type> &type,    //
+        std::unique_ptr<ExpressionNode> &expr //
+        ) :
+        ExpressionNode(hash, pos, expr->is_const),
         expr(std::move(expr)) {
         this->type = type;
     }
@@ -28,7 +33,7 @@ class TypeCastNode : public ExpressionNode {
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::unique_ptr<ExpressionNode> expr_clone = expr->clone(scope_id);
-        return std::make_unique<TypeCastNode>(type, expr_clone);
+        return std::make_unique<TypeCastNode>(file_hash, PosTriple{line, column, length}, type, expr_clone);
     }
 
     /// @var `expr`
