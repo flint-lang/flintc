@@ -109,7 +109,7 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         parser_cleanup();
         return std::nullopt;
     }
-    parsed_successful = Parser::parse_all_open_functions(parse_parallel);
+    parsed_successful = Parser::parse_all_open_functions(parse_parallel, Hash(std::filesystem::path(source_file_path)));
     if (!parsed_successful) {
         parser_cleanup();
         return std::nullopt;

@@ -331,8 +331,11 @@ class Parser {
     /// @brief Parses all still open function bodies
     ///
     /// @param `parse_parallel` Whether to parse the open functions in parallel
+    /// @param `only_file` Only parse the functions from the given file hash. This is needed for the LSP, as there only functions from the
+    ///                    "main" file are parsed. Defintions and types of all other files are properly parsed, though. This is there
+    ///                    because parsing defintions is fast, while parsing functions is slow.
     /// @return `bool` Wheter all functions were able to be parsed
-    static bool parse_all_open_functions(const bool parse_parallel);
+    static bool parse_all_open_functions(const bool parse_parallel, const std::optional<Hash> &only_file = std::nullopt);
 
     /// @function `parse_open_test`
     /// @brief Parses a single open test body

@@ -1114,12 +1114,6 @@ bool Parser::resolve_all_imports() {
     PROFILE_CUMULATIVE("Parser::resolve_all_imports");
     for (const auto &instance : instances) {
         const auto &file_namespace = instance.file_node_ptr->file_namespace;
-#ifdef FLINT_LSP
-        // Skip every file that's not the main file
-        if (file_namespace->file_path != main_file_path) {
-            continue;
-        }
-#endif
         const auto &imports = file_namespace->public_symbols.imports;
         for (const auto &import : imports) {
             Namespace *imported_namespace = nullptr;
@@ -2343,13 +2337,17 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
     return true;
 }
 
-bool Parser::parse_all_open_functions(const bool parse_parallel) {
+bool Parser::parse_all_open_functions(const bool parse_parallel, const std::optional<Hash> &only_file) {
     PROFILE_THREADED_SCOPE("Parse Open Functions", parse_parallel);
 
     // Collect all open functions
     Profiler::start_task("Collect all open functions");
     std::vector<std::tuple<Parser &, FunctionNode *, std::vector<Line>>> open_functions;
     for (auto &parser : Parser::instances) {
+        if (only_file.has_value() && parser.file_hash.value != only_file.value().value) {
+            // Skip all functions of all files other than the provided `only_file`
+            continue;
+        }
         while (auto next = parser.get_next_open_function()) {
             auto &[function, body] = next.value();
             open_functions.emplace_back(parser, function, body);
