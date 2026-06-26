@@ -13,9 +13,12 @@
 class GroupDeclarationNode : public StatementNode {
   public:
     GroupDeclarationNode(                                                            //
+        const Hash &hash,                                                            //
+        const token_slice &tokens,                                                   //
         const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &variables, //
         std::unique_ptr<ExpressionNode> &initializer                                 //
         ) :
+        StatementNode(hash, tokens),
         variables(variables),
         initializer(std::move(initializer)) {}
 
@@ -24,7 +27,7 @@ class GroupDeclarationNode : public StatementNode {
     }
 
     // empty constructor
-    GroupDeclarationNode() = default;
+    GroupDeclarationNode() = delete;
     // destructor
     ~GroupDeclarationNode() override = default;
     // copy operations - disabled due to unique_ptr member

@@ -12,12 +12,15 @@
 /// @brief Represents variable or data declarations
 class DeclarationNode : public StatementNode {
   public:
-    DeclarationNode(                       //
-        const std::shared_ptr<Type> &type, //
-        const std::string &name,
+    DeclarationNode(                                                //
+        const Hash &hash,                                           //
+        const token_slice &tokens,                                  //
+        const std::shared_ptr<Type> &type,                          //
+        const std::string &name,                                    //
         const bool is_persistent,                                   //
         std::optional<std::unique_ptr<ExpressionNode>> &initializer //
         ) :
+        StatementNode(hash, tokens),
         type(type),
         name(name),
         is_persistent(is_persistent),
@@ -28,7 +31,7 @@ class DeclarationNode : public StatementNode {
     }
 
     // empty constructor
-    DeclarationNode() = default;
+    DeclarationNode() = delete;
     // destructor
     ~DeclarationNode() override = default;
     // copy operations - disabled due to unique_ptr member

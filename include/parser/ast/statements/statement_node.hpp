@@ -8,9 +8,12 @@
 /// @brief Base class for all statements
 class StatementNode : public ASTNode {
   protected:
-    StatementNode() = default;
-
-    explicit StatementNode(const std::vector<AnnotationNode> &annotations) :
+    explicit StatementNode(                             //
+        const std::vector<AnnotationNode> &annotations, //
+        const Hash &hash,                               //
+        const token_slice &tokens                       //
+        ) :
+        ASTNode(hash, tokens.first->line, tokens.first->column, tokens.second->column - tokens.first->column),
         annotations(annotations) {}
 
     explicit StatementNode(const Hash &hash, const token_slice &tokens) :

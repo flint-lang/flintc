@@ -31,7 +31,7 @@ class AssignmentNode : public StatementNode {
     }
 
     // constructor
-    AssignmentNode() = default;
+    AssignmentNode() = delete;
     // deconstructor
     ~AssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

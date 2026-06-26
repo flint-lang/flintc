@@ -12,12 +12,15 @@
 class GroupedDataFieldAssignmentNode : public StatementNode {
   public:
     GroupedDataFieldAssignmentNode(                            //
+        const Hash &hash,                                      //
+        const token_slice &tokens,                             //
         std::unique_ptr<ExpressionNode> &base_expr,            //
         const std::vector<std::string> &field_names,           //
         const std::vector<unsigned int> &field_ids,            //
         const std::vector<std::shared_ptr<Type>> &field_types, //
         std::unique_ptr<ExpressionNode> &expression            //
         ) :
+        StatementNode(hash, tokens),
         base_expr(std::move(base_expr)),
         field_names(field_names),
         field_ids(field_ids),
@@ -29,7 +32,7 @@ class GroupedDataFieldAssignmentNode : public StatementNode {
     }
 
     // constructor
-    GroupedDataFieldAssignmentNode() = default;
+    GroupedDataFieldAssignmentNode() = delete;
     // deconstructor
     ~GroupedDataFieldAssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

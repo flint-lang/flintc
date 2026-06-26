@@ -11,10 +11,13 @@
 class ArrayAssignmentNode : public StatementNode {
   public:
     ArrayAssignmentNode(                                                    //
+        const Hash &hash,                                                   //
+        const token_slice &tokens,                                          //
         std::unique_ptr<ExpressionNode> &base_expr,                         //
         std::vector<std::unique_ptr<ExpressionNode>> &indexing_expressions, //
         std::unique_ptr<ExpressionNode> &expression                         //
         ) :
+        StatementNode(hash, tokens),
         base_expr(std::move(base_expr)),
         indexing_expressions(std::move(indexing_expressions)),
         expression(std::move(expression)) {}
@@ -24,7 +27,7 @@ class ArrayAssignmentNode : public StatementNode {
     }
 
     // constructor
-    ArrayAssignmentNode() = default;
+    ArrayAssignmentNode() = delete;
     // deconstructor
     ~ArrayAssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

@@ -12,29 +12,23 @@
 class CatchNode : public StatementNode {
   public:
     explicit CatchNode(                             //
+        const Hash &hash,                           //
+        const token_slice &tokens,                  //
         const std::optional<std::string> &var_name, //
         const std::shared_ptr<Scope> &scope,        //
-        CallNodeBase *const call_node,              //
-        const Hash &file_hash,                      //
-        const unsigned int line,                    //
-        const unsigned int column,                  //
-        const unsigned int length                   //
+        CallNodeBase *const call_node               //
         ) :
+        StatementNode(hash, tokens),
         var_name(var_name),
         scope(scope),
-        call_node(call_node) {
-        this->file_hash = file_hash;
-        this->line = line;
-        this->column = column;
-        this->length = length;
-    }
+        call_node(call_node) {}
 
     Variation get_variation() const override {
         return Variation::CATCH;
     }
 
     // constructor
-    CatchNode() = default;
+    CatchNode() = delete;
     // deconstructor
     ~CatchNode() override = default;
     // copy operations - deleted because of unique_ptr member

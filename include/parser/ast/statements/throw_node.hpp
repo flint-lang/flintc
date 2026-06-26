@@ -10,7 +10,12 @@
 /// @brief Represents throw statements
 class ThrowNode : public StatementNode {
   public:
-    explicit ThrowNode(std::unique_ptr<ExpressionNode> &throw_value) :
+    explicit ThrowNode(                              //
+        const Hash &hash,                            //
+        const token_slice &tokens,                   //
+        std::unique_ptr<ExpressionNode> &throw_value //
+        ) :
+        StatementNode(hash, tokens),
         throw_value(std::move(throw_value)) {}
 
     Variation get_variation() const override {
@@ -18,7 +23,7 @@ class ThrowNode : public StatementNode {
     }
 
     // constructor
-    ThrowNode() = default;
+    ThrowNode() = delete;
     // deconstructor
     ~ThrowNode() override = default;
     // copy operations - deleted because of unique_ptr member

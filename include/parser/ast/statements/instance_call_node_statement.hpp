@@ -5,9 +5,19 @@
 
 /// @class `InstanceCallNodeStatement`
 /// @brief Represents instance function or method call statements
-class InstanceCallNodeStatement : public InstanceCallNodeBase, public StatementNode {
+class InstanceCallNodeStatement : public StatementNode, public InstanceCallNodeBase {
   public:
-    using InstanceCallNodeBase::InstanceCallNodeBase;
+    InstanceCallNodeStatement(                                                    //
+        const Hash &hash,                                                         //
+        const token_slice &tokens,                                                //
+        FunctionNode *function,                                                   //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const std::vector<std::shared_ptr<Type>> &error_types,                    //
+        const std::shared_ptr<Type> &type,                                        //
+        std::unique_ptr<ExpressionNode> &instance_variable                        //
+        ) :
+        StatementNode(hash, tokens),
+        InstanceCallNodeBase(function, arguments, error_types, type, instance_variable) {}
 
     Variation get_variation() const override {
         return Variation::INSTANCE_CALL;

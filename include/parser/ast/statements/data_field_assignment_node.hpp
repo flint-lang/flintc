@@ -12,12 +12,15 @@
 class DataFieldAssignmentNode : public StatementNode {
   public:
     DataFieldAssignmentNode(                          //
+        const Hash &hash,                             //
+        const token_slice &tokens,                    //
         std::unique_ptr<ExpressionNode> &base_expr,   //
         const std::optional<std::string> &field_name, //
         const unsigned int field_id,                  //
         const std::shared_ptr<Type> &field_type,      //
         std::unique_ptr<ExpressionNode> &expression   //
         ) :
+        StatementNode(hash, tokens),
         base_expr(std::move(base_expr)),
         field_name(field_name),
         field_id(field_id),
@@ -29,7 +32,7 @@ class DataFieldAssignmentNode : public StatementNode {
     }
 
     // constructor
-    DataFieldAssignmentNode() = default;
+    DataFieldAssignmentNode() = delete;
     // deconstructor
     ~DataFieldAssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

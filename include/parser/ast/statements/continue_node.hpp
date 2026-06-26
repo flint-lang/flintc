@@ -6,8 +6,11 @@
 /// @brief Represents continue statements
 class ContinueNode : public StatementNode {
   public:
+    ContinueNode(const Hash &hash, const token_slice &tokens) :
+        StatementNode(hash, tokens) {}
+
     // constructor
-    ContinueNode() = default;
+    ContinueNode() = delete;
     // deconstructor
     ~ContinueNode() override = default;
     // copy operations - deleted because of unique_ptr member

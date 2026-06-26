@@ -13,9 +13,12 @@
 class GroupAssignmentNode : public StatementNode {
   public:
     GroupAssignmentNode(                                                             //
+        const Hash &hash,                                                            //
+        const token_slice &tokens,                                                   //
         const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &assignees, //
         std::unique_ptr<ExpressionNode> &expression                                  //
         ) :
+        StatementNode(hash, tokens),
         assignees(assignees),
         expression(std::move(expression)) {}
 
@@ -24,7 +27,7 @@ class GroupAssignmentNode : public StatementNode {
     }
 
     // constructor
-    GroupAssignmentNode() = default;
+    GroupAssignmentNode() = delete;
     // deconstructor
     ~GroupAssignmentNode() override = default;
     // copy operations - deleted because of unique_ptr member

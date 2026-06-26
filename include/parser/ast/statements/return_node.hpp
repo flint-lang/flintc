@@ -10,7 +10,12 @@
 /// @brief Represents return statements
 class ReturnNode : public StatementNode {
   public:
-    explicit ReturnNode(std::optional<std::unique_ptr<ExpressionNode>> &return_value) :
+    ReturnNode(                                                      //
+        const Hash &hash,                                            //
+        const token_slice &tokens,                                   //
+        std::optional<std::unique_ptr<ExpressionNode>> &return_value //
+        ) :
+        StatementNode(hash, tokens),
         return_value(std::move(return_value)) {}
 
     Variation get_variation() const override {
@@ -18,7 +23,7 @@ class ReturnNode : public StatementNode {
     }
 
     // constructor
-    ReturnNode() = default;
+    ReturnNode() = delete;
     // deconstructor
     ~ReturnNode() override = default;
     // copy operations - deleted because of unique_ptr member

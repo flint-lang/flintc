@@ -5,9 +5,18 @@
 
 /// @class `CallableCallNodeStatement`
 /// @brief Represents call statements of callable variables
-class CallableCallNodeStatement : public CallableCallNodeBase, public StatementNode {
+class CallableCallNodeStatement : public StatementNode, public CallableCallNodeBase {
   public:
-    using CallableCallNodeBase::CallableCallNodeBase;
+    CallableCallNodeStatement(                                                    //
+        const Hash &hash,                                                         //
+        const token_slice &tokens,                                                //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const std::vector<std::shared_ptr<Type>> &error_types,                    //
+        const std::shared_ptr<Type> &type,                                        //
+        const std::string &callable_variable                                      //
+        ) :
+        StatementNode(hash, tokens),
+        CallableCallNodeBase(arguments, error_types, type, callable_variable) {}
 
     Variation get_variation() const override {
         return Variation::CALLABLE_CALL;

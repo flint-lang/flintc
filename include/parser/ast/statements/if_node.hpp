@@ -14,10 +14,13 @@
 class IfNode : public StatementNode {
   public:
     IfNode(                                                                                      //
+        const Hash &hash,                                                                        //
+        const token_slice &tokens,                                                               //
         std::unique_ptr<ExpressionNode> &condition,                                              //
         std::shared_ptr<Scope> &then_scope,                                                      //
         std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> &else_scope //
         ) :
+        StatementNode(hash, tokens),
         condition(std::move(condition)),
         then_scope(std::move(then_scope)),
         else_scope(std::move(else_scope)) {}
@@ -27,7 +30,7 @@ class IfNode : public StatementNode {
     }
 
     // constructor
-    IfNode() = default;
+    IfNode() = delete;
     // deconstructor
     ~IfNode() override = default;
     // copy operations - deleted because of unique_ptr member

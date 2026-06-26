@@ -6,8 +6,11 @@
 /// @brief Represents break statements
 class BreakNode : public StatementNode {
   public:
+    BreakNode(const Hash &hash, const token_slice &tokens) :
+        StatementNode(hash, tokens) {}
+
     // constructor
-    BreakNode() = default;
+    BreakNode() = delete;
     // deconstructor
     ~BreakNode() override = default;
     // copy operations - deleted because of unique_ptr member

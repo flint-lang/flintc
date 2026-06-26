@@ -24,9 +24,15 @@ struct SSwitchBranch {
 
 /// @class `SwitchStatement`
 /// @brief Represents switch statements
-class SwitchStatement : public SwitchBase, public StatementNode {
+class SwitchStatement : public StatementNode, public SwitchBase {
   public:
-    SwitchStatement(std::unique_ptr<ExpressionNode> &switcher, std::vector<SSwitchBranch> &branches) :
+    SwitchStatement(                               //
+        const Hash &hash,                          //
+        const token_slice &tokens,                 //
+        std::unique_ptr<ExpressionNode> &switcher, //
+        std::vector<SSwitchBranch> &branches       //
+        ) :
+        StatementNode(hash, tokens),
         SwitchBase(switcher),
         branches(std::move(branches)) {}
 

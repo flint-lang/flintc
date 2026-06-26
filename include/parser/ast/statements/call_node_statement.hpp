@@ -5,9 +5,18 @@
 
 /// @class `CallNodeStatement`
 /// @brief Represents function or method call statements
-class CallNodeStatement : public CallNodeBase, public StatementNode {
+class CallNodeStatement : public StatementNode, public CallNodeBase {
   public:
-    using CallNodeBase::CallNodeBase;
+    CallNodeStatement(                                                            //
+        const Hash &hash,                                                         //
+        const token_slice &tokens,                                                //
+        FunctionNode *function,                                                   //
+        std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> &arguments, //
+        const std::vector<std::shared_ptr<Type>> &error_types,                    //
+        const std::shared_ptr<Type> &type                                         //
+        ) :
+        StatementNode(hash, tokens),
+        CallNodeBase(function, arguments, error_types, type) {}
 
     Variation get_variation() const override {
         return Variation::CALL;

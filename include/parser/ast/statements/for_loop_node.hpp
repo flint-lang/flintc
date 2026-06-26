@@ -11,33 +11,26 @@
 /// @brief Represents traditional for loops
 class ForLoopNode : public StatementNode {
   public:
-    /// @note Takes ownership of all its constructor arguments
     ForLoopNode(                                    //
-        const Hash &file_hash,                      //
-        const unsigned int line,                    //
-        const unsigned int column,                  //
-        const unsigned int length,                  //
+        const Hash &hash,                           //
+        const token_slice &tokens,                  //
         std::unique_ptr<ExpressionNode> &condition, //
         std::shared_ptr<Scope> &definition_scope,   //
         std::unique_ptr<StatementNode> &looparound, //
         std::shared_ptr<Scope> &body                //
         ) :
+        StatementNode(hash, tokens),
         condition(std::move(condition)),
         definition_scope(std::move(definition_scope)),
         looparound(std::move(looparound)),
-        body(std::move(body)) {
-        this->file_hash = file_hash;
-        this->line = line;
-        this->column = column;
-        this->length = length;
-    }
+        body(std::move(body)) {}
 
     Variation get_variation() const override {
         return Variation::FOR_LOOP;
     }
 
     // constructor
-    ForLoopNode() = default;
+    ForLoopNode() = delete;
     // deconstructor
     ~ForLoopNode() override = default;
     // copy operations - deleted because of unique_ptr member

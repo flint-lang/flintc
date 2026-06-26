@@ -5,9 +5,17 @@
 
 /// class `UnaryOpStatement`
 /// @brief Represents unary operation statements
-class UnaryOpStatement : public UnaryOpBase, public StatementNode {
+class UnaryOpStatement : public StatementNode, public UnaryOpBase {
   public:
-    using UnaryOpBase::UnaryOpBase;
+    UnaryOpStatement(                             //
+        const Hash &hash,                         //
+        const token_slice &tokens,                //
+        Token operator_token,                     //
+        std::unique_ptr<ExpressionNode> &operand, //
+        const bool is_left                        //
+        ) :
+        StatementNode(hash, tokens),
+        UnaryOpBase(operator_token, operand, is_left) {}
 
     Variation get_variation() const override {
         return Variation::UNARY_OP;
