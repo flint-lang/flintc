@@ -30,6 +30,8 @@ token_list Lexer::scan() {
         if (tokens.front().token == TOK_EOL) {
             tokens.clear();
         }
+        // Add an EOF token for the special-case string interpolation
+        tokens.emplace_back(TOK_EOF, line, column, file_id, "EOF");
         return tokens;
     }
 

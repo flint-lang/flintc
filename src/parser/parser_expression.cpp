@@ -723,18 +723,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         }
         token_slice expr_slice = {expr_tokens.begin(), expr_tokens.end()};
         collapse_types_in_slice(expr_slice, expr_tokens);
-        token_slice expr_tokens_slice = {expr_tokens.begin(), expr_tokens.end()};
         if (expr_tokens.back().token == TOK_EOF) {
-            expr_tokens_slice.second--;
+            expr_slice.second--;
         }
-        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(ctx, scope, expr_tokens_slice);
+        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(ctx, scope, expr_slice);
         if (!expr.has_value()) {
             return std::nullopt;
         }
         // Cast every expression inside to a str type (if it isn't already)
         const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
         if (!check_castability(str_type, expr.value(), true)) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expr_tokens_slice, str_type, expr.value()->type);
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expr_slice, str_type, expr.value()->type);
             return std::nullopt;
         }
         interpol_content.emplace_back(std::move(expr.value()));
