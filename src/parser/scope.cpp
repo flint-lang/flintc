@@ -152,12 +152,18 @@ std::vector<std::pair<std::string, Scope::Variable>> Scope::get_all_variables() 
             }
             case StatementNode::Variation::ENHANCED_FOR_LOOP: {
                 const auto *node = statement->as<EnhForLoopNode>();
+                for (const auto &[vname, var] : node->definition_scope->variables) {
+                    all_variables.emplace_back(vname, var);
+                }
                 auto scope_variables = node->body->get_all_variables();
                 insert_variables(scope_variables, all_variables);
                 break;
             }
             case StatementNode::Variation::FOR_LOOP: {
                 const auto *node = statement->as<ForLoopNode>();
+                for (const auto &[vname, var] : node->definition_scope->variables) {
+                    all_variables.emplace_back(vname, var);
+                }
                 auto scope_variables = node->body->get_all_variables();
                 insert_variables(scope_variables, all_variables);
                 break;
