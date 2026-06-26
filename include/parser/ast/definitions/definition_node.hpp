@@ -7,7 +7,6 @@
 /// @brief Base class for all top-level definitions
 class DefinitionNode : public ASTNode {
   protected:
-    // constructor
     DefinitionNode(                                    //
         const Hash &file_hash,                         //
         const unsigned int line,                       //

@@ -249,6 +249,22 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     }
 
     auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
+    unsigned int end_line = this_if_pair.second.back().tokens.second->line;
+    if (else_scope.has_value()) {
+        if (std::holds_alternative<std::shared_ptr<Scope>>(else_scope.value())) {
+            const auto &else_body = std::get<std::shared_ptr<Scope>>(else_scope.value())->body;
+            if (!else_body.empty() && else_body.back()->line > end_line) {
+                end_line = else_body.back()->line;
+            }
+        } else {
+            const auto &else_if = *std::get<std::unique_ptr<IfNode>>(else_scope.value());
+            unsigned int else_end = else_if.end_line != 0 ? else_if.end_line : else_if.line;
+            if (else_end > end_line) {
+                end_line = else_end;
+            }
+        }
+    }
+    if_node->end_line = end_line;
     return if_node;
 }
 
@@ -1382,9 +1398,11 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     const token_slice right_of_catch = {catch_id.value(), std::prev(definition.second)};
     std::optional<std::string> err_var = std::nullopt;
+    token_list::iterator err_var_token = right_of_catch.first;
     for (auto it = right_of_catch.first; it != right_of_catch.second; ++it) {
         if (it->token == TOK_CATCH && std::next(it) != right_of_catch.second && std::next(it)->token == TOK_IDENTIFIER) {
             err_var = std::next(it)->lexme;
+            err_var_token = std::next(it);
         }
     }
 
@@ -1759,6 +1777,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
     token_slice tokens_mut = tokens;
     std::optional<GroupDeclarationNode> declaration = std::nullopt;
     std::vector<std::pair<std::shared_ptr<Type>, std::string>> variables;
+    std::vector<std::pair<unsigned int, unsigned int>> var_locations;
 
     std::optional<uint2> lhs_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_colon_equal);
     if (!lhs_range.has_value()) {
@@ -1777,7 +1796,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
             ASSERT(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER);
-            variables.emplace_back(nullptr, std::prev(lhs_tokens.second)->lexme);
+            auto name_it = std::prev(lhs_tokens.second);
+            variables.emplace_back(nullptr, name_it->lexme);
+            var_locations.emplace_back(name_it->line, name_it->column);
             break;
         } else {
             token_slice var_tokens = {lhs_tokens.first + var_range.value().first, lhs_tokens.first + var_range.value().second};
@@ -1787,7 +1808,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             var_tokens.second--;
             // The last element is the variable name now
             ASSERT(std::prev(var_tokens.second)->token == TOK_IDENTIFIER);
-            variables.emplace_back(nullptr, std::prev(var_tokens.second)->lexme);
+            auto name_it = std::prev(var_tokens.second);
+            variables.emplace_back(nullptr, name_it->lexme);
+            var_locations.emplace_back(name_it->line, name_it->column);
         }
     }
     // Now parse the expression (rhs)
@@ -2903,6 +2926,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         token_list toks = clone_from_slice(definition);
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
+    }
+    if (statement_node.value()->get_variation() != StatementNode::Variation::IF) {
+        // Every scoped statement other than if gets it's end line updated. For if statements we have special-case handling directly in its
+        // creation
+        statement_node.value()->end_line = scoped_body.value().back().tokens.second->line;
     }
 
     return statement_node;

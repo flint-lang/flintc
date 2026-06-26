@@ -6,13 +6,13 @@
 /// @brief Base class for all AST nodes.
 class ASTNode {
   protected:
-    // private constructor
     ASTNode() = default;
     ASTNode(const Hash &file_hash, const unsigned int line, const unsigned int column, const unsigned int length) :
         file_hash(file_hash),
         line(line),
         column(column),
-        length(length) {}
+        length(length),
+        end_line(line) {}
 
   public:
     // destructor
@@ -45,4 +45,20 @@ class ASTNode {
     /// @var `length`
     /// @brief The length of the AST node
     unsigned int length;
+
+    /// @var `end_line`
+    /// @brief The last line this AST node spans (inclusive)
+    unsigned int end_line;
+
+    /// @function `contains_pos`
+    /// @brief Checks whether this AST Node contains the given line & column position
+    ///
+    /// @param `l` The line to check whether this ASTNode contains it
+    /// @param `c` The column to chek whether this ASTNode contains it
+    /// @return `bool` Whether this ASTNode contains the given position
+    bool contains_pos(unsigned int l, unsigned int c) const {
+        return line == l                            //
+            ? (c >= column && c <= column + length) //
+            : (line < l && l <= end_line);
+    }
 };

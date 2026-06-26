@@ -631,6 +631,9 @@ class Parser {
     ///
     /// @attention This function takes ownership of the `open_entity` parameter
     void add_open_entity(std::pair<EntityNode *, std::vector<Line>> &&open_entity) {
+        if (!open_entity.second.empty()) {
+            open_entity.first->end_line = open_entity.second.back().tokens.second->line;
+        }
         open_entity_list.push_back(std::move(open_entity));
     }
 
@@ -641,6 +644,9 @@ class Parser {
     ///
     /// @attention This function takes ownership of the `open_function` parameter
     void add_open_function(std::pair<FunctionNode *, std::vector<Line>> &&open_function) {
+        if (!open_function.second.empty()) {
+            open_function.first->end_line = open_function.second.back().tokens.second->line;
+        }
         open_functions_list.push_back(std::move(open_function));
     }
 
@@ -693,6 +699,9 @@ class Parser {
     ///
     /// @attention This function takes ownership of the `open_test` parameter
     void add_open_test(std::pair<TestNode *, std::vector<Line>> &&open_test) {
+        if (!open_test.second.empty()) {
+            open_test.first->end_line = open_test.second.back().tokens.second->line;
+        }
         open_tests_list.push_back(std::move(open_test));
     }
 
