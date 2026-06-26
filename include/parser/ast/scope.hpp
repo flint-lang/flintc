@@ -63,7 +63,7 @@ class Scope {
         /// @brief Whether this variable is a function parameter
         bool is_fn_param;
 
-        /// @var `is_fn_param`
+        /// @var `is_reference`
         /// @brief Whether the variable is a reference to another variable, e.g. does not need to be cleaned up at end of scope
         bool is_reference = false;
 
@@ -76,16 +76,30 @@ class Scope {
         /// function's return type within the generator functions without a reference to the function node itself
         bool is_pseudo_variable = false;
 
+        /// @var `file_hash`
+        /// @brief The hash of the file where this variable was declared
+        Hash file_hash{};
+
+        /// @var `line`
+        /// @brief The line where this variable was declared
+        unsigned int line = 0;
+
+        /// @var `column`
+        /// @brief The column where this variable was declared
+        unsigned int column = 0;
+
         bool operator==(const Variable &other) const {
-            return type->equals(other.type)                   //
-                && scope_id == other.scope_id                 //
-                && scope_segment == other.scope_segment       //
-                && is_mutable == other.is_mutable             //
-                && is_persistent == other.is_persistent       //
-                && is_fn_param == other.is_fn_param           //
-                && is_reference == other.is_reference         //
-                && return_scope_ids == other.return_scope_ids //
-                && is_pseudo_variable == other.is_pseudo_variable;
+            return type->equals(other.type)                                                       //
+                && scope_id == other.scope_id                                                     //
+                && scope_segment == other.scope_segment                                           //
+                && is_mutable == other.is_mutable                                                 //
+                && is_persistent == other.is_persistent                                           //
+                && is_fn_param == other.is_fn_param                                               //
+                && is_reference == other.is_reference                                             //
+                && return_scope_ids == other.return_scope_ids                                     //
+                && is_pseudo_variable == other.is_pseudo_variable && file_hash == other.file_hash //
+                && line == other.line                                                             //
+                && column == other.column;
         }
     };
 

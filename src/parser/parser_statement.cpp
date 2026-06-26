@@ -509,7 +509,22 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         if (!file_node_ptr->file_namespace->add_type(tuple_type)) {
             tuple_type = file_node_ptr->file_namespace->get_type_from_str(tuple_type->to_string()).value();
         }
-        if (!definition_scope->add_variable(tuple_name, {tuple_type, definition_scope->scope_id, scope_segment, false, true, true})) {
+        if (!definition_scope->add_variable(tuple_name,
+                Scope::Variable{
+                    .type = tuple_type,
+                    .scope_id = definition_scope->scope_id,
+                    .scope_segment = scope_segment,
+                    .is_mutable = false,
+                    .is_persistent = false,
+                    .is_fn_param = true,
+                    .is_reference = true,
+                    .return_scope_ids = {},
+                    .is_pseudo_variable = false,
+                    .file_hash = file_hash,
+                    .line = (definition_mut.first - 2)->line,
+                    .column = (definition_mut.first - 2)->column,
+                }) //
+        ) {
             auto tuple_it = definition_mut.first - 2;
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, tuple_it->line, tuple_it->column, tuple_name);
             return std::nullopt;
@@ -522,8 +537,21 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         const std::optional<std::string> element_name = its.second;
         if (index_name.has_value()) {
             auto index_it = definition_mut.first - 5;
-            if (!definition_scope->add_variable(                                                                     //
-                    index_name.value(), {index_type, definition_scope->scope_id, scope_segment, false, false, true}) //
+            if (!definition_scope->add_variable(index_name.value(),
+                    Scope::Variable{
+                        .type = index_type,
+                        .scope_id = definition_scope->scope_id,
+                        .scope_segment = scope_segment,
+                        .is_mutable = false,
+                        .is_persistent = false,
+                        .is_fn_param = false,
+                        .is_reference = true,
+                        .return_scope_ids = {},
+                        .is_pseudo_variable = false,
+                        .file_hash = file_hash,
+                        .line = index_it->line,
+                        .column = index_it->column,
+                    }) //
             ) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, index_it->line, index_it->column, index_name.value());
                 return std::nullopt;
@@ -531,8 +559,21 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
         }
         if (element_name.has_value()) {
             auto element_it = definition_mut.first - 3;
-            if (!definition_scope->add_variable(                                                                        //
-                    element_name.value(), {element_type, definition_scope->scope_id, scope_segment, true, false, true}) //
+            if (!definition_scope->add_variable(element_name.value(),
+                    Scope::Variable{
+                        .type = element_type,
+                        .scope_id = definition_scope->scope_id,
+                        .scope_segment = scope_segment,
+                        .is_mutable = true,
+                        .is_persistent = false,
+                        .is_fn_param = false,
+                        .is_reference = true,
+                        .return_scope_ids = {},
+                        .is_pseudo_variable = false,
+                        .file_hash = file_hash,
+                        .line = element_it->line,
+                        .column = element_it->column,
+                    }) //
             ) {
                 THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, element_it->line, element_it->column, element_name.value());
                 return std::nullopt;
@@ -1361,7 +1402,22 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
                 err_variable_type = file_node_ptr->file_namespace->get_type_from_str(err_variable_type->to_string()).value();
             }
         }
-        if (!body_scope->add_variable(err_var.value(), {err_variable_type, body_scope->scope_id, scope_segment, false, false, false})) {
+        if (!body_scope->add_variable(err_var.value(),
+                Scope::Variable{
+                    .type = err_variable_type,
+                    .scope_id = body_scope->scope_id,
+                    .scope_segment = scope_segment,
+                    .is_mutable = false,
+                    .is_persistent = false,
+                    .is_fn_param = false,
+                    .is_reference = false,
+                    .return_scope_ids = {},
+                    .is_pseudo_variable = false,
+                    .file_hash = file_hash,
+                    .line = err_var_token->line,
+                    .column = err_var_token->column,
+                }) //
+        ) {
             THROW_ERR(                                                                                                                //
                 ErrVarRedefinition, ERR_PARSING, file_hash, right_of_catch.first->line, right_of_catch.first->column, err_var.value() //
             );
@@ -1754,7 +1810,22 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             ASSERT(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = types.at(i);
-                if (!scope->add_variable(variables.at(i).second, {types.at(i), scope->scope_id, scope_segment, true, false, false})) {
+                if (!scope->add_variable(variables.at(i).second,
+                        Scope::Variable{
+                            .type = types.at(i),
+                            .scope_id = scope->scope_id,
+                            .scope_segment = scope_segment,
+                            .is_mutable = true,
+                            .is_persistent = false,
+                            .is_fn_param = false,
+                            .is_reference = false,
+                            .return_scope_ids = {},
+                            .is_pseudo_variable = false,
+                            .file_hash = file_hash,
+                            .line = var_locations.at(i).first,
+                            .column = var_locations.at(i).second,
+                        }) //
+                ) {
                     // Variable shadowing
                     THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, lhs_tokens.first->line, lhs_tokens.first->column,
                         variables.at(i).second);
@@ -1767,8 +1838,21 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             const auto *multi_type = expression.value()->type->as<MultiType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = multi_type->base_type;
-                if (!scope->add_variable(                                                                                    //
-                        variables.at(i).second, {multi_type->base_type, scope->scope_id, scope_segment, true, false, false}) //
+                if (!scope->add_variable(variables.at(i).second,
+                        Scope::Variable{
+                            .type = multi_type->base_type,
+                            .scope_id = scope->scope_id,
+                            .scope_segment = scope_segment,
+                            .is_mutable = true,
+                            .is_persistent = false,
+                            .is_fn_param = false,
+                            .is_reference = false,
+                            .return_scope_ids = {},
+                            .is_pseudo_variable = false,
+                            .file_hash = file_hash,
+                            .line = var_locations.at(i).first,
+                            .column = var_locations.at(i).second,
+                        }) //
                 ) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
@@ -1810,8 +1894,21 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = tuple_type->types[i];
-                if (!scope->add_variable(                                                                                   //
-                        variables.at(i).second, {tuple_type->types[i], scope->scope_id, scope_segment, true, false, false}) //
+                if (!scope->add_variable(variables.at(i).second,
+                        Scope::Variable{
+                            .type = tuple_type->types[i],
+                            .scope_id = scope->scope_id,
+                            .scope_segment = scope_segment,
+                            .is_mutable = true,
+                            .is_persistent = false,
+                            .is_fn_param = false,
+                            .is_reference = false,
+                            .return_scope_ids = {},
+                            .is_pseudo_variable = false,
+                            .file_hash = file_hash,
+                            .line = var_locations.at(i).first,
+                            .column = var_locations.at(i).second,
+                        }) //
                 ) {
                     THROW_ERR(                                                                   //
                         ErrVarRedefinition, ERR_PARSING, file_hash,                              //
@@ -1923,7 +2020,22 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         }
 
         std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-        if (!scope->add_variable(name, {declared_type, scope->scope_id, scope_segment, is_mutable, is_persistent, false})) {
+        if (!scope->add_variable(name,
+                Scope::Variable{
+                    .type = declared_type,
+                    .scope_id = scope->scope_id,
+                    .scope_segment = scope_segment,
+                    .is_mutable = is_mutable,
+                    .is_persistent = is_persistent,
+                    .is_fn_param = false,
+                    .is_reference = false,
+                    .return_scope_ids = {},
+                    .is_pseudo_variable = false,
+                    .file_hash = file_hash,
+                    .line = std::next(lhs_tokens.first)->line,
+                    .column = std::next(lhs_tokens.first)->column,
+                }) //
+        ) {
             THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
                 name);
             return std::nullopt;
@@ -1977,7 +2089,22 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     }
 
     // Add variable to scope
-    if (!scope->add_variable(name, {final_type, scope->scope_id, scope_segment, is_mutable, is_persistent, false})) {
+    if (!scope->add_variable(name,
+            Scope::Variable{
+                .type = final_type,
+                .scope_id = scope->scope_id,
+                .scope_segment = scope_segment,
+                .is_mutable = is_mutable,
+                .is_persistent = is_persistent,
+                .is_fn_param = false,
+                .is_reference = false,
+                .return_scope_ids = {},
+                .is_pseudo_variable = false,
+                .file_hash = file_hash,
+                .line = is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
+                .column = is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column,
+            }) //
+    ) {
         THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, is_inferred ? lhs_tokens.first->line : std::next(lhs_tokens.first)->line,
             is_inferred ? lhs_tokens.first->column : std::next(lhs_tokens.first)->column, name);
         return std::nullopt;
