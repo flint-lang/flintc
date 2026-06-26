@@ -850,8 +850,8 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     }
 
     // Check if the source function and dest function signatures match
-    const std::string src_fn_sig = src_fn->get_signature_string(src_func->required_data.size(), true, false, true, true);
-    const std::string dest_fn_sig = dest_fn->get_signature_string(dest_start_id, true, false, true, true);
+    const std::string src_fn_sig = src_fn->get_signature_string(src_func->required_data.size(), false, true, false, true, true);
+    const std::string dest_fn_sig = dest_fn->get_signature_string(dest_start_id, false, true, false, true, true);
     if (src_fn_sig != dest_fn_sig) {
         THROW_ERR(ErrDefEntityLinkSignatureMismatch, ERR_PARSING, file_hash, tokens, src_fn_sig, dest_fn_sig);
         return std::nullopt;

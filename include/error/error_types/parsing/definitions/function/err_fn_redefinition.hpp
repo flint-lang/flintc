@@ -14,7 +14,7 @@ class ErrFnRedefinition : public BaseError {
         ) :
         BaseError(error_type, file_file, function->line, function->column, function->length),
         original(original),
-        function_string(function->get_signature_string(0, false, false, false, false)) {}
+        function_string(function->get_signature_string(0, false, false, false, false, false)) {}
 
     [[nodiscard]]
     std::string to_string() const override {

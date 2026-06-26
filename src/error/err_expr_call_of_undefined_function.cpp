@@ -36,7 +36,7 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
                 } else {
                     oss << "    └─ ";
                 }
-                oss << CYAN << (*fn_it)->get_signature_string(0, true, true, false, false) << DEFAULT;
+                oss << CYAN << (*fn_it)->get_signature_string(0, false, true, true, false, false) << DEFAULT;
                 oss << " from file '" << YELLOW << (*fn_it)->file_hash.path.filename().string() << DEFAULT << "'";
                 if ((fn_it + 1) != possible_functions.end()) {
                     oss << "\n";

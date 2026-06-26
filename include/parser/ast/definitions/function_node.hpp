@@ -127,6 +127,7 @@ class FunctionNode : public DefinitionNode {
 
     std::string get_signature_string(                 //
         const size_t implicit_parameters_to_skip = 0, //
+        const bool name_dot_as_ref = false,           //
         const bool include_modifiers = true,          //
         const bool include_param_names = true,        //
         const bool include_return_types = true,       //
@@ -137,7 +138,11 @@ class FunctionNode : public DefinitionNode {
         if (dot_idx == name.end()) {
             oss << name;
         } else {
-            oss << name.substr(std::distance(name.begin(), dot_idx) + 1);
+            const auto &dot_dist = std::distance(name.begin(), dot_idx);
+            if (name_dot_as_ref) {
+                oss << name.substr(0, dot_dist) << "::";
+            }
+            oss << name.substr(dot_dist + 1);
         }
         oss << "(";
         for (size_t j = implicit_parameters_to_skip; j < parameters.size(); j++) {

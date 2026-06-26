@@ -403,7 +403,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     msg.type = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.type = FIP_SYM_FUNCTION;
     strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
-    const std::string fn_str = function->get_signature_string(0, true, false, true, false);
+    const std::string fn_str = function->get_signature_string(0, false, true, false, true, false);
     fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
     std::shared_ptr<Type> ret_type;
