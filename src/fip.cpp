@@ -685,6 +685,11 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 generated_types[e->name] = Type::Variation::ENUM;
                 break;
             }
+            case FIP_SYM_OPAQUE: {
+                const fip_sig_opaque_t *const o = &list->sigs[i].sig.opaque;
+                file << "opaque " << o->name << ";\n";
+                break;
+            }
         }
     }
     file.close();
@@ -792,13 +797,19 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             file << "}";
             break;
         }
-        case FIP_TYPE_ARRAY:
+        case FIP_TYPE_ARRAY: {
             const fip_type_array_t *a = &type->u.array;
             generate_fip_type(a->base_type, file, false);
             file << "[";
             file << std::to_string(a->size);
             file << "]";
             break;
+        }
+        case FIP_TYPE_OPAQUE: {
+            const fip_type_opaque_t *o = &type->u.opaque;
+            file << o->name;
+            break;
+        }
     }
 }
 

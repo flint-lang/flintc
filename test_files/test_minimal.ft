@@ -1,9 +1,6 @@
 use Core.print
 
-opaque NamedOpaque;
-
-extern def create_named_opaque() -> NamedOpaque;
-extern def free_named_opaque(mut NamedOpaque* value);
+use Fip.c
 
 def main():
 	print("Hello, World!\n");
