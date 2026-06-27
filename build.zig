@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) !void {
     if (external_llvm_prebuilt and external_llvm_dir == null) {
         @panic("To use 'llvm-prebuilt' a 'llvm-dir' needs to be provided.");
     }
-    const external_llvm_config = b.option([]const u8, "llvm-config", "Path to the llvm-config binary to use.");
+    const external_skip_llvm_config = b.option(bool, "skip-llvm-config", "Wehther to skip llvm-config being executed.") orelse false;
     const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
     const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
@@ -92,7 +92,7 @@ pub fn build(b: *std.Build) !void {
     const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_llvm_config);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -107,7 +107,7 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_llvm_config);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -115,7 +115,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_llvm_config);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -263,7 +263,7 @@ fn buildFlintc(
     external_fip_dir: ?[]const u8,
     external_json_mini_dir: ?[]const u8,
     external_llvm_dir: ?[]const u8,
-    external_llvm_config: ?[]const u8,
+    external_skip_llvm_config: bool,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
@@ -366,7 +366,7 @@ fn buildFlintc(
     exe.root_module.linkSystemLibrary("lldCommon", .{});
 
     // Link LLVM libraries
-    try linkWithLLVM(b, previous_step, exe, target, llvm_dir, external_llvm_config);
+    try linkWithLLVM(b, previous_step, exe, target, llvm_dir, external_skip_llvm_config);
 
     return exe;
 }
@@ -693,26 +693,26 @@ fn linkWithLLVM(
     exe: *std.Build.Step.Compile,
     target: std.Build.ResolvedTarget,
     llvm_dir: []const u8,
-    external_llvm_config: ?[]const u8,
+    external_skip_llvm_config: bool,
 ) !void {
-    const llvm_config_path = if (external_llvm_config) |path| path else b.fmt("{s}/bin/{s}", .{ llvm_dir, switch (target.result.os.tag) {
-        .linux => "llvm-config",
-        .windows => "llvm-config.exe",
-        else => return error.TargetNeedsToBeLinuxOrWindows,
-    } });
-    const llvm_config_cmd = b.addSystemCommand(&.{ llvm_config_path, "--link-static", "--libs", "all" });
-    llvm_config_cmd.step.dependOn(previous_step);
-
     const LinkLLVMLibsStep = struct {
         step: std.Build.Step,
         exe: *std.Build.Step.Compile,
-        output_file: std.Build.LazyPath,
+        output_file: ?std.Build.LazyPath,
+        static_lib_names: ?[]const []const u8,
 
         pub fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) !void {
             const self: *@This() = @fieldParentPtr("step", step);
 
+            if (self.static_lib_names) |lib_names| {
+                for (lib_names) |lib_name| {
+                    self.exe.root_module.linkSystemLibrary(lib_name, .{});
+                }
+                return;
+            }
+
             const b_llvm = self.step.owner;
-            const file_path = self.output_file.getPath(b_llvm);
+            const file_path = self.output_file.?.getPath(b_llvm);
 
             const contents: []const u8 = try std.Io.Dir.cwd().readFileAlloc(b_llvm.graph.io, file_path, b_llvm.allocator, .limited(std.math.maxInt(u32)));
             defer b_llvm.allocator.free(contents);
@@ -730,6 +730,120 @@ fn linkWithLLVM(
         }
     };
 
+    const static_llvm_libs: ?[]const []const u8 = if (external_skip_llvm_config) blk: {
+        // Fill this array with the output of `llvm-config --link-static --libs all` for your system.
+        break :blk &.{
+            "LLVMWindowsManifest",
+            "LLVMXRay",
+            "LLVMLibDriver",
+            "LLVMDlltoolDriver",
+            "LLVMTelemetry",
+            "LLVMTextAPIBinaryReader",
+            "LLVMCoverage",
+            "LLVMLineEditor",
+            "LLVMX86TargetMCA",
+            "LLVMX86Disassembler",
+            "LLVMX86AsmParser",
+            "LLVMX86CodeGen",
+            "LLVMX86Desc",
+            "LLVMX86Info",
+            "LLVMOrcDebugging",
+            "LLVMOrcJIT",
+            "LLVMWindowsDriver",
+            "LLVMMCJIT",
+            "LLVMJITLink",
+            "LLVMInterpreter",
+            "LLVMExecutionEngine",
+            "LLVMRuntimeDyld",
+            "LLVMOrcTargetProcess",
+            "LLVMOrcShared",
+            "LLVMDWP",
+            "LLVMDWARFCFIChecker",
+            "LLVMDebugInfoLogicalView",
+            "LLVMOption",
+            "LLVMObjCopy",
+            "LLVMMCA",
+            "LLVMMCDisassembler",
+            "LLVMLTO",
+            "LLVMPasses",
+            "LLVMHipStdPar",
+            "LLVMCFGuard",
+            "LLVMCoroutines",
+            "LLVMipo",
+            "LLVMVectorize",
+            "LLVMSandboxIR",
+            "LLVMLinker",
+            "LLVMFrontendOpenMP",
+            "LLVMFrontendOffloading",
+            "LLVMObjectYAML",
+            "LLVMFrontendOpenACC",
+            "LLVMFrontendHLSL",
+            "LLVMFrontendDriver",
+            "LLVMInstrumentation",
+            "LLVMFrontendDirective",
+            "LLVMFrontendAtomic",
+            "LLVMExtensions",
+            "LLVMDWARFLinkerParallel",
+            "LLVMDWARFLinkerClassic",
+            "LLVMDWARFLinker",
+            "LLVMGlobalISel",
+            "LLVMMIRParser",
+            "LLVMAsmPrinter",
+            "LLVMSelectionDAG",
+            "LLVMCodeGen",
+            "LLVMTarget",
+            "LLVMObjCARCOpts",
+            "LLVMCodeGenTypes",
+            "LLVMCGData",
+            "LLVMIRPrinter",
+            "LLVMInterfaceStub",
+            "LLVMFileCheck",
+            "LLVMFuzzMutate",
+            "LLVMScalarOpts",
+            "LLVMInstCombine",
+            "LLVMAggressiveInstCombine",
+            "LLVMTransformUtils",
+            "LLVMBitWriter",
+            "LLVMAnalysis",
+            "LLVMProfileData",
+            "LLVMSymbolize",
+            "LLVMDebugInfoBTF",
+            "LLVMDebugInfoPDB",
+            "LLVMDebugInfoMSF",
+            "LLVMDebugInfoCodeView",
+            "LLVMDebugInfoGSYM",
+            "LLVMDebugInfoDWARF",
+            "LLVMDebugInfoDWARFLowLevel",
+            "LLVMObject",
+            "LLVMTextAPI",
+            "LLVMMCParser",
+            "LLVMIRReader",
+            "LLVMAsmParser",
+            "LLVMMC",
+            "LLVMBitReader",
+            "LLVMFuzzerCLI",
+            "LLVMCore",
+            "LLVMRemarks",
+            "LLVMBitstreamReader",
+            "LLVMBinaryFormat",
+            "LLVMTargetParser",
+            "LLVMTableGen",
+            "LLVMSupport",
+            "LLVMDemangle",
+        };
+    } else null;
+
+    const llvm_config_cmd = if (external_skip_llvm_config) null else blk: {
+        const llvm_config_path = b.fmt("{s}/bin/{s}", .{ llvm_dir, switch (target.result.os.tag) {
+            .linux => "llvm-config",
+            .windows => "llvm-config.exe",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        } });
+        const cmd = b.addSystemCommand(&.{ llvm_config_path, "--link-static", "--libs", "all" });
+        cmd.step.dependOn(previous_step);
+        break :blk cmd;
+    };
+
     const link_llvm_libs_step = try b.allocator.create(LinkLLVMLibsStep);
     link_llvm_libs_step.* = .{
         .step = std.Build.Step.init(.{
@@ -739,9 +853,12 @@ fn linkWithLLVM(
             .makeFn = LinkLLVMLibsStep.make,
         }),
         .exe = exe,
-        .output_file = llvm_config_cmd.captureStdOut(.{}),
+        .output_file = if (llvm_config_cmd) |cmd| cmd.captureStdOut(.{}) else null,
+        .static_lib_names = static_llvm_libs,
     };
-    link_llvm_libs_step.step.dependOn(&llvm_config_cmd.step);
+    if (llvm_config_cmd) |cmd| {
+        link_llvm_libs_step.step.dependOn(&cmd.step);
+    }
     exe.step.dependOn(&link_llvm_libs_step.step);
 }
 
