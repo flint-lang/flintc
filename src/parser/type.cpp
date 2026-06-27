@@ -17,7 +17,8 @@ uint32_t Type::get_id() const {
 }
 
 bool Type::is_reference() const {
-    if (get_variation() == Variation::ENUM) {
+    const auto variation = get_variation();
+    if (variation == Variation::ENUM || variation == Variation::OPAQUE) {
         return false;
     }
     const std::string type_str = to_string();
