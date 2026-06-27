@@ -344,6 +344,16 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         Debug::DIB = new llvm::DIBuilder(*module);
         Debug::DCU = nullptr;
         Debug::debug_files.clear();
+
+        // Pre-populate debug file entries for all imported core modules
+        for (const auto &parser : Parser::instances) {
+            for (const auto &[module_name, _] : parser.file_node_ptr->imported_core_modules) {
+                const Hash &hash = Parser::core_namespaces.at(module_name)->namespace_hash;
+                if (Debug::debug_files.find(hash) == Debug::debug_files.end()) {
+                    Debug::debug_files[hash] = Debug::DIB->createFile("Core." + module_name, ".");
+                }
+            }
+        }
     }
 
     // First initialize all builtin types
