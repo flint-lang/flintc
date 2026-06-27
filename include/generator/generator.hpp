@@ -2482,9 +2482,9 @@ class Generator {
         /// @brief The DIBuilder used for generating debug info
         static inline llvm::DIBuilder *DIB = nullptr;
 
-        /// @var `debug_cus`
-        /// @brief The CompileUnits of each file, indexed by the file's hash
-        static inline std::unordered_map<Hash, llvm::DICompileUnit *> debug_compile_units;
+        /// @var `DCU`
+        /// @brief The single compile unit for the DIBuilder (LLVM only allows one per instance)
+        static inline llvm::DICompileUnit *DCU = nullptr;
 
         /// @var `debug_files`
         /// @brief The DIFiles of each file, indexed by the file's hash

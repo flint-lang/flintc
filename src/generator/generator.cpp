@@ -342,7 +342,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Initialize the debug info builder when in debug mode
     if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
         Debug::DIB = new llvm::DIBuilder(*module);
-        Debug::debug_compile_units.clear();
+        Debug::DCU = nullptr;
         Debug::debug_files.clear();
     }
 

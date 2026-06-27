@@ -1496,8 +1496,8 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         if (Debug::debug_files.find(catch_node->file_hash) != Debug::debug_files.end()) {
             file_meta = Debug::debug_files.at(catch_node->file_hash);
         }
-        if (!Debug::debug_compile_units.empty()) {
-            file_meta = Debug::debug_compile_units.begin()->second->getFile();
+        if (Debug::DCU != nullptr) {
+            file_meta = Debug::DCU->getFile();
         }
         ASSERT(file_meta != nullptr);
         const std::string &vname = catch_node->var_name.value();

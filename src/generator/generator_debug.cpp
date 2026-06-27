@@ -38,9 +38,8 @@ llvm::DIType *Generator::Debug::create_debug_type_array(llvm::Module *const modu
     }
 
     // Dynamic array: pointer → { dimensionality: u64, lengths: u64[N], data: T[0] }
-    auto cu_it = debug_compile_units.begin();
-    ASSERT(cu_it != debug_compile_units.end());
-    llvm::DIFile *const file = cu_it->second->getFile();
+    ASSERT(DCU != nullptr);
+    llvm::DIFile *const file = DCU->getFile();
 
     const size_t dimensionality = array_type->dimensionality;
     llvm::DIType *const u64_dt = get_or_create_debug_type(module, Type::get_primitive_type("u64"));
@@ -240,7 +239,7 @@ llvm::DIType *Generator::Debug::create_debug_type_error(llvm::Module *const modu
     const uint64_t struct_size_bits = ptr_size_bits + u32_size_bits + u32_size_bits;
     const uint32_t struct_align_bits = static_cast<uint32_t>(ptr_align_bits);
 
-    llvm::DIFile *const file = debug_compile_units.begin()->second->getFile();
+    llvm::DIFile *const file = DCU->getFile();
     llvm::DIType *const u32_type = DIB->createBasicType("u32", u32_size_bits, llvm::dwarf::DW_ATE_unsigned);
     llvm::DIType *const str_debug_type = get_or_create_debug_type(module, Type::get_primitive_type("str"));
 
@@ -556,7 +555,7 @@ llvm::DIType *Generator::Debug::create_debug_type_multi(llvm::Module *const modu
     const std::string &type_str = type->to_string();
 
     if (type_str == "bool8") {
-        llvm::DIFile *const file = debug_compile_units.begin()->second->getFile();
+        llvm::DIFile *const file = DCU->getFile();
         llvm::DIType *const u8_type = get_or_create_debug_type(module, Type::get_primitive_type("u8"));
 
         std::vector<llvm::Metadata *> members;
@@ -590,9 +589,8 @@ llvm::DIType *Generator::Debug::create_debug_type_opaque(llvm::Module *const mod
 llvm::DIType *Generator::Debug::create_debug_type_optional(llvm::Module *const module, const std::shared_ptr<Type> &type) {
     const auto *optional_type = type->as<OptionalType>();
 
-    auto cu_it = debug_compile_units.begin();
-    ASSERT(cu_it != debug_compile_units.end());
-    llvm::DIFile *const file = cu_it->second->getFile();
+    ASSERT(DCU != nullptr);
+    llvm::DIFile *const file = DCU->getFile();
 
     llvm::DIType *const value_type = get_or_create_debug_type(module, optional_type->base_type);
 
@@ -681,7 +679,7 @@ llvm::DIType *Generator::Debug::create_debug_type_primitive(llvm::Module *const 
         llvm::DISubrange *const data_sub = DIB->getOrCreateSubrange(0, count_expr);
         llvm::DICompositeType *const data_arr = DIB->createArrayType(0, 8, char_type, DIB->getOrCreateArray({data_sub}));
 
-        llvm::DIFile *const file = debug_compile_units.begin()->second->getFile();
+        llvm::DIFile *const file = DCU->getFile();
 
         llvm::DIDerivedType *const len_member = DIB->createMemberType(file, "len", file, 0, 64, 64, 0, llvm::DINode::FlagZero, u64_type);
         llvm::DIDerivedType *const data_member = DIB->createMemberType(file, "data", file, 0, 0, 8, 64, llvm::DINode::FlagZero, data_arr);
@@ -703,7 +701,7 @@ llvm::DIType *Generator::Debug::create_debug_type_primitive(llvm::Module *const 
 llvm::DIType *Generator::Debug::create_debug_type_tuple(llvm::Module *const module, const std::shared_ptr<Type> &type) {
     const auto *tuple_type = type->as<TupleType>();
 
-    llvm::DIFile *const file = debug_compile_units.begin()->second->getFile();
+    llvm::DIFile *const file = DCU->getFile();
     const std::string llvm_type_str = type->get_type_string();
     llvm::StructType *const llvm_struct = type_map.at(llvm_type_str);
 
@@ -744,7 +742,7 @@ llvm::DIType *Generator::Debug::create_debug_type_variant(llvm::Module *const mo
         return create_debug_type_error(module);
     }
 
-    llvm::DIFile *const file = debug_compile_units.begin()->second->getFile();
+    llvm::DIFile *const file = DCU->getFile();
     const std::string llvm_type_str = type->get_type_string();
     llvm::StructType *const llvm_struct = type_map.at(llvm_type_str);
 
@@ -806,14 +804,15 @@ void Generator::Debug::create_function_debug_info(llvm::Function *const function
         if (!path.empty()) {
             llvm::DIFile *const file_meta = Debug::DIB->createFile(path.filename().string(), path.parent_path().string());
             Debug::debug_files[hash] = file_meta;
-            Debug::debug_compile_units[hash] = Debug::DIB->createCompileUnit(       //
-                llvm::dwarf::DW_LANG_C_plus_plus, file_meta, "flintc", false, "", 0 //
-            );
+            if (Debug::DCU == nullptr) {
+                Debug::DCU = Debug::DIB->createCompileUnit(       //
+                    llvm::dwarf::DW_LANG_C_plus_plus, file_meta, "flintc", false, "", 0 //
+                );
+            }
         }
     }
-    llvm::DICompileUnit *const compile_unit = Debug::debug_compile_units[hash];
     llvm::DIFile *const file_meta = Debug::debug_files[hash];
-    if (compile_unit != nullptr && file_meta != nullptr) {
+    if (Debug::DCU != nullptr && file_meta != nullptr) {
         auto *subroutine_type = Debug::DIB->createSubroutineType(Debug::DIB->getOrCreateTypeArray({}));
         auto *subprogram = Debug::DIB->createFunction( //
             file_meta,                                 //
