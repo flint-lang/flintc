@@ -833,6 +833,20 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         return debug_types.at(type_str);
     }
     llvm::DIType *di_type = nullptr;
+
+    // For types that can be self-referential, insert a temporary forward declaration placeholder into the cache before creating the
+    // complete type. This breaks infinite recursion when a type references itself through a pointer/optional field. The placeholder is
+    // replaced with the complete type via replaceAllUsesWith after creation.
+    // Only data and callables can be self-referential. For example a callable with a local variable of it's own type
+    llvm::DICompositeType *placeholder = nullptr;
+    if (type->get_variation() == Type::Variation::DATA || type->get_variation() == Type::Variation::FN) {
+        placeholder = DIB->createReplaceableCompositeType(                                  //
+            llvm::dwarf::DW_TAG_structure_type, type->to_string(), nullptr, DCU->getFile(), //
+            0, 0, 0, 0, llvm::DINode::FlagFwdDecl, type->get_type_string()                  //
+        );
+        debug_types[type_str] = placeholder;
+    }
+
     switch (type->get_variation()) {
         case Type::Variation::ALIAS: {
             const std::shared_ptr<Type> alias_type = type->as<AliasType>()->type;
@@ -887,6 +901,9 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
             break;
     }
 
+    if (placeholder != nullptr && di_type != nullptr) {
+        placeholder->replaceAllUsesWith(di_type);
+    }
     debug_types[type_str] = di_type;
     return di_type;
 }
