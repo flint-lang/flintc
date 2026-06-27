@@ -1040,6 +1040,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                         expr->type = optional_type->base_type;
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     } else {
+                        expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, optional_type->base_type, expr);
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     }
                     return true;
