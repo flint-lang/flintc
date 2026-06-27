@@ -85,9 +85,9 @@ pub fn build(b: *std.Build) !void {
     }
     // Build LLVM if the extern LLVM dir is not prebuilt
     const llvm_step = if (external_llvm_prebuilt)
-        try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir)
+        try makeEmptyStep(b)
     else
-        try makeEmptyStep(b);
+        try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir);
     const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
