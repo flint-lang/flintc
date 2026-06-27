@@ -248,7 +248,6 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         }
     }
 
-    auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
     unsigned int end_line = this_if_pair.second.back().tokens.second->line;
     if (else_scope.has_value()) {
         if (std::holds_alternative<std::shared_ptr<Scope>>(else_scope.value())) {
@@ -264,6 +263,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
             }
         }
     }
+    auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
     if_node->end_line = end_line;
     return if_node;
 }
