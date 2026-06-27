@@ -1,9 +1,17 @@
-typedef struct Vec3 {
-    float values[3];
-} Vec3;
+#include <stdio.h>
+#include <stdlib.h>
 
-void add(Vec3 *lhs, const Vec3 rhs) {
-    lhs->values[0] += rhs.values[0];
-    lhs->values[1] += rhs.values[1];
-    lhs->values[2] += rhs.values[2];
+typedef void *NamedOpaque;
+
+NamedOpaque create_named_opaque() {
+    printf("Creating new named opaque\n");
+    NamedOpaque no = (NamedOpaque)malloc(8);
+    *(size_t *)no = (size_t)100;
+    return no;
+}
+
+void free_named_opaque(NamedOpaque *value) {
+    printf("Freeing named opaque %p\n", *value);
+    free(*value);
+    *value = NULL;
 }

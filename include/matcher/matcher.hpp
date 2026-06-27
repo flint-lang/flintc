@@ -792,6 +792,9 @@ class Matcher {
     static const inline PatternPtr enum_definition = sequence({token(TOK_ENUM), token(TOK_IDENTIFIER), token(TOK_COLON)});
     static const inline PatternPtr variant_definition = sequence({token(TOK_VARIANT), token(TOK_IDENTIFIER), token(TOK_COLON)});
     static const inline PatternPtr test_definition = sequence({token(TOK_TEST), token(TOK_STR_VALUE), token(TOK_COLON)});
+    static const inline PatternPtr opaque_definition = sequence({
+        one_of({token(TOK_TYPE), token(TOK_OPAQUE)}), token(TOK_IDENTIFIER), token(TOK_SEMICOLON) //
+    });
 
     // --- ENTITY DEFINITION ---
     static const inline PatternPtr entity_definition = sequence({

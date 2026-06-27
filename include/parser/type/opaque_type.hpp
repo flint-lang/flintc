@@ -10,8 +10,13 @@
 /// @brief Represents opaque types
 class OpaqueType : public Type {
   public:
-    OpaqueType(const std::optional<std::string> &name) :
-        name(name) {}
+    explicit OpaqueType(const std::string &name, const Hash &hash) :
+        name(name),
+        hash(hash) {}
+
+    explicit OpaqueType() :
+        name(std::nullopt),
+        hash(Hash(std::string(""))) {}
 
     Variation get_variation() const override {
         return Variation::OPAQUE;
@@ -28,7 +33,7 @@ class OpaqueType : public Type {
     }
 
     Hash get_hash() const override {
-        return Hash(std::string(""));
+        return hash;
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {
@@ -40,9 +45,7 @@ class OpaqueType : public Type {
     }
 
     std::string to_string() const override {
-        return name.has_value()              //
-            ? "opaque<" + name.value() + ">" //
-            : "opaque";
+        return name.has_value() ? name.value() : "opaque";
     }
 
     std::string get_type_string(const bool is_return_type = false) const override {
@@ -53,4 +56,8 @@ class OpaqueType : public Type {
     /// @var `name`
     /// @brief Optional name for named opaques
     std::optional<std::string> name;
+
+    /// @var `hash`
+    /// @brief The file the opaque type was defined in, if the opaque is not named the hash is empty
+    Hash hash;
 };

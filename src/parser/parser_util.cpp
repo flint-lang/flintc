@@ -13,6 +13,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/opaque_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -147,6 +148,22 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
         add_open_function({added_function.value(), {}});
         return true;
+    } else if (Matcher::tokens_match(definition_tokens, Matcher::opaque_definition)) {
+        const bool is_opaque_keyword = definition_tokens.first->token == TOK_OPAQUE;
+        const bool is_opaque_type = definition_tokens.first->token == TOK_TYPE           //
+            && definition_tokens.first->type->get_variation() == Type::Variation::OPAQUE //
+            && !definition_tokens.first->type->as<OpaqueType>()->name.has_value();
+        if (is_opaque_keyword || is_opaque_type) {
+            ASSERT(std::next(definition_tokens.first)->token == TOK_IDENTIFIER);
+            const std::string opaque_type_name(std::next(definition_tokens.first)->lexme);
+            std::shared_ptr<Type> opaque_type = std::make_shared<OpaqueType>(opaque_type_name, file_node_ptr->file_hash);
+            if (!file_node_ptr->file_namespace->add_type(opaque_type)) {
+                // Duplicate opaque type definition
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            return true;
+        }
     }
 
     std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);

@@ -48,7 +48,7 @@ void Type::init_types() {
     std::shared_ptr<Type> void_type = get_primitive_type("void");
     add_type(std::make_shared<OptionalType>(void_type));
     add_type(std::make_shared<PointerType>(void_type));
-    add_type(std::make_shared<OpaqueType>(std::nullopt));
+    add_type(std::make_shared<OpaqueType>());
     get_primitive_type("anyerror");
     get_primitive_type("int");
     get_primitive_type("float");

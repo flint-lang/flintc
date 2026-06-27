@@ -1,52 +1,12 @@
 use Core.print
 
-data Data:
-	i32 x;
-	i32 y;
-	Data(x, y);
+opaque NamedOpaque;
 
-data Data2:
-	f32 x;
-	f32 y;
-	Data2(x, y);
-
-entity Entity:
-	data:
-		Data d,
-		Data2 d2;
-	Entity(d2, d);
-
-	def print():
-		print($"e.d.(x, y) = {d.(x, y)}\n");
+extern def create_named_opaque() -> NamedOpaque;
+extern def free_named_opaque(mut NamedOpaque* value);
 
 def main():
-	print("Hello, World\n");
-	i32 x = 10;
-	i32 y = 5;
-	i32 z = x / y;
-	print($"z = {z}\n");
-
-	for (i, elem) in 0..10:
-		print($"{i} = {elem}\n");
-
-	d := Data(x, y);
-	d.(x, y) += (2, 2);
-	d.x /= d.y;
-	print($"d.(x, y) = {d.(x, y)}\n");
-
-	i32[10] v1 = i32[10](5);
-	v1.[0, 1, 2] = (10, 20, 30);
-	print($"v1.[1, 2, 3] = {v1.[1, 2, 3]}\n");
-
-	i32[] v2 = i32[7](10);
-	v2.[2, 3, 4] = (20, 30, 40);
-	print($"v2.[1, 2, 3] = {v2.[1, 2, 3]}\n");
-
-	i32[,] v3 = i32[7, 3](7);
-	v3[1, 0] = 20;
-	v3[2, 1] = 30;
-	v3[3, 2] = 40;
-	print($"v3.[(1, 0), (2, 2), (3, 2)] = ({v3[1, 0]}, {v3[2, 2]}, {v3[3, 2]})\n");
-
-	e := Entity(Data2(3.4, 6.9), Data(12, 13));
-	e.print();
+	print("Hello, World!\n");
+	NamedOpaque o = create_named_opaque();
+	print($"Created new named opaque {o}\n");
+	free_named_opaque(&o);
