@@ -17,6 +17,10 @@ pub fn build(b: *std.Build) !void {
     const optimize = b.standardOptimizeOption(.{});
 
     const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation.");
+    const external_llvm_prebuilt: bool = b.option(bool, "llvm-prebuilt", "Whether to use the 'llvm-dir' as a prebuilt llvm version, which skips building llvm.") orelse false;
+    if (external_llvm_prebuilt and external_llvm_dir == null) {
+        @panic("To use 'llvm-prebuilt' a 'llvm-dir' needs to be provided.");
+    }
     const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
     const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
@@ -28,7 +32,7 @@ pub fn build(b: *std.Build) !void {
 
     const llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{DEFAULT_LLVM_VERSION})) orelse
         DEFAULT_LLVM_VERSION;
-    const force_llvm_rebuild = b.option(bool, "rebuild-llvm", "Force rebuild LLVM") orelse
+    const force_llvm_rebuild = b.option(bool, "llvm-rebuild", "Force rebuild LLVM") orelse
         false;
     const jobs = b.option(usize, "jobs", "Number of cores to use for building LLVM") orelse
         (try std.Thread.getCpuCount() - 2);
@@ -79,10 +83,15 @@ pub fn build(b: *std.Build) !void {
     if (external_llvm_dir == null) {
         last_step = try updateLLVM(b, &update_fip.step, llvm_version);
     }
-    const llvm_step = try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir);
+    // Build LLVM if the extern LLVM dir is not prebuilt
+    const llvm_step = if (external_llvm_prebuilt)
+        try buildLLVM(b, &last_step.step, target, force_llvm_rebuild, jobs, external_llvm_dir)
+    else
+        try makeEmptyStep(b);
+    const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -97,7 +106,7 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -105,7 +114,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -252,6 +261,7 @@ fn buildFlintc(
     build_date: []const u8,
     external_fip_dir: ?[]const u8,
     external_json_mini_dir: ?[]const u8,
+    external_llvm_dir: ?[]const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
@@ -277,7 +287,7 @@ fn buildFlintc(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
-    const llvm_dir = switch (target.result.os.tag) {
+    const llvm_dir = if (external_llvm_dir) |dir| dir else switch (target.result.os.tag) {
         .linux => "vendor/llvm-linux",
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
