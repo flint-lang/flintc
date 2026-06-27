@@ -805,9 +805,7 @@ void Generator::Debug::create_function_debug_info(llvm::Function *const function
             llvm::DIFile *const file_meta = Debug::DIB->createFile(path.filename().string(), path.parent_path().string());
             Debug::debug_files[hash] = file_meta;
             if (Debug::DCU == nullptr) {
-                Debug::DCU = Debug::DIB->createCompileUnit(       //
-                    llvm::dwarf::DW_LANG_C_plus_plus, file_meta, "flintc", false, "", 0 //
-                );
+                Debug::DCU = Debug::DIB->createCompileUnit(llvm::dwarf::DW_LANG_C_plus_plus, file_meta, "flintc", false, "", 0);
             }
         }
     }
@@ -967,26 +965,6 @@ void Generator::Debug::generate_variable_debug_info(                        //
                     generate_variable_debug_info(builder, parent, node->definition_scope, allocations, hash_key);
                 }
                 generate_variable_debug_info(builder, parent, node->body, allocations, hash_key);
-                const unsigned int scope_id = node->definition_scope->scope_id;
-                std::string name;
-                if (std::holds_alternative<std::string>(node->iterators)) {
-                    name = std::get<std::string>(node->iterators);
-                } else {
-                    const auto &iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(node->iterators);
-                    if (iterators.first.has_value()) {
-                        name = iterators.first.value();
-                    } else if (iterators.second.has_value()) {
-                        name = iterators.second.value();
-                    }
-                }
-                const std::shared_ptr<Type> &var_type = node->definition_scope->variables.at(name).type;
-                const std::string alloca_name = "s" + std::to_string(scope_id) + "::" + name;
-                llvm::Value *const alloca = allocations.at(alloca_name);
-                llvm::DIType *const debug_type = get_or_create_debug_type(parent->getParent(), var_type);
-                llvm::DILocalVariable *const var = DIB->createAutoVariable(sp, name, file_meta, node->line, debug_type, true);
-                llvm::DILocation *const diloc = llvm::DILocation::get(Generator::context, sp->getLine(), 0, sp);
-                llvm::DIExpression *const expr = DIB->createExpression({llvm::dwarf::DW_OP_deref});
-                DIB->insertDbgValueIntrinsic(alloca, var, expr, diloc, builder.GetInsertBlock()->end());
                 break;
             }
             case StatementNode::Variation::CATCH: {
