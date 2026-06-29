@@ -3564,7 +3564,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     // If this expression is requested as a reference then we return the pointer to the element if the element is not complex in of itself
     // (like data, strings etc) as these values themselves point somewhere
     auto elem_type = IR::get_type(ctx.parent->getParent(), data_access->type);
-    if (is_reference && !elem_type.second.first) {
+    if (is_reference) {
         values.emplace_back(elem_ptr);
     } else {
         values.emplace_back(IR::aligned_load(                           //
