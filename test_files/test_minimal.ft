@@ -1,9 +1,6 @@
 use Core.print
 
-use Fip.c
-
 def main():
-	print("Hello, World!\n");
-	NamedOpaque o = create_named_opaque();
-	print($"Created new named opaque {o}\n");
-	free_named_opaque(&o);
+	i32[] arr = i32[4]{10, 20, 30, 40};
+	for (i, e) in arr:
+		print($"arr[{i}] = {e}\n");

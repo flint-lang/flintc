@@ -975,6 +975,20 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_expr( //
             }
             return node->type;
         }
+        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+            const auto *node = expr->as<InlineArrayInitializerNode>();
+            for (const auto &length_expr : node->length_expressions) {
+                if (length_expr->contains_pos(line, col)) {
+                    return find_node_in_expr(length_expr.get(), scope, line, col);
+                }
+            }
+            for (const auto &init_expr : node->initializer_values) {
+                if (init_expr->contains_pos(line, col)) {
+                    return find_node_in_expr(init_expr.get(), scope, line, col);
+                }
+            }
+            return node->element_type;
+        }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expr->as<InstanceCallNodeExpression>();
             if (node->instance_variable->contains_pos(line, col)) {

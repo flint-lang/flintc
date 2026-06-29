@@ -725,6 +725,11 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
+        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+            const auto *node = expression->as<InlineArrayInitializerNode>();
+            generate_array_indexing_allocation(builder, struct_types, node->length_expressions);
+            break;
+        }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression->as<InstanceCallNodeExpression>();
             if (!generate_call_allocations(builder, parent, scope, struct_types, static_cast<const CallNodeBase *>(node))) {

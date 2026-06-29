@@ -15,6 +15,7 @@
 #include "parser/ast/expressions/grouped_array_access_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/inline_array_initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
@@ -1888,6 +1889,23 @@ class Generator {
             garbage_type &garbage,                       //
             const unsigned int expr_depth,               //
             const SwitchExpression *switch_expression    //
+        );
+
+        /// @function `generate_inline_array_initializer`
+        /// @brief Generates an inline array initialization from a given InlineArrayInitializerNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
+        /// @param `initializer` The inline array initializer to generate
+        /// @return `llvm::Value *` The inline-initialized array
+        static llvm::Value *generate_inline_array_initializer( //
+            llvm::IRBuilder<> &builder,                        //
+            GenerationContext &ctx,                            //
+            garbage_type &garbage,                             //
+            const unsigned int expr_depth,                     //
+            const InlineArrayInitializerNode *initializer      //
         );
 
         /// @function `generate_array_initializer`

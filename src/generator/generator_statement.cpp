@@ -1627,10 +1627,12 @@ bool Generator::Statement::generate_declaration( //
 
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
-        const bool is_const_array_init =                                         //
-            declaration_node->type->get_variation() == Type::Variation::ARRAY && //
-            declaration_node->type->as<ArrayType>()->sizes.has_value() &&        //
-            declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::ARRAY_INITIALIZER;
+        const auto init_variation = declaration_node->initializer.value()->get_variation();
+        const bool is_const_array_init =                                            //
+            declaration_node->type->get_variation() == Type::Variation::ARRAY &&    //
+            declaration_node->type->as<ArrayType>()->sizes.has_value() &&           //
+            (init_variation == ExpressionNode::Variation::ARRAY_INITIALIZER ||       //
+             init_variation == ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER);
         if (is_const_array_init) {
             ctx.dest = alloca;
         }

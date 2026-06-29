@@ -23,6 +23,7 @@
 #include "parser/ast/expressions/grouped_array_access_node.hpp"
 #include "parser/ast/expressions/grouped_data_access_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/inline_array_initializer_node.hpp"
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_chain_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
@@ -172,6 +173,7 @@ namespace Debug {
         void print_initializer(unsigned int indent_lvl, TreeBits &bits, const InitializerNode &initializer);
         void print_group_expression(unsigned int indent_lvl, TreeBits &bits, const GroupExpressionNode &group);
         void print_range_expression(unsigned int indent_lvl, TreeBits &bits, const RangeExpressionNode &range);
+        void print_inline_array_initializer(unsigned int indent_lvl, TreeBits &bits, const InlineArrayInitializerNode &init);
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init);
         void print_array_access(unsigned int indent_lvl, TreeBits &bits, const ArrayAccessNode &access);
         void print_grouped_array_access(unsigned int indent_lvl, TreeBits &bits, const GroupedArrayAccessNode &access);

@@ -621,6 +621,22 @@ Analyzer::Result Analyzer::analyze_expression(const Context &ctx, const Expressi
             }
             break;
         }
+        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+            const auto *node = expression->as<InlineArrayInitializerNode>();
+            for (const auto &length_expr : node->length_expressions) {
+                result = analyze_expression(ctx, length_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            for (const auto &init_expr : node->initializer_values) {
+                result = analyze_expression(ctx, init_expr.get());
+                if (result != Result::OK) {
+                    goto fail;
+                }
+            }
+            break;
+        }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression->as<InstanceCallNodeExpression>();
             Context local_ctx = ctx;

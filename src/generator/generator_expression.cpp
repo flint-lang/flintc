@@ -93,6 +93,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             const auto *node = expression_node->as<InitializerNode>();
             return generate_initializer(builder, ctx, garbage, expr_depth, node);
         }
+        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+            const auto *node = expression_node->as<InlineArrayInitializerNode>();
+            group_map.emplace_back(generate_inline_array_initializer(builder, ctx, garbage, expr_depth, node));
+            return group_map;
+        }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
             return generate_instance_call(builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node));
@@ -3068,6 +3073,108 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     // Return the phi node as the result of the expression
     std::vector<llvm::Value *> result = {phi};
     return result;
+}
+
+llvm::Value *Generator::Expression::generate_inline_array_initializer( //
+    llvm::IRBuilder<> &builder,                                        //
+    GenerationContext &ctx,                                            //
+    garbage_type &garbage,                                             //
+    const unsigned int expr_depth,                                     //
+    const InlineArrayInitializerNode *initializer                      //
+) {
+    // Generate all length expressions and store them into arr::idx::N
+    std::vector<llvm::Value *> length_expressions;
+    for (auto &expr : initializer->length_expressions) {
+        group_mapping result = generate_expression(builder, ctx, garbage, expr_depth, expr.get());
+        if (!result.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (result.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        llvm::Value *index_i64 = generate_type_cast(builder, ctx, result.value().front(), expr->type, Type::get_primitive_type("u64"));
+        length_expressions.emplace_back(index_i64);
+    }
+    llvm::Value *const length_array = ctx.allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
+    for (size_t i = 0; i < length_expressions.size(); i++) {
+        llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
+        IR::aligned_store(builder, length_expressions.at(i), array_element_ptr);
+    }
+
+    // Get element type info
+    const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
+    const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
+    llvm::Type *llvm_element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.first;
+    size_t element_size_in_bytes = data_layout.getTypeAllocSize(llvm_element_type);
+
+    // Generate and cast each element value
+    std::vector<llvm::Value *> element_values;
+    for (auto &expr : initializer->initializer_values) {
+        group_mapping result = generate_expression(builder, ctx, garbage, expr_depth, expr.get());
+        if (!result.has_value()) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        if (result.value().size() > 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return nullptr;
+        }
+        llvm::Value *value = result.value().front();
+        if (!expr->type->equals(initializer->element_type)) {
+            value = generate_type_cast(builder, ctx, value, expr->type, initializer->element_type);
+        }
+        element_values.emplace_back(value);
+    }
+
+    // Const/local array: ctx.dest is the stack alloca of the array LLVM type
+    if (ctx.dest != nullptr) {
+        // Bitcast to a flat element pointer so we can GEP with a single flat index
+        for (size_t i = 0; i < element_values.size(); i++) {
+            llvm::Value *element_ptr = builder.CreateGEP(                                                 //
+                llvm_element_type, ctx.dest, builder.getInt64(i), "inline_init_elem_" + std::to_string(i) //
+            );
+            IR::aligned_store(builder, element_values[i], element_ptr);
+        }
+        return ctx.dest;
+    }
+
+    // Dynamic array: heap-allocate via create_arr
+    llvm::Value *dim_val = builder.getInt64(length_expressions.size());
+    llvm::CallInst *created_array = builder.CreateCall(        //
+        Module::Array::array_manip_functions.at("create_arr"), //
+        {
+            dim_val,                                 // dimensionality
+            builder.getInt64(element_size_in_bytes), // element_size
+            length_array                             // lengths array
+        },                                           //
+        "created_array"                              //
+    );
+    created_array->setMetadata("comment",
+        llvm::MDNode::get(context,
+            llvm::MDString::get(context,
+                "Create an array of type " + initializer->element_type->to_string() + "[" +
+                    std::string(length_expressions.size() - 1, ',') + "]")));
+
+    // Extract the data pointer from the str*: data_start = (char*)(str->value + str->len * sizeof(size_t))
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, created_array, 1, "arr_dim_lengths");
+    llvm::Value *const loaded_dim = IR::aligned_load(                                                               //
+        builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim" //
+    );
+    llvm::Value *const data_start = builder.CreateBitCast(                                     //
+        builder.CreateGEP(builder.getInt64Ty(), dim_lengths, loaded_dim, "data_start"), PTR_TY //
+    );
+
+    // Store each element at the correct byte offset into the flat data buffer
+    for (size_t i = 0; i < element_values.size(); i++) {
+        llvm::Value *offset = builder.getInt64(i * element_size_in_bytes);
+        llvm::Value *element_ptr = builder.CreateGEP(builder.getInt8Ty(), data_start, offset, "elem_" + std::to_string(i));
+        IR::aligned_store(builder, element_values[i], element_ptr);
+    }
+
+    return created_array;
 }
 
 llvm::Value *Generator::Expression::generate_array_initializer( //

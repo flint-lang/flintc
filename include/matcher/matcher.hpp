@@ -854,10 +854,17 @@ class Matcher {
     });
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
-        type, token(TOK_LEFT_BRACKET),                                                                                // T[ sizes ]
-        one_or_more(balanced_match_until(                                                                             //
-            token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)), //
-        token(TOK_LEFT_PAREN), until_right_paren                                                                      // ( initializer )
+        one_of({type,
+            sequence({
+                type,                                                                                                        //
+                token(TOK_LEFT_BRACKET),                                                                                     //
+                one_or_more(balanced_match_until(                                                                            //
+                    token(TOK_LEFT_PAREN), one_of({token(TOK_COMMA), token(TOK_RIGHT_BRACKET)}), token(TOK_RIGHT_PAREN), 0)) //
+            })}),                                                                                                            // T[ sizes ]
+        one_of({
+            sequence({token(TOK_LEFT_PAREN), until_right_paren}), // ( initializer )
+            sequence({token(TOK_LEFT_BRACE), until_right_brace})  // { initializer, ... }
+        })                                                        //
     });
     static const inline PatternPtr array_access = sequence({not_p(token(TOK_DOT)), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr grouped_array_access = sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket});

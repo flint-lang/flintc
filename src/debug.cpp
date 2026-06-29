@@ -604,6 +604,47 @@ namespace Debug {
             print_expression(indent_lvl + 1, upper_expr_bits, range.upper_bound);
         }
 
+        void print_inline_array_initializer(unsigned int indent_lvl, TreeBits &bits, const InlineArrayInitializerNode &init) {
+            Local::print_header(indent_lvl, bits, "Inline Array Initializer ");
+            std::cout << "[" << (init.is_const ? "c" : "m") << "] " << init.type->to_string();
+            std::cout << std::endl;
+
+            // Print length expressions
+            indent_lvl++;
+            TreeBits lengths_header_bits = bits.child(indent_lvl, !init.initializer_values.empty());
+            Local::print_header(indent_lvl, lengths_header_bits, "Lengths ");
+            std::cout << std::endl;
+
+            for (size_t i = 0; i < init.length_expressions.size(); i++) {
+                bool is_last_len = i + 1 == init.length_expressions.size();
+                TreeBits len_bits = bits.child(indent_lvl + 1, is_last_len);
+                Local::print_header(indent_lvl + 1, len_bits, "Len " + std::to_string(i + 1) + " ");
+                std::cout << init.length_expressions[i]->type->to_string();
+                std::cout << std::endl;
+
+                TreeBits expr_bits = len_bits.child(indent_lvl + 2, true);
+                print_expression(indent_lvl + 2, expr_bits, init.length_expressions[i]);
+            }
+
+            // Print initializer values
+            if (!init.initializer_values.empty()) {
+                TreeBits values_header_bits = bits.child(indent_lvl, true);
+                Local::print_header(indent_lvl, values_header_bits, "Initializers ");
+                std::cout << std::endl;
+
+                for (size_t i = 0; i < init.initializer_values.size(); i++) {
+                    bool is_last_val = i + 1 == init.initializer_values.size();
+                    TreeBits val_bits = bits.child(indent_lvl + 1, is_last_val);
+                    Local::print_header(indent_lvl + 1, val_bits, "Init " + std::to_string(i + 1) + " ");
+                    std::cout << init.initializer_values[i]->type->to_string();
+                    std::cout << std::endl;
+
+                    TreeBits expr_bits = val_bits.child(indent_lvl + 2, true);
+                    print_expression(indent_lvl + 2, expr_bits, init.initializer_values[i]);
+                }
+            }
+        }
+
         void print_array_initializer(unsigned int indent_lvl, TreeBits &bits, const ArrayInitializerNode &init) {
             Local::print_header(indent_lvl, bits, "Array Initializer ");
             std::cout << "[" << (init.is_const ? "c" : "m") << "] " << init.type->to_string();
@@ -817,6 +858,11 @@ namespace Debug {
                 case ExpressionNode::Variation::ARRAY_INITIALIZER: {
                     const auto *node = expr->as<ArrayInitializerNode>();
                     print_array_initializer(indent_lvl, bits, *node);
+                    break;
+                }
+                case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+                    const auto *node = expr->as<InlineArrayInitializerNode>();
+                    print_inline_array_initializer(indent_lvl, bits, *node);
                     break;
                 }
                 case ExpressionNode::Variation::BINARY_OP: {

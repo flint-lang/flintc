@@ -1267,16 +1267,17 @@ class Parser {
     );
 
     /// @function `create_array_initializer`
-    /// @brief Creates an ArrayInitializerNode from the given tokens
+    /// @brief Creates an ArrayInitializerNode or InlineArrayInitializerNode from the given tokens
     ///
     /// @param `ctx` The parsing context
     /// @param `scope` The scope in which the array initializer is defined
     /// @param `tokens` The list of tokens representing the array initializer
-    /// @return `std::optional<ArrayInitializerNode>` An array initializer node, nullopt if its creation failed
-    std::optional<ArrayInitializerNode> create_array_initializer( //
-        const Context &ctx,                                       //
-        std::shared_ptr<Scope> &scope,                            //
-        const token_slice &tokens                                 //
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` An array initializer node or inline array initializer node, nullopt if its
+    /// creation failed
+    std::optional<std::unique_ptr<ExpressionNode>> create_array_initializer( //
+        const Context &ctx,                                                  //
+        std::shared_ptr<Scope> &scope,                                       //
+        const token_slice &tokens                                            //
     );
 
     /// @function `create_grouped_array_access`

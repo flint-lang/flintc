@@ -6,9 +6,9 @@
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
-#include "parser/ast/expressions/literal_node.hpp"
 #include "parser/parser.hpp"
 
+#include "error/error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
@@ -18,7 +18,9 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
+#include "parser/ast/expressions/inline_array_initializer_node.hpp"
 #include "parser/ast/expressions/instance_call_node_expression.hpp"
+#include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -1338,10 +1340,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_acces
     );
 }
 
-std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
-    const Context &ctx,                                               //
-    std::shared_ptr<Scope> &scope,                                    //
-    const token_slice &tokens                                         //
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer( //
+    const Context &ctx,                                                          //
+    std::shared_ptr<Scope> &scope,                                               //
+    const token_slice &tokens                                                    //
 ) {
     PROFILE_CUMULATIVE("Parser::create_array_initializer");
     token_list toks = clone_from_slice(tokens);
@@ -1359,10 +1361,66 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
             return std::nullopt;
         }
 
-        // Get the initializer tokens (...) and remove the surrounding parenthesis
+        // Create all the literal expressions for all the const sizes
+        std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
+        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+        for (const size_t len : arr_type->sizes.value()) {
+            LitValue value = LitInt{.value = APInt(std::to_string(len))};
+            length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), value, u64_ty));
+        }
+
+        // Get the initializer values inside the tokens {...} to inline-initialize the array or (...) for a single initializer
         token_slice initializer_tokens = {tokens.first + 1, tokens.second};
         remove_surrounding_paren(initializer_tokens);
-        // Now we can create the initializer expression
+        if (initializer_tokens.first->token == TOK_LEFT_BRACE) {
+            // Skip the {
+            initializer_tokens.first++;
+            // Skip the } and check if it was a }
+            initializer_tokens.second--;
+            if (initializer_tokens.second->token != TOK_RIGHT_BRACE) {
+                THROW_ERR(                                                                                                   //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash, initializer_tokens.second->line,                         //
+                    initializer_tokens.second->column, std::vector<Token>{TOK_RIGHT_BRACE}, initializer_tokens.second->token //
+                );
+                return std::nullopt;
+            }
+            // Check if there is a trailing comma, skip it
+            if (std::prev(initializer_tokens.second)->token == TOK_COMMA) {
+                initializer_tokens.second--;
+            }
+            // Create the initializer values
+            auto exprs = create_group_expressions(ctx, scope, initializer_tokens);
+            if (!exprs.has_value()) {
+                return std::nullopt;
+            }
+            // The number of expressions must match the expected number of elements in the array
+            // TODO: Handle inferred sizes through `_` for the size
+            size_t sizes_sum = 1;
+            for (const size_t size : arr_type->sizes.value()) {
+                sizes_sum *= size;
+            }
+            if (exprs.value().size() != sizes_sum) {
+                // Expected `sizes_sum` values in inline-initializer, but only got `expr.value().size()`.
+                // TODO: Add a way to auto-fill all missing values, for example creating an array of size 10 and only filling in the first 3
+                // values in the initializer. Maybe by manually writing the last expressions as a default expression, so for example
+                // `i32[10]{10, 20, 30, _}`?
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+
+            // Counts match up, check if all expressions are castable to the base type of the array
+            for (auto &expr : exprs.value()) {
+                if (!check_castability(arr_type->type, expr, true)) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, arr_type->type, expr->type);
+                    return std::nullopt;
+                }
+            }
+            return std::make_unique<InlineArrayInitializerNode>(                                 //
+                file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
+            );
+        }
+
+        // Create the initializer expression
         std::optional<std::unique_ptr<ExpressionNode>> initializer;
         if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
             initializer = std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), arr_type->type);
@@ -1377,15 +1435,9 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
             return std::nullopt;
         }
 
-        // Create all the literal expressions for all the const sizes
-        std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
-        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-        for (const size_t len : arr_type->sizes.value()) {
-            LitValue value = LitInt{.value = APInt(std::to_string(len))};
-            length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), value, u64_ty));
-        }
-
-        return ArrayInitializerNode(file_hash, get_pos_triple(tokens), array_type, length_expressions, initializer.value());
+        return std::make_unique<ArrayInitializerNode>(                                             //
+            file_hash, get_pos_triple(tokens), array_type, length_expressions, initializer.value() //
+        );
     }
 
     // Get the element type of the array
@@ -1465,12 +1517,8 @@ std::optional<ArrayInitializerNode> Parser::create_array_initializer( //
         }
         file_node_ptr->file_namespace->add_type(actual_array_type.value());
     }
-    return ArrayInitializerNode(    //
-        file_hash,                  //
-        get_pos_triple(tokens),     //
-        actual_array_type.value(),  //
-        length_expressions.value(), //
-        initializer.value()         //
+    return std::make_unique<ArrayInitializerNode>(                                                                    //
+        file_hash, get_pos_triple(tokens), actual_array_type.value(), length_expressions.value(), initializer.value() //
     );
 }
 
@@ -2233,11 +2281,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
             if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
                 // It's an array initializer
-                std::optional<ArrayInitializerNode> initializer = create_array_initializer(ctx, scope, tokens);
-                if (!initializer.has_value()) {
-                    return std::nullopt;
-                }
-                return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
+                return create_array_initializer(ctx, scope, tokens);
             }
             // It's an initializer
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
@@ -2387,11 +2431,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         return create_grouped_data_access(ctx, scope, tokens_mut);
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
-        std::optional<ArrayInitializerNode> initializer = create_array_initializer(ctx, scope, tokens_mut);
-        if (!initializer.has_value()) {
-            return std::nullopt;
-        }
-        return std::make_unique<ArrayInitializerNode>(std::move(initializer.value()));
+        return create_array_initializer(ctx, scope, tokens_mut);
     }
     if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
