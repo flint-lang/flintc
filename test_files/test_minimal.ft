@@ -1,7 +1,20 @@
 use Core.print
 
+variant MyVar:
+	i32, f32, str;
+
 def main():
-	//i32[] arr = i32[4](10);
-	i32[] arr = i32[_]{10, 20, 30, 40};
-	for (i, e) in arr:
-		print($"arr[{i}] = {e}\n");
+	MyVar var = i32(-5);
+
+	i32? i = var?(i32);
+	f32? f = var?(f32);
+
+	if i != none:
+		print($"i == {i!}\n");
+	else:
+		print("i == none\n");
+
+	if f != none:
+		print($"f == {f!}\n");
+	else:
+		print("f == none\n");

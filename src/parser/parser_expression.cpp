@@ -1352,7 +1352,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     );
     if (!length_expression_range.has_value()) {
         // If there are no length expressions, check if the first token is an array type token in which the sizes are comptime-known
-        if (tokens.first->type->get_variation() != Type::Variation::ARRAY) {
+        if (tokens.first->token != TOK_TYPE || tokens.first->type->get_variation() != Type::Variation::ARRAY) {
             return std::nullopt;
         }
         const std::shared_ptr<Type> &array_type = tokens.first->type;
@@ -2548,7 +2548,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         return create_grouped_data_access(ctx, scope, tokens_mut);
     }
     if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
-        return create_array_initializer(ctx, scope, tokens_mut);
+        const bool is_array = tokens_mut.first->token == TOK_TYPE && tokens_mut.first->type->get_variation() == Type::Variation::ARRAY;
+        const bool brackets_follow_type = std::next(tokens_mut.first)->token == TOK_LEFT_BRACKET;
+        if (is_array || brackets_follow_type) {
+            return create_array_initializer(ctx, scope, tokens_mut);
+        }
     }
     if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
         std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
