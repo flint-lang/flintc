@@ -1454,6 +1454,123 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     token_slice initializer_tokens = {tokens.first + length_expression_range.value().second, tokens_mut.second};
     tokens_mut.second = tokens.first + length_expression_range.value().second;
     remove_surrounding_paren(initializer_tokens);
+    if (initializer_tokens.first->token == TOK_LEFT_BRACE) {
+        // Brace initializer { expr, expr, ... } with inline array initialization
+        initializer_tokens.first++;
+        initializer_tokens.second--;
+        if (initializer_tokens.second->token != TOK_RIGHT_BRACE) {
+            THROW_ERR(                                                                                                   //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, initializer_tokens.second->line,                         //
+                initializer_tokens.second->column, std::vector<Token>{TOK_RIGHT_BRACE}, initializer_tokens.second->token //
+            );
+            return std::nullopt;
+        }
+
+        // Check if there is a trailing comma, skip it
+        if (std::prev(initializer_tokens.second)->token == TOK_COMMA) {
+            initializer_tokens.second--;
+        }
+        auto exprs = create_group_expressions(ctx, scope, initializer_tokens);
+        if (!exprs.has_value()) {
+            return std::nullopt;
+        }
+        const size_t total_element_count = exprs.value().size();
+
+        // Strip brackets from tokens_mut to reveal the length expression content
+        ASSERT(tokens_mut.first->token == TOK_LEFT_BRACKET);
+        tokens_mut.first++;
+        tokens_mut.second--;
+        ASSERT(tokens_mut.second->token == TOK_RIGHT_BRACKET);
+
+        // Parse length expressions from tokens_mut, handling inferred size using default expression _
+        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+        std::vector<std::unique_ptr<ExpressionNode>> length_expressions;
+        std::vector<size_t> known_sizes;
+        size_t default_idx = UINT64_MAX;
+        token_slice len_tokens = tokens_mut;
+        while (len_tokens.first != len_tokens.second) {
+            const auto next_range = Matcher::get_next_match_range(len_tokens, Matcher::until_comma);
+            token_slice dim_tokens;
+            if (!next_range.has_value()) {
+                dim_tokens = len_tokens;
+                len_tokens.first = len_tokens.second;
+            } else {
+                dim_tokens = {len_tokens.first, len_tokens.first + next_range.value().second - 1};
+                len_tokens.first += next_range.value().second;
+            }
+            if (dim_tokens.first->token == TOK_UNDERSCORE && std::next(dim_tokens.first) == dim_tokens.second) {
+                // default _ : at most one allowed
+                if (default_idx != SIZE_MAX) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                default_idx = length_expressions.size();
+                // Placeholder literal, value will be filled in after inference
+                LitValue temp = LitInt{.value = APInt("0")};
+                length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), temp, u64_ty));
+                continue;
+            }
+
+            auto expr = create_expression(ctx, scope, dim_tokens);
+            if (!expr.has_value()) {
+                return std::nullopt;
+            }
+            if (!check_castability(u64_ty, expr.value(), true)) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, dim_tokens, u64_ty, expr.value()->type);
+                return std::nullopt;
+            }
+            std::optional<size_t> size = get_size_from_expr(expr.value());
+            if (!size.has_value()) {
+                // Length expressions in inline array initializers must be comptime-known
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            known_sizes.emplace_back(size.value());
+            length_expressions.emplace_back(std::move(expr.value()));
+        }
+
+        // Compute product of known (non-default) sizes
+        size_t product = 1;
+        for (size_t size : known_sizes) {
+            product *= size;
+        }
+        if (default_idx != UINT64_MAX) {
+            // Infer the default size from the total element count
+            if (product == 0 || total_element_count % product != 0) {
+                // Size cannot be inferred since it's not an integer value (the dimensionality would need a fractional length)
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const size_t inferred = total_element_count / product;
+            LiteralNode *lit = length_expressions[default_idx]->as<LiteralNode>();
+            lit->value = LitInt{.value = APInt(std::to_string(inferred))};
+            known_sizes.insert(known_sizes.begin() + default_idx, inferred);
+        } else {
+            // No default: validate that product matches total element count
+            if (total_element_count != product) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
+
+        // Build the array type (all sizes are now known by now)
+        std::shared_ptr<Type> array_type = std::make_shared<ArrayType>(length_expressions.size(), element_type.value(), known_sizes);
+        if (!file_node_ptr->file_namespace->add_type(array_type)) {
+            array_type = file_node_ptr->file_namespace->get_type_from_str(array_type->to_string()).value();
+        }
+
+        // Check castability of all brace expressions to the element type
+        for (auto &expr : exprs.value()) {
+            if (!check_castability(element_type.value(), expr, true)) {
+                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, element_type.value(), expr->type);
+                return std::nullopt;
+            }
+        }
+        return std::make_unique<InlineArrayInitializerNode>(                                 //
+            file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
+        );
+    }
+
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
     if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {

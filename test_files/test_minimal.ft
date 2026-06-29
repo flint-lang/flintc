@@ -1,6 +1,7 @@
 use Core.print
 
 def main():
-	i32[] arr = i32[4]{10, 20, 30, 40};
+	//i32[] arr = i32[4](10);
+	i32[] arr = i32[_]{10, 20, 30, 40};
 	for (i, e) in arr:
 		print($"arr[{i}] = {e}\n");
