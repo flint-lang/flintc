@@ -124,7 +124,9 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
         function                                              //
     );
     llvm::IRBuilder<> builder(setup_block);
-    Debug::create_function_debug_info(function, function_node->name, function_node);
+    if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
+        Debug::create_function_debug_info(function, function_node->name, function_node);
+    }
 
     // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
@@ -227,7 +229,9 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         stack_arg->addAttr(llvm::Attribute::InReg);
 #endif
     }
-    Debug::create_function_debug_info(test_function, test_node->name, test_node);
+    if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
+        Debug::create_function_debug_info(test_function, test_node->name, test_node);
+    }
 
     // Create the entry block
     llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
