@@ -27,6 +27,10 @@ class CallNodeExpression : public ExpressionNode, public CallNodeBase {
         return Variation::CALL;
     }
 
+    bool is_producer() const override {
+        return true;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> arguments_clone;
         for (auto &[arg, is_reference] : arguments) {

@@ -109,6 +109,10 @@ class LiteralNode : public ExpressionNode {
         return true;
     }
 
+    bool is_producer() const override {
+        return std::holds_alternative<LitVariant>(value);
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         LitValue value_clone;
         if (std::holds_alternative<LitEnum>(value)) {

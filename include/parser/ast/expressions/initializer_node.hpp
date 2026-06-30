@@ -24,6 +24,10 @@ class InitializerNode : public ExpressionNode {
         return Variation::INITIALIZER;
     }
 
+    bool is_producer() const override {
+        return true;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> args_clone;
         for (auto &arg : args) {

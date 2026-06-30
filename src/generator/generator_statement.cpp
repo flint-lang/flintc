@@ -1771,31 +1771,11 @@ bool Generator::Statement::generate_declaration( //
         expression = Module::String::generate_string_declaration(builder, expression, initializer);
     }
     if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
-        const ExpressionNode::Variation initializer_variaiton = declaration_node->initializer.value()->get_variation();
         const std::shared_ptr<Type> initializer_type = declaration_node->initializer.value()->type;
-        const Type::Variation initializer_type_variation = initializer_type->get_variation();
-        const std::string &initializer_type_str = declaration_node->initializer.value()->type->to_string();
-        const bool is_optional = initializer_type_variation == Type::Variation::OPTIONAL;
-        const bool is_interface = initializer_type_variation == Type::Variation::FUNC;
-        const bool is_initializer = initializer_variaiton == ExpressionNode::Variation::INITIALIZER;
-        const bool is_array_initializer = initializer_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
-        const bool is_fn_return = initializer_variaiton == ExpressionNode::Variation::CALL;
-        const bool is_string_interpolation = initializer_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        bool is_slice = false;
-        if (initializer_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
-            const auto *arg_arr_access = declaration_node->initializer.value()->as<ArrayAccessNode>();
-            for (const auto &index : arg_arr_access->indexing_expressions) {
-                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-                    is_slice = true;
-                    break;
-                }
-            }
-        }
-        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice &&
-            !is_interface) {
-            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
-            // variable we declared. However, function returns, array initializers, initializers, optional none literals and string
-            // interpolation expressions  do not need to be cloned, as they all *produce* something themselves
+        const bool is_optional = initializer_type->get_variation() == Type::Variation::OPTIONAL;
+        if (!declaration_node->initializer.value()->is_producer()) {
+            // If it's a producer then it does not need to be cloned and can be stored directly, however if it's not a producer then we need
+            // to clone it
             const std::shared_ptr<Type> lhs_type = declaration_node->type;
             llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
@@ -1972,25 +1952,8 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             const auto *alias_type = lhs_type->as<AliasType>();
             lhs_type = alias_type->type;
         }
-        const ExpressionNode::Variation expression_variaiton = assignment_node->expression->get_variation();
         const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
-        const std::string &expression_type_str = assignment_node->expression->type->to_string();
         const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
-        const bool is_interface = expression_type_variation == Type::Variation::FUNC;
-        const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
-        const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
-        const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
-        const bool is_string_interpolation = expression_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        bool is_slice = false;
-        if (expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
-            const auto *arg_arr_access = assignment_node->expression->as<ArrayAccessNode>();
-            for (const auto &index : arg_arr_access->indexing_expressions) {
-                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-                    is_slice = true;
-                    break;
-                }
-            }
-        }
         llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
         if (is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->is_dima_managed()) {
             llvm::BasicBlock *current_block = builder.GetInsertBlock();
@@ -2030,10 +1993,8 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             llvm::Function *free_fn = Memory::memory_functions.at("free");
             builder.CreateCall(free_fn, {lhs_value, type_id});
         }
-        if (!is_optional && !is_initializer && !is_array_initializer && !is_fn_return && !is_string_interpolation && !is_slice &&
-            !is_interface) {
-            // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
-            // variable we assign the value to
+        if (!assignment_node->expression->is_producer()) {
+            // It's not a producer and thus needs to be cloned when assigning the value
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");
             builder.CreateCall(clone_fn, {expression, lhs, type_id});
             return true;
@@ -2188,30 +2149,11 @@ bool Generator::Statement::generate_data_field_assignment( //
 
     // Check if we need to call "retain" or "clone" on the rhs value (e.g. if it's not a producer)
     if (data_field_assignment->field_type->is_freeable() && data_field_assignment->field_type->get_variation() != Type::Variation::OPAQUE) {
-        const ExpressionNode::Variation expression_variaiton = data_field_assignment->expression->get_variation();
         const Type::Variation expression_type_variation = data_field_assignment->expression->type->get_variation();
-        const std::string &expression_type_str = data_field_assignment->expression->type->to_string();
         const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
-        const bool is_interface = expression_type_variation == Type::Variation::FUNC;
-        const bool is_initializer = expression_variaiton == ExpressionNode::Variation::INITIALIZER;
-        const bool is_variant_initializer = expression_variaiton == ExpressionNode::Variation::LITERAL //
-            && std::holds_alternative<LitVariant>(data_field_assignment->expression->as<LiteralNode>()->value);
-        const bool is_array_initializer = expression_variaiton == ExpressionNode::Variation::ARRAY_INITIALIZER;
-        const bool is_fn_return = expression_variaiton == ExpressionNode::Variation::CALL;
-        const bool is_string_interpolation = expression_variaiton == ExpressionNode::Variation::STRING_INTERPOLATION;
-        bool is_slice = false;
-        if (expression_variaiton == ExpressionNode::Variation::ARRAY_ACCESS) {
-            const auto *arg_arr_access = data_field_assignment->expression->as<ArrayAccessNode>();
-            for (const auto &index : arg_arr_access->indexing_expressions) {
-                if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-                    is_slice = true;
-                    break;
-                }
-            }
-        }
         llvm::Value *type_id = builder.getInt32(data_field_assignment->expression->type->get_id());
-        if (!is_optional && !is_initializer && !is_variant_initializer && !is_array_initializer && !is_fn_return &&
-            !is_string_interpolation && !is_slice && !is_interface) {
+        if (!data_field_assignment->expression->is_producer()) {
+            // It's not a producer and thus needs to be cloned on assignment
             // It's a complex type and needs to be cloned which means we need to clone the expression's result now and place it into the
             // field we assign the value to
             llvm::Function *clone_fn = Memory::memory_functions.at("clone");

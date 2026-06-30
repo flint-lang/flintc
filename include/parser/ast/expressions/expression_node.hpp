@@ -89,6 +89,18 @@ class ExpressionNode : public ASTNode {
         return false;
     }
 
+    /// @function `is_producer`
+    /// @brief Whether this expression produces a value, this is needed for assignment code to know whether to free this expression result
+    /// (when discarding it) or whether to clone it (when it's not a producer)
+    ///
+    /// @return `bool` Whether this expression is a producer
+    virtual bool is_producer() const {
+        const auto type_variation = type->get_variation();
+        const bool is_optional = type_variation == Type::Variation::OPTIONAL;
+        const bool is_interface = type_variation == Type::Variation::FUNC;
+        return is_optional || is_interface;
+    }
+
     /// @function `clone`
     /// @brief Clones this expression by creating a new expression node from this one
     ///

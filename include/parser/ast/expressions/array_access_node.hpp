@@ -26,6 +26,16 @@ class ArrayAccessNode : public ExpressionNode {
         return Variation::ARRAY_ACCESS;
     }
 
+    // An array access is a producer if it's a sliced access
+    bool is_producer() const override {
+        for (const auto &index : indexing_expressions) {
+            if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> cloned_indexing_exprs;
         for (auto &expr : indexing_expressions) {

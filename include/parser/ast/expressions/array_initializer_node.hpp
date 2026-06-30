@@ -29,6 +29,10 @@ class ArrayInitializerNode : public ExpressionNode {
         return Variation::ARRAY_INITIALIZER;
     }
 
+    bool is_producer() const override {
+        return true;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::unique_ptr<ExpressionNode>> cloned_length_exprs;
         for (auto &expr : length_expressions) {

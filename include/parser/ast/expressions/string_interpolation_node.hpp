@@ -24,6 +24,10 @@ class StringInterpolationNode : public ExpressionNode {
         return Variation::STRING_INTERPOLATION;
     }
 
+    bool is_producer() const override {
+        return true;
+    }
+
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
         std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> string_content_clone;
         string_content_clone.resize(string_content.size());
