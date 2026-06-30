@@ -932,17 +932,16 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
             // Is a dynamic array
             llvm::Value *const dim_ptr = builder.CreateStructGEP(str_type, iterable_expr, 0, "dim_ptr");
             llvm::Value *const dimensionality = IR::aligned_load(builder, builder.getInt64Ty(), dim_ptr, "dimensionality");
-            llvm::AllocaInst *const length_alloca = builder.CreateAlloca(builder.getInt64Ty(), 0, nullptr, "length_alloca");
-            IR::aligned_store(builder, builder.getInt64(1), length_alloca);
+            IR::aligned_store(builder, builder.getInt64(1), scratchspace);
             llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, iterable_expr, 1, "len_ptr");
             for (size_t i = 0; i < array_type->dimensionality; i++) {
                 llvm::Value *const single_len_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, builder.getInt64(i));
                 llvm::Value *const single_len = IR::aligned_load(builder, builder.getInt64Ty(), single_len_ptr, "len_" + std::to_string(i));
-                llvm::Value *len_val = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca);
+                llvm::Value *len_val = IR::aligned_load(builder, builder.getInt64Ty(), scratchspace);
                 len_val = builder.CreateMul(len_val, single_len);
-                IR::aligned_store(builder, len_val, length_alloca);
+                IR::aligned_store(builder, len_val, scratchspace);
             }
-            length = IR::aligned_load(builder, builder.getInt64Ty(), length_alloca, "length");
+            length = IR::aligned_load(builder, builder.getInt64Ty(), scratchspace, "length");
             // The values start right after the lengths
             value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         }
