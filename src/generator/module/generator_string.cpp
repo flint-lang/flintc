@@ -1281,8 +1281,10 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
-            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE;
-            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE;
+            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
+                && lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
+            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
+                && rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
             if (garbage.count(expr_depth) == 0) {
                 if (is_lhs_not_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
@@ -1320,7 +1322,8 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 std::get<LitStr>(rhs_lit->value).value.length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
-            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
+            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
+                && lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
                 if (garbage.count(expr_depth) == 0) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 } else {
@@ -1337,7 +1340,8 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
             std::get<LitStr>(lhs_lit->value).value.length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
-        if (rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE) {
+        if (rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
+            && rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
             if (garbage.count(expr_depth) == 0) {
                 garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
             } else {
