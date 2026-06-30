@@ -1,20 +1,15 @@
 use Core.print
 
-variant MyVar:
-	i32, f32, str;
+// Using FIP auto-generation works (and compiles):
+// use Fip.c
+
+// But manually defining it does not work somehow:
+opaque NamedOpaque;
+extern def create_named_opaque() -> NamedOpaque;
+extern def free_named_opaque(mut NamedOpaque* value);
 
 def main():
-	MyVar var = i32(-5);
-
-	i32? i = var?(i32);
-	f32? f = var?(f32);
-
-	if i != none:
-		print($"i == {i!}\n");
-	else:
-		print("i == none\n");
-
-	if f != none:
-		print($"f == {f!}\n");
-	else:
-		print("f == none\n");
+	print("Hello, World!\n");
+	NamedOpaque o = create_named_opaque();
+	print($"Created new named opaque {o}\n");
+	free_named_opaque(&o);

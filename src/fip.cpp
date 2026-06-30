@@ -14,6 +14,7 @@ fip_master_state_t master_state;
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/opaque_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
@@ -334,11 +335,18 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             break;
         }
         case Type::Variation::OPAQUE: {
-            dest->type = FIP_TYPE_PTR;
-            dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
-            dest->u.ptr.base_type->type = FIP_TYPE_PRIMITIVE;
-            dest->u.ptr.base_type->is_mutable = true;
-            dest->u.ptr.base_type->u.prim = FIP_VOID;
+            const auto *type = src->as<OpaqueType>();
+            if (type->name.has_value()) {
+                dest->type = FIP_TYPE_OPAQUE;
+                memcpy(dest->u.opaque.name, type->name.value().data(), type->name.value().size());
+                dest->u.opaque.name[type->name.value().size()] = '\0';
+            } else {
+                dest->type = FIP_TYPE_PTR;
+                dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+                dest->u.ptr.base_type->type = FIP_TYPE_PRIMITIVE;
+                dest->u.ptr.base_type->is_mutable = true;
+                dest->u.ptr.base_type->u.prim = FIP_VOID;
+            }
             break;
         }
         case Type::Variation::POINTER: {
