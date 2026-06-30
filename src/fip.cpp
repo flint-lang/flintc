@@ -18,9 +18,11 @@ fip_master_state_t master_state;
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "profiler.hpp"
+#include "single_executor_guard.hpp"
 
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 
 /// @var `generated_types`
 /// @brief A small map used to map all the types which have been generated up until now. This is needed for function parameters or type
@@ -109,6 +111,7 @@ bool FIP::init(                //
     const unsigned int column, //
     const unsigned int length  //
 ) {
+    ASSERT_ST;
     PROFILE_SCOPE("FIP init");
     if (!FIP_ENABLED) {
         return true;
@@ -384,15 +387,14 @@ bool FIP::resolve_function(FunctionNode *function) {
     if (!FIP_ENABLED) {
         return true;
     }
+    // FIP communicates via a single stdin/stdout channel, so all operations must be serialized.
+    // This single lock replaces both the old init_mutex (init race) and resolve_mutex (message interleaving).
+    std::lock_guard<std::mutex> lock(mutex);
     if (!is_active) {
-        // Try to initialize the FIP if it's not running yet
         if (!init(function->file_hash, function->line, function->column, function->length)) {
-            // Initialization failed for some reason
             return false;
         }
         if (!is_active) {
-            // We need an error here specifically because we try to resolve an external function without the FIP running, which is not
-            // possible. This could happen because no module is active, for example
             THROW_ERR(ErrExternWithoutFip, ERR_PARSING, function->file_hash, function->line, function->column, function->length);
             return false;
         }
@@ -403,10 +405,6 @@ bool FIP::resolve_function(FunctionNode *function) {
     if (is_parent_of(get_fip_path().value(), function->file_hash.path)) {
         return true;
     }
-    // This function is not concurrency-safe. FIP assumes a strict order for the master's messages so only one thread is allowed to send /
-    // recieve messages to and from the FIP at a time, that's why we have a mutex here
-    static std::mutex resolve_mutex;
-    std::lock_guard<std::mutex> lock(resolve_mutex);
     fip_msg_t msg = fip_msg_t{};
     msg.type = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.type = FIP_SYM_FUNCTION;
@@ -485,15 +483,13 @@ bool FIP::resolve_module_import(ImportNode *import) {
     ASSERT(import_path.size() == 2);
     const std::string module_tag = import_path.back();
     PROFILE_SCOPE("FIP resolve import 'Fip." + module_tag + "'");
+    // FIP communicates via a single stdin/stdout channel, so all operations must be serialized.
+    std::lock_guard<std::mutex> lock(mutex);
     if (!is_active) {
-        // Try to initialize the FIP if it's not running yet
         if (!init(import->file_hash, import->line, import->column, import->length)) {
-            // Initialization failed for some reason
             return false;
         }
         if (!is_active) {
-            // We need an error here specifically because we try to resolve an external function without the FIP running, which is not
-            // possible. This could happen because no module is active, for example
             THROW_ERR(ErrUseWithoutFip, ERR_PARSING, import->file_hash, import->line, import->column, import->length, module_tag);
             return false;
         }

@@ -29,6 +29,7 @@ extern "C" {
 
 #include <array>
 #include <filesystem>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,15 @@ class FIP {
     /// @var `is_active`
     /// @brief Whether the FIP is active
     static inline bool is_active = false;
+
+    /// @var `mutex`
+    /// @brief Serializes all FIP operations (init, resolve_function, resolve_module_import)
+    ///
+    /// FIP communicates via a single stdin/stdout channel and is inherently single-threaded.
+    /// Without this guard, concurrent --parallel threads would:
+    ///   - Race on is_active (hitting UNREACHABLE in init())
+    ///   - Interleave messages on the single I/O channel (hitting assertion failures)
+    static inline std::mutex mutex;
 
     /// @var `modules`
     /// @brief All the available modules of the FIP which contains the file descriptors of all active and spawned modules
