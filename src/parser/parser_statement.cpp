@@ -111,7 +111,16 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
         const auto *var_node = expr.value()->as<VariableNode>();
         // Add the current scope to the scope list in the variable we throw to determine that the variable is returned, excluding it from
         // being freed to early
-        scope->variables.at(var_node->name).return_scope_ids.emplace_back(scope->scope_id);
+        std::vector<unsigned int> &ret_scopes = scope->variables.at(var_node->name).return_scope_ids;
+        ret_scopes.emplace_back(scope->scope_id);
+        // Also add all parent scope IDs so the variable is not freed at any ancestor scope level during cleanup
+        std::shared_ptr<Scope> parent = scope->get_parent();
+        while (parent != nullptr) {
+            if (std::find(ret_scopes.begin(), ret_scopes.end(), parent->scope_id) == ret_scopes.end()) {
+                ret_scopes.emplace_back(parent->scope_id);
+            }
+            parent = parent->get_parent();
+        }
     }
     return ThrowNode(file_hash, tokens, expr.value());
 }
@@ -145,20 +154,48 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE) {
         const auto *variable_node = expr.value()->as<VariableNode>();
-        std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
-        // Duplicate Return statement within the same scope, every scope should only have one return value
-        ASSERT(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
-        return_scopes.push_back(scope->scope_id);
+        std::shared_ptr<Scope> curr = scope;
+        while (curr != nullptr) {
+            auto it = curr->variables.find(variable_node->name);
+            if (it != curr->variables.end()) {
+                std::vector<unsigned int> &return_scopes = it->second.return_scope_ids;
+                if (std::find(return_scopes.begin(), return_scopes.end(), curr->scope_id) == return_scopes.end()) {
+                    return_scopes.emplace_back(curr->scope_id);
+                }
+                std::shared_ptr<Scope> ancestor = curr->get_parent();
+                while (ancestor != nullptr) {
+                    if (std::find(return_scopes.begin(), return_scopes.end(), ancestor->scope_id) == return_scopes.end()) {
+                        return_scopes.emplace_back(ancestor->scope_id);
+                    }
+                    ancestor = ancestor->get_parent();
+                }
+            }
+            curr = curr->get_parent();
+        }
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION) {
         const auto *group_node = expr.value()->as<GroupExpressionNode>();
         for (auto &group_expr : group_node->expressions) {
             if (group_expr->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = group_expr->as<VariableNode>();
-                std::vector<unsigned int> &return_scopes = scope->variables.at(variable_node->name).return_scope_ids;
-                // Duplicate Return statement within the same scope, every scope should only have one return value
-                ASSERT(std::find(return_scopes.begin(), return_scopes.end(), scope->scope_id) == return_scopes.end());
-                return_scopes.push_back(scope->scope_id);
+                std::shared_ptr<Scope> curr = scope;
+                while (curr != nullptr) {
+                    auto it = curr->variables.find(variable_node->name);
+                    if (it != curr->variables.end()) {
+                        std::vector<unsigned int> &return_scopes = it->second.return_scope_ids;
+                        if (std::find(return_scopes.begin(), return_scopes.end(), curr->scope_id) == return_scopes.end()) {
+                            return_scopes.emplace_back(curr->scope_id);
+                        }
+                        std::shared_ptr<Scope> ancestor = curr->get_parent();
+                        while (ancestor != nullptr) {
+                            if (std::find(return_scopes.begin(), return_scopes.end(), ancestor->scope_id) == return_scopes.end()) {
+                                return_scopes.emplace_back(ancestor->scope_id);
+                            }
+                            ancestor = ancestor->get_parent();
+                        }
+                    }
+                    curr = curr->get_parent();
+                }
             }
         }
     }

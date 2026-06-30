@@ -1,15 +1,17 @@
+use Core.system
+use Core.assert
 use Core.print
 
-// Using FIP auto-generation works (and compiles):
-// use Fip.c
-
-// But manually defining it does not work somehow:
-opaque NamedOpaque;
-extern def create_named_opaque() -> NamedOpaque;
-extern def free_named_opaque(mut NamedOpaque* value);
+def run(str? expected) -> str?:
+	(ec, output) := system_command("echo hello");
+	if expected == none:
+		return output;
+	assert(output == "hello\n");
+	return none;
 
 def main():
-	print("Hello, World!\n");
-	NamedOpaque o = create_named_opaque();
-	print($"Created new named opaque {o}\n");
-	free_named_opaque(&o);
+	str? result = run(none);
+	if result == none:
+		print("none\n");
+	else:
+		print(result!);
