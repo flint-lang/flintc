@@ -5427,9 +5427,32 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), bin_op_node->left->type, false);
                 lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
             }
-            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
-            llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
-            return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
+            llvm::Value *const has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            llvm::Value *const lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
+            if (!bin_op_node->type->is_freeable()) {
+                return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
+            }
+            // lhs_value is a borrowed pointer into the optional's storage, rhs is already owned.
+            // Only clone the lhs to avoid leaking rhs.
+            llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+            llvm::Value *const type_id = builder.getInt32(bin_op_node->type->get_id());
+            llvm::BasicBlock *const current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *const has_value_block = llvm::BasicBlock::Create(context, "opt_default_has_value", ctx.parent);
+            llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "opt_default_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            builder.CreateCondBr(has_value, has_value_block, merge_block);
+
+            builder.SetInsertPoint(has_value_block);
+            builder.CreateCall(clone_fn, {lhs_value, scratchspace, type_id});
+            llvm::Value *const cloned_lhs = IR::aligned_load(builder, PTR_TY, scratchspace, "cloned_value");
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
+            llvm::PHINode *const phi = builder.CreatePHI(PTR_TY, 2, "opt_default_result");
+            phi->addIncoming(cloned_lhs, has_value_block);
+            phi->addIncoming(rhs, current_block);
+            return phi;
         }
         case TOK_CATCH: {
             llvm::BasicBlock *const current_block = builder.GetInsertBlock();
