@@ -646,7 +646,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "              │ after not leaking        │\n";
         std::cout << "              └──────────────────────────┘\n";
         std::cout << "\n";
-        std::cout << "  crash       Hard crashes when opaque memory is leaked";
+        std::cout << "  crash       Hard crashes when opaque memory is leaked\n";
         std::cout << "              ┌─ Example Program Output ─┐\n";
         std::cout << "              │ Error: Leaking memory!   │\n";
         std::cout << "              └─ Program Crashes ────────┘\n";
