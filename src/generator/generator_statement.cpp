@@ -1489,27 +1489,29 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
         ctx.allocations.insert({err_alloca_name, err_ptr});
 
-        // Emit debug info for the catch variable
-        llvm::DISubprogram *const subprogram = ctx.parent->getSubprogram();
-        ASSERT(subprogram != nullptr);
-        llvm::DIFile *file_meta = nullptr;
-        if (Debug::debug_files.find(catch_node->file_hash) != Debug::debug_files.end()) {
-            file_meta = Debug::debug_files.at(catch_node->file_hash);
+        // Emit debug info for the catch variable if in debug mode
+        if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
+            llvm::DISubprogram *const subprogram = ctx.parent->getSubprogram();
+            ASSERT(subprogram != nullptr);
+            llvm::DIFile *file_meta = nullptr;
+            if (Debug::debug_files.find(catch_node->file_hash) != Debug::debug_files.end()) {
+                file_meta = Debug::debug_files.at(catch_node->file_hash);
+            }
+            if (Debug::DCU != nullptr) {
+                file_meta = Debug::DCU->getFile();
+            }
+            ASSERT(file_meta != nullptr);
+            const std::string &vname = catch_node->var_name.value();
+            llvm::DIType *const debug_type = Debug::get_or_create_debug_type(        //
+                ctx.parent->getParent(), catch_node->scope->variables.at(vname).type //
+            );
+            llvm::DILocalVariable *const catch_variable = Debug::DIB->createAutoVariable( //
+                subprogram, vname, file_meta, catch_node->line, debug_type, true          //
+            );
+            llvm::DIExpression *const catch_expr = Debug::DIB->createExpression({llvm::dwarf::DW_OP_deref});
+            llvm::DILocation *const catch_expr_location = llvm::DILocation::get(context, catch_node->line, 0, subprogram);
+            Debug::DIB->insertDbgValueIntrinsic(err_ptr, catch_variable, catch_expr, catch_expr_location, builder.GetInsertBlock()->end());
         }
-        if (Debug::DCU != nullptr) {
-            file_meta = Debug::DCU->getFile();
-        }
-        ASSERT(file_meta != nullptr);
-        const std::string &vname = catch_node->var_name.value();
-        llvm::DIType *const debug_type = Debug::get_or_create_debug_type(        //
-            ctx.parent->getParent(), catch_node->scope->variables.at(vname).type //
-        );
-        llvm::DILocalVariable *const catch_variable = Debug::DIB->createAutoVariable( //
-            subprogram, vname, file_meta, catch_node->line, debug_type, true          //
-        );
-        llvm::DIExpression *const catch_expr = Debug::DIB->createExpression({llvm::dwarf::DW_OP_deref});
-        llvm::DILocation *const catch_expr_location = llvm::DILocation::get(context, catch_node->line, 0, subprogram);
-        Debug::DIB->insertDbgValueIntrinsic(err_ptr, catch_variable, catch_expr, catch_expr_location, builder.GetInsertBlock()->end());
 
         // Generate the body of the catch block
         if (!generate_body(builder, ctx)) {
@@ -1628,11 +1630,11 @@ bool Generator::Statement::generate_declaration( //
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
         const auto init_variation = declaration_node->initializer.value()->get_variation();
-        const bool is_const_array_init =                                            //
-            declaration_node->type->get_variation() == Type::Variation::ARRAY &&    //
-            declaration_node->type->as<ArrayType>()->sizes.has_value() &&           //
-            (init_variation == ExpressionNode::Variation::ARRAY_INITIALIZER ||       //
-             init_variation == ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER);
+        const bool is_const_array_init =                                         //
+            declaration_node->type->get_variation() == Type::Variation::ARRAY && //
+            declaration_node->type->as<ArrayType>()->sizes.has_value() &&        //
+            (init_variation == ExpressionNode::Variation::ARRAY_INITIALIZER ||   //
+                init_variation == ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER);
         if (is_const_array_init) {
             ctx.dest = alloca;
         }
