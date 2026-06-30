@@ -40,7 +40,13 @@ This project contains the custom **Flint Compiler** built in C++. Flint is a sta
 Because of Flint's strong focus on transparency, it feels lower level compared to Python. But this very transparency becomes your superpower because you can actually tell what the runtime is doing with ease. This means that Flint could be described as a middle-level language, even though we try to make Flint as high level as possible without sacrificing transparency.
 If you are interested in it, start learning it through the [Wiki](https://flint-lang.github.io/wiki) today!
 
-## Who Flint is For
+## Why Flint?
+
+Flint originated from a very simple idea: What happens when you try to combine OOP and ECS at a language-design level, and what unique design consequences would emerge from it?
+
+The resulting design is very unique and integrated, no language feature lives in isolation, they all serve the larger design goal. A core philosphy and design goal crystalized out of the language: being both high level and transparent so that users can always tell what's going on. But Flint has become way more than just that. For example the concept of groups to describe the simultaniety of operations is something I haven't seen anywhere before, at least not that integrated into the language.
+
+## Who Flint is for
 
 Flint is for developers who appreciate high-level ergonomics and syntax but want to understand what's actually happening under the hood. If you enjoy writing expressive code while maintaining transparency into runtime behaviour, Flint is for you.
 
