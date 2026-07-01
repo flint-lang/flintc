@@ -192,6 +192,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
 #ifndef __WIN32__
             arg_stack->addAttr(llvm::Attribute::InReg);
+            dispatch_fn->setCallingConv(llvm::CallingConv::Tail);
 #endif
         }
 
@@ -339,7 +340,14 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 }
 
                 // Now that the required data is stored in the function frame, we can call the targetted function
-                llvm::Value *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+                llvm::CallInst *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+#ifndef __WIN32__
+                call_err->addParamAttr(0, llvm::Attribute::InReg);
+                if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                    call_err->setCallingConv(llvm::CallingConv::Tail);
+                    call_err->setTailCall();
+                }
+#endif
 
                 // Store back the data values of the function frame to the entity if the local data has been overwritten
                 for (const auto &[entity_data, fn_frame_data] : data_ptr_pairs) {
@@ -375,7 +383,14 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
             IR::aligned_store(builder, arg_entity, arg_self_ptr);
 
             // Now that the entity is stored in the function frame, we can call the function
-            llvm::Value *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+            llvm::CallInst *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
+#ifndef __WIN32__
+            call_err->addParamAttr(0, llvm::Attribute::InReg);
+            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                call_err->setCallingConv(llvm::CallingConv::Tail);
+                call_err->setTailCall();
+            }
+#endif
 
             // We return "garbage" in the case of error, nullpointer if no error happened. This return value of the dispatch function
             // should *never* be read when calling the dispatch function in execute mode
