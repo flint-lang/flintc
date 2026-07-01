@@ -2,10 +2,74 @@ use Core.system
 use Core.assert
 use Core.print
 
+/// @brief Appends a single string value to a string array
+///
+/// @param `arr` The array to append the value to
+/// @param `value` The value to append to the array
+/// @retrun `str[]` The newly created array with the value appended to it
+def append(str[] arr, str value) -> str[]:
+	str[] new = str[arr.len + 1]("");
+	for (i, elem) in arr:
+		new[i] = elem;
+	new[arr.len] = value;
+	return new;
+
+/// @brief Compiles a given file with the given flags and checks whether compilation
+///        resulted in the expected exit code and expected output
+///
+/// @param `pre_command` Something to prepend to the entire compile command, like `cd <somepath> &&` for example
+/// @param `file` The path to the file to compile
+/// @param `flags` An array of additional flags to pass to the compiler
+/// @param `expected_exit_code` The expected exit code of compilation
+/// @param `expected_output` The expected output of compilation, if any at all
+/// @return `str?` The output of the compilation if `expected_output` is `none`
+def compile(str? pre_command, str file, str[] flags, i32 expected_exit_code, str? expected_output) -> str?:
+	str input_flags = "";
+	for (i, f) in flags:
+		if i > 0:
+			input_flags += " ";
+		input_flags += f;
+	const str command = (pre_command ?? "") + $"flintc --file {file} {input_flags}";
+	(exit_code, output) := system_command(command);
+	if exit_code != expected_exit_code:
+		print($"command '{command}' failed ({exit_code}:{expected_exit_code})\n");
+		print(output);
+	assert(exit_code == expected_exit_code);
+
+	switch expected_output:
+		none:
+			return output;
+		exp_out:
+			if output != exp_out:
+				print($"UNEXPECTED_EXE: output = '{output}'\n");
+				print($"EXPECTED_EXE: output = '{exp_out}'\n");
+			assert(output == exp_out);
+	return none;
+
+/// @brief Compiles the given file with the given flags and checks whether compilation
+///        resulted in the expected exit code and expected output. Additionally adds
+///        various flags to each compilation to test if all compile flags work properly
+///
+/// @param `pre_command` Something to prepend to the entire compile command, like `cd <somepath> &&` for example
+/// @param `file` The path to the file to compile
+/// @param `flags` An array of additional flags to pass to the compiler
+/// @param `expected_exit_code` The expected exit code of compilation
+/// @param `expected_output` The expected output of compilation, if any at all
+/// @return `str?` The output of the compilation if `expected_output` is `none`
+def compile_v(str? pre_command, str file, str[] flags, i32 expected_exit_code, str? expected_output) -> str?:
+	// Default compilation just passes the flags to it as-is
+	_ = compile(pre_command, file, flags, expected_exit_code, expected_output);
+
+	str[] parallel_flags = append(flags, "--parallel");
+	_ = compile(pre_command, file, parallel_flags, expected_exit_code, expected_output);
+
+	str[] fast_flags = append(flags, "-O fast");
+	return compile(pre_command, file, fast_flags, expected_exit_code, expected_output);
+
 /// @brief Checks whether a given string starts with the given other string
 ///
-/// @brief `string` The string to check
-/// @brief `check` The string with which the other string may start with
+/// @param `string` The string to check
+/// @param `check` The string with which the other string may start with
 /// @return `bool` Whether the `string` starts with `check`
 def starts_with(str string, str check) -> bool:
 	if string.length < check.length:
@@ -26,12 +90,8 @@ def test_test(str test_dir, str file_name):
 	normalized_path := get_path($"{cwd}/{test_dir}");
 	str test_file = get_path($"{normalized_path}/{file_name}");
 	str out_file = get_path($"{normalized_path}/test");
-	(exit_code, output) := system_command($"flintc --file {test_file} --test --out {out_file}");
-	if exit_code != 0:
-		print(output);
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command(get_path($"{normalized_path}/test"));
+	compile_v(none, test_file, str[_]{"--test", "--out", out_file}, 0, "");
+	(exit_code, output) := system_command(get_path($"{normalized_path}/test"));
 	if exit_code != 0:
 		print(output);
 	assert(exit_code == 0);
@@ -42,15 +102,8 @@ def test_test(str test_dir, str file_name):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the compiled program
 def test_file_ok(str file, str? expected_output):
-	(exit_code, output) := system_command($"flintc --file {file}");
-	if exit_code != 0:
-		print($"Unexpected compiler exit_code: {exit_code}\n");
-		print($"Compiler output: '{output}'\n");
-	assert(exit_code == 0);
-	if output != "":
-		print($"Unexpected compiler output: '{output}'\n");
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
+	compile_v(none, file, str[_]{}, 0, "");
+	(exit_code, output) := system_command("./main");
 	if exit_code != 0:
 		print($"Unexpected 'main' exit_code: {exit_code}\n");
 	assert(exit_code == 0);
@@ -72,10 +125,8 @@ def test_file_ok(str file, str? expected_output):
 def test_file_ok_in(str path, str file, str? expected_output):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command($"cd {normalized_path} && {get_path("./main")}");
+	compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
+	(exit_code, output) := system_command($"cd {normalized_path} && {get_path("./main")}");
 	assert(exit_code == 0);
 	if expected_output == none:
 		return;
@@ -96,10 +147,8 @@ def test_file_ok_in(str path, str file, str? expected_output):
 def test_file_ok_in(str path, str file, str expected_output_start, str expected_output_end):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command($"cd {normalized_path} && {get_path("./main")}");
+	compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
+	(exit_code, output) := system_command($"cd {normalized_path} && {get_path("./main")}");
 	assert(exit_code == 0);
 
 	if output.len < expected_output_start.len + expected_output_end.len:
@@ -122,14 +171,7 @@ def test_file_ok_in(str path, str file, str expected_output_start, str expected_
 ///
 /// @param `file` The file to compile
 def test_compiles(str file):
-	(exit_code, output) := system_command($"flintc --file {file}");
-	if exit_code != 0:
-		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
-		print($"UNEXPECTED_CMP: output = '{output}'\n");
-	assert(exit_code == 0);
-	if output != "":
-		print($"UNEXPECTED_CMP: output = '{output}'\n");
-	assert(output == "");
+	compile_v(none, file, str[_]{}, 0, "");
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is not executed.
@@ -140,23 +182,15 @@ def test_compiles(str file):
 def test_compiles_in(str path, str file, str? flags):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	(exit_code, output) := system_command($"cd {normalized_path} && flintc --file {file} {flags ?? ""}");
-	if exit_code != 0:
-		print($"UNEXPECTED_CMP: exit_code = {exit_code}\n");
-		print($"UNEXPECTED_CMP: output = '{output}'\n");
-	assert(exit_code == 0);
-	if output != "":
-		print($"UNEXPECTED_CMP: output = '{output}'\n");
-	assert(output == "");
+	compile_v($"cd {normalized_path} && ", file, str[_]{flags ?? ""}, 0, "");
 
 /// @brief Compiles a given file and expects compilation to fail with an expected output
 ///
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the compiler
 def test_file_fail(str file, str expected_output):
-	(exit_code, output) := system_command($"flintc --no-colors --file {file}");
-	assert(exit_code == 1);
-	assert(starts_with(output, expected_output));
+	str? output = compile_v(none, file, str[_]{"--no-colors"}, 1, none);
+	assert(starts_with(output!, expected_output));
 
 /// @brief Executes a given command inside a subdirectory and expects a given output
 ///
@@ -166,9 +200,8 @@ def test_file_fail(str file, str expected_output):
 def test_file_fail_in(str path, str file, str expected_output):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	(exit_code, output) := system_command($"cd {normalized_path} && flintc --no-colors --file {file}");
-	assert(exit_code == 1);
-	assert(starts_with(output, expected_output));
+	str? output = compile_v($"cd {normalized_path} && ", file, str[_]{"--no-colors"}, 1, none);
+	assert(starts_with(output!, expected_output));
 
 /// @brief Executes a given command inside a subdirectory and expects a given output
 ///        It skips the first `n` lines of the output and only compares the rest of the output.
@@ -182,8 +215,8 @@ def test_file_fail_in(u32 n, str path, str file, str expected_output):
 	assert(n >= 1);
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	(exit_code, output) := system_command($"cd {normalized_path} && flintc --no-colors --file {file}");
-	assert(exit_code == 1);
+	str? output_maybe = compile_v($"cd {normalized_path} && ", file, str[_]{"--no-colors"}, 1, none);
+	str output = output_maybe!;
 	u64 start_idx = 0;
 	u64 lines_skipped = 0;
 	for (idx, char) in output:
@@ -200,9 +233,7 @@ def test_file_fail_in(u32 n, str path, str file, str expected_output):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the run program
 def test_file_crash(str file, str expected_output):
-	(exit_code, output) := system_command($"flintc --file {file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
+	compile_v(none, file, str[_]{}, 0, "");
+	(exit_code, output) := system_command("./main");
 	assert(exit_code != 0);
 	assert(output == expected_output);
