@@ -1965,14 +1965,21 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
 
-    if (tok_it->token != TOK_IDENTIFIER) {
-        THROW_ERR(                                                                          //
-            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                          //
-            tok_it->line, tok_it->column, std::vector<Token>{TOK_IDENTIFIER}, tok_it->token //
+    if (tok_it->token != TOK_IDENTIFIER && tok_it->token != TOK_TYPE) {
+        THROW_ERR(                                                                                    //
+            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                    //
+            tok_it->line, tok_it->column, std::vector<Token>{TOK_IDENTIFIER, TOK_TYPE}, tok_it->token //
         );
         return false;
     }
-    if (tok_it->lexme != entity->name) {
+    if (tok_it->token == TOK_IDENTIFIER && tok_it->lexme != entity->name) {
+        THROW_ERR(                                                                 //
+            ErrDefEntityConstructorWrongName, ERR_PARSING, parser.file_hash,       //
+            tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
+        );
+        return false;
+    }
+    if (tok_it->token == TOK_TYPE && tok_it->type->to_string() != entity->name) {
         THROW_ERR(                                                                 //
             ErrDefEntityConstructorWrongName, ERR_PARSING, parser.file_hash,       //
             tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
@@ -2279,6 +2286,11 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
     } else {
         // Process entities sequentially
         while (!tip_keys.empty()) {
+            // Collapse types in entity bodies upfront to keep code-pairity with the concurrent code path
+            for (const auto &tip_key : tip_keys) {
+                auto &node = nodes.at(tip_key);
+                node.parser->collapse_types_in_lines(node.body, node.parser->file_node_ptr->tokens);
+            }
             // Iterate through all current tip keys and enqueue the processing of them
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
