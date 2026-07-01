@@ -1927,7 +1927,6 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         while (link_tokens.second->token != TOK_SEMICOLON) {
             link_tokens.second++;
         }
-        parser.collapse_types_in_slice(link_tokens, parser.file_node_ptr->tokens);
         while (true) {
             auto next_link_range = Matcher::get_next_match_range(link_tokens, Matcher::until_comma);
             const bool is_last = !next_link_range.has_value();
@@ -2233,6 +2232,12 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
     bool result = true;
     if (parse_parallel) {
         while (!tip_keys.empty()) {
+            // Collapse types in entity bodies upfront (single-threaded) to prevent
+            // concurrent collapse_types_in_slice calls which race via Line::delete_tokens
+            for (const auto &tip_key : tip_keys) {
+                auto &node = nodes.at(tip_key);
+                node.parser->collapse_types_in_lines(node.body, node.parser->file_node_ptr->tokens);
+            }
             // Enqueue tasks in the global thread pool
             std::vector<std::future<bool>> futures;
             // Iterate through all current tip keys and enqueue the processing of them
