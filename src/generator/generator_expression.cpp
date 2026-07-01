@@ -58,11 +58,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression_node->as<CallNodeExpression>();
-            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(node), is_reference);
         }
         case ExpressionNode::Variation::CALLABLE_CALL: {
             const auto *node = expression_node->as<CallableCallNodeExpression>();
-            return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node));
+            return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node), is_reference);
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression_node->as<DataAccessNode>();
@@ -100,7 +100,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
-            return generate_instance_call(builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node));
+            return generate_instance_call(builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node), is_reference);
         }
         case ExpressionNode::Variation::LITERAL: {
             const auto *node = expression_node->as<LiteralNode>();
@@ -1427,7 +1427,8 @@ bool Generator::Expression::is_arg_reference(                    //
 Generator::group_mapping Generator::Expression::generate_call( //
     llvm::IRBuilder<> &builder,                                //
     GenerationContext &ctx,                                    //
-    const CallNodeBase *call_node                              //
+    const CallNodeBase *call_node,                             //
+    const bool is_reference                                    //
 ) {
     const std::string &function_name = call_node->function->name;
     const auto builtin_function = Parser::get_builtin_function(call_node->function->name, ctx.imported_core_modules);
@@ -1571,12 +1572,16 @@ Generator::group_mapping Generator::Expression::generate_call( //
             i + 1,                                                                                            //
             function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
-        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                            //
-            called_fn_type->getElementType(i + 1),                                                        //
-            elem_ptr,                                                                                     //
-            function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
-        );
-        return_value.emplace_back(elem_value);
+        if (is_reference) {
+            return_value.emplace_back(elem_ptr);
+        } else {
+            llvm::LoadInst *elem_value = IR::aligned_load(builder,                                            //
+                called_fn_type->getElementType(i + 1),                                                        //
+                elem_ptr,                                                                                     //
+                function_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+            );
+            return_value.emplace_back(elem_value);
+        }
     }
     return return_value;
 }
@@ -2111,7 +2116,8 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
 Generator::group_mapping Generator::Expression::generate_callable_call( //
     llvm::IRBuilder<> &builder,                                         //
     GenerationContext &ctx,                                             //
-    const CallableCallNodeBase *call_node                               //
+    const CallableCallNodeBase *call_node,                              //
+    const bool is_reference                                             //
 ) {
     // First we prepare all the arguments
     std::vector<llvm::Value *> args;
@@ -2237,13 +2243,17 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
             builder.getInt64(offset),                                                                   //
             fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value_ptr" //
         );
-        llvm::Type *const ret_type = ret_type_pair.second.first ? PTR_TY : ret_type_pair.first;
-        llvm::LoadInst *elem_value = IR::aligned_load(builder,                                      //
-            ret_type,                                                                               //
-            elem_ptr,                                                                               //
-            fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
-        );
-        return_value.emplace_back(elem_value);
+        if (is_reference) {
+            return_value.emplace_back(elem_ptr);
+        } else {
+            llvm::Type *const ret_type = ret_type_pair.second.first ? PTR_TY : ret_type_pair.first;
+            llvm::LoadInst *elem_value = IR::aligned_load(builder,                                      //
+                ret_type,                                                                               //
+                elem_ptr,                                                                               //
+                fn_name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+            );
+            return_value.emplace_back(elem_value);
+        }
         // Add the return type's size for the next return value
         offset += return_type_size;
     }
@@ -2255,7 +2265,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
     GenerationContext &ctx,                                             //
     garbage_type &garbage,                                              //
     const unsigned int expr_depth,                                      //
-    const InstanceCallNodeBase *call_node                               //
+    const InstanceCallNodeBase *call_node,                              //
+    const bool is_reference                                             //
 ) {
     switch (call_node->instance_variable->type->get_variation()) {
         default:
@@ -2371,18 +2382,22 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 const std::shared_ptr<Type> &ret_type = call_node->function->return_types.at(i);
                 const auto ret_pair = IR::get_type(ctx.parent->getParent(), ret_type);
                 llvm::Type *const ret_ty = ret_pair.second.first ? PTR_TY : ret_pair.first;
-                llvm::LoadInst *ret_value = IR::aligned_load(builder,                                                         //
-                    ret_ty,                                                                                                   //
-                    ret_ptr,                                                                                                  //
-                    call_node->function->name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
-                );
-                return_value.emplace_back(ret_value);
+                if (is_reference) {
+                    return_value.emplace_back(ret_ptr);
+                } else {
+                    llvm::LoadInst *ret_value = IR::aligned_load(builder,                                                         //
+                        ret_ty,                                                                                                   //
+                        ret_ptr,                                                                                                  //
+                        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+                    );
+                    return_value.emplace_back(ret_value);
+                }
                 ret_ptr = builder.CreateGEP(ret_ty, arg_ptr, builder.getInt32(1), "ret_ptr_" + std::to_string(i + 1));
             }
             return return_value;
         }
         case Type::Variation::ENTITY:
-            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node));
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), is_reference);
     }
 }
 

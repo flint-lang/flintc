@@ -1634,8 +1634,14 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
+        /// @param `is_reference` Whether the result of the call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the call
-        static group_mapping generate_call(llvm::IRBuilder<> &builder, GenerationContext &ctx, const CallNodeBase *call_node);
+        static group_mapping generate_call( //
+            llvm::IRBuilder<> &builder,     //
+            GenerationContext &ctx,         //
+            const CallNodeBase *call_node,  //
+            const bool is_reference = false //
+        );
 
         /// @function `is_arg_reference`
         /// @brief Checks whether the given argument should be passed by reference to a function
@@ -1732,11 +1738,13 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
+        /// @param `is_reference` Whether the result of the callable call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the callable call
         static group_mapping generate_callable_call( //
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
-            const CallableCallNodeBase *call_node    //
+            const CallableCallNodeBase *call_node,   //
+            const bool is_reference = false          //
         );
 
         /// @function `generate_instance_call`
@@ -1747,13 +1755,15 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `call_node` The call node to generate
+        /// @param `is_reference` Whether the result of the instance call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the instance call
         static group_mapping generate_instance_call( //
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
             garbage_type &garbage,                   //
             const unsigned int expr_depth,           //
-            const InstanceCallNodeBase *call_node    //
+            const InstanceCallNodeBase *call_node,   //
+            const bool is_reference = false          //
         );
 
         /// @function `generate_function_reference`

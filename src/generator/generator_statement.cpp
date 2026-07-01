@@ -1835,7 +1835,8 @@ bool Generator::Statement::generate_declaration( //
 
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
-    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get());
+    const bool is_discarded = assignment_node->name == "_";
+    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_discarded);
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -1850,7 +1851,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     }
 
     // Handle discard assignment `_ = expr`
-    if (assignment_node->name == "_") {
+    if (is_discarded) {
         // Check if the RHS expression is a freeable producer, if it is then we need to free it
         if (assignment_node->expression->is_producer() && assignment_node->expression->type->is_freeable()) {
             if (expr.value().size() > 1) {
