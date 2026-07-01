@@ -2654,6 +2654,22 @@ class Generator {
             const std::unordered_map<std::string, llvm::Value *const> &allocations, //
             const Hash &hash_key                                                    //
         );
+
+        /// @function `generate_parameter_debug_info`
+        /// @brief Emits debug info (dbg.value) for all function parameters
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `parent` The function the debug info is emitted in
+        /// @param `function_node` The FunctionNode (contains parameter list and scope id)
+        /// @param `allocations` The map of all allocation GEPs
+        /// @param `hash_key` The hash of the file for looking up DIFile info
+        static void generate_parameter_debug_info(                                 //
+            llvm::IRBuilder<> &builder,                                             //
+            llvm::Function *parent,                                                 //
+            const FunctionNode *function_node,                                      //
+            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
+            const Hash &hash_key                                                    //
+        );
     };
 
     /// @class 'Module'

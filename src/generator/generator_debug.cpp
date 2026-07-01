@@ -1001,3 +1001,33 @@ void Generator::Debug::generate_variable_debug_info(                        //
         }
     }
 }
+
+void Generator::Debug::generate_parameter_debug_info(                       //
+    llvm::IRBuilder<> &builder,                                             //
+    llvm::Function *parent,                                                 //
+    const FunctionNode *function_node,                                      //
+    const std::unordered_map<std::string, llvm::Value *const> &allocations, //
+    const Hash &hash_key                                                    //
+) {
+    llvm::DISubprogram *const sp = parent->getSubprogram();
+    if (sp == nullptr || DIB == nullptr) {
+        return;
+    }
+    llvm::DIFile *const file_meta = debug_files.at(hash_key);
+    if (file_meta == nullptr) {
+        return;
+    }
+
+    for (size_t i = 0; i < function_node->parameters.size(); i++) {
+        const auto &[param_type, param_name, param_mutable] = function_node->parameters.at(i);
+        const std::string alloca_name = "s" + std::to_string(function_node->scope.value()->scope_id) + "::" + param_name;
+        llvm::Value *const alloca = allocations.at(alloca_name);
+        llvm::DIType *const debug_type = get_or_create_debug_type(parent->getParent(), param_type);
+        llvm::DILocalVariable *const var = DIB->createParameterVariable(            //
+            sp, param_name, i + 1, file_meta, function_node->line, debug_type, true //
+        );
+        llvm::DILocation *const diloc = llvm::DILocation::get(Generator::context, sp->getLine(), 0, sp);
+        llvm::DIExpression *const expr = DIB->createExpression({llvm::dwarf::DW_OP_deref});
+        DIB->insertDbgValueIntrinsic(alloca, var, expr, diloc, builder.GetInsertBlock()->end());
+    }
+}

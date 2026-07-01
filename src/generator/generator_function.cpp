@@ -184,10 +184,11 @@ bool Generator::Function::generate_function_body(                               
         builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
     }
 
-    // Emit debug info for all local variables at the start of the entry block
+    // Emit debug info for all local variables and parameters at the start of the entry block
     if (Debug::DIB != nullptr && function_node->scope.has_value()) {
         const Hash &hash = function_node->file_hash;
         Debug::generate_variable_debug_info(builder, function, function_node->scope.value(), fn_ctx.allocations, hash);
+        Debug::generate_parameter_debug_info(builder, function, function_node, fn_ctx.allocations, hash);
     }
 
     // Generate all instructions of the functions body
@@ -274,10 +275,11 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
     }
 
-    // Emit debug info for all local variables in the test function
+    // Emit debug info for all local variables and parameters in the test function
     if (Debug::DIB != nullptr && test_node->scope != nullptr) {
         const Hash &hash = test_node->file_hash;
         Debug::generate_variable_debug_info(builder, test_function, test_node->scope, allocations, hash);
+        Debug::generate_parameter_debug_info(builder, test_function, &fake_fn, allocations, hash);
     }
 
     // Normally generate the tests body
