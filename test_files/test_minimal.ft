@@ -1,17 +1,14 @@
-use Core.system
-use Core.assert
 use Core.print
 
-def run(str? expected) -> str?:
-	(ec, output) := system_command("echo hello");
-	if expected == none:
-		return output;
-	assert(output == "hello\n");
-	return none;
+def get_strings() -> (str, str):
+	return ("Hi", "there");
+
+def print_and_add(i32 x, i32 y) -> i32:
+	print($"adding {x} and {y}\n");
+	return x + y;
 
 def main():
-	str? result = run(none);
-	if result == none:
-		print("none\n");
-	else:
-		print(result!);
+	(_, y) := get_strings();
+	print($"y is \"{y}\"\n");
+
+	_ = print_and_add(30, 40);

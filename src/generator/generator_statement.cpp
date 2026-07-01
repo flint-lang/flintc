@@ -1572,9 +1572,24 @@ bool Generator::Statement::generate_group_declaration( //
 
     unsigned int elem_idx = 0;
     for (const auto &variable : declaration_node->variables) {
+        llvm::Value *elem_value = expression.value().at(elem_idx);
+        if (variable.second.empty()) {
+            // The expression result is discarded, so we free it if it is freeable
+            if (variable.first->is_freeable()) {
+                if (variable.first->is_dima_managed()) {
+                    llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+                    builder.CreateCall(release_fn, {Module::DIMA::get_head(variable.first), elem_value});
+                } else {
+                    llvm::Function *free_fn = Memory::memory_functions.at("free");
+                    builder.CreateCall(free_fn, {elem_value, builder.getInt32(variable.first->get_id())});
+                }
+            }
+            elem_idx++;
+            continue;
+        }
+        // Store the expression result in an variable
         const std::string variable_name = "s" + std::to_string(ctx.scope->scope_id) + "::" + variable.second;
         llvm::Value *const variable_alloca = ctx.allocations.at(variable_name);
-        llvm::Value *elem_value = expression.value().at(elem_idx);
         IR::aligned_store(builder, elem_value, variable_alloca);
         elem_idx++;
     }
@@ -1832,6 +1847,27 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
+    }
+
+    // Handle discard assignment `_ = expr`
+    if (assignment_node->name == "_") {
+        // Check if the RHS expression is a freeable producer, if it is then we need to free it
+        if (assignment_node->expression->is_producer() && assignment_node->expression->type->is_freeable()) {
+            if (expr.value().size() > 1) {
+                // Write group assignments when discarding group expressions, not a single `_ =`
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            const auto &expr_type = assignment_node->expression->type;
+            if (expr_type->is_dima_managed()) {
+                llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+                builder.CreateCall(release_fn, {Module::DIMA::get_head(expr_type), expr.value().front()});
+            } else {
+                llvm::Function *free_fn = Memory::memory_functions.at("free");
+                builder.CreateCall(free_fn, {expr.value().front(), builder.getInt32(expr_type->get_id())});
+            }
+        }
+        return true;
     }
 
     // Check if the variable is declared

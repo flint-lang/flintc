@@ -568,6 +568,10 @@ bool Generator::Allocation::generate_group_declaration_allocations(       //
     }
 
     for (const auto &variable : group_declaration_node->variables) {
+        if (variable.second.empty()) {
+            // Skipping discarded result "variables"
+            continue;
+        }
         const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
         auto type = IR::get_type(parent->getParent(), variable.first);
         struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);

@@ -900,6 +900,7 @@ class Matcher {
     static const inline PatternPtr declaration_inferred = sequence({token(TOK_IDENTIFIER), token(TOK_COLON_EQUAL)});
     static const inline PatternPtr assignment = sequence({token(TOK_IDENTIFIER), token(TOK_EQUAL)});
     static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_shorthand_operator});
+    static const inline PatternPtr discard_assignment = sequence({token(TOK_UNDERSCORE), token(TOK_EQUAL)});
     static const inline PatternPtr group_assignment = not_preceded_by(TOK_DOT, //
         sequence({token(TOK_LEFT_PAREN), until_right_paren, token(TOK_EQUAL)}) //
     );

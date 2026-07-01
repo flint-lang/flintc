@@ -1832,9 +1832,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
         std::optional<uint2> var_range = Matcher::get_next_match_range(lhs_tokens, Matcher::until_comma);
         if (!var_range.has_value()) {
             // The whole lhs tokens is the last variable
-            ASSERT(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER);
+            ASSERT(std::prev(lhs_tokens.second)->token == TOK_IDENTIFIER || std::prev(lhs_tokens.second)->token == TOK_UNDERSCORE);
             auto name_it = std::prev(lhs_tokens.second);
-            variables.emplace_back(nullptr, name_it->lexme);
+            variables.emplace_back(nullptr, name_it->token == TOK_UNDERSCORE ? "" : name_it->lexme);
             var_locations.emplace_back(name_it->line, name_it->column);
             break;
         } else {
@@ -1844,9 +1844,9 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             ASSERT(std::prev(var_tokens.second)->token == TOK_COMMA);
             var_tokens.second--;
             // The last element is the variable name now
-            ASSERT(std::prev(var_tokens.second)->token == TOK_IDENTIFIER);
+            ASSERT(std::prev(var_tokens.second)->token == TOK_IDENTIFIER || std::prev(var_tokens.second)->token == TOK_UNDERSCORE);
             auto name_it = std::prev(var_tokens.second);
-            variables.emplace_back(nullptr, name_it->lexme);
+            variables.emplace_back(nullptr, name_it->token == TOK_UNDERSCORE ? "" : name_it->lexme);
             var_locations.emplace_back(name_it->line, name_it->column);
         }
     }
@@ -1870,6 +1870,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             ASSERT(variables.size() == types.size());
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = types.at(i);
+                if (variables.at(i).second.empty()) {
+                    // Skip discarded "variables" in group declarations
+                    continue;
+                }
                 if (!scope->add_variable(variables.at(i).second,
                         Scope::Variable{
                             .type = types.at(i),
@@ -1898,6 +1902,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             const auto *multi_type = expression.value()->type->as<MultiType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = multi_type->base_type;
+                if (variables.at(i).second.empty()) {
+                    // Skip discarded "variables" in group declarations
+                    continue;
+                }
                 if (!scope->add_variable(variables.at(i).second,
                         Scope::Variable{
                             .type = multi_type->base_type,
@@ -1954,6 +1962,10 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             for (unsigned int i = 0; i < variables.size(); i++) {
                 variables.at(i).first = tuple_type->types[i];
+                if (variables.at(i).second.empty()) {
+                    // Skip discarded "variables" in group declarations
+                    continue;
+                }
                 if (!scope->add_variable(variables.at(i).second,
                         Scope::Variable{
                             .type = tuple_type->types[i],
@@ -2751,6 +2763,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             return std::nullopt;
         }
         statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
+    } else if (Matcher::tokens_contain(tokens, Matcher::discard_assignment)) {
+        const token_slice rhs_tokens = {tokens.first + 2, tokens.second};
+        auto rhs_expr = create_expression(_ctx_, scope, rhs_tokens);
+        if (!rhs_expr.has_value()) {
+            return std::nullopt;
+        }
+        statement_node = std::make_unique<AssignmentNode>(file_hash, tokens, rhs_expr.value()->type, "_", rhs_expr.value());
     } else if (Matcher::tokens_contain(tokens, Matcher::return_statement)) {
         std::optional<ReturnNode> return_node = create_return(scope, tokens);
         if (!return_node.has_value()) {
