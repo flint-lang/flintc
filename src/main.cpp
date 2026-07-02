@@ -77,10 +77,10 @@ int main(int argc, char *argv[]) {
     }
     Parser::clear_instances();
 
-    if (clp.output_ll_file) {
+    if (clp.emit_ir) {
         PROFILE_SCOPE("Write the ll file");
         std::error_code EC;
-        llvm::raw_fd_ostream ll_file(clp.ll_file_path.string(), EC);
+        llvm::raw_fd_ostream ll_file(clp.ir_file_path.string(), EC);
         if (!EC) {
             ll_file << Generator::resolve_ir_comments(Generator::get_module_ir_string(program.value().get()));
             ll_file.close();

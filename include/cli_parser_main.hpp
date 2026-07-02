@@ -3,6 +3,7 @@
 #include "cli_parser_base.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "io.hpp"
 #ifdef DEBUG_BUILD
 #include "colors.hpp"
 #endif
@@ -29,7 +30,7 @@ class CLIParserMain : public CLIParserBase {
             return 1;
         }
         for (size_t i = 0; i < args.size(); ++i) {
-            std::string arg = args[i];
+            const std::string &arg = args[i];
 
             if (arg.length() >= 2 && arg[0] == '-' && arg[1] != '-') {
                 for (size_t j = 1; j < arg.length(); j++) {
@@ -37,17 +38,6 @@ class CLIParserMain : public CLIParserBase {
                         case 'h':
                             print_help();
                             std::exit(0);
-                        case 'f':
-                            if (j + 1 < arg.length()) {
-                                std::cerr << "Expected the 'f' to be the last single-element argument in the argument '" << arg << "'!\n";
-                                return 1;
-                            }
-                            if (!n_args_follow(i + 1, "<file>", arg)) {
-                                return 1;
-                            }
-                            source_file_path = get_absolute(cwd_path, args.at(i + 1));
-                            ++i;
-                            break;
                         case 'o':
                             if (j + 1 < arg.length()) {
                                 std::cerr << "Expected the 'o' to be the last single-element argument in the argument '" << arg << "'!\n";
@@ -83,11 +73,11 @@ class CLIParserMain : public CLIParserBase {
                             i++;
                             break;
                         }
-                        case 'r':
-                            run = true;
-                            break;
                         case 'p':
                             parallel = true;
+                            break;
+                        case 'r':
+                            run = true;
                             break;
                         case 's':
                             is_static = true;
@@ -98,6 +88,31 @@ class CLIParserMain : public CLIParserBase {
                                 out_file_path = "test";
                             }
                             break;
+                        case 'T': {
+                            if (j + 1 < arg.length()) {
+                                std::cerr << "Expected the 'T' to be the last single-element argument in the argument '" << arg << "'!\n";
+                                return 1;
+                            }
+                            if (!n_args_follow(i + 1, "<TARGET>", arg)) {
+                                return 1;
+                            }
+                            const std::string &target_str = args.at(i + 1);
+                            if (target_str == "--help" || target_str == "-h") {
+                                print_help_targets();
+                                std::exit(0);
+                            }
+                            if (target_str == "native") {
+                                COMPILATION_TARGET = Target::NATIVE;
+                            } else if (target_str == "linux") {
+                                COMPILATION_TARGET = Target::LINUX;
+                            } else if (target_str == "windows") {
+                                COMPILATION_TARGET = Target::WINDOWS;
+                            } else {
+                                print_err("Unknown Target: " + target_str);
+                                return 1;
+                            }
+                            i++;
+                        }
                     }
                 }
                 continue;
@@ -105,12 +120,6 @@ class CLIParserMain : public CLIParserBase {
             if (arg == "--help") {
                 print_help();
                 std::exit(0);
-            } else if (arg == "--file") {
-                if (!n_args_follow(i + 1, "<file>", arg)) {
-                    return 1;
-                }
-                source_file_path = get_absolute(cwd_path, args.at(i + 1));
-                ++i;
             } else if (arg == "--out") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
@@ -291,12 +300,12 @@ class CLIParserMain : public CLIParserBase {
                 DEFAULT = "";
                 GREY = "";
                 RED_UNDERLINE = "";
-            } else if (arg == "--output-ll-file") {
+            } else if (arg == "--emit-ir") {
                 if (!n_args_follow(i + 1, "<file>", arg)) {
                     return 1;
                 }
-                ll_file_path = get_absolute(cwd_path, args.at(i + 1));
-                output_ll_file = true;
+                ir_file_path = get_absolute(cwd_path, args.at(i + 1));
+                emit_ir = true;
                 i++;
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
@@ -353,6 +362,16 @@ class CLIParserMain : public CLIParserBase {
                 BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::DIMA);
 #endif
             } else {
+                if (source_file_path.empty()) {
+                    // Check if the argument is a path, it might be the passed-in file. If the passed-in file path does not exist then it's
+                    // assumend to be a unrecognized argument
+                    source_file_path = get_absolute(cwd_path, arg);
+                    if (IO::file_exists_and_is_readable(source_file_path)) {
+                        continue;
+                    }
+                    // File doesn't exist or isn't readable, so it could be a different arg
+                    source_file_path.clear();
+                }
                 print_err("Unknown argument: " + arg);
                 return 1;
             }
@@ -366,9 +385,9 @@ class CLIParserMain : public CLIParserBase {
 
     std::filesystem::path source_file_path = "";
     std::filesystem::path out_file_path = "main";
-    std::filesystem::path ll_file_path = "";
+    std::filesystem::path ir_file_path = "";
     std::vector<std::string> compile_flags;
-    bool output_ll_file{false};
+    bool emit_ir{false};
     bool run{false};
     bool test{false};
     bool parallel{false};
@@ -377,30 +396,29 @@ class CLIParserMain : public CLIParserBase {
 
   private:
     void print_help() override {
-        std::cout << "Usage: flintc [OPTIONS]\n";
+        std::cout << "Usage: flintc <file.ft> [OPTIONS]\n";
         std::cout << "\n";
         std::cout << "Available Options:\n";
         std::cout << "  -h, --help                      Show help\n";
-        std::cout << "  -f, --file <file>               The file to compile\n";
-        std::cout << "  -o, --out <file>                The name and path of the built output file\n";
-        std::cout << "  -t, --test                      Output a test binary instead of the normal binary\n";
-        std::cout << "  -r, --run                       Run the built binary directly without outputting it\n";
+        std::cout << "  -o, --out        <file>         The name and path of the built output file\n";
+        std::cout << "  -O, --optimize   <MODE>         Selecting the optimize mode for compilation (use --help for more information)\n";
         std::cout << "  -p, --parallel                  Compile in parallel (only recommended for bigger projects)\n";
+        std::cout << "  -r, --run                       Run the built binary directly without outputting it\n";
         std::cout << "  -s, --static                    Build the executable as static\n";
-        std::cout << "  -O, --optimize <MODE>           Selecting the optimize mode for compilation (use --help for more information)\n";
-        std::cout << "      --version                   Print the version of the compiler\n";
-        std::cout << "      --target <TARGET>           Targets the given target platform (use --help for more information)\n";
+        std::cout << "  -t, --test                      Output a test binary instead of the normal binary\n";
+        std::cout << "  -T, --target     <TARGET>       Targets the given target platform           (use --help for more information)\n";
         std::cout << "      --arithmetic <MODE>         Selecting the mode for arithmetic behaviour (use --help for more information)\n";
-        std::cout << "      --array <MODE>              Selecting the mode for array behaviour (use --help for more information)\n";
-        std::cout << "      --opaque <MODE>             Selecting the mode for opaque behaviour (use --help for more information)\n";
-        std::cout << "      --optional <MODE>           Selecting the mode for optional behaviour (use --help for more information)\n";
-        std::cout << "      --variant <MODE>            Selecting the mode for variant behaviour (use --help for more information)\n";
+        std::cout << "      --array      <MODE>         Selecting the mode for array behaviour      (use --help for more information)\n";
+        std::cout << "      --opaque     <MODE>         Selecting the mode for opaque behaviour     (use --help for more information)\n";
+        std::cout << "      --optional   <MODE>         Selecting the mode for optional behaviour   (use --help for more information)\n";
+        std::cout << "      --variant    <MODE>         Selecting the mode for variant behaviour    (use --help for more information)\n";
+        std::cout << "      --emit-ir  <file>           Whether to emit the compiled IR code to a file\n";
+        std::cout << "                                  HINT: The compiler will not create an executable with this flag set\n";
         std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker (lld)\n";
+        std::cout << "      --version                   Print the version of the compiler\n";
         std::cout << "      --rebuild-core              Rebuild all the core modules\n";
         std::cout << "      --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
         std::cout << "      --no-colors                 Disables colored console output\n";
-        std::cout << "      --output-ll-file <file>     Whether to output the compiled IR code\n";
-        std::cout << "                                  HINT: The compiler will not create an executable with this flag set\n";
 #ifdef DEBUG_BUILD
         std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
         std::cout
@@ -437,7 +455,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_optimize() {
-        std::cout << "Usage: flintc --optimize <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --optimize <MODE>\n";
         std::cout << "  Flint has a pretty unique runtime thanks to the Thread Stack. In Flint, every function has the\n";
         std::cout << "  same signature under the hood ('i1 fn_name(ptr stack)') and Flint does not use the hardware\n";
         std::cout << "  stack at all for function data, it uses the TS instead. This is important to understand for\n";
@@ -460,7 +478,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_targets() {
-        std::cout << "Usage: flintc --target <TARGET>\n";
+        std::cout << "Usage: flintc <file.ft> --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
         std::cout << "  native      [Default] The native target triple of the platform the compiler is executed on\n";
@@ -470,7 +488,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_arithmetic() {
-        std::cout << "Usage: flintc --arithmetic <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --arithmetic <MODE>\n";
         std::cout << "\n";
         std::cout << "  The arithmetic mode controls the behaviour of the compiled Flint program when an oveflow or\n";
         std::cout << "  underflow occurs. If an underflow or overflow happen respectively, the value is clamped to\n";
@@ -535,7 +553,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_array() {
-        std::cout << "Usage: flintc --array <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --array <MODE>\n";
         std::cout << "\n";
         std::cout << "  The array mode controls what happens when an array is accessed out of it's bounds, e.g. when\n";
         std::cout << "  the index of the array access is greater or equal to the length of the array at that\n";
@@ -601,7 +619,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_opaque() {
-        std::cout << "Usage: flintc --opaque <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --opaque <MODE>\n";
         std::cout << "  The opaque mode controls the behaviour when opaque memory is leaked, or at least considered to be\n";
         std::cout << "  leaked. Please look at " << BaseError::get_wiki_link() << "/beginners_guide/11_interop/7_opaque.html\n";
         std::cout << "  if you want to know more about the 'opaque' type itself.\n";
@@ -654,7 +672,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_optional() {
-        std::cout << "Usage: flintc --optional <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --optional <MODE>\n";
         std::cout << "  The optional mode controls what happens when an optional force unwrap ( ! ) is executed on an\n";
         std::cout << "  optional typed value which does not contain any value, and holds the value of 'none' instead.\n";
         std::cout << "\n";
@@ -688,7 +706,7 @@ class CLIParserMain : public CLIParserBase {
     }
 
     void print_help_variant() {
-        std::cout << "Usage: flintc --variant <MODE>\n";
+        std::cout << "Usage: flintc <file.ft> --variant <MODE>\n";
         std::cout << "  The variant mode controls what happens when unwrapping a variant which holds a different typed\n";
         std::cout << "  value than the one which is force-unwrapped.\n";
         std::cout << "\n";
