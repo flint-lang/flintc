@@ -192,7 +192,7 @@ bool Generator::Module::generate_modules() {
     }
 
     // Then, save the new metadata file
-    save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
+    save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode), static_cast<int>(OPTIMIZE_MODE));
 
     // Now, merge together all object files into one single .o / .obj file
     std::string file_ending = "";
@@ -254,7 +254,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
             std::cout << YELLOW << "[Debug Info] Rebuilding all library files because no metadata.json file was found\n" << DEFAULT;
             std::cout << "-- overflow_mode: " << static_cast<unsigned int>(overflow_mode) << "\n" << std::endl;
         }
-        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
+        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode), static_cast<int>(OPTIMIZE_MODE));
         return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
     }
 
@@ -262,7 +262,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     std::optional<std::unique_ptr<JsonObject>> metadata = JsonParser::parse(tokens);
     if (!metadata.has_value()) {
         // Failed to parse the metadata, so we create the current metadata json file
-        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode));
+        save_metadata_json_file(static_cast<int>(overflow_mode), static_cast<int>(oob_mode), static_cast<int>(OPTIMIZE_MODE));
         // We dont know the settings of the old metadata.json file, so we rebuild everything
         return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
     }
@@ -283,6 +283,18 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
                 continue;
             } else {
                 // Unknown bare string field in the metadata.json file
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+            }
+        }
+        if (const JsonNumber *json_number = dynamic_cast<const JsonNumber *>(field.get())) {
+            if (json_number->name == "optimize_mode") {
+                if (json_number->number != static_cast<int>(OPTIMIZE_MODE)) {
+                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+                }
+                continue;
+            } else {
+                // Unknown bare number field in the metadata.json file
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
             }
@@ -371,21 +383,24 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     return needed_rebuilds;
 }
 
-void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob_mode_value) {
+void Generator::Module::save_metadata_json_file(int arithmetic_mode, int array_mode, int optimize_mode) {
     std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH);
 
-    std::unique_ptr<JsonObject> overflow_mode_object = std::make_unique<JsonNumber>("overflow_mode", overflow_mode_value);
+    std::unique_ptr<JsonObject> mode_object = std::make_unique<JsonNumber>("mode", arithmetic_mode);
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
-    arithmetic_group_content.emplace_back(std::move(overflow_mode_object));
+    arithmetic_group_content.emplace_back(std::move(mode_object));
     std::unique_ptr<JsonObject> arithmetic_group = std::make_unique<JsonGroup>("arithmetic", arithmetic_group_content);
 
-    std::unique_ptr<JsonObject> oob_mode_object = std::make_unique<JsonNumber>("oob_mode", oob_mode_value);
+    std::unique_ptr<JsonObject> oob_mode_object = std::make_unique<JsonNumber>("mode", array_mode);
     std::vector<std::unique_ptr<JsonObject>> array_group_content;
     array_group_content.emplace_back(std::move(oob_mode_object));
     std::unique_ptr<JsonObject> array_group = std::make_unique<JsonGroup>("array", array_group_content);
 
+    std::unique_ptr<JsonObject> optimize_mode_object = std::make_unique<JsonNumber>("optimize_mode", optimize_mode);
+
     std::vector<std::unique_ptr<JsonObject>> main_object_content;
     main_object_content.emplace_back(std::move(commit_hash_object));
+    main_object_content.emplace_back(std::move(optimize_mode_object));
     main_object_content.emplace_back(std::move(arithmetic_group));
     main_object_content.emplace_back(std::move(array_group));
     std::unique_ptr<JsonObject> main_object = std::make_unique<JsonGroup>("__ROOT__", main_object_content);

@@ -2663,7 +2663,7 @@ class Generator {
         /// @param `function_node` The FunctionNode (contains parameter list and scope id)
         /// @param `allocations` The map of all allocation GEPs
         /// @param `hash_key` The hash of the file for looking up DIFile info
-        static void generate_parameter_debug_info(                                 //
+        static void generate_parameter_debug_info(                                  //
             llvm::IRBuilder<> &builder,                                             //
             llvm::Function *parent,                                                 //
             const FunctionNode *function_node,                                      //
@@ -2715,9 +2715,10 @@ class Generator {
         /// @function `save_metadata_json_file`
         /// @brief Saves the metadata json file from the given arguments
         ///
-        /// @param `overflow_mode_value` The overflow mode value to save
-        /// @param `oob_mode_value` The out of bounds mode value to save
-        static void save_metadata_json_file(int overflow_mode_value, int oob_mode_value);
+        /// @param `arithmetic_mode` The arithmetic mode value to save
+        /// @param `array_mode` The array mode value to save
+        /// @param `optimize_mode` The optimization mode value to save
+        static void save_metadata_json_file(int arithmetic_mode, int array_mode, int optimize_mode);
 
         /// @class `Arithmetic`
         /// @brief The class which is responsible for everything arithmetic-related
