@@ -395,7 +395,6 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
             "/usr/lib/musl/lib/libc.a",          // Arch Linux
             "/usr/lib/x86_64-linux-musl/libc.a", // Debian/Ubuntu
             "/lib/x86_64-linux-musl/libc.a",     // Another possible location
-            "/usr/lib/libc.a"                    // If musl is the system libc
         };
 
         std::string_view musl_libc_path;
