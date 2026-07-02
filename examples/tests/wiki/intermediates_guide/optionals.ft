@@ -17,7 +17,7 @@ use Core.print
 test "2_unwrap_err.ft":
 	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "2_unwrap_err.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	(exit_code, output) := system_command($"flintc {path}/{file}");
 	assert(exit_code == 0);
 	assert(output == "");
 	(exit_code, output) = system_command("./main");

@@ -121,7 +121,7 @@ test "22_enh_for_string.ft":
 test "23_cli_args.ft [no]":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "23_cli_args.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	(exit_code, output) := system_command($"flintc {path}/{file}");
 	assert(exit_code == 0);
 	assert(output == "");
 	(exit_code, output) = system_command("./main");
@@ -131,7 +131,7 @@ test "23_cli_args.ft [no]":
 test "23_cli_args.ft [multiple]":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "23_cli_args.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	(exit_code, output) := system_command($"flintc {path}/{file}");
 	assert(exit_code == 0);
 	assert(output == "");
 	(exit_code, output) = system_command("./main someargument somethingelse third-thing");
@@ -162,7 +162,7 @@ test "26_manual_slice.ft":
 test "27_perf_comp.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "27_perf_comp.ft";
-	(exit_code, output) := system_command($"flintc --file {path}/{file}");
+	(exit_code, output) := system_command($"flintc {path}/{file}");
 	assert(exit_code == 0);
 	assert(output == "");
 	(exit_code, output) = system_command("./main");

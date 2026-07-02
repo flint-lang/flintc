@@ -243,7 +243,7 @@ def main():
 <img width="800" height="451" alt="2026-02-28-202945_hyprshot" src="https://github.com/user-attachments/assets/44eff36d-dc44-46c0-890e-bf367a732a17" />
 </details>
 
-Build and run example using `flintc --file main.ft --flags="-lraylib"`
+Build and run example using `flintc main.ft --flags="-lraylib"`
 
 You need `raylib` installed on your system for this example to compile and run correctly.
 
@@ -277,4 +277,5 @@ Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. Whi
 - In the early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is. It was a great tool for learning the API and the LLVM IR code in general, as I was a total noob in both areas at the start of Flint. However, all actual code in the compiler was written by myself as those early AI-assisted parts (to get it up and running) have long been replaced and refactored with properly engineered solutions.
 
 So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
+
 </details>

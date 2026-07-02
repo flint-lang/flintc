@@ -29,7 +29,7 @@ def compile(str? pre_command, str file, str[] flags, i32 expected_exit_code, str
 		if i > 0:
 			input_flags += " ";
 		input_flags += f;
-	const str command = (pre_command ?? "") + $"flintc --file {file} {input_flags}";
+	const str command = (pre_command ?? "") + $"flintc {file} {input_flags}";
 	(exit_code, output) := system_command(command);
 	if exit_code != expected_exit_code:
 		print($"command '{command}' failed ({exit_code}:{expected_exit_code})\n");

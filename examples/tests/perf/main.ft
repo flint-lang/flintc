@@ -139,11 +139,11 @@ def execute_test(str test_path, CompilerToUse compiler, u64 warmup, u64 iteratio
 			if exit_code != 0:
 				return none;
 		CompilerToUse.DEV():
-			(exit_code, output) := system_command($"cd {test_path} && flintc --file main.ft");
+			(exit_code, output) := system_command($"cd {test_path} && flintc main.ft");
 			if exit_code != 0:
 				return none;
 		CompilerToUse.TAG(compiler_path):
-			(exit_code, output) := system_command($"cd {test_path} && {compiler_path} --file main.ft");
+			(exit_code, output) := system_command($"cd {test_path} && {compiler_path} main.ft");
 			if exit_code != 0:
 				return none;
 	return profile_executable(test_path, warmup, iterations);

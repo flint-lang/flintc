@@ -131,7 +131,6 @@ pub fn build(b: *std.Build) !void {
         std.log.info("The 'test' build option requires a release build!", .{});
     } else {
         const test_cmd = b.addRunArtifact(flintc_exe);
-        test_cmd.addArg("--file");
         test_cmd.addFileArg(b.path("examples/tests.ft"));
         test_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
         test_cmd.addPathDir(b.getInstallPath(.bin, ""));
