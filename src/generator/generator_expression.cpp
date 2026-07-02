@@ -1350,7 +1350,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).first;
         size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
         if (arg_size > 16) {
-            call->addParamAttr(i, llvm::Attribute::ByVal);
+            call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
         }
     }
     call->setMetadata("comment",
