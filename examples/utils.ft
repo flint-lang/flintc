@@ -60,6 +60,9 @@ def compile_v(str? pre_command, str file, str[] flags, i32 expected_exit_code, s
 	// Default compilation just passes the flags to it as-is
 	_ = compile(pre_command, file, flags, expected_exit_code, expected_output);
 
+	str[] static_flags = append(flags, "--static");
+	_ = compile(pre_command, file, static_flags, expected_exit_code, expected_output);
+
 	str[] parallel_flags = append(flags, "--parallel");
 	_ = compile(pre_command, file, parallel_flags, expected_exit_code, expected_output);
 
