@@ -412,7 +412,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --opaque     <MODE>         Selecting the mode for opaque behaviour     (use --help for more information)\n";
         std::cout << "      --optional   <MODE>         Selecting the mode for optional behaviour   (use --help for more information)\n";
         std::cout << "      --variant    <MODE>         Selecting the mode for variant behaviour    (use --help for more information)\n";
-        std::cout << "      --emit-ir  <file>           Whether to emit the compiled IR code to a file\n";
+        std::cout << "      --emit-ir    <file>         Whether to emit the compiled IR code to a file\n";
         std::cout << "                                  HINT: The compiler will not create an executable with this flag set\n";
         std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker (lld)\n";
         std::cout << "      --version                   Print the version of the compiler\n";
