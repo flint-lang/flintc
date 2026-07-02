@@ -378,6 +378,26 @@ bool Generator::Allocation::generate_call_allocations(                    //
             return false;
         }
     }
+
+    // For extern functions returning structs > 16 bytes, allocate sret scratch space in the function frame
+    if (call_node->function->is_extern && call_node->type->to_string() != "void") {
+        llvm::Type *return_ty = IR::get_type(parent->getParent(), call_node->type, false).first;
+        size_t return_size = Allocation::get_type_size(parent->getParent(), return_ty);
+        if (return_size > 16) {
+            const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
+            auto it = struct_types.begin();
+            while (it != struct_types.end()) {
+                if (it->first == sret_alloca_name) {
+                    break;
+                }
+                ++it;
+            }
+            if (it == struct_types.end()) {
+                struct_types.emplace_back(sret_alloca_name, return_ty);
+            }
+        }
+    }
+
     return true;
 }
 
