@@ -119,7 +119,7 @@ bool Generator::compile_program(              //
     std::optional<std::vector<std::array<char, 9>>> fip_objects = FIP::gather_objects();
     if (!fip_objects.has_value()) {
         Profiler::end_task("Linking " + obj_file + " to a binary");
-        remove_with_retry(std::filesystem::path(obj_file));
+        IO::remove_with_retry(std::filesystem::path(obj_file));
         return false;
     }
     for (const auto &fip_obj : fip_objects.value()) {
@@ -141,7 +141,7 @@ bool Generator::compile_program(              //
 
     // Clean up object file
     if (!DEBUG_MODE) {
-        remove_with_retry(std::filesystem::path(obj_file));
+        IO::remove_with_retry(std::filesystem::path(obj_file));
     }
     return true;
 }

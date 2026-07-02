@@ -20,12 +20,10 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -154,23 +152,6 @@ Parser *Parser::create(const std::filesystem::path &file, const std::string &fil
     PROFILE_CUMULATIVE("Parser::create");
     instances.emplace_back(Parser(file, file_content));
     return &instances.back();
-}
-
-bool Parser::file_exists_and_is_readable(const std::filesystem::path &file_path) {
-    PROFILE_CUMULATIVE("Parser::file_exists_and_is_readable");
-    std::ifstream file(file_path.string());
-    return file.is_open() && !file.fail();
-}
-
-std::string Parser::load_file(const std::filesystem::path &file_path) {
-    PROFILE_CUMULATIVE("Parser::load_file");
-    std::ifstream file(file_path.string());
-    if (!file) {
-        throw std::runtime_error("Failed to load file " + file_path.string());
-    }
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
 }
 
 std::optional<FileNode *> Parser::parse() {

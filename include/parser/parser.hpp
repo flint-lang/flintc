@@ -1,6 +1,7 @@
 #pragma once
 
 #include "analyzer/analyzer.hpp"
+#include "io.hpp"
 #include "line.hpp"
 #include "matcher/matcher.hpp"
 #include "types.hpp"
@@ -477,10 +478,10 @@ class Parser {
         file(file),
         file_name(file.filename().string()),
         file_hash(Hash(std::filesystem::absolute(file))) {
-        if (!file_exists_and_is_readable(file)) {
+        if (!IO::file_exists_and_is_readable(file)) {
             throw std::runtime_error("The passed file '" + file.string() + "' could not be opened!");
         }
-        source_code = std::make_unique<const std::string>(load_file(file));
+        source_code = std::make_unique<const std::string>(IO::load_file(file));
     };
     explicit Parser(const std::filesystem::path &file, const std::string &file_content) :
         source_code(std::make_unique<std::string>(file_content)),
@@ -591,20 +592,6 @@ class Parser {
     /// @brief The next mangle id for the next function definition to be found in the current file being parsed, this simplifies the code
     /// generation phase a lot
     size_t next_mangle_id{0};
-
-    /// @function `file_exists_and_is_readable`
-    /// @brief Checks if the given file does exist and is readable
-    ///
-    /// @param `file_path` The file path to check
-    /// @return `bool` Whether the file exists and is readable
-    [[nodiscard]] static bool file_exists_and_is_readable(const std::filesystem::path &file_path);
-
-    /// @function `load_file`
-    /// @brief Loads a given file from a file path and returns the files content
-    ///
-    /// @param `path` The path to the file
-    /// @return `std::string` The loaded file
-    static std::string load_file(const std::filesystem::path &path);
 
     /// @function `add_parsed_test`
     /// @brief Adds a given test combined with the file it is contained in

@@ -230,7 +230,7 @@ bool Generator::Module::generate_modules() {
     // Delete the old `builtins.` o / obj file before creating a new one
     std::filesystem::path builtins_path = cache_path / ("builtins" + file_ending);
     if (std::filesystem::exists(builtins_path)) {
-        remove_with_retry(builtins_path);
+        IO::remove_with_retry(builtins_path);
     }
 
     // Create the static .a file from all `.o` files
@@ -395,7 +395,7 @@ void Generator::Module::save_metadata_json_file(int overflow_mode_value, int oob
 
     const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
     if (std::filesystem::exists(metadata_file)) {
-        remove_with_retry(metadata_file);
+        IO::remove_with_retry(metadata_file);
     }
 
     // Save the main_object_string to the file
