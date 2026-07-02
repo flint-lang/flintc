@@ -7,22 +7,16 @@ static const std::string prefix = hash.to_string() + ".parse.";
 
 static llvm::Value *get_errno_ptr(llvm::IRBuilder<> *builder, llvm::Module *module) {
 #ifdef __WIN32__
-    llvm::FunctionType *errno_fn_type = llvm::FunctionType::get(
-        llvm::PointerType::getUnqual(builder->getInt32Ty()), {}, false
-    );
-    llvm::Function *errno_fn = module->getFunction("_errno");
-    if (!errno_fn) {
-        errno_fn = llvm::Function::Create(
-            errno_fn_type, llvm::Function::ExternalLinkage, "_errno", module
-        );
+    const std::string_view errno_fn_name = "_errno";
+#else
+    const std::string_view errno_fn_name = "__errno_location";
+#endif
+    llvm::FunctionType *const errno_fn_type = llvm::FunctionType::get(Generator::PTR_TY, {}, false);
+    llvm::Function *errno_fn = module->getFunction(errno_fn_name);
+    if (errno_fn == nullptr) {
+        errno_fn = llvm::Function::Create(errno_fn_type, llvm::Function::ExternalLinkage, errno_fn_name, module);
     }
     return builder->CreateCall(errno_fn, {}, "errno_ptr");
-#else
-    llvm::Constant *errno_const = module->getOrInsertGlobal("errno", builder->getInt32Ty());
-    llvm::GlobalVariable *errno_addr = llvm::cast<llvm::GlobalVariable>(errno_const);
-    errno_addr->setThreadLocalMode(llvm::GlobalValue::GeneralDynamicTLSModel);
-    return errno_addr;
-#endif
 }
 
 void Generator::Module::Parse::generate_parse_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
