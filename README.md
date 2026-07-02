@@ -279,3 +279,13 @@ Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. Whi
 So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
 
 </details>
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=flint-lang%2Fflintc&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left" />
+ </picture>
+</a>
