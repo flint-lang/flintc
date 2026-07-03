@@ -39,7 +39,6 @@
 #include "ast/statements/while_node.hpp"
 
 #include "ast/expressions/array_access_node.hpp"
-#include "ast/expressions/array_initializer_node.hpp"
 #include "ast/expressions/data_access_node.hpp"
 #include "ast/expressions/expression_node.hpp"
 #include "ast/expressions/group_expression_node.hpp"
@@ -547,8 +546,10 @@ class Parser {
     };
 
     /// @var `last_parsed_call`
-    /// @brief Stores a pointer to the last parsed call of this parser
-    std::optional<CallNodeBase *> last_parsed_call;
+    /// @brief Stores a pointer to the last parsed call
+    /// @note Thread-local because multiple function bodies from the same file are parsed concurrently
+    ///       and each thread must track its own last-parsed-call independently.
+    static inline thread_local std::optional<CallNodeBase *> last_parsed_call;
 
     /// @var `parsed_tests`
     /// @brief Stores all the tests that have been parsed
