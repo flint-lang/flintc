@@ -4613,6 +4613,10 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return builder.CreateCall(get_err_str_fn, {expr}, "err_to_str");
         }
     }
+    if (from_type->get_variation() == Type::Variation::POINTER && to_type->get_variation() == Type::Variation::OPAQUE) {
+        // Opaque pointers still are pointers, no conversion needed
+        return expr;
+    }
     if (from_type_str == "u8[]" && to_type_str == "str") {
         // one-dimensional u8 arrays are always castable to a string since a string more or less "is" a one-dimensional u8 array
         llvm::StructType *const str_type = type_map.at("type.str");
@@ -4756,11 +4760,23 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                 }
                 const auto *pointer_type = unary_op->type->as<PointerType>();
                 const std::shared_ptr<Type> &base_type = pointer_type->base_type;
-                ASSERT(base_type == expression->type);
+                const bool is_dynamic_array = expression->type->get_variation() == Type::Variation::ARRAY //
+                    && !expression->type->as<ArrayType>()->sizes.has_value();
+                ASSERT(base_type == expression->type || (is_dynamic_array && base_type == expression->type->as<ArrayType>()->type));
                 ASSERT(operand.size() == 1);
                 if (base_type->is_dima_managed()) {
                     // We need to load the pointer since the operand points to the allocation in which the pointer to the allocated slot
                     operand.front() = IR::aligned_load(builder, PTR_TY, operand.front(), "loaded_data_ptr");
+                } else if (is_dynamic_array) {
+                    // & on a dynamic array T[] produces T* (pointer to the element data section).
+                    // The array struct has layout { i64 dim, i64 lengths[], data[] }.
+                    // Load the array struct pointer, then GEP past the metadata to get the data pointer.
+                    operand.front() = IR::aligned_load(builder, PTR_TY, operand.front(), "arr_struct_ptr");
+                    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+                    llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, operand.front(), 0, "len_ptr");
+                    llvm::Value *const dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
+                    llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, operand.front(), 1, "dim_lengths");
+                    operand.front() = builder.CreateGEP(builder.getInt64Ty(), dim_lengths, dim, "arr_data");
                 }
                 // Check if the base type is a complex type and whether it needs to be passed by value or by reference
                 // If it needs to be passed by value normally, we first need to get the allocation of it, for now only VariableNodes are

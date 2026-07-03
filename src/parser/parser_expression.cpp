@@ -450,7 +450,13 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        std::shared_ptr<Type> ptr_type = std::make_shared<PointerType>(un_op.type);
+        // & on a dynamic array T[] produces T* (pointer to the element data section), not T[]*
+        std::shared_ptr<Type> ptr_type;
+        if (un_op.type->get_variation() == Type::Variation::ARRAY && !un_op.type->as<ArrayType>()->sizes.has_value()) {
+            ptr_type = std::make_shared<PointerType>(un_op.type->as<ArrayType>()->type);
+        } else {
+            ptr_type = std::make_shared<PointerType>(un_op.type);
+        }
         if (!file_node_ptr->file_namespace->add_type(ptr_type)) {
             ptr_type = file_node_ptr->file_namespace->get_type_from_str(ptr_type->to_string()).value();
         }
