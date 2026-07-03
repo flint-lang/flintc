@@ -1305,6 +1305,14 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
+        // Add byval attributes for > 16 byte input parameters
+        for (size_t i = 0; i < call_node->arguments.size(); i++) {
+            llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).first;
+            size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+            if (arg_size > 16) {
+                call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+            }
+        }
         call->setMetadata("comment",
             llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
         return std::vector<llvm::Value *>{};
