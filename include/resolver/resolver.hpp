@@ -82,10 +82,6 @@ class Resolver {
     /// @brief Number to determine the maximum depth of the graph when resolving the file dependencies
     static inline uint64_t max_graph_depth = UINT64_MAX;
 
-    /// @var `minimal_tree`
-    /// @brief When true, only parse aliased imports transitively (for LSP optimization). When false, parse all imports (for compiler)
-    static inline bool minimal_tree = false;
-
     /// @function `create_dependency_graph`
     /// @brief This function parses all files that the `file_node` depends on, causing parsing of the whole dependency tree
     ///
@@ -161,12 +157,10 @@ class Resolver {
     ///
     /// @param `open_dependencies` All open dependencies to process
     /// @param `next_dependencies` The map where to write the next dependencies to, which have to be processed next
-    /// @param `depth` The current depth in the dependency graph (for minimal_tree filtering)
     /// @return `bool` Whether all dependency processing was successful, false if anything failed
     static bool process_dependencies_parallel(                                //
         std::unordered_map<Hash, std::vector<dependency>> &open_dependencies, //
-        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
-        const uint64_t depth                                                  //
+        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies  //
     );
 
     /// @function `process_dependency_file`
@@ -175,13 +169,11 @@ class Resolver {
     /// @param `dep_hash` The hash of the dependency to process
     /// @param `dependencies` The dependencies the given dependency (`dep_name`) has
     /// @param `next_dependencies` The map where to write the next dependencies to, which have to be processed next
-    /// @param `depth` The current depth in the dependency graph (for minimal_tree filtering)
     /// @return `bool` Whether the processing of the dependency was successful, false if it failed
     static bool process_dependency_file(                                      //
         const Hash &dep_hash,                                                 //
         const std::vector<dependency> &dependencies,                          //
-        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies, //
-        const uint64_t depth                                                  //
+        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies  //
     );
 
     /// @function `create_dependency`
