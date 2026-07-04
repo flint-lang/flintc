@@ -80,6 +80,25 @@ class ArrayType : public Type {
         return type_str;
     }
 
+    /// @function `is_fixed_and_empty`
+    /// @brief Checks whether this array type is a fixed array type and whether it's size is 0. Such array types are not allowed to be
+    ///        stored in any way, they are only allowed when being cast to a dynamic array, for example the `i32[_]{}` initializer is
+    ///        allowed in the assignment `i32[] arr = i32[0]{};` but it is *not* allowed in the assignment `i32[0] arr = i32[0]{};` since
+    ///        there the `arr` is an actual variable with actuall storage, and an empty array does not take up any space.
+    ///
+    /// @return `bool` Whether this array type is a fixed array and is empty
+    bool is_fixed_and_empty() const {
+        if (!sizes.has_value()) {
+            return false;
+        }
+        for (const size_t s : sizes.value()) {
+            if (s == 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /// @var `dimensionality`
     /// @brief The dimensionality of the array
     size_t dimensionality;

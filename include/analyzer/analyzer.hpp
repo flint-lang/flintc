@@ -29,6 +29,7 @@ class Analyzer {
         OK,
         ERR_HANDLED,
         ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT,
+        ERR_EMPTY_FIXED_STORED_ARRAY,
     };
 
     /// @class `Context`
@@ -99,6 +100,8 @@ class Analyzer {
     ///
     /// @param `ctx` The context of the analyzation
     /// @param `type` The type to analyze
+    /// @param `is_empty_fixed_array_allowed` Whether fixed empty arrays are allowed. They are only allowed inside *expressions*, everywhere
+    ///                                       else they are disallowed
     /// @return `Result` The result of the analyzation
-    static Result analyze_type(const Context &ctx, const std::shared_ptr<Type> &type);
+    static Result analyze_type(const Context &ctx, const std::shared_ptr<Type> &type, const bool is_empty_fixed_array_allowed = false);
 };

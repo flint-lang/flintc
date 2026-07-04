@@ -3280,7 +3280,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             {ctx.dest, dim_val, length_array,                                      //
                 builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
         );
-        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the const array")));
+        fill_call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Fill the fixed array")));
         return ctx.dest;
     }
 
@@ -4256,7 +4256,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         ASSERT(from_array->dimensionality == to_array->dimensionality);
         ASSERT(from_array->sizes.has_value());
         ASSERT(!to_array->sizes.has_value());
-        // TODO: Implement proper "const array" to "dynamic array" casting in the future, for now they are the exact same thing at runtime
+        // TODO: Implement proper "fixed array" to "dynamic array" casting in the future, for now they are the exact same thing at runtime
         return expr;
     } else if (from_type_str == "u8") {
         if (to_type_str == "str") {
