@@ -6,12 +6,12 @@ class ErrPtrNotAllowedInInternalFunctionDefinition : public BaseError {
   public:
     ErrPtrNotAllowedInInternalFunctionDefinition( //
         const ErrorType error_type,               //
-        const std::shared_ptr<Type> &type,        //
         const Hash &file_hash,                    //
         const unsigned int line,                  //
-        const unsigned int column                 //
+        const unsigned int column,                //
+        const unsigned int length                 //
         ) :
-        BaseError(error_type, file_hash, line, column, type->to_string().length()) {}
+        BaseError(error_type, file_hash, line, column, length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

@@ -2916,22 +2916,5 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     expression.value()->line = tokens.first->line;
     expression.value()->column = tokens.first->column;
     expression.value()->length = tokens.second->column - tokens.first->column;
-    Analyzer::Context actx{
-        .level = ctx.level,
-        .file_name = file_name,
-        .line = expression.value()->line,
-        .column = expression.value()->column,
-        .length = expression.value()->length,
-    };
-    Analyzer::Result result = Analyzer::analyze_expression(actx, expression.value().get());
-    switch (result) {
-        case Analyzer::Result::OK:
-            break;
-        case Analyzer::Result::ERR_HANDLED:
-            return std::nullopt;
-        case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-            __builtin_unreachable();
-            return std::nullopt;
-    }
     return expression;
 }

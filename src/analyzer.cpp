@@ -2,7 +2,6 @@
 
 #include "assert.hpp"
 #include "error/error.hpp"
-#include "error/error_type.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -119,9 +118,9 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::ERR_HANDLED:
                         UNREACHABLE();
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-                        THROW_ERR(                                                                //
-                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,          //
-                            std::get<0>(param), node->file_hash, local_ctx.line, local_ctx.column //
+                        THROW_ERR(                                                                                      //
+                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,                                //
+                            node->file_hash, local_ctx.line, local_ctx.column, std::get<0>(param)->to_string().length() //
                         );
                         return Result::ERR_HANDLED;
                 }
@@ -139,9 +138,9 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
                     case Result::ERR_HANDLED:
                         UNREACHABLE();
                     case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-                        THROW_ERR(                                                       //
-                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING, //
-                            ret, node->file_hash, local_ctx.line, local_ctx.column       //
+                        THROW_ERR(                                                                       //
+                            ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,                 //
+                            node->file_hash, local_ctx.line, local_ctx.column, ret->to_string().length() //
                         );
                         return Result::ERR_HANDLED;
                 }
@@ -188,6 +187,7 @@ Analyzer::Result Analyzer::analyze_scope(const Context &ctx, const Scope *scope)
 
 Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const StatementNode *statement) {
     Result result = Result::OK;
+    Context local_ctx = ctx;
     switch (statement->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
@@ -220,7 +220,7 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
         case StatementNode::Variation::CALL: {
             const auto *node = statement->as<CallNodeStatement>();
             for (const auto &arg : node->arguments) {
-                Context local_ctx = ctx;
+                local_ctx = ctx;
                 if (node->function->is_extern) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
@@ -236,7 +236,7 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
         case StatementNode::Variation::CALLABLE_CALL: {
             const auto *node = statement->as<CallableCallNodeStatement>();
             for (const auto &arg : node->arguments) {
-                Context local_ctx = ctx;
+                local_ctx = ctx;
                 local_ctx.level = ContextLevel::INTERNAL;
                 result = analyze_expression(local_ctx, arg.first.get());
                 if (result != Result::OK) {
@@ -402,7 +402,7 @@ Analyzer::Result Analyzer::analyze_statement(const Context &ctx, const Statement
         case StatementNode::Variation::INSTANCE_CALL: {
             const auto *node = statement->as<InstanceCallNodeStatement>();
             for (const auto &arg : node->arguments) {
-                Context local_ctx = ctx;
+                local_ctx = ctx;
                 if (node->function->is_extern) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
@@ -479,11 +479,15 @@ fail:
     // Check error and print if it's one of the errors we care about
     switch (result) {
         case Result::OK:
-            [[fallthrough]];
-        case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
             // Should be unreachable code
             UNREACHABLE();
             break;
+        case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
+            THROW_ERR(                                                                   //
+                ErrPtrNotAllowedInInternalFunctionDefinition, ERR_ANALYZING,             //
+                statement->file_hash, local_ctx.line, local_ctx.column, local_ctx.length //
+            );
+            return Result::ERR_HANDLED;
         case Result::ERR_HANDLED:
             // No further printing needed
             break;
@@ -763,12 +767,12 @@ fail:
         case Result::ERR_HANDLED:
             // Those cases should not be possible at this stage
             UNREACHABLE();
-            __builtin_unreachable();
+            break;
         case Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
             THROW_ERR(ErrPtrNotAllowedInNonExternContext, ERR_ANALYZING, expression);
             return Result::ERR_HANDLED;
     }
-    __builtin_unreachable();
+    UNREACHABLE();
 }
 
 Analyzer::Result Analyzer::analyze_type(const Context &ctx, const std::shared_ptr<Type> &type_to_analyze) {

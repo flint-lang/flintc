@@ -186,17 +186,6 @@ bool Resolver::process_dependency_file(                                  //
             std::cerr << "Error: File '" << file_hash.path.filename().string() << "' could not be parsed!" << std::endl;
             return false;
         }
-        switch (Analyzer::analyze_file(file.value())) {
-            case Analyzer::Result::OK:
-                break;
-            case Analyzer::Result::ERR_HANDLED:
-                std::cerr << "Error: File '" << file_hash.path.filename().string() << "' failed analyze step!" << std::endl;
-                return false;
-            default:
-                std::cerr << "Error: File '" << file_hash.path.filename().string() << "' failed analyze step for unknown reason!"
-                          << std::endl;
-                return false;
-        }
         // Save the file name, as the file itself moves its ownership in the call below
         std::string parsed_file_name = file.value()->file_name;
         // Add all dependencies of the file and the file itself to the file map and the dependency map

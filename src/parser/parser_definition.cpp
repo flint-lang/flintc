@@ -304,42 +304,10 @@ std::optional<FunctionNode> Parser::create_function(                            
         // If there is required data then this function is defined inside a func module, the name needs to be changed accordingly
         name = required_data.value().first + "." + name;
     }
-    FunctionNode function_node(                                                                  //
+    return FunctionNode(                                                                         //
         file_hash, line, column, length,                                                         //
         is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
     );
-
-    // Analyze whether all parameter types and return types are allowed in the context
-    Analyzer::Context ctx{
-        .level = is_extern ? ContextLevel::EXTERNAL : ContextLevel::INTERNAL,
-        .file_name = file_name,
-        .line = line,
-        .column = column,
-        .length = length,
-    };
-    for (const auto &ret : return_types) {
-        switch (Analyzer::analyze_type(ctx, ret)) {
-            case Analyzer::Result::OK:
-                break;
-            case Analyzer::Result::ERR_HANDLED:
-                return std::nullopt;
-            case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-                THROW_ERR(ErrPtrNotAllowedInInternalFunction, ERR_ANALYZING, &function_node);
-                return std::nullopt;
-        }
-    }
-    for (const auto &param : parameters) {
-        switch (Analyzer::analyze_type(ctx, std::get<0>(param))) {
-            case Analyzer::Result::OK:
-                break;
-            case Analyzer::Result::ERR_HANDLED:
-                return std::nullopt;
-            case Analyzer::Result::ERR_PTR_NOT_ALLOWED_IN_NON_EXTERN_CONTEXT:
-                THROW_ERR(ErrPtrNotAllowedInInternalFunction, ERR_ANALYZING, &function_node);
-                return std::nullopt;
-        }
-    }
-    return function_node;
 }
 
 std::optional<FunctionNode> Parser::create_extern_function(const token_slice &definition) {

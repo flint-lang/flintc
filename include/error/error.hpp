@@ -123,10 +123,8 @@
 #include "error_types/generating/fip/err_extern_duplicate_function.hpp"
 
 // --- ANALYZING ERRORS ---
-#include "error_types/analyzing/err_ptr_not_allowed_in_internal_function.hpp"
 #include "error_types/analyzing/err_ptr_not_allowed_in_internal_function_definition.hpp"
 #include "error_types/analyzing/err_ptr_not_allowed_in_non_extern_context.hpp"
-#include "error_types/analyzing/err_ptr_not_allowed_in_variant_definition.hpp"
 
 #include <iostream>
 #include <string>

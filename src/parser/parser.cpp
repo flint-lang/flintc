@@ -214,18 +214,6 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
         std::cerr << RED << "Error" << DEFAULT << ": Failed to parse file " << YELLOW << path.filename() << DEFAULT << std::endl;
         return std::nullopt;
     }
-    switch (Analyzer::analyze_file(file.value())) {
-        case Analyzer::Result::OK:
-            break;
-        case Analyzer::Result::ERR_HANDLED:
-            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT << "' failed analyze step!"
-                      << std::endl;
-            return std::nullopt;
-        default:
-            std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT
-                      << "' failed analyze step for unknown reason!" << std::endl;
-            return std::nullopt;
-    }
     const auto dep_graph = Resolver::create_dependency_graph(file.value(), parse_parallel);
     if (!dep_graph.has_value()) {
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
@@ -261,6 +249,21 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
         bool parsed_tests_successful = Parser::parse_all_open_tests(parse_parallel);
         if (!parsed_tests_successful) {
             return std::nullopt;
+        }
+    }
+    // Analyze all files
+    for (const auto &instance : Parser::instances) {
+        switch (Analyzer::analyze_file(instance.file_node_ptr.get())) {
+            case Analyzer::Result::OK:
+                break;
+            case Analyzer::Result::ERR_HANDLED:
+                std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT << "' failed analyze step!"
+                          << std::endl;
+                return std::nullopt;
+            default:
+                std::cerr << RED << "Error" << DEFAULT << ": File '" << YELLOW << path.filename() << DEFAULT
+                          << "' failed analyze step for unknown reason!" << std::endl;
+                return std::nullopt;
         }
     }
     Profiler::end_task("Parser::parse_program");
