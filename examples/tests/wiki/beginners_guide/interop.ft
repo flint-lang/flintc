@@ -130,3 +130,16 @@ test "19_opaque_low_level_fixed":
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
 	assert(c == "extern def malloc(mut u64 n) -> opaque;\nextern def free(mut opaque ptr);\n");
+
+test "20_named_opaque_simple":
+	str path = "tests/wiki/beginners_guide/interop/20_named_opaque_simple";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Creating new named opaque\nFreeing named opaque ", "\n");
+
+	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
+	assert(c == "opaque NamedOpaque;\nextern def create_named_opaque() -> NamedOpaque;\nextern def free_named_opaque(mut NamedOpaque* value);\n");
+
+test "21_named_opaque_type_mismatch":
+	str path = "tests/wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Parse Error at main.ft:5:22\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame object = create_object();\n┌─┴──────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");

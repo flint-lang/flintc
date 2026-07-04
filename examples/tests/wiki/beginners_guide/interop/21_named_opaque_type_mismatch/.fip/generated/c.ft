@@ -1,0 +1,6 @@
+opaque GLObject;
+opaque GLFrame;
+extern def create_frame() -> GLFrame;
+extern def free_frame(mut GLFrame* value);
+extern def create_object() -> GLObject;
+extern def free_object(mut GLObject* value);

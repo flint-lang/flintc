@@ -1,0 +1,8 @@
+use Fip.c
+
+def main():
+    GLFrame frame = create_frame();
+    GLFrame object = create_object();
+
+    free_frame(&frame);
+    free_object(&object);

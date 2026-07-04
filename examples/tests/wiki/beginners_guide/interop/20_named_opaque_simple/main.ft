@@ -1,0 +1,5 @@
+use Fip.c
+
+def main():
+	NamedOpaque no = create_named_opaque();
+	free_named_opaque(&no);
