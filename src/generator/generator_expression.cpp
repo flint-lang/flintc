@@ -2298,16 +2298,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 return std::nullopt;
             }
 
-            // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
-            llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
-            llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
-            llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
-            llvm::Value *const ts_ptr_ptr = builder.CreateStructGEP(                              //
-                ts_fn_ty, next_stack_frame, Module::ThreadStack::FUNCTION::THREAD_STACK, "ts_ptr" //
-            );
-            IR::aligned_store(builder, ts_ptr_ptr, ts_ptr);
-
             // Set up the frame by calling the dispatch function in setup-mode
+            llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
             const FuncType *func_type = call_node->instance_variable->type->as<FuncType>();
             llvm::StructType *const func_ty = type_map.at(func_type->get_type_string());
             llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
@@ -2330,6 +2322,14 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 setup_call->setTailCall();
             }
 #endif
+
+            // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
+            llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+            llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+            llvm::Value *const ts_ptr_ptr = builder.CreateStructGEP(                              //
+                ts_fn_ty, next_stack_frame, Module::ThreadStack::FUNCTION::THREAD_STACK, "ts_ptr" //
+            );
+            IR::aligned_store(builder, ts_ptr, ts_ptr_ptr);
 
             // Store extra function parameters starting at the returned arg pointer
             // The dispatch function's setup mode already handles required_data args from the entity,
