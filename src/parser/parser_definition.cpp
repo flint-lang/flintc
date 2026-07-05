@@ -25,12 +25,6 @@ std::optional<FunctionNode> Parser::create_function(                            
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
-    if (required_data.has_value()) {
-        // Add all the required data as implicit mutable parameters
-        for (auto &data_param : required_data.value().second) {
-            parameters.emplace_back(data_param.type, data_param.accessor_name, true);
-        }
-    }
     std::vector<std::shared_ptr<Type>> return_types;
     bool is_const = false;
     bool is_extern = false;
@@ -56,6 +50,12 @@ std::optional<FunctionNode> Parser::create_function(                            
         return std::nullopt;
     }
     ASSERT(tok_it != definition.second);
+    // Add implicit required data parameters with mutability based on is_const
+    if (required_data.has_value()) {
+        for (auto &data_param : required_data.value().second) {
+            parameters.emplace_back(data_param.type, data_param.accessor_name, !is_const);
+        }
+    }
     // Check if the name is reserved
     if (name == "_main") {
         token_slice err_tokens = {std::prev(tok_it), definition.second};
