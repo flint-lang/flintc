@@ -1,0 +1,16 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+def main():
+	u32 flags = u32(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE);
+	flags += u32(rl.ConfigFlags.FLAG_VSYNC_HINT);
+	rl.SetConfigFlags(flags);
+	rl.InitWindow(1280, 800, "Pong");
+
+	while not rl.WindowShouldClose():
+		rl.BeginDrawing();
+		rl.ClearBackground(Colors.dark_green);
+		rl.EndDrawing();
+
+	rl.CloseWindow();

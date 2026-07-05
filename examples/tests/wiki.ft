@@ -30,6 +30,9 @@ test "beginners_guide/links":
 test "beginners_guide/interop":
 	test_test("tests/wiki/beginners_guide", "interop.ft");
 
+test "beginners_guide/game_example":
+	test_test("tests/wiki/beginners_guide", "game_example.ft");
+
 test "intermediates_guide/optionals":
 	test_test("tests/wiki/intermediates_guide", "optionals.ft");
 

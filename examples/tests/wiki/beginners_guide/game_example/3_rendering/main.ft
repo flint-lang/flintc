@@ -1,0 +1,26 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+def main():
+	// Screen setup
+	i32x2 screen = (1280, 800);
+	u32 flags = u32(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE);
+	flags += u32(rl.ConfigFlags.FLAG_VSYNC_HINT);
+	rl.SetConfigFlags(flags);
+	rl.InitWindow(screen.x, screen.y, "Pong");
+
+	while not rl.WindowShouldClose():
+		screen = (rl.GetScreenWidth(), rl.GetScreenHeight());
+
+		rl.BeginDrawing();
+		rl.ClearBackground(Colors.dark_green);
+
+		// Overwrite right half of screen with green rectangle
+		rl.DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, Colors.green);
+		// Render circle in the middle of the screen
+		rl.DrawCircle(screen.x / 2, screen.y / 2, 150.0, Colors.light_green);
+
+		rl.EndDrawing();
+
+	rl.CloseWindow();

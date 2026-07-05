@@ -1,0 +1,13 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+def main():
+	rl.InitWindow(1280, 800, "Pong");
+
+	while not rl.WindowShouldClose():
+		rl.BeginDrawing();
+		rl.ClearBackground(Colors.dark_green);
+		rl.EndDrawing();
+
+	rl.CloseWindow();

@@ -1,0 +1,5 @@
+use Fip.raylib as rl
+
+def main():
+	rl.InitWindow(1280, 800, "Pong");
+	rl.CloseWindow();

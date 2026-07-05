@@ -1,0 +1,21 @@
+use "../../../utils.ft"
+
+test "0_spawning_window":
+	str path = "tests/wiki/beginners_guide/game_example/0_spawning_window";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "1_game_loop":
+	str path = "tests/wiki/beginners_guide/game_example/1_game_loop";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "2_resizing":
+	str path = "tests/wiki/beginners_guide/game_example/2_resizing";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "3_rendering":
+	str path = "tests/wiki/beginners_guide/game_example/3_rendering";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
