@@ -882,7 +882,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!scope->variables.at(instance_var->name).is_mutable) {
+        if (!scope->variables.at(instance_var->name).is_mutable && !ret->function->is_const) {
             // Instance calls on constant instance variables are not allowed
             THROW_ERR(ErrExprCallOnConstInstance, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, instance_var->name);
             return std::nullopt;

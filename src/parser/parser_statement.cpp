@@ -56,7 +56,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, instance_var->line, instance_var->column, instance_var->name);
             return std::nullopt;
         }
-        if (!scope->variables.at(instance_var->name).is_mutable) {
+        if (!scope->variables.at(instance_var->name).is_mutable && !ret->function->is_const) {
             // Instance calls on constant instance variables are not allowed
             THROW_ERR(ErrExprCallOnConstInstance, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, instance_var->name);
             return std::nullopt;

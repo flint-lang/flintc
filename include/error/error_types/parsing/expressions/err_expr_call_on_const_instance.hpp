@@ -18,14 +18,15 @@ class ErrExprCallOnConstInstance : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Instance calls not allowed on const variable '" << YELLOW << var_name << DEFAULT << "'";
+        oss << BaseError::to_string() << "└─ Calls which are not marked 'const' are not allowed on const instance '" << YELLOW << var_name
+            << DEFAULT << "'";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Instance calls not allowed on const variable '" + var_name + "'";
+        d.message = "Calls which are not marked 'const' are not allowed on const instance '" + var_name + "'";
         return d;
     }
 
