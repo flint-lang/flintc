@@ -1,4 +1,3 @@
-#include "analyzer/analyzer.hpp"
 #include "error/error_type.hpp"
 #include "error/error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "lexer/token.hpp"
@@ -406,13 +405,28 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                     return std::nullopt;
                 }
                 ASSERT(range.value().first == 0);
-                const token_slice type_tokens = {token_it, token_it + range.value().second};
+                unsigned int type_advance = range.value().second;
+                token_slice type_tokens = {token_it, token_it + type_advance};
                 std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
+                // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
+                // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
+                // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
+                // callback is properly executed for re-validating the bounds)
+                const bool type_unknown = !field_type.has_value() || field_type.value()->get_variation() == Type::Variation::UNKNOWN;
+                if (type_advance == 1 && type_tokens.first->token == TOK_IDENTIFIER && type_unknown) {
+                    const std::string first_name(type_tokens.first->lexme);
+                    const auto result = resolve_alias_in_type(first_name, type_tokens.second, line_it->tokens.second);
+                    if (result.extra_tokens > 0) {
+                        type_advance += result.extra_tokens;
+                        type_tokens = {token_it, token_it + type_advance};
+                        field_type = result.resolved_type;
+                    }
+                }
                 if (!field_type.has_value()) {
                     THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, type_tokens);
                     return std::nullopt;
                 }
-                token_it += range.value().second;
+                token_it += type_advance;
                 const std::string token_it_lexme(token_it->lexme);
                 if (token_it->token != TOK_IDENTIFIER) {
                     // Missing field name
@@ -1005,7 +1019,20 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 ASSERT(type_range.value().first == 0);
                 type_tokens.second = body_it + type_range.value().second;
                 token_list toks = clone_from_slice(type_tokens);
-                const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+                std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+                // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
+                // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
+                // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
+                // callback is properly executed for re-validating the bounds)
+                const bool type_unknown = !type.has_value() || type.value()->get_variation() == Type::Variation::UNKNOWN;
+                if (type_range.value().second == 1 && type_tokens.first->token == TOK_IDENTIFIER && type_unknown) {
+                    const std::string first_name(type_tokens.first->lexme);
+                    const auto result = resolve_alias_in_type(first_name, type_tokens.second, body.back().tokens.second);
+                    if (result.extra_tokens > 0) {
+                        type_tokens.second = body_it + type_range.value().second + result.extra_tokens;
+                        type = result.resolved_type;
+                    }
+                }
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -1040,7 +1067,20 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
             // Now we can adjust the type token's end with our range and get the type and add it to the list
             ASSERT(type_range.value().first == 0);
             type_tokens.second = body_it + type_range.value().second;
-            const std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+            std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+            // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
+            // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
+            // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
+            // callback is properly executed for re-validating the bounds)
+            const bool type_unknown = !type.has_value() || type.value()->get_variation() == Type::Variation::UNKNOWN;
+            if (type_range.value().second == 1 && type_tokens.first->token == TOK_IDENTIFIER && type_unknown) {
+                const std::string first_name(type_tokens.first->lexme);
+                const auto result = resolve_alias_in_type(first_name, type_tokens.second, body.back().tokens.second);
+                if (result.extra_tokens > 0) {
+                    type_tokens.second = body_it + type_range.value().second + result.extra_tokens;
+                    type = result.resolved_type;
+                }
+            }
             if (!type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
@@ -1179,4 +1219,55 @@ std::optional<ImportNode> Parser::create_import(const token_slice &tokens) {
     const unsigned int column = tokens.first->column;
     const unsigned int length = tokens.second->column - tokens.first->column;
     return ImportNode(file_hash, line, column, length, import_path, alias);
+}
+
+Parser::AliasLookupResult Parser::resolve_alias_in_type( //
+    const std::string &first_name,                       //
+    token_list::iterator lookahead_it,                   //
+    token_list::iterator line_end                        //
+) const {
+    AliasLookupResult result;
+    auto ns = file_node_ptr->file_namespace->get_namespace_from_alias(first_name);
+    if (!ns.has_value()) {
+        return result;
+    }
+    std::string full_type_name = first_name;
+    unsigned int extra_tokens = 0;
+    while (                                         //
+        lookahead_it != line_end &&                 //
+        lookahead_it->token == TOK_DOT &&           //
+        (lookahead_it + 1) != line_end &&           //
+        (lookahead_it + 1)->token == TOK_IDENTIFIER //
+    ) {
+        const std::string type_name((lookahead_it + 1)->lexme);
+        full_type_name += "." + type_name;
+        if (ns.value() == nullptr) {
+            // Namespace alias not resolved yet (Phase 1); continue walking to capture full name
+            extra_tokens += 2;
+            lookahead_it += 2;
+            continue;
+        }
+        const auto next_ns = ns.value()->get_namespace_from_alias(type_name);
+        if (next_ns.has_value()) {
+            ns = next_ns.value();
+            extra_tokens += 2;
+            lookahead_it += 2;
+            continue;
+        }
+        auto imported_type = ns.value()->get_type_from_str(type_name);
+        if (!imported_type.has_value()) {
+            // Create an unknown type if the type was unable to be resolved
+            imported_type = std::make_shared<UnknownType>(full_type_name);
+            if (!file_node_ptr->file_namespace->add_type(imported_type.value())) {
+                imported_type = file_node_ptr->file_namespace->get_type_from_str(imported_type.value()->to_string()).value();
+            }
+        }
+        result.resolved_type = imported_type.value();
+        extra_tokens += 2;
+        break;
+    }
+    if (extra_tokens > 0) {
+        result.extra_tokens = extra_tokens;
+    }
+    return result;
 }

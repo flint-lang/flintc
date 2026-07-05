@@ -267,7 +267,41 @@ bool Namespace::resolve_type(std::shared_ptr<Type> &type) {
         }
         case Type::Variation::UNKNOWN: {
             const auto *unknown_type = type->as<UnknownType>();
-            // Get the "real" type from the parameter type
+            // Check if the type string contains dots (e.g., "rl.Color"), indicating an import alias chain
+            const auto dot_pos = unknown_type->type_str.find('.');
+            if (dot_pos != std::string::npos) {
+                std::string remaining = unknown_type->type_str;
+                Namespace *current_ns = this;
+                std::optional<std::shared_ptr<Type>> resolved;
+                size_t start = 0;
+                while (start < remaining.size()) {
+                    const auto next_dot = remaining.find('.', start);
+                    const std::string segment = remaining.substr(start, next_dot - start);
+                    if (next_dot == std::string::npos) {
+                        // Last segment — look up as a type
+                        if (current_ns != nullptr) {
+                            resolved = current_ns->get_type_from_str(segment);
+                        }
+                        break;
+                    }
+                    // Intermediate segment — should be a namespace alias
+                    if (current_ns != nullptr) {
+                        auto next_alias = current_ns->get_namespace_from_alias(segment);
+                        if (next_alias.has_value() && next_alias.value() != nullptr) {
+                            current_ns = next_alias.value();
+                        } else {
+                            current_ns = nullptr;
+                        }
+                    }
+                    start = next_dot + 1;
+                }
+                if (resolved.has_value()) {
+                    type = resolved.value();
+                    break;
+                }
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
             auto type_maybe = get_type_from_str(unknown_type->type_str);
             if (!type_maybe.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);

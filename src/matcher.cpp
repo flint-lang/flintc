@@ -183,6 +183,8 @@ bool Matcher::token_match(const Token token, const PatternPtr &pattern) {
     token_list match_list;
     if (token == TOK_TYPE) {
         match_list.emplace_back(token, 0, 0, 0, Type::get_primitive_type("void"));
+    } else if (token == TOK_ALIAS) {
+        match_list.emplace_back(token, 0, 0, 0, static_cast<Namespace *>(nullptr));
     } else {
         match_list.emplace_back(token, 0, 0, 0, "");
     }

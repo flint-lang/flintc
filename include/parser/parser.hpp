@@ -2031,6 +2031,32 @@ class Parser {
     /// @return `std::optional<ImportNode>` The created ImportNode, nullopt if its creation failed
     std::optional<ImportNode> create_import(const token_slice &tokens);
 
+    /// @struct `AliasLookupResult`
+    /// @brief The result of the alias type lookup needed to be able to resolve import-aliased types like `a.b.Type` in some definitions
+    /// like `data` and `variant`s
+    struct AliasLookupResult {
+        /// @var `extra_tokens`
+        /// @brief The number of additional tokens "consumed" by the import alias type lookup, for example for `a.b.Type` 4 additional
+        /// tokens are consumed while for `a.Type` only 2 additional tokens are consumed
+        unsigned int extra_tokens = 0;
+
+        /// @var `resolved_type`
+        /// @brief The actual type which was resolved, or an UnknownType with the full type name if the type was unable to be resolved
+        std::shared_ptr<Type> resolved_type;
+    };
+
+    /// @function `resolve_alias_in_type`
+    /// @brief Resolves types from aliased imports
+    ///
+    /// @param `first_name` The "name" of the first token in the potential import alias chain ('a' in the case of `a.Type`)
+    /// @param `lookahead_it` Where to start searching for subsequent namespace aliase
+    /// @param `line_end` The end of the line to not check too much
+    AliasLookupResult resolve_alias_in_type( //
+        const std::string &first_name,       //
+        token_list::iterator lookahead_it,   //
+        token_list::iterator line_end        //
+    ) const;
+
     /**************************************************************************************************************************************
      * @region `Definition` END
      *************************************************************************************************************************************/
