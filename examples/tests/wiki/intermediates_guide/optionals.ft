@@ -1,7 +1,8 @@
+use "../../../utils.ft"
+
+use Core.print
 use Core.assert
 use Core.system
-
-use "../../../utils.ft"
 
 test "0_declaration.ft":
 	str path = "tests/wiki/intermediates_guide/optionals";
@@ -13,7 +14,6 @@ test "1_tuple.ft":
 	str file = "1_tuple.ft";
 	test_file_ok($"{path}/{file}", "");
 
-use Core.print
 test "2_unwrap_err.ft":
 	str path = "tests/wiki/intermediates_guide/optionals";
 	str file = "2_unwrap_err.ft";

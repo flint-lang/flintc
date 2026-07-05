@@ -1,9 +1,5 @@
 use "../../../utils.ft"
 
-use Core.assert
-use Core.system
-use Core.filesystem
-
 test "0_pure_interface.ft":
 	str path = "tests/wiki/beginners_guide/links";
 	str file = "0_pure_interface.ft";

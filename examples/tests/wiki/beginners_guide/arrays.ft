@@ -1,7 +1,7 @@
-use Core.system
-use Core.assert
-
 use "../../../utils.ft"
+
+use Core.assert
+use Core.system
 
 test "0_intro_create.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
@@ -121,12 +121,7 @@ test "22_enh_for_string.ft":
 test "23_cli_args.ft [no]":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "23_cli_args.ft";
-	(exit_code, output) := system_command($"flintc {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
-	assert(starts_with(output, "args[0] = "));
+	test_file_ok($"{path}/{file}", "args[0] = ", "\n");
 
 test "23_cli_args.ft [multiple]":
 	str path = "tests/wiki/beginners_guide/arrays";
@@ -162,11 +157,7 @@ test "26_manual_slice.ft":
 test "27_perf_comp.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "27_perf_comp.ft";
-	(exit_code, output) := system_command($"flintc {path}/{file}");
-	assert(exit_code == 0);
-	assert(output == "");
-	(exit_code, output) = system_command("./main");
-	assert(exit_code == 0);
+	test_file_ok($"{path}/{file}", "manual: ", "ms\n");
 
 test "28_array_slice.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
