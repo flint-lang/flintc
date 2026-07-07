@@ -1255,18 +1255,20 @@ Parser::AliasLookupResult Parser::resolve_alias_in_type( //
             continue;
         }
         auto imported_type = ns.value()->get_type_from_str(type_name);
-        if (!imported_type.has_value()) {
-            // Create an unknown type if the type was unable to be resolved
-            imported_type = std::make_shared<UnknownType>(full_type_name);
-            if (!file_node_ptr->file_namespace->add_type(imported_type.value())) {
-                imported_type = file_node_ptr->file_namespace->get_type_from_str(imported_type.value()->to_string()).value();
-            }
+        if (imported_type.has_value()) {
+            result.resolved_type = imported_type.value();
         }
-        result.resolved_type = imported_type.value();
         extra_tokens += 2;
         break;
     }
     if (extra_tokens > 0) {
+        if (result.resolved_type == nullptr) {
+            // Create an unknown type if the type was unable to be resolved
+            result.resolved_type = std::make_shared<UnknownType>(full_type_name);
+            if (!file_node_ptr->file_namespace->add_type(result.resolved_type)) {
+                result.resolved_type = file_node_ptr->file_namespace->get_type_from_str(result.resolved_type->to_string()).value();
+            }
+        }
         result.extra_tokens = extra_tokens;
     }
     return result;
