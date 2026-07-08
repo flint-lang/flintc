@@ -353,10 +353,15 @@ class Generator {
     /// loop's scope
     static inline std::vector<std::shared_ptr<Scope>> last_loop_scopes;
 
-    /// @var `last_loop_merge_blocks`
-    /// @brief The last basic block to merge to, its a list in order to not needing to update the merge block after every nested loop
-    /// statement
-    static inline std::vector<llvm::BasicBlock *> last_loop_merge_blocks;
+    /// @var `last_merge_blocks`
+    /// @brief The last basic block to merge to for break statements, its a list in order to not needing to update the merge block after
+    /// every nested breakable construct (loops and switches)
+    static inline std::vector<llvm::BasicBlock *> last_merge_blocks;
+
+    /// @var `last_break_scopes`
+    /// @brief The last scopes of breakable constructs needed for break statements to generate the end of scope (freeing of stuff) for that
+    /// construct's scope. For loops this is the parent scope of the loop's scope, for switches this is the switch's original scope.
+    static inline std::vector<std::shared_ptr<Scope>> last_break_scopes;
 
     /// @var `last_err_values`
     /// @brief The last error values. The first value of the pair is the return value of the called function, the boolean whether the

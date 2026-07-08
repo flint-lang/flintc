@@ -50,10 +50,10 @@ bool Generator::Statement::generate_statement(      //
         }
         case StatementNode::Variation::BREAK: {
             const auto old_scope = ctx.scope;
-            const auto &loop_scope = last_loop_scopes.back();
+            const auto &break_scope = last_break_scopes.back();
             // A break is always at the end of the scope
             ctx.scope_segment = UINT32_MAX;
-            while (ctx.scope != loop_scope) {
+            while (ctx.scope != break_scope) {
                 // Generate the end of scope of all nested scopes we are in, like nested if statements for example
                 if (!generate_end_of_scope(builder, ctx)) {
                     return false;
@@ -62,12 +62,15 @@ bool Generator::Statement::generate_statement(      //
                 ASSERT(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
-            ASSERT(ctx.scope == loop_scope);
-            ctx.scope = loop_scope;
-            if (!generate_end_of_scope(builder, ctx)) {
-                return false;
+            ASSERT(ctx.scope == break_scope);
+            // If the break target is a loop scope, also clean up the loop scope itself
+            if (!last_loop_scopes.empty() && break_scope == last_loop_scopes.back()) {
+                ctx.scope = break_scope;
+                if (!generate_end_of_scope(builder, ctx)) {
+                    return false;
+                }
             }
-            builder.CreateBr(last_loop_merge_blocks.back());
+            builder.CreateBr(last_merge_blocks.back());
             ctx.scope = old_scope;
             return true;
         }
@@ -684,7 +687,8 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
     do_while_blocks[1] = llvm::BasicBlock::Create(context, "do_while_cond", ctx.parent);
     last_looparound_blocks.emplace_back(do_while_blocks[1]);
     do_while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(do_while_blocks[2]);
+    last_merge_blocks.emplace_back(do_while_blocks[2]);
+    last_break_scopes.emplace_back(do_while_node->scope);
     last_loop_scopes.emplace_back(do_while_node->scope);
 
     builder.SetInsertPoint(pred_block);
@@ -725,7 +729,8 @@ bool Generator::Statement::generate_do_while_loop(llvm::IRBuilder<> &builder, Ge
     builder.SetInsertPoint(do_while_blocks[2]);
 
     last_looparound_blocks.pop_back();
-    last_loop_merge_blocks.pop_back();
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     last_loop_scopes.pop_back();
     return true;
 }
@@ -741,7 +746,8 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     last_looparound_blocks.emplace_back(while_blocks[0]);
     while_blocks[1] = llvm::BasicBlock::Create(context, "while_body", ctx.parent);
     while_blocks[2] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(while_blocks[2]);
+    last_merge_blocks.emplace_back(while_blocks[2]);
+    last_break_scopes.emplace_back(while_node->scope);
     last_loop_scopes.emplace_back(while_node->scope);
 
     // Create the branch instruction in the predecessor block to point to the while_cond block
@@ -786,7 +792,8 @@ bool Generator::Statement::generate_while_loop(llvm::IRBuilder<> &builder, Gener
     ctx.scope = current_scope;
     builder.SetInsertPoint(while_blocks[2]);
     last_looparound_blocks.pop_back();
-    last_loop_merge_blocks.pop_back();
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     last_loop_scopes.pop_back();
     return true;
 }
@@ -813,7 +820,8 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     last_looparound_blocks.emplace_back(for_blocks[2]);
     // Create the merge block but don't add it to the parent function yet
     for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(for_blocks[3]);
+    last_merge_blocks.emplace_back(for_blocks[3]);
+    last_break_scopes.emplace_back(for_node->definition_scope);
     last_loop_scopes.emplace_back(ctx.scope);
 
     // Create the branch instruction in the predecessor block to point to the for_cond block
@@ -873,7 +881,8 @@ bool Generator::Statement::generate_for_loop(llvm::IRBuilder<> &builder, Generat
     // Finally set the builder to the merge block again
     ctx.scope = current_scope;
     last_looparound_blocks.pop_back();
-    last_loop_merge_blocks.pop_back();
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     last_loop_scopes.pop_back();
     builder.SetInsertPoint(for_blocks[3]);
     return true;
@@ -892,7 +901,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     last_looparound_blocks.emplace_back(for_blocks[2]);
     // Create the merge block but don't add it to the parent function yet
     for_blocks[3] = llvm::BasicBlock::Create(context, "merge");
-    last_loop_merge_blocks.emplace_back(for_blocks[3]);
+    last_merge_blocks.emplace_back(for_blocks[3]);
+    last_break_scopes.emplace_back(for_node->body);
     last_loop_scopes.emplace_back(for_node->body);
 
     // Generate the iterable expression
@@ -1093,7 +1103,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     for_blocks[3]->insertInto(ctx.parent);
     builder.SetInsertPoint(for_blocks[3]);
     last_looparound_blocks.pop_back();
-    last_loop_merge_blocks.pop_back();
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     last_loop_scopes.pop_back();
     return true;
 }
@@ -1110,6 +1121,9 @@ bool Generator::Statement::generate_optional_switch_statement( //
     branch_blocks.reserve(switch_statement->branches.size());
     llvm::BasicBlock *default_block = nullptr;
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
+
+    last_merge_blocks.emplace_back(merge_block);
+    last_break_scopes.emplace_back(original_scope);
 
     int value_block_idx = -1;
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
@@ -1182,6 +1196,8 @@ bool Generator::Statement::generate_optional_switch_statement( //
     builder.CreateCondBr(has_value, has_value_block, none_block);
 
     // Set the insert point back to the merge block
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     ctx.scope = original_scope;
     merge_block->insertInto(ctx.parent);
     builder.SetInsertPoint(merge_block);
@@ -1200,6 +1216,9 @@ bool Generator::Statement::generate_variant_switch_statement( //
     branch_blocks.reserve(switch_statement->branches.size());
     llvm::BasicBlock *default_block = nullptr;
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
+
+    last_merge_blocks.emplace_back(merge_block);
+    last_break_scopes.emplace_back(original_scope);
 
     if (switch_statement->switcher->get_variation() != ExpressionNode::Variation::VARIABLE) {
         // Switching on non-variables is not supported yet
@@ -1294,6 +1313,8 @@ bool Generator::Statement::generate_variant_switch_statement( //
     }
 
     // Set the insert point back to the merge block
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     ctx.scope = original_scope;
     merge_block->insertInto(ctx.parent);
     builder.SetInsertPoint(merge_block);
@@ -1334,6 +1355,9 @@ bool Generator::Statement::generate_switch_statement( //
     const std::shared_ptr<Scope> original_scope = ctx.scope;
     llvm::BasicBlock *default_block = nullptr;
     llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
+
+    last_merge_blocks.emplace_back(merge_block);
+    last_break_scopes.emplace_back(original_scope);
 
     // It's a "normal" switch
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
@@ -1418,6 +1442,8 @@ bool Generator::Statement::generate_switch_statement( //
     }
 
     // Set the insert point back to the merge block
+    last_merge_blocks.pop_back();
+    last_break_scopes.pop_back();
     ctx.scope = original_scope;
     merge_block->insertInto(ctx.parent);
     builder.SetInsertPoint(merge_block);

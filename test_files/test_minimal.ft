@@ -1,8 +1,23 @@
 use Core.print
 
-def main():
-	// This is okay
-	i32[] a1 = i32[_]{};
+enum Enum:
+	VAL1, VAL2, VAL3;
 
-	// This is not
-	i32[0] a2 = i32[_]{};
+def get(i32 x) -> Enum:
+	switch x:
+		0: return Enum.VAL1;
+		1: return Enum.VAL2;
+		else: return Enum.VAL3;
+
+def main():
+	for (i, _) in 0..10:
+		switch get(i32(i)):
+			VAL1:
+				print("is val1\n");
+				break;
+			VAL2:
+				print("is val2\n");
+				break;
+			VAL3:
+				print("is val3\n");
+				break;
