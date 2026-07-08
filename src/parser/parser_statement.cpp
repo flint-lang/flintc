@@ -2956,10 +2956,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         ASSERT(definition.first->token == TOK_ALIAS && std::next(definition.first)->token == TOK_DOT);
         Namespace *alias_namespace = definition.first->alias_namespace;
         statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_namespace);
-    } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
-        statement_node = create_call_statement(scope, definition, std::nullopt);
     } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {
         statement_node = create_switch_statement(scope, scope_segment, definition, scoped_body.value());
+    } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
+        statement_node = create_call_statement(scope, definition, std::nullopt);
     } else {
         // Unknown scoped statement
         token_list toks = clone_from_slice(definition);
