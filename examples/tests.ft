@@ -34,3 +34,9 @@ test "pong-3.0":
 	str path = "pong-3.0";
 	str file = "main.ft";
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+#test_performance
+test "pong-4.0":
+	str path = "pong-4.0";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");

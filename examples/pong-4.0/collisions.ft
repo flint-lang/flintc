@@ -1,0 +1,34 @@
+use Core.print
+use Core.time
+
+use "audio.ft"
+use "ball.ft"
+use "paddle.ft"
+
+enum GameState:
+	RUNNING, P1_WON, P2_WON;
+
+def check_collisions(mut Audio a, mut Ball ball, FPaddleCommon player, FPaddleCommon cpu) -> GameState:
+	// Check if the ball passed one of the players
+	if cpu.ball_passed(ball):
+		return GameState.P1_WON;
+	if player.ball_passed(ball):
+		return GameState.P2_WON;
+
+	// Check for collisions of the ball with the cpu
+	if cpu.collides_with(ball):
+		print("Collided with P1!\n");
+		ms_100 := from(100, TimeUnit.MS);
+		a.play(AudioConfig.COLLISION_FREQUENCY, ms_100);
+		ball.reflect_v();
+		return GameState.RUNNING;
+
+	// Check for collisions of the ball with the player
+	if player.collides_with(ball):
+		print("Collided with P2!\n");
+		ms_100 := from(100, TimeUnit.MS);
+		a.play(AudioConfig.COLLISION_FREQUENCY, ms_100);
+		ball.reflect_v();
+		return GameState.RUNNING;
+	
+	return GameState.RUNNING;
