@@ -1,0 +1,13 @@
+use Core.print
+
+use "ball.ft"
+use "paddle.ft"
+
+def check_collisions(mut Ball ball, FPaddleCommon player, FPaddleCommon cpu):
+	if player.collides_with(ball):
+		print("Collided with player!\n");
+		ball.reflect_v();
+
+	if cpu.collides_with(ball):
+		print("Collided with cpu!\n");
+		ball.reflect_v();

@@ -19,3 +19,83 @@ test "3_rendering":
 	str path = "tests/wiki/beginners_guide/game_example/3_rendering";
 	str file = "main.ft";
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "4_ball_simple":
+	str path = "tests/wiki/beginners_guide/game_example/4_ball_simple";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "5_ball_render_static":
+	str path = "tests/wiki/beginners_guide/game_example/5_ball_render_static";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "6_ball_move":
+	str path = "tests/wiki/beginners_guide/game_example/6_ball_move";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "7_ball_randomize":
+	str path = "tests/wiki/beginners_guide/game_example/7_ball_randomize";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "8_ball_bounce":
+	str path = "tests/wiki/beginners_guide/game_example/8_ball_bounce";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "9_paddle_simple":
+	str path = "tests/wiki/beginners_guide/game_example/9_paddle_simple";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "10_paddle_movement":
+	str path = "tests/wiki/beginners_guide/game_example/10_paddle_movement";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "11_paddle_clamping":
+	str path = "tests/wiki/beginners_guide/game_example/11_paddle_clamping";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "12_collisions":
+	str path = "tests/wiki/beginners_guide/game_example/12_collisions";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "13_player":
+	str path = "tests/wiki/beginners_guide/game_example/13_player";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "14_cpu":
+	str path = "tests/wiki/beginners_guide/game_example/14_cpu";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "15_cpu_behaviour":
+	str path = "tests/wiki/beginners_guide/game_example/15_cpu_behaviour";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "16_scoring_system_ui":
+	str path = "tests/wiki/beginners_guide/game_example/16_scoring_system_ui";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "17_scoring_system_game_state":
+	str path = "tests/wiki/beginners_guide/game_example/17_scoring_system_game_state";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "18_audio":
+	str path = "tests/wiki/beginners_guide/game_example/18_audio";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+
+test "19_finishing":
+	str path = "tests/wiki/beginners_guide/game_example/19_finishing";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");

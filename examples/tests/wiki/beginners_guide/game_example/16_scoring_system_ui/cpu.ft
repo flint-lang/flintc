@@ -1,0 +1,18 @@
+use Fip.raylib as rl
+
+use "paddle.ft"
+
+entity Cpu:
+	data: DPaddle paddle;
+	func: FPaddleCommon;
+	Cpu(paddle);
+
+	def update(f32 ball_y, f32 delta):
+		if paddle.pos.y - 10.0 > ball_y:
+			paddle.pos.y -= paddle.speed * delta;
+		else if paddle.pos.y + 10.0 < ball_y:
+			paddle.pos.y += paddle.speed * delta;
+		self.clamp_position();
+
+	def reset():
+		paddle.pos = f32x2(rl.GetScreenWidth() - paddle.size.x / 2 - 10, rl.GetScreenHeight() / 2);

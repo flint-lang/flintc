@@ -1,0 +1,66 @@
+use Core.time
+
+use Fip.raylib as rl
+
+use "ball.ft"
+use "collisions.ft"
+use "colors.ft"
+use "cpu.ft"
+use "paddle.ft"
+use "player.ft"
+
+def main():
+	// Screen setup
+	i32x2 screen = (1280, 800);
+	u32 flags = u32(rl.ConfigFlags.FLAG_WINDOW_RESIZABLE);
+	flags += u32(rl.ConfigFlags.FLAG_VSYNC_HINT);
+	rl.SetConfigFlags(flags);
+	rl.InitWindow(screen.x, screen.y, "Pong");
+
+	// Initialize game objects
+	ball := Ball(DBall(_));
+	ball.reset();
+	player := Player(DPaddle(_, f32x2(screen / 2), _));
+	player.reset();
+	cpu := Cpu(DPaddle(_, f32x2(screen / 2), _));
+	cpu.reset();
+
+	u32 player_score = 0;
+	u32 cpu_score = 0;
+	TimeStamp last_frame = now();
+	while not rl.WindowShouldClose():
+		screen = (rl.GetScreenWidth(), rl.GetScreenHeight());
+
+		rl.BeginDrawing();
+
+		// Draw the game board
+		rl.ClearBackground(Colors.dark_green);
+		rl.DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, Colors.green);
+		rl.DrawLine(screen.x / 2, 0, screen.x / 2, screen.y, Colors.white);
+		rl.DrawCircle(screen.x / 2, screen.y / 2, 150.0, Colors.light_green);
+
+		// Get the delta time
+		TimeStamp current_frame = now();
+		Duration frame_duration = duration(last_frame, current_frame);
+		f32 delta = f32(as_unit(frame_duration, TimeUnit.S));
+		last_frame = current_frame;
+
+		// Update game objects
+		ball.update(delta);
+		player.update(delta);
+		cpu.update(ball.get_y(), delta);
+
+		// Check for collisions
+		check_collisions(ball, player, cpu);
+
+		// Draw the game objects
+		ball.draw();
+		player.draw();
+		cpu.draw();
+
+		// Draw UI
+		rl.DrawText(str(player_score), screen.x / 4, 20, 60, Colors.white);
+		rl.DrawText(str(cpu_score), (screen.x * 3) / 4, 20, 60, Colors.white);
+		rl.EndDrawing();
+
+	rl.CloseWindow();

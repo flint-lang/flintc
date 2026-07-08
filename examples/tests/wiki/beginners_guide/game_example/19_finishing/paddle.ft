@@ -1,0 +1,44 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+data DPaddle:
+	i32x2 size = i32x2(24, 120);
+	f32x2 pos = f32x2(0, 0);
+	f32 speed = 370;
+	DPaddle(size, pos, speed);
+
+func FPaddleCommon requires(DPaddle paddle):
+	const def ball_passed(Ball ball) -> bool;
+
+	const def draw():
+		i32x2 render_pos = i32x2(paddle.pos) - paddle.size / 2;
+		rl.Rectangle rec = rl.Rectangle(render_pos.x, render_pos.y, paddle.size.x, paddle.size.y);
+		rl.DrawRectangleRounded(rec, 0.8, 0, Colors.white);
+
+	const def collides_with(Ball ball) -> bool:
+		const bool below = ball.get_y() > paddle.pos.y + f32(paddle.size.y / 2) + ball.get_radius() / 2.0;
+		const bool above = ball.get_y() < paddle.pos.y - f32(paddle.size.y / 2) - ball.get_radius() / 2.0;
+		if below or above:
+			return false;
+
+		f32 x_paddle = paddle.pos.x;
+		f32 x_ball = ball.get_x();
+		if x_ball < x_paddle:
+			x_ball += ball.get_radius();
+			x_paddle -= f32(paddle.size.x / 2);
+			return x_ball > x_paddle;
+		else:
+			x_ball -= ball.get_radius();
+			x_paddle += f32(paddle.size.x / 2);
+			return x_ball < x_paddle;
+
+	def clamp_position():
+		const f32 border_distance = 10.0;
+		const f32 min_y = f32(paddle.size.y / 2) + border_distance;
+		const f32 max_y = f32(rl.GetScreenHeight() - paddle.size.y / 2) - border_distance;
+
+		if paddle.pos.y < min_y:
+			paddle.pos.y = min_y;
+		else if paddle.pos.y > max_y:
+			paddle.pos.y = max_y;

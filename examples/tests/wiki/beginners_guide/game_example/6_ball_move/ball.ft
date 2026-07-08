@@ -1,0 +1,20 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+data DBall:
+	f32x2 pos;
+	f32x2 dir;
+	f32 speed;
+	f32 radius;
+	DBall(pos, dir, speed, radius);
+
+entity Ball:
+	data: DBall ball;
+	Ball(ball);
+
+	const def draw():
+		rl.DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, Colors.yellow);
+
+	def update(f32 delta):
+		ball.pos += ball.dir * (delta * ball.speed);

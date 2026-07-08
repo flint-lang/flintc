@@ -1,0 +1,15 @@
+use Fip.raylib as rl
+
+use "paddle.ft"
+
+entity Cpu:
+	data: DPaddle paddle;
+	func: FPaddleCommon;
+	Cpu(paddle);
+
+	def update(f32 ball_y, f32 delta):
+		// TODO follow ball
+		return;
+
+	def reset():
+		paddle.pos = f32x2(rl.GetScreenWidth() - paddle.size.x / 2 - 10, rl.GetScreenHeight() / 2);

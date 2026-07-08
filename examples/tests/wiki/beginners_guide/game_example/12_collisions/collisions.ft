@@ -1,0 +1,9 @@
+use Core.print
+
+use "ball.ft"
+use "paddle.ft"
+
+def check_collisions(mut Ball ball, FPaddleCommon paddle):
+	if paddle.collides_with(ball):
+		print("Collided with paddle!\n");
+		ball.reflect_v();

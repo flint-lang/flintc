@@ -1,0 +1,37 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+data DPaddle:
+	i32x2 size = i32x2(24, 120);
+	f32x2 pos = f32x2(0, 0);
+	f32 speed = 370;
+	DPaddle(size, pos, speed);
+
+func FPaddleCommon requires(DPaddle paddle):
+	const def draw():
+		i32x2 render_pos = i32x2(paddle.pos) - paddle.size / 2;
+		rl.Rectangle rec = rl.Rectangle(render_pos.x, render_pos.y, paddle.size.x, paddle.size.y);
+		rl.DrawRectangleRounded(rec, 0.8, 0, Colors.white);
+
+	def update(f32 delta):
+		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_UP)):
+			paddle.pos = paddle.pos - (0.0, paddle.speed * delta);
+		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_DOWN)):
+			paddle.pos = paddle.pos + (0.0, paddle.speed * delta);
+		FPaddleCommon.clamp_position(paddle);
+
+	def clamp_position():
+		const f32 border_distance = 10.0;
+		const f32 min_y = f32(paddle.size.y / 2) + border_distance;
+		const f32 max_y = f32(rl.GetScreenHeight() - paddle.size.y / 2) - border_distance;
+
+		if paddle.pos.y < min_y:
+			paddle.pos.y = min_y;
+		else if paddle.pos.y > max_y:
+			paddle.pos.y = max_y;
+
+entity Paddle:
+	data: DPaddle;
+	func: FPaddleCommon;
+	Paddle(DPaddle);

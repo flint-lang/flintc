@@ -1,0 +1,77 @@
+use Core.print
+use Core.time
+use Core.math
+
+use Fip.raylib as rl
+
+const data AudioConfig:
+	int SAMPLE_RATE = 44100;
+	int BUFFER_SIZE = 1024;
+	float COLLISION_FREQUENCY = 220.0;
+
+data DAudio:
+	rl.AudioStream stream = rl.LoadAudioStream(u32(AudioConfig.SAMPLE_RATE), 32, 1);
+	f32[] buffer = f32[AudioConfig.BUFFER_SIZE](0.0);
+	f32 phase = 0.0;
+	f32 frequency = 440.0;
+	u32 total_frames = 0;
+	u32 frames_written = 0;
+	bool playing = false;
+	DAudio(stream, buffer, phase, frequency, total_frames, frames_written, playing);
+
+entity Audio:
+	data: DAudio a;
+	Audio(a);
+
+	def play(f32 freq, Duration duration):
+		print($"audio play {freq}Hz for {as_unit(duration, TimeUnit.MS)}ms\n");
+		a.frequency = freq;
+		a.phase = 0.0;
+		a.frames_written = 0;
+		a.total_frames = u32(as_unit(duration, TimeUnit.S) * f32(AudioConfig.SAMPLE_RATE));
+		a.playing = true;
+		rl.PlayAudioStream(a.stream);
+
+	def update():
+		if not a.playing:
+			return;
+		if not rl.IsAudioStreamProcessed(a.stream):
+			return;
+
+		// Check if we are done playing the audio
+		if a.frames_written >= a.total_frames:
+			self.stop();
+			return;
+
+		// Calculate the number of remaining frames and set the chunk to either the
+		// buffer size or the remaining, depending on what's smaller
+		u32 remaining = a.total_frames - a.frames_written;
+		u32 chunk = min(remaining, u32(AudioConfig.BUFFER_SIZE));
+
+		// Calculate the phase step, it essentially is the radian "offset" between
+		// each data point in the `buffer`
+		f32 phase_step = 2.0 * 3.141592 * a.frequency / f32(AudioConfig.SAMPLE_RATE);
+
+		// Calculate all amplitudes in the buffer using the `sin` function to get
+		// a sine wave beep
+		for (i, _) in 0..chunk:
+			a.buffer[i] = sin(a.phase);
+			a.phase += phase_step;
+
+		// Pass the buffer to the audio stream function to tell raylib what to process next
+		rl.UpdateAudioStream(a.stream, &a.buffer, i32(chunk));
+		a.frames_written += chunk;
+
+	def stop():
+		a.playing = false;
+		rl.StopAudioStream(a.stream);
+
+	def deinit():
+		rl.UnloadAudioStream(a.stream);
+		rl.CloseAudioDevice();
+
+def init_audio() -> Audio:
+	print("init audio\n");
+	rl.InitAudioDevice();
+	rl.SetAudioStreamBufferSizeDefault(AudioConfig.BUFFER_SIZE);
+	return Audio(DAudio(_));

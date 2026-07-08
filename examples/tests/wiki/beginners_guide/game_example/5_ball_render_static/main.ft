@@ -1,6 +1,7 @@
 use Fip.raylib as rl
 
 use "colors.ft"
+use "ball.ft"
 
 def main():
 	// Screen setup
@@ -10,18 +11,22 @@ def main():
 	rl.SetConfigFlags(flags);
 	rl.InitWindow(screen.x, screen.y, "Pong");
 
+	// Initialize game objects
+	ball := Ball(DBall(f32x2(screen / 2), f32x2(1, 1), 100, 20));
+
 	while not rl.WindowShouldClose():
 		screen = (rl.GetScreenWidth(), rl.GetScreenHeight());
 
 		rl.BeginDrawing();
-		rl.ClearBackground(Colors.dark_green);
 
-		// Overwrite right half of screen with green rectangle
+		// Draw the game board
+		rl.ClearBackground(Colors.dark_green);
 		rl.DrawRectangle(screen.x / 2, 0, screen.x / 2, screen.y, Colors.green);
-		// Draw vertical line in the middle of the screen
 		rl.DrawLine(screen.x / 2, 0, screen.x / 2, screen.y, Colors.white);
-		// Draw circle in the middle of the screen
 		rl.DrawCircle(screen.x / 2, screen.y / 2, 150.0, Colors.light_green);
+
+		// Draw the game objects
+		ball.draw();
 
 		rl.EndDrawing();
 

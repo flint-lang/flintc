@@ -1,0 +1,22 @@
+use Fip.raylib as rl
+
+use "paddle.ft"
+
+entity Player:
+	data: DPaddle paddle;
+	func: FPaddleCommon;
+	link: FPaddleCommon::ball_passed -> Player::ball_passed;
+	Player(paddle);
+
+	const def ball_passed(Ball ball) -> bool:
+		return ball.get_x() - ball.get_radius() < paddle.pos.x;
+
+	def update(f32 delta):
+		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_UP)):
+			paddle.pos = paddle.pos - (0.0, paddle.speed * delta);
+		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_DOWN)):
+			paddle.pos = paddle.pos + (0.0, paddle.speed * delta);
+		FPaddleCommon.clamp_position(paddle);
+
+	def reset():
+		paddle.pos = f32x2(10 + paddle.size.x / 2, rl.GetScreenHeight() / 2);

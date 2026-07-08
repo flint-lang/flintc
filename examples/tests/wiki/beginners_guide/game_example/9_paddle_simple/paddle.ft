@@ -1,0 +1,20 @@
+use Fip.raylib as rl
+
+use "colors.ft"
+
+data DPaddle:
+	i32x2 size = i32x2(24, 120);
+	f32x2 pos = f32x2(0, 0);
+	f32 speed = 370;
+	DPaddle(size, pos, speed);
+
+func FPaddleCommon requires(DPaddle paddle):
+	const def draw():
+		i32x2 render_pos = i32x2(paddle.pos) - paddle.size / 2;
+		rl.Rectangle rec = rl.Rectangle(render_pos.x, render_pos.y, paddle.size.x, paddle.size.y);
+		rl.DrawRectangleRounded(rec, 0.8, 0, Colors.white);
+
+entity Paddle:
+	data: DPaddle;
+	func: FPaddleCommon;
+	Paddle(DPaddle);
