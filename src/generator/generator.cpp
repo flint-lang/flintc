@@ -345,6 +345,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         Debug::DCU = nullptr;
         Debug::debug_files.clear();
 
+#ifdef __WIN32__
+        // Tell LLVM to emit CodeView (not DWARF) on Windows, preventing the
+        // dual emission of both CodeView and DWARF sections in the object file
+        module->addModuleFlag(llvm::Module::Override, "CodeView", 1);
+#endif
+
         // Pre-populate debug file entries for all imported core modules
         for (const auto &parser : Parser::instances) {
             for (const auto &[module_name, _] : parser.file_node_ptr->imported_core_modules) {
