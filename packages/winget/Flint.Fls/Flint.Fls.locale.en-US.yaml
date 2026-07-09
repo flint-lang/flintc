@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: Flint.Fls
-PackageVersion: 0.3.5-core
+PackageVersion: 0.4.0-core
 PackageLocale: en-US
 Publisher: Flint Organisation
 PublisherUrl: https://github.com/flint-lang
@@ -18,6 +18,6 @@ Tags:
   - flint
   - language-server
   - lsp
-ReleaseNotesUrl: https://github.com/flint-lang/flintc/releases/tag/v0.3.5-core
+ReleaseNotesUrl: https://github.com/flint-lang/flintc/releases/tag/v0.4.0-core
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

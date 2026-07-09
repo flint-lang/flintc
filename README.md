@@ -250,12 +250,12 @@ You need `raylib` installed on your system for this example to compile and run c
 ## Installation
 
 For how to install Flint, follow the instructions of the Wiki:
-https://flint-lang.github.io/wiki/v0.3.5-core/user_guide/setup/1_installation.html
+https://flint-lang.github.io/wiki/v0.4.0-core/user_guide/setup/1_installation.html
 
 ## Building
 
 For how to build Flint from source, follow the instructions of the Wiki:
-https://flint-lang.github.io/wiki/v0.3.5-core/developer_guide/flintc/setup.html
+https://flint-lang.github.io/wiki/v0.4.0-core/developer_guide/flintc/setup.html
 
 ## What's next?
 

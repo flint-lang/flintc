@@ -1,5 +1,5 @@
 Name:           flintc
-Version:        0.3.5
+Version:        0.4.0
 Release:        1%{?dist}
 Summary:        Flint programming language compiler and language server
 
