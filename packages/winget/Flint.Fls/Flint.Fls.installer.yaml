@@ -9,6 +9,6 @@ Commands:
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/flint-lang/flintc/releases/download/v0.4.0-core/fls.exe
-    InstallerSha256: 2AA33AF514EE867F375E0661FCC779B9F73CB72AF93F01B5B4A9FD1AEECD27C6
+    InstallerSha256: af23ecc996aebaa0bed9dd2dbcf27d13f3f8feaf9cd6ef2b5d02654888276023
 ManifestType: installer
 ManifestVersion: 1.6.0

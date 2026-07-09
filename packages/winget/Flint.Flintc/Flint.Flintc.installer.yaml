@@ -10,6 +10,6 @@ Commands:
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/flint-lang/flintc/releases/download/v0.4.0-core/flintc.exe
-    InstallerSha256: 635B2641EE2D7D37330364CAAC336556E4A5FB0ED59D9C1252D0C190F14D49DB
+    InstallerSha256: 280bab7b9d6a0cd560cb8090c570e5c6ae595a3aa43ba69e49a59ab6883806c5
 ManifestType: installer
 ManifestVersion: 1.12.0
