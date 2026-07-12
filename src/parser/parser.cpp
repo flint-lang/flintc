@@ -1173,6 +1173,12 @@ bool Parser::resolve_all_imports() {
                     }
                 }
             }
+            // Import shared data globals from the imported namespace into private_symbols.globals
+            for (const auto &[name, variable] : imported_namespace->public_symbols.globals) {
+                if (private_symbols.globals.find(name) == private_symbols.globals.end()) {
+                    private_symbols.globals[name] = variable;
+                }
+            }
         }
     }
     return true;
@@ -2329,13 +2335,23 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
     }
+    // Inject shared data globals into the function scope
+    ASSERT(function->scope.has_value());
+    std::shared_ptr<Scope> &scope = function->scope.value();
+    const Namespace *file_namespace = parser.file_node_ptr->file_namespace.get();
+    for (const auto &[name, variable] : file_namespace->public_symbols.globals) {
+        scope->add_variable(name, variable);
+    }
+    for (const auto &[name, variable] : file_namespace->private_symbols.globals) {
+        scope->add_variable(name, variable);
+    }
     // Create the body and add the body statements to the created scope
-    auto body_statements = parser.create_body(function->scope.value(), body);
+    auto body_statements = parser.create_body(scope, body);
     if (!body_statements.has_value()) {
         return false;
     }
-    function->scope.value()->body = std::move(body_statements.value());
-    function->scope.value()->count_persistent_locals(function->persistent_count);
+    scope->body = std::move(body_statements.value());
+    scope->count_persistent_locals(function->persistent_count);
     return true;
 }
 
@@ -2436,6 +2452,14 @@ bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> b
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
+    }
+    // Inject shared data globals into the test scope
+    const Namespace *file_namespace = parser.file_node_ptr->file_namespace.get();
+    for (const auto &[name, variable] : file_namespace->public_symbols.globals) {
+        test->scope->add_variable(name, variable);
+    }
+    for (const auto &[name, variable] : file_namespace->private_symbols.globals) {
+        test->scope->add_variable(name, variable);
     }
     // Create the body and add the body statements to the created scope
     auto body_statements = parser.create_body(test->scope, body);

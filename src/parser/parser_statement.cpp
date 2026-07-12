@@ -1,4 +1,3 @@
-#include "analyzer/analyzer.hpp"
 #include "error/error_type.hpp"
 #include "parser/parser.hpp"
 
@@ -1084,8 +1083,17 @@ bool Parser::create_optional_switch_branches(   //
             const unsigned int scope_id = branch_scope->scope_id;
             const std::string var_name(match_tokens.first->lexme);
             if (!branch_scope->add_variable(var_name,
-                    {optional_type->base_type, scope_id, scope_segment, is_mutable, false, true, false, {}, false, file_hash,
-                        match_tokens.first->line, match_tokens.first->column})) {
+                    {
+                        .type = optional_type->base_type,
+                        .scope_id = scope_id,
+                        .scope_segment = scope_segment,
+                        .is_mutable = is_mutable,
+                        .is_persistent = false,
+                        .is_fn_param = true,
+                        .file_hash = file_hash,
+                        .line = match_tokens.first->line,
+                        .column = match_tokens.first->column,
+                    })) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -1238,8 +1246,17 @@ bool Parser::create_variant_switch_branches(    //
         std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(scope, scope_segment);
         if (access_name.has_value()) {
             if (!branch_scope->add_variable(access_name.value(),
-                    {access_type, branch_scope->scope_id, scope_segment, is_mutable, false, true, false, {}, false, file_hash,
-                        match_tokens.first->line, match_tokens.first->column})) {
+                    {
+                        .type = access_type,
+                        .scope_id = branch_scope->scope_id,
+                        .scope_segment = scope_segment,
+                        .is_mutable = is_mutable,
+                        .is_persistent = false,
+                        .is_fn_param = true,
+                        .file_hash = file_hash,
+                        .line = match_tokens.first->line,
+                        .column = match_tokens.first->column,
+                    })) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -2200,10 +2217,10 @@ std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_pt
     );
 }
 
-std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
-    std::shared_ptr<Scope> &scope,                                           //
-    const token_slice &tokens,                                               //
-    std::optional<std::unique_ptr<ExpressionNode>> &rhs                      //
+std::optional<std::unique_ptr<StatementNode>> Parser::create_data_field_assignment( //
+    std::shared_ptr<Scope> &scope,                                                  //
+    const token_slice &tokens,                                                      //
+    std::optional<std::unique_ptr<ExpressionNode>> &rhs                             //
 ) {
     PROFILE_CUMULATIVE("Parser::create_data_field_assignment");
     // Everything up to the equals sign is the lhs of the assignment
@@ -2235,8 +2252,44 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
         return std::nullopt;
     }
 
-    // The data field base expression should be a variable expression
     std::unique_ptr<ExpressionNode> &base_expr = field_access_base.value().base_expr;
+    // If the field base is a type expression, check if it's a shared data, as then it's a global variable assignment, not a field
+    // assignment
+    if (base_expr->get_variation() == ExpressionNode::Variation::TYPE                //
+        && base_expr->as<TypeNode>()->type->get_variation() == Type::Variation::DATA //
+        && base_expr->as<TypeNode>()->type->as<DataType>()->data_node->is_shared     //
+    ) {
+        // Shared data assignment
+        const auto *data_type = tokens.first->type->as<DataType>();
+        const auto &data_node = data_type->data_node;
+        const std::string field_name((tokens.first + 2)->lexme);
+        const auto &fields = data_node->fields;
+        auto field = fields.begin();
+        for (; field != fields.end(); ++field) {
+            if (field->name == field_name)
+                break;
+        }
+        if (field == fields.end()) {
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, tokens.first->type, std::nullopt);
+            return std::nullopt;
+        }
+        const std::string mangled_name = data_node->file_hash.to_string() + ".shared." + data_node->name + "." + field_name;
+        if (scope->variables.find(mangled_name) == scope->variables.end()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const auto &var = scope->variables.at(mangled_name);
+        // A global variable cannot be defined as const
+        ASSERT(var.is_mutable);
+        const token_slice rhs_tokens = {tokens.first + 4, tokens.second};
+        if (!check_castability(var.type, expression.value())) {
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_tokens, var.type, expression.value()->type);
+            return std::nullopt;
+        }
+        return std::make_unique<AssignmentNode>(file_hash, tokens, var.type, mangled_name, expression.value());
+    }
+
+    // The data field base expression should be a variable expression
     if (base_expr->is_const) {
         THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
@@ -2247,13 +2300,13 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment( //
         return std::nullopt;
     }
 
-    return DataFieldAssignmentNode(           //
-        file_hash, tokens,                    //
-        base_expr,                            //
-        field_access_base.value().field_name, //
-        field_access_base.value().field_id,   //
-        field_type,                           //
-        expression.value()                    //
+    return std::make_unique<DataFieldAssignmentNode>( //
+        file_hash, tokens,                            //
+        base_expr,                                    //
+        field_access_base.value().field_name,         //
+        field_access_base.value().field_id,           //
+        field_type,                                   //
+        expression.value()                            //
     );
 }
 
@@ -2695,11 +2748,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         }
         statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
     } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment)) {
-        std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment(scope, tokens, rhs);
+        std::optional<std::unique_ptr<StatementNode>> assign = create_data_field_assignment(scope, tokens, rhs);
         if (!assign.has_value()) {
             return std::nullopt;
         }
-        statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
+        statement_node = std::move(assign);
     } else if (Matcher::tokens_contain(tokens, Matcher::data_field_assignment_shorthand)) {
         std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment_shorthand(scope, tokens, rhs);
         if (!assign.has_value()) {

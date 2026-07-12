@@ -39,6 +39,23 @@ std::optional<DataNode *> FileNode::add_data(DataNode &data) {
         THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_hash, added_data->line, added_data->column, added_data->name);
         return std::nullopt;
     }
+    // Add all global variables to the public section of this files namespace
+    if (added_data->is_shared) {
+        for (const auto &field : added_data->fields) {
+            const std::string mangled_name = added_data->file_hash.to_string() + ".shared." + added_data->name + "." + field.name;
+            file_namespace->public_symbols.globals.emplace(mangled_name,
+                Scope::Variable{
+                    .type = field.type,
+                    .scope_id = 0,
+                    .scope_segment = 0,
+                    .is_mutable = true,
+                    .is_persistent = false,
+                    .is_fn_param = false,
+                    .is_global = true,
+                    .file_hash = added_data->file_hash,
+                });
+        }
+    }
     return added_data;
 }
 

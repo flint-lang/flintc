@@ -133,6 +133,13 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     // Because of the thread stack, these "allocations" are now fixed pointer offsets (GEPs) into the function structure, nothing more and
     // nothing less
     std::unordered_map<std::string, llvm::Value *const> allocations;
+    // Inject all global variables into the allocations map
+    for (const auto &var : function_node->scope.value()->variables) {
+        if (!var.second.is_global) {
+            continue;
+        }
+        allocations.emplace("s0::" + var.first, shared_globals.at(var.first));
+    }
     const auto fn_ty = Allocation::generate_function_allocations(builder, function, function_node, allocations);
     if (!fn_ty.has_value()) {
         return false;
@@ -264,6 +271,13 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         fake_fn_mangle_id                //
     );
     std::unordered_map<std::string, llvm::Value *const> allocations;
+    // Inject all global variables into the allocations map
+    for (const auto &var : test_node->scope->variables) {
+        if (!var.second.is_global) {
+            continue;
+        }
+        allocations.emplace("s0::" + var.first, shared_globals.at(var.first));
+    }
     const auto fn_ty = Allocation::generate_function_allocations(builder, test_function, &fake_fn, allocations);
     if (!fn_ty.has_value()) {
         return std::nullopt;

@@ -76,6 +76,10 @@ class Scope {
         /// function's return type within the generator functions without a reference to the function node itself
         bool is_pseudo_variable = false;
 
+        /// @var `is_global`
+        /// @brief Whether this variable is a global variable, e.g. a shared data field that is allocated as a module-level global
+        bool is_global = false;
+
         /// @var `file_hash`
         /// @brief The hash of the file where this variable was declared
         Hash file_hash{};
@@ -89,16 +93,18 @@ class Scope {
         unsigned int column = 0;
 
         bool operator==(const Variable &other) const {
-            return type->equals(other.type)                                                       //
-                && scope_id == other.scope_id                                                     //
-                && scope_segment == other.scope_segment                                           //
-                && is_mutable == other.is_mutable                                                 //
-                && is_persistent == other.is_persistent                                           //
-                && is_fn_param == other.is_fn_param                                               //
-                && is_reference == other.is_reference                                             //
-                && return_scope_ids == other.return_scope_ids                                     //
-                && is_pseudo_variable == other.is_pseudo_variable && file_hash == other.file_hash //
-                && line == other.line                                                             //
+            return type->equals(other.type)                       //
+                && scope_id == other.scope_id                     //
+                && scope_segment == other.scope_segment           //
+                && is_mutable == other.is_mutable                 //
+                && is_persistent == other.is_persistent           //
+                && is_fn_param == other.is_fn_param               //
+                && is_reference == other.is_reference             //
+                && return_scope_ids == other.return_scope_ids     //
+                && is_pseudo_variable == other.is_pseudo_variable //
+                && is_global == other.is_global                   //
+                && file_hash == other.file_hash                   //
+                && line == other.line                             //
                 && column == other.column;
         }
     };
@@ -195,7 +201,8 @@ class Scope {
     /// @function `get_next_scope_id`
     /// @brief Returns the next scope id. Ensures that each scope gets its own id for the lifetime of the program
     static unsigned inline int get_next_scope_id() {
-        static unsigned int scope_id = 0;
+        // "Scope ID 0" is reserved to mean "global scope", so we start by 1
+        static unsigned int scope_id = 1;
         static std::mutex scope_id_mutex;
         std::lock_guard<std::mutex> lock(scope_id_mutex);
         return scope_id++;

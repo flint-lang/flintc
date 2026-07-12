@@ -416,6 +416,23 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     for (const auto &file : Parser::instances) {
         IR::generate_forward_declarations(module.get(), *file.file_node_ptr);
     }
+    // Create global variables for each file's shared data fields
+    shared_globals.clear();
+    for (const auto &file : Parser::instances) {
+        const Namespace *ns = file.file_node_ptr->file_namespace.get();
+        if (ns->public_symbols.globals.empty()) {
+            continue;
+        }
+        for (const auto &[name, var] : ns->public_symbols.globals) {
+            const auto llvm_type = IR::get_type(module.get(), var.type);
+            ASSERT(llvm_type.first != nullptr);
+            llvm::Constant *const zero_init = llvm::Constant::getNullValue(llvm_type.first);
+            llvm::GlobalVariable *const global = new llvm::GlobalVariable(                           //
+                *module, llvm_type.first, false, llvm::GlobalValue::ExternalLinkage, zero_init, name //
+            );
+            shared_globals[name] = global;
+        }
+    }
     // Generate all the `setup` blocks for all functions, and generate all the TS frame types for all funcitons before moving on to generate
     // the actual file IR
     for (const FunctionNode *function_node : Parser::get_all_functions()) {
@@ -536,7 +553,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         Builtin::refresh_c_functions(module.get());
         Module::Arithmetic::refresh_arithmetic_functions(module.get());
         // Generate the entry point of the program when in test mode
-        Builtin::generate_builtin_test(builder.get(), module.get());
+        if (!Builtin::generate_builtin_test(builder.get(), module.get())) {
+            return std::nullopt;
+        }
     } else {
         // Ensure that the user has defined a main function, called `_main`. This function is *not* mangled
         llvm::Function *main_function = module->getFunction("_main");
@@ -547,7 +566,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
 
         // Generate main function in the main module
-        Builtin::generate_builtin_main(builder.get(), module.get());
+        if (!Builtin::generate_builtin_main(builder.get(), module.get())) {
+            return std::nullopt;
+        }
     }
 
     // Finalize the debug info

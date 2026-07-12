@@ -2448,9 +2448,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 default:
                     break;
                 case Type::Variation::DATA: {
-                    [[maybe_unused]] const auto *data_type = type->as<DataType>();
-                    if (!data_type->data_node->is_const) {
-                        // Accessing fields from a type that's not const is not allowed
+                    const auto *data_type = type->as<DataType>();
+                    if (!data_type->data_node->is_const && !data_type->data_node->is_shared) {
+                        // Accessing fields from a type that's not const or shared is not allowed
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
@@ -2465,9 +2465,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         }
                     }
                     if (field == fields.end()) {
-                        // Accessing nonexistent field of global const data
+                        // Accessing nonexistent field of global const or shared data
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
+                    }
+                    // For shared data, return a VariableNode referencing the global variable
+                    if (data_type->data_node->is_shared) {
+                        const std::string hash_str = data_type->data_node->file_hash.to_string();
+                        const std::string mangled_name = hash_str + ".shared." + data_type->data_node->name + "." + field_name;
+                        return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens_mut), mangled_name, field->type, false);
                     }
                     ASSERT(field->initializer.has_value());
                     return field->initializer.value()->clone(scope->scope_id);

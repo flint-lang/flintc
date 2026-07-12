@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/definitions/import_node.hpp"
+#include "parser/ast/scope.hpp"
 #include "parser/hash.hpp"
 #include "types.hpp"
 
@@ -53,6 +54,10 @@ class Namespace {
         /// @var `aliased_imports`
         /// @brief Aliased imports (these are namespaces themselves)
         std::unordered_map<std::string, Namespace *> aliased_imports;
+
+        /// @var `globals`
+        /// @brief Global variables from shared data fields defined in this namespace
+        std::unordered_map<std::string, Scope::Variable> globals;
     };
 
     /// @struct `PrivateSymbols`
@@ -65,6 +70,10 @@ class Namespace {
         /// @var `functions`
         /// @brief All functions defined in other namespaces which have been imported into this namespace
         std::unordered_map<Hash, std::vector<FunctionNode *>> functions;
+
+        /// @var `globals`
+        /// @brief Global variables from shared data fields coming from other namespaces
+        std::unordered_map<std::string, Scope::Variable> globals;
     };
 
     /// @var `public_symbols`

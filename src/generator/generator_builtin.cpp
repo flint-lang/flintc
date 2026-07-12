@@ -5,7 +5,113 @@
 
 #include <filesystem>
 
-void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
+bool Generator::Builtin::init_global_variables( //
+    llvm::Function *function,                   //
+    llvm::IRBuilder<> *builder,                 //
+    llvm::Value *ts_ptr,                        //
+    llvm::Value *ts_stack_data_ptr              //
+) {
+    // Build a scope and allocations map for the shared data globals so generate_expression can resolve them
+    std::shared_ptr<Scope> init_scope = std::make_shared<Scope>();
+    std::unordered_map<std::string, llvm::Value *const> allocations;
+    for (const auto &file : Parser::instances) {
+        const Namespace *ns = file.file_node_ptr->file_namespace.get();
+        for (const auto &global : ns->public_symbols.globals) {
+            init_scope->variables[global.first] = global.second;
+        }
+    }
+    if (allocations.empty()) {
+        return true;
+    }
+
+    // We need to store a `type.ts.function` value at the very front of the thread stack as the main function will not have been called yet.
+    // We also need to add a few allocations to the allocations map so that subsequent calls in the global variable initializers can be
+    // executed at all, as the call generation code expects certain values being present in the allocations map.
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+    llvm::Value *pseudo_frame = llvm::Constant::getNullValue(ts_fn_ty);
+    pseudo_frame = builder->CreateInsertValue(                                                 //
+        pseudo_frame, ts_ptr, {Module::ThreadStack::FUNCTION::THREAD_STACK}, "pseudo_frame_ts" //
+    );
+    IR::aligned_store(*builder, pseudo_frame, ts_stack_data_ptr);
+
+    allocations.emplace("flint.stack.root", ts_ptr);
+    allocations.emplace("flint.stack", ts_stack_data_ptr);
+    llvm::Value *next_stack_frame = builder->CreateGEP(ts_fn_ty, ts_stack_data_ptr, builder->getInt32(1), "global_init_next_frame");
+    allocations.emplace("flint.stack.persistence_flags", next_stack_frame);
+    llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(                                 //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    llvm::Value *const ts_flags = IR::aligned_load(*builder, builder->getInt32Ty(), ts_flags_ptr, "ts_flags");
+    allocations.emplace("flint.stack.flags", ts_flags);
+    llvm::Value *const is_callable_flag = builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
+    llvm::Value *const is_callable = builder->CreateICmpEQ(ts_flags, is_callable_flag, "is_callable");
+    allocations.emplace("flint.stack.is_callable", is_callable);
+    llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(                                     //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    );
+    llvm::Value *const ts_stack_ptr = IR::aligned_load(*builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
+    next_stack_frame = builder->CreateSelect(is_callable, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
+    allocations.emplace("flint.stack.next", next_stack_frame);
+
+    GenerationContext ctx{
+        .stack_type = nullptr,
+        .parent = function,
+        .scope = init_scope,
+        .scope_segment = 0,
+        .allocations = allocations,
+        .imported_core_modules = {},
+        .short_circuit_block = std::nullopt,
+        .dest = nullptr,
+        .is_global = true,
+    };
+    for (const auto &file : Parser::instances) {
+        const Namespace *ns = file.file_node_ptr->file_namespace.get();
+        for (const auto &def : ns->public_symbols.definitions) {
+            if (def->get_variation() != DefinitionNode::Variation::DATA) {
+                continue;
+            }
+            const auto *data_node = def->as<DataNode>();
+            if (!data_node->is_shared) {
+                continue;
+            }
+            for (const auto &field : data_node->fields) {
+                if (!field.initializer.has_value()) {
+                    continue;
+                }
+                const std::string mangled_name = data_node->file_hash.to_string() + ".shared." + data_node->name + "." + field.name;
+                const auto gvar_it = allocations.find("s0::" + mangled_name);
+                if (gvar_it == allocations.end()) {
+                    continue;
+                }
+                Expression::garbage_type garbage;
+                ExpressionNode *const init_expr = field.initializer.value().get();
+                if (init_expr->type->to_string() == "int" || init_expr->type->to_string() == "float") {
+                    init_expr->type = field.type;
+                }
+                auto result = Expression::generate_expression(*builder, ctx, garbage, 0, init_expr);
+                if (!result.has_value()) {
+                    return false;
+                }
+                if (result.value().empty()) {
+                    return false;
+                }
+                llvm::Value *init_val = result.value().front();
+                if (field.type->to_string() == "str" && init_expr->get_variation() == ExpressionNode::Variation::LITERAL) {
+                    const auto *lit_node = init_expr->as<LiteralNode>();
+                    if (std::holds_alternative<LitStr>(lit_node->value)) {
+                        const std::string &str_val = std::get<LitStr>(lit_node->value).value;
+                        llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
+                        init_val = builder->CreateCall(init_str_fn, {init_val, builder->getInt64(str_val.length())}, "init_str_value");
+                    }
+                }
+                IR::aligned_store(*builder, init_val, gvar_it->second);
+            }
+        }
+    }
+    return true;
+}
+
+bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
@@ -175,6 +281,11 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         }
     }
 
+    // Initialize all global variables by evaluating the rhs expressions of all global variables
+    if (!init_global_variables(main_function, builder, ts_stack_data_ptr, ts_ptr)) {
+        return false;
+    }
+
     // Store the main frame in the ts data section as the first function frame
     IR::aligned_store(*builder, main_frame, ts_stack_data_ptr);
 
@@ -232,6 +343,7 @@ void Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     exit_value->addIncoming(builder->getInt32(1), catch_block);
     builder->CreateCall(c_functions.at(EXIT), {exit_value});
     builder->CreateUnreachable();
+    return true;
 }
 
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
@@ -1407,7 +1519,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     return exec_fn;
 }
 
-void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
+bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
     llvm::Function *execute_test_fn = generate_execute_test_function(builder, module);
 
     llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
@@ -1451,7 +1563,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         builder->CreateCall(c_functions.at(PRINTF), {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
         builder->CreateUnreachable();
-        return;
+        return true;
     }
 
     // Init DIMA
@@ -1482,6 +1594,11 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
         ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
     );
     IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+
+    // Initialize all global variables by evaluating the rhs expressions of all global variables
+    if (!init_global_variables(main_function, builder, ts_stack_data_ptr, ts_ptr)) {
+        return false;
+    }
 
     // Create the counter to count how many tests have failed
     llvm::AllocaInst *counter = builder->CreateAlloca( //
@@ -1557,7 +1674,7 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
             llvm::Function *const test_function = module->getFunction(test_function_name);
             if (test_function == nullptr) {
                 THROW_BASIC_ERR(ERR_GENERATING);
-                return;
+                return false;
             }
             llvm::Value *const test_name_value = IR::generate_const_string(module, test_node->name);
 
@@ -1656,4 +1773,5 @@ void Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter);
     builder->CreateCall(c_functions.at(EXIT), {counter_value});
     builder->CreateUnreachable();
+    return true;
 }

@@ -250,6 +250,10 @@ class Generator {
         /// @var `dest`
         /// @brief Optional destination pointer for expressions that write directly (e.g. fixed array initializers)
         llvm::Value *dest = nullptr;
+
+        /// @var `is_global`
+        /// @brief Whether the context is generating global variable initialization code (inside C main, not a Flint function)
+        bool is_global = false;
     };
 
     /// @var `type_map`
@@ -373,6 +377,10 @@ class Generator {
     /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
     /// name of the enum and the hash from where the enum came from, so `Sb7HsALK.<enum_name>`
     static inline std::unordered_map<std::string, llvm::GlobalVariable *> enum_name_arrays_map;
+
+    /// @var `shared_globals`
+    /// @brief A map containing all shared global variables
+    static inline std::unordered_map<std::string, llvm::GlobalVariable *> shared_globals;
 
     /// @var `global_strings`
     /// @brief A map containing all references to all global string variables, each string only exists once
@@ -604,12 +612,31 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Builtin() = delete;
 
+        /// @function `init_global_variables`
+        /// @brief Generates all initialization code for all global variables by storing a pseudo-frame at `ts_stack_data_ptr`
+        ///        and evaluating the rhs expressions of all global variables
+        ///
+        /// @param `function` The LLVM Function the global variables will be initialized in (will always be the `main` function)
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ts_ptr` The pointer to the TS stack itself
+        /// @param `ts_stack_data_ptr` The pointer to the TS data section
+        /// @return `bool` Whether initializing the global variables (e.g. evaluating the rhs expressions) was successfull
+        ///
+        /// @note This function should only be called by the `generate_builtin_main` and `generate_builtin_test` functions respectively
+        [[nodiscard]] static bool init_global_variables( //
+            llvm::Function *function,                    //
+            llvm::IRBuilder<> *builder,                  //
+            llvm::Value *ts_ptr,                         //
+            llvm::Value *ts_stack_data_ptr               //
+        );
+
         /// @function `generate_builtin_main`
         /// @brief Generates the builtin main function which calls the user defined main function
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the main function definition will be generated in
-        static void generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @return `bool` Whether generating the builtin main function was successful (it fails when global initializers fail)
+        [[nodiscard]] static bool generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_c_functions`
         /// @brief Generates all references to the external c functions
@@ -653,7 +680,8 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the test entry point will be generated in
-        static void generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module);
+        /// @return `bool` Whether generating the builtin test function was successful (it fails when global initializers fail)
+        [[nodiscard]] static bool generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module);
     }; // subclass Builtin
 
     /// @class `Logical`
