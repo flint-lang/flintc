@@ -2,6 +2,14 @@ use Core.system
 use Core.assert
 use Core.print
 
+/// @brief Configuration to control which compilations to execute. Can be changed on a per-test run basis
+//         Everything raylib-related is unable to be compiled statically because raylib is linked dynamically,
+//         so these tests fail only because of this problem.
+shared data Config:
+	bool compile_v_static = true;
+	bool compile_v_parallel = true;
+	bool compile_v_fast = true;
+
 /// @brief Appends a single string value to a string array
 ///
 /// @param `arr` The array to append the value to
@@ -57,17 +65,20 @@ def compile(str? pre_command, str file, str[] flags, i32 expected_exit_code, str
 /// @param `expected_output` The expected output of compilation, if any at all
 /// @return `str?` The output of the compilation if `expected_output` is `none`
 def compile_v(str? pre_command, str file, str[] flags, i32 expected_exit_code, str? expected_output) -> str?:
+	if Config.compile_v_static:
+		str[] static_flags = append(flags, "--static");
+		_ = compile(pre_command, file, static_flags, expected_exit_code, expected_output);
+
+	if Config.compile_v_parallel:
+		str[] parallel_flags = append(flags, "--parallel");
+		_ = compile(pre_command, file, parallel_flags, expected_exit_code, expected_output);
+
+	if Config.compile_v_fast:
+		str[] fast_flags = append(flags, "-O fast");
+		_ = compile(pre_command, file, fast_flags, expected_exit_code, expected_output);
+
 	// Default compilation just passes the flags to it as-is
-	_ = compile(pre_command, file, flags, expected_exit_code, expected_output);
-
-	str[] static_flags = append(flags, "--static");
-	_ = compile(pre_command, file, static_flags, expected_exit_code, expected_output);
-
-	str[] parallel_flags = append(flags, "--parallel");
-	_ = compile(pre_command, file, parallel_flags, expected_exit_code, expected_output);
-
-	str[] fast_flags = append(flags, "-O fast");
-	return compile(pre_command, file, fast_flags, expected_exit_code, expected_output);
+	return compile(pre_command, file, flags, expected_exit_code, expected_output);
 
 /// @brief Checks whether a given string starts with the given other string
 ///

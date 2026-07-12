@@ -27,16 +27,22 @@ test "pong":
 test "pong-2.0":
 	str path = "pong-2.0";
 	str file = "main.ft";
+	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = true;
 
 #test_performance
 test "pong-3.0":
 	str path = "pong-3.0";
 	str file = "main.ft";
+	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = true;
 
 #test_performance
 test "pong-4.0":
 	str path = "pong-4.0";
 	str file = "main.ft";
+	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = true;
