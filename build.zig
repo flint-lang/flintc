@@ -870,7 +870,6 @@ fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
 }
 
 fn hasInternetConnection(b: *std.Build) bool {
-    std.debug.print("in\n", .{});
     const hostname: std.Io.net.HostName = .{ .bytes = "google.com" };
     const conn: std.Io.net.Stream = hostname.connect(
         b.graph.io,
@@ -882,7 +881,6 @@ fn hasInternetConnection(b: *std.Build) bool {
         },
     ) catch return false;
     conn.close(b.graph.io);
-    std.debug.print("out\n", .{});
     return true;
 }
 
