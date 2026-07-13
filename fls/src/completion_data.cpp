@@ -112,7 +112,7 @@ const std::vector<CompletionItem> CompletionData::types_ = {
 const std::vector<CompletionItem> CompletionData::definitions_ = {
     {"data", CompletionItemKind::Class, "Data structure definition", "data ", false},
     {"func", CompletionItemKind::Class, "Func module definition", "func ", false},
-    {"entity", CompletionItemKind::Class, "Entity definition", "entity ", false},
+    {"object", CompletionItemKind::Class, "Object definition", "object ", false},
     {"enum", CompletionItemKind::Class, "Enumeration definition", "enum ", false},
     {"variant", CompletionItemKind::Class, "Variant definition", "variant ", false},
     {"error", CompletionItemKind::Class, "Error type definition", "error ", false},
@@ -124,7 +124,7 @@ const std::vector<CompletionItem> CompletionData::modules_ = {
     {"extern", CompletionItemKind::Module, "External declaration", "extern ", false},
     {"export", CompletionItemKind::Module, "Export declaration", "export ", false},
     {"requires", CompletionItemKind::Module, "Requires declaration", "requires(${1:DataType d}):", true},
-    {"extends", CompletionItemKind::Module, "Extends declaration", "extends(${1:EntityType e}):", true},
+    {"extends", CompletionItemKind::Module, "Extends declaration", "extends(${1:ObjectType e}):", true},
     {"link", CompletionItemKind::Module, "Link declaration", "link:", false},
     {"hook", CompletionItemKind::Module, "Hook declaration", "hook:", false},
 };

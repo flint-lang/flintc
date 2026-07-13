@@ -38,7 +38,7 @@ class ErrExprCallAmbiguous : public BaseError {
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Instance calls are only allowed on variables of type 'entity' or 'func'";
+        d.message = "Instance calls are only allowed on variables of type 'object' or 'func'";
         return d;
     }
 

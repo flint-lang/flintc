@@ -17,7 +17,7 @@ void LspServer::add_nodes_from_namespace_to_completions( //
                 completions.emplace_back(node->name, CompletionItemKind::Class, "The '" + node->name + "' data type", node->name, false);
                 break;
             }
-            case DefinitionNode::Variation::ENTITY:
+            case DefinitionNode::Variation::OBJECT:
                 // Entities are not supported yet
                 break;
             case DefinitionNode::Variation::ENUM: {

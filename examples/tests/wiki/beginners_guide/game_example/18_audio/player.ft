@@ -2,7 +2,7 @@ use Fip.raylib as rl
 
 use "paddle.ft"
 
-entity Player:
+object Player:
 	data: DPaddle paddle;
 	func: FPaddleCommon;
 	link: FPaddleCommon::ball_passed -> Player::ball_passed;

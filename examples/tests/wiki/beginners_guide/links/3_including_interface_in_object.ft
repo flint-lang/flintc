@@ -1,0 +1,19 @@
+use Core.print
+
+func IMove:
+    def move();
+
+data DPosition:
+    i32x2 pos;
+    DPosition(pos);
+
+object Player:
+    data: DPosition;
+    func: IMove;
+    Player(DPosition);
+
+def apply(mut IMove m):
+    m.move();
+
+def main():
+    print("Hello, World!\n");

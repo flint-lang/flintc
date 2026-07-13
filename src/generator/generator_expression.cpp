@@ -14,12 +14,12 @@
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -2303,8 +2303,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             const FuncType *func_type = call_node->instance_variable->type->as<FuncType>();
             llvm::StructType *const func_ty = type_map.at(func_type->get_type_string());
             llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
-            llvm::Value *const entity_ptr_ptr = builder.CreateStructGEP(func_ty, func_instance, 0, "entity_ptr_ptr");
-            llvm::Value *const entity_ptr = IR::aligned_load(builder, PTR_TY, entity_ptr_ptr, "entity_ptr");
+            llvm::Value *const object_ptr_ptr = builder.CreateStructGEP(func_ty, func_instance, 0, "object_ptr_ptr");
+            llvm::Value *const object_ptr = IR::aligned_load(builder, PTR_TY, object_ptr_ptr, "object_ptr");
             llvm::Value *const dispatch_fn_ptr = builder.CreateStructGEP(func_ty, func_instance, 1, "dispatch_fn_ptr");
             llvm::Value *const dispatch_fn_raw = IR::aligned_load(builder, PTR_TY, dispatch_fn_ptr, "dispatch_fn");
             llvm::FunctionType *const dispatch_fn_ty = llvm::FunctionType::get(            //
@@ -2312,7 +2312,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             );
             llvm::FunctionCallee dispatch_fn(dispatch_fn_ty, dispatch_fn_raw);
             llvm::CallInst *const setup_call = builder.CreateCall(                                     //
-                dispatch_fn, {next_stack_frame, entity_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
+                dispatch_fn, {next_stack_frame, object_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
             );
 #ifndef __WIN32__
             setup_call->addParamAttr(0, llvm::Attribute::InReg);
@@ -2332,7 +2332,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             IR::aligned_store(builder, ts_ptr, ts_ptr_ptr);
 
             // Store extra function parameters starting at the returned arg pointer
-            // The dispatch function's setup mode already handles required_data args from the entity,
+            // The dispatch function's setup mode already handles required_data args from the object,
             // so only store the remaining extra arguments.
             const size_t required_data_count = func_type->func_node->required_data.size();
             llvm::Value *arg_ptr = setup_call;
@@ -2351,7 +2351,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // Call dispatch function in execute mode to actually call the targetted function
             llvm::CallInst *call = builder.CreateCall(                         //
                 dispatch_fn,                                                   //
-                {next_stack_frame, entity_ptr, fn_id, builder.getInt1(false)}, //
+                {next_stack_frame, object_ptr, fn_id, builder.getInt1(false)}, //
                 func_type->func_node->name + "_dispatch__call"                 //
             );
             call->setMetadata("comment",
@@ -2404,7 +2404,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             }
             return return_value;
         }
-        case Type::Variation::ENTITY:
+        case Type::Variation::OBJECT:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), is_reference);
     }
 }
@@ -2635,12 +2635,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             }
             return std::vector<llvm::Value *>{data_ptr};
         }
-        case Type::Variation::ENTITY: {
-            // Allocate space for the entity
+        case Type::Variation::OBJECT: {
+            // Allocate space for the object
             llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-            llvm::GlobalVariable *const entity_head = Module::DIMA::get_head(initializer->type);
-            llvm::Value *const entity_ptr = builder.CreateCall(                                         //
-                dima_allocate_fn, {entity_head}, "initializer.entity." + initializer->type->to_string() //
+            llvm::GlobalVariable *const object_head = Module::DIMA::get_head(initializer->type);
+            llvm::Value *const object_ptr = builder.CreateCall(                                         //
+                dima_allocate_fn, {object_head}, "initializer.object." + initializer->type->to_string() //
             );
             llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
 
@@ -2656,14 +2656,14 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                // Do a GEP in the initialized entity to be able to call `flint.clone`
-                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, entity_ptr, i, "entity_init_" + std::to_string(i));
-                // Call `flint.clone` to store the data in the entity
+                // Do a GEP in the initialized object to be able to call `flint.clone`
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, object_ptr, i, "object_init_" + std::to_string(i));
+                // Call `flint.clone` to store the data in the object
                 llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
                 llvm::Value *const expr_val = expr_result.value().front();
                 builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(arg->type->get_id())});
             }
-            return std::vector<llvm::Value *>{entity_ptr};
+            return std::vector<llvm::Value *>{object_ptr};
         }
         case Type::Variation::MULTI: {
             // Create an "empty" vector of the multi-type
@@ -3657,11 +3657,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             }
             return values;
         }
-        case Type::Variation::ENTITY: {
-            llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
-            llvm::Value *data_ptr = builder.CreateStructGEP(entity_type, expr_val, data_access->field_id, "entity_data_ptr_gep");
+        case Type::Variation::OBJECT: {
+            llvm::Type *object_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
+            llvm::Value *data_ptr = builder.CreateStructGEP(object_type, expr_val, data_access->field_id, "object_data_ptr_gep");
             if (!is_reference) {
-                data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr, "entity_data_ptr");
+                data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr, "object_data_ptr");
             }
             std::vector<llvm::Value *> values = {data_ptr};
             return values;
@@ -4240,20 +4240,20 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             }
             return cast_multitype;
         }
-    } else if (from_type->get_variation() == Type::Variation::ENTITY && to_type->get_variation() == Type::Variation::FUNC) {
-        // We "cast" an entity to a func module by storing the pointer to the entity alongside the pointer to the dispatch function and the
-        // ID of the entity in a new structure.
-        const EntityType *entity_type = from_type->as<EntityType>();
+    } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::FUNC) {
+        // We "cast" an object to a func module by storing the pointer to the object alongside the pointer to the dispatch function and the
+        // ID of the object in a new structure.
+        const ObjectType *object_type = from_type->as<ObjectType>();
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
-        const std::string &cast_name = entity_type->to_string() + "_to_" + to_type->to_string();
-        llvm::Function *const entity_dispatch_fn = entity_dispatch_functions.at(entity_type->get_id());
-        const std::string head_key = entity_type->entity_node->file_hash.to_string() + "." + entity_type->entity_node->name;
-        llvm::Value *const entity_dima_head = Module::DIMA::dima_heads.at(head_key);
+        const std::string &cast_name = object_type->to_string() + "_to_" + to_type->to_string();
+        llvm::Function *const object_dispatch_fn = object_dispatch_functions.at(object_type->get_id());
+        const std::string head_key = object_type->object_node->file_hash.to_string() + "." + object_type->object_node->name;
+        llvm::Value *const object_dima_head = Module::DIMA::dima_heads.at(head_key);
         llvm::Function *const dima_retain_fn = Module::DIMA::dima_functions.at("retain");
         builder.CreateCall(dima_retain_fn, {expr});
         func_value = builder.CreateInsertValue(func_value, expr, 0);
-        func_value = builder.CreateInsertValue(func_value, entity_dispatch_fn, 1);
-        func_value = builder.CreateInsertValue(func_value, entity_dima_head, 2, cast_name);
+        func_value = builder.CreateInsertValue(func_value, object_dispatch_fn, 1);
+        func_value = builder.CreateInsertValue(func_value, object_dima_head, 2, cast_name);
         return func_value;
     } else if (from_type->get_variation() == Type::Variation::ARRAY && to_type->get_variation() == Type::Variation::ARRAY) {
         [[maybe_unused]] const ArrayType *from_array = from_type->as<ArrayType>();

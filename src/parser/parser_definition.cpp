@@ -6,8 +6,8 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
@@ -582,7 +582,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         }
         if (function_body_lines.empty()) {
             // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
-            // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
+            // anyways. This function now is a "virtual" function which needs to be linked, if an object contains any virtual function
             // of any func module which is not linked to a different concrete function, an error will be thrown.
             functions.emplace_back(added_function.value());
             continue;
@@ -604,46 +604,46 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     );
 }
 
-std::optional<EntityNode> Parser::create_entity(const token_slice &definition, const std::vector<Line> &body) {
-    PROFILE_CUMULATIVE("Parser::create_entity");
+std::optional<ObjectNode> Parser::create_object(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_object");
     auto tok_it = definition.first;
-    ASSERT(tok_it->token == TOK_ENTITY);
+    ASSERT(tok_it->token == TOK_OBJECT);
     tok_it++;
     ASSERT(tok_it->token == TOK_IDENTIFIER);
-    const std::string entity_name(tok_it->lexme);
+    const std::string object_name(tok_it->lexme);
     tok_it++;
-    std::vector<EntityNode::ParentEntity> parent_entities;
+    std::vector<ObjectNode::ParentObject> parent_objects;
     if (tok_it->token == TOK_EXTENDS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
-            const auto extended_entity_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
-            if (!extended_entity_type.has_value()) {
+            const auto extended_object_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            if (!extended_object_type.has_value()) {
                 return std::nullopt;
             }
-            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY     //
-                && extended_entity_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            if (extended_object_type.value()->get_variation() != Type::Variation::OBJECT     //
+                && extended_object_type.value()->get_variation() != Type::Variation::UNKNOWN //
             ) {
                 THROW_ERR(                                                                         //
-                    ErrDefEntityExtendedTypeNotEntity, ERR_PARSING, file_hash,                     //
-                    tok_it->line, tok_it->column, extended_entity_type.value()->to_string().size() //
+                    ErrDefObjectExtendedTypeNotObject, ERR_PARSING, file_hash,                     //
+                    tok_it->line, tok_it->column, extended_object_type.value()->to_string().size() //
                 );
                 return std::nullopt;
             }
-            // Check if this entity type is already present in the extension list
-            for (const auto &pe : parent_entities) {
-                if (pe.type->equals(extended_entity_type.value())) {
-                    THROW_ERR(ErrDefEntityDuplicateParent, ERR_PARSING, file_hash, tok_it->line, tok_it->column, pe.type->to_string());
+            // Check if this object type is already present in the extension list
+            for (const auto &pe : parent_objects) {
+                if (pe.type->equals(extended_object_type.value())) {
+                    THROW_ERR(ErrDefObjectDuplicateParent, ERR_PARSING, file_hash, tok_it->line, tok_it->column, pe.type->to_string());
                     return std::nullopt;
                 }
             }
-            // The next token is the extended entity accessor name
+            // The next token is the extended object accessor name
             ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
-            parent_entities.emplace_back(EntityNode::ParentEntity{
-                .type = extended_entity_type.value(),
+            parent_objects.emplace_back(ObjectNode::ParentObject{
+                .type = extended_object_type.value(),
                 .accessor_name = access_name,
                 .line = tok_it->line,
                 .column = tok_it->column,
@@ -690,14 +690,14 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
             return std::nullopt;
         }
         // Dont actually parse the function body, only its definition
-        std::shared_ptr<Type> entity_type = std::make_shared<UnknownType>(entity_name);
-        if (!file_node_ptr->file_namespace->add_type(entity_type)) {
-            entity_type = file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
+        std::shared_ptr<Type> object_type = std::make_shared<UnknownType>(object_name);
+        if (!file_node_ptr->file_namespace->add_type(object_type)) {
+            object_type = file_node_ptr->file_namespace->get_type_from_str(object_type->to_string()).value();
         }
         const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> required_data = std::make_pair( //
-            entity_name,
+            object_name,
             std::vector<FuncNode::RequiredData>{FuncNode::RequiredData{
-                .type = entity_type,
+                .type = object_type,
                 .accessor_name = "self",
                 .line = 0,
                 .column = 0,
@@ -707,7 +707,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
         if (!function_node.has_value()) {
             return std::nullopt;
         }
-        // Check if the same function (with same signature) already exists within this entity as a free-floating function
+        // Check if the same function (with same signature) already exists within this object as a free-floating function
         for (const FunctionNode *function : functions) {
             if (function->name != function_node.value().name) {
                 continue;
@@ -725,7 +725,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 }
             }
             if (all_match) {
-                // Duplicate function inside entity definition, the free-floating function already exists
+                // Duplicate function inside object definition, the free-floating function already exists
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -741,12 +741,12 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EntityNode(file_hash, line, column, length, entity_name, functions, parent_entities);
+    return ObjectNode(file_hash, line, column, length, object_name, functions, parent_objects);
 }
 
 std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::create_link( //
     const token_slice &tokens,                                                            //
-    const EntityNode *entity                                                              //
+    const ObjectNode *object                                                              //
 ) {
     PROFILE_CUMULATIVE("Parser::create_link");
 
@@ -780,8 +780,8 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
         return std::nullopt;
     }
     const FuncNode *src_func = src_type->as<FuncType>()->func_node;
-    if (std::find(entity->func_modules.begin(), entity->func_modules.end(), src_func) == entity->func_modules.end()) {
-        // Referencing a function from a func module not present in this entity
+    if (std::find(object->func_modules.begin(), object->func_modules.end(), src_func) == object->func_modules.end()) {
+        // Referencing a function from a func module not present in this object
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -799,23 +799,23 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     size_t dest_start_id = 0;
     switch (dest_type->get_variation()) {
         default:
-            // It is not allowed link to functions not coming from func modules or the entity type itself
+            // It is not allowed link to functions not coming from func modules or the object type itself
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         case Type::Variation::FUNC: {
             const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
-            if (std::find(entity->func_modules.begin(), entity->func_modules.end(), dest_func) == entity->func_modules.end()) {
-                // Referencing a function from a func module not present in this entity
+            if (std::find(object->func_modules.begin(), object->func_modules.end(), dest_func) == object->func_modules.end()) {
+                // Referencing a function from a func module not present in this object
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
             dest_start_id = dest_func->required_data.size();
             break;
         }
-        case Type::Variation::ENTITY: {
-            const EntityNode *entity_node = dest_type->as<EntityType>()->entity_node;
-            if (entity_node != entity) {
-                // The target function of the link is not allowed to come from a different entity than ourselve
+        case Type::Variation::OBJECT: {
+            const ObjectNode *object_node = dest_type->as<ObjectType>()->object_node;
+            if (object_node != object) {
+                // The target function of the link is not allowed to come from a different object than ourselve
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -827,7 +827,7 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
     if (src_fn_name != dest_fn_name) {
         // It is not allowed to link two functions with different names
-        THROW_ERR(ErrDefEntityLinkNameMismatch, ERR_PARSING, file_hash, tokens);
+        THROW_ERR(ErrDefObjectLinkNameMismatch, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
 
@@ -835,7 +835,7 @@ std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::cre
     const std::string src_fn_sig = src_fn->get_signature_string(src_func->required_data.size(), false, true, false, true, true);
     const std::string dest_fn_sig = dest_fn->get_signature_string(dest_start_id, false, true, false, true, true);
     if (src_fn_sig != dest_fn_sig) {
-        THROW_ERR(ErrDefEntityLinkSignatureMismatch, ERR_PARSING, file_hash, tokens, src_fn_sig, dest_fn_sig);
+        THROW_ERR(ErrDefObjectLinkSignatureMismatch, ERR_PARSING, file_hash, tokens, src_fn_sig, dest_fn_sig);
         return std::nullopt;
     }
     return std::make_pair(src_fn, dest_fn);

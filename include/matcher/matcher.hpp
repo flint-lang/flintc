@@ -384,8 +384,8 @@ class Matcher {
         {TOK_FUNC, std::make_shared<TokenTypeMatcher>(TOK_FUNC)},
         {TOK_REQUIRES, std::make_shared<TokenTypeMatcher>(TOK_REQUIRES)},
 
-        // entity keywords
-        {TOK_ENTITY, std::make_shared<TokenTypeMatcher>(TOK_ENTITY)},
+        // object keywords
+        {TOK_OBJECT, std::make_shared<TokenTypeMatcher>(TOK_OBJECT)},
         {TOK_EXTENDS, std::make_shared<TokenTypeMatcher>(TOK_EXTENDS)},
         {TOK_LINK, std::make_shared<TokenTypeMatcher>(TOK_LINK)},
 
@@ -644,7 +644,7 @@ class Matcher {
     static const inline PatternPtr keyword_import = one_of({token(TOK_USE), token(TOK_AS)});
     static const inline PatternPtr keyword_data = one_of({token(TOK_DATA), token(TOK_SHARED)});
     static const inline PatternPtr keyword_func = one_of({token(TOK_FUNC), token(TOK_REQUIRES)});
-    static const inline PatternPtr keyword_entity = one_of({token(TOK_ENTITY), token(TOK_EXTENDS), token(TOK_LINK)});
+    static const inline PatternPtr keyword_object = one_of({token(TOK_OBJECT), token(TOK_EXTENDS), token(TOK_LINK)});
     static const inline PatternPtr keyword_threading = one_of({token(TOK_SPAWN), token(TOK_SYNC), token(TOK_LOCK)});
     static const inline PatternPtr keyword_modifiers = one_of({token(TOK_CONST), token(TOK_MUT), token(TOK_PERSISTENT)});
     static const inline PatternPtr keyword_test = token(TOK_TEST);
@@ -655,7 +655,7 @@ class Matcher {
         keyword_import,
         keyword_data,
         keyword_func,
-        keyword_entity,
+        keyword_object,
         keyword_threading,
         keyword_modifiers,
         keyword_test,
@@ -801,31 +801,31 @@ class Matcher {
         one_of({token(TOK_TYPE), token(TOK_OPAQUE)}), token(TOK_IDENTIFIER), token(TOK_SEMICOLON) //
     });
 
-    // --- ENTITY DEFINITION ---
-    static const inline PatternPtr entity_definition = sequence({
-        token(TOK_ENTITY), token(TOK_IDENTIFIER),                                                                               //
+    // --- OBJECT DEFINITION ---
+    static const inline PatternPtr object_definition = sequence({
+        token(TOK_OBJECT), token(TOK_IDENTIFIER),                                                                               //
         optional(sequence({token(TOK_EXTENDS), token(TOK_LEFT_PAREN), no_prim_args, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
-    static const inline PatternPtr entity_body_data = sequence({
+    static const inline PatternPtr object_body_data = sequence({
         token(TOK_DATA), token(TOK_COLON), zero_or_more(anytoken), token(TOK_IDENTIFIER),       //
         zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})), token(TOK_SEMICOLON) //
     });
-    static const inline PatternPtr entity_body_func = sequence({
+    static const inline PatternPtr object_body_func = sequence({
         token(TOK_FUNC), token(TOK_COLON), zero_or_more(anytoken), token(TOK_IDENTIFIER),       //
         zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})), token(TOK_SEMICOLON) //
     });
-    static const inline PatternPtr entity_body_link = sequence({reference, token(TOK_ARROW), reference, token(TOK_SEMICOLON)});
-    static const inline PatternPtr entity_body_links = sequence({
-        token(TOK_LINK), token(TOK_COLON), zero_or_more(anytoken), one_or_more(sequence({entity_body_link, zero_or_more(anytoken)})) //
+    static const inline PatternPtr object_body_link = sequence({reference, token(TOK_ARROW), reference, token(TOK_SEMICOLON)});
+    static const inline PatternPtr object_body_links = sequence({
+        token(TOK_LINK), token(TOK_COLON), zero_or_more(anytoken), one_or_more(sequence({object_body_link, zero_or_more(anytoken)})) //
     });
-    static const inline PatternPtr entity_body_constructor = sequence({
+    static const inline PatternPtr object_body_constructor = sequence({
         token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN),                                                                   //
         optional(sequence({token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)}))})), //
         token(TOK_RIGHT_PAREN), token(TOK_SEMICOLON)                                                                    //
     });
-    static const inline PatternPtr entity_body = sequence({
-        optional(entity_body_data), zero_or_more(anytoken), optional(entity_body_func), zero_or_more(anytoken), //
-        optional(entity_body_links), zero_or_more(anytoken), entity_body_constructor                            //
+    static const inline PatternPtr object_body = sequence({
+        optional(object_body_data), zero_or_more(anytoken), optional(object_body_func), zero_or_more(anytoken), //
+        optional(object_body_links), zero_or_more(anytoken), object_body_constructor                            //
     });
 
     // --- EXPRESSIONS ---

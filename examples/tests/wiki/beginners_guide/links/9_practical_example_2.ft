@@ -14,7 +14,7 @@ data DCircle:
     i32 radius;
     DCircle(pos, radius);
 
-entity Circle:
+object Circle:
     data: DCircle d;
     func: IShape;
     link:
@@ -34,7 +34,7 @@ data DRectangle:
     i32x2 size;
     DRectangle(pos, size);
 
-entity Rectangle:
+object Rectangle:
     data: DRectangle d;
     func: IShape;
     link:

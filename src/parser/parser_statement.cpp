@@ -13,11 +13,11 @@
 #include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/range_type.hpp"
@@ -2845,14 +2845,14 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         if (tokens_mut.first->token == TOK_TYPE) {
             switch (tokens_mut.first->type->get_variation()) {
                 default:
-                    // Aliased function calls are only allowed on entities or func modules, no other *type* can contain functions
+                    // Aliased function calls are only allowed on objects or func modules, no other *type* can contain functions
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
-                case Type::Variation::ENTITY: {
-                    const auto *entity_node = tokens_mut.first->type->as<EntityType>()->entity_node;
-                    if (entity_node->file_hash.to_string() != file_hash.to_string()) {
-                        auto *entity_namespace = Resolver::get_namespace_from_hash(entity_node->file_hash);
-                        statement_node = create_call_statement(scope, tokens_mut, entity_namespace, true);
+                case Type::Variation::OBJECT: {
+                    const auto *object_node = tokens_mut.first->type->as<ObjectType>()->object_node;
+                    if (object_node->file_hash.to_string() != file_hash.to_string()) {
+                        auto *object_namespace = Resolver::get_namespace_from_hash(object_node->file_hash);
+                        statement_node = create_call_statement(scope, tokens_mut, object_namespace, true);
                     } else {
                         statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
                     }

@@ -2,10 +2,10 @@
 #include "error/error.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <utility>
@@ -70,15 +70,15 @@ std::optional<FuncNode *> FileNode::add_func(FuncNode &func) {
     return added_func;
 }
 
-std::optional<EntityNode *> FileNode::add_entity(EntityNode &entity) {
+std::optional<ObjectNode *> FileNode::add_object(ObjectNode &object) {
     auto &definitions = file_namespace->public_symbols.definitions;
-    definitions.emplace_back(std::make_unique<EntityNode>(std::move(entity)));
-    EntityNode *added_entity = static_cast<EntityNode *>(definitions.back().get());
-    if (!file_namespace->add_type(std::make_shared<EntityType>(added_entity))) {
-        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_entity->line, added_entity->column, added_entity->name);
+    definitions.emplace_back(std::make_unique<ObjectNode>(std::move(object)));
+    ObjectNode *added_object = static_cast<ObjectNode *>(definitions.back().get());
+    if (!file_namespace->add_type(std::make_shared<ObjectType>(added_object))) {
+        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_object->line, added_object->column, added_object->name);
         return std::nullopt;
     }
-    return added_entity;
+    return added_object;
 }
 
 std::optional<FunctionNode *> FileNode::add_function(                                  //

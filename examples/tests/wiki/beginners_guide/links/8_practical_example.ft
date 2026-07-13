@@ -21,7 +21,7 @@ func FCircle requires(DCircle d):
     def area() -> i32:
         return i32(Constants.PI * f32(d.radius ** 2));
 
-entity Circle:
+object Circle:
     data: DCircle;
     func: IShape, FCircle;
     link:
@@ -42,7 +42,7 @@ func FRectangle requires(DRectangle d):
     def area() -> i32:
         return d.size.x * d.size.y;
 
-entity Rectangle:
+object Rectangle:
     data: DRectangle;
     func: IShape, FRectangle;
     link:

@@ -15,15 +15,15 @@ test "2_virtual_instance_call.ft":
 	str file = "2_virtual_instance_call.ft";
 	test_file_ok($"{path}/{file}", "Hello, World!\n");
 
-test "3_including_interface_in_entity.ft":
+test "3_including_interface_in_object.ft":
 	str path = "tests/wiki/beginners_guide/links";
-	str file = "3_including_interface_in_entity.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/3_including_interface_in_entity.ft:10:1\n└──┬┤E0000│\n10 │ entity Player:\n┌──┴─┘\n└─ Virtual function 'IMove.move' not linked to concrete function\n");
+	str file = "3_including_interface_in_object.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/3_including_interface_in_object.ft:10:1\n└──┬┤E0000│\n10 │ object Player:\n┌──┴─┘\n└─ Virtual function 'IMove.move' not linked to concrete function\n");
 
 test "4_implementing_pure_interface.ft":
 	str path = "tests/wiki/beginners_guide/links";
 	str file = "4_implementing_pure_interface.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/4_implementing_pure_interface.ft:18:1\n└──┬┤E0000│\n18 │ entity Player:\n┌──┴─┘\n└─ Virtual function 'IMove.print_pos' not linked to concrete function\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/4_implementing_pure_interface.ft:18:1\n└──┬┤E0000│\n18 │ object Player:\n┌──┴─┘\n└─ Virtual function 'IMove.print_pos' not linked to concrete function\n");
 
 test "5_adding_links.ft":
 	str path = "tests/wiki/beginners_guide/links";
@@ -33,12 +33,12 @@ test "5_adding_links.ft":
 test "6_signature_mismatch.ft":
 	str path = "tests/wiki/beginners_guide/links";
 	str file = "6_signature_mismatch.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/6_signature_mismatch.ft:22:9\n└──┬┤E0000│\n18 │ entity Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::print_pos,\n┌──┴─────────┘\n└─ Linking functions with different names is not allowed\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/6_signature_mismatch.ft:22:9\n└──┬┤E0000│\n18 │ object Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::print_pos,\n┌──┴─────────┘\n└─ Linking functions with different names is not allowed\n");
 
 test "7_signature_mismatch_2.ft":
 	str path = "tests/wiki/beginners_guide/links";
 	str file = "7_signature_mismatch_2.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/7_signature_mismatch_2.ft:22:9\n└──┬┤E0000│\n18 │ entity Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::move,\n┌──┴─────────┘\n├─ Linking functions with different explicit signatures is not allowed\n├─ Left signature: move() -> void {anyerror}\n└─ Right signature: move(const i32) -> void {anyerror}\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/links/7_signature_mismatch_2.ft:22:9\n└──┬┤E0000│\n18 │ object Player:\n21 │ »   link:\n22 │ »   »   IMove::move -> FMovable::move,\n┌──┴─────────┘\n├─ Linking functions with different explicit signatures is not allowed\n├─ Left signature: move() -> void {anyerror}\n└─ Right signature: move(const i32) -> void {anyerror}\n");
 
 test "8_practical_example.ft":
 	str path = "tests/wiki/beginners_guide/links";

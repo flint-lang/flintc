@@ -3,7 +3,7 @@
 #include "globals.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
@@ -392,11 +392,11 @@ void Generator::Memory::generate_free_value( //
             }
             break;
         }
-        case Type::Variation::ENTITY: {
-            const auto *entity_type = type->as<EntityType>();
+        case Type::Variation::OBJECT: {
+            const auto *object_type = type->as<ObjectType>();
             llvm::Type *struct_type = IR::get_type(module, type).first;
-            for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
-                const DataNode *data_node = entity_type->entity_node->data_modules.at(i).first;
+            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
+                const DataNode *data_node = object_type->object_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
@@ -416,15 +416,15 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            // To free a func module we just pass it's entity instance to the `dima.release` function alongside the pointer to the dima head
+            // To free a func module we just pass it's object instance to the `dima.release` function alongside the pointer to the dima head
             // stored in the func-module instance
             llvm::Type *const func_type = IR::get_type(module, type).first;
-            llvm::Value *const entity_instance_ptr = builder->CreateStructGEP(func_type, value, 0, "entity_instance_ptr");
-            llvm::Value *const entity_instance = IR::aligned_load(*builder, PTR_TY, entity_instance_ptr, "entity_instance");
+            llvm::Value *const object_instance_ptr = builder->CreateStructGEP(func_type, value, 0, "object_instance_ptr");
+            llvm::Value *const object_instance = IR::aligned_load(*builder, PTR_TY, object_instance_ptr, "object_instance");
             llvm::Value *const dima_head_ptr_ptr = builder->CreateStructGEP(func_type, value, 2, "dima_head_ptr_ptr");
             llvm::Value *const dima_head_ptr = IR::aligned_load(*builder, PTR_TY, dima_head_ptr_ptr, "dima_head_ptr");
             llvm::Function *const release_fn = Module::DIMA::dima_functions.at("release");
-            builder->CreateCall(release_fn, {dima_head_ptr, entity_instance});
+            builder->CreateCall(release_fn, {dima_head_ptr, object_instance});
             break;
         }
         case Type::Variation::FN: {
@@ -858,24 +858,24 @@ void Generator::Memory::generate_clone_value( //
             IR::aligned_store(*builder, new_data_ptr, dest);
             break;
         }
-        case Type::Variation::ENTITY: {
-            const auto *entity_type = type->as<EntityType>();
+        case Type::Variation::OBJECT: {
+            const auto *object_type = type->as<ObjectType>();
             llvm::Type *const struct_type = IR::get_type(module, type).first;
             llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-            llvm::Value *const entity_head = Module::DIMA::get_head(type);
-            llvm::Value *const new_entity_ptr = builder->CreateCall(dima_allocate_fn, {entity_head}, "new_data_value");
-            for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
-                const DataNode *data_node = entity_type->entity_node->data_modules.at(i).first;
+            llvm::Value *const object_head = Module::DIMA::get_head(type);
+            llvm::Value *const new_object_ptr = builder->CreateCall(dima_allocate_fn, {object_head}, "new_data_value");
+            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
+                const DataNode *data_node = object_type->object_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
                 llvm::Value *src_field_ptr = builder->CreateStructGEP(struct_type, src, i, "src_field_" + data_type_str + "_ptr");
                 llvm::Value *src_field = IR::aligned_load(*builder, PTR_TY, src_field_ptr, "src_field");
-                llvm::Value *dest_field_ptr = builder->CreateStructGEP(struct_type, new_entity_ptr, i, "field_" + data_type_str + "_ptr");
+                llvm::Value *dest_field_ptr = builder->CreateStructGEP(struct_type, new_object_ptr, i, "field_" + data_type_str + "_ptr");
                 llvm::Value *data_type_id = builder->getInt32(data_type->get_id());
                 builder->CreateCall(clone_fn, {src_field, dest_field_ptr, data_type_id});
             }
-            IR::aligned_store(*builder, new_entity_ptr, dest);
+            IR::aligned_store(*builder, new_object_ptr, dest);
             break;
         }
         case Type::Variation::ERROR_SET: {
@@ -893,10 +893,10 @@ void Generator::Memory::generate_clone_value( //
             const size_t func_size = Allocation::get_type_size(module, func_type);
             llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
             builder->CreateCall(memcpy_fn, {dest, src, builder->getInt64(func_size)});
-            llvm::Value *const entity_ptr_ptr = builder->CreateStructGEP(func_type, dest, 0, "entity_ptr_ptr");
-            llvm::Value *const entity_ptr = IR::aligned_load(*builder, PTR_TY, entity_ptr_ptr, "entity_ptr");
+            llvm::Value *const object_ptr_ptr = builder->CreateStructGEP(func_type, dest, 0, "object_ptr_ptr");
+            llvm::Value *const object_ptr = IR::aligned_load(*builder, PTR_TY, object_ptr_ptr, "object_ptr");
             llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
-            builder->CreateCall(retain_fn, {entity_ptr});
+            builder->CreateCall(retain_fn, {object_ptr});
             break;
         }
         case Type::Variation::FN: {

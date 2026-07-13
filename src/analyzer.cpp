@@ -88,7 +88,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
             }
             break;
         }
-        case DefinitionNode::Variation::ENTITY:
+        case DefinitionNode::Variation::OBJECT:
             break;
         case DefinitionNode::Variation::ENUM:
             break;
@@ -821,7 +821,7 @@ Analyzer::Result Analyzer::analyze_type(          //
         }
         case Type::Variation::DATA:
             break;
-        case Type::Variation::ENTITY:
+        case Type::Variation::OBJECT:
             break;
         case Type::Variation::ENUM:
             break;

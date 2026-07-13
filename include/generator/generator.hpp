@@ -399,10 +399,10 @@ class Generator {
     /// file B can call the extern-defined functions defined in file A)
     static inline std::unordered_map<std::string, FunctionNode *> extern_functions;
 
-    /// @var `entity_dispatch_functions`
-    /// @brief A map of all entity dispatch functions. The key is the type ID of the entity, the value is the generated entity dispatch
+    /// @var `object_dispatch_functions`
+    /// @brief A map of all object dispatch functions. The key is the type ID of the object, the value is the generated object dispatch
     /// function needed for proper function dispatch when calling functions of func module instances (interfaces).
-    static inline std::unordered_map<uint32_t, llvm::Function *> entity_dispatch_functions;
+    static inline std::unordered_map<uint32_t, llvm::Function *> object_dispatch_functions;
 
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
@@ -478,11 +478,11 @@ class Generator {
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
 
-        /// @function `generate_entity_dispatch_functions`
-        /// @brief Generates all entity dispatch functions of every entity type defined in the program
+        /// @function `generate_object_dispatch_functions`
+        /// @brief Generates all object dispatch functions of every object type defined in the program
         ///
-        /// @param `module` THe module in which to generate the entity dispatch functions in
-        static void generate_entity_dispatch_functions(llvm::Module *module);
+        /// @param `module` THe module in which to generate the object dispatch functions in
+        static void generate_object_dispatch_functions(llvm::Module *module);
 
         /// @function `get_extern_type`
         /// @brief Returns the llvm Type from a given Type for the use with FIP
@@ -505,8 +505,8 @@ class Generator {
         /// @return `std::pair<llvm::Type *, std::pair<bool, bool>>` A pair containing:
         ///     - a pointer to the correct llvm Type from the given string
         ///     - a pair of boolean values determining whether the given type is:
-        ///         - A complex heap-allocated type (data, entity, etc)
-        ///         - Passed by reference (data, entity, tuple, optional, variant, etc)
+        ///         - A complex heap-allocated type (data, object, etc)
+        ///         - Passed by reference (data, object, tuple, optional, variant, etc)
         static std::pair<llvm::Type *, std::pair<bool, bool>> get_type( //
             llvm::Module *module,                                       //
             const std::shared_ptr<Type> &type,                          //
@@ -2571,13 +2571,13 @@ class Generator {
         /// @return `llvm::DIType *` The LLVM debug type of the data type
         static llvm::DIType *create_debug_type_data(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
-        /// @function `create_debug_type_entity`
-        /// @brief Creates a DIType for a given entity type
+        /// @function `create_debug_type_object`
+        /// @brief Creates a DIType for a given object type
         ///
-        /// @param `module` The module in which to create the debug entity type in
-        /// @param `type` The entity type to get the debug type of
-        /// @return `llvm::DIType *` The LLVM debug type of the entity type
-        static llvm::DIType *create_debug_type_entity(llvm::Module *const module, const std::shared_ptr<Type> &type);
+        /// @param `module` The module in which to create the debug object type in
+        /// @param `type` The object type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the object type
+        static llvm::DIType *create_debug_type_object(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
         /// @function `create_debug_type_enum`
         /// @brief Creates a DIType for a given enum type

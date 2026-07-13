@@ -20,7 +20,7 @@ func FPaddleCommon requires(DPaddle paddle):
 		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_DOWN)):
 			paddle.pos = paddle.pos + (0.0, paddle.speed * delta);
 
-entity Paddle:
+object Paddle:
 	data: DPaddle;
 	func: FPaddleCommon;
 	Paddle(DPaddle);

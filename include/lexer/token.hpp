@@ -182,8 +182,8 @@ enum Token {
     TOK_FUNC,
     TOK_REQUIRES,
 
-    // entity keywords
-    TOK_ENTITY,
+    // object keywords
+    TOK_OBJECT,
     TOK_EXTENDS,
     TOK_LINK,
 

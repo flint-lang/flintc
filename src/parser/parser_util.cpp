@@ -9,10 +9,10 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
@@ -206,16 +206,16 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!added_func.has_value()) {
             return false;
         }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::entity_definition)) {
-        std::optional<EntityNode> entity_node = create_entity(definition_tokens, body_lines);
-        if (!entity_node.has_value()) {
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::object_definition)) {
+        std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines);
+        if (!object_node.has_value()) {
             return false;
         }
-        std::optional<EntityNode *> added_entity = file_node.add_entity(entity_node.value());
-        if (!added_entity.has_value()) {
+        std::optional<ObjectNode *> added_object = file_node.add_object(object_node.value());
+        if (!added_object.has_value()) {
             return false;
         }
-        add_open_entity({added_entity.value(), body_lines});
+        add_open_object({added_object.value(), body_lines});
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
         std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines);
         if (!enum_node.has_value()) {
@@ -449,8 +449,8 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
         case Type::Variation::DATA:
             // Data types resolve in a different stage
             break;
-        case Type::Variation::ENTITY:
-            // Entity types resolve in a different stage
+        case Type::Variation::OBJECT:
+            // Object types resolve in a different stage
             break;
         case Type::Variation::ENUM:
             // Enums cannot contain a type alias
@@ -541,7 +541,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     if (is_typed_call) {
         ASSERT(tokens.first->token == TOK_TYPE);
         [[maybe_unused]] const auto &type_var = tokens.first->type->get_variation();
-        ASSERT(type_var == Type::Variation::FUNC || type_var == Type::Variation::ENTITY);
+        ASSERT(type_var == Type::Variation::FUNC || type_var == Type::Variation::OBJECT);
         ASSERT((tokens.first + 1)->token == TOK_DOT);
         ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
     }
@@ -675,10 +675,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     .callable = std::nullopt,
                 };
             }
-            case Type::Variation::ENTITY: {
-                const auto *entity_type = name_token->type->as<EntityType>();
-                auto &data_modules = entity_type->entity_node->data_modules;
-                const auto &constructor_order = entity_type->entity_node->constructor_order;
+            case Type::Variation::OBJECT: {
+                const auto *object_type = name_token->type->as<ObjectType>();
+                auto &data_modules = object_type->object_node->data_modules;
+                const auto &constructor_order = object_type->object_node->constructor_order;
                 // Check if all initializer arguments are equal to the expected data module types
                 if (arguments.size() != data_modules.size()) {
                     THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, data_modules.size(), arguments.size());
@@ -749,7 +749,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     }
 
     // If the call starts with `identifier.identifier(` and the first `identifier` is a variable, we then can check if that variable is of
-    // type entity or func module. If it's an entity then it's an instanced call. Func modules will be handled at a later time but they
+    // type object or func module. If it's an object then it's an instanced call. Func modules will be handled at a later time but they
     // follow the same syntax.
     // The pattern `identifier.identifier` does neither match type-calls like FuncType.call since that's `type.identifier` or aliased calls,
     // as these are `alias.identifier`, so this means that this pattern is unique to instance calls
@@ -786,10 +786,10 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             default:
                 THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
-            case Type::Variation::ENTITY: {
-                const EntityNode *entity_node = var_type->as<EntityType>()->entity_node;
-                const auto edg_mappings = entity_node->edg.get_all_mappings();
-                for (const auto &func_module : entity_node->func_modules) {
+            case Type::Variation::OBJECT: {
+                const ObjectNode *object_node = var_type->as<ObjectType>()->object_node;
+                const auto edg_mappings = object_node->edg.get_all_mappings();
+                for (const auto &func_module : object_node->func_modules) {
                     for (const auto &function : func_module->functions) {
                         // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
                         const std::string fn_name = function->name.substr(func_module->name.size() + 1);
@@ -811,9 +811,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                 }
                 // Search in the free-floating functions whether this is the function we call
-                for (const auto &function : entity_node->functions) {
-                    // Remove the 'EntityType.' from the function's name to get the "actual" name of the function
-                    const std::string fn_name = function->name.substr(entity_node->name.size() + 1);
+                for (const auto &function : object_node->functions) {
+                    // Remove the 'ObjectType.' from the function's name to get the "actual" name of the function
+                    const std::string fn_name = function->name.substr(object_node->name.size() + 1);
                     if (fn_name != function_name) {
                         continue;
                     }
@@ -951,8 +951,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         functions.emplace_back(exact_function, implicit_param_count);
     }
     // If it's an instanced function we need to add the implicit arguments of the called function to the arguments of the call. The implicit
-    // parameters are "field accesses" of the entities data fields
-    // Entity field accesses are not allowed by the user, but the compiler can create them just fine. They are prevented at the parsing
+    // parameters are "field accesses" of the objects data fields
+    // Object field accesses are not allowed by the user, but the compiler can create them just fine. They are prevented at the parsing
     // stage, but permitted at the codegen stage
     size_t arg_start_id = 0;
     if (is_instance_call) {
@@ -961,38 +961,38 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             default:
                 THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
-            case Type::Variation::ENTITY: {
+            case Type::Variation::OBJECT: {
                 if (func_nodes.empty()) {
-                    // It's an instance call of a free-floating entity function
-                    std::unique_ptr<ExpressionNode> entity_variable = std::make_unique<VariableNode>( //
+                    // It's an instance call of a free-floating object function
+                    std::unique_ptr<ExpressionNode> object_variable = std::make_unique<VariableNode>( //
                         file_hash,                                                                    //
                         get_pos_triple(token_slice{tokens.first, tokens.first + 1}),                  //
                         instance_variable.value()->as<VariableNode>()->name,                          //
                         instance_variable.value()->type,                                              //
                         instance_variable.value()->is_const                                           //
                     );
-                    arguments.insert(arguments.begin(), std::make_pair(std::move(entity_variable), true));
+                    arguments.insert(arguments.begin(), std::make_pair(std::move(object_variable), true));
                     argument_types.insert(argument_types.begin(), instance_variable.value()->type);
                     arg_start_id++;
                     break;
                 }
                 ASSERT(func_nodes.size() == 1);
                 const FuncNode *func_node = *func_nodes.begin();
-                const EntityNode *entity_node = instance_variable.value()->type->as<EntityType>()->entity_node;
+                const ObjectNode *object_node = instance_variable.value()->type->as<ObjectType>()->object_node;
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {
-                    // Get the index of the required data in the entity
+                    // Get the index of the required data in the object
                     const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
                     size_t idx = 0;
-                    for (const auto &[data_node, accessor] : entity_node->data_modules) {
+                    for (const auto &[data_node, accessor] : object_node->data_modules) {
                         if (data_node == required_data_node) {
                             break;
                         }
                         idx++;
                     }
-                    // Since this is an instance-call and the function thus comes from a func-module, the entity is guaranteed to contain
-                    // the required data here, if not something would have gone horribly wrong earlier in the entity parsing stage.
-                    ASSERT(idx != entity_node->data_modules.size());
+                    // Since this is an instance-call and the function thus comes from a func-module, the object is guaranteed to contain
+                    // the required data here, if not something would have gone horribly wrong earlier in the object parsing stage.
+                    ASSERT(idx != object_node->data_modules.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         file_hash,                                                              //
                         get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
@@ -1004,8 +1004,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         file_hash,                                                               //
                         get_pos_triple(token_slice{tokens.first, tokens.first + 1}),             //
                         base_expr,                                                               //
-                        std::nullopt,                                                            // Entity fields have no name
-                        idx,               // The index of the data in the entity struct
+                        std::nullopt,                                                            // Object fields have no name
+                        idx,               // The index of the data in the object struct
                         required_data_type //
                     );
                     arguments.insert(arguments.begin(), std::make_pair(std::move(argument), true));
@@ -1309,27 +1309,27 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 .field_type = field_type,
             };
         }
-        case Type::Variation::ENTITY: {
-            const EntityNode *entity_node = base_type->as<EntityType>()->entity_node;
+        case Type::Variation::OBJECT: {
+            const ObjectNode *object_node = base_type->as<ObjectType>()->object_node;
             ASSERT(base_expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
-            // The base variable has the "name" of the captured parent entity type but the "type" of the child entity (for the "self"
+            // The base variable has the "name" of the captured parent object type but the "type" of the child object (for the "self"
             // parameter)
             VariableNode *base_var = base_expr.value()->as<VariableNode>();
-            const auto captured_entity_it = scope->captured_entity_identifiers.find(base_var->name);
-            if (captured_entity_it == scope->captured_entity_identifiers.end()) {
-                // Not a parent accessor — regular entity variable, can't resolve field access
-                THROW_ERR(ErrExprFieldAccessOnEntity, ERR_PARSING, file_hash, tokens);
+            const auto captured_object_it = scope->captured_object_identifiers.find(base_var->name);
+            if (captured_object_it == scope->captured_object_identifiers.end()) {
+                // Not a parent accessor — regular object variable, can't resolve field access
+                THROW_ERR(ErrExprFieldAccessOnObject, ERR_PARSING, file_hash, tokens);
                 return std::nullopt;
             }
-            const std::shared_ptr<Type> captured_entity_type = captured_entity_it->second;
-            ASSERT(captured_entity_type->get_variation() == Type::Variation::ENTITY);
-            const EntityNode *parent_entity = captured_entity_type->as<EntityType>()->entity_node;
-            for (const auto &[data_node, accessor] : parent_entity->data_modules) {
+            const std::shared_ptr<Type> captured_object_type = captured_object_it->second;
+            ASSERT(captured_object_type->get_variation() == Type::Variation::OBJECT);
+            const ObjectNode *parent_object = captured_object_type->as<ObjectType>()->object_node;
+            for (const auto &[data_node, accessor] : parent_object->data_modules) {
                 if (!accessor.has_value() || accessor.value() != field_name) {
                     continue;
                 }
-                for (size_t i = 0; i < entity_node->data_modules.size(); i++) {
-                    const auto &child_data_node = entity_node->data_modules.at(i).first;
+                for (size_t i = 0; i < object_node->data_modules.size(); i++) {
+                    const auto &child_data_node = object_node->data_modules.at(i).first;
                     if (child_data_node != data_node) {
                         continue;
                     }
@@ -1345,7 +1345,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 }
                 __builtin_unreachable();
             }
-            // TODO: This should be a nested parent (like e.e.d) and I think we would need to iterate the parent entities parents for
+            // TODO: This should be a nested parent (like e.e.d) and I think we would need to iterate the parent objects parents for
             // this...
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;

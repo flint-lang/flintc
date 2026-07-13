@@ -14,7 +14,7 @@ func FPaddleCommon requires(DPaddle paddle):
 		rl.Rectangle rec = rl.Rectangle(render_pos.x, render_pos.y, paddle.size.x, paddle.size.y);
 		rl.DrawRectangleRounded(rec, 0.8, 0, Colors.white);
 
-entity Paddle:
+object Paddle:
 	data: DPaddle;
 	func: FPaddleCommon;
 	Paddle(DPaddle);

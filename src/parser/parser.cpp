@@ -7,11 +7,11 @@
 #include "lexer/token.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -237,7 +237,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     if (!parsed_successful) {
         return std::nullopt;
     }
-    parsed_successful = Parser::parse_all_open_entities(parse_parallel);
+    parsed_successful = Parser::parse_all_open_objects(parse_parallel);
     if (!parsed_successful) {
         return std::nullopt;
     }
@@ -347,18 +347,18 @@ Parser::CastDirection Parser::check_primitive_castability( //
         return CastDirection::not_castable();
     }
 
-    // Check if one side is an entity and the other side is a func module and if the func module is contained within the entity type
-    if (lhs_type->get_variation() == Type::Variation::ENTITY && rhs_type->get_variation() == Type::Variation::FUNC) {
-        EntityNode *lhs_ent = lhs_type->as<EntityType>()->entity_node;
+    // Check if one side is an object and the other side is a func module and if the func module is contained within the object type
+    if (lhs_type->get_variation() == Type::Variation::OBJECT && rhs_type->get_variation() == Type::Variation::FUNC) {
+        ObjectNode *lhs_ent = lhs_type->as<ObjectType>()->object_node;
         FuncNode *rhs_func = rhs_type->as<FuncType>()->func_node;
         for (const auto &func_module_ptr : lhs_ent->func_modules) {
             if (rhs_func == func_module_ptr) {
                 return CastDirection::lhs_to_rhs();
             }
         }
-    } else if (lhs_type->get_variation() == Type::Variation::FUNC && rhs_type->get_variation() == Type::Variation::ENTITY) {
+    } else if (lhs_type->get_variation() == Type::Variation::FUNC && rhs_type->get_variation() == Type::Variation::OBJECT) {
         FuncNode *lhs_func = lhs_type->as<FuncType>()->func_node;
-        EntityNode *rhs_ent = rhs_type->as<EntityType>()->entity_node;
+        ObjectNode *rhs_ent = rhs_type->as<ObjectType>()->object_node;
         for (const auto &func_module_ptr : rhs_ent->func_modules) {
             if (lhs_func == func_module_ptr) {
                 return CastDirection::rhs_to_lhs();
@@ -888,7 +888,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             break;
         case Type::Variation::ARRAY:
         case Type::Variation::DATA:
-        case Type::Variation::ENTITY:
+        case Type::Variation::OBJECT:
         case Type::Variation::ENUM:
         case Type::Variation::ERROR_SET:
         case Type::Variation::FUNC:
@@ -1194,33 +1194,33 @@ bool Parser::resolve_all_unknown_types() {
             switch (definition->get_variation()) {
                 default:
                     break;
-                case DefinitionNode::Variation::ENTITY: {
-                    auto *entity = definition->as<EntityNode>();
-                    for (auto &parent_entity : entity->parent_entities) {
-                        switch (parent_entity.type->get_variation()) {
-                            case Type::Variation::ENTITY:
+                case DefinitionNode::Variation::OBJECT: {
+                    auto *object = definition->as<ObjectNode>();
+                    for (auto &parent_object : object->parent_objects) {
+                        switch (parent_object.type->get_variation()) {
+                            case Type::Variation::OBJECT:
                                 // All ok
                                 break;
                             case Type::Variation::UNKNOWN: {
-                                const UnknownType *unknown_type = parent_entity.type->as<UnknownType>();
+                                const UnknownType *unknown_type = parent_object.type->as<UnknownType>();
                                 auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
                                 if (!type.has_value()) {
                                     THROW_ERR(                                                                  //
-                                        ErrDefEntityExtendedTypeUnknown, ERR_PARSING, parser.file_hash,         //
-                                        parent_entity.line, parent_entity.column, unknown_type->type_str.size() //
+                                        ErrDefObjectExtendedTypeUnknown, ERR_PARSING, parser.file_hash,         //
+                                        parent_object.line, parent_object.column, unknown_type->type_str.size() //
                                     );
                                     return false;
                                 }
-                                if (type.value()->get_variation() == Type::Variation::ENTITY) {
-                                    parent_entity.type = type.value();
+                                if (type.value()->get_variation() == Type::Variation::OBJECT) {
+                                    parent_object.type = type.value();
                                     break;
                                 }
                                 [[fallthrough]];
                             }
                             default:
                                 THROW_ERR(                                                                           //
-                                    ErrDefEntityExtendedTypeNotEntity, ERR_PARSING, parser.file_hash,                //
-                                    parent_entity.line, parent_entity.column, parent_entity.type->to_string().size() //
+                                    ErrDefObjectExtendedTypeNotObject, ERR_PARSING, parser.file_hash,                //
+                                    parent_object.line, parent_object.column, parent_object.type->to_string().size() //
                                 );
                                 return false;
                         }
@@ -1400,16 +1400,16 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
     return functions;
 }
 
-std::vector<const EntityNode *> Parser::get_all_entities() {
-    std::vector<const EntityNode *> entities;
+std::vector<const ObjectNode *> Parser::get_all_objects() {
+    std::vector<const ObjectNode *> objects;
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::ENTITY) {
-                entities.emplace_back(definition->as<EntityNode>());
+            if (definition->get_variation() == DefinitionNode::Variation::OBJECT) {
+                objects.emplace_back(definition->as<ObjectNode>());
             }
         }
     }
-    return entities;
+    return objects;
 }
 
 std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
@@ -1645,53 +1645,53 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
     return result;
 }
 
-bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<Line> body) {
-    PROFILE_SCOPE("Parse Open Entity '" + entity->name + "'");
-    auto &data_modules = entity->data_modules;
-    auto &func_modules = entity->func_modules;
-    auto &parent_entities = entity->parent_entities;
+bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body) {
+    PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
+    auto &data_modules = object->data_modules;
+    auto &func_modules = object->func_modules;
+    auto &parent_objects = object->parent_objects;
 
-    // Add all data modules, func modules, links and the CTDT of all parent entities to the data modules list in the order defined in
+    // Add all data modules, func modules, links and the CTDT of all parent objects to the data modules list in the order defined in
     // the `extends` definition
-    std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers;
-    for (const auto &parent_entity : parent_entities) {
-        const EntityNode *parent_entity_node = parent_entity.type->as<EntityType>()->entity_node;
-        for (auto &[data_node, accessor] : parent_entity_node->data_modules) {
+    std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
+    for (const auto &parent_object : parent_objects) {
+        const ObjectNode *parent_object_node = parent_object.type->as<ObjectType>()->object_node;
+        for (auto &[data_node, accessor] : parent_object_node->data_modules) {
             if (std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor)) == data_modules.end()) {
                 // Accessors of parents are not moved to the child, if the parent is `e` and you want to access data `d` of it you need
                 // to write `e.d` and are not able to write `d` directly.
                 data_modules.emplace_back(data_node, std::nullopt);
             }
         }
-        for (FuncNode *func_node : parent_entity_node->func_modules) {
+        for (FuncNode *func_node : parent_object_node->func_modules) {
             if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
                 func_modules.emplace_back(func_node);
             }
             for (FunctionNode *function : func_node->functions) {
-                entity->edg.add_fn(function);
+                object->edg.add_fn(function);
             }
         }
-        for (const auto &[src_id, dest_id] : parent_entity_node->edg.get_all_mappings()) {
-            if (entity->edg.add_mapping(src_id, dest_id)) {
+        for (const auto &[src_id, dest_id] : parent_object_node->edg.get_all_mappings()) {
+            if (object->edg.add_mapping(src_id, dest_id)) {
                 return false;
             }
         }
-        if (captured_entity_identifiers.find(parent_entity.accessor_name) != captured_entity_identifiers.end()) {
-            const size_t type_len = parent_entity.type->to_string().size() + 1;
+        if (captured_object_identifiers.find(parent_object.accessor_name) != captured_object_identifiers.end()) {
+            const size_t type_len = parent_object.type->to_string().size() + 1;
             THROW_ERR(                                                                           //
-                ErrDefEntityDuplicateAccessor, ERR_PARSING, parser.file_hash,                    //
-                parent_entity.line, parent_entity.column + type_len, parent_entity.accessor_name //
+                ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash,                    //
+                parent_object.line, parent_object.column + type_len, parent_object.accessor_name //
             );
             return false;
         }
-        captured_entity_identifiers[parent_entity.accessor_name] = parent_entity.type;
+        captured_object_identifiers[parent_object.accessor_name] = parent_object.type;
     }
 
     // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
     // define all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
     // and then func modules
 
-    // Add all data modules defined in the `data` section of the entity
+    // Add all data modules defined in the `data` section of the object
     auto line_it = body.begin();
     auto tok_it = line_it->tokens.first;
     if (tok_it->token != TOK_DATA) {
@@ -1704,7 +1704,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     tok_it++;
     bool semicolon_found = false;
     if (tok_it->token == TOK_COLON) {
-        // This entity provides some data
+        // This object provides some data
         tok_it++;
         while (line_it != body.end()) {
             while (tok_it != line_it->tokens.second) {
@@ -1731,7 +1731,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     case TOK_TYPE: {
                         if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                            THROW_ERR(ErrDefEntityProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                            THROW_ERR(ErrDefObjectProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         const auto &data_type = tok_it->type;
@@ -1741,7 +1741,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                                 continue;
                             }
                             THROW_ERR(                                                    //
-                                ErrDefEntityDuplicateData, ERR_PARSING, parser.file_hash, //
+                                ErrDefObjectDuplicateData, ERR_PARSING, parser.file_hash, //
                                 tok_it->line, tok_it->column, tok_it->type->to_string()   //
                             );
                             return false;
@@ -1749,15 +1749,15 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         if (std::next(tok_it)->token == TOK_IDENTIFIER) {
                             // An accessor follows, we need to check whether that accessor is already taken
                             const std::string accessor(std::next(tok_it)->lexme);
-                            if (captured_entity_identifiers.find(accessor) != captured_entity_identifiers.end()) {
+                            if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
                                 tok_it++;
                                 THROW_ERR(                                                        //
-                                    ErrDefEntityDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                                    ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
                                     tok_it->line, tok_it->column, accessor                        //
                                 );
                                 return false;
                             }
-                            captured_entity_identifiers[accessor] = data_type;
+                            captured_object_identifiers[accessor] = data_type;
                             data_modules.emplace_back(data_node, accessor);
                             tok_it++;
                         } else {
@@ -1779,7 +1779,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
         }
     } else {
-        // This entity does not provide any data on it's own. This is fine if it extends another entity, otherwise this would be an
+        // This object does not provide any data on it's own. This is fine if it extends another object, otherwise this would be an
         // error
         if (tok_it->token != TOK_SEMICOLON) {
             THROW_ERR(                                                                                    //
@@ -1788,16 +1788,16 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             );
             return false;
         }
-        // An entity can only be extended when it contains data itself, which means if we have parents, we *definitely* have data too.
-        if (parent_entities.empty()) {
-            THROW_ERR(ErrDefEntityNoData, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        // An object can only be extended when it contains data itself, which means if we have parents, we *definitely* have data too.
+        if (parent_objects.empty()) {
+            THROW_ERR(ErrDefObjectNoData, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
             return false;
         }
         line_it++;
         tok_it = line_it->tokens.first;
     }
     if (line_it == body.end()) {
-        THROW_ERR(ErrDefEntityConstructorMissing, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
     }
 
@@ -1838,13 +1838,13 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     case TOK_TYPE: {
                         if (tok_it->type->get_variation() != Type::Variation::FUNC) {
-                            THROW_ERR(ErrDefEntityProvidedTypeNotFunc, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                            THROW_ERR(ErrDefObjectProvidedTypeNotFunc, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                             return false;
                         }
                         auto *func_node = tok_it->type->as<FuncType>()->func_node;
                         if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
                             THROW_ERR(                                                    //
-                                ErrDefEntityDuplicateFunc, ERR_PARSING, parser.file_hash, //
+                                ErrDefObjectDuplicateFunc, ERR_PARSING, parser.file_hash, //
                                 tok_it->line, tok_it->column, tok_it->type->to_string()   //
                             );
                             return false;
@@ -1866,11 +1866,11 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         }
     }
     if (line_it == body.end()) {
-        THROW_ERR(ErrDefEntityConstructorMissing, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
     }
 
-    // Make sure that all required data from all func modules is present in the entity, also make sure that every function of all func
+    // Make sure that all required data from all func modules is present in the object, also make sure that every function of all func
     // modules is present in the EDG
     for (const auto &func : func_modules) {
         for (const auto &required_data : func->required_data) {
@@ -1884,19 +1884,19 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
             if (!contains_required_data) {
                 THROW_ERR(                                                                             //
-                    ErrDefEntityMissingData, ERR_PARSING, parser.file_hash,                            //
-                    entity->line, entity->column, entity->length, required_data_node->name, func->name //
+                    ErrDefObjectMissingData, ERR_PARSING, parser.file_hash,                            //
+                    object->line, object->column, object->length, required_data_node->name, func->name //
                 );
                 return false;
             }
         }
         for (const FunctionNode *function : func->functions) {
-            entity->edg.add_fn(function);
+            object->edg.add_fn(function);
         }
     }
     // Make sure that all free-floating functions are present in the EDG
-    for (const auto &function : entity->functions) {
-        entity->edg.add_fn(function);
+    for (const auto &function : object->functions) {
+        object->edg.add_fn(function);
     }
 
     if (tok_it->token == TOK_LINK) {
@@ -1926,11 +1926,11 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             } else {
                 next_link_tokens = {link_tokens.first, link_tokens.first + next_link_range.value().second - 1};
             }
-            auto link_mapping = parser.create_link(next_link_tokens, entity);
+            auto link_mapping = parser.create_link(next_link_tokens, object);
             if (!link_mapping.has_value()) {
                 return false;
             }
-            if (entity->edg.add_mapping(link_mapping.value().first, link_mapping.value().second)) {
+            if (object->edg.add_mapping(link_mapping.value().first, link_mapping.value().second)) {
                 return false;
             }
             if (is_last) {
@@ -1962,17 +1962,17 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
         );
         return false;
     }
-    if (tok_it->token == TOK_IDENTIFIER && tok_it->lexme != entity->name) {
+    if (tok_it->token == TOK_IDENTIFIER && tok_it->lexme != object->name) {
         THROW_ERR(                                                                 //
-            ErrDefEntityConstructorWrongName, ERR_PARSING, parser.file_hash,       //
-            tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
+            ErrDefObjectConstructorWrongName, ERR_PARSING, parser.file_hash,       //
+            tok_it->line, tok_it->column, object->name, std::string(tok_it->lexme) //
         );
         return false;
     }
-    if (tok_it->token == TOK_TYPE && tok_it->type->to_string() != entity->name) {
+    if (tok_it->token == TOK_TYPE && tok_it->type->to_string() != object->name) {
         THROW_ERR(                                                                 //
-            ErrDefEntityConstructorWrongName, ERR_PARSING, parser.file_hash,       //
-            tok_it->line, tok_it->column, entity->name, std::string(tok_it->lexme) //
+            ErrDefObjectConstructorWrongName, ERR_PARSING, parser.file_hash,       //
+            tok_it->line, tok_it->column, object->name, std::string(tok_it->lexme) //
         );
         return false;
     }
@@ -1997,20 +1997,20 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             case TOK_IDENTIFIER: {
                 const std::string identifier(tok_it->lexme);
                 const auto identifier_token = tok_it;
-                if (!parent_entities.empty()) {
-                    // Search if the identifier is one of the parent entities' accessors
+                if (!parent_objects.empty()) {
+                    // Search if the identifier is one of the parent objects' accessors
                     bool parent_added = false;
-                    for (const auto &parent_entity : parent_entities) {
-                        const EntityNode *parent_entity_node = parent_entity.type->as<EntityType>()->entity_node;
-                        if (identifier == parent_entity.accessor_name) {
+                    for (const auto &parent_object : parent_objects) {
+                        const ObjectNode *parent_object_node = parent_object.type->as<ObjectType>()->object_node;
+                        if (identifier == parent_object.accessor_name) {
                             // For now we simply add the parent's data modules to the data constructor list and to the data modules of
-                            // this entity. If any data module is defined duplicately afterwards (explicit, below) then an error will be
-                            // thrown. If duplicates arise from extended entities then it is simply skipped to the next token iteration
-                            // TODO: Update change the constructors of extended entities to be required to pass in an entity at the
-                            // position of the extended entity accessor. For now the simpler approach is chosen.
-                            for (const auto &[data_node, data_accessor] : parent_entity_node->data_modules) {
+                            // this object. If any data module is defined duplicately afterwards (explicit, below) then an error will be
+                            // thrown. If duplicates arise from extended objects then it is simply skipped to the next token iteration
+                            // TODO: Update change the constructors of extended objects to be required to pass in an object at the
+                            // position of the extended object accessor. For now the simpler approach is chosen.
+                            for (const auto &[data_node, data_accessor] : parent_object_node->data_modules) {
                                 if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                                    // Duplicate data constructor from another parent entity, skip it
+                                    // Duplicate data constructor from another parent object, skip it
                                     continue;
                                 }
                                 constructed_data.emplace_back(data_node);
@@ -2018,7 +2018,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                                     data_modules.begin(), data_modules.end(), std::make_pair(data_node, std::nullopt) //
                                 );
                                 ASSERT(idx != data_modules.end());
-                                entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                                object->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                             }
                             parent_added = true;
                         }
@@ -2039,14 +2039,14 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
                         THROW_ERR(                                                                   //
-                            ErrDefEntityConstructorDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                            ErrDefObjectConstructorDuplicateAccessor, ERR_PARSING, parser.file_hash, //
                             identifier_token->line, identifier_token->column, identifier             //
                         );
                         return false;
                     }
                     constructed_data.emplace_back(data_node);
                     auto idx = std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor));
-                    entity->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
+                    object->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
                     accessor_found = true;
                     break;
                 }
@@ -2064,7 +2064,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
             }
             case TOK_TYPE: {
                 if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                    THROW_ERR(ErrDefEntityConstructorNotData, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type);
+                    THROW_ERR(ErrDefObjectConstructorNotData, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type);
                     return false;
                 }
                 DataNode *data_node = tok_it->type->as<DataType>()->data_node;
@@ -2076,7 +2076,7 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                     }
                     if (pair.second.has_value()) {
                         THROW_ERR(                                                                    //
-                            ErrDefEntityConstructorDataWitoutAccessor, ERR_PARSING, parser.file_hash, //
+                            ErrDefObjectConstructorDataWitoutAccessor, ERR_PARSING, parser.file_hash, //
                             tok_it->line, tok_it->column, tok_it->type, pair.second.value()           //
                         );
                         return false;
@@ -2086,20 +2086,20 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                 }
                 if (data_idx == -1) {
                     THROW_ERR(                                                                                                           //
-                        ErrDefEntityConstructorDataNotPresent, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type //
+                        ErrDefObjectConstructorDataNotPresent, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type //
                     );
                     return false;
                 }
                 // Check if the module has already been added to the constructed data
                 if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
                     THROW_ERR(                                                               //
-                        ErrDefEntityConstructorDuplicateData, ERR_PARSING, parser.file_hash, //
+                        ErrDefObjectConstructorDuplicateData, ERR_PARSING, parser.file_hash, //
                         tok_it->line, tok_it->column, tok_it->type->to_string()              //
                     );
                     return false;
                 }
                 constructed_data.emplace_back(data_node);
-                entity->constructor_order.emplace_back(data_idx);
+                object->constructor_order.emplace_back(data_idx);
                 [[fallthrough]];
             }
             case TOK_COMMA:
@@ -2110,20 +2110,20 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
 
     // Check if there are any duplications between functions defined as free-floating and defined in func-modules this enttiy includes.
     // We need to account for the implicitely provided data of func-module functions and the single implicit parameter of the
-    // entity-function here as well
-    for (const auto *free_floating_fn : entity->functions) {
+    // object-function here as well
+    for (const auto *free_floating_fn : object->functions) {
         // Set the captured identifiers list of the function
-        free_floating_fn->scope.value()->captured_entity_identifiers = captured_entity_identifiers;
-        for (const auto &func : entity->func_modules) {
+        free_floating_fn->scope.value()->captured_object_identifiers = captured_object_identifiers;
+        for (const auto &func : object->func_modules) {
             for (const FunctionNode *function : func->functions) {
                 const std::string func_fn_name = function->name.substr(func->name.size() + 1);
-                const std::string entity_fn_name = free_floating_fn->name.substr(entity->name.size() + 1);
-                if (func_fn_name != entity_fn_name) {
+                const std::string object_fn_name = free_floating_fn->name.substr(object->name.size() + 1);
+                if (func_fn_name != object_fn_name) {
                     continue;
                 }
                 const size_t func_fn_param_count = function->parameters.size() - func->required_data.size();
-                const size_t entity_fn_param_count = free_floating_fn->parameters.size() - 1;
-                if (func_fn_param_count != entity_fn_param_count) {
+                const size_t object_fn_param_count = free_floating_fn->parameters.size() - 1;
+                if (func_fn_param_count != object_fn_param_count) {
                     continue;
                 }
                 bool all_match = true;
@@ -2135,32 +2135,32 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
                         break;
                     }
                 }
-                if (all_match && entity->edg.get_mapped_fn(function) != free_floating_fn) {
-                    THROW_ERR(ErrDefEntityFnRedefinition, ERR_PARSING, parser.file_hash, free_floating_fn, function);
+                if (all_match && object->edg.get_mapped_fn(function) != free_floating_fn) {
+                    THROW_ERR(ErrDefObjectFnRedefinition, ERR_PARSING, parser.file_hash, free_floating_fn, function);
                     return false;
                 }
             }
         }
     }
 
-    if (entity->functions.empty() && entity->func_modules.empty()) {
-        // An entity which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
+    if (object->functions.empty() && object->func_modules.empty()) {
+        // An object which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
         // error
-        THROW_ERR(ErrDefEntityNoFunctionality, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length);
+        THROW_ERR(ErrDefObjectNoFunctionality, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
     }
 
-    // An entity containing unresolved virtual functions is a compilation error, all virtual functions need to be linked to concrete
+    // An object containing unresolved virtual functions is a compilation error, all virtual functions need to be linked to concrete
     // function implementations
-    const auto &mappings = entity->edg.get_all_mappings();
-    for (const auto &[src, node] : entity->edg.nodes) {
+    const auto &mappings = object->edg.get_all_mappings();
+    for (const auto &[src, node] : object->edg.nodes) {
         const FunctionNode *to = src;
         if (mappings.find(to) != mappings.end()) {
             to = mappings.at(to);
         }
         if (!to->scope.has_value()) {
             // Virtual function as target of mapping, not allowed
-            THROW_ERR(ErrDefEntityUnresolvedVirtual, ERR_PARSING, parser.file_hash, entity->line, entity->column, entity->length, to);
+            THROW_ERR(ErrDefObjectUnresolvedVirtual, ERR_PARSING, parser.file_hash, object->line, object->column, object->length, to);
             return false;
         }
     }
@@ -2168,13 +2168,13 @@ bool Parser::parse_open_entity(Parser &parser, EntityNode *entity, std::vector<L
     return true;
 }
 
-bool Parser::parse_all_open_entities(const bool parse_parallel) {
+bool Parser::parse_all_open_objects(const bool parse_parallel) {
     PROFILE_THREADED_SCOPE("Parse Open Entities", parse_parallel);
 
-    // Parse all entities from tips to roots since dependant entities need internal information of the base entities
+    // Parse all objects from tips to roots since dependant objects need internal information of the base objects
     struct DepNode {
         Parser *parser;
-        EntityNode *entity;
+        ObjectNode *object;
         std::vector<Line> body;
         std::vector<std::string> parents;
         std::vector<std::string> children;
@@ -2191,45 +2191,45 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
         return nodes.at(key);
     };
 
-    // Collect all open entities from all parsers
+    // Collect all open objects from all parsers
     for (auto &parser : instances) {
-        while (auto next = parser.get_next_open_entity()) {
-            auto &[entity, body] = next.value();
-            const std::string key = entity->file_hash.to_string() + "." + entity->name;
+        while (auto next = parser.get_next_open_object()) {
+            auto &[object, body] = next.value();
+            const std::string key = object->file_hash.to_string() + "." + object->name;
             DepNode &node = get_or_create_node(key);
             node.parser = &parser;
-            node.entity = entity;
+            node.object = object;
             node.body = std::move(body);
-            for (auto &parent : entity->parent_entities) {
+            for (auto &parent : object->parent_objects) {
                 if (parent.type->get_variation() == Type::Variation::UNKNOWN) {
                     const std::string &unknown_type_str = parent.type->as<UnknownType>()->type_str;
                     parent.type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type_str).value();
                 }
-                const EntityNode *parent_entity = parent.type->as<EntityType>()->entity_node;
-                const std::string parent_key = parent_entity->file_hash.to_string() + "." + parent_entity->name;
+                const ObjectNode *parent_object = parent.type->as<ObjectType>()->object_node;
+                const std::string parent_key = parent_object->file_hash.to_string() + "." + parent_object->name;
                 node.parents.emplace_back(parent_key);
                 DepNode &parent_node = get_or_create_node(parent_key);
                 parent_node.children.emplace_back(key);
             }
         }
     }
-    // Get a list of all entities which do not have any parents, these are the tips of our entity dependency trees
-    // We also check in this phase that every single node's entity pointer has been set. If this is not the case something went wrong
+    // Get a list of all objects which do not have any parents, these are the tips of our object dependency trees
+    // We also check in this phase that every single node's object pointer has been set. If this is not the case something went wrong
     std::vector<std::string> tip_keys;
     for (const auto &[key, node] : nodes) {
-        ASSERT(node.entity != nullptr);
+        ASSERT(node.object != nullptr);
         if (node.parents.empty()) {
             tip_keys.emplace_back(key);
         }
     }
 
-    // We now parse all entities at our tips and collect the next stage of tips which need to be parsed, all current tips can be processed
+    // We now parse all objects at our tips and collect the next stage of tips which need to be parsed, all current tips can be processed
     // in parallel as well
     std::vector<std::string> next_tip_keys;
     bool result = true;
     if (parse_parallel) {
         while (!tip_keys.empty()) {
-            // Collapse types in entity bodies upfront (single-threaded) to prevent
+            // Collapse types in object bodies upfront (single-threaded) to prevent
             // concurrent collapse_types_in_slice calls which race via Line::delete_tokens
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
@@ -2241,10 +2241,10 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
                 // Enqueue a task for each node
-                futures.emplace_back(thread_pool.enqueue(parse_open_entity, std::ref(*node.parser), node.entity, node.body));
+                futures.emplace_back(thread_pool.enqueue(parse_open_object, std::ref(*node.parser), node.object, node.body));
                 // We set the processed state in here for correctness of later code
                 node.processed = true;
-                // Collect all the keys for the next iteration. We only mark those entities whose parents have fully been parsed, if any
+                // Collect all the keys for the next iteration. We only mark those objects whose parents have fully been parsed, if any
                 // parent is still missing we do not add the key
                 for (const auto &child_key : node.children) {
                     auto &child_node = nodes.at(child_key);
@@ -2262,11 +2262,11 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     }
                 }
             }
-            // Collect results from all entities
+            // Collect results from all objects
             for (auto &future : futures) {
                 result = result && future.get(); // Combine results using logical AND
             }
-            // Cancel if one of the entities failed since now other entities depend on them and potentially would fail too
+            // Cancel if one of the objects failed since now other objects depend on them and potentially would fail too
             if (!result) {
                 return result;
             }
@@ -2274,9 +2274,9 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             next_tip_keys.clear();
         }
     } else {
-        // Process entities sequentially
+        // Process objects sequentially
         while (!tip_keys.empty()) {
-            // Collapse types in entity bodies upfront to keep code-pairity with the concurrent code path
+            // Collapse types in object bodies upfront to keep code-pairity with the concurrent code path
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
                 node.parser->collapse_types_in_lines(node.body, node.parser->file_node_ptr->tokens);
@@ -2285,7 +2285,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
             for (const auto &tip_key : tip_keys) {
                 auto &node = nodes.at(tip_key);
                 // Enqueue a task for each node
-                result = result && parse_open_entity(*node.parser, node.entity, node.body);
+                result = result && parse_open_object(*node.parser, node.object, node.body);
                 // We set the processed state in here for correctness of later code
                 node.processed = true;
                 // Collect all the keys for the next iteration
@@ -2305,7 +2305,7 @@ bool Parser::parse_all_open_entities(const bool parse_parallel) {
                     }
                 }
             }
-            // Cancel if one of the entities failed since now other entities depend on them and potentially would fail too
+            // Cancel if one of the objects failed since now other objects depend on them and potentially would fail too
             if (!result) {
                 return result;
             }

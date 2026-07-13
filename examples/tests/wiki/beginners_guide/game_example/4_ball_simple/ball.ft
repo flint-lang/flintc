@@ -9,7 +9,7 @@ data DBall:
 	f32 radius;
 	DBall(pos, dir, speed, radius);
 
-entity Ball:
+object Ball:
 	data: DBall ball;
 	Ball(ball);
 

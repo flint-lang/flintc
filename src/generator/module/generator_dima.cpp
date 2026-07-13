@@ -1,7 +1,7 @@
 #include "generator/generator.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/GlobalVariable.h"
@@ -11,7 +11,7 @@
 static const std::string prefix = "flint.dima.";
 
 /*
- * For each type there is (data and entity types) a head will be generated. The head will have the structure
+ * For each type there is (data and object types) a head will be generated. The head will have the structure
  *    // Each slot has 16 Bytes of data before the actual slot, meaining it will waste 16 bytes for each allocated value.
  *    // This is the main reason why DIMA is more memory expensive than manual memory management.
  *    typedef struct dima_slot_t {
@@ -19,7 +19,7 @@ static const std::string prefix = "flint.dima.";
  *        uint32_t arc;      // Reference count of how many references this slot has
  *        uint16_t block_id; // ID of the block the slot is contained in
  *        uint16_t flags;    // The flags of the slot. It's a bitset:
- *                           //   | isOccupied | isOwned | isArrStart | isArrMember | isAsync | isOwnedByEntity | Unused | Unused |
+ *                           //   | isOccupied | isOwned | isArrStart | isArrMember | isAsync | isOwnedByObject | Unused | Unused |
  *                           //   | ---------- | ------- | ---------- | ----------- | ------- | --------------- | ------ | ------ |
  *        char value[];      // The actual value the dima Slot holds, directly inlined inside the slot
  *    } dima_slot_t;
@@ -54,11 +54,11 @@ llvm::GlobalVariable *Generator::Module::DIMA::get_head(const std::shared_ptr<Ty
             llvm::GlobalVariable *data_head = Module::DIMA::dima_heads.at(head_key);
             return data_head;
         }
-        case Type::Variation::ENTITY: {
-            const EntityType *entity_type = type->as<EntityType>();
-            const std::string head_key = entity_type->entity_node->file_hash.to_string() + "." + entity_type->entity_node->name;
-            llvm::GlobalVariable *entity_head = Module::DIMA::dima_heads.at(head_key);
-            return entity_head;
+        case Type::Variation::OBJECT: {
+            const ObjectType *object_type = type->as<ObjectType>();
+            const std::string head_key = object_type->object_node->file_hash.to_string() + "." + object_type->object_node->name;
+            llvm::GlobalVariable *object_head = Module::DIMA::dima_heads.at(head_key);
+            return object_head;
         }
     }
 }
@@ -106,16 +106,16 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
         dima_heads[heads_key] = head_variable;
     }
 
-    const std::vector<const EntityNode *> entities = Parser::get_all_entities();
-    for (const EntityNode *entity : entities) {
-        const std::string head_var_str = entity->file_hash.to_string() + ".dima.head.entity." + entity->name;
+    const std::vector<const ObjectNode *> objects = Parser::get_all_objects();
+    for (const ObjectNode *object : objects) {
+        const std::string head_var_str = object->file_hash.to_string() + ".dima.head.object." + object->name;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmismatched-new-delete"
         llvm::GlobalVariable *head_variable = new llvm::GlobalVariable(                          //
             *module, PTR_TY, false, llvm::GlobalValue::WeakODRLinkage, nullpointer, head_var_str //
         );
 #pragma GCC diagnostic pop
-        const std::string heads_key = entity->file_hash.to_string() + "." + entity->name;
+        const std::string heads_key = object->file_hash.to_string() + "." + object->name;
         dima_heads[heads_key] = head_variable;
     }
 }
@@ -268,26 +268,26 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         last_block = data_block;
     }
 
-    // Init all the entity heads
-    const std::vector<const EntityNode *> entities = Parser::get_all_entities();
-    for (const EntityNode *entity : entities) {
-        const std::string heads_key = entity->file_hash.to_string() + "." + entity->name;
-        const std::string block_name = "init_entity_" + entity->name;
-        const Parser *entity_parser_instance = Parser::get_instance_from_hash(entity->file_hash).value();
-        const auto &entity_type_ptr = entity_parser_instance->file_node_ptr->file_namespace->get_type_from_str(entity->name);
-        llvm::StructType *entity_struct_type = IR::add_and_or_get_type(module, entity_type_ptr.value(), false);
-        const size_t data_type_size = Allocation::get_type_size(module, entity_struct_type);
-        llvm::BasicBlock *entity_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+    // Init all the object heads
+    const std::vector<const ObjectNode *> objects = Parser::get_all_objects();
+    for (const ObjectNode *object : objects) {
+        const std::string heads_key = object->file_hash.to_string() + "." + object->name;
+        const std::string block_name = "init_object_" + object->name;
+        const Parser *object_parser_instance = Parser::get_instance_from_hash(object->file_hash).value();
+        const auto &object_type_ptr = object_parser_instance->file_node_ptr->file_namespace->get_type_from_str(object->name);
+        llvm::StructType *object_struct_type = IR::add_and_or_get_type(module, object_type_ptr.value(), false);
+        const size_t data_type_size = Allocation::get_type_size(module, object_struct_type);
+        llvm::BasicBlock *object_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
         builder->SetInsertPoint(last_block);
-        builder->CreateBr(entity_block);
+        builder->CreateBr(object_block);
 
         // Allocate enough memory for the head, the default value for now is just zero-allocated which means that the whole default head
         // structure can simply be zero-initialized and still be correct
-        builder->SetInsertPoint(entity_block);
-        llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + entity->name);
+        builder->SetInsertPoint(object_block);
+        llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + object->name);
         // Store the type id in the head
         llvm::Value *type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
-        IR::aligned_store(*builder, builder->getInt32(entity_type_ptr.value()->get_id()), type_id_ptr);
+        IR::aligned_store(*builder, builder->getInt32(object_type_ptr.value()->get_id()), type_id_ptr);
         // Store the type size in the head
         llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
@@ -296,14 +296,14 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         IR::aligned_store(*builder, builder->getInt64(0), block_count_ptr);
         // Allocate enough memory for the default value and set it to 0
         llvm::Value *default_value = builder->CreateCall(                                   //
-            malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + entity->name //
+            malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + object->name //
         );
         builder->CreateCall(memset_fn, {default_value, builder->getInt32(0), builder->getInt64(data_type_size)});
         llvm::Value *default_value_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_DEFAULT_VALUE, "default_value_ptr");
         IR::aligned_store(*builder, default_value, default_value_ptr);
         llvm::GlobalVariable *const head_variable = dima_heads.at(heads_key);
         IR::aligned_store(*builder, allocated_head, head_variable);
-        last_block = entity_block;
+        last_block = object_block;
     }
     builder->CreateBr(merge_block);
 

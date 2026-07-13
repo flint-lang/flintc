@@ -147,12 +147,12 @@ func Jump requires(Legs l):
 	def jump():
 		print($"Jumping {l.height}m high with my {l.count} legs\n");
 
-entity Dog:
+object Dog:
 	data: Legs;
 	func: Run, Jump;
 	Dog(Legs);
 
-entity Bird:
+object Bird:
 	data: Wings, Legs;
 	func: Fly, Run, Jump;
 	Bird(Wings, Legs);

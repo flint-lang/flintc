@@ -15,7 +15,7 @@ func FMovable requires(DPosition d):
     def print_pos():
         print($"d.pos = {d.pos}\n");
 
-entity Player:
+object Player:
     data: DPosition;
     func: IMove, FMovable;
     link:

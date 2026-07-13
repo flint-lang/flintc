@@ -2,10 +2,10 @@
 
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <llvm/BinaryFormat/Dwarf.h>
@@ -150,15 +150,15 @@ llvm::DIType *Generator::Debug::create_debug_type_data(llvm::Module *const modul
     return DIB->createPointerType(struct_type, PTR_SIZE, 0);
 }
 
-llvm::DIType *Generator::Debug::create_debug_type_entity(llvm::Module *const module, const std::shared_ptr<Type> &type) {
-    const auto *entity_node = type->as<EntityType>()->entity_node;
-    if (debug_files.find(entity_node->file_hash) == debug_files.end()) {
-        const auto &path = entity_node->file_hash.path;
+llvm::DIType *Generator::Debug::create_debug_type_object(llvm::Module *const module, const std::shared_ptr<Type> &type) {
+    const auto *object_node = type->as<ObjectType>()->object_node;
+    if (debug_files.find(object_node->file_hash) == debug_files.end()) {
+        const auto &path = object_node->file_hash.path;
         if (!path.empty()) {
-            debug_files[entity_node->file_hash] = DIB->createFile(path.filename().string(), path.parent_path().string());
+            debug_files[object_node->file_hash] = DIB->createFile(path.filename().string(), path.parent_path().string());
         }
     }
-    llvm::DIFile *const file_meta = debug_files.at(entity_node->file_hash);
+    llvm::DIFile *const file_meta = debug_files.at(object_node->file_hash);
 
     const std::string llvm_type_str = type->get_type_string();
     ASSERT(type_map.find(llvm_type_str) != type_map.end());
@@ -167,11 +167,11 @@ llvm::DIType *Generator::Debug::create_debug_type_entity(llvm::Module *const mod
     const uint64_t struct_size_bits = Allocation::get_type_size(module, llvm_struct) * 8;
     const uint32_t struct_align_bits = Allocation::calculate_type_alignment(llvm_struct) * 8;
 
-    const auto &constructor_order = entity_node->constructor_order;
+    const auto &constructor_order = object_node->constructor_order;
     const size_t PTR_SIZE = module->getDataLayout().getPointerSizeInBits();
     std::vector<llvm::Metadata *> member_types;
-    for (size_t i = 0; i < entity_node->data_modules.size(); ++i) {
-        const auto &[data_node, accessor_name] = entity_node->data_modules.at(constructor_order.at(i));
+    for (size_t i = 0; i < object_node->data_modules.size(); ++i) {
+        const auto &[data_node, accessor_name] = object_node->data_modules.at(constructor_order.at(i));
         const auto data_type = Resolver::get_namespace_from_hash(data_node->file_hash)->get_type_from_str(data_node->name).value();
         llvm::DIType *const data_debug_type = get_or_create_debug_type(module, data_type);
 
@@ -181,7 +181,7 @@ llvm::DIType *Generator::Debug::create_debug_type_entity(llvm::Module *const mod
 
         const size_t offset = i * PTR_SIZE;
         llvm::DIDerivedType *const member = DIB->createMemberType(                            //
-            file_meta, data_type->to_string(), file_meta, entity_node->line, field_size_bits, //
+            file_meta, data_type->to_string(), file_meta, object_node->line, field_size_bits, //
             field_align_bits, offset, llvm::DINode::FlagZero, data_debug_type                 //
         );
         member_types.push_back(member);
@@ -189,7 +189,7 @@ llvm::DIType *Generator::Debug::create_debug_type_entity(llvm::Module *const mod
 
     const llvm::DINodeArray elements = DIB->getOrCreateArray(member_types);
     llvm::DICompositeType *const struct_type = DIB->createStructType(                           //
-        file_meta, entity_node->name, file_meta, entity_node->line, struct_size_bits,           //
+        file_meta, object_node->name, file_meta, object_node->line, struct_size_bits,           //
         struct_align_bits, llvm::DINode::FlagZero, nullptr, elements, 0, nullptr, llvm_type_str //
     );
 
@@ -284,26 +284,26 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
     }
     llvm::DIFile *const file_meta = debug_files.at(func_node->file_hash);
 
-    std::vector<const EntityNode *> entities = Parser::get_all_entities();
-    for (auto it = entities.begin(); it != entities.end();) {
+    std::vector<const ObjectNode *> objects = Parser::get_all_objects();
+    for (auto it = objects.begin(); it != objects.end();) {
         const auto &func_modules = (*it)->func_modules;
         if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
-            it = entities.erase(it);
+            it = objects.erase(it);
         } else {
             ++it;
         }
     }
 
-    struct EntityInfo {
+    struct ObjectInfo {
         std::string name;
         std::shared_ptr<Type> type_ptr;
         uint32_t type_id;
     };
-    std::vector<EntityInfo> entity_infos;
-    for (const EntityNode *node : entities) {
+    std::vector<ObjectInfo> object_infos;
+    for (const ObjectNode *node : objects) {
         const Namespace *ns = Resolver::get_namespace_from_hash(node->file_hash);
-        const std::shared_ptr<Type> entity_type = ns->get_type_from_str(node->name).value();
-        entity_infos.push_back({node->name, entity_type, entity_type->get_id()});
+        const std::shared_ptr<Type> object_type = ns->get_type_from_str(node->name).value();
+        object_infos.push_back({node->name, object_type, object_type->get_id()});
     }
 
     const std::string llvm_type_str = type->get_type_string();
@@ -323,13 +323,13 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
     llvm::DIType *const u32_type = DIB->createBasicType("u32", 32, llvm::dwarf::DW_ATE_unsigned);
 
     std::vector<llvm::Metadata *> enumerators;
-    for (const EntityInfo &info : entity_infos) {
+    for (const ObjectInfo &info : object_infos) {
         enumerators.push_back(DIB->createEnumerator(info.name, static_cast<int64_t>(info.type_id)));
     }
     const llvm::DINodeArray enum_elements = DIB->getOrCreateArray(enumerators);
-    llvm::DIType *const entity_enum = DIB->createEnumerationType(                                //
-        file_meta, func_node->name + ".entity_types", file_meta, func_node->line, i32_size_bits, //
-        i32_align_bits, enum_elements, u32_type, 0, type->get_type_string() + ".entity_types"    //
+    llvm::DIType *const object_enum = DIB->createEnumerationType(                                //
+        file_meta, func_node->name + ".object_types", file_meta, func_node->line, i32_size_bits, //
+        i32_align_bits, enum_elements, u32_type, 0, type->get_type_string() + ".object_types"    //
     );
 
     llvm::DICompositeType *const dima_type = DIB->createStructType(                                                              //
@@ -337,7 +337,7 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
         llvm::DINode::FlagZero, nullptr,                                                                                         //
         DIB->getOrCreateArray({DIB->createMemberType(                                                                            //
             file_meta, "type", file_meta, func_node->line, i32_size_bits, i32_align_bits, ptr_size_bits, llvm::DINode::FlagZero, //
-            entity_enum)}),                                                                                                      //
+            object_enum)}),                                                                                                      //
         0, nullptr, type->get_type_string() + ".dima_head"                                                                       //
     );
     // The func struct stores &global_var in its dima_head field (offset 16).
@@ -360,17 +360,17 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
     );
 
     std::vector<llvm::Metadata *> union_members;
-    for (const EntityInfo &info : entity_infos) {
-        llvm::DIType *const entity_dt = get_or_create_debug_type(module, info.type_ptr);
+    for (const ObjectInfo &info : object_infos) {
+        llvm::DIType *const object_dt = get_or_create_debug_type(module, info.type_ptr);
         union_members.push_back(DIB->createMemberType(                                                                  //
             file_meta, info.name, file_meta, func_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, //
-            entity_dt)                                                                                                  //
+            object_dt)                                                                                                  //
         );
     }
     const llvm::DINodeArray union_elements = DIB->getOrCreateArray(union_members);
-    llvm::DICompositeType *const entity_union = DIB->createUnionType(                  //
+    llvm::DICompositeType *const object_union = DIB->createUnionType(                  //
         file_meta, "union", file_meta, func_node->line, ptr_size_bits, ptr_align_bits, //
-        llvm::DINode::FlagZero, union_elements, 0, type->get_type_string() + ".entity" //
+        llvm::DINode::FlagZero, union_elements, 0, type->get_type_string() + ".object" //
     );
 
     std::vector<llvm::Metadata *> func_members;
@@ -379,7 +379,7 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
         ptr_align_bits, ptr_size_bits * 2, llvm::DINode::FlagZero, outer_ref) //
     );
     func_members.push_back(DIB->createMemberType(                                                                                //
-        file_meta, "entity", file_meta, func_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, entity_union) //
+        file_meta, "object", file_meta, func_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, object_union) //
     );
     const llvm::DINodeArray func_elements = DIB->getOrCreateArray(func_members);
     return DIB->createStructType(                                                                    //
@@ -858,8 +858,8 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::DATA:
             di_type = create_debug_type_data(module, type);
             break;
-        case Type::Variation::ENTITY:
-            di_type = create_debug_type_entity(module, type);
+        case Type::Variation::OBJECT:
+            di_type = create_debug_type_object(module, type);
             break;
         case Type::Variation::ENUM:
             di_type = create_debug_type_enum(module, type);

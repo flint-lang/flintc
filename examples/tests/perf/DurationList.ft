@@ -2,7 +2,7 @@ use Core.print
 use Core.time
 
 /// @brief A simple list of durations used for filtering etc in the profiling code
-entity DurationList:
+object DurationList:
 	data: DurationListHead;
 	func: FDurationList;
 	DurationList(DurationListHead);
@@ -14,13 +14,13 @@ data DurationListNode:
 	DurationListNode? next;
 	DurationListNode(duration, next);
 
-/// @brief The head of the 'DurationList' entity type required by
+/// @brief The head of the 'DurationList' object type required by
 ///        the duration list func type
 data DurationListHead:
 	DurationListNode? head;
 	DurationListHead(head);
 
-/// @brief A func module containing all functionality of the 'DurationList' entity type
+/// @brief A func module containing all functionality of the 'DurationList' object type
 func FDurationList requires(DurationListHead d):
 	/// @brief Appends a new duration to the duration list
 	///

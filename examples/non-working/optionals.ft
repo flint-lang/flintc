@@ -42,7 +42,7 @@ test "test_list":
 	assert(list_to_str(list) == "22 -> 12");
 
 
-entity List<T>:
+object List<T>:
 	data:
 		T value;
 		List<T>? next;
@@ -60,7 +60,7 @@ entity List<T>:
 			return next;
 	List<T>(value, next);
 
-test "test_list_entity":
+test "test_list_object":
 	list := List<i32>(10, none);
 	assert(list.get_value() == 10);
 	list.append(20);

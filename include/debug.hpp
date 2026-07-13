@@ -4,11 +4,11 @@
 #include "types.hpp"
 
 #include "parser/ast/definitions/data_node.hpp"
-#include "parser/ast/definitions/entity_node.hpp"
 #include "parser/ast/definitions/enum_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
+#include "parser/ast/definitions/object_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
@@ -213,7 +213,7 @@ namespace Debug {
 
         // --- DEFINITIONS ---
         void print_data(unsigned int indent_lvl, TreeBits &bits, const DataNode &data);
-        void print_entity(unsigned int indent_lvl, TreeBits &bits, const EntityNode &entity);
+        void print_object(unsigned int indent_lvl, TreeBits &bits, const ObjectNode &object);
         void print_enum(unsigned int indent_lvl, TreeBits &bits, const EnumNode &enum_node);
         void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error);
         void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func);

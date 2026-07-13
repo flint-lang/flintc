@@ -16,7 +16,7 @@ bool Scope::clone_variables(const std::shared_ptr<Scope> other) {
             return false;
         }
     }
-    captured_entity_identifiers = other->captured_entity_identifiers;
+    captured_object_identifiers = other->captured_object_identifiers;
     return true;
 }
 

@@ -37,12 +37,12 @@ func HealthUtils requires(Health h):
 		return h.current != 0;
 
 
-entity Entity:
+object Object:
 	data:
 		Transform, Health;
 	func:
 		Movement, HealthUtils;
-	Entity(Position, Health);
+	Object(Position, Health);
 
 
 enum SyncGroup:
@@ -55,41 +55,41 @@ def update_positions():
 	center := Vector3(x, y, z);
 	sync SyncGroup.MAIN;
 	while true:
-		// Only let the entities move which are within a given radius of the center
-		// This center could also be the player, and entities outside the cameras view wont move, for example
+		// Only let the objects move which are within a given radius of the center
+		// This center could also be the player, and objects outside the cameras view wont move, for example
 		map_on_all(Movement, Movement::get_dist_sqr(center))
 			|> filter_on_all(Movement, (f32 x) -> x < 20, $)
 			|> run_on_all(Movement, Movement::move, $);
 		sync SyncGroup.MAIN;
 
 /**
- * This function updates the health of all entities.
+ * This function updates the health of all objects.
  * It runs on it's own thread and syncs with other threads too!
  */
-def update_health(List<Entity> entities):
+def update_health(List<Object> objects):
 	i32 dps = 1;
 	sync SyncGroup.MAIN;
 	while true:
-		// Decrease the health of each entity per iteration
+		// Decrease the health of each object per iteration
 		run_on_all(HealthUtils, HealthUtils::damage(dps));
-		// Filter out the entities which are dead and free them (delte them)
-		filter_on_all(Entity, Entity::is_dead)
-			|> entites.remove_all($);
+		// Filter out the objects which are dead and free them (delte them)
+		filter_on_all(Object, Object::is_dead)
+			|> objects.remove_all($);
 		sync SyncGroup.MAIN;
 
-def create_entities(i32 n) -> List<Entities>:
-	// Create n entites with default values
-	entities := Entity[n](_);
+def create_objects(i32 n) -> List<Entities>:
+	// Create n objects with default values
+	objects := Object[n](_);
 
-	// Assign random positions to all 100.000 entites concurrently
-	run_on_all(Entity, Entity::move_fn(get_rand_pos));
+	// Assign random positions to all 100.000 objects concurrently
+	run_on_all(Object, Object::move_fn(get_rand_pos));
 
 	// Create list from array and return it
-	return List<Entity>(entitites);
+	return List<Object>(objects);
 
 def main():
 	spawn "position_thread" update_positions();
-	spawn "health_thread" update_health(create_entities(100000));
+	spawn "health_thread" update_health(create_objects(100000));
 	sync SyncGroup.MAIN;
 	while true:
 		// Game loop

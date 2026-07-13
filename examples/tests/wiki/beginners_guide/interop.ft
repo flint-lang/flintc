@@ -142,4 +142,4 @@ test "20_named_opaque_simple":
 test "21_named_opaque_type_mismatch":
 	str path = "tests/wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Parse Error at main.ft:5:22\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame object = create_object();\n┌─┴──────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");
+	test_file_fail_in(path, file, "Parse Error at main.ft:5:19\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame obj = create_object();\n┌─┴───────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");

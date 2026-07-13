@@ -28,11 +28,11 @@
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -348,11 +348,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
                 );
             }
-            if (scope->captured_entity_identifiers.find(name) == scope->captured_entity_identifiers.end()) {
+            if (scope->captured_object_identifiers.find(name) == scope->captured_object_identifiers.end()) {
                 THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
                 return std::nullopt;
             }
-            const auto &captured_type = scope->captured_entity_identifiers.at(name);
+            const auto &captured_type = scope->captured_object_identifiers.at(name);
             switch (captured_type->get_variation()) {
                 default:
                     UNREACHABLE();
@@ -360,18 +360,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                 case Type::Variation::DATA: {
                     ASSERT(scope->variables.find("self") != scope->variables.end());
                     const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
-                    const EntityNode *entity_node = self.type->as<EntityType>()->entity_node;
+                    ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
+                    const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
                     const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
                     size_t idx = 0;
-                    for (const auto &[data_node, accessor] : entity_node->data_modules) {
+                    for (const auto &[data_node, accessor] : object_node->data_modules) {
                         if (data_node == required_data_node) {
                             break;
                         }
                         idx++;
                     }
-                    if (idx == entity_node->data_modules.size()) {
-                        // The data node is not present in the entity type
+                    if (idx == object_node->data_modules.size()) {
+                        // The data node is not present in the object type
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
@@ -381,16 +381,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
                         file_hash, get_pos_triple(tokens),                                     //
                         base_expr,                                                             //
-                        std::nullopt,                                                          // Entity fields have no name
-                        idx,                                                                   // The index of the data in the entity struct
+                        std::nullopt,                                                          // Object fields have no name
+                        idx,                                                                   // The index of the data in the object struct
                         captured_type                                                          //
                     );
                     return std::move(access);
                 }
-                case Type::Variation::ENTITY:
+                case Type::Variation::OBJECT:
                     ASSERT(scope->variables.find("self") != scope->variables.end());
                     const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
+                    ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
                     // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
                     // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
                     // `create_field_access_base` function.
@@ -928,17 +928,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
 }
 
 std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_reference(const token_slice &tokens) {
-    // If the first token is a type then it's a func module's or entities' function reference, so we need to search for the referenced
-    // function within that func module / entity type
+    // If the first token is a type then it's a func module's or objects' function reference, so we need to search for the referenced
+    // function within that func module / object type
     token_slice tokens_mut = tokens;
     std::string referenced_fn_name = "";
     if (tokens.first->token == TOK_TYPE) {
         switch (tokens.first->type->get_variation()) {
             default:
-                // Referencing functions is only allowed when referencing functions of func modules or entities (yet)
+                // Referencing functions is only allowed when referencing functions of func modules or objects (yet)
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
-            case Type::Variation::ENTITY:
+            case Type::Variation::OBJECT:
                 [[fallthrough]];
             case Type::Variation::FUNC:
                 referenced_fn_name = tokens.first->type->to_string() + ".";

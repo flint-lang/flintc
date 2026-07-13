@@ -3,12 +3,12 @@
 #include "ast_node.hpp"
 #include "definitions/data_node.hpp"
 #include "definitions/definition_node.hpp"
-#include "definitions/entity_node.hpp"
 #include "definitions/enum_node.hpp"
 #include "definitions/error_node.hpp"
 #include "definitions/func_node.hpp"
 #include "definitions/function_node.hpp"
 #include "definitions/import_node.hpp"
+#include "definitions/object_node.hpp"
 #include "definitions/test_node.hpp"
 #include "definitions/variant_node.hpp"
 #include "parser/ast/namespace.hpp"
@@ -70,13 +70,13 @@ class FileNode : public ASTNode {
     /// adding the func type to this namespace failed
     std::optional<FuncNode *> add_func(FuncNode &func);
 
-    /// @function `add_entity`
-    /// @brief Adds an entity node to this file node
+    /// @function `add_object`
+    /// @brief Adds an object node to this file node
     ///
-    /// @param `entity` The entity node to add
-    /// @return `std::optional<EnttiyNode *>` A pointer to the added entity node, because this function takes ownership of `entity`, nullopt
-    /// if adding the entity type to this namespace failed
-    std::optional<EntityNode *> add_entity(EntityNode &entity);
+    /// @param `object` The object node to add
+    /// @return `std::optional<EnttiyNode *>` A pointer to the added object node, because this function takes ownership of `object`, nullopt
+    /// if adding the object type to this namespace failed
+    std::optional<ObjectNode *> add_object(ObjectNode &object);
 
     /// @function `add_function`
     /// @brief Adds a function node to this file node

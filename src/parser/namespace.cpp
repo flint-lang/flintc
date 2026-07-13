@@ -347,7 +347,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             const unsigned int width = width_char - '0';
             return std::make_shared<MultiType>(base_type, width);
         }
-        // Its a data, entity or any other type that only has one string as its descriptor, and this type has not been added yet. This means
+        // Its a data, object or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
         return std::make_shared<UnknownType>(std::string(tokens_mut.first->lexme));
     }

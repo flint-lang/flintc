@@ -21,8 +21,8 @@ test "beginners_guide/arrays":
 test "beginners_guide/imports":
 	test_test("tests/wiki/beginners_guide", "imports.ft");
 
-test "beginners_guide/entities":
-	test_test("tests/wiki/beginners_guide", "entities.ft");
+test "beginners_guide/objects":
+	test_test("tests/wiki/beginners_guide", "objects.ft");
 
 test "beginners_guide/links":
 	test_test("tests/wiki/beginners_guide", "links.ft");

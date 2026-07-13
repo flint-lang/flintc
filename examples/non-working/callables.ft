@@ -90,7 +90,7 @@ func Attacking requires(Attacks a):
 	def set_special_attack(fn<i32, i32 -> i32> att):
 		a.special = att;
 	
-entity Player:
+object Player:
 	data: Attacks;
 	func: Attacking;
 	Player(Attacks);
