@@ -77,7 +77,7 @@ def update_health(List<Object> objects):
 			|> objects.remove_all($);
 		sync SyncGroup.MAIN;
 
-def create_objects(i32 n) -> List<Entities>:
+def create_objects(i32 n) -> List<Object>:
 	// Create n objects with default values
 	objects := Object[n](_);
 

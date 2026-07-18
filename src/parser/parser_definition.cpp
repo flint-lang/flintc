@@ -7,6 +7,7 @@
 
 #include "error/error.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
@@ -601,6 +602,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         functions      //
     );
 }
+
 std::optional<InterfaceNode> Parser::create_interface(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_interface");
     token_slice token_mut = definition;
@@ -615,7 +617,8 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
     while (!body_mut.empty()) {
         const Line function_definition_line = body_mut.front();
         body_mut.erase(body_mut.begin());
-        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, {});
+        const std::pair<std::string, std::vector<FuncNode::RequiredData>> required_data = {interface_name, {}};
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data);
         if (!fn.has_value()) {
             return std::nullopt;
         }
@@ -660,43 +663,48 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     ASSERT(tok_it->token == TOK_IDENTIFIER);
     const std::string object_name(tok_it->lexme);
     tok_it++;
-    std::vector<ObjectNode::ParentObject> parent_objects;
-    if (tok_it->token == TOK_EXTENDS) {
+    std::unordered_map<std::string, ObjectNode::ImplementedInterface> interfaces;
+    if (tok_it->token == TOK_IMPLEMENTS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
-            const auto extended_object_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
-            if (!extended_object_type.has_value()) {
+            const auto interface_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            if (!interface_type.has_value()) {
                 return std::nullopt;
             }
-            if (extended_object_type.value()->get_variation() != Type::Variation::OBJECT     //
-                && extended_object_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            if (interface_type.value()->get_variation() != Type::Variation::INTERFACE  //
+                && interface_type.value()->get_variation() != Type::Variation::UNKNOWN //
             ) {
-                THROW_ERR(                                                                         //
-                    ErrDefObjectExtendedTypeNotObject, ERR_PARSING, file_hash,                     //
-                    tok_it->line, tok_it->column, extended_object_type.value()->to_string().size() //
+                THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, file_hash,
+                    ASTNode::PosTriple{
+                        tok_it->line,
+                        tok_it->column,
+                        static_cast<unsigned int>(interface_type.value()->to_string().size()),
+                    } //
                 );
                 return std::nullopt;
             }
-            // Check if this object type is already present in the extension list
-            for (const auto &pe : parent_objects) {
-                if (pe.type->equals(extended_object_type.value())) {
-                    THROW_ERR(ErrDefObjectDuplicateParent, ERR_PARSING, file_hash, tok_it->line, tok_it->column, pe.type->to_string());
+            // Check if this interface type is already present in the interfaces list
+            for (const auto &[interface_name, interface] : interfaces) {
+                if (interface_name == interface_type.value()->to_string()) {
+                    THROW_ERR(ErrDefObjectDuplicateInterface, ERR_PARSING, file_hash, tok_it->line, tok_it->column, interface_name);
                     return std::nullopt;
                 }
             }
-            // The next token is the extended object accessor name
-            ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
-            const std::string access_name((tok_it + 1)->lexme);
-            parent_objects.emplace_back(ObjectNode::ParentObject{
-                .type = extended_object_type.value(),
-                .accessor_name = access_name,
-                .line = tok_it->line,
-                .column = tok_it->column,
-            });
-            tok_it += 2;
+            interfaces[interface_type.value()->to_string()] = ObjectNode::ImplementedInterface{
+                .pos =
+                    ASTNode::PosTriple{
+                        .line = tok_it->line,
+                        .column = tok_it->column,
+                        .length = static_cast<uint32_t>(interface_type.value()->to_string().size()),
+                    },
+                .interface = interface_type.value()->get_variation() == Type::Variation::INTERFACE //
+                    ? interface_type.value()->as<InterfaceType>()->interface_node                  //
+                    : nullptr,
+            };
+            tok_it++;
             if (tok_it->token != TOK_COMMA && tok_it->token != TOK_RIGHT_PAREN) {
                 THROW_ERR(                                                                                      //
                     ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                             //
@@ -789,104 +797,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return ObjectNode(file_hash, line, column, length, object_name, functions, parent_objects);
-}
-
-std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::create_link( //
-    const token_slice &tokens,                                                            //
-    const ObjectNode *object                                                              //
-) {
-    PROFILE_CUMULATIVE("Parser::create_link");
-
-    std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
-    ASSERT(arrow_range.has_value());
-    const token_slice src_tokens = {tokens.first, tokens.first + arrow_range.value().second - 1};
-    const token_slice dest_tokens = {src_tokens.second + 1, tokens.second};
-    auto src = create_function_reference(src_tokens);
-    if (!src.has_value()) {
-        return std::nullopt;
-    }
-    auto dest = create_function_reference(dest_tokens);
-    if (!dest.has_value()) {
-        return std::nullopt;
-    }
-
-    const FunctionNode *src_fn = src.value()->referenced_function;
-    const std::string &src_name = src_fn->name;
-    const auto src_dot_it = std::find(src_name.begin(), src_name.end(), '.');
-    if (src_dot_it == src_name.end()) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const size_t src_dot_idx = std::distance(src_name.begin(), src_dot_it);
-    const std::string src_type_name = src_name.substr(0, src_dot_idx);
-    const auto src_type = file_node_ptr->file_namespace->get_type_from_str(src_type_name).value();
-    if (src_type->get_variation() != Type::Variation::FUNC) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const FuncNode *src_func = src_type->as<FuncType>()->func_node;
-    if (std::find(object->func_modules.begin(), object->func_modules.end(), src_func) == object->func_modules.end()) {
-        // Referencing a function from a func module not present in this object
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const FunctionNode *dest_fn = dest.value()->referenced_function;
-    const std::string &dest_name = dest_fn->name;
-    const auto dest_dot_it = std::find(dest_name.begin(), dest_name.end(), '.');
-    if (dest_dot_it == dest_name.end()) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const size_t dest_dot_idx = std::distance(dest_name.begin(), dest_dot_it);
-    const std::string dest_type_name = dest_name.substr(0, dest_dot_idx);
-    const auto dest_type = file_node_ptr->file_namespace->get_type_from_str(dest_type_name).value();
-    size_t dest_start_id = 0;
-    switch (dest_type->get_variation()) {
-        default:
-            // It is not allowed link to functions not coming from func modules or the object type itself
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        case Type::Variation::FUNC: {
-            const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
-            if (std::find(object->func_modules.begin(), object->func_modules.end(), dest_func) == object->func_modules.end()) {
-                // Referencing a function from a func module not present in this object
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            dest_start_id = dest_func->required_data.size();
-            break;
-        }
-        case Type::Variation::OBJECT: {
-            const ObjectNode *object_node = dest_type->as<ObjectType>()->object_node;
-            if (object_node != object) {
-                // The target function of the link is not allowed to come from a different object than ourselve
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            dest_start_id = 1;
-            break;
-        }
-    }
-    const std::string src_fn_name = src_name.substr(src_dot_idx + 1);
-    const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
-    if (src_fn_name != dest_fn_name) {
-        // It is not allowed to link two functions with different names
-        THROW_ERR(ErrDefObjectLinkNameMismatch, ERR_PARSING, file_hash, tokens);
-        return std::nullopt;
-    }
-
-    // Check if the source function and dest function signatures match
-    const std::string src_fn_sig = src_fn->get_signature_string(src_func->required_data.size(), false, true, false, true, true);
-    const std::string dest_fn_sig = dest_fn->get_signature_string(dest_start_id, false, true, false, true, true);
-    if (src_fn_sig != dest_fn_sig) {
-        THROW_ERR(ErrDefObjectLinkSignatureMismatch, ERR_PARSING, file_hash, tokens, src_fn_sig, dest_fn_sig);
-        return std::nullopt;
-    }
-    return std::make_pair(src_fn, dest_fn);
+    return ObjectNode(file_hash, line, column, length, object_name, functions, interfaces);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {

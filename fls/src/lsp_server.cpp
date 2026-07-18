@@ -1648,6 +1648,20 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             }
             ss << ")\n\n";
 
+            for (auto it = node->interfaces.begin(); it != node->interfaces.end(); ++it) {
+                if (it == node->interfaces.begin()) {
+                    ss << "```\n";
+                    ss << "Interfaces:\n```\n";
+                }
+                const auto &[interface_name, impl] = *it;
+                ss << "\t" << interface_name << ":\n";
+                for (auto map_it = impl.mapping.begin(); map_it != impl.mapping.end(); ++map_it) {
+                    const auto &[from, to] = *map_it;
+                    ss << "\t\t" << from->get_signature_string(0, true, true, false, false, false);
+                    ss << " -> " << to->get_signature_string(0, true, true, false, false, false) << "\n";
+                }
+            }
+
             for (size_t i = 0; i < node->data_modules.size(); i++) {
                 if (i == 0) {
                     ss << "```\n";
@@ -1662,17 +1676,6 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                     ss << "Func modules:\n```\n";
                 }
                 ss << "\t" << node->func_modules.at(i)->name << "\n";
-            }
-
-            const auto &all_mappings = node->edg.get_all_mappings();
-            for (auto it = all_mappings.begin(); it != all_mappings.end(); ++it) {
-                if (it == all_mappings.begin()) {
-                    ss << "```\n";
-                    ss << "Links:\n```\n";
-                }
-                const auto &[from, to] = *it;
-                ss << "\t" << from->get_signature_string(0, true, true, false, false, false);
-                ss << " -> " << to->get_signature_string(0, true, true, false, false, false) << "\n";
             }
 
             for (size_t i = 0; i < node->functions.size(); i++) {

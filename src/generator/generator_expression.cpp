@@ -18,6 +18,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -2404,6 +2405,113 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             }
             return return_value;
         }
+        case Type::Variation::INTERFACE: {
+            auto result = generate_expression(builder, ctx, garbage, expr_depth, call_node->instance_variable.get(), true);
+            if (!result.has_value()) {
+                return std::nullopt;
+            }
+            ASSERT(result.value().size() == 1);
+            llvm::Value *const interface_instance = result.value().front();
+
+            // Prepare all the arguments we pass to the function
+            std::vector<llvm::Value *> args;
+            std::vector<std::pair<std::shared_ptr<Type>, bool>> parameters;
+            for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
+                parameters.emplace_back(param_type, param_is_mutable);
+            }
+            if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters)) {
+                return std::nullopt;
+            }
+
+            // Set up the frame by calling the dispatch function in setup-mode
+            llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
+            const InterfaceType *interface_type = call_node->instance_variable->type->as<InterfaceType>();
+            llvm::StructType *const interface_ty = type_map.at(interface_type->get_type_string());
+            llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
+            llvm::Value *const object_ptr_ptr = builder.CreateStructGEP(interface_ty, interface_instance, 0, "object_ptr_ptr");
+            llvm::Value *const object_ptr = IR::aligned_load(builder, PTR_TY, object_ptr_ptr, "object_ptr");
+            llvm::Value *const dispatch_fn_ptr = builder.CreateStructGEP(interface_ty, interface_instance, 1, "dispatch_fn_ptr");
+            llvm::Value *const dispatch_fn_raw = IR::aligned_load(builder, PTR_TY, dispatch_fn_ptr, "dispatch_fn");
+            llvm::FunctionType *const dispatch_fn_ty = llvm::FunctionType::get(            //
+                PTR_TY, {PTR_TY, PTR_TY, builder.getInt64Ty(), builder.getInt1Ty()}, false //
+            );
+            llvm::FunctionCallee dispatch_fn(dispatch_fn_ty, dispatch_fn_raw);
+            llvm::CallInst *const setup_call = builder.CreateCall(                                     //
+                dispatch_fn, {next_stack_frame, object_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
+            );
+#ifndef __WIN32__
+            setup_call->addParamAttr(0, llvm::Attribute::InReg);
+            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                // Add the 'tailcc' to every user-defined call
+                setup_call->setCallingConv(llvm::CallingConv::Tail);
+                setup_call->setTailCall();
+            }
+#endif
+
+            // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
+            llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+            llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+            llvm::Value *const ts_ptr_ptr = builder.CreateStructGEP(                              //
+                ts_fn_ty, next_stack_frame, Module::ThreadStack::FUNCTION::THREAD_STACK, "ts_ptr" //
+            );
+            IR::aligned_store(builder, ts_ptr, ts_ptr_ptr);
+
+            // Call dispatch function in execute mode to actually call the targetted function
+            llvm::CallInst *call = builder.CreateCall(                         //
+                dispatch_fn,                                                   //
+                {next_stack_frame, object_ptr, fn_id, builder.getInt1(false)}, //
+                interface_type->interface_node->name + "_dispatch__call"       //
+            );
+            call->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Call of dispatch function '" + call_node->function->name + "'")));
+#ifndef __WIN32__
+            call->addParamAttr(0, llvm::Attribute::InReg);
+            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                // Add the 'tailcc' to every user-defined call
+                call->setCallingConv(llvm::CallingConv::Tail);
+                call->setTailCall();
+            }
+#endif
+            llvm::Value *const call_is_err = builder.CreateICmpNE(call, llvm::ConstantPointerNull::get(PTR_TY), "call_is_err");
+            last_err_values = {call_is_err, next_stack_frame};
+
+            // Do all the common call cleanup on the arguments of the call
+            if (!generate_call_arg_cleanup(                                                                         //
+                    builder, ctx, args, garbage, std::nullopt, next_stack_frame, call_node->function->return_types, //
+                    call_node->arguments, parameters, call_node->function->name)                                    //
+            ) {
+                return std::nullopt;
+            }
+
+            // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
+            if (!call_node->has_catch) {
+                generate_rethrow(builder, ctx, call_node, call_node->function->name);
+            }
+
+            // Extract all the return values from the call
+            std::vector<llvm::Value *> return_value;
+            llvm::Value *ret_ptr = nullptr;
+            for (unsigned int i = 0; i < call_node->function->return_types.size(); i++) {
+                if (i == 0) {
+                    ret_ptr = builder.CreateGEP(type_map.at("type.ts.function"), next_stack_frame, builder.getInt32(1), "ret_ptr_0");
+                }
+                const std::shared_ptr<Type> &ret_type = call_node->function->return_types.at(i);
+                const auto ret_pair = IR::get_type(ctx.parent->getParent(), ret_type);
+                llvm::Type *const ret_ty = ret_pair.second.first ? PTR_TY : ret_pair.first;
+                if (is_reference) {
+                    return_value.emplace_back(ret_ptr);
+                } else {
+                    llvm::LoadInst *ret_value = IR::aligned_load(builder,                                                         //
+                        ret_ty,                                                                                                   //
+                        ret_ptr,                                                                                                  //
+                        call_node->function->name + "_" + std::to_string(call_node->call_id) + "_" + std::to_string(i) + "_value" //
+                    );
+                    return_value.emplace_back(ret_value);
+                }
+                ret_ptr = builder.CreateGEP(ret_ty, setup_call, builder.getInt32(1), "ret_ptr_" + std::to_string(i + 1));
+            }
+            return return_value;
+        }
         case Type::Variation::OBJECT:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), is_reference);
     }
@@ -4255,6 +4363,21 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         func_value = builder.CreateInsertValue(func_value, object_dispatch_fn, 1);
         func_value = builder.CreateInsertValue(func_value, object_dima_head, 2, cast_name);
         return func_value;
+    } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::INTERFACE) {
+        // We "cast" an object to an interface by storing the pointer to the object alongside the pointer to the dispatch function and the
+        // ID of the object in a new structure.
+        const ObjectType *object_type = from_type->as<ObjectType>();
+        llvm::Value *interface_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+        const std::string &cast_name = object_type->to_string() + "_to_" + to_type->to_string();
+        llvm::Function *const object_dispatch_fn = object_dispatch_functions.at(object_type->get_id());
+        const std::string head_key = object_type->object_node->file_hash.to_string() + "." + object_type->object_node->name;
+        llvm::Value *const object_dima_head = Module::DIMA::dima_heads.at(head_key);
+        llvm::Function *const dima_retain_fn = Module::DIMA::dima_functions.at("retain");
+        builder.CreateCall(dima_retain_fn, {expr});
+        interface_value = builder.CreateInsertValue(interface_value, expr, 0);
+        interface_value = builder.CreateInsertValue(interface_value, object_dispatch_fn, 1);
+        interface_value = builder.CreateInsertValue(interface_value, object_dima_head, 2, cast_name);
+        return interface_value;
     } else if (from_type->get_variation() == Type::Variation::ARRAY && to_type->get_variation() == Type::Variation::ARRAY) {
         [[maybe_unused]] const ArrayType *from_array = from_type->as<ArrayType>();
         [[maybe_unused]] const ArrayType *to_array = to_type->as<ArrayType>();

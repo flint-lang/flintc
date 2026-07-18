@@ -4,9 +4,7 @@
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/interface_node.hpp"
-#include "parser/object_dispatch_graph.hpp"
 
-#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,26 +13,34 @@
 /// @brief Represents objects and their func / data relationships
 class ObjectNode : public DefinitionNode {
   public:
-    struct ParentObject {
-        std::shared_ptr<Type> type;
-        std::string accessor_name;
-        size_t line;
-        size_t column;
+    struct ImplementedInterface {
+        /// @var `pos`
+        /// @brief The source location of the implemented interface within the implements clausel
+        PosTriple pos;
+
+        /// @var `interface`
+        /// @brief The interface which was implemented
+        InterfaceNode *interface;
+
+        /// @var `mapping`
+        /// @brief The mapping of this interface, where the "key" is the virtual interface function and the "value" is the function it got
+        /// linked to in the object
+        std::unordered_map<FunctionNode *, FunctionNode *> mapping = {};
     };
 
-    explicit ObjectNode(                                //
-        const Hash &file_hash,                          //
-        const unsigned int line,                        //
-        const unsigned int column,                      //
-        const unsigned int length,                      //
-        const std::string &name,                        //
-        const std::vector<FunctionNode *> &functions,   //
-        const std::vector<ParentObject> &parent_objects //
+    explicit ObjectNode(                                                 //
+        const Hash &file_hash,                                           //
+        const unsigned int line,                                         //
+        const unsigned int column,                                       //
+        const unsigned int length,                                       //
+        const std::string &name,                                         //
+        const std::vector<FunctionNode *> &functions,                    //
+        std::unordered_map<std::string, ImplementedInterface> interfaces //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
         functions(functions),
-        parent_objects(parent_objects) {}
+        interfaces(interfaces) {}
 
     Variation get_variation() const override {
         return Variation::OBJECT;
@@ -62,23 +68,15 @@ class ObjectNode : public DefinitionNode {
     /// @brief The list of func modules used inside the object
     std::vector<FuncNode *> func_modules;
 
-    /// @var `interfaces`
-    /// @brief The list of interfaces implemented by the object
-    std::vector<InterfaceNode *> interfaces;
-
     /// @var `functions`
     /// @brief A list of all functions defined as free-floating functions within this object definition
     std::vector<FunctionNode *> functions;
 
-    /// @var `parent_objects`
-    /// @brief The parent objects, whose data and func modules and link modules will be used.
-    std::vector<ParentObject> parent_objects;
+    /// @var `interfaces`
+    /// @brief The list of interfaces implemented by the object (The key is the interface name)
+    std::unordered_map<std::string, ImplementedInterface> interfaces;
 
     /// @var `constructor_order`
     /// @brief The order of the data modules in which they have to be constructed
     std::vector<size_t> constructor_order;
-
-    /// @var `edg`
-    /// @brief The object dispatch graph is a simple graph of function IDs built through all link directives of this object / it's parents
-    ObjectDispatchGraph edg;
 };

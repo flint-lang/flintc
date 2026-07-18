@@ -11,6 +11,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
@@ -800,17 +801,11 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 return std::nullopt;
             case Type::Variation::OBJECT: {
                 const ObjectNode *object_node = var_type->as<ObjectType>()->object_node;
-                const auto edg_mappings = object_node->edg.get_all_mappings();
                 for (const auto &func_module : object_node->func_modules) {
                     for (const auto &function : func_module->functions) {
                         // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
                         const std::string fn_name = function->name.substr(func_module->name.size() + 1);
                         if (fn_name != function_name) {
-                            continue;
-                        }
-                        if (edg_mappings.find(function) != edg_mappings.end()) {
-                            // This function is linked to a different function, so it "does not exist" when doing a direct instance call,
-                            // only the mapped-to function is available to be called
                             continue;
                         }
                         const size_t implicit_param_count = func_module->required_data.size();
@@ -852,6 +847,22 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     functions.emplace_back(function, implicit_param_count);
                     func_nodes.emplace(func_node);
+                }
+                break;
+            }
+            case Type::Variation::INTERFACE: {
+                const InterfaceNode *interface_node = var_type->as<InterfaceType>()->interface_node;
+                for (const auto &function : interface_node->functions) {
+                    // Remove the 'InterfaceType.' from the function's name to get the "actual" name of the function
+                    const std::string fn_name = function->name.substr(interface_node->name.size() + 1);
+                    if (fn_name != function_name) {
+                        continue;
+                    }
+                    if (function->parameters.size() != argument_types.size()) {
+                        // Wrong arg count
+                        continue;
+                    }
+                    functions.emplace_back(function, 0);
                 }
                 break;
             }
@@ -1052,6 +1063,8 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 }
                 break;
             }
+            case Type::Variation::INTERFACE:
+                break;
         }
     }
     // Check if the argument count does match the parameter count

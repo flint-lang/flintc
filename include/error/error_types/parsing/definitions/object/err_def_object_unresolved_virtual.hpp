@@ -20,15 +20,14 @@ class ErrDefObjectUnresolvedVirtual : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Virtual function '" << YELLOW << virt_fn->name << DEFAULT
-            << "' not linked to concrete function";
+        oss << BaseError::to_string() << "└─ Virtual function '" << YELLOW << virt_fn->name << DEFAULT << "' not implemented in object";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Virtual function '" + virt_fn->name + "' not linked to concrete function";
+        d.message = "Virtual function '" + virt_fn->name + "' unresolved";
         return d;
     }
 

@@ -171,8 +171,7 @@ static const std::unordered_map<std::string_view, Token> keywords = {
     {"requires", TOK_REQUIRES},
     // object keywords
     {"object", TOK_OBJECT},
-    {"extends", TOK_EXTENDS},
-    {"link", TOK_LINK},
+    {"implements", TOK_IMPLEMENTS},
     // threading keywords
     {"spawn", TOK_SPAWN},
     {"sync", TOK_SYNC},
@@ -235,8 +234,7 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     {TOK_REQUIRES, "requires"},
     // object keywords
     {TOK_OBJECT, "object"},
-    {TOK_EXTENDS, "extends"},
-    {TOK_LINK, "link"},
+    {TOK_IMPLEMENTS, "implements"},
     // threading keywords
     {TOK_SPAWN, "spawn"},
     {TOK_SYNC, "sync"},

@@ -12,11 +12,14 @@ func Func requires(Data d):
 	def print():
 		print($"d.(x, y) = {d.(x, y)}\n");
 
-object Object:
-	data: Data;
+object Object implements(Interface):
+	data: Data d;
 	func: Func;
-	Object(Data);
+	Object(d);
 
 def main():
 	o := Object(Data(10, 20));
 	o.print();
+
+	Interface i = o;
+	i.print();

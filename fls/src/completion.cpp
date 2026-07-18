@@ -18,7 +18,7 @@ void LspServer::add_nodes_from_namespace_to_completions( //
                 break;
             }
             case DefinitionNode::Variation::OBJECT:
-                // Entities are not supported yet
+                // Objects are not supported yet
                 break;
             case DefinitionNode::Variation::ENUM: {
                 const auto *node = definition->as<EnumNode>();

@@ -1995,16 +1995,6 @@ class Parser {
     /// @return `std::optional<ObjectNode>` The created object, or nullopt if it's creation failed
     std::optional<ObjectNode> create_object(const token_slice &definition, const std::vector<Line> &body);
 
-    /// @function `create_link`
-    /// @brief Creates a LinkNode from the given list of tokens
-    ///
-    /// @param `tokens` The list of tokens representing the link
-    /// @param `object` The object in which the link is defined. Needed to check whether the given functions do exit within that object at
-    /// all
-    /// @return `std::optional<std::pair<const FunctionNode *, const FunctionNode *>>` The mapping of the source function to the dest
-    /// function, nullopt if the link is faulty
-    std::optional<std::pair<const FunctionNode *, const FunctionNode *>> create_link(const token_slice &tokens, const ObjectNode *object);
-
     /// @function `create_enum`
     /// @brief Creates an EnumNode from the given definition and body tokens
     ///

@@ -183,6 +183,10 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
     );
 
     for (const ObjectNode *object : Parser::get_all_objects()) {
+        if (object->interfaces.empty()) {
+            // Only objects implementing any interfaces need a dispatch function
+            continue;
+        }
         const std::string dispatch_fn_name = object->file_hash.to_string() + "." + object->name + ".dispatch";
         llvm::Function *const dispatch_fn = llvm::Function::Create(                     //
             dispatch_fn_type, llvm::Function::ExternalLinkage, dispatch_fn_name, module //
@@ -224,11 +228,6 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         std::unordered_map<const FunctionNode *, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
         for (const FuncNode *func : object->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
-                const FunctionNode *dest_fn = object->edg.get_mapped_fn(function_node).value();
-                if (function_node != dest_fn) {
-                    // Function linked to other function, do not generate branch for it
-                    continue;
-                }
                 std::string branch_name = "_case_" + function_node->name;
                 for (size_t i = func->required_data.size(); i < function_node->parameters.size(); i++) {
                     if (i == func->required_data.size()) {
@@ -254,16 +253,25 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
             branches[function_node] = {setup_block, execute_block};
         }
 
+        // Let all interface functions branch to their respective destination blocks
+        for (const auto &[interface_name, impl] : object->interfaces) {
+            for (const auto &[src, dest] : impl.mapping) {
+                std::string branch_name = "_case_" + dest->name;
+                for (size_t i = 1; i < dest->parameters.size(); i++) {
+                    if (i == 1) {
+                        branch_name += "_";
+                    }
+                    branch_name += "_" + std::get<0>(dest->parameters.at(i))->to_string();
+                }
+                setup_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).first);
+                execute_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).second);
+            }
+        }
+
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
         for (const FuncNode *func : object->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(function_node) == branches.end()) {
-                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const FunctionNode *target_fn = object->edg.get_mapped_fn(function_node).value();
-                    setup_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).first);
-                    continue;
-                }
                 setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
                 builder.SetInsertPoint(branches.at(function_node).first);
 
@@ -300,12 +308,6 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         for (const FuncNode *func : object->func_modules) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(function_node) == branches.end()) {
-                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const FunctionNode *target_fn = object->edg.get_mapped_fn(function_node).value();
-                    execute_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).second);
-                    continue;
-                }
                 execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
                 builder.SetInsertPoint(branches.at(function_node).second);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;

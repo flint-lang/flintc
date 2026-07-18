@@ -10,6 +10,7 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
@@ -349,18 +350,37 @@ Parser::CastDirection Parser::check_primitive_castability( //
 
     // Check if one side is an object and the other side is a func module and if the func module is contained within the object type
     if (lhs_type->get_variation() == Type::Variation::OBJECT && rhs_type->get_variation() == Type::Variation::FUNC) {
-        ObjectNode *lhs_ent = lhs_type->as<ObjectType>()->object_node;
+        ObjectNode *lhs_obj = lhs_type->as<ObjectType>()->object_node;
         FuncNode *rhs_func = rhs_type->as<FuncType>()->func_node;
-        for (const auto &func_module_ptr : lhs_ent->func_modules) {
+        for (const auto &func_module_ptr : lhs_obj->func_modules) {
             if (rhs_func == func_module_ptr) {
                 return CastDirection::lhs_to_rhs();
             }
         }
     } else if (lhs_type->get_variation() == Type::Variation::FUNC && rhs_type->get_variation() == Type::Variation::OBJECT) {
         FuncNode *lhs_func = lhs_type->as<FuncType>()->func_node;
-        ObjectNode *rhs_ent = rhs_type->as<ObjectType>()->object_node;
-        for (const auto &func_module_ptr : rhs_ent->func_modules) {
+        ObjectNode *rhs_obj = rhs_type->as<ObjectType>()->object_node;
+        for (const auto &func_module_ptr : rhs_obj->func_modules) {
             if (lhs_func == func_module_ptr) {
+                return CastDirection::rhs_to_lhs();
+            }
+        }
+    }
+
+    // Check if one side is an object and the other side is an interface and if the interface is contained within the object type
+    if (lhs_type->get_variation() == Type::Variation::OBJECT && rhs_type->get_variation() == Type::Variation::INTERFACE) {
+        ObjectNode *lhs_obj = lhs_type->as<ObjectType>()->object_node;
+        InterfaceNode *rhs_interface = rhs_type->as<InterfaceType>()->interface_node;
+        for (const auto &[interface_name, impl] : lhs_obj->interfaces) {
+            if (rhs_interface == impl.interface) {
+                return CastDirection::lhs_to_rhs();
+            }
+        }
+    } else if (lhs_type->get_variation() == Type::Variation::INTERFACE && rhs_type->get_variation() == Type::Variation::OBJECT) {
+        InterfaceNode *lhs_interface = lhs_type->as<InterfaceType>()->interface_node;
+        ObjectNode *rhs_obj = rhs_type->as<ObjectType>()->object_node;
+        for (const auto &[interface_name, impl] : rhs_obj->interfaces) {
+            if (lhs_interface == impl.interface) {
                 return CastDirection::rhs_to_lhs();
             }
         }
@@ -1197,33 +1217,18 @@ bool Parser::resolve_all_unknown_types() {
                     break;
                 case DefinitionNode::Variation::OBJECT: {
                     auto *object = definition->as<ObjectNode>();
-                    for (auto &parent_object : object->parent_objects) {
-                        switch (parent_object.type->get_variation()) {
-                            case Type::Variation::OBJECT:
-                                // All ok
-                                break;
-                            case Type::Variation::UNKNOWN: {
-                                const UnknownType *unknown_type = parent_object.type->as<UnknownType>();
-                                auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
-                                if (!type.has_value()) {
-                                    THROW_ERR(                                                                  //
-                                        ErrDefObjectExtendedTypeUnknown, ERR_PARSING, parser.file_hash,         //
-                                        parent_object.line, parent_object.column, unknown_type->type_str.size() //
-                                    );
-                                    return false;
-                                }
-                                if (type.value()->get_variation() == Type::Variation::OBJECT) {
-                                    parent_object.type = type.value();
-                                    break;
-                                }
-                                [[fallthrough]];
-                            }
-                            default:
-                                THROW_ERR(                                                                           //
-                                    ErrDefObjectExtendedTypeNotObject, ERR_PARSING, parser.file_hash,                //
-                                    parent_object.line, parent_object.column, parent_object.type->to_string().size() //
-                                );
-                                return false;
+                    for (auto &[interface_name, impl] : object->interfaces) {
+                        if (impl.interface != nullptr) {
+                            continue;
+                        }
+                        const std::optional<std::shared_ptr<Type>> interface_type = file_namespace->get_type_from_str(interface_name);
+                        if (!interface_type.has_value()) {
+                            THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, impl.pos);
+                            return false;
+                        }
+                        if (interface_type.value()->get_variation() != Type::Variation::INTERFACE) {
+                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, impl.pos);
+                            return false;
                         }
                     }
                     break;
@@ -1650,43 +1655,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
     PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
     auto &data_modules = object->data_modules;
     auto &func_modules = object->func_modules;
-    auto &parent_objects = object->parent_objects;
-
-    // Add all data modules, func modules, links and the CTDT of all parent objects to the data modules list in the order defined in
-    // the `extends` definition
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
-    for (const auto &parent_object : parent_objects) {
-        const ObjectNode *parent_object_node = parent_object.type->as<ObjectType>()->object_node;
-        for (auto &[data_node, accessor] : parent_object_node->data_modules) {
-            if (std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor)) == data_modules.end()) {
-                // Accessors of parents are not moved to the child, if the parent is `e` and you want to access data `d` of it you need
-                // to write `e.d` and are not able to write `d` directly.
-                data_modules.emplace_back(data_node, std::nullopt);
-            }
-        }
-        for (FuncNode *func_node : parent_object_node->func_modules) {
-            if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
-                func_modules.emplace_back(func_node);
-            }
-            for (FunctionNode *function : func_node->functions) {
-                object->edg.add_fn(function);
-            }
-        }
-        for (const auto &[src_id, dest_id] : parent_object_node->edg.get_all_mappings()) {
-            if (object->edg.add_mapping(src_id, dest_id)) {
-                return false;
-            }
-        }
-        if (captured_object_identifiers.find(parent_object.accessor_name) != captured_object_identifiers.end()) {
-            const size_t type_len = parent_object.type->to_string().size() + 1;
-            THROW_ERR(                                                                           //
-                ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash,                    //
-                parent_object.line, parent_object.column + type_len, parent_object.accessor_name //
-            );
-            return false;
-        }
-        captured_object_identifiers[parent_object.accessor_name] = parent_object.type;
-    }
 
     // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
     // define all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
@@ -1704,98 +1673,89 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
     }
     tok_it++;
     bool semicolon_found = false;
-    if (tok_it->token == TOK_COLON) {
-        // This object provides some data
-        tok_it++;
-        while (line_it != body.end()) {
-            while (tok_it != line_it->tokens.second) {
-                switch (tok_it->token) {
-                    default:
-                        THROW_ERR(                                                                                              //
-                            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
-                            tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
+    if (tok_it->token != TOK_COLON) {
+        THROW_ERR(                                                                     //
+            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
+            tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
+        );
+        return false;
+    }
+    tok_it++;
+    while (line_it != body.end()) {
+        while (tok_it != line_it->tokens.second) {
+            switch (tok_it->token) {
+                default:
+                    THROW_ERR(                                                                                              //
+                        ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
+                        tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
+                    );
+                    return false;
+                case TOK_COMMA:
+                    break;
+                case TOK_SEMICOLON:
+                    semicolon_found = true;
+                    break;
+                case TOK_IDENTIFIER: {
+                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                    if (!type.has_value()) {
+                        THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                        return false;
+                    }
+                    *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                    [[fallthrough]];
+                }
+                case TOK_TYPE: {
+                    if (tok_it->type->get_variation() != Type::Variation::DATA) {
+                        THROW_ERR(ErrDefObjectProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                        return false;
+                    }
+                    const auto &data_type = tok_it->type;
+                    DataNode *const data_node = data_type->as<DataType>()->data_node;
+                    for (const auto &pair : data_modules) {
+                        if (pair.first != data_node) {
+                            continue;
+                        }
+                        THROW_ERR(                                                    //
+                            ErrDefObjectDuplicateData, ERR_PARSING, parser.file_hash, //
+                            tok_it->line, tok_it->column, tok_it->type->to_string()   //
                         );
                         return false;
-                    case TOK_COMMA:
-                        break;
-                    case TOK_SEMICOLON:
-                        semicolon_found = true;
-                        break;
-                    case TOK_IDENTIFIER: {
-                        auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                        if (!type.has_value()) {
-                            THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                            return false;
-                        }
-                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                        [[fallthrough]];
                     }
-                    case TOK_TYPE: {
-                        if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                            THROW_ERR(ErrDefObjectProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                            return false;
-                        }
-                        const auto &data_type = tok_it->type;
-                        DataNode *const data_node = data_type->as<DataType>()->data_node;
-                        for (const auto &pair : data_modules) {
-                            if (pair.first != data_node) {
-                                continue;
-                            }
-                            THROW_ERR(                                                    //
-                                ErrDefObjectDuplicateData, ERR_PARSING, parser.file_hash, //
-                                tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                    if (std::next(tok_it)->token == TOK_IDENTIFIER) {
+                        // An accessor follows, we need to check whether that accessor is already taken
+                        const std::string accessor(std::next(tok_it)->lexme);
+                        if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
+                            tok_it++;
+                            THROW_ERR(                                                        //
+                                ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                                tok_it->line, tok_it->column, accessor                        //
                             );
                             return false;
                         }
-                        if (std::next(tok_it)->token == TOK_IDENTIFIER) {
-                            // An accessor follows, we need to check whether that accessor is already taken
-                            const std::string accessor(std::next(tok_it)->lexme);
-                            if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
-                                tok_it++;
-                                THROW_ERR(                                                        //
-                                    ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
-                                    tok_it->line, tok_it->column, accessor                        //
-                                );
-                                return false;
-                            }
-                            captured_object_identifiers[accessor] = data_type;
-                            data_modules.emplace_back(data_node, accessor);
-                            tok_it++;
-                        } else {
-                            // No data accessor, just the type
-                            data_modules.emplace_back(data_node, std::nullopt);
-                        }
-                        break;
+                        captured_object_identifiers[accessor] = data_type;
+                        data_modules.emplace_back(data_node, accessor);
+                        tok_it++;
+                    } else {
+                        // No data accessor, just the type
+                        data_modules.emplace_back(data_node, std::nullopt);
                     }
-                }
-                if (semicolon_found) {
                     break;
                 }
-                tok_it++;
             }
-            line_it++;
-            tok_it = line_it->tokens.first;
             if (semicolon_found) {
                 break;
             }
-        }
-    } else {
-        // This object does not provide any data on it's own. This is fine if it extends another object, otherwise this would be an
-        // error
-        if (tok_it->token != TOK_SEMICOLON) {
-            THROW_ERR(                                                                                    //
-                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                    //
-                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON, TOK_SEMICOLON}, tok_it->token //
-            );
-            return false;
-        }
-        // An object can only be extended when it contains data itself, which means if we have parents, we *definitely* have data too.
-        if (parent_objects.empty()) {
-            THROW_ERR(ErrDefObjectNoData, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
-            return false;
+            tok_it++;
         }
         line_it++;
         tok_it = line_it->tokens.first;
+        if (semicolon_found) {
+            break;
+        }
+    }
+    if (data_modules.empty()) {
+        THROW_ERR(ErrDefObjectNoData, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
+        return false;
     }
     if (line_it == body.end()) {
         THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
@@ -1871,8 +1831,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         return false;
     }
 
-    // Make sure that all required data from all func modules is present in the object, also make sure that every function of all func
-    // modules is present in the EDG
+    // Make sure that all required data from all func modules is present in the object
     for (const auto &func : func_modules) {
         for (const auto &required_data : func->required_data) {
             bool contains_required_data = false;
@@ -1889,69 +1848,6 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                     object->line, object->column, object->length, required_data_node->name, func->name //
                 );
                 return false;
-            }
-        }
-        for (const FunctionNode *function : func->functions) {
-            object->edg.add_fn(function);
-        }
-    }
-    // Make sure that all free-floating functions are present in the EDG
-    for (const auto &function : object->functions) {
-        object->edg.add_fn(function);
-    }
-
-    if (tok_it->token == TOK_LINK) {
-        tok_it++;
-        if (tok_it->token != TOK_COLON) {
-            THROW_ERR(                                                                     //
-                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
-                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
-            );
-            return false;
-        }
-        tok_it++;
-        if (tok_it->token == TOK_EOL) {
-            line_it++;
-            tok_it = line_it->tokens.first;
-        }
-        token_slice link_tokens = {tok_it, tok_it};
-        while (link_tokens.second->token != TOK_SEMICOLON) {
-            link_tokens.second++;
-        }
-        while (true) {
-            auto next_link_range = Matcher::get_next_match_range(link_tokens, Matcher::until_comma);
-            const bool is_last = !next_link_range.has_value();
-            token_slice next_link_tokens;
-            if (is_last) {
-                next_link_tokens = link_tokens;
-            } else {
-                next_link_tokens = {link_tokens.first, link_tokens.first + next_link_range.value().second - 1};
-            }
-            auto link_mapping = parser.create_link(next_link_tokens, object);
-            if (!link_mapping.has_value()) {
-                return false;
-            }
-            if (object->edg.add_mapping(link_mapping.value().first, link_mapping.value().second)) {
-                return false;
-            }
-            if (is_last) {
-                line_it++;
-                tok_it = line_it->tokens.first;
-                break;
-            }
-
-            link_tokens.first = next_link_tokens.second;
-            if (link_tokens.first->token != TOK_COMMA) {
-                THROW_ERR(                                                                                                      //
-                    ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                                      //
-                    link_tokens.first->line, link_tokens.first->column, std::vector<Token>{TOK_COMMA}, link_tokens.first->token //
-                );
-                return false;
-            }
-            link_tokens.first++;
-            if (link_tokens.first->token == TOK_EOL) {
-                line_it++;
-                link_tokens.first = line_it->tokens.first;
             }
         }
     }
@@ -1998,37 +1894,6 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             case TOK_IDENTIFIER: {
                 const std::string identifier(tok_it->lexme);
                 const auto identifier_token = tok_it;
-                if (!parent_objects.empty()) {
-                    // Search if the identifier is one of the parent objects' accessors
-                    bool parent_added = false;
-                    for (const auto &parent_object : parent_objects) {
-                        const ObjectNode *parent_object_node = parent_object.type->as<ObjectType>()->object_node;
-                        if (identifier == parent_object.accessor_name) {
-                            // For now we simply add the parent's data modules to the data constructor list and to the data modules of
-                            // this object. If any data module is defined duplicately afterwards (explicit, below) then an error will be
-                            // thrown. If duplicates arise from extended objects then it is simply skipped to the next token iteration
-                            // TODO: Update change the constructors of extended objects to be required to pass in an object at the
-                            // position of the extended object accessor. For now the simpler approach is chosen.
-                            for (const auto &[data_node, data_accessor] : parent_object_node->data_modules) {
-                                if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                                    // Duplicate data constructor from another parent object, skip it
-                                    continue;
-                                }
-                                constructed_data.emplace_back(data_node);
-                                auto idx = std::find(                                                                 //
-                                    data_modules.begin(), data_modules.end(), std::make_pair(data_node, std::nullopt) //
-                                );
-                                ASSERT(idx != data_modules.end());
-                                object->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
-                            }
-                            parent_added = true;
-                        }
-                    }
-                    if (parent_added) {
-                        tok_it++;
-                        break;
-                    }
-                }
                 // Check if this identifier comes from a data accessor
                 bool accessor_found = false;
                 for (const auto &[data_node, accessor] : data_modules) {
@@ -2109,39 +1974,41 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         }
     }
 
-    // Check if there are any duplications between functions defined as free-floating and defined in func-modules this enttiy includes.
-    // We need to account for the implicitely provided data of func-module functions and the single implicit parameter of the
-    // object-function here as well
-    for (const auto *free_floating_fn : object->functions) {
-        // Set the captured identifiers list of the function
-        free_floating_fn->scope.value()->captured_object_identifiers = captured_object_identifiers;
-        for (const auto &func : object->func_modules) {
-            for (const FunctionNode *function : func->functions) {
-                const std::string func_fn_name = function->name.substr(func->name.size() + 1);
-                const std::string object_fn_name = free_floating_fn->name.substr(object->name.size() + 1);
-                if (func_fn_name != object_fn_name) {
-                    continue;
-                }
-                const size_t func_fn_param_count = function->parameters.size() - func->required_data.size();
-                const size_t object_fn_param_count = free_floating_fn->parameters.size() - 1;
-                if (func_fn_param_count != object_fn_param_count) {
-                    continue;
-                }
-                bool all_match = true;
-                for (size_t i = 0; i < func_fn_param_count; i++) {
-                    const auto &p1 = function->parameters.at(i + func->required_data.size());
-                    const auto &p2 = free_floating_fn->parameters.at(i + 1);
-                    if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
-                        all_match = false;
-                        break;
+    // Check if there are any duplications between functions of included func modules and if there is a collision a free-floating function
+    // must be present, otherwise that would be an ambiguity error
+    for (const auto &left_func : object->func_modules) {
+        for (const auto &right_func : object->func_modules) {
+            if (left_func == right_func) {
+                continue;
+            }
+            for (const auto &left_fn : left_func->functions) {
+                for (const auto &right_fn : right_func->functions) {
+                    const std::string &left_sig = left_fn->get_signature_string(left_func->required_data.size());
+                    const std::string &right_sig = right_fn->get_signature_string(right_func->required_data.size());
+                    if (left_sig != right_sig) {
+                        continue;
                     }
-                }
-                if (all_match && object->edg.get_mapped_fn(function) != free_floating_fn) {
-                    THROW_ERR(ErrDefObjectFnRedefinition, ERR_PARSING, parser.file_hash, free_floating_fn, function);
-                    return false;
+                    // The signatures match, so there needs to exist a similar free-floating object function
+                    bool exists = false;
+                    for (const auto &free_fn : object->functions) {
+                        if (free_fn->get_signature_string(1) == left_sig) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        // There is a collision between two func-module functions but no free-floating object-level function exists to
+                        // "overwrite" them
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return false;
+                    }
                 }
             }
         }
+    }
+    // Set the captured identifiers list of the function
+    for (const auto *free_floating_fn : object->functions) {
+        free_floating_fn->scope.value()->captured_object_identifiers = captured_object_identifiers;
     }
 
     if (object->functions.empty() && object->func_modules.empty()) {
@@ -2151,17 +2018,41 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         return false;
     }
 
-    // An object containing unresolved virtual functions is a compilation error, all virtual functions need to be linked to concrete
-    // function implementations
-    const auto &mappings = object->edg.get_all_mappings();
-    for (const auto &[src, node] : object->edg.nodes) {
-        const FunctionNode *to = src;
-        if (mappings.find(to) != mappings.end()) {
-            to = mappings.at(to);
-        }
-        if (!to->scope.has_value()) {
-            // Virtual function as target of mapping, not allowed
-            THROW_ERR(ErrDefObjectUnresolvedVirtual, ERR_PARSING, parser.file_hash, object->line, object->column, object->length, to);
+    // Make sure that every virtual function of every implemented interface is resolved
+    for (auto &[interface_name, impl] : object->interfaces) {
+        ASSERT(impl.interface != nullptr);
+        ASSERT(impl.mapping.empty());
+        for (const auto &src : impl.interface->functions) {
+            bool added = false;
+            for (const auto &dest : object->functions) {
+                if (src->get_signature_string() == dest->get_signature_string(1)) {
+                    ASSERT(impl.mapping.find(src) == impl.mapping.end());
+                    impl.mapping[src] = dest;
+                    added = true;
+                    break;
+                }
+            }
+            if (added) {
+                continue;
+            }
+            for (const auto &func_module : object->func_modules) {
+                for (const auto &dest : func_module->functions) {
+                    if (src->get_signature_string() == dest->get_signature_string(func_module->required_data.size())) {
+                        ASSERT(impl.mapping.find(src) == impl.mapping.end());
+                        impl.mapping[src] = dest;
+                        added = true;
+                        break;
+                    }
+                }
+                if (added) {
+                    break;
+                }
+            }
+            if (added) {
+                continue;
+            }
+            // Unresolved virtual function from implemented interface
+            THROW_ERR(ErrDefObjectUnresolvedVirtual, ERR_PARSING, parser.file_hash, object->line, object->column, object->length, src);
             return false;
         }
     }
@@ -2170,148 +2061,43 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
 }
 
 bool Parser::parse_all_open_objects(const bool parse_parallel) {
-    PROFILE_THREADED_SCOPE("Parse Open Entities", parse_parallel);
+    PROFILE_THREADED_SCOPE("Parse Open Objects", parse_parallel);
 
-    // Parse all objects from tips to roots since dependant objects need internal information of the base objects
-    struct DepNode {
-        Parser *parser;
-        ObjectNode *object;
-        std::vector<Line> body;
-        std::vector<std::string> parents;
-        std::vector<std::string> children;
-        bool processed = false;
-    };
-    std::unordered_map<std::string, DepNode> nodes;
-
-    // Helper to create node placeholder if missing
-    auto get_or_create_node = [&nodes](const std::string &key) -> DepNode & {
-        if (nodes.find(key) == nodes.end()) {
-            auto res = nodes.emplace(key, DepNode());
-            return res.first->second;
-        }
-        return nodes.at(key);
-    };
-
-    // Collect all open objects from all parsers
-    for (auto &parser : instances) {
+    // Collect all open objects
+    Profiler::start_task("Collect all open objects");
+    std::vector<std::tuple<Parser &, ObjectNode *, std::vector<Line>>> open_objects;
+    for (auto &parser : Parser::instances) {
         while (auto next = parser.get_next_open_object()) {
             auto &[object, body] = next.value();
-            const std::string key = object->file_hash.to_string() + "." + object->name;
-            DepNode &node = get_or_create_node(key);
-            node.parser = &parser;
-            node.object = object;
-            node.body = std::move(body);
-            for (auto &parent : object->parent_objects) {
-                if (parent.type->get_variation() == Type::Variation::UNKNOWN) {
-                    const std::string &unknown_type_str = parent.type->as<UnknownType>()->type_str;
-                    parent.type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type_str).value();
-                }
-                const ObjectNode *parent_object = parent.type->as<ObjectType>()->object_node;
-                const std::string parent_key = parent_object->file_hash.to_string() + "." + parent_object->name;
-                node.parents.emplace_back(parent_key);
-                DepNode &parent_node = get_or_create_node(parent_key);
-                parent_node.children.emplace_back(key);
-            }
+            open_objects.emplace_back(parser, object, body);
         }
     }
-    // Get a list of all objects which do not have any parents, these are the tips of our object dependency trees
-    // We also check in this phase that every single node's object pointer has been set. If this is not the case something went wrong
-    std::vector<std::string> tip_keys;
-    for (const auto &[key, node] : nodes) {
-        ASSERT(node.object != nullptr);
-        if (node.parents.empty()) {
-            tip_keys.emplace_back(key);
-        }
-    }
+    Profiler::end_task("Collect all open objects");
 
-    // We now parse all objects at our tips and collect the next stage of tips which need to be parsed, all current tips can be processed
-    // in parallel as well
-    std::vector<std::string> next_tip_keys;
+    // Go through all open objects and refine their body lines before the loop
+    Profiler::start_task("Refine object body lines");
+    for (auto &[parser, object, body] : open_objects) {
+        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
+    }
+    Profiler::end_task("Refine object body lines");
+
     bool result = true;
     if (parse_parallel) {
-        while (!tip_keys.empty()) {
-            // Collapse types in object bodies upfront (single-threaded) to prevent
-            // concurrent collapse_types_in_slice calls which race via Line::delete_tokens
-            for (const auto &tip_key : tip_keys) {
-                auto &node = nodes.at(tip_key);
-                node.parser->collapse_types_in_lines(node.body, node.parser->file_node_ptr->tokens);
-            }
-            // Enqueue tasks in the global thread pool
-            std::vector<std::future<bool>> futures;
-            // Iterate through all current tip keys and enqueue the processing of them
-            for (const auto &tip_key : tip_keys) {
-                auto &node = nodes.at(tip_key);
-                // Enqueue a task for each node
-                futures.emplace_back(thread_pool.enqueue(parse_open_object, std::ref(*node.parser), node.object, node.body));
-                // We set the processed state in here for correctness of later code
-                node.processed = true;
-                // Collect all the keys for the next iteration. We only mark those objects whose parents have fully been parsed, if any
-                // parent is still missing we do not add the key
-                for (const auto &child_key : node.children) {
-                    auto &child_node = nodes.at(child_key);
-                    bool all_parents_processed = true;
-                    for (const auto &parent_key : child_node.parents) {
-                        auto &parent_node = nodes.at(parent_key);
-                        all_parents_processed &= parent_node.processed;
-                    }
-                    if (!all_parents_processed) {
-                        continue;
-                    }
-                    // If all parents have been processed then we add the child to the keys to parse next
-                    if (std::find(next_tip_keys.begin(), next_tip_keys.end(), child_key) == next_tip_keys.end()) {
-                        next_tip_keys.emplace_back(child_key);
-                    }
-                }
-            }
-            // Collect results from all objects
-            for (auto &future : futures) {
-                result = result && future.get(); // Combine results using logical AND
-            }
-            // Cancel if one of the objects failed since now other objects depend on them and potentially would fail too
-            if (!result) {
-                return result;
-            }
-            tip_keys = next_tip_keys;
-            next_tip_keys.clear();
+        // Enqueue tasks in the global thread pool
+        std::vector<std::future<bool>> futures;
+        // Iterate through all open objects
+        for (auto &[parser, object, body] : open_objects) {
+            // Enqueue a task for each function
+            futures.emplace_back(thread_pool.enqueue(parse_open_object, std::ref(parser), object, body));
+        }
+        // Collect results from all tasks
+        for (auto &future : futures) {
+            result = result && future.get(); // Combine results using logical AND
         }
     } else {
         // Process objects sequentially
-        while (!tip_keys.empty()) {
-            // Collapse types in object bodies upfront to keep code-pairity with the concurrent code path
-            for (const auto &tip_key : tip_keys) {
-                auto &node = nodes.at(tip_key);
-                node.parser->collapse_types_in_lines(node.body, node.parser->file_node_ptr->tokens);
-            }
-            // Iterate through all current tip keys and enqueue the processing of them
-            for (const auto &tip_key : tip_keys) {
-                auto &node = nodes.at(tip_key);
-                // Enqueue a task for each node
-                result = result && parse_open_object(*node.parser, node.object, node.body);
-                // We set the processed state in here for correctness of later code
-                node.processed = true;
-                // Collect all the keys for the next iteration
-                for (const auto &child_key : node.children) {
-                    auto &child_node = nodes.at(child_key);
-                    bool all_parents_processed = true;
-                    for (const auto &parent_key : child_node.parents) {
-                        auto &parent_node = nodes.at(parent_key);
-                        all_parents_processed &= parent_node.processed;
-                    }
-                    if (!all_parents_processed) {
-                        continue;
-                    }
-                    // If all parents have been processed then we add the child to the keys to parse next
-                    if (std::find(next_tip_keys.begin(), next_tip_keys.end(), child_key) == next_tip_keys.end()) {
-                        next_tip_keys.emplace_back(child_key);
-                    }
-                }
-            }
-            // Cancel if one of the objects failed since now other objects depend on them and potentially would fail too
-            if (!result) {
-                return result;
-            }
-            tip_keys = next_tip_keys;
-            next_tip_keys.clear();
+        for (auto &[parser, object, body] : open_objects) {
+            result = result && parse_open_object(parser, object, body);
         }
     }
     return result;

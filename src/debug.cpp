@@ -1570,19 +1570,21 @@ namespace Debug {
                     std::cout << data_type->name;
                 }
             }
-            std::cout << ")";
-            if (!object.parent_objects.empty()) {
-                std::cout << " extends(";
-                for (size_t i = 0; i < object.parent_objects.size(); i++) {
-                    if (i > 0) {
-                        std::cout << ", ";
-                    }
-                    const auto &pe = object.parent_objects.at(i);
-                    std::cout << pe.type->to_string() << " " << pe.accessor_name;
+            std::cout << ")\n";
+
+            if (!object.interfaces.empty()) {
+                TreeBits interface_bits = bits.child(indent_lvl + 1, false);
+                Local::print_header(indent_lvl + 1, interface_bits, "Implements ");
+                std::cout << "\n";
+                size_t i = 0;
+                for (const auto &[interface_name, impl] : object.interfaces) {
+                    TreeBits interface_module_bits = interface_bits.child(indent_lvl + 2, i + 1 == object.interfaces.size());
+                    Local::print_header(indent_lvl + 2, interface_module_bits, interface_name + " ");
+                    std::cout << "\n";
+                    i++;
                 }
-                std::cout << ")";
             }
-            std::cout << "\n";
+
             TreeBits data_bits = bits.child(indent_lvl + 1, false);
             Local::print_header(indent_lvl + 1, data_bits, "Data ");
             std::cout << "\n";
@@ -1596,33 +1598,13 @@ namespace Debug {
                 std::cout << "\n";
             }
 
-            const auto &edg_mappings = object.edg.get_all_mappings();
             if (!object.func_modules.empty()) {
-                TreeBits func_bits = bits.child(indent_lvl + 1, edg_mappings.empty());
+                TreeBits func_bits = bits.child(indent_lvl + 1, object.functions.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
                 for (size_t i = 0; i < object.func_modules.size(); i++) {
                     TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == object.func_modules.size());
                     Local::print_header(indent_lvl + 2, func_module_bits, object.func_modules.at(i)->name + " ");
-                    std::cout << "\n";
-                }
-            }
-
-            if (!edg_mappings.empty()) {
-                TreeBits link_bits = bits.child(indent_lvl + 1, object.functions.empty());
-                Local::print_header(indent_lvl + 1, link_bits, "Links ");
-                std::cout << "\n";
-                for (auto it = edg_mappings.begin(); it != edg_mappings.end(); it++) {
-                    const size_t i = std::distance(edg_mappings.begin(), it);
-                    TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == edg_mappings.size());
-                    Local::print_header(indent_lvl + 2, link_node_bits, "Link ");
-                    const auto src_name = it->first->name;
-                    const size_t src_start_idx = std::distance(src_name.begin(), std::find(src_name.begin(), src_name.end(), '.')) + 1;
-                    std::cout << it->first->name << "::" << src_name.substr(src_start_idx);
-                    std::cout << " -> ";
-                    const auto dest_name = it->second->name;
-                    const size_t dest_start_idx = std::distance(dest_name.begin(), std::find(dest_name.begin(), dest_name.end(), '.')) + 1;
-                    std::cout << it->second->name << "::" << dest_name.substr(dest_start_idx);
                     std::cout << "\n";
                 }
             }

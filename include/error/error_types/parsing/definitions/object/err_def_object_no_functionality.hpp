@@ -17,7 +17,7 @@ class ErrDefObjectNoFunctionality : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Object type does not contain any functionality\n";
-        oss << "└─ Entities must either provide functions themselves or use at least one func-module";
+        oss << "└─ Objects must either provide functions themselves or use at least one func-module";
         return oss.str();
     }
 

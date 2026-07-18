@@ -185,8 +185,7 @@ enum Token {
 
     // object keywords
     TOK_OBJECT,
-    TOK_EXTENDS,
-    TOK_LINK,
+    TOK_IMPLEMENTS,
 
     // threading keywords
     TOK_SPAWN,
