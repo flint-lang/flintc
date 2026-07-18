@@ -892,6 +892,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
         case Type::Variation::ENUM:
         case Type::Variation::ERROR_SET:
         case Type::Variation::FUNC:
+        case Type::Variation::INTERFACE:
         case Type::Variation::POINTER:
         case Type::Variation::RANGE:
             expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);

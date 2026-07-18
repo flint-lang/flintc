@@ -55,6 +55,7 @@ class DefinitionNode : public ASTNode {
         FUNC,
         FUNCTION,
         IMPORT,
+        INTERFACE,
         TEST,
         VARIANT,
     };

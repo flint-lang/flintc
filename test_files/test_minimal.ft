@@ -1,22 +1,22 @@
 use Core.print
 
-def init() -> i32:
-	return 5;
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
 
-def init2() -> i32:
-	return Globals.c * 2;
+interface Interface:
+	def print();
 
-shared data Globals:
-	i32 c = init();
-	i32 c2 = init2();
-	str s = "Hi, there";
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y) = {d.(x, y)}\n");
+
+object Object:
+	data: Data;
+	func: Func;
+	Object(Data);
 
 def main():
-	print($"Globals.c = {Globals.c}\n");
-	print($"Globals.c2 = {Globals.c2}\n");
-	for (i, _) in 0..10:
-		Globals.c++;
-	print($"Globals.c = {Globals.c}\n");
-	print($"Globals.s = {Globals.s}\n");
-	Globals.s = "Woof";
-	print($"Globals.s = {Globals.s}\n");
+	o := Object(Data(10, 20));
+	o.print();

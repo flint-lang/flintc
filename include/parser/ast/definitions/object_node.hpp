@@ -3,6 +3,7 @@
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
+#include "parser/ast/definitions/interface_node.hpp"
 #include "parser/object_dispatch_graph.hpp"
 
 #include <memory>
@@ -60,6 +61,10 @@ class ObjectNode : public DefinitionNode {
     /// @var `func_modules`
     /// @brief The list of func modules used inside the object
     std::vector<FuncNode *> func_modules;
+
+    /// @var `interfaces`
+    /// @brief The list of interfaces implemented by the object
+    std::vector<InterfaceNode *> interfaces;
 
     /// @var `functions`
     /// @brief A list of all functions defined as free-floating functions within this object definition

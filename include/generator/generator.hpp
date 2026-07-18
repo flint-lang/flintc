@@ -2609,6 +2609,14 @@ class Generator {
         /// @return `llvm::DIType *` The LLVM debug type of the fn type
         static llvm::DIType *create_debug_type_fn(llvm::Module *const module);
 
+        /// @function `create_debug_type_interface`
+        /// @brief Creates a DIType for a given interface type
+        ///
+        /// @param `module` The module in which to create the debug interface type in
+        /// @param `type` The interface type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the interface type
+        static llvm::DIType *create_debug_type_interface(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
         /// @function `create_debug_type_multi`
         /// @brief Creates a DIType for a given multi type
         ///

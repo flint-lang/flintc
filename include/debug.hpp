@@ -8,6 +8,7 @@
 #include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/import_node.hpp"
+#include "parser/ast/definitions/interface_node.hpp"
 #include "parser/ast/definitions/object_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
@@ -217,6 +218,7 @@ namespace Debug {
         void print_enum(unsigned int indent_lvl, TreeBits &bits, const EnumNode &enum_node);
         void print_error(unsigned int indent_lvl, TreeBits &bits, const ErrorNode &error);
         void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func);
+        void print_interface(unsigned int indent_lvl, TreeBits &bits, const InterfaceNode &interface);
         void print_function(unsigned int indent_lvl, TreeBits &bits, const FunctionNode &function);
         void print_import(unsigned int indent_lvl, TreeBits &bits, const ImportNode &import);
         void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant);

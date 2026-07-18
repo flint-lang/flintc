@@ -16,6 +16,7 @@
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
 #include "ast/definitions/import_node.hpp"
+#include "ast/definitions/interface_node.hpp"
 #include "ast/definitions/object_node.hpp"
 #include "ast/definitions/test_node.hpp"
 #include "ast/definitions/variant_node.hpp"
@@ -1972,8 +1973,18 @@ class Parser {
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
     std::optional<FuncNode> create_func(const token_slice &definition, const std::vector<Line> &body);
 
-    /// @function `create_object`
-    /// @brief Creates an ObjectNode from the given definition and body tokens
+    /// @function `create_interface`
+    /// @brief Creates an InterfaceNode from the given definition and body tokens
+    ///
+    /// @param `definition` The list of tokens representing the interface definition
+    /// @param `body` The list of tokens representing the interface body
+    /// @return `std::optional<InterfaceNode>` The created InterfaceNode or nullopt if creation failed
+    ///
+    /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
+    std::optional<InterfaceNode> create_interface(const token_slice &definition, const std::vector<Line> &body);
+
+    /// @function `create_entity`
+    /// @brief Creates an EntityNode from the given definition and body tokens
     ///
     /// @details An Object can either be monolithic or modular. If its modular, only the ObjectNode (result.first) will be returned.
     /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func modules

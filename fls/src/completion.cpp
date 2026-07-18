@@ -41,6 +41,9 @@ void LspServer::add_nodes_from_namespace_to_completions( //
                 completions.emplace_back(node->name, CompletionItemKind::Function, "The '" + node->name + "' function", node->name, false);
                 break;
             }
+            case DefinitionNode::Variation::INTERFACE:
+                // Interfaces are not supported yet
+                break;
             case DefinitionNode::Variation::IMPORT: {
                 const auto *node = definition->as<ImportNode>();
                 if (!is_root_file) {

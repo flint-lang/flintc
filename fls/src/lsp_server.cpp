@@ -5,6 +5,7 @@
 #include "lexer/lexer.hpp"
 #include "lsp_protocol.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/interface_type.hpp"
 #include "profiler.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -1486,6 +1487,16 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_def( //
             }
             break;
         }
+        case DefinitionNode::Variation::INTERFACE: {
+            const auto &node = def->as<InterfaceNode>();
+            for (const auto &fn : node->functions) {
+                const auto &pos = find_node_in_def(ns, fn, line, col);
+                if (pos.has_value()) {
+                    return pos;
+                }
+            }
+            break;
+        }
         case DefinitionNode::Variation::IMPORT: {
             const auto *node = def->as<ImportNode>();
             const auto &tok = get_token_at_pos(ns, line, col);
@@ -1728,6 +1739,23 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
         case Type::Variation::GROUP:
             ss << "**group**\n```\n" << type->to_string() << "\n```\n";
             break;
+        case Type::Variation::INTERFACE: {
+            const auto *interface_type = type->as<InterfaceType>();
+            const auto *node = interface_type->interface_node;
+            ss << "**interface** **`" << node->name << "`**\n```\n";
+
+            for (size_t i = 0; i < node->functions.size(); i++) {
+                if (i == 0) {
+                    ss << "```\n";
+                    ss << "Functions:\n```\n";
+                }
+                const auto &fn = node->functions.at(i);
+                ss << "\t" << fn->get_signature_string() << "\n";
+            }
+            ss << "```\n";
+            ss << "Defined at `" << node->file_hash.path.filename().string() << ":" << node->line << ":" << node->column << "`";
+            break;
+        }
         case Type::Variation::MULTI:
             ss << "**multi**\n```\n" << type->to_string() << "\n```\n";
             break;

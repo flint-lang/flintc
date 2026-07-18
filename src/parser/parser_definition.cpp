@@ -581,11 +581,9 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             break;
         }
         if (function_body_lines.empty()) {
-            // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
-            // anyways. This function now is a "virtual" function which needs to be linked, if an object contains any virtual function
-            // of any func module which is not linked to a different concrete function, an error will be thrown.
-            functions.emplace_back(added_function.value());
-            continue;
+            // All functions inside an func must have a body
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
         }
         add_open_function({added_function.value(), function_body_lines});
         functions.emplace_back(added_function.value());
@@ -601,6 +599,56 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         func_name,     //
         required_data, //
         functions      //
+    );
+}
+std::optional<InterfaceNode> Parser::create_interface(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_interface");
+    token_slice token_mut = definition;
+    ASSERT(token_mut.first->token == TOK_INTERFACE);
+    token_mut.first++;
+    ASSERT(token_mut.first->token == TOK_IDENTIFIER);
+    const std::string interface_name(token_mut.first->lexme);
+    token_mut.first++;
+
+    std::vector<FunctionNode *> functions;
+    std::vector<Line> body_mut = body;
+    while (!body_mut.empty()) {
+        const Line function_definition_line = body_mut.front();
+        body_mut.erase(body_mut.begin());
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, {});
+        if (!fn.has_value()) {
+            return std::nullopt;
+        }
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return std::nullopt;
+        }
+        std::vector<Line> function_body_lines;
+        for (auto it = body_mut.begin(); it != body_mut.end();) {
+            if (it->indent_lvl > function_definition_line.indent_lvl) {
+                function_body_lines.emplace_back(*it);
+                body_mut.erase(it);
+                continue;
+            }
+            break;
+        }
+        if (!function_body_lines.empty()) {
+            // All functions inside an interface must be virtual
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        functions.emplace_back(added_function.value());
+    }
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return InterfaceNode( //
+        file_hash,        //
+        line,             //
+        column,           //
+        length,           //
+        interface_name,   //
+        functions         //
     );
 }
 

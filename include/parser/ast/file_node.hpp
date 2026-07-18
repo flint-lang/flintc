@@ -8,6 +8,7 @@
 #include "definitions/func_node.hpp"
 #include "definitions/function_node.hpp"
 #include "definitions/import_node.hpp"
+#include "definitions/interface_node.hpp"
 #include "definitions/object_node.hpp"
 #include "definitions/test_node.hpp"
 #include "definitions/variant_node.hpp"
@@ -69,6 +70,14 @@ class FileNode : public ASTNode {
     /// @return `std::optional<FuncNode *>` A pointer to the added func node, because this function takes ownership of `func`, nullopt if
     /// adding the func type to this namespace failed
     std::optional<FuncNode *> add_func(FuncNode &func);
+
+    /// @function `add_interface`
+    /// @brief Adds an interface node to this file node
+    ///
+    /// @param `interface` The interface node to add
+    /// @return `std::optional<InterfaceNode *>` A pointer to the added interface node, because this function takes ownership of
+    /// `interface`, nullopt if adding the interface type to this namespace failed
+    std::optional<InterfaceNode *> add_interface(InterfaceNode &interface);
 
     /// @function `add_object`
     /// @brief Adds an object node to this file node

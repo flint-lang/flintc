@@ -41,6 +41,7 @@ class Type {
         FUNC,
         FN,
         GROUP,
+        INTERFACE,
         MULTI,
         OPAQUE,
         OPTIONAL,

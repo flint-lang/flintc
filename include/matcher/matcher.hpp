@@ -381,6 +381,7 @@ class Matcher {
         {TOK_SHARED, std::make_shared<TokenTypeMatcher>(TOK_SHARED)},
 
         // func keywords
+        {TOK_INTERFACE, std::make_shared<TokenTypeMatcher>(TOK_INTERFACE)},
         {TOK_FUNC, std::make_shared<TokenTypeMatcher>(TOK_FUNC)},
         {TOK_REQUIRES, std::make_shared<TokenTypeMatcher>(TOK_REQUIRES)},
 
@@ -643,7 +644,7 @@ class Matcher {
     static const inline PatternPtr keyword_variant = one_of({token(TOK_VARIANT), token(TOK_ENUM)});
     static const inline PatternPtr keyword_import = one_of({token(TOK_USE), token(TOK_AS)});
     static const inline PatternPtr keyword_data = one_of({token(TOK_DATA), token(TOK_SHARED)});
-    static const inline PatternPtr keyword_func = one_of({token(TOK_FUNC), token(TOK_REQUIRES)});
+    static const inline PatternPtr keyword_func = one_of({token(TOK_INTERFACE), token(TOK_FUNC), token(TOK_REQUIRES)});
     static const inline PatternPtr keyword_object = one_of({token(TOK_OBJECT), token(TOK_EXTENDS), token(TOK_LINK)});
     static const inline PatternPtr keyword_threading = one_of({token(TOK_SPAWN), token(TOK_SYNC), token(TOK_LOCK)});
     static const inline PatternPtr keyword_modifiers = one_of({token(TOK_CONST), token(TOK_MUT), token(TOK_PERSISTENT)});
@@ -789,6 +790,7 @@ class Matcher {
         token(TOK_FUNC), token(TOK_IDENTIFIER),                                                                                  //
         optional(sequence({token(TOK_REQUIRES), token(TOK_LEFT_PAREN), no_prim_args, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
+    static const inline PatternPtr interface_definition = sequence({token(TOK_INTERFACE), token(TOK_IDENTIFIER), token(TOK_COLON)});
     static const inline PatternPtr error_definition = sequence({
         token(TOK_ERROR), token(TOK_IDENTIFIER),                        //
         optional(sequence({token(TOK_LEFT_PAREN), until_right_paren})), //

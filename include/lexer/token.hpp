@@ -179,6 +179,7 @@ enum Token {
     TOK_SHARED,
 
     // func keywords
+    TOK_INTERFACE,
     TOK_FUNC,
     TOK_REQUIRES,
 

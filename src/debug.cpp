@@ -265,6 +265,11 @@ namespace Debug {
                         print_import(0, bits, *node);
                         break;
                     }
+                    case DefinitionNode::Variation::INTERFACE: {
+                        const auto *node = def->as<InterfaceNode>();
+                        print_interface(0, bits, *node);
+                        break;
+                    }
                     case DefinitionNode::Variation::TEST: {
                         const auto *node = def->as<TestNode>();
                         print_test(0, bits, *node);
@@ -1683,6 +1688,18 @@ namespace Debug {
             for (size_t i = 0; i < func.functions.size(); i++) {
                 const auto *function = func.functions.at(i);
                 TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == func.functions.size());
+                Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
+                std::cout << function->get_signature_string(0, false, true, true, false, false) << "\n";
+            }
+        }
+
+        void print_interface(unsigned int indent_lvl, TreeBits &bits, const InterfaceNode &interface) {
+            Local::print_header(indent_lvl, bits, "Interface ");
+            std::cout << interface.name;
+            std::cout << "\n";
+            for (size_t i = 0; i < interface.functions.size(); i++) {
+                const auto *function = interface.functions.at(i);
+                TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == interface.functions.size());
                 Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
                 std::cout << function->get_signature_string(0, false, true, true, false, false) << "\n";
             }

@@ -7,6 +7,7 @@
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
@@ -855,6 +856,22 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             if (type_map.find(type_str) == type_map.end()) {
                 type_map[type_str] = IR::create_struct_type(type_str, type_vector);
             }
+            return {type_map.at(type_str), {false, true}};
+        }
+        case Type::Variation::INTERFACE: {
+            const auto *interface_type = type->as<InterfaceType>();
+            // Check if the interface type already has been generated
+            const std::string type_str = interface_type->get_type_string();
+            if (type_map.find(type_str) != type_map.end()) {
+                return {type_map.at(type_str), {false, true}};
+            }
+            // Because an interface can only exist through an object being stored on it, an interface is a rather simple structure
+            // contianing of:
+            // - A pointer to the object assigned to the interface instance
+            // - A pointer to the object dispatch function to call
+            // - A pointer to the objects DIMA head
+            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, PTR_TY};
+            type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }
         case Type::Variation::MULTI: {

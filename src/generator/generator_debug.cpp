@@ -4,6 +4,7 @@
 #include "parser/type/alias_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -550,6 +551,120 @@ llvm::DIType *Generator::Debug::create_debug_type_fn(llvm::Module *const module)
     return callable_type;
 }
 
+llvm::DIType *Generator::Debug::create_debug_type_interface(llvm::Module *const module, const std::shared_ptr<Type> &type) {
+    const InterfaceNode *interface_node = type->as<InterfaceType>()->interface_node;
+    if (debug_files.find(interface_node->file_hash) == debug_files.end()) {
+        const auto &path = interface_node->file_hash.path;
+        if (!path.empty()) {
+            debug_files[interface_node->file_hash] = DIB->createFile(path.filename().string(), path.parent_path().string());
+        }
+    }
+    llvm::DIFile *const file_meta = debug_files.at(interface_node->file_hash);
+
+    std::vector<const ObjectNode *> objects = Parser::get_all_objects();
+    for (auto it = objects.begin(); it != objects.end();) {
+        const auto &interfaces = (*it)->interfaces;
+        if (std::find(interfaces.begin(), interfaces.end(), interface_node) == interfaces.end()) {
+            it = objects.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    struct ObjectInfo {
+        std::string name;
+        std::shared_ptr<Type> type_ptr;
+        uint32_t type_id;
+    };
+    std::vector<ObjectInfo> object_infos;
+    for (const ObjectNode *node : objects) {
+        const Namespace *ns = Resolver::get_namespace_from_hash(node->file_hash);
+        const std::shared_ptr<Type> object_type = ns->get_type_from_str(node->name).value();
+        object_infos.push_back({node->name, object_type, object_type->get_id()});
+    }
+
+    const std::string llvm_type_str = type->get_type_string();
+    ASSERT(type_map.find(llvm_type_str) != type_map.end());
+    llvm::StructType *const llvm_struct = type_map.at(llvm_type_str);
+    const uint64_t struct_size_bits = Allocation::get_type_size(module, llvm_struct) * 8;
+    const uint32_t struct_align_bits = Allocation::calculate_type_alignment(llvm_struct) * 8;
+
+    llvm::Type *const ptr_llvm = PTR_TY;
+    const uint64_t ptr_size_bits = Allocation::get_type_size(module, ptr_llvm) * 8;
+    const uint32_t ptr_align_bits = Allocation::calculate_type_alignment(ptr_llvm) * 8;
+
+    llvm::Type *const i32_llvm = llvm::Type::getInt32Ty(context);
+    const uint64_t i32_size_bits = Allocation::get_type_size(module, i32_llvm) * 8;
+    const uint32_t i32_align_bits = Allocation::calculate_type_alignment(i32_llvm) * 8;
+
+    llvm::DIType *const u32_type = DIB->createBasicType("u32", 32, llvm::dwarf::DW_ATE_unsigned);
+
+    std::vector<llvm::Metadata *> enumerators;
+    for (const ObjectInfo &info : object_infos) {
+        enumerators.push_back(DIB->createEnumerator(info.name, static_cast<int64_t>(info.type_id)));
+    }
+    const llvm::DINodeArray enum_elements = DIB->getOrCreateArray(enumerators);
+    llvm::DIType *const object_enum = DIB->createEnumerationType(                                          //
+        file_meta, interface_node->name + ".object_types", file_meta, interface_node->line, i32_size_bits, //
+        i32_align_bits, enum_elements, u32_type, 0, type->get_type_string() + ".object_types"              //
+    );
+
+    llvm::DICompositeType *const dima_type = DIB->createStructType(                                                                     //
+        file_meta, interface_node->name + ".dima_head", file_meta, interface_node->line, ptr_size_bits + i32_size_bits, ptr_align_bits, //
+        llvm::DINode::FlagZero, nullptr,                                                                                                //
+        DIB->getOrCreateArray({DIB->createMemberType(                                                                                   //
+            file_meta, "type", file_meta, interface_node->line, i32_size_bits, i32_align_bits, ptr_size_bits, llvm::DINode::FlagZero,   //
+            object_enum)}),                                                                                                             //
+        0, nullptr, type->get_type_string() + ".dima_head"                                                                              //
+    );
+    // The interface struct stores &global_var in its dima_head field (offset 16).
+    // The global var *contains* the actual dima_head address (e.g. after init_heads).
+    // To reach type_id = *(*(interface+16) + 8), we chain two references:
+    //   outer ref → wrapper struct at &global_var → inner ref → dima type at dima_head_addr
+    llvm::DIDerivedType *const inner_ref = DIB->createReferenceType(                 //
+        llvm::dwarf::DW_TAG_reference_type, dima_type, ptr_size_bits, ptr_align_bits //
+    );
+    llvm::DICompositeType *const wrapper_type = DIB->createStructType(                                                               //
+        file_meta, interface_node->name + ".dima_wrapper", file_meta, interface_node->line, ptr_size_bits, ptr_align_bits,           //
+        llvm::DINode::FlagZero, nullptr,                                                                                             //
+        DIB->getOrCreateArray({DIB->createMemberType(                                                                                //
+            file_meta, "ptr", file_meta, interface_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, inner_ref)} //
+            ),                                                                                                                       //
+        0, nullptr, type->get_type_string() + ".dima_wrapper"                                                                        //
+    );
+    llvm::DIDerivedType *const outer_ref = DIB->createReferenceType(                    //
+        llvm::dwarf::DW_TAG_reference_type, wrapper_type, ptr_size_bits, ptr_align_bits //
+    );
+
+    std::vector<llvm::Metadata *> union_members;
+    for (const ObjectInfo &info : object_infos) {
+        llvm::DIType *const object_dt = get_or_create_debug_type(module, info.type_ptr);
+        union_members.push_back(DIB->createMemberType(                                                                       //
+            file_meta, info.name, file_meta, interface_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, //
+            object_dt)                                                                                                       //
+        );
+    }
+    const llvm::DINodeArray union_elements = DIB->getOrCreateArray(union_members);
+    llvm::DICompositeType *const object_union = DIB->createUnionType(                       //
+        file_meta, "union", file_meta, interface_node->line, ptr_size_bits, ptr_align_bits, //
+        llvm::DINode::FlagZero, union_elements, 0, type->get_type_string() + ".object"      //
+    );
+
+    std::vector<llvm::Metadata *> interface_members;
+    interface_members.push_back(DIB->createMemberType(                            //
+        file_meta, "active_type", file_meta, interface_node->line, ptr_size_bits, //
+        ptr_align_bits, ptr_size_bits * 2, llvm::DINode::FlagZero, outer_ref)     //
+    );
+    interface_members.push_back(DIB->createMemberType(                                                                                //
+        file_meta, "object", file_meta, interface_node->line, ptr_size_bits, ptr_align_bits, 0, llvm::DINode::FlagZero, object_union) //
+    );
+    const llvm::DINodeArray interface_elements = DIB->getOrCreateArray(interface_members);
+    return DIB->createStructType(                                                                              //
+        file_meta, interface_node->name, file_meta, interface_node->line, struct_size_bits, struct_align_bits, //
+        llvm::DINode::FlagZero, nullptr, interface_elements, 0, nullptr, type->get_type_string()               //
+    );
+}
+
 llvm::DIType *Generator::Debug::create_debug_type_multi(llvm::Module *const module, const std::shared_ptr<Type> &type) {
     const auto *multi_type = type->as<MultiType>();
     const std::string &type_str = type->to_string();
@@ -875,6 +990,9 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
             break;
         case Type::Variation::GROUP:
             ASSERT(false, "Group types cannot be represented as debug types as groups cannot be stored anywhere");
+        case Type::Variation::INTERFACE:
+            di_type = create_debug_type_interface(module, type);
+            break;
         case Type::Variation::MULTI:
             di_type = create_debug_type_multi(module, type);
             break;

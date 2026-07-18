@@ -206,6 +206,15 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         if (!added_func.has_value()) {
             return false;
         }
+    } else if (Matcher::tokens_contain(definition_tokens, Matcher::interface_definition)) {
+        std::optional<InterfaceNode> interface_node = create_interface(definition_tokens, body_lines);
+        if (!interface_node.has_value()) {
+            return false;
+        }
+        std::optional<InterfaceNode *> added_interface = file_node.add_interface(interface_node.value());
+        if (!added_interface.has_value()) {
+            return false;
+        }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::object_definition)) {
         std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines);
         if (!object_node.has_value()) {
@@ -471,6 +480,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
             }
             break;
         }
+        case Type::Variation::INTERFACE:
+            // Interface types resolve in a different stage
+            break;
         case Type::Variation::MULTI:
             // Multi types cannot contain type aliases
             break;

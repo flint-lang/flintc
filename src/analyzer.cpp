@@ -167,6 +167,8 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
         }
         case DefinitionNode::Variation::IMPORT:
             break;
+        case DefinitionNode::Variation::INTERFACE:
+            break;
         case DefinitionNode::Variation::TEST: {
             const auto *node = definition->as<TestNode>();
             result = analyze_scope(ctx, node->scope.get());
@@ -855,6 +857,8 @@ Analyzer::Result Analyzer::analyze_type(          //
             }
             break;
         }
+        case Type::Variation::INTERFACE:
+            break;
         case Type::Variation::MULTI:
             break;
         case Type::Variation::OPAQUE:
