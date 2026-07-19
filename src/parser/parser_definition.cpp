@@ -635,8 +635,7 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
             break;
         }
         if (!function_body_lines.empty()) {
-            // All functions inside an interface must be virtual
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrDefInterfaceContainsConcreteFunction, ERR_PARSING, file_hash, function_definition_line.tokens);
             return std::nullopt;
         }
         functions.emplace_back(added_function.value());

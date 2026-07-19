@@ -48,6 +48,7 @@
 #include "error_types/parsing/definitions/import/err_import_not_at_top_level.hpp"
 #include "error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
 #include "error_types/parsing/definitions/import/err_import_unexpected_core_module.hpp"
+#include "error_types/parsing/definitions/interface/err_def_func_contains_virtual_function.hpp"
 #include "error_types/parsing/definitions/object/err_def_object_constructor_data_not_present.hpp"
 #include "error_types/parsing/definitions/object/err_def_object_constructor_data_without_accessor.hpp"
 #include "error_types/parsing/definitions/object/err_def_object_constructor_duplicate_accessor.hpp"
