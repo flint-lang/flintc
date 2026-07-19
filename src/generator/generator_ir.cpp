@@ -829,16 +829,22 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Check if it's a known func type
             const std::string type_str = func_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {false, true}};
+                return {type_map.at(type_str), {false, false}};
             }
-            // Because a func module can only exist through an object being stored on it, a func module is a rather simple structure
-            // contianing of:
-            // - A pointer to the object assigned to the func-module instance
-            // - A pointer to the object dispatch function to call
-            // - A pointer to the objects DIMA head
-            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, PTR_TY};
+            // Check if the func type even requires any data. If it does not then it's type cannot be created
+            if (func_type->func_node->required_data.empty()) {
+                // Creating an instance of a func module which does not require any data does not make sense since we just call it using
+                // `FuncType.function` anyways
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return {nullptr, {false, false}};
+            }
+            // Create the func type, it's just a struct containing pointers to the defined data
+            std::vector<llvm::Type *> field_types;
+            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
+                field_types.emplace_back(PTR_TY);
+            }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {false, true}};
+            return {type_map.at(type_str), {false, false}};
         }
         case Type::Variation::FN: {
             // A fn variable is just a pointer to the heap-allocated function frame, so it is literally just a simple pointer

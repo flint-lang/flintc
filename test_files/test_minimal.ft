@@ -7,10 +7,14 @@ data Data:
 
 interface Interface:
 	def print();
+	def inc();
 
 func Func requires(Data d):
 	def print():
 		print($"d.(x, y) = {d.(x, y)}\n");
+
+	def inc():
+		d.(x, y) += (10, 10);
 
 object Object implements(Interface):
 	data: Data d;
@@ -19,7 +23,13 @@ object Object implements(Interface):
 
 def main():
 	o := Object(Data(10, 20));
+	o.inc();
 	o.print();
 
+	Func f = o;
+	f.inc();
+	f.print();
+
 	Interface i = o;
+	i.inc();
 	i.print();

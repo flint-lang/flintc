@@ -3,6 +3,7 @@
 #include "globals.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "llvm/IR/BasicBlock.h"
@@ -394,7 +395,7 @@ void Generator::Memory::generate_free_value( //
         }
         case Type::Variation::OBJECT: {
             const auto *object_type = type->as<ObjectType>();
-            llvm::Type *struct_type = IR::get_type(module, type).first;
+            llvm::Type *const struct_type = IR::get_type(module, type).first;
             for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
                 const DataNode *data_node = object_type->object_node->data_modules.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
@@ -416,19 +417,38 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            // To free a func module we just pass it's object instance to the `dima.release` function alongside the pointer to the dima head
-            // stored in the func-module instance
-            llvm::Type *const func_type = IR::get_type(module, type).first;
-            llvm::Value *const object_instance_ptr = builder->CreateStructGEP(func_type, value, 0, "object_instance_ptr");
-            llvm::Value *const object_instance = IR::aligned_load(*builder, PTR_TY, object_instance_ptr, "object_instance");
-            llvm::Value *const dima_head_ptr_ptr = builder->CreateStructGEP(func_type, value, 2, "dima_head_ptr_ptr");
-            llvm::Value *const dima_head_ptr = IR::aligned_load(*builder, PTR_TY, dima_head_ptr_ptr, "dima_head_ptr");
+            // To free a func module we just need to call `dima.release` on all its data values
+            const auto *func_type = type->as<FuncType>();
+            if (func_type->func_node->required_data.empty()) {
+                break;
+            }
+            llvm::Type *const struct_type = IR::get_type(module, type).first;
             llvm::Function *const release_fn = Module::DIMA::dima_functions.at("release");
-            builder->CreateCall(release_fn, {dima_head_ptr, object_instance});
+            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
+                const DataNode *data_node = func_type->func_node->required_data.at(i).type->as<DataType>()->data_node;
+                const std::string &head_key = data_node->file_hash.to_string() + "." + data_node->name;
+                llvm::Value *const dima_head_ptr = Module::DIMA::dima_heads.at(head_key);
+
+                llvm::Value *const data_ptr_ptr = builder->CreateStructGEP(struct_type, value, i, "data_ptr_ptr_" + std::to_string(i));
+                llvm::Value *const data_ptr = IR::aligned_load(*builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
+                builder->CreateCall(release_fn, {dima_head_ptr, data_ptr});
+            }
             break;
         }
         case Type::Variation::FN: {
             builder->CreateCall(memory_functions.at("free.callable"), {value});
+            break;
+        }
+        case Type::Variation::INTERFACE: {
+            // To free an interface we just pass it's object instance to the `dima.release` function alongside the pointer to the dima head
+            // stored in the interface instance
+            llvm::Type *const interface_type = IR::get_type(module, type).first;
+            llvm::Value *const object_instance_ptr = builder->CreateStructGEP(interface_type, value, 0, "object_instance_ptr");
+            llvm::Value *const object_instance = IR::aligned_load(*builder, PTR_TY, object_instance_ptr, "object_instance");
+            llvm::Value *const dima_head_ptr_ptr = builder->CreateStructGEP(interface_type, value, 2, "dima_head_ptr_ptr");
+            llvm::Value *const dima_head_ptr = IR::aligned_load(*builder, PTR_TY, dima_head_ptr_ptr, "dima_head_ptr");
+            llvm::Function *const release_fn = Module::DIMA::dima_functions.at("release");
+            builder->CreateCall(release_fn, {dima_head_ptr, object_instance});
             break;
         }
         case Type::Variation::PRIMITIVE: {
@@ -889,20 +909,37 @@ void Generator::Memory::generate_clone_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            llvm::Type *const func_type = IR::get_type(module, type).first;
-            const size_t func_size = Allocation::get_type_size(module, func_type);
-            llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
-            builder->CreateCall(memcpy_fn, {dest, src, builder->getInt64(func_size)});
-            llvm::Value *const object_ptr_ptr = builder->CreateStructGEP(func_type, dest, 0, "object_ptr_ptr");
-            llvm::Value *const object_ptr = IR::aligned_load(*builder, PTR_TY, object_ptr_ptr, "object_ptr");
+            // To clone a func module we just need to call `dima.retain` on all its data values and then can copy the whole structure
+            const auto *func_type = type->as<FuncType>();
+            if (func_type->func_node->required_data.empty()) {
+                break;
+            }
+            llvm::Type *const struct_type = IR::get_type(module, type).first;
             llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
-            builder->CreateCall(retain_fn, {object_ptr});
+            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
+                llvm::Value *const data_ptr_ptr = builder->CreateStructGEP(struct_type, src, i, "data_ptr_ptr_" + std::to_string(i));
+                llvm::Value *const data_ptr = IR::aligned_load(*builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
+                builder->CreateCall(retain_fn, {data_ptr});
+            }
+            llvm::Value *const src_copy = IR::aligned_load(*builder, struct_type, src, "src_copy");
+            IR::aligned_store(*builder, src_copy, dest);
             break;
         }
         case Type::Variation::FN: {
             llvm::Function *const clone_callable_fn = memory_functions.at("clone.callable");
             llvm::Value *const new_callable = builder->CreateCall(clone_callable_fn, {src}, "new_callable");
             IR::aligned_store(*builder, new_callable, dest);
+            break;
+        }
+        case Type::Variation::INTERFACE: {
+            llvm::Type *const interface_type = IR::get_type(module, type).first;
+            const size_t interface_size = Allocation::get_type_size(module, interface_type);
+            llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+            builder->CreateCall(memcpy_fn, {dest, src, builder->getInt64(interface_size)});
+            llvm::Value *const object_ptr_ptr = builder->CreateStructGEP(interface_type, dest, 0, "object_ptr_ptr");
+            llvm::Value *const object_ptr = IR::aligned_load(*builder, PTR_TY, object_ptr_ptr, "object_ptr");
+            llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder->CreateCall(retain_fn, {object_ptr});
             break;
         }
         case Type::Variation::PRIMITIVE: {
