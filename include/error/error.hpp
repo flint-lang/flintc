@@ -27,6 +27,7 @@
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
 #include "error_types/parsing/definitions/err_def_no_main_function.hpp"
 #include "error_types/parsing/definitions/err_unexpected_definition.hpp"
+#include "error_types/parsing/definitions/func/err_def_func_contains_virtual_function.hpp"
 #include "error_types/parsing/definitions/func/err_def_func_redefinition.hpp"
 #include "error_types/parsing/definitions/func/err_def_func_required_type_not_data.hpp"
 #include "error_types/parsing/definitions/func/err_def_func_required_type_unknown.hpp"

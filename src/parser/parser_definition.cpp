@@ -582,8 +582,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             break;
         }
         if (function_body_lines.empty()) {
-            // All functions inside an func must have a body
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrDefFuncContansVirtualFunction, ERR_PARSING, file_hash, function_definition_line.tokens);
             return std::nullopt;
         }
         add_open_function({added_function.value(), function_body_lines});
