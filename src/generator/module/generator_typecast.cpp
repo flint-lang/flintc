@@ -22,43 +22,43 @@ void Generator::Module::TypeCast::generate_typecast_functions( //
     generate_f32_to_str(builder, module, only_declarations);
     generate_f64_to_str(builder, module, only_declarations);
     generate_bool8_to_str_function(builder, module, only_declarations);
-    generate_multitype_to_str(builder, module, only_declarations, "u8", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "u8", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "u8", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "u8", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "i8", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "i8", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "i8", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "i8", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "u16", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "u16", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "u16", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "u16", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "i16", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "i16", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "i16", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "i16", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "u32", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "u32", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "u32", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "u32", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "i32", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "i32", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "i32", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "i32", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "u64", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "u64", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "u64", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "i64", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "i64", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "i64", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "f32", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "f32", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "f32", 4);
-    generate_multitype_to_str(builder, module, only_declarations, "f32", 8);
-    generate_multitype_to_str(builder, module, only_declarations, "f64", 2);
-    generate_multitype_to_str(builder, module, only_declarations, "f64", 3);
-    generate_multitype_to_str(builder, module, only_declarations, "f64", 4);
+    generate_vector_to_str(builder, module, only_declarations, "u8", 2);
+    generate_vector_to_str(builder, module, only_declarations, "u8", 3);
+    generate_vector_to_str(builder, module, only_declarations, "u8", 4);
+    generate_vector_to_str(builder, module, only_declarations, "u8", 8);
+    generate_vector_to_str(builder, module, only_declarations, "i8", 2);
+    generate_vector_to_str(builder, module, only_declarations, "i8", 3);
+    generate_vector_to_str(builder, module, only_declarations, "i8", 4);
+    generate_vector_to_str(builder, module, only_declarations, "i8", 8);
+    generate_vector_to_str(builder, module, only_declarations, "u16", 2);
+    generate_vector_to_str(builder, module, only_declarations, "u16", 3);
+    generate_vector_to_str(builder, module, only_declarations, "u16", 4);
+    generate_vector_to_str(builder, module, only_declarations, "u16", 8);
+    generate_vector_to_str(builder, module, only_declarations, "i16", 2);
+    generate_vector_to_str(builder, module, only_declarations, "i16", 3);
+    generate_vector_to_str(builder, module, only_declarations, "i16", 4);
+    generate_vector_to_str(builder, module, only_declarations, "i16", 8);
+    generate_vector_to_str(builder, module, only_declarations, "u32", 2);
+    generate_vector_to_str(builder, module, only_declarations, "u32", 3);
+    generate_vector_to_str(builder, module, only_declarations, "u32", 4);
+    generate_vector_to_str(builder, module, only_declarations, "u32", 8);
+    generate_vector_to_str(builder, module, only_declarations, "i32", 2);
+    generate_vector_to_str(builder, module, only_declarations, "i32", 3);
+    generate_vector_to_str(builder, module, only_declarations, "i32", 4);
+    generate_vector_to_str(builder, module, only_declarations, "i32", 8);
+    generate_vector_to_str(builder, module, only_declarations, "u64", 2);
+    generate_vector_to_str(builder, module, only_declarations, "u64", 3);
+    generate_vector_to_str(builder, module, only_declarations, "u64", 4);
+    generate_vector_to_str(builder, module, only_declarations, "i64", 2);
+    generate_vector_to_str(builder, module, only_declarations, "i64", 3);
+    generate_vector_to_str(builder, module, only_declarations, "i64", 4);
+    generate_vector_to_str(builder, module, only_declarations, "f32", 2);
+    generate_vector_to_str(builder, module, only_declarations, "f32", 3);
+    generate_vector_to_str(builder, module, only_declarations, "f32", 4);
+    generate_vector_to_str(builder, module, only_declarations, "f32", 8);
+    generate_vector_to_str(builder, module, only_declarations, "f64", 2);
+    generate_vector_to_str(builder, module, only_declarations, "f64", 3);
+    generate_vector_to_str(builder, module, only_declarations, "f64", 4);
     generate_opaque_to_str(builder, module, only_declarations);
 }
 
@@ -340,14 +340,14 @@ void Generator::Module::TypeCast::generate_bool_to_str(llvm::IRBuilder<> *builde
     builder->CreateRet(false_str);
 }
 
-void Generator::Module::TypeCast::generate_multitype_to_str( //
-    llvm::IRBuilder<> *builder,                              //
-    llvm::Module *module,                                    //
-    const bool only_declarations,                            //
-    const std::string &type_str,                             //
-    const size_t width                                       //
+void Generator::Module::TypeCast::generate_vector_to_str( //
+    llvm::IRBuilder<> *builder,                           //
+    llvm::Module *module,                                 //
+    const bool only_declarations,                         //
+    const std::string &type_str,                          //
+    const size_t width                                    //
 ) {
-    // There exists no C function because C doesnt have multi-types. For now, we assume that `mult_val` is the passed in multi-value
+    // There exists no C function because C doesnt have vector-types. For now, we assume that `mult_val` is the passed in vector-value
     // THE C IMPLEMENTATION:
     // str *i32x2_to_str(int mult_val[2]) {
     //     // Create the strings for each value
@@ -363,57 +363,57 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     //     free(val_2_str);
     //     return i32x2_str;
     // }
-    const std::string multitype_string = type_str + "x" + std::to_string(width);
-    llvm::Type *multi_type = IR::get_type(module, Type::get_type_from_str(multitype_string).value()).first;
+    const std::string vector_string = type_str + "x" + std::to_string(width);
+    llvm::Type *vector_type = IR::get_type(module, Type::get_type_from_str(vector_string).value()).first;
     llvm::Function *elem_to_str_fn = typecast_functions.at(type_str + "_to_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *append_str_fn = String::string_manip_functions.at("append_str");
     llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *free_fn = c_functions.at(FREE);
 
-    const std::string typecast_function_name = multitype_string + "_to_str";
-    llvm::FunctionType *multitype_to_str_type = llvm::FunctionType::get(PTR_TY, {multi_type}, false);
-    llvm::Function *multitype_to_str_fn = llvm::Function::Create(                                       //
-        multitype_to_str_type, llvm::Function::ExternalLinkage, prefix + typecast_function_name, module //
+    const std::string typecast_function_name = vector_string + "_to_str";
+    llvm::FunctionType *vector_to_str_type = llvm::FunctionType::get(PTR_TY, {vector_type}, false);
+    llvm::Function *vector_to_str_fn = llvm::Function::Create(                                       //
+        vector_to_str_type, llvm::Function::ExternalLinkage, prefix + typecast_function_name, module //
     );
-    typecast_functions[typecast_function_name] = multitype_to_str_fn;
+    typecast_functions[typecast_function_name] = vector_to_str_fn;
     if (only_declarations) {
         return;
     }
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", multitype_to_str_fn);
+    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", vector_to_str_fn);
     builder->SetInsertPoint(entry_block);
 
     // Get the argument
-    llvm::Argument *arg_mult_val = multitype_to_str_fn->arg_begin();
+    llvm::Argument *arg_mult_val = vector_to_str_fn->arg_begin();
     arg_mult_val->setName("mult_val");
 
-    // Create the base strings of the multi-types values
+    // Create the base strings of the vector-types values
     std::vector<llvm::Value *> value_strings;
     for (size_t i = 0; i < width; i++) {
         llvm::Value *element_value = builder->CreateExtractElement(arg_mult_val, i, "elem_" + std::to_string(i));
         value_strings.emplace_back(builder->CreateCall(elem_to_str_fn, {element_value}, "elem_" + std::to_string(i) + "_str"));
     }
 
-    // Create the multi-type string with '(' in it
+    // Create the vector-type string with '(' in it
     llvm::Value *lparen_chars = IR::generate_const_string(module, "(");
-    llvm::AllocaInst *multitype_str_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "mt_alloca");
-    llvm::Value *multitype_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, multitype_string + "_str");
-    IR::aligned_store(*builder, multitype_str, multitype_str_alloca);
+    llvm::AllocaInst *vector_str_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "mt_alloca");
+    llvm::Value *vector_str = builder->CreateCall(init_str_fn, {lparen_chars, builder->getInt64(1)}, vector_string + "_str");
+    IR::aligned_store(*builder, vector_str, vector_str_alloca);
 
-    // Fill the multi-type string with the value strings and `, ` separators between them
+    // Fill the vector-type string with the value strings and `, ` separators between them
     llvm::Value *comma_chars = IR::generate_const_string(module, ", ");
     for (size_t i = 0; i < width; i++) {
         if (i > 0) {
-            builder->CreateCall(append_lit_fn, {multitype_str_alloca, comma_chars, builder->getInt64(2)});
+            builder->CreateCall(append_lit_fn, {vector_str_alloca, comma_chars, builder->getInt64(2)});
         }
-        builder->CreateCall(append_str_fn, {multitype_str_alloca, value_strings[i]});
+        builder->CreateCall(append_str_fn, {vector_str_alloca, value_strings[i]});
     }
 
     // Append the end of the string with a ')' symbol
     llvm::Value *rparen_chars = IR::generate_const_string(module, ")");
-    builder->CreateCall(append_lit_fn, {multitype_str_alloca, rparen_chars, builder->getInt64(1)});
+    builder->CreateCall(append_lit_fn, {vector_str_alloca, rparen_chars, builder->getInt64(1)});
 
     // Free the value strings
     for (size_t i = 0; i < width; i++) {
@@ -421,8 +421,8 @@ void Generator::Module::TypeCast::generate_multitype_to_str( //
     }
 
     // Return the result
-    multitype_str = IR::aligned_load(*builder, PTR_TY, multitype_str_alloca);
-    builder->CreateRet(multitype_str);
+    vector_str = IR::aligned_load(*builder, PTR_TY, vector_str_alloca);
+    builder->CreateRet(vector_str);
 }
 
 void Generator::Module::TypeCast::generate_uN_to_str( //

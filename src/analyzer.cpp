@@ -823,8 +823,6 @@ Analyzer::Result Analyzer::analyze_type(          //
         }
         case Type::Variation::DATA:
             break;
-        case Type::Variation::OBJECT:
-            break;
         case Type::Variation::ENUM:
             break;
         case Type::Variation::ERROR_SET:
@@ -859,7 +857,7 @@ Analyzer::Result Analyzer::analyze_type(          //
         }
         case Type::Variation::INTERFACE:
             break;
-        case Type::Variation::MULTI:
+        case Type::Variation::OBJECT:
             break;
         case Type::Variation::OPAQUE:
             break;
@@ -911,6 +909,8 @@ Analyzer::Result Analyzer::analyze_type(          //
             }
             break;
         }
+        case Type::Variation::VECTOR:
+            break;
     }
     return result;
 }

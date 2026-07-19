@@ -3,23 +3,23 @@
 #include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
-class ErrTypeTupleMultiTypeOverlap : public BaseError {
+class ErrTypeTupleVectorOverlap : public BaseError {
   public:
-    ErrTypeTupleMultiTypeOverlap(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
+    ErrTypeTupleVectorOverlap(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
         BaseError(error_type, file_hash, tokens),
         tokens(tokens) {}
 
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Cannot create a tuple type which overlaps with a multi-type";
+        oss << BaseError::to_string() << "└─ Cannot create a tuple type which overlaps with a vector-type";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Cannot create a tuple type which overlaps with a multi-type";
+        d.message = "Cannot create a tuple type which overlaps with a vector-type";
         return d;
     }
 

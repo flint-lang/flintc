@@ -19,12 +19,12 @@
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/interface_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 
@@ -530,21 +530,21 @@ void Generator::Expression::convert_type_to_ext( //
             convert_data_type_to_ext(builder, ctx, type, data_ptr, args);
             return;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
-            // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
-            // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
+            // Vector types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
+            // to the functions too. This means that the vector-type needs to be converted not into a struct but into a multiple of
             // two-component vector types.
             // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
             // A vector type of size 3 is split into a two-component vector type + a scalar value
             // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-            const std::string base_type_str = multi_type->base_type->to_string();
+            const std::string base_type_str = vector_type->base_type->to_string();
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
                 }
                 return;
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // We need to pack the two u8 values as one i16
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt16Ty()));
@@ -558,7 +558,7 @@ void Generator::Expression::convert_type_to_ext( //
                     args.emplace_back(value);
                 }
                 return;
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // We can simply cast the u8x3 to a i24 value
                     args.emplace_back(builder.CreateBitCast(value, builder.getIntNTy(24)));
@@ -582,21 +582,21 @@ void Generator::Expression::convert_type_to_ext( //
                 return;
             }
             if (base_type_str == "u8" || base_type_str == "i8") {
-                // Since all following multi-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
+                // Since all following vector-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
                 // the argument list
-                if (multi_type->width == 4) {
+                if (vector_type->width == 4) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt32Ty()));
-                } else if (multi_type->width == 8) {
+                } else if (vector_type->width == 8) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
                 } else {
                     UNREACHABLE();
                 }
                 return;
             } else if (base_type_str == "u16" || base_type_str == "i16") {
-                if (multi_type->width == 4) {
+                if (vector_type->width == 4) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
-                } else if (multi_type->width == 8) {
-                    for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 4) {
+                } else if (vector_type->width == 8) {
+                    for (int32_t i = 0; i < static_cast<int32_t>(vector_type->width); i += 4) {
                         llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1, i + 2, i + 3});
                         args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
                     }
@@ -606,9 +606,9 @@ void Generator::Expression::convert_type_to_ext( //
                 return;
             }
 
-            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
+            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... vector-types in Flint, so we know all bigger than 3 are even
             // numbers
-            for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 2) {
+            for (int32_t i = 0; i < static_cast<int32_t>(vector_type->width); i += 2) {
                 llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1});
                 if (base_type_str == "u32" || base_type_str == "i32") {
                     args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
@@ -933,20 +933,20 @@ void Generator::Expression::convert_type_from_ext( //
         case Type::Variation::DATA:
             convert_data_type_from_ext(builder, ctx, type, value);
             return;
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
-            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
+            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), vector_type->base_type).first;
+            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, vector_type->width, false);
             llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
-            const std::string base_type_str = multi_type->base_type->to_string();
+            const std::string base_type_str = vector_type->base_type->to_string();
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
                 llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     llvm::Value *elem_i = builder.CreateExtractValue(value, i);
                     result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
                 }
                 value = result_vec;
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i16` value
                     value = builder.CreateBitCast(value, target_vector_type);
@@ -959,7 +959,7 @@ void Generator::Expression::convert_type_from_ext( //
                     // vec2 is returned as <2 x T> directly for floats - no conversion needed
                     return;
                 }
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i24` value
                     value = builder.CreateBitCast(value, target_vector_type);
@@ -999,11 +999,11 @@ void Generator::Expression::convert_type_from_ext( //
                     value = builder.CreateBitCast(value, target_vector_type);
                     return;
                 } else if (base_type_str == "u16" || base_type_str == "i16") {
-                    if (multi_type->width == 4) {
+                    if (vector_type->width == 4) {
                         // Value returned as `i64` value directly
                         value = builder.CreateBitCast(value, target_vector_type);
                         return;
-                    } else if (multi_type->width == 8) {
+                    } else if (vector_type->width == 8) {
                         // Value returned as a struct of two i64 values
                         llvm::Value *lhs_i64 = builder.CreateExtractValue(value, 0, "chunk_vec_left4");
                         llvm::Value *rhs_i64 = builder.CreateExtractValue(value, 1, "chunk_vec_right4");
@@ -1026,7 +1026,7 @@ void Generator::Expression::convert_type_from_ext( //
                 size_t element_index = 0;
 
                 // Extract each <2 x T> chunk and rebuild the original vector
-                for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
+                for (size_t chunk = 0; chunk < (vector_type->width + 1) / 2; chunk++) {
                     llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
 
                     // The first element of the struct is `i64` not a vector so we need to cast it first
@@ -2665,12 +2665,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             }
             return std::vector<llvm::Value *>{object_ptr};
         }
-        case Type::Variation::MULTI: {
-            // Create an "empty" vector of the multi-type
+        case Type::Variation::VECTOR: {
+            // Create an "empty" vector of the vector-type
             llvm::Type *const vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
             if (initializer->args.size() == 1) {
                 const auto &arg = initializer->args[0];
-                ASSERT(arg->type->get_variation() == Type::Variation::MULTI);
+                ASSERT(arg->type->get_variation() == Type::Variation::VECTOR);
                 const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
                 if (!expr_result.has_value()) {
                     return std::nullopt;
@@ -3514,7 +3514,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
-        case Type::Variation::MULTI: {
+        case Type::Variation::VECTOR: {
             ASSERT(base_expr->type->get_variation() == Type::Variation::ARRAY);
             const ArrayType *base_arr_type = base_expr->type->as<ArrayType>();
             llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
@@ -3646,11 +3646,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             }
             return length_values;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = data_access->base_expr->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = data_access->base_expr->type->as<VectorType>();
             ASSERT(!is_reference);
             std::vector<llvm::Value *> values;
-            if (multi_type->base_type->to_string() == "bool") {
+            if (vector_type->base_type->to_string() == "bool") {
                 // Special case for accessing an "element" on a bool8 type
                 values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
             } else {
@@ -4112,12 +4112,12 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                     default:
                         THROW_BASIC_ERR(ERR_GENERATING);
                         return std::nullopt;
-                    case Type::Variation::MULTI: {
-                        const auto *multi_type = type_cast_node->expr->type->as<MultiType>();
+                    case Type::Variation::VECTOR: {
+                        const auto *vector_type = type_cast_node->expr->type->as<VectorType>();
                         ASSERT(expr.size() == 1);
                         llvm::Value *mult_expr = expr.front();
                         expr.clear();
-                        for (size_t i = 0; i < multi_type->width; i++) {
+                        for (size_t i = 0; i < vector_type->width; i++) {
                             expr.emplace_back(builder.CreateExtractElement(mult_expr, i, "mult_group_" + std::to_string(i)));
                         }
                         return expr;
@@ -4137,8 +4137,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
             to_type = types.front();
             break;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type_cast_node->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type_cast_node->type->as<VectorType>();
             if (type_cast_node->type->to_string() == "bool8") {
                 ASSERT(type_cast_node->expr->type->to_string() == "u8");
                 ASSERT(expr.size() == 1);
@@ -4146,30 +4146,28 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 result.emplace_back(expr.at(0));
                 return result;
             }
-            // The expression now must be a group type, so the `expr` size must be the multi-type width
-            if (expr.size() != multi_type->width) {
-                // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
-                if (expr.size() == 1 && type_cast_node->expr->type == multi_type->base_type) {
+            // The expression now must be a group type, so the `expr` size must be the vector-type width
+            if (expr.size() != vector_type->width) {
+                // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the vector-type
+                if (expr.size() == 1 && type_cast_node->expr->type == vector_type->base_type) {
                     // We now can create a single value extension for the vector
-                    expr[0] = builder.CreateVectorSplat(multi_type->width, expr[0], "vec_ext");
+                    expr[0] = builder.CreateVectorSplat(vector_type->width, expr[0], "vec_ext");
                     return expr;
                 }
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+            llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), vector_type->base_type).first;
+            llvm::VectorType *const vector_ty = llvm::VectorType::get(element_type, vector_type->width, false);
 
             // Create and undefined vector to insert elements into
-            llvm::Value *vec = llvm::UndefValue::get(vector_type);
+            llvm::Value *vec = llvm::UndefValue::get(vector_ty);
 
             // "Store" all the values inside the vector which will be stored in the alloca in the `generate_declaration` function
             for (unsigned int i = 0; i < expr.size(); i++) {
                 vec = builder.CreateInsertElement(vec, expr[i], builder.getInt32(i), "vec_insert");
             }
-            std::vector<llvm::Value *> result;
-            result.emplace_back(vec);
-            return result;
+            return std::vector<llvm::Value *>{vec};
         }
         case Type::Variation::TUPLE: {
             if (type_cast_node->expr->type->get_variation() == Type::Variation::GROUP) {
@@ -4220,7 +4218,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), {expr}, "lit_len");
         // Call the `init_str` function
         return builder.CreateCall(init_str_fn, {expr, str_len}, "str_init");
-    } else if (from_type->get_variation() == Type::Variation::MULTI) {
+    } else if (from_type->get_variation() == Type::Variation::VECTOR) {
         if (from_type_str == "bool8") {
             if (to_type_str == "str") {
                 return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool8_to_str"), {expr}, "b8_to_str_val");
@@ -4230,21 +4228,21 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         } else if (to_type_str == "str") {
             llvm::Function *cast_fn = Module::TypeCast::typecast_functions.at(from_type_str + "_to_str");
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
-        } else if (to_type->get_variation() == Type::Variation::MULTI) {
-            const MultiType *from_mult = from_type->as<MultiType>();
-            const MultiType *to_mult = to_type->as<MultiType>();
+        } else if (to_type->get_variation() == Type::Variation::VECTOR) {
+            const VectorType *from_mult = from_type->as<VectorType>();
+            const VectorType *to_mult = to_type->as<VectorType>();
             ASSERT(from_mult->width == to_mult->width);
             llvm::Type *const dest_el_type = IR::get_type(ctx.parent->getParent(), to_mult->base_type).first;
             llvm::VectorType *const dest_vec_type = llvm::VectorType::get(dest_el_type, from_mult->width, false);
-            llvm::Value *cast_multitype = llvm::UndefValue::get(dest_vec_type);
+            llvm::Value *cast_vector = llvm::UndefValue::get(dest_vec_type);
             for (unsigned int i = 0; i < from_mult->width; i++) {
                 llvm::Value *const elem = builder.CreateExtractElement(expr, builder.getInt64(i), "src_el_" + std::to_string(i));
                 llvm::Value *const cast_elem = generate_type_cast(builder, ctx, elem, from_mult->base_type, to_mult->base_type);
-                cast_multitype = builder.CreateInsertElement(                                      //
-                    cast_multitype, cast_elem, builder.getInt64(i), "cast_el_" + std::to_string(i) //
+                cast_vector = builder.CreateInsertElement(                                      //
+                    cast_vector, cast_elem, builder.getInt64(i), "cast_el_" + std::to_string(i) //
                 );
             }
-            return cast_multitype;
+            return cast_vector;
         }
     } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::FUNC) {
         // We "cast" an object to a func module by extracting the required data of the func module from the object and storing it in the
@@ -4946,11 +4944,11 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     }
     std::vector<llvm::Value *> return_value;
 
-    const bool is_lhs_mult = bin_op_node->left->type->get_variation() == Type::Variation::MULTI;
-    const bool is_rhs_mult = bin_op_node->right->type->get_variation() == Type::Variation::MULTI;
+    const bool is_lhs_mult = bin_op_node->left->type->get_variation() == Type::Variation::VECTOR;
+    const bool is_rhs_mult = bin_op_node->right->type->get_variation() == Type::Variation::VECTOR;
     if (is_lhs_mult && is_rhs_mult) {
-        const auto *lhs_mult = bin_op_node->left->type->as<MultiType>();
-        const auto *rhs_mult = bin_op_node->right->type->as<MultiType>();
+        const auto *lhs_mult = bin_op_node->left->type->as<VectorType>();
+        const auto *rhs_mult = bin_op_node->right->type->as<VectorType>();
         if (!lhs_mult->base_type->equals(rhs_mult->base_type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
@@ -4959,7 +4957,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        // For multi-types we have exactly one value in each vector
+        // For vector-types we have exactly one value in each vector
         ASSERT(lhs.size() == 1 && rhs.size() == 1);
         const std::string type_str = bin_op_node->type->to_string();
         std::optional<llvm::Value *> result = generate_binary_op_vector(builder, bin_op_node, type_str, lhs[0], rhs[0]);

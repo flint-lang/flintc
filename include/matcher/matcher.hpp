@@ -884,7 +884,7 @@ class Matcher {
         sequence({token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
         // Field access: .field
         sequence({token(TOK_DOT), token(TOK_IDENTIFIER)}),
-        // Tuple / multi-type field access: .$N
+        // Tuple / vector-type field access: .$N
         sequence({token(TOK_DOT), token(TOK_DOLLAR), token(TOK_INT_VALUE)}),
         // Array/map access: []
         sequence({token(TOK_LEFT_BRACKET), until_right_bracket}) //

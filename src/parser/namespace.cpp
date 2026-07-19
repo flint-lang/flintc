@@ -10,11 +10,11 @@
 #include "parser/type/array_type.hpp"
 #include "parser/type/fn_type.hpp"
 #include "parser/type/group_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 
 #include <algorithm>
 
@@ -335,7 +335,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             // possible
             UNREACHABLE();
         } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_mult)) {
-            // Its a multi-type
+            // Its a vector-type
             const std::string type_string(tokens_mut.first->lexme);
             // The last character should be a number
             const char width_char = type_string.back();
@@ -345,7 +345,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             const std::string type_str = type_string.substr(0, type_string.size() - (ends_with_x ? 2 : 1));
             const std::shared_ptr<Type> base_type = get_type_from_str(type_str).value();
             const unsigned int width = width_char - '0';
-            return std::make_shared<MultiType>(base_type, width);
+            return std::make_shared<VectorType>(base_type, width);
         }
         // Its a data, object or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
@@ -452,7 +452,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            // Check if the tuple is the same type as a multi-type, such tuples are not allowed either
+            // Check if the tuple is the same type as a vector-type, such tuples are not allowed either
             const std::shared_ptr<Type> &first_type = subtypes.front();
             const std::string front_type_str = first_type->to_string();
             if (front_type_str == "bool" || front_type_str == "u8" || front_type_str == "i8" || front_type_str == "u16" ||
@@ -469,9 +469,9 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                         }
                     }
                     if (all_types_same) {
-                        // Its a multi-type but defined as a tuple, which is not valid
+                        // Its a vector-type but defined as a tuple, which is not valid
                         const Hash &file_hash = Resolver::file_ids.at(tokens_mut.first->file_id);
-                        THROW_ERR(ErrTypeTupleMultiTypeOverlap, ERR_PARSING, file_hash, tokens);
+                        THROW_ERR(ErrTypeTupleVectorOverlap, ERR_PARSING, file_hash, tokens);
                         return std::nullopt;
                     }
                 }

@@ -8,12 +8,12 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/interface_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -438,11 +438,11 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
-    if (type_variation == Type::Variation::MULTI) {
-        const auto *multi_type = type->as<MultiType>();
-        // Let's first look at how each multi-type behaves, considereing the 16 byte rule as well
-        // They follow the same rules as above, as multi-types are passed as structs into FIP functions
-        // We now see how each multi-type looks
+    if (type_variation == Type::Variation::VECTOR) {
+        const auto *vector_type = type->as<VectorType>();
+        // Let's first look at how each vector-type behaves, considereing the 16 byte rule as well
+        // They follow the same rules as above, as vector-types are passed as structs into FIP functions
+        // We now see how each vector-type looks
         //
         //  bool8 -> i8 (handled in the normal `get_type` function)
         //  u8x2 / i8x2 -> i16
@@ -471,20 +471,20 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         //  f64x2 -> { f64, f64 }
         //  f64x3 and f64x4 are greater than 16 bytes
         //
-        llvm::Type *element_type = get_type(module, multi_type->base_type).first;
-        const std::string type_str = "type." + multi_type->to_string() + ".extern";
+        llvm::Type *element_type = get_type(module, vector_type->base_type).first;
+        const std::string type_str = "type." + vector_type->to_string() + ".extern";
         if (type_str == "bool8") {
             // Handle the `bool8` type in the normal `get_type` function
             return std::nullopt;
         }
-        const std::string base_type_str = multi_type->base_type->to_string();
+        const std::string base_type_str = vector_type->base_type->to_string();
         if (base_type_str == "u8" || base_type_str == "i8") {
-            return llvm::Type::getIntNTy(context, multi_type->width * 8);
+            return llvm::Type::getIntNTy(context, vector_type->width * 8);
         }
         llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
         if (base_type_str == "u16" || base_type_str == "i16") {
-            if (multi_type->width <= 4) {
-                return llvm::Type::getIntNTy(context, multi_type->width * 16);
+            if (vector_type->width <= 4) {
+                return llvm::Type::getIntNTy(context, vector_type->width * 16);
             } else if (type_map.find(type_str) == type_map.end()) {
                 type_map[type_str] = IR::create_struct_type(type_str, {i64_ty, i64_ty});
             }
@@ -494,16 +494,16 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             std::vector<llvm::Type *> types;
             llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     types.emplace_back(element_type);
                 }
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "f32") {
                     return vec2_type;
                 } else if (base_type_str == "u32" || base_type_str == "i32") {
                     return i64_ty;
                 }
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "f32") {
                     types.emplace_back(vec2_type);
                 } else if (base_type_str == "u32" || base_type_str == "i32") {
@@ -511,7 +511,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
                 }
                 types.emplace_back(element_type);
             } else {
-                for (size_t i = 0; i < multi_type->width; i += 2) {
+                for (size_t i = 0; i < vector_type->width; i += 2) {
                     if (base_type_str == "f32") {
                         types.emplace_back(vec2_type);
                     } else {
@@ -882,14 +882,14 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
             return {type_map.at(type_str), {false, true}};
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
             if (type->to_string() == "bool8") {
                 return {llvm::Type::getInt8Ty(context), {false, false}};
             }
-            llvm::Type *element_type = get_type(module, multi_type->base_type).first;
-            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-            return {vector_type, {false, false}};
+            llvm::Type *element_type = get_type(module, vector_type->base_type).first;
+            llvm::VectorType *vector_ty = llvm::VectorType::get(element_type, vector_type->width, false);
+            return {vector_ty, {false, false}};
         }
         case Type::Variation::OPAQUE:
             return {PTR_TY, {false, true}};

@@ -2617,13 +2617,13 @@ class Generator {
         /// @return `llvm::DIType *` The LLVM debug type of the interface type
         static llvm::DIType *create_debug_type_interface(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
-        /// @function `create_debug_type_multi`
-        /// @brief Creates a DIType for a given multi type
+        /// @function `create_debug_type_vector`
+        /// @brief Creates a DIType for a given vector type
         ///
-        /// @param `module` The module in which to create the debug multi type in
-        /// @param `type` The multi type to get the debug type of
-        /// @return `llvm::DIType *` The LLVM debug type of the multi type
-        static llvm::DIType *create_debug_type_multi(llvm::Module *const module, const std::shared_ptr<Type> &type);
+        /// @param `module` The module in which to create the debug vector type in
+        /// @param `type` The vector type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the vector type
+        static llvm::DIType *create_debug_type_vector(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
         /// @function `create_debug_type_opaque`
         /// @brief Creates a DIType for a given opaque type
@@ -2821,7 +2821,7 @@ class Generator {
                 {"i64_safe_mul", nullptr},
                 {"i64_safe_div", nullptr},
                 {"i64_pow", nullptr},
-                // Unsigned Multi Types of length 2
+                // Unsigned Vector Types of length 2
                 {"u8x2_safe_add", nullptr},
                 {"u8x2_safe_sub", nullptr},
                 {"u8x2_safe_mul", nullptr},
@@ -2838,7 +2838,7 @@ class Generator {
                 {"u64x2_safe_sub", nullptr},
                 {"u64x2_safe_mul", nullptr},
                 {"u64x2_safe_div", nullptr},
-                // Unsigned Multi Types of length 3
+                // Unsigned Vector Types of length 3
                 {"u8x3_safe_add", nullptr},
                 {"u8x3_safe_sub", nullptr},
                 {"u8x3_safe_mul", nullptr},
@@ -2855,7 +2855,7 @@ class Generator {
                 {"u64x3_safe_sub", nullptr},
                 {"u64x3_safe_mul", nullptr},
                 {"u64x3_safe_div", nullptr},
-                // Unsigned Multi Types of length 4
+                // Unsigned Vector Types of length 4
                 {"u8x4_safe_add", nullptr},
                 {"u8x4_safe_sub", nullptr},
                 {"u8x4_safe_mul", nullptr},
@@ -2872,7 +2872,7 @@ class Generator {
                 {"u64x4_safe_sub", nullptr},
                 {"u64x4_safe_mul", nullptr},
                 {"u64x4_safe_div", nullptr},
-                // Unsigned Multi Types of length 8
+                // Unsigned Vector Types of length 8
                 {"u8x8_safe_add", nullptr},
                 {"u8x8_safe_sub", nullptr},
                 {"u8x8_safe_mul", nullptr},
@@ -2885,7 +2885,7 @@ class Generator {
                 {"u32x8_safe_sub", nullptr},
                 {"u32x8_safe_mul", nullptr},
                 {"u32x8_safe_div", nullptr},
-                // Signed Multi Types of length 2
+                // Signed Vector Types of length 2
                 {"i8x2_safe_add", nullptr},
                 {"i8x2_safe_sub", nullptr},
                 {"i8x2_safe_mul", nullptr},
@@ -2902,7 +2902,7 @@ class Generator {
                 {"i64x2_safe_sub", nullptr},
                 {"i64x2_safe_mul", nullptr},
                 {"i64x2_safe_div", nullptr},
-                // Signed Multi Types of length 3
+                // Signed Vector Types of length 3
                 {"i8x3_safe_add", nullptr},
                 {"i8x3_safe_sub", nullptr},
                 {"i8x3_safe_mul", nullptr},
@@ -2919,7 +2919,7 @@ class Generator {
                 {"i64x3_safe_sub", nullptr},
                 {"i64x3_safe_mul", nullptr},
                 {"i64x3_safe_div", nullptr},
-                // Signed Multi Types of length 4
+                // Signed Vector Types of length 4
                 {"i8x4_safe_add", nullptr},
                 {"i8x4_safe_sub", nullptr},
                 {"i8x4_safe_mul", nullptr},
@@ -2936,7 +2936,7 @@ class Generator {
                 {"i64x4_safe_sub", nullptr},
                 {"i64x4_safe_mul", nullptr},
                 {"i64x4_safe_div", nullptr},
-                // Signed Multi Types of length 8
+                // Signed Vector Types of length 8
                 {"i8x8_safe_add", nullptr},
                 {"i8x8_safe_sub", nullptr},
                 {"i8x8_safe_mul", nullptr},
@@ -3160,7 +3160,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_add( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3178,7 +3178,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_sub( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3196,7 +3196,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_mul( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3214,7 +3214,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_div( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3232,7 +3232,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_add( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3250,7 +3250,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_sub( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3268,7 +3268,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_mul( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3286,7 +3286,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_div( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -4682,7 +4682,7 @@ class Generator {
             };
 
             /// @var `ts`
-            /// @brief The global thread stack variable itself, only one variable for now as multi-threading is not implemented yet
+            /// @brief The global thread stack variable itself, only one variable for now as vector-threading is not implemented yet
             static inline llvm::GlobalVariable *ts;
 
             /// @var `ts_frames`
@@ -4956,20 +4956,20 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
-            /// @function `generate_multitype_to_str`
-            /// @brief Generates the `<type>x<width>_to_str` function which is used to convert multitype values to str values
+            /// @function `generate_vector_to_str`
+            /// @brief Generates the `<type>x<width>_to_str` function which is used to convert vector values to str values
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module in which the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `type_str` The string of the base type, for example `i32` or `f32`
-            /// @param `width` The width of the multi-type, for example `2` or `4`
-            static void generate_multitype_to_str( //
-                llvm::IRBuilder<> *builder,        //
-                llvm::Module *module,              //
-                const bool only_declarations,      //
-                const std::string &type_str,       //
-                const size_t width                 //
+            /// @param `width` The width of the vector-type, for example `2` or `4`
+            static void generate_vector_to_str( //
+                llvm::IRBuilder<> *builder,     //
+                llvm::Module *module,           //
+                const bool only_declarations,   //
+                const std::string &type_str,    //
+                const size_t width              //
             );
 
             /// @function `generate_uN_to_str`

@@ -276,10 +276,6 @@ bool Generator::Allocation::generate_allocations(                        //
                             ASSERT(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
                             generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
                             break;
-                        case Type::Variation::MULTI:
-                            // Multi-types are allowed as indexing expressions of multi-dimensional grouped array accesses
-                            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                            return false;
                         case Type::Variation::PRIMITIVE:
                             // It must be a one-dimensional array in this case
                             if (dimensionality != 1) {
@@ -290,6 +286,10 @@ bool Generator::Allocation::generate_allocations(                        //
                                 return false;
                             }
                             break;
+                        case Type::Variation::VECTOR:
+                            // Vector types are allowed as indexing expressions of multi-dimensional grouped array accesses
+                            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                            return false;
                     }
                 }
                 break;
@@ -713,10 +713,6 @@ bool Generator::Allocation::generate_expression_allocations(              //
                         ASSERT(expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION);
                         generate_array_indexing_allocation(builder, struct_types, expr->as<GroupExpressionNode>()->expressions);
                         break;
-                    case Type::Variation::MULTI:
-                        // Multi-types are allowed as indexing expressions of multi-dimensional grouped array accesses
-                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                        return false;
                     case Type::Variation::PRIMITIVE:
                         // It must be a one-dimensional array in this case
                         if (dimensionality != 1) {
@@ -727,6 +723,10 @@ bool Generator::Allocation::generate_expression_allocations(              //
                             return false;
                         }
                         break;
+                    case Type::Variation::VECTOR:
+                        // Vector types are allowed as indexing expressions of multi-dimensional grouped array accesses
+                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                        return false;
                 }
             }
             break;

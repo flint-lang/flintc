@@ -919,18 +919,18 @@ class Parser {
         const bool has_inbetween_operator = false                     //
     );
 
-    /// @function `create_multi_type_access`
-    /// @brief Checks the multi-typed acccess and returns the index as well as the field name, where the returned field name is always in
+    /// @function `create_vector_type_access`
+    /// @brief Checks the vector-typed acccess and returns the index as well as the field name, where the returned field name is always in
     /// the form of $N instead of the x, y, z or r, g, b, a form thats possible
     ///
-    /// @param `tokens` The tokens in which the multi-type field access happens
-    /// @param `type` The multi-type the field access is based on (asserts it to be of type 'MultiType')
+    /// @param `tokens` The tokens in which the vector-type field access happens
+    /// @param `type` The vector-type the field access is based on (asserts it to be of type 'VectorType')
     /// @param `field_name` The field name of the access
     /// @return `std::optional<std::tuple<std::string, unsigned int>>` A tuple of the "new" access name and the access id, nullopt if failed
-    std::optional<std::tuple<std::string, unsigned int>> create_multi_type_access( //
-        const token_slice &tokens,                                                 //
-        const std::shared_ptr<Type> multi_type,                                    //
-        const std::string &field_name                                              //
+    std::optional<std::tuple<std::string, unsigned int>> create_vector_type_access( //
+        const token_slice &tokens,                                                  //
+        const std::shared_ptr<Type> vector_type,                                    //
+        const std::string &field_name                                               //
     );
 
     /// @struct `CreateGroupedAccessBaseRet`

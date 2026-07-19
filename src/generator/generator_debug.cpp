@@ -5,9 +5,9 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/interface_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/DebugInfoMetadata.h>
@@ -671,8 +671,8 @@ llvm::DIType *Generator::Debug::create_debug_type_interface(llvm::Module *const 
     );
 }
 
-llvm::DIType *Generator::Debug::create_debug_type_multi(llvm::Module *const module, const std::shared_ptr<Type> &type) {
-    const auto *multi_type = type->as<MultiType>();
+llvm::DIType *Generator::Debug::create_debug_type_vector(llvm::Module *const module, const std::shared_ptr<Type> &type) {
+    const auto *vector_type = type->as<VectorType>();
     const std::string &type_str = type->to_string();
 
     if (type_str == "bool8") {
@@ -693,11 +693,11 @@ llvm::DIType *Generator::Debug::create_debug_type_multi(llvm::Module *const modu
     }
 
     llvm::Type *const llvm_type = IR::get_type(module, type).first;
-    llvm::DIType *const elem_debug_type = get_or_create_debug_type(module, multi_type->base_type);
-    const uint64_t size_bits = elem_debug_type->getSizeInBits() * multi_type->width;
+    llvm::DIType *const elem_debug_type = get_or_create_debug_type(module, vector_type->base_type);
+    const uint64_t size_bits = elem_debug_type->getSizeInBits() * vector_type->width;
     const uint32_t align_bits = Allocation::calculate_type_alignment(llvm_type) * 8;
 
-    const llvm::DINodeArray array = DIB->getOrCreateArray({DIB->getOrCreateSubrange(0, multi_type->width)});
+    const llvm::DINodeArray array = DIB->getOrCreateArray({DIB->getOrCreateSubrange(0, vector_type->width)});
     return DIB->createVectorType(size_bits, align_bits, elem_debug_type, array);
 }
 
@@ -979,9 +979,6 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::DATA:
             di_type = create_debug_type_data(module, type);
             break;
-        case Type::Variation::OBJECT:
-            di_type = create_debug_type_object(module, type);
-            break;
         case Type::Variation::ENUM:
             di_type = create_debug_type_enum(module, type);
             break;
@@ -999,8 +996,8 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::INTERFACE:
             di_type = create_debug_type_interface(module, type);
             break;
-        case Type::Variation::MULTI:
-            di_type = create_debug_type_multi(module, type);
+        case Type::Variation::OBJECT:
+            di_type = create_debug_type_object(module, type);
             break;
         case Type::Variation::OPAQUE:
             di_type = create_debug_type_opaque(module);
@@ -1022,6 +1019,9 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
             ASSERT(false, "Unknown types cannot be represented as debug types");
         case Type::Variation::VARIANT:
             di_type = create_debug_type_variant(module, type);
+            break;
+        case Type::Variation::VECTOR:
+            di_type = create_debug_type_vector(module, type);
             break;
     }
 

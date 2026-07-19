@@ -3,9 +3,9 @@
 #include "error/error_types/base_error.hpp"
 #include "parser/type/type.hpp"
 
-class ErrExprCastMultiLengthMismatch : public BaseError {
+class ErrExprCastVectorLengthMismatch : public BaseError {
   public:
-    ErrExprCastMultiLengthMismatch(        //
+    ErrExprCastVectorLengthMismatch(       //
         const ErrorType error_type,        //
         const Hash &file_hash,             //
         const token_slice &tokens,         //
@@ -19,7 +19,7 @@ class ErrExprCastMultiLengthMismatch : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Expected '" << std::to_string(expected_count) << "' values inside multi-type cast but got '"
+        oss << BaseError::to_string() << "└─ Expected '" << std::to_string(expected_count) << "' values inside vector-type cast but got '"
             << std::to_string(actual_count) << "' values instead";
         return oss.str();
     }
@@ -27,7 +27,7 @@ class ErrExprCastMultiLengthMismatch : public BaseError {
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Expected '" + std::to_string(expected_count) + "' values inside multi - type cast but got '" +
+        d.message = "Expected '" + std::to_string(expected_count) + "' values inside vector - type cast but got '" +
             std::to_string(actual_count) + "' values instead";
         return d;
     }

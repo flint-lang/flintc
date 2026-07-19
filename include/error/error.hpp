@@ -75,7 +75,7 @@
 #include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"
 #include "error_types/parsing/expressions/err_expr_cast_invalid.hpp"
-#include "error_types/parsing/expressions/err_expr_cast_multi_length_mismatch.hpp"
+#include "error_types/parsing/expressions/err_expr_cast_vector_length_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_enum_tag_not_present.hpp"
 #include "error_types/parsing/expressions/err_expr_field_access_not_allowed_on_type.hpp"
 #include "error_types/parsing/expressions/err_expr_field_access_on_object.hpp"
@@ -109,7 +109,7 @@
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
 
-#include "error_types/parsing/types/err_type_tuple_multitype_overlap.hpp"
+#include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"
 
 #include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
 

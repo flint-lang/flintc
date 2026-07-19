@@ -5,16 +5,16 @@
 
 #include <string>
 
-/// @class `MultiType`
-/// @brief Represents multi-types
-class MultiType : public Type {
+/// @class `VectorType`
+/// @brief Represents vector-types
+class VectorType : public Type {
   public:
-    MultiType(const std::shared_ptr<Type> &base_type, const unsigned int width) :
+    VectorType(const std::shared_ptr<Type> &base_type, const unsigned int width) :
         base_type(base_type),
         width(width) {}
 
     Variation get_variation() const override {
-        return Variation::MULTI;
+        return Variation::VECTOR;
     }
 
     bool is_freeable() const override {
@@ -30,10 +30,10 @@ class MultiType : public Type {
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {
-        if (other->get_variation() != Variation::MULTI) {
+        if (other->get_variation() != Variation::VECTOR) {
             return false;
         }
-        const MultiType *const other_type = other->as<MultiType>();
+        const VectorType *const other_type = other->as<VectorType>();
         if (width != other_type->width) {
             return false;
         }
@@ -54,10 +54,10 @@ class MultiType : public Type {
     }
 
     /// @var `base_type`
-    /// @brief The base type of this multi-type
+    /// @brief The base type of this vector-type
     std::shared_ptr<Type> base_type;
 
     /// @var `width`
-    /// @brief The width of the multi-type
+    /// @brief The width of the vector-type
     unsigned int width;
 };

@@ -11,11 +11,11 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/interface_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "persistent_thread_pool.hpp"
 #include "profiler.hpp"
 
@@ -528,9 +528,9 @@ Parser::CastDirection Parser::check_castability( //
     const GroupType *rhs_group = dynamic_cast<const GroupType *>(rhs_type.get());
     if (lhs_group == nullptr && rhs_group == nullptr) {
         // Both single type
-        // If one of them is a multi-type, the other one has to be a single value with the same type as the base type of the mutli-type
-        const MultiType *lhs_mult = dynamic_cast<const MultiType *>(lhs_type.get());
-        const MultiType *rhs_mult = dynamic_cast<const MultiType *>(rhs_type.get());
+        // If one of them is a vector-type, the other one has to be a single value with the same type as the base type of the mutli-type
+        const VectorType *lhs_mult = dynamic_cast<const VectorType *>(lhs_type.get());
+        const VectorType *rhs_mult = dynamic_cast<const VectorType *>(rhs_type.get());
         if (lhs_mult != nullptr && rhs_mult == nullptr && is_castable_to(lhs_mult->base_type, rhs_type)) {
             return CastDirection::rhs_to_lhs();
         } else if (lhs_mult == nullptr && rhs_mult != nullptr && is_castable_to(rhs_mult->base_type, lhs_type)) {
@@ -640,14 +640,14 @@ Parser::CastDirection Parser::check_castability( //
         switch (lhs_type->get_variation()) {
             default:
                 return CastDirection::not_castable();
-            case Type::Variation::MULTI: {
-                const auto *lhs_mult = lhs_type->as<MultiType>();
-                // If left is a multi-type, then the right is castable to the left and the left to the right
-                // The group must have the same size as the multi-type
+            case Type::Variation::VECTOR: {
+                const auto *lhs_mult = lhs_type->as<VectorType>();
+                // If left is a vector-type, then the right is castable to the left and the left to the right
+                // The group must have the same size as the vector-type
                 if (lhs_mult->width != rhs_group->types.size()) {
                     return CastDirection::not_castable();
                 }
-                // All elements in the group must have the same type as the multi-type or be implicitely castable to it (for example
+                // All elements in the group must have the same type as the vector-type or be implicitely castable to it (for example
                 // literals)
                 for (size_t i = 0; i < lhs_mult->width; i++) {
                     if (lhs_mult->base_type->equals(rhs_group->types.at(i))) {
@@ -918,14 +918,14 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         case Type::Variation::GROUP: {
-            if (expr->type->get_variation() == Type::Variation::MULTI) {
-                const auto *expr_multi = expr->type->as<MultiType>();
+            if (expr->type->get_variation() == Type::Variation::VECTOR) {
+                const auto *expr_vector = expr->type->as<VectorType>();
                 const auto *target_group = target_type->as<GroupType>();
-                if (expr_multi->width != target_group->types.size()) {
+                if (expr_vector->width != target_group->types.size()) {
                     return false;
                 }
                 for (size_t i = 0; i < target_group->types.size(); i++) {
-                    if (!expr_multi->base_type->equals(target_group->types[i])) {
+                    if (!expr_vector->base_type->equals(target_group->types[i])) {
                         return false;
                     }
                 }
@@ -935,17 +935,17 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
             expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             return true;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = target_type->as<MultiType>();
-            if (multi_type->to_string() == "bool8" && expr->type->to_string() == "u8") {
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = target_type->as<VectorType>();
+            if (vector_type->to_string() == "bool8" && expr->type->to_string() == "u8") {
                 expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                 return true;
             }
             if (expr->get_variation() != ExpressionNode::Variation::GROUP_EXPRESSION) {
                 // If rhs type is a single value of type 'int' or 'float' then it can be splatted to the lhs type
                 CastDirection::Kind primitive_castability = CastDirection::Kind::SAME_TYPE;
-                if (!multi_type->base_type->equals(expr->type)) {
-                    primitive_castability = check_primitive_castability(multi_type->base_type, expr->type).kind;
+                if (!vector_type->base_type->equals(expr->type)) {
+                    primitive_castability = check_primitive_castability(vector_type->base_type, expr->type).kind;
                 }
                 const bool rhs_is_able_to_swizzle =                                     //
                     primitive_castability == CastDirection::Kind::CAST_RHS_TO_LHS       //
@@ -953,7 +953,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     || primitive_castability == CastDirection::Kind::SAME_TYPE;
                 if (rhs_is_able_to_swizzle) {
                     if (expr->type->to_string() == "int" || expr->type->to_string() == "float") {
-                        expr->type = multi_type->base_type;
+                        expr->type = vector_type->base_type;
                     }
                     expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
@@ -961,22 +961,22 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 return false;
             }
             auto *group_expr = expr->as<GroupExpressionNode>();
-            if (group_expr->expressions.size() != multi_type->width) {
+            if (group_expr->expressions.size() != vector_type->width) {
                 return false;
             }
 
             bool any_element_changed = false;
             for (auto &elem_expr : group_expr->expressions) {
-                if (!elem_expr->type->equals(multi_type->base_type)) {
+                if (!elem_expr->type->equals(vector_type->base_type)) {
                     const std::string elem_type_str = elem_expr->type->to_string();
                     if (elem_type_str == "int" || elem_type_str == "float") {
-                        elem_expr->type = multi_type->base_type;
+                        elem_expr->type = vector_type->base_type;
                         any_element_changed = true;
                     } else {
-                        if (elem_expr->type->equals(multi_type->base_type)) {
+                        if (elem_expr->type->equals(vector_type->base_type)) {
                             continue;
                         }
-                        const CastDirection elem_cast = check_primitive_castability(multi_type->base_type, elem_expr->type, is_implicit);
+                        const CastDirection elem_cast = check_primitive_castability(vector_type->base_type, elem_expr->type, is_implicit);
                         switch (elem_cast.kind) {
                             case CastDirection::Kind::NOT_CASTABLE:
                             case CastDirection::Kind::CAST_BOTH_TO_COMMON:
@@ -993,7 +993,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 }
             }
             if (any_element_changed) {
-                std::vector<std::shared_ptr<Type>> new_element_types(multi_type->width, multi_type->base_type);
+                std::vector<std::shared_ptr<Type>> new_element_types(vector_type->width, vector_type->base_type);
                 std::shared_ptr<Type> new_group_type = std::make_shared<GroupType>(new_element_types);
                 if (!file_node_ptr->file_namespace->add_type(new_group_type)) {
                     new_group_type = file_node_ptr->file_namespace->get_type_from_str(new_group_type->to_string()).value();

@@ -16,13 +16,13 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/range_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "types.hpp"
 
 #include <iterator>
@@ -1915,17 +1915,17 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             return GroupDeclarationNode(file_hash, tokens, variables, expression.value());
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = expression.value()->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = expression.value()->type->as<VectorType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
-                variables.at(i).first = multi_type->base_type;
+                variables.at(i).first = vector_type->base_type;
                 if (variables.at(i).second.empty()) {
                     // Skip discarded "variables" in group declarations
                     continue;
                 }
                 if (!scope->add_variable(variables.at(i).second,
                         Scope::Variable{
-                            .type = multi_type->base_type,
+                            .type = vector_type->base_type,
                             .scope_id = scope->scope_id,
                             .scope_segment = scope_segment,
                             .is_mutable = true,
@@ -1947,18 +1947,18 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 }
             }
             std::string group_type_str = "(";
-            for (unsigned int i = 0; i < multi_type->width; i++) {
+            for (unsigned int i = 0; i < vector_type->width; i++) {
                 if (i > 0) {
                     group_type_str += ", ";
                 }
-                group_type_str += multi_type->base_type->to_string();
+                group_type_str += vector_type->base_type->to_string();
             }
             group_type_str += ")";
             std::optional<std::shared_ptr<Type>> expr_group_type = file_node_ptr->file_namespace->get_type_from_str(group_type_str);
             if (!expr_group_type.has_value()) {
                 std::vector<std::shared_ptr<Type>> group_types;
-                for (unsigned int i = 0; i < multi_type->width; i++) {
-                    group_types.emplace_back(multi_type->base_type);
+                for (unsigned int i = 0; i < vector_type->width; i++) {
+                    group_types.emplace_back(vector_type->base_type);
                 }
                 expr_group_type = std::make_shared<GroupType>(group_types);
                 if (!file_node_ptr->file_namespace->add_type(expr_group_type.value())) {

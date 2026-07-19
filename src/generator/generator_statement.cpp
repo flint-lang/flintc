@@ -2132,9 +2132,9 @@ bool Generator::Statement::generate_data_field_assignment( //
     const auto &base_expr_type = data_field_assignment->base_expr->type;
     const bool is_bool8 = base_expr_type->to_string() == "bool8";
     const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
-    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
-    auto base_expr = Expression::generate_expression(                                                      //
-        builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    const bool is_vector = base_expr_type->get_variation() == Type::Variation::VECTOR;
+    auto base_expr = Expression::generate_expression(                                                       //
+        builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_vector //
     );
     if (!base_expr.has_value()) {
         return false;
@@ -2277,9 +2277,9 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
     const auto &base_expr_type = grouped_field_assignment->base_expr->type;
     const bool is_bool8 = base_expr_type->to_string() == "bool8";
     const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
-    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
-    auto base_expr = Expression::generate_expression(                                                         //
-        builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    const bool is_vector = base_expr_type->get_variation() == Type::Variation::VECTOR;
+    auto base_expr = Expression::generate_expression(                                                          //
+        builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_vector //
     );
     if (!base_expr.has_value()) {
         return false;

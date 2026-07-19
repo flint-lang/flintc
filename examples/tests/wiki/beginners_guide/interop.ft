@@ -45,8 +45,8 @@ test "7_tuples":
 	str file = "main.ft";
 	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");
 
-test "8_multi_types":
-	str path = "tests/wiki/beginners_guide/interop/8_multi_types";
+test "8_vectors":
+	str path = "tests/wiki/beginners_guide/interop/8_vectors";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
 

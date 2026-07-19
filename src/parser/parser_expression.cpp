@@ -2412,8 +2412,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return initializer;
-        } else if (tokens_mut.first->type->get_variation() == Type::Variation::MULTI && tokens_mut.first->type->to_string() != "bool8") {
-            // It's an explicit initializer of an multi-type
+        } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR && tokens_mut.first->type->to_string() != "bool8") {
+            // It's an explicit initializer of an vector-type
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
             if (!initializer.has_value()) {
                 return std::nullopt;

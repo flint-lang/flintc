@@ -38,7 +38,7 @@ class DataAccessNode : public ExpressionNode {
 
     /// @var `field_name`
     /// @brief The name of the accessed field, if the accessed field has no name it means its accessed via `.$N` instead, for tuples or
-    /// multi-types
+    /// vector-types
     std::optional<std::string> field_name;
 
     /// @var `field_id`

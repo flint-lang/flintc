@@ -1758,9 +1758,6 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             ss << "Defined at `" << node->file_hash.path.filename().string() << ":" << node->line << ":" << node->column << "`";
             break;
         }
-        case Type::Variation::MULTI:
-            ss << "**multi**\n```\n" << type->to_string() << "\n```\n";
-            break;
         case Type::Variation::OPAQUE:
             ss << "**opaque**\n```\n" << type->to_string() << "\n```\n";
             break;
@@ -1805,6 +1802,9 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             }
             break;
         }
+        case Type::Variation::VECTOR:
+            ss << "**vector**\n```\n" << type->to_string() << "\n```\n";
+            break;
     }
     return ss.str();
 }

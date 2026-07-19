@@ -35,14 +35,13 @@ class Type {
         ALIAS,
         ARRAY,
         DATA,
-        OBJECT,
         ENUM,
         ERROR_SET,
         FUNC,
         FN,
         GROUP,
         INTERFACE,
-        MULTI,
+        OBJECT,
         OPAQUE,
         OPTIONAL,
         POINTER,
@@ -51,6 +50,7 @@ class Type {
         TUPLE,
         UNKNOWN,
         VARIANT,
+        VECTOR,
     };
 
     /// @function `get_variation`
