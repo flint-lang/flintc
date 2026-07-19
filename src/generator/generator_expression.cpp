@@ -2332,6 +2332,20 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             );
             IR::aligned_store(builder, ts_ptr, ts_ptr_ptr);
 
+            // Store extra function parameters starting at the returned arg pointer
+            llvm::Value *arg_ptr = setup_call;
+            for (size_t i = 0; i < args.size(); i++) {
+                const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
+                llvm::Value *arg_value = args[i];
+                if (is_arg_reference(call_node->arguments[i], param_type)) {
+                    const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
+                    llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
+                    arg_value = IR::aligned_load(builder, param_ty, arg_value);
+                }
+                IR::aligned_store(builder, arg_value, arg_ptr);
+                arg_ptr = builder.CreateGEP(arg_value->getType(), arg_ptr, builder.getInt32(1), "arg_ptr_" + std::to_string(i + 1));
+            }
+
             // Call dispatch function in execute mode to actually call the targetted function
             llvm::CallInst *call = builder.CreateCall(                         //
                 dispatch_fn,                                                   //
