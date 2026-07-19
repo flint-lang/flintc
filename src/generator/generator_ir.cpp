@@ -254,8 +254,8 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         }
 
         // Let all interface functions branch to their respective destination blocks
-        for (const auto &[interface_name, impl] : object->interfaces) {
-            for (const auto &[src, dest] : impl.mapping) {
+        for (const auto &interface : object->interfaces) {
+            for (const auto &[src, dest] : interface.mapping) {
                 std::string branch_name = "_case_" + dest->name;
                 for (size_t i = 1; i < dest->parameters.size(); i++) {
                     if (i == 1) {

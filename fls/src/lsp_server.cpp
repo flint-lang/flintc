@@ -1653,9 +1653,8 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                     ss << "```\n";
                     ss << "Interfaces:\n```\n";
                 }
-                const auto &[interface_name, impl] = *it;
-                ss << "\t" << interface_name << ":\n";
-                for (auto map_it = impl.mapping.begin(); map_it != impl.mapping.end(); ++map_it) {
+                ss << "\t" << it->type->to_string() << ":\n";
+                for (auto map_it = it->mapping.begin(); map_it != it->mapping.end(); ++map_it) {
                     const auto &[from, to] = *map_it;
                     ss << "\t\t" << from->get_signature_string(0, true, true, false, false, false);
                     ss << " -> " << to->get_signature_string(0, true, true, false, false, false) << "\n";

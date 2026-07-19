@@ -3,7 +3,6 @@
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
-#include "parser/ast/definitions/interface_node.hpp"
 
 #include <string>
 #include <utility>
@@ -14,13 +13,13 @@
 class ObjectNode : public DefinitionNode {
   public:
     struct ImplementedInterface {
+        /// @var `type`
+        /// @brief The type of the implemented interface
+        std::shared_ptr<Type> type;
+
         /// @var `pos`
         /// @brief The source location of the implemented interface within the implements clausel
         PosTriple pos;
-
-        /// @var `interface`
-        /// @brief The interface which was implemented
-        InterfaceNode *interface;
 
         /// @var `mapping`
         /// @brief The mapping of this interface, where the "key" is the virtual interface function and the "value" is the function it got
@@ -28,14 +27,14 @@ class ObjectNode : public DefinitionNode {
         std::unordered_map<FunctionNode *, FunctionNode *> mapping = {};
     };
 
-    explicit ObjectNode(                                                 //
-        const Hash &file_hash,                                           //
-        const unsigned int line,                                         //
-        const unsigned int column,                                       //
-        const unsigned int length,                                       //
-        const std::string &name,                                         //
-        const std::vector<FunctionNode *> &functions,                    //
-        std::unordered_map<std::string, ImplementedInterface> interfaces //
+    explicit ObjectNode(                              //
+        const Hash &file_hash,                        //
+        const unsigned int line,                      //
+        const unsigned int column,                    //
+        const unsigned int length,                    //
+        const std::string &name,                      //
+        const std::vector<FunctionNode *> &functions, //
+        std::vector<ImplementedInterface> interfaces  //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         name(name),
@@ -73,8 +72,8 @@ class ObjectNode : public DefinitionNode {
     std::vector<FunctionNode *> functions;
 
     /// @var `interfaces`
-    /// @brief The list of interfaces implemented by the object (The key is the interface name)
-    std::unordered_map<std::string, ImplementedInterface> interfaces;
+    /// @brief The list of interfaces implemented by the object
+    std::vector<ImplementedInterface> interfaces;
 
     /// @var `constructor_order`
     /// @brief The order of the data modules in which they have to be constructed

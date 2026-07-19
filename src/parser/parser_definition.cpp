@@ -6,9 +6,6 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "parser/type/func_type.hpp"
-#include "parser/type/interface_type.hpp"
-#include "parser/type/object_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
@@ -661,7 +658,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     ASSERT(tok_it->token == TOK_IDENTIFIER);
     const std::string object_name(tok_it->lexme);
     tok_it++;
-    std::unordered_map<std::string, ObjectNode::ImplementedInterface> interfaces;
+    std::vector<ObjectNode::ImplementedInterface> interfaces;
     if (tok_it->token == TOK_IMPLEMENTS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
@@ -685,23 +682,23 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                 return std::nullopt;
             }
             // Check if this interface type is already present in the interfaces list
-            for (const auto &[interface_name, interface] : interfaces) {
-                if (interface_name == interface_type.value()->to_string()) {
-                    THROW_ERR(ErrDefObjectDuplicateInterface, ERR_PARSING, file_hash, tok_it->line, tok_it->column, interface_name);
+            for (const auto &interface : interfaces) {
+                if (interface.type->equals(interface_type.value())) {
+                    THROW_ERR(                                                                                                            //
+                        ErrDefObjectDuplicateInterface, ERR_PARSING, file_hash, tok_it->line, tok_it->column, interface.type->to_string() //
+                    );
                     return std::nullopt;
                 }
             }
-            interfaces[interface_type.value()->to_string()] = ObjectNode::ImplementedInterface{
+            interfaces.push_back(ObjectNode::ImplementedInterface{
+                .type = interface_type.value(),
                 .pos =
                     ASTNode::PosTriple{
                         .line = tok_it->line,
                         .column = tok_it->column,
                         .length = static_cast<uint32_t>(interface_type.value()->to_string().size()),
                     },
-                .interface = interface_type.value()->get_variation() == Type::Variation::INTERFACE //
-                    ? interface_type.value()->as<InterfaceType>()->interface_node                  //
-                    : nullptr,
-            };
+            });
             tok_it++;
             if (tok_it->token != TOK_COMMA && tok_it->token != TOK_RIGHT_PAREN) {
                 THROW_ERR(                                                                                      //

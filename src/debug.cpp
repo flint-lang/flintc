@@ -1577,9 +1577,9 @@ namespace Debug {
                 Local::print_header(indent_lvl + 1, interface_bits, "Implements ");
                 std::cout << "\n";
                 size_t i = 0;
-                for (const auto &[interface_name, impl] : object.interfaces) {
+                for (const auto &interface : object.interfaces) {
                     TreeBits interface_module_bits = interface_bits.child(indent_lvl + 2, i + 1 == object.interfaces.size());
-                    Local::print_header(indent_lvl + 2, interface_module_bits, interface_name + " ");
+                    Local::print_header(indent_lvl + 2, interface_module_bits, interface.type->to_string() + " ");
                     std::cout << "\n";
                     i++;
                 }

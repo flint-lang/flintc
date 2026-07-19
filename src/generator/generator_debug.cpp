@@ -564,9 +564,15 @@ llvm::DIType *Generator::Debug::create_debug_type_interface(llvm::Module *const 
     std::vector<const ObjectNode *> objects = Parser::get_all_objects();
     for (auto it = objects.begin(); it != objects.end();) {
         const auto &interfaces = (*it)->interfaces;
-        if (interfaces.find(interface_node->name) == interfaces.end()) {
-            it = objects.erase(it);
-        } else {
+        bool found = false;
+        for (const auto &interface : interfaces) {
+            if (interface.type->equals(type)) {
+                it = objects.erase(it);
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             ++it;
         }
     }

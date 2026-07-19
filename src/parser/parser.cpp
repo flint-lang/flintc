@@ -371,16 +371,16 @@ Parser::CastDirection Parser::check_primitive_castability( //
     if (lhs_type->get_variation() == Type::Variation::OBJECT && rhs_type->get_variation() == Type::Variation::INTERFACE) {
         ObjectNode *lhs_obj = lhs_type->as<ObjectType>()->object_node;
         InterfaceNode *rhs_interface = rhs_type->as<InterfaceType>()->interface_node;
-        for (const auto &[interface_name, impl] : lhs_obj->interfaces) {
-            if (rhs_interface == impl.interface) {
+        for (const auto &interface : lhs_obj->interfaces) {
+            if (rhs_interface == interface.type->as<InterfaceType>()->interface_node) {
                 return CastDirection::lhs_to_rhs();
             }
         }
     } else if (lhs_type->get_variation() == Type::Variation::INTERFACE && rhs_type->get_variation() == Type::Variation::OBJECT) {
         InterfaceNode *lhs_interface = lhs_type->as<InterfaceType>()->interface_node;
         ObjectNode *rhs_obj = rhs_type->as<ObjectType>()->object_node;
-        for (const auto &[interface_name, impl] : rhs_obj->interfaces) {
-            if (lhs_interface == impl.interface) {
+        for (const auto &interface : rhs_obj->interfaces) {
+            if (lhs_interface == interface.type->as<InterfaceType>()->interface_node) {
                 return CastDirection::rhs_to_lhs();
             }
         }
@@ -1217,17 +1217,18 @@ bool Parser::resolve_all_unknown_types() {
                     break;
                 case DefinitionNode::Variation::OBJECT: {
                     auto *object = definition->as<ObjectNode>();
-                    for (auto &[interface_name, impl] : object->interfaces) {
-                        if (impl.interface != nullptr) {
-                            continue;
+                    for (auto &interface : object->interfaces) {
+                        if (interface.type->get_variation() == Type::Variation::UNKNOWN) {
+                            const UnknownType *unknown_type = interface.type->as<UnknownType>();
+                            auto type = file_namespace->get_type_from_str(unknown_type->type_str);
+                            if (!type.has_value()) {
+                                THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, interface.pos);
+                                return false;
+                            }
+                            interface.type = type.value();
                         }
-                        const std::optional<std::shared_ptr<Type>> interface_type = file_namespace->get_type_from_str(interface_name);
-                        if (!interface_type.has_value()) {
-                            THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, impl.pos);
-                            return false;
-                        }
-                        if (interface_type.value()->get_variation() != Type::Variation::INTERFACE) {
-                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, impl.pos);
+                        if (interface.type->get_variation() != Type::Variation::INTERFACE) {
+                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, interface.pos);
                             return false;
                         }
                     }
@@ -1242,7 +1243,7 @@ bool Parser::resolve_all_unknown_types() {
                                 break;
                             case Type::Variation::UNKNOWN: {
                                 const UnknownType *unknown_type = required_data.type->as<UnknownType>();
-                                auto type = parser.file_node_ptr->file_namespace->get_type_from_str(unknown_type->type_str);
+                                auto type = file_namespace->get_type_from_str(unknown_type->type_str);
                                 if (!type.has_value()) {
                                     THROW_ERR(                                                                  //
                                         ErrDefFuncRequiredTypeUnknown, ERR_PARSING, parser.file_hash,           //
@@ -2019,15 +2020,16 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
     }
 
     // Make sure that every virtual function of every implemented interface is resolved
-    for (auto &[interface_name, impl] : object->interfaces) {
-        ASSERT(impl.interface != nullptr);
-        ASSERT(impl.mapping.empty());
-        for (const auto &src : impl.interface->functions) {
+    for (auto &interface : object->interfaces) {
+        ASSERT(interface.mapping.empty());
+        ASSERT(interface.type->get_variation() == Type::Variation::INTERFACE);
+        const InterfaceNode *interface_node = interface.type->as<InterfaceType>()->interface_node;
+        for (const auto &src : interface_node->functions) {
             bool added = false;
             for (const auto &dest : object->functions) {
                 if (src->get_signature_string() == dest->get_signature_string(1)) {
-                    ASSERT(impl.mapping.find(src) == impl.mapping.end());
-                    impl.mapping[src] = dest;
+                    ASSERT(interface.mapping.find(src) == interface.mapping.end());
+                    interface.mapping[src] = dest;
                     added = true;
                     break;
                 }
@@ -2038,8 +2040,8 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             for (const auto &func_module : object->func_modules) {
                 for (const auto &dest : func_module->functions) {
                     if (src->get_signature_string() == dest->get_signature_string(func_module->required_data.size())) {
-                        ASSERT(impl.mapping.find(src) == impl.mapping.end());
-                        impl.mapping[src] = dest;
+                        ASSERT(interface.mapping.find(src) == interface.mapping.end());
+                        interface.mapping[src] = dest;
                         added = true;
                         break;
                     }
