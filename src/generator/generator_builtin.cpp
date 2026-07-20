@@ -18,6 +18,7 @@ bool Generator::Builtin::init_global_variables( //
         const Namespace *ns = file.file_node_ptr->file_namespace.get();
         for (const auto &global : ns->public_symbols.globals) {
             init_scope->variables[global.first] = global.second;
+            allocations.emplace("s0::" + global.first, shared_globals.at(global.first));
         }
     }
     if (allocations.empty()) {
