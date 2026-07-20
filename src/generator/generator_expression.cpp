@@ -3634,9 +3634,16 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
                 return std::nullopt;
             }
             ASSERT(!is_reference);
+            std::vector<llvm::Value *> length_values;
+            if (array_type->sizes.has_value()) {
+                // It's a fixed array with compile-time known sizes, so we can just create a few integer values directly
+                for (size_t len : array_type->sizes.value()) {
+                    length_values.emplace_back(builder.getInt64(len));
+                }
+                return length_values;
+            }
             llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
             llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
-            std::vector<llvm::Value *> length_values;
             for (size_t i = 0; i < array_type->dimensionality; i++) {
                 llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
                 llvm::Value *length_value = IR::aligned_load(                                             //
