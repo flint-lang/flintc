@@ -296,6 +296,58 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     return dep_graph;
 }
 
+bool Parser::resolve_comptime_type_of_expr(std::unique_ptr<ExpressionNode> &expr) {
+    const std::string &type_str = expr->type->to_string();
+    if (type_str == "int") {
+        expr->type = Type::get_primitive_type("i32");
+        return true;
+    }
+    if (type_str == "float") {
+        expr->type = Type::get_primitive_type("f32");
+        return true;
+    }
+    if (type_str == "type.flint.str.lit") {
+        expr->type = Type::get_primitive_type("str");
+        return true;
+    }
+    if (expr->type->get_variation() != Type::Variation::GROUP) {
+        return false;
+    }
+    // First check for any comptime types in the group and resolve them to their default types.
+    // Then check if the group can turn into a vector, if it cannot turn into a vector then the result type will be a tuple.
+    // Copy the type since we may modify it directly
+    std::shared_ptr<GroupType> group_type = std::make_shared<GroupType>(*expr->type->as<GroupType>());
+    bool contains_literal = false;
+    for (auto &type : group_type->types) {
+        const std::string element_type_str = type->to_string();
+        if (element_type_str == "int") {
+            type = Type::get_primitive_type("i32");
+            contains_literal = true;
+        } else if (element_type_str == "float") {
+            type = Type::get_primitive_type("f32");
+            contains_literal = true;
+        } else if (element_type_str == "type.flint.str.lit") {
+            type = Type::get_primitive_type("str");
+            contains_literal = true;
+        }
+    }
+    if (!contains_literal || expr->get_variation() != ExpressionNode::Variation::GROUP_EXPRESSION) {
+        return false;
+    }
+    std::shared_ptr<Type> result_type = group_type;
+    if (!file_node_ptr->file_namespace->add_type(group_type)) {
+        result_type = file_node_ptr->file_namespace->get_type_from_str(group_type->to_string()).value();
+    }
+    expr->type = result_type;
+
+    // Make sure that all group expression literal types are resolved
+    GroupExpressionNode *group_expression = expr->as<GroupExpressionNode>();
+    for (auto &group_expr : group_expression->expressions) {
+        resolve_comptime_type_of_expr(group_expr);
+    }
+    return true;
+}
+
 Parser::CastDirection Parser::check_primitive_castability( //
     const std::shared_ptr<Type> &lhs_type,                 //
     const std::shared_ptr<Type> &rhs_type,                 //
@@ -866,9 +918,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                             break;
                         case CastDirection::Kind::CAST_RHS_TO_LHS: {
                             const std::string &elem_type_str = expr_elem_type->to_string();
-                            if (elem_type_str == "int" || elem_type_str == "float") {
-                                elem_expr->type = target_elem_type;
-                            } else {
+                            if (!resolve_comptime_type_of_expr(elem_expr)) {
                                 const auto cast_pos = ASTNode::PosTriple{elem_expr->line, elem_expr->column, elem_expr->length};
                                 elem_expr = std::make_unique<TypeCastNode>(file_hash, cast_pos, target_elem_type, elem_expr);
                             }
@@ -952,9 +1002,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     || primitive_castability == CastDirection::Kind::CAST_BIDIRECTIONAL //
                     || primitive_castability == CastDirection::Kind::SAME_TYPE;
                 if (rhs_is_able_to_swizzle) {
-                    if (expr->type->to_string() == "int" || expr->type->to_string() == "float") {
-                        expr->type = vector_type->base_type;
-                    }
+                    resolve_comptime_type_of_expr(expr);
                     expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
                 }
@@ -967,30 +1015,29 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
 
             bool any_element_changed = false;
             for (auto &elem_expr : group_expr->expressions) {
-                if (!elem_expr->type->equals(vector_type->base_type)) {
-                    const std::string elem_type_str = elem_expr->type->to_string();
-                    if (elem_type_str == "int" || elem_type_str == "float") {
-                        elem_expr->type = vector_type->base_type;
-                        any_element_changed = true;
-                    } else {
-                        if (elem_expr->type->equals(vector_type->base_type)) {
-                            continue;
-                        }
-                        const CastDirection elem_cast = check_primitive_castability(vector_type->base_type, elem_expr->type, is_implicit);
-                        switch (elem_cast.kind) {
-                            case CastDirection::Kind::NOT_CASTABLE:
-                            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
-                            case CastDirection::Kind::CAST_LHS_TO_RHS:
-                                return false;
-                            case CastDirection::Kind::SAME_TYPE:
-                            case CastDirection::Kind::CAST_RHS_TO_LHS:
-                            case CastDirection::Kind::CAST_BIDIRECTIONAL:
-                                break;
-                        }
-                        expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
-                        any_element_changed = true;
-                    }
+                if (elem_expr->type->equals(vector_type->base_type)) {
+                    continue;
                 }
+                if (resolve_comptime_type_of_expr(elem_expr)) {
+                    any_element_changed = true;
+                    continue;
+                }
+                if (elem_expr->type->equals(vector_type->base_type)) {
+                    continue;
+                }
+                const CastDirection elem_cast = check_primitive_castability(vector_type->base_type, elem_expr->type, is_implicit);
+                switch (elem_cast.kind) {
+                    case CastDirection::Kind::NOT_CASTABLE:
+                    case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+                    case CastDirection::Kind::CAST_LHS_TO_RHS:
+                        return false;
+                    case CastDirection::Kind::SAME_TYPE:
+                    case CastDirection::Kind::CAST_RHS_TO_LHS:
+                    case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                        break;
+                }
+                expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
+                any_element_changed = true;
             }
             if (any_element_changed) {
                 std::vector<std::shared_ptr<Type>> new_element_types(vector_type->width, vector_type->base_type);
@@ -1041,8 +1088,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 case CastDirection::Kind::SAME_TYPE:
                 case CastDirection::Kind::CAST_BIDIRECTIONAL:
                 case CastDirection::Kind::CAST_RHS_TO_LHS:
-                    if (expr_type_str == "int" || expr_type_str == "float") {
-                        expr->type = optional_type->base_type;
+                    if (resolve_comptime_type_of_expr(expr)) {
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     } else {
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, optional_type->base_type, expr);
@@ -1085,9 +1131,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     return true;
                 }
             }
-            if (expr_type_str == "int" || expr_type_str == "float") {
-                expr->type = target_type;
-            } else {
+            if (!resolve_comptime_type_of_expr(expr)) {
                 expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             }
             return true;

@@ -1077,8 +1077,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
         );
         return std::nullopt;
     }
-    if (expr_type_str == "int" || expr_type_str == "float") {
-        expression.value()->type = to_type;
+    if (resolve_comptime_type_of_expr(expression.value())) {
         return expression;
     }
 

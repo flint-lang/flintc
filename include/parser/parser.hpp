@@ -180,6 +180,14 @@ class Parser {
         return source_code_lines;
     }
 
+    /// @function `resolve_comptime_type_of_expr`
+    /// @brief Resolves the comptime type a given expression has. Resolves the types of group expressions as well as literal expressions,
+    /// for example changing `int` to `i32` (the default type for the given comptime type)
+    ///
+    /// @brief `expr` The expression to resolve all comptime types in
+    /// @return Whether the type of the expression was changed
+    bool resolve_comptime_type_of_expr(std::unique_ptr<ExpressionNode> &expr);
+
     /// @function `check_primitive_castability`
     /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
     ///
