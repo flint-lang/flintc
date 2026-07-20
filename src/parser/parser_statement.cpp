@@ -2140,24 +2140,55 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         }
     }
 
-    // Check for invalid group types in inference
-    if (is_inferred && rhs.value()->type->get_variation() == Type::Variation::GROUP) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
     // Determine final type and handle conversions
     std::shared_ptr<Type> final_type = declared_type;
     if (is_inferred) {
         // Resolve literals to default types for inferred declarations
-        const std::string type_str = rhs.value()->type->to_string();
-        if (type_str == "int") {
-            final_type = Type::get_primitive_type("i32");
-        } else if (type_str == "float") {
-            final_type = Type::get_primitive_type("f32");
-        } else if (type_str == "type.flint.str.lit") {
-            final_type = Type::get_primitive_type("str");
-        } else {
+        resolve_comptime_type_of_expr(rhs.value());
+        final_type = rhs.value()->type;
+        if (rhs.value()->type->get_variation() == Type::Variation::GROUP) {
+            const ASTNode::PosTriple rhs_pos{
+                .line = rhs.value()->line,
+                .column = rhs.value()->column,
+                .length = rhs.value()->length,
+            };
+            const GroupType *group_type = rhs.value()->type->as<GroupType>();
+            std::optional<std::shared_ptr<Type>> homogeneous_type = group_type->get_homogeneous_type();
+            const size_t group_width = group_type->types.size();
+            const bool group_2_3_4_wide = group_width == 2 || group_width == 3 || group_width == 4;
+            const bool group_8_wide = group_width == 8;
+            if (homogeneous_type.has_value() && (group_2_3_4_wide || group_8_wide)) {
+                // It may be able to turn into a vector type
+                const auto &type = homogeneous_type.value();
+                if (type->get_variation() == Type::Variation::PRIMITIVE) {
+                    const std::string &primitive_name = type->as<PrimitiveType>()->type_name;
+                    // It is not a vector type if:
+                    //   - The base type is a string *or*
+                    //   - (The base type is a bool *and* the group is not 8 elements large) *or*
+                    //   - (The base type is 64 bit *and* the group is 8 elements large)
+                    const bool is_str = primitive_name == "str";
+                    const bool is_invalid_bool8 = primitive_name == "bool" && !group_8_wide;
+                    const bool is_invalid_64bit = primitive_name.substr(primitive_name.size() - 2) == "64" && group_8_wide;
+                    const bool is_not_vector = is_str || is_invalid_bool8 || is_invalid_64bit;
+                    if (!is_not_vector) {
+                        // The rhs expression needs to be wrapped in a `TypeCastNode` since just changing the type of the group
+                        // expression does not properly work. We instead need to cast the group to a vector
+                        rhs.value()->type = final_type;
+                        const std::string &vector_type_string = primitive_name + "x" + std::to_string(group_width);
+                        const auto vec_ty = file_node_ptr->file_namespace->get_type_from_str(vector_type_string).value();
+                        rhs = std::make_unique<TypeCastNode>(file_hash, rhs_pos, vec_ty, rhs.value());
+                        final_type = vec_ty;
+                    }
+                }
+            }
+            if (!homogeneous_type.has_value()) {
+                // It was not able to turn into a vector type, so we turn it into a tuple
+                final_type = std::make_shared<TupleType>(group_type->types);
+                if (!file_node_ptr->file_namespace->add_type(final_type)) {
+                    final_type = file_node_ptr->file_namespace->get_type_from_str(final_type->to_string()).value();
+                }
+                rhs = std::make_unique<TypeCastNode>(file_hash, rhs_pos, final_type, rhs.value());
+            }
             final_type = rhs.value()->type;
         }
     }
