@@ -1077,7 +1077,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
         );
         return std::nullopt;
     }
-    if (resolve_comptime_type_of_expr(expression.value())) {
+    if (resolve_comptime_type_of_expr(expression.value(), to_type)) {
         return expression;
     }
 

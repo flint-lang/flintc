@@ -185,8 +185,13 @@ class Parser {
     /// for example changing `int` to `i32` (the default type for the given comptime type)
     ///
     /// @brief `expr` The expression to resolve all comptime types in
+    /// @brief `target_type` The target type of the literal, if it is known. This type will only be applied in the `int` or `float` literal
+    /// type cases, if it is set
     /// @return Whether the type of the expression was changed
-    bool resolve_comptime_type_of_expr(std::unique_ptr<ExpressionNode> &expr);
+    bool resolve_comptime_type_of_expr(                         //
+        std::unique_ptr<ExpressionNode> &expr,                  //
+        const std::optional<std::shared_ptr<Type>> &target_type //
+    );
 
     /// @function `check_primitive_castability`
     /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast

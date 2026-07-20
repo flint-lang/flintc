@@ -2144,7 +2144,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     std::shared_ptr<Type> final_type = declared_type;
     if (is_inferred) {
         // Resolve literals to default types for inferred declarations
-        resolve_comptime_type_of_expr(rhs.value());
+        resolve_comptime_type_of_expr(rhs.value(), std::nullopt);
         final_type = rhs.value()->type;
         if (rhs.value()->type->get_variation() == Type::Variation::GROUP) {
             const ASTNode::PosTriple rhs_pos{

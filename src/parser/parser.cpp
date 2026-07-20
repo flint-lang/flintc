@@ -296,15 +296,29 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     return dep_graph;
 }
 
-bool Parser::resolve_comptime_type_of_expr(std::unique_ptr<ExpressionNode> &expr) {
+bool Parser::resolve_comptime_type_of_expr(                 //
+    std::unique_ptr<ExpressionNode> &expr,                  //
+    const std::optional<std::shared_ptr<Type>> &target_type //
+) {
     const std::string &type_str = expr->type->to_string();
     if (type_str == "int") {
-        expr->type = Type::get_primitive_type("i32");
+        if (target_type.has_value()) {
+            expr->type = target_type.value();
+        } else {
+            expr->type = Type::get_primitive_type("i32");
+        }
         return true;
     }
     if (type_str == "float") {
-        expr->type = Type::get_primitive_type("f32");
+        if (target_type.has_value()) {
+            expr->type = target_type.value();
+        } else {
+            expr->type = Type::get_primitive_type("f32");
+        }
         return true;
+    }
+    if (target_type.has_value()) {
+        return false;
     }
     if (type_str == "type.flint.str.lit") {
         expr->type = Type::get_primitive_type("str");
@@ -343,7 +357,7 @@ bool Parser::resolve_comptime_type_of_expr(std::unique_ptr<ExpressionNode> &expr
     // Make sure that all group expression literal types are resolved
     GroupExpressionNode *group_expression = expr->as<GroupExpressionNode>();
     for (auto &group_expr : group_expression->expressions) {
-        resolve_comptime_type_of_expr(group_expr);
+        resolve_comptime_type_of_expr(group_expr, std::nullopt);
     }
     return true;
 }
@@ -918,7 +932,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                             break;
                         case CastDirection::Kind::CAST_RHS_TO_LHS: {
                             const std::string &elem_type_str = expr_elem_type->to_string();
-                            if (!resolve_comptime_type_of_expr(elem_expr)) {
+                            if (!resolve_comptime_type_of_expr(elem_expr, target_elem_type)) {
                                 const auto cast_pos = ASTNode::PosTriple{elem_expr->line, elem_expr->column, elem_expr->length};
                                 elem_expr = std::make_unique<TypeCastNode>(file_hash, cast_pos, target_elem_type, elem_expr);
                             }
@@ -1002,7 +1016,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     || primitive_castability == CastDirection::Kind::CAST_BIDIRECTIONAL //
                     || primitive_castability == CastDirection::Kind::SAME_TYPE;
                 if (rhs_is_able_to_swizzle) {
-                    resolve_comptime_type_of_expr(expr);
+                    resolve_comptime_type_of_expr(expr, vector_type->base_type);
                     expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     return true;
                 }
@@ -1018,7 +1032,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 if (elem_expr->type->equals(vector_type->base_type)) {
                     continue;
                 }
-                if (resolve_comptime_type_of_expr(elem_expr)) {
+                if (resolve_comptime_type_of_expr(elem_expr, vector_type->base_type)) {
                     any_element_changed = true;
                     continue;
                 }
@@ -1088,7 +1102,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                 case CastDirection::Kind::SAME_TYPE:
                 case CastDirection::Kind::CAST_BIDIRECTIONAL:
                 case CastDirection::Kind::CAST_RHS_TO_LHS:
-                    if (resolve_comptime_type_of_expr(expr)) {
+                    if (resolve_comptime_type_of_expr(expr, optional_type->base_type)) {
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
                     } else {
                         expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, optional_type->base_type, expr);
@@ -1131,7 +1145,7 @@ bool Parser::check_castability(const std::shared_ptr<Type> &target_type, std::un
                     return true;
                 }
             }
-            if (!resolve_comptime_type_of_expr(expr)) {
+            if (!resolve_comptime_type_of_expr(expr, target_type)) {
                 expr = std::make_unique<TypeCastNode>(file_hash, expr_pos, target_type, expr);
             }
             return true;

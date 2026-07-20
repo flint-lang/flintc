@@ -1939,7 +1939,7 @@ bool Parser::ensure_castability_multiple(                      //
             continue;
         }
         const std::string type_str = expr->type->to_string();
-        if (resolve_comptime_type_of_expr(expr)) {
+        if (resolve_comptime_type_of_expr(expr, to_type)) {
             continue;
         }
         if (expr->type->get_variation() == Type::Variation::RANGE) {
