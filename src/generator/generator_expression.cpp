@@ -1487,8 +1487,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
     const size_t called_fn_id = call_node->function->get_id();
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
-    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
+
+    // Check if there is enough space left on the TS
+    llvm::Value *const remaining = ctx.allocations.at("flint.stack.remaining");
+    Module::ThreadStack::generate_capacity_check(builder, ctx.parent, remaining, called_fn_type);
+
     // Load the default frame of the to-be-called function
+    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
     llvm::Value *fn_frame = IR::aligned_load(builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame");
     // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
     llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
@@ -2298,6 +2303,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters)) {
                 return std::nullopt;
             }
+
+            // TODO: Either add it here or in the dispatch function, a capacity check of the TS
 
             // Set up the frame by calling the dispatch function in setup-mode
             llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");

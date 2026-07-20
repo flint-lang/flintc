@@ -1,16 +1,8 @@
 use Core.print
 
+def crash(i32 x) -> i32:
+	return x + crash(x + 1);
+
 def main():
-	tuple := (10, 20.3, "Hi, There");
-	print($"tuple = ({tuple.$0}, {tuple.$1}, \"{tuple.$2}\")\n");
-
-	vec := (10, 20, 30);
-	print($"vec = {vec}\n");
-
-	i32[,] arr_dyn = i32[10, 15](0);
-	lengths_dyn := arr_dyn.len;
-	print($"lengths_dyn = {lengths_dyn}\n");
-	
-	arr_fixed := i32[12, 13](0);
-	lengths_fixed := arr_fixed.len;
-	print($"lengths_fixed = {lengths_fixed}\n");
+	i32 x = crash(0);
+	print($"x = {x}\n");

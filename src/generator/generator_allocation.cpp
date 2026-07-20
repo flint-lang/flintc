@@ -107,13 +107,12 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     llvm::Value *const ts_ptr = IR::aligned_load(builder, PTR_TY, parent->arg_begin(), "ts_ptr");
     allocations.emplace("flint.stack.root", ts_ptr);
     // Check if we are in a callable context and choose the next ts pointer accordingly
-    llvm::Value *const ts_stack_ptr_ptr = builder.CreateStructGEP(                                      //
-        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    llvm::Type *const stack_ty = type_map.at("type.ts.stack");
+    llvm::Value *const ts_stack_ptr_ptr = builder.CreateStructGEP(                  //
+        stack_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
     );
     llvm::Value *ts_stack_ptr = IR::aligned_load(builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
-    llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(                                  //
-        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
-    );
+    llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(stack_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr");
     llvm::Value *const ts_flags = IR::aligned_load(builder, builder.getInt32Ty(), ts_flags_ptr, "ts_flags");
     allocations.emplace("flint.stack.flags", ts_flags);
     llvm::Value *const is_callable_flag = builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
@@ -123,6 +122,18 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     allocations.emplace("flint.stack.persistence_flags", next_stack_frame);
     next_stack_frame = builder.CreateSelect(is_callable_ctx, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
     allocations.emplace("flint.stack.next", next_stack_frame);
+
+    // Calculate the remaining stack capacity and store it in the allocations map
+    llvm::Value *const stack_data_start = builder.CreateStructGEP(                      //
+        stack_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_start" //
+    );
+    llvm::Value *const ts_capacity_ptr = builder.CreateStructGEP(stack_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr");
+    llvm::Value *const ts_capacity = IR::aligned_load(builder, builder.getInt64Ty(), ts_capacity_ptr, "ts_capacity");
+    llvm::Value *const next_frame_int = builder.CreatePtrToInt(next_stack_frame, builder.getInt64Ty(), "next_frame_int");
+    llvm::Value *const data_start_int = builder.CreatePtrToInt(stack_data_start, builder.getInt64Ty(), "data_start_int");
+    llvm::Value *const bytes_used = builder.CreateSub(next_frame_int, data_start_int, "bytes_used");
+    llvm::Value *const remaining = builder.CreateSub(ts_capacity, bytes_used, "flint_stack_remaining");
+    allocations.emplace("flint.stack.remaining", remaining);
     return frame_type;
 }
 

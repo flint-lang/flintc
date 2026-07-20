@@ -4725,6 +4725,20 @@ class Generator {
             /// @function `generate_types`
             /// @brief Generates the struct types for everything thread-stack related
             static void generate_types();
+
+            /// @function `generate_capacity_check`
+            /// @brief Generates a capacity check to check if there is enough space left on the stack before calling a function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `function` The function to generate the check in
+            /// @param `remaining` Value containin the remaining capacity on the stack
+            /// @param `frame_type` The type of the function frame which will be called
+            static void generate_capacity_check( //
+                llvm::IRBuilder<> &builder,      //
+                llvm::Function *const function,  //
+                llvm::Value *const remaining,    //
+                llvm::Type *const frame_type     //
+            );
         };
 
         /// @class `TypeCast`
