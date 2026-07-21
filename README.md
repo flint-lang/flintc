@@ -33,18 +33,12 @@ This repository contains the Flint compiler itself.
 ## Introduction
 
 > [!IMPORTANT]
-> Flint is not finished yet and many features are still missing, but we work hard at finishing it as quick as possible.
+> Flint is not finished yet and many features are still missing, but we work hard at finishing it.
 > Please report any issues you may encounter with the [Flint Issue Tracker](https://github.com/flint-lang/flintc/issues).
 
-This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, compiled and automatically memory managed ([DIMA](https://github.com/flint-lang/dima)) language built around composition of data and behaviour, giving you full transparency without sacrificing high-level structure.
-Because of Flint's strong focus on transparency, it feels lower level compared to Python. But this very transparency becomes your superpower because you can actually tell what the runtime is doing with ease. This means that Flint could be described as a middle-level language, even though we try to make Flint as high level as possible without sacrificing transparency.
+This project contains the custom **Flint Compiler** built in C++. Flint is a statically typed, compiled and automatically memory managed ([DIMA](https://github.com/flint-lang/dima)) language and aims at being as high level as possible while never sacrificing transparency. Flint is a composition-first language with clean separation of data and behaviour. It does require a mindset shift compared to an inheritance-heavy OOP mentality but you will end up writing more reusable and decoupled code as a result.
+
 If you are interested in it, start learning it through the [Wiki](https://flint-lang.github.io/wiki) today!
-
-## Why Flint?
-
-Flint originated from a very simple idea: What happens when you try to combine OOP and ECS at a language-design level, and what unique design consequences would emerge from it?
-
-The resulting design is very unique and integrated, no language feature lives in isolation, they all serve the larger design goal. A core philosphy and design goal crystalized out of the language: being both high level and transparent so that users can always tell what's going on. But Flint has become way more than just that. For example the concept of groups to describe the simultaniety of operations is something I haven't seen anywhere before, at least not that integrated into the language.
 
 ## Who Flint is for
 
@@ -70,53 +64,11 @@ def main():
     print("Hello, World!\n");
 ```
 
-### Higher Order Functions
+### Composition as a core feature
 
-Flint has a very unique runtime enabling advanced features like callables, higher order functions, variable persistence and many more. As it's transparent about what it does under the hood, you will be able to easily tell exactly what that Flint program below is doing and how it works.
+Flint is based on the the central idea of composing reusable data and behaviour in objects. While slightly more verbose upfront, this desugn enables strong static guarantees, better memory layout and highly reusable components.
 
-<details>
-  <summary>Show Code</summary>
-
-```rs
-use Core.print
-
-def div(i32 x, i32 y) -> i32:
-	return x / y;
-
-def sub(i32 x, i32 y) -> i32:
-	return x - y;
-
-def bind_sub(mut fn<i32, i32 -> i32> c):
-	c = ::sub;
-
-def execute(fn<i32, i32 -> i32> c, i32 x, i32 y) -> i32:
-	return c(x, y);
-
-def main():
-	fn<i32, i32 -> i32> c = ::div;
-	i32 result = execute(c, 10, 2);
-	print($"result = {result}\n");
-
-	bind_sub(c);
-	result = execute(c, 10, 2);
-	print($"result = {result}\n");
-```
-
-</details>
-
-<details>
-  <summary>Show Output</summary>
-
-```
-result = 5
-result = 8
-```
-
-</details>
-
-### Declarative Composable Modules Paradigm
-
-Flint is based on the **Declarative Composable Modules Paradigm (DCMP)** which is a new paradigm. It originated from the idea of what happens if you take the best ideas of OOP and ECS and make something new out of it. It manages to bring together most of the advantages of OOP and ECS respectively.
+You can see the slight verbosity as an upfront cost, as the fact that every object is built up from reusable parts means that codebases become very scalable and easy to extend.
 
 <details>
   <summary>Show Code</summary>
@@ -185,9 +137,53 @@ Starting to fly for 100 seconds with my 10cm large wings
 
 </details>
 
+### Functions as values
+
+Flint's execution model enables advanced features like callables, higher order functions, variable persistence and much more. As it's transparent about what it does under the hood, you will be able to easily tell exactly what that Flint program below is doing and how it works.
+
+<details>
+  <summary>Show Code</summary>
+
+```rs
+use Core.print
+
+def div(i32 x, i32 y) -> i32:
+	return x / y;
+
+def sub(i32 x, i32 y) -> i32:
+	return x - y;
+
+def bind_sub(mut fn<i32, i32 -> i32> c):
+	c = ::sub;
+
+def execute(fn<i32, i32 -> i32> c, i32 x, i32 y) -> i32:
+	return c(x, y);
+
+def main():
+	fn<i32, i32 -> i32> c = ::div;
+	i32 result = execute(c, 10, 2);
+	print($"result = {result}\n");
+
+	bind_sub(c);
+	result = execute(c, 10, 2);
+	print($"result = {result}\n");
+```
+
+</details>
+
+<details>
+  <summary>Show Output</summary>
+
+```
+result = 5
+result = 8
+```
+
+</details>
+
 ### Simple Raylib Example
 
-Flint comes with a unique protocol-based approach to interoperability with other languages. The **Flint Interop Protocol (FIP)** lets you use even advanced C libraries such as raylib without writing a single line of bindings.
+Flint comes with a unique protocol-based approach to interoperability with other languages. The **Flint Interop Protocol (FIP)** lets you use C libraries such as raylib without writing a single line of bindings code yourself.
 
 <details>
     <summary>.fip/config/fip.toml</summary>
@@ -265,16 +261,16 @@ Join the [Discord server](https://discord.gg/efqCDaVmb) and let's chat about Fli
 
 ## Usage of AI
 
-As the center of Flint is transparency, it's development should be as transparent as the language itself. If you wonder how and if AI is used in Flints developement, this will be clarified here.
+TLDR: Used for debugging only, never in code generation since AIs generate suboptimal code anyways.
 
 <details>
-  <summary>Show Clarifications</summary>
+  <summary>Long Version</summary>
 
-Flint, unlike many new vibe-coded slop languages, is a hand-crafted project. While I hate AI auto-completion as it just gets in my way all the time, there still are some parts where AI was or still is involved in the developement process of Flint, as LLMs a great tool for certain things:
+Flint, is a hand-crafted project. I hate AI auto-completion as it just gets in my way all the time and generating code with AI is also never a good idea. However, there still are some parts where AI was or still is involved in the developement process of Flint, as for some jobs they fit quite nice as a tool:
 
-- I still often use AI for debugging the generated LLVM IR code of Flint programs. The generator produces a couple thousand lines of IR code and finding the root cause of a bug is way too time-consuming for doing it manually. LLMs are pretty good at finding bugs (even though they are horrible at finding solutions lol). Often times the bugs are pretty hard to find manually, like a double pointer not loaded or loaded one time too often etc, especially now that the IR is based on opaque pointer types. But once found, most bugs are quite simple to fix.
-- LLMs are occasionally used for indexing tasks. For example when I can remember that i have the capability to do X somewhere but having trouble to find where it is, I use them to search for it. The codebase is quite large and Flint has been in developement for quite a long time, so I naturally forget some small things about it.
-- In the early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is. It was a great tool for learning the API and the LLVM IR code in general, as I was a total noob in both areas at the start of Flint. However, all actual code in the compiler was written by myself as those early AI-assisted parts (to get it up and running) have long been replaced and refactored with properly engineered solutions.
+- I still often use AI for debugging the generated LLVM IR code of Flint programs. The generator produces a couple thousand lines of IR code and finding the root cause of a bug is way too time-consuming for doing it manually. LLMs are pretty good at finding bugs (even though they are horrible at finding solutions). Often times the bugs are pretty hard to find manually, like a double pointer not loaded or loaded one time too often etc, especially now that the IR is based on opaque pointer types. But once found, most bugs are quite simple to fix (manually).
+- LLMs are occasionally used for indexing tasks. For example when I can remember that i have the capability to do X somewhere but having trouble to find where it is (or more often, to find out how I named the damn thing).
+- In the very early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is as a learning augmentation next to Kaleidoscope. It was a great tool for learning the  LLVM IR code and its syntax and semantics. However, all actual code in the compiler was written by myself as those early AI-assisted parts have long been replaced and refactored with properly (and poorly) engineered solutions.
 
 So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
 
