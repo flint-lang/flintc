@@ -20,7 +20,7 @@ data DurationListHead:
 	DurationListNode? head;
 	DurationListHead(head);
 
-/// @brief A func module containing all functionality of the 'DurationList' object type
+/// @brief A func component containing all functionality of the 'DurationList' object type
 func FDurationList requires(DurationListHead d):
 	/// @brief Appends a new duration to the duration list
 	///

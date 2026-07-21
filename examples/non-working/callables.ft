@@ -107,5 +107,5 @@ def main():
 	p1.set_base_attack(new_base);
 	print(p1.base_attack(40, 50)); // prints '0'
 
-	// reference to the base_attack function of the func module
+	// reference to the base_attack function of the func component
 	fn<mut Attacks, i32, i32 -> i32> ba = Attacking::base_attack;

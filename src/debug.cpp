@@ -1598,13 +1598,13 @@ namespace Debug {
                 std::cout << "\n";
             }
 
-            if (!object.func_modules.empty()) {
+            if (!object.func_components.empty()) {
                 TreeBits func_bits = bits.child(indent_lvl + 1, object.functions.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
-                for (size_t i = 0; i < object.func_modules.size(); i++) {
-                    TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == object.func_modules.size());
-                    Local::print_header(indent_lvl + 2, func_module_bits, object.func_modules.at(i)->name + " ");
+                for (size_t i = 0; i < object.func_components.size(); i++) {
+                    TreeBits func_component_bits = func_bits.child(indent_lvl + 2, i + 1 == object.func_components.size());
+                    Local::print_header(indent_lvl + 2, func_component_bits, object.func_components.at(i)->name + " ");
                     std::cout << "\n";
                 }
             }

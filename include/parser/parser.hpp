@@ -271,7 +271,7 @@ class Parser {
     static std::vector<const ErrorNode *> get_all_errors();
 
     /// @function `get_all_functions`
-    /// @brief Collects and returns all functions from all files, including functions defined within func modules
+    /// @brief Collects and returns all functions from all files, including functions defined within func components
     ///
     /// @param `include_core` Whether to also collect all functions provided from the Core modules
     /// @return `std::vector<const FunctionNode *>` A list of all functions from all files
@@ -655,7 +655,7 @@ class Parser {
     /// @function `get_next_open_data`
     /// @brief Returns the next open data module to parse
     ///
-    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func module to parse. Returns a nullopt if there
+    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func component to parse. Returns a nullopt if there
     /// are no open funct modules left
     std::optional<DataNode *> get_next_open_data() {
         if (open_data_list.empty()) {
@@ -855,7 +855,7 @@ class Parser {
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `call_namespace` The namespace the called function comes from, for example when called via an alias the namespace is the
     /// alias namepsace, when called directly it's the namespace of this file
-    /// @param `is_typed_call` Whether the call is targetting a func module's or objects function like `<FuncType>.<call>` or
+    /// @param `is_typed_call` Whether the call is targetting a func component's or objects function like `<FuncType>.<call>` or
     /// `<ObjectType>.<call>`
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
@@ -1159,14 +1159,14 @@ class Parser {
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
     /// @param `alias` The potential alias base on which the call is done
-    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
+    /// @param `is_func_component_call` Whether the call is targetting a func component's function like `<FuncType>.<call>`
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` A unique pointer to the created call node expression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
         const Context &ctx,                                                //
         std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
         const std::optional<Namespace *> &alias,                           //
-        const bool is_func_module_call = false                             //
+        const bool is_func_component_call = false                          //
     );
 
     /// @function `creat_function_reference`
@@ -1406,7 +1406,7 @@ class Parser {
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
     /// @param `alias` The potential alias base of the call
-    /// @param `is_typed_call` Whether the call is targetting a func module's or objects function like `<FuncType>.<call>` or
+    /// @param `is_typed_call` Whether the call is targetting a func component's or objects function like `<FuncType>.<call>` or
     /// `<ObjectType>.<call>`
     /// @return `std::optional<std::unique_ptr<StatementNode>>` A unique pointer to the created StatementNode. It could be either a "normal"
     /// call or an instance call, that's why we return it as a statement node instead
@@ -1953,7 +1953,7 @@ class Parser {
     /// creation of AST Nodes for the body
     ///
     /// @param `definition` The list of tokens representing the function definition
-    /// @param `required_data` A list of required data if the function is defined within a func module
+    /// @param `required_data` A list of required data if the function is defined within a func component
     /// @return `std::optional<FunctionNode>` The created FunctionNode
     std::optional<FunctionNode> create_function(                                                        //
         const token_slice &definition,                                                                  //
@@ -2000,7 +2000,7 @@ class Parser {
     /// @brief Creates an EntityNode from the given definition and body tokens
     ///
     /// @details An Object can either be monolithic or modular. If its modular, only the ObjectNode (result.first) will be returned.
-    /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func modules
+    /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func components
     /// then will be added to the AST too. "Monolithic" objects are no different to modular ones internally.
     ///
     /// @param `definition` The list of tokens representing the object definition

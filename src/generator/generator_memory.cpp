@@ -417,7 +417,7 @@ void Generator::Memory::generate_free_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            // To free a func module we just need to call `dima.release` on all its data values
+            // To free a func component we just need to call `dima.release` on all its data values
             const auto *func_type = type->as<FuncType>();
             if (func_type->func_node->required_data.empty()) {
                 break;
@@ -909,7 +909,7 @@ void Generator::Memory::generate_clone_value( //
             break;
         }
         case Type::Variation::FUNC: {
-            // To clone a func module we just need to call `dima.retain` on all its data values and then can copy the whole structure
+            // To clone a func component we just need to call `dima.retain` on all its data values and then can copy the whole structure
             const auto *func_type = type->as<FuncType>();
             if (func_type->func_node->required_data.empty()) {
                 break;

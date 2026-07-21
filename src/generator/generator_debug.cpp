@@ -287,8 +287,8 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
 
     std::vector<const ObjectNode *> objects = Parser::get_all_objects();
     for (auto it = objects.begin(); it != objects.end();) {
-        const auto &func_modules = (*it)->func_modules;
-        if (std::find(func_modules.begin(), func_modules.end(), func_node) == func_modules.end()) {
+        const auto &func_components = (*it)->func_components;
+        if (std::find(func_components.begin(), func_components.end(), func_node) == func_components.end()) {
             it = objects.erase(it);
         } else {
             ++it;

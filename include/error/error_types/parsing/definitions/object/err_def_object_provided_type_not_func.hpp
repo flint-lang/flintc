@@ -14,14 +14,14 @@ class ErrDefObjectProvidedTypeNotFunc : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Type mismatch. Expected func type for object-provided func modules";
+        oss << BaseError::to_string() << "└─ Included func component is not a func component";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Type mismatch. Expected func type for object-provided func modules";
+        d.message = "Included func component is not a func component";
         return d;
     }
 };

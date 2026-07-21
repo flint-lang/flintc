@@ -63,9 +63,9 @@ class ObjectNode : public DefinitionNode {
     /// functions or the constructor of the object
     std::vector<std::pair<DataNode *, std::optional<std::string>>> data_modules;
 
-    /// @var `func_modules`
-    /// @brief The list of func modules used inside the object
-    std::vector<FuncNode *> func_modules;
+    /// @var `func_components`
+    /// @brief The list of func components used inside the object
+    std::vector<FuncNode *> func_components;
 
     /// @var `functions`
     /// @brief A list of all functions defined as free-floating functions within this object definition

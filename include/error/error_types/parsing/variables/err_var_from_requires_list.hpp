@@ -17,14 +17,14 @@ class ErrVarFromRequiresList : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Variable '" + var_name + "' is already defined in the 'requires' statement of the func module";
+        oss << BaseError::to_string() << "Variable '" + var_name + "' is already defined in the 'requires' clausel of the func component";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Variable '" + var_name + "' is already defined in the 'requires' statement of the func module";
+        d.message = "Variable '" + var_name + "' is already defined in the 'requires' clausel of the func component";
         return d;
     }
 

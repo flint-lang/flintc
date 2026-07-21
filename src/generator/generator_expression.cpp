@@ -4259,8 +4259,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return cast_vector;
         }
     } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::FUNC) {
-        // We "cast" an object to a func module by extracting the required data of the func module from the object and storing it in the
-        // func module. Whenever we extract and store a data value from the entity to the func module we call `dima.retain` on that value
+        // We "cast" an object to a func component by extracting the required data of the func component from the object and storing it in the
+        // func component. Whenever we extract and store a data value from the entity to the func component we call `dima.retain` on that value
         // first for proper ARC-tracking
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
         llvm::Type *const object_ty = IR::get_type(ctx.parent->getParent(), from_type).first;

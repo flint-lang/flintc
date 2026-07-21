@@ -226,7 +226,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
 
         // Generate all basic block targets
         std::unordered_map<const FunctionNode *, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
-        for (const FuncNode *func : object->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
                 std::string branch_name = "_case_" + function_node->name;
                 for (size_t i = func->required_data.size(); i < function_node->parameters.size(); i++) {
@@ -269,7 +269,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         }
 
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
-        for (const FuncNode *func : object->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
                 setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
@@ -305,7 +305,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         }
 
         // Generate all the bodies of the basic blocks, being the calls to the linked-to functions
-        for (const FuncNode *func : object->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
                 execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
@@ -833,7 +833,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             }
             // Check if the func type even requires any data. If it does not then it's type cannot be created
             if (func_type->func_node->required_data.empty()) {
-                // Creating an instance of a func module which does not require any data does not make sense since we just call it using
+                // Creating an instance of a func component which does not require any data does not make sense since we just call it using
                 // `FuncType.function` anyways
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return {nullptr, {false, false}};

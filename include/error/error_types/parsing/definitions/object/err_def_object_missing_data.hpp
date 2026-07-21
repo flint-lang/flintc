@@ -22,14 +22,14 @@ class ErrDefObjectMissingData : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "└─ Object type is missing data '" << YELLOW << data_type << DEFAULT
-            << "' required by func module '" << YELLOW << func_type << DEFAULT << "'";
+            << "' required by func component '" << YELLOW << func_type << DEFAULT << "'";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Object type is missing data '" + data_type + "' required by func module '" + func_type + "'";
+        d.message = "Object type is missing data '" + data_type + "' required by func component '" + func_type + "'";
         return d;
     }
 

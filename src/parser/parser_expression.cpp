@@ -859,16 +859,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     std::shared_ptr<Scope> &scope,                                             //
     const token_slice &tokens,                                                 //
     const std::optional<Namespace *> &alias,                                   //
-    const bool is_func_module_call                                             //
+    const bool is_func_component_call                                          //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_module_call);
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_component_call);
     } else {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_module_call);
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_component_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -928,14 +928,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
 }
 
 std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_reference(const token_slice &tokens) {
-    // If the first token is a type then it's a func module's or objects' function reference, so we need to search for the referenced
-    // function within that func module / object type
+    // If the first token is a type then it's a func component's or objects' function reference, so we need to search for the referenced
+    // function within that func component / object type
     token_slice tokens_mut = tokens;
     std::string referenced_fn_name = "";
     if (tokens.first->token == TOK_TYPE) {
         switch (tokens.first->type->get_variation()) {
             default:
-                // Referencing functions is only allowed when referencing functions of func modules or objects (yet)
+                // Referencing functions is only allowed when referencing functions of func components or objects (yet)
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             case Type::Variation::OBJECT:

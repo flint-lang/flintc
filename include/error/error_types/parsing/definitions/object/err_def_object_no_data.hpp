@@ -17,7 +17,7 @@ class ErrDefObjectNoData : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ Object type does not operate on any data\n";
-        oss << "└─ Use func modules or direct functions when there is no state to operate on";
+        oss << "└─ Use direct functions when there is no state to operate on";
         return oss.str();
     }
 

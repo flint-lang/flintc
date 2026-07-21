@@ -2870,13 +2870,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0 //
     ) {
         // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
-        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func module call
+        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func component call
         // within a call)
         token_slice tokens_mut = tokens;
         if (tokens_mut.first->token == TOK_TYPE) {
             switch (tokens_mut.first->type->get_variation()) {
                 default:
-                    // Aliased function calls are only allowed on objects or func modules, no other *type* can contain functions
+                    // Aliased function calls are only allowed on objects or func components, no other *type* can contain functions
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 case Type::Variation::OBJECT: {

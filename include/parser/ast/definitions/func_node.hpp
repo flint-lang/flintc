@@ -9,7 +9,7 @@
 #include <vector>
 
 /// @class `FuncNode`
-/// @brief Represents func module definitions
+/// @brief Represents func component definitions
 class FuncNode : public DefinitionNode {
   public:
     struct RequiredData {
@@ -47,7 +47,7 @@ class FuncNode : public DefinitionNode {
     FuncNode &operator=(FuncNode &&) = default;
 
     /// @var `name`
-    /// @brief The name of the func module
+    /// @brief The name of the func component
     std::string name;
 
     /// @var `required_data`
@@ -55,6 +55,6 @@ class FuncNode : public DefinitionNode {
     std::vector<RequiredData> required_data;
 
     /// @var `functions`
-    /// @brief The functions defined inside the func module. These functions get passed the required data as arguments by default
+    /// @brief The functions defined inside the func component. These functions get passed the required data as arguments by default
     std::vector<FunctionNode *> functions;
 };

@@ -210,7 +210,7 @@ std::optional<FunctionNode> Parser::create_function(                            
             return std::nullopt;
         }
         if (required_data.has_value()) {
-            // It is not allowed to define the main function within a func module
+            // It is not allowed to define the main function within a func component
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -298,7 +298,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         next_mangle_id++;
     }
     if (required_data.has_value()) {
-        // If there is required data then this function is defined inside a func module, the name needs to be changed accordingly
+        // If there is required data then this function is defined inside a func component, the name needs to be changed accordingly
         name = required_data.value().first + "." + name;
     }
     return FunctionNode(                                                                         //

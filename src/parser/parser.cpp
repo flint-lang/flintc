@@ -414,20 +414,20 @@ Parser::CastDirection Parser::check_primitive_castability( //
         return CastDirection::not_castable();
     }
 
-    // Check if one side is an object and the other side is a func module and if the func module is contained within the object type
+    // Check if one side is an object and the other side is a func component and if the func component is contained within the object type
     if (lhs_type->get_variation() == Type::Variation::OBJECT && rhs_type->get_variation() == Type::Variation::FUNC) {
         ObjectNode *lhs_obj = lhs_type->as<ObjectType>()->object_node;
         FuncNode *rhs_func = rhs_type->as<FuncType>()->func_node;
-        for (const auto &func_module_ptr : lhs_obj->func_modules) {
-            if (rhs_func == func_module_ptr) {
+        for (const auto &func_component_ptr : lhs_obj->func_components) {
+            if (rhs_func == func_component_ptr) {
                 return CastDirection::lhs_to_rhs();
             }
         }
     } else if (lhs_type->get_variation() == Type::Variation::FUNC && rhs_type->get_variation() == Type::Variation::OBJECT) {
         FuncNode *lhs_func = lhs_type->as<FuncType>()->func_node;
         ObjectNode *rhs_obj = rhs_type->as<ObjectType>()->object_node;
-        for (const auto &func_module_ptr : rhs_obj->func_modules) {
-            if (lhs_func == func_module_ptr) {
+        for (const auto &func_component_ptr : rhs_obj->func_components) {
+            if (lhs_func == func_component_ptr) {
                 return CastDirection::rhs_to_lhs();
             }
         }
@@ -1713,12 +1713,12 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
 bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body) {
     PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
     auto &data_modules = object->data_modules;
-    auto &func_modules = object->func_modules;
+    auto &func_components = object->func_components;
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
 
-    // TODO: Make the order of definition for the data and func modules order-independant. This means that one could then also first
-    // define all func modules before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
-    // and then func modules
+    // TODO: Make the order of definition for the data and func components order-independant. This means that one could then also first
+    // define all func components before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
+    // and then func components
 
     // Add all data modules defined in the `data` section of the object
     auto line_it = body.begin();
@@ -1862,14 +1862,14 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                             return false;
                         }
                         auto *func_node = tok_it->type->as<FuncType>()->func_node;
-                        if (std::find(func_modules.begin(), func_modules.end(), func_node) != func_modules.end()) {
+                        if (std::find(func_components.begin(), func_components.end(), func_node) != func_components.end()) {
                             THROW_ERR(                                                    //
                                 ErrDefObjectDuplicateFunc, ERR_PARSING, parser.file_hash, //
                                 tok_it->line, tok_it->column, tok_it->type->to_string()   //
                             );
                             return false;
                         }
-                        func_modules.emplace_back(func_node);
+                        func_components.emplace_back(func_node);
                         break;
                     }
                 }
@@ -1890,8 +1890,8 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         return false;
     }
 
-    // Make sure that all required data from all func modules is present in the object
-    for (const auto &func : func_modules) {
+    // Make sure that all required data from all func components is present in the object
+    for (const auto &func : func_components) {
         for (const auto &required_data : func->required_data) {
             bool contains_required_data = false;
             const auto *required_data_node = required_data.type->as<DataType>()->data_node;
@@ -2033,10 +2033,10 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         }
     }
 
-    // Check if there are any duplications between functions of included func modules and if there is a collision a free-floating function
-    // must be present, otherwise that would be an ambiguity error
-    for (const auto &left_func : object->func_modules) {
-        for (const auto &right_func : object->func_modules) {
+    // Check if there are any duplications between functions of included func components and if there is a collision a free-floating
+    // function must be present, otherwise that would be an ambiguity error
+    for (const auto &left_func : object->func_components) {
+        for (const auto &right_func : object->func_components) {
             if (left_func == right_func) {
                 continue;
             }
@@ -2070,8 +2070,8 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         free_floating_fn->scope.value()->captured_object_identifiers = captured_object_identifiers;
     }
 
-    if (object->functions.empty() && object->func_modules.empty()) {
-        // An object which has neither free-floating functions nor func modules does not have any behaviour and is considered a compile
+    if (object->functions.empty() && object->func_components.empty()) {
+        // An object which has neither free-floating functions nor func components does not have any behaviour and is considered a compile
         // error
         THROW_ERR(ErrDefObjectNoFunctionality, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
@@ -2095,9 +2095,9 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             if (added) {
                 continue;
             }
-            for (const auto &func_module : object->func_modules) {
-                for (const auto &dest : func_module->functions) {
-                    if (src->get_signature_string() == dest->get_signature_string(func_module->required_data.size())) {
+            for (const auto &func_component : object->func_components) {
+                for (const auto &dest : func_component->functions) {
+                    if (src->get_signature_string() == dest->get_signature_string(func_component->required_data.size())) {
                         ASSERT(interface.mapping.find(src) == interface.mapping.end());
                         interface.mapping[src] = dest;
                         added = true;

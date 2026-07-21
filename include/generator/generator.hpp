@@ -401,7 +401,7 @@ class Generator {
 
     /// @var `object_dispatch_functions`
     /// @brief A map of all object dispatch functions. The key is the type ID of the object, the value is the generated object dispatch
-    /// function needed for proper function dispatch when calling functions of func module instances (interfaces).
+    /// function needed for proper function dispatch when calling functions of func component instances (interfaces).
     static inline std::unordered_map<uint32_t, llvm::Function *> object_dispatch_functions;
 
     /// @class `IR`

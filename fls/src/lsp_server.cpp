@@ -1669,12 +1669,12 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                 ss << "\t" << node->data_modules.at(i).first->name << "\n";
             }
 
-            for (size_t i = 0; i < node->func_modules.size(); i++) {
+            for (size_t i = 0; i < node->func_components.size(); i++) {
                 if (i == 0) {
                     ss << "```\n";
                     ss << "Func modules:\n```\n";
                 }
-                ss << "\t" << node->func_modules.at(i)->name << "\n";
+                ss << "\t" << node->func_components.at(i)->name << "\n";
             }
 
             for (size_t i = 0; i < node->functions.size(); i++) {

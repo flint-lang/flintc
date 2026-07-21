@@ -18,14 +18,14 @@ class ErrDefObjectDuplicateFunc : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Object type defines func module '" << YELLOW << func_type << DEFAULT << "' twice";
+        oss << BaseError::to_string() << "└─ Object type includes func component '" << YELLOW << func_type << DEFAULT << "' twice";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Object type defines func module '" + func_type + "' twice";
+        d.message = "Object type includes func component '" + func_type + "' twice";
         return d;
     }
 

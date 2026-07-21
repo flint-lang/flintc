@@ -762,7 +762,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     }
 
     // If the call starts with `identifier.identifier(` and the first `identifier` is a variable, we then can check if that variable is of
-    // type object or func module. If it's an object then it's an instanced call. Func modules will be handled at a later time but they
+    // type object or func component. If it's an object then it's an instanced call. Func modules will be handled at a later time but they
     // follow the same syntax.
     // The pattern `identifier.identifier` does neither match type-calls like FuncType.call since that's `type.identifier` or aliased calls,
     // as these are `alias.identifier`, so this means that this pattern is unique to instance calls
@@ -801,20 +801,20 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                 return std::nullopt;
             case Type::Variation::OBJECT: {
                 const ObjectNode *object_node = var_type->as<ObjectType>()->object_node;
-                for (const auto &func_module : object_node->func_modules) {
-                    for (const auto &function : func_module->functions) {
+                for (const auto &func_component : object_node->func_components) {
+                    for (const auto &function : func_component->functions) {
                         // Remove the 'FuncType.' from the function's name to get the "actual" name of the function
-                        const std::string fn_name = function->name.substr(func_module->name.size() + 1);
+                        const std::string fn_name = function->name.substr(func_component->name.size() + 1);
                         if (fn_name != function_name) {
                             continue;
                         }
-                        const size_t implicit_param_count = func_module->required_data.size();
+                        const size_t implicit_param_count = func_component->required_data.size();
                         if (function->parameters.size() - implicit_param_count != argument_types.size()) {
                             // Wrong arg count
                             continue;
                         }
                         functions.emplace_back(function, implicit_param_count);
-                        func_nodes.emplace(func_module);
+                        func_nodes.emplace(func_component);
                     }
                 }
                 // Search in the free-floating functions whether this is the function we call
@@ -1040,7 +1040,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             case Type::Variation::FUNC: {
                 const FuncNode *func_node = *func_nodes.begin();
                 for (size_t i = func_node->required_data.size(); i > 0; i--) {
-                    // The indices of the required data are the same as the func module itself
+                    // The indices of the required data are the same as the func component itself
                     const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         file_hash,                                                              //
@@ -1123,7 +1123,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         }
     }
 
-    // Check if the targetted function inside the func module is virtual, it cannot be called directly in this case
+    // Check if the targetted function inside the func component is virtual, it cannot be called directly in this case
     if (is_typed_call                                                   //
         && tokens.first->type->get_variation() == Type::Variation::FUNC //
         && !function->scope.has_value()                                 //
