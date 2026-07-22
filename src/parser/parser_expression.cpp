@@ -341,61 +341,62 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_variable");
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
-        if (tok->token == TOK_IDENTIFIER) {
-            const std::string name(tok->lexme);
-            if (scope->variables.find(name) != scope->variables.end()) {
-                return std::make_unique<VariableNode>(                                                                             //
-                    file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
-                );
-            }
-            if (scope->captured_object_identifiers.find(name) == scope->captured_object_identifiers.end()) {
-                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
+        if (tok->token != TOK_IDENTIFIER) {
+            continue;
+        }
+        const std::string name(tok->lexme);
+        if (scope->variables.find(name) != scope->variables.end()) {
+            return std::make_unique<VariableNode>(                                                                             //
+                file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
+            );
+        }
+        if (scope->captured_object_identifiers.find(name) == scope->captured_object_identifiers.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
+            return std::nullopt;
+        }
+        const auto &captured_type = scope->captured_object_identifiers.at(name);
+        switch (captured_type->get_variation()) {
+            default:
+                UNREACHABLE();
                 return std::nullopt;
-            }
-            const auto &captured_type = scope->captured_object_identifiers.at(name);
-            switch (captured_type->get_variation()) {
-                default:
-                    UNREACHABLE();
-                    return std::nullopt;
-                case Type::Variation::DATA: {
-                    ASSERT(scope->variables.find("self") != scope->variables.end());
-                    const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
-                    const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
-                    const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
-                    size_t idx = 0;
-                    for (const auto &[data_node, accessor] : object_node->data_modules) {
-                        if (data_node == required_data_node) {
-                            break;
-                        }
-                        idx++;
+            case Type::Variation::DATA: {
+                ASSERT(scope->variables.find("self") != scope->variables.end());
+                const auto &self = scope->variables.at("self");
+                ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
+                const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
+                const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
+                size_t idx = 0;
+                for (const auto &[data_node, accessor] : object_node->data_modules) {
+                    if (data_node == required_data_node) {
+                        break;
                     }
-                    if (idx == object_node->data_modules.size()) {
-                        // The data node is not present in the object type
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
-                        file_hash, get_pos_triple(tokens), "self", self.type, false             //
-                    );
-                    std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
-                        file_hash, get_pos_triple(tokens),                                     //
-                        base_expr,                                                             //
-                        std::nullopt,                                                          // Object fields have no name
-                        idx,                                                                   // The index of the data in the object struct
-                        captured_type                                                          //
-                    );
-                    return std::move(access);
+                    idx++;
                 }
-                case Type::Variation::OBJECT:
-                    ASSERT(scope->variables.find("self") != scope->variables.end());
-                    const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
-                    // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
-                    // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
-                    // `create_field_access_base` function.
-                    return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, false);
+                if (idx == object_node->data_modules.size()) {
+                    // The data node is not present in the object type
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                    file_hash, get_pos_triple(tokens), "self", self.type, !self.is_mutable  //
+                );
+                std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
+                    file_hash, get_pos_triple(tokens),                                     //
+                    base_expr,                                                             //
+                    std::nullopt,                                                          // Object fields have no name
+                    idx,                                                                   // The index of the data in the object struct
+                    captured_type                                                          //
+                );
+                return std::move(access);
             }
+            case Type::Variation::OBJECT:
+                ASSERT(scope->variables.find("self") != scope->variables.end());
+                const auto &self = scope->variables.at("self");
+                ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
+                // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
+                // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
+                // `create_field_access_base` function.
+                return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, !self.is_mutable);
         }
     }
     return std::nullopt;
