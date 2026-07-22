@@ -12,7 +12,7 @@ def main():
 
 	TimeStamp t0 = now();
 	for i := 0; i < 1_000_000; i++:
-		str slice = get_slice(string, u64(2), string.length);
+		str slice = get_slice(string, 2, string.length);
 
 	TimeStamp t1 = now();
 	for i := 0; i < 1_000_000; i++:

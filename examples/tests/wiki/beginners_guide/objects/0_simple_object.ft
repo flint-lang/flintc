@@ -1,0 +1,25 @@
+use Core.print
+
+data Transform:
+	f32x2 pos;
+	f32x2 dir;
+	f32 speed;
+	Transform(pos, dir, speed);
+
+object Player:
+	data: Transform t;
+	Player(t);
+
+	def move():
+		t.pos += t.dir * t.speed;
+	
+	def print_position():
+		print($"t.pos = {t.pos}\n");
+
+def main():
+	Player player = Player(Transform((1.2, 3.4), (4.5, 6.7), 0.12));
+	player.print_position();
+
+	for (_, _) in 0..5:
+		player.move();
+		player.print_position();

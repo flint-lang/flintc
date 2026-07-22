@@ -29,8 +29,8 @@ def main():
 
 	// Initialize game objects
 	ball := Ball(DBall(_));
-	player := Player(DPaddle(_, f32x2(screen / 2), _));
-	cpu := Cpu(DPaddle(_, f32x2(screen / 2), _));
+	player := Player(DPaddle(_));
+	cpu := Cpu(DPaddle(_));
 	reset_objects(ball, player, cpu);
 
 	u32 player_score = 0;

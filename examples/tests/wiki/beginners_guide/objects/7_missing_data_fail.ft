@@ -5,9 +5,13 @@ data Transform:
 	i32x2 size;
 	Transform(pos, size);
 
-func FMove requires(Transform t):
+data Scale:
+	f32x2 scale;
+	Scale(scale);
+
+func FMove requires(Transform t, Scale s):
 	def print():
-		print($"pos: {t.pos}, size: {t.size}\n");
+		print($"pos: {t.pos}, size: {t.size}, scale: {s.scale}\n");
 
 	def get_pos() -> i32x2:
 		return t.pos;

@@ -11,7 +11,7 @@ use "cpu.ft"
 use "paddle.ft"
 use "player.ft"
 
-def reset_objects(mut Ball ball, mut Player player, mut Cpu cpu):
+def reset_objects(mut Ball ball, mut IPaddle player, mut IPaddle cpu):
 	ball.reset();
 	player.reset();
 	cpu.reset();
@@ -29,8 +29,8 @@ def main():
 
 	// Initialize game objects
 	ball := Ball(DBall(_));
-	player := Player(DPaddle(_, f32x2(screen / 2), _));
-	cpu := Cpu(DPaddle(_, f32x2(screen / 2), _));
+	player := Player(DPaddle(_));
+	cpu := Cpu(DPaddle(_));
 	reset_objects(ball, player, cpu);
 
 	u32 player_score = 0;

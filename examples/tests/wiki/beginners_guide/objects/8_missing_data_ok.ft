@@ -1,0 +1,27 @@
+use Core.print
+
+data Transform:
+	i32x2 pos;
+	i32x2 size;
+	Transform(pos, size);
+
+data Scale:
+	f32x2 scale;
+	Scale(scale);
+
+func FMove requires(Transform t, Scale s):
+	def print():
+		print($"pos: {t.pos}, size: {t.size}, scale: {s.scale}\n");
+
+	def get_pos() -> i32x2:
+		return t.pos;
+
+object Object:
+	data: Transform, Scale;
+	func: FMove;
+	Object(Transform, Scale);
+
+def main():
+	o := Object(Transform(i32x2(100, 120), i32x2(200, 220)), Scale(f32x2(3.3, 4.4)));
+	o.print();
+	print($"o.pos = {o.get_pos()}\n");

@@ -1,0 +1,21 @@
+use Core.print
+
+data DCounter:
+	i32 value;
+	DCounter(value);
+
+object Counter:
+	data: DCounter c;
+	Counter(c);
+	
+	def inc(i32 n):
+		c.value += n;
+	
+	const def get() -> i32:
+		return c.value;
+
+def main():
+	c := Counter(DCounter(0));
+	c.inc(10);
+	Counter.inc(c, 5);
+	print($"c.get() = {c.get()}\n");

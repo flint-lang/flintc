@@ -2,10 +2,9 @@ use Fip.raylib as rl
 
 use "paddle.ft"
 
-object Cpu:
+object Cpu implements(IPaddle):
 	data: DPaddle paddle;
 	func: FPaddleCommon;
-	link: FPaddleCommon::ball_passed -> Cpu::ball_passed;
 	Cpu(paddle);
 
 	const def ball_passed(Ball ball) -> bool:

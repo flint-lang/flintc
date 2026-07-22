@@ -1,0 +1,9 @@
+use Core.print
+
+func Math:
+	def add(i32 x, i32 y) -> i32:
+		return x + y;
+
+def main():
+	i32 x = Math.add(10, 20);
+	print($"x = {x}\n");

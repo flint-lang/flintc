@@ -1,81 +1,76 @@
 use "../../../utils.ft"
 
-test "0_simple_func_module.ft":
+test "0_simple_object.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "0_simple_func_module.ft";
-	test_file_ok($"{path}/{file}", "x: 30\n");
+	str file = "0_simple_object.ft";
+	test_file_ok($"{path}/{file}", "t.pos = (1.2, 3.4)\nt.pos = (1.74, 4.204)\nt.pos = (2.28, 5.008)\nt.pos = (2.82, 5.812)\nt.pos = (3.36, 6.616)\nt.pos = (3.9, 7.42)\n");
 
-test "1_function_collision.ft":
+test "1_func_component.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "1_function_collision.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/1_function_collision.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
+	str file = "1_func_component.ft";
+	test_file_ok($"{path}/{file}", "t.pos = (1.2, 3.4)\nt.pos = (1.74, 4.204)\n");
 
-test "2_requiring_data.ft":
+test "2_requiring_same_data_twice.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "2_requiring_data.ft";
-	test_file_ok($"{path}/{file}", "pos: (100, 100), size: (100, 100)\npos: (110, 120), size: (100, 100)\n");
+	str file = "2_requiring_same_data_twice.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/2_requiring_same_data_twice.ft:8:33\n└─┬┤E0000│\n8 │ func MyFunc requires(MyData d1, MyData d2):\n┌─┴─────────────────────────────────┘\n├─ Requiring the same type twice: MyData\n└─ Each required data type needs to be unique\n");
 
-test "3_requiring_same_data_twice.ft":
+test "3_requiring_multiple_data.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "3_requiring_same_data_twice.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/3_requiring_same_data_twice.ft:8:33\n└─┬┤E0000│\n8 │ func MyFunc requires(MyData d1, MyData d2):\n┌─┴─────────────────────────────────┘\n├─ Requiring the same type twice: MyData\n└─ Each required data type needs to be unique\n");
-
-test "4_requiring_multiple_data.ft":
-	str path = "tests/wiki/beginners_guide/objects";
-	str file = "4_requiring_multiple_data.ft";
+	str file = "3_requiring_multiple_data.ft";
 	test_file_ok($"{path}/{file}", "pos: (100, 100), size: (100, 100), dir: (3.3, 2.2)\npos: (133, 144), size: (100, 100), dir: (3.3, 2.2)\n");
 
-test "5_simple_object.ft":
+test "4_pure_func_component.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "5_simple_object.ft";
-	test_file_ok($"{path}/{file}", "pos: (100, 120), size: (200, 220)\n");
+	str file = "4_pure_func_component.ft";
+	test_file_ok($"{path}/{file}", "x = 30\n");
+
+test "5_composition.ft":
+	str path = "tests/wiki/beginners_guide/objects";
+	str file = "5_composition.ft";
+	test_file_ok($"{path}/{file}", "Starting to run with my 4 legs with a speed of 30 km/h\nJumping 0.8m high with my 4 legs\n\nStarting to run with my 2 legs with a speed of 1.5 km/h\nJumping 0.1m high with my 2 legs\nStarting to fly for 100 seconds with my 10cm large wings\n");
 
 test "6_encapsulation.ft":
 	str path = "tests/wiki/beginners_guide/objects";
 	str file = "6_encapsulation.ft";
-	test_file_ok($"{path}/{file}", "pos: (100, 120), size: (200, 220)\ne.pos = (100, 120)\n");
+	test_file_ok($"{path}/{file}", "pos: (100, 120), size: (200, 220)\no.pos = (100, 120)\n");
 
-test "7_missing_data.ft":
+test "7_missing_data_fail.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "7_missing_data.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/7_missing_data.ft:19:1\n└──┬┤E0000│\n19 │ object Object:\n┌──┴─┘\n└─ Object type is missing data 'DScale' required by func module 'FMove'\n");
+	str file = "7_missing_data_fail.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/7_missing_data_fail.ft:19:1\n└──┬┤E0000│\n19 │ object Object:\n┌──┴─┘\n└─ Object type is missing data 'Scale' required by func component 'FMove'\n");
 
-test "8_missing_data_fixed.ft":
+test "8_missing_data_ok.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "8_missing_data_fixed.ft";
-	test_file_ok($"{path}/{file}", "pos: (100, 120), size: (200, 220), scale: (3.3, 4.4)\ne.pos = (100, 120)\n");
+	str file = "8_missing_data_ok.ft";
+	test_file_ok($"{path}/{file}", "pos: (100, 120), size: (200, 220), scale: (3.3, 4.4)\no.pos = (100, 120)\n");
 
-test "9_composition.ft":
+test "9_const_object_instance.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "9_composition.ft";
-	test_file_ok($"{path}/{file}", "Starting to run with my 4 legs with a speed of 30 km/h\nJumping 0.8m high with my 4 legs\n\nStarting to run with my 2 legs with a speed of 1.5 km/h\nJumping 0.1m high with my 2 legs\nStarting to fly for 100 seconds with my 10cm large wings\n");
+	str file = "9_const_object_instance.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/9_const_object_instance.ft:23:5\n└──┬┤E0000│\n21 │ def main():\n23 │ »   o.print_position();\n┌──┴─────┘\n└─ Calls which are not marked 'const' are not allowed on const instance 'o'\n");
 
-test "10_extending_objects.ft":
+test "10_const_functions.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "10_extending_objects.ft";
-	test_file_ok($"{path}/{file}", "f1: 100\n\nf1: 80\nf2: 3.4\n\nf1: 8\nf2: 3.14\nf3: -30\n");
+	str file = "10_const_functions.ft";
+	test_file_ok($"{path}/{file}", "t.pos = (1.2, 3.4)\n");
 
-test "11_duplicate_data_modules.ft":
+test "11_implicit_self_parameter_counter.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "11_duplicate_data_modules.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/objects/11_duplicate_data_modules.ft:38:11\n└──┬┤E0000│\n37 │ object Object3 extends(Object2 e2):\n38 │ »   data: Data2, Data3;\n┌──┴───────────┘\n└─ Object type defines data module 'Data2' twice\n");
-
-test "12_simple_object_functions.ft":
-	str path = "tests/wiki/beginners_guide/objects";
-	str file = "12_simple_object_functions.ft";
+	str file = "11_implicit_self_parameter_counter.ft";
 	test_file_ok($"{path}/{file}", "c.get() = 15\n");
 
-test "13_object_functions.ft":
+test "12_implicit_self_parameter_delegation.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "13_object_functions.ft";
+	str file = "12_implicit_self_parameter_delegation.ft";
 	test_file_ok($"{path}/{file}", "fn1: 10\nfn2: 15\n");
 
-test "14_interfaces.ft":
+test "13_func_instance.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "14_interfaces.ft";
-	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
-
-test "15_interfaces_lifetime.ft":
+	str file = "13_func_instance.ft";
+	test_file_ok($"{path}/{file}", "d.value = 12\nd.value = 15\n");
+	
+test "14_instances.ft":
 	str path = "tests/wiki/beginners_guide/objects";
-	str file = "15_interfaces_lifetime.ft";
-	test_file_ok($"{path}/{file}", "f.(x, y) = (10, 20)\nf.(x, y) = (15, 25)\nf.(x, y) = (30, 50)\nf.(x, y) = (35, 55)\n");
+	str file = "14_instances.ft";
+	test_file_ok($"{path}/{file}", "s.to_string() = { x: 10 }\ns.to_string() = { x: 20, y: 30 }\n");

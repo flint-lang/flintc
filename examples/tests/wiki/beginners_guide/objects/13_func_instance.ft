@@ -1,0 +1,27 @@
+use Core.print
+
+data Data:
+	i32 value;
+	Data(value);
+
+func Func requires(Data d):
+	def inc(i32 x):
+		d.value += x;
+
+	const def print():
+		print($"d.value = {d.value}\n");
+
+object Object:
+	data: Data d;
+	func: Func;
+	Object(d);
+
+def main():
+	o := Object(Data(10));
+	o.inc(2);
+	o.print();
+
+	Func f = o;
+	f.inc(3);
+
+	o.print();

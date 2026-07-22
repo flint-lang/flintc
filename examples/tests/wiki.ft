@@ -24,9 +24,6 @@ test "beginners_guide/imports":
 test "beginners_guide/objects":
 	test_test("tests/wiki/beginners_guide", "objects.ft");
 
-test "beginners_guide/links":
-	test_test("tests/wiki/beginners_guide", "links.ft");
-
 test "beginners_guide/interop":
 	test_test("tests/wiki/beginners_guide", "interop.ft");
 
