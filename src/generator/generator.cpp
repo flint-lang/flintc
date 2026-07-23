@@ -94,11 +94,6 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
         initialized = true;
     }
 
-    static llvm::TargetMachine *target_machine = nullptr;
-    if (target_machine != nullptr) {
-        return target_machine;
-    }
-
     // Get the target triple (architecture, OS, etc.)
     std::string target_triple = "";
     switch (COMPILATION_TARGET) {
@@ -134,9 +129,9 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
     llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
         ? llvm::CodeGenOptLevel::None                                               //
         : llvm::CodeGenOptLevel::Default;
-    target_machine = target->createTargetMachine(                 //
-        target_triple, llvm::sys::getHostCPUName(), "", opt,      //
-        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel //
+    llvm::TargetMachine *const target_machine = target->createTargetMachine( //
+        target_triple, llvm::sys::getHostCPUName(), "", opt,                 //
+        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel            //
     );
 
     // Enable individual sections for functions and data
