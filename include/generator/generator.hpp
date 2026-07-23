@@ -80,6 +80,18 @@ class Generator {
     /// @return `std::filesystem::path` The path to the flint cache directory
     static std::filesystem::path get_flintc_cache_path();
 
+    /// @function `init_target_machine`
+    /// @brief This function creates a target machine and set's it for the passed-in `module`. Also sets up things like correct data layout
+    /// in the module, PIC etc.
+    ///
+    /// @param `module` The LLVM IR module to set the target machine for
+    /// @return `std::optional<llvm::TargetMachine *>` The initialized target machine
+    ///
+    /// @attention The returned value needs to be deleted using `delete` when done using it. Note that the returned value is only allowed to
+    /// be deleted once. It is safe to not delete the returned value wihtin the program, but at the end of the program it should have been
+    /// deleted or otherwise it leaks.
+    static std::optional<llvm::TargetMachine *> init_target_machine(llvm::Module *module);
+
     /// @function `compile_program`
     /// @brief Compiles the given program module down to a binary
     ///

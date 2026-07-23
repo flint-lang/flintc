@@ -81,6 +81,71 @@ std::filesystem::path Generator::get_flintc_cache_path() {
     }
 }
 
+std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module *module) {
+    // Initialize LLVM targets (should only be called once in the compiler)
+    static bool initialized = false;
+    if (!initialized) {
+        PROFILE_SCOPE("Initialize LLVM");
+        LLVMInitializeX86TargetInfo();
+        LLVMInitializeX86Target();
+        LLVMInitializeX86TargetMC();
+        LLVMInitializeX86AsmParser();
+        LLVMInitializeX86AsmPrinter();
+        initialized = true;
+    }
+
+    static llvm::TargetMachine *target_machine = nullptr;
+    if (target_machine != nullptr) {
+        return target_machine;
+    }
+
+    // Get the target triple (architecture, OS, etc.)
+    std::string target_triple = "";
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
+#ifdef __WIN32__
+            target_triple = "x86_64-pc-windows-msvc";
+#else
+            target_triple = llvm::sys::getDefaultTargetTriple();
+#endif
+            break;
+        case Target::WINDOWS:
+            target_triple = "x86_64-pc-windows-gnu";
+            break;
+        case Target::LINUX:
+            target_triple = "x86_64-pc-linux-gnu";
+            break;
+    }
+
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
+    }
+    module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
+
+    std::string error;
+    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
+    if (!target) {
+        llvm::errs() << "Error: " << error << "\n";
+        return std::nullopt;
+    }
+
+    // Create the target machine
+    llvm::TargetOptions opt;
+    llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
+        ? llvm::CodeGenOptLevel::None                                               //
+        : llvm::CodeGenOptLevel::Default;
+    target_machine = target->createTargetMachine(                 //
+        target_triple, llvm::sys::getHostCPUName(), "", opt,      //
+        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel //
+    );
+
+    // Enable individual sections for functions and data
+    target_machine->Options.FunctionSections = true;
+    target_machine->Options.DataSections = true;
+    module->setDataLayout(target_machine->createDataLayout());
+    return target_machine;
+}
+
 bool Generator::compile_program(              //
     const std::filesystem::path &binary_file, //
     llvm::Module *module,                     //
@@ -148,61 +213,11 @@ bool Generator::compile_program(              //
 
 bool Generator::compile_module(llvm::Module *module, const std::filesystem::path &module_path) {
     PROFILE_SCOPE("Compile module " + module->getName().str());
-    // Initialize LLVM targets (should only be called once in the compiler)
-    static bool initialized = false;
-    if (!initialized) {
-        PROFILE_SCOPE("Initialize LLVM");
-        LLVMInitializeX86TargetInfo();
-        LLVMInitializeX86Target();
-        LLVMInitializeX86TargetMC();
-        LLVMInitializeX86AsmParser();
-        LLVMInitializeX86AsmPrinter();
-        initialized = true;
-    }
 
-    // Get the target triple (architecture, OS, etc.)
-    std::string target_triple = "";
-    switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef __WIN32__
-            target_triple = "x86_64-pc-windows-msvc";
-#else
-            target_triple = llvm::sys::getDefaultTargetTriple();
-#endif
-            break;
-        case Target::WINDOWS:
-            target_triple = "x86_64-pc-windows-gnu";
-            break;
-        case Target::LINUX:
-            target_triple = "x86_64-pc-linux-gnu";
-            break;
-    }
-
-    if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
-    }
-    module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
-
-    std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
-    if (!target) {
-        llvm::errs() << "Error: " << error << "\n";
+    const std::optional<llvm::TargetMachine *> target_machine = init_target_machine(module);
+    if (!target_machine.has_value()) {
         return false;
     }
-
-    // Create the target machine
-    llvm::TargetOptions opt;
-    llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
-        ? llvm::CodeGenOptLevel::None                                               //
-        : llvm::CodeGenOptLevel::Default;
-    auto target_machine = target->createTargetMachine(            //
-        target_triple, llvm::sys::getHostCPUName(), "", opt,      //
-        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel //
-    );
-    // Enable individual sections for functions and data
-    target_machine->Options.FunctionSections = true;
-    target_machine->Options.DataSections = true;
-    module->setDataLayout(target_machine->createDataLayout());
 
     // Create an output file
     std::error_code EC;
@@ -234,7 +249,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         llvm::CGSCCAnalysisManager CGAM;
         llvm::ModuleAnalysisManager MAM;
 
-        llvm::PassBuilder PB(target_machine);
+        llvm::PassBuilder PB(target_machine.value());
         PB.registerModuleAnalyses(MAM);
         PB.registerCGSCCAnalyses(CGAM);
         PB.registerFunctionAnalyses(FAM);
@@ -253,7 +268,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     // Set up the pass manager and code generation
     llvm::legacy::PassManager pass;
     llvm::CodeGenFileType fileType = llvm::CodeGenFileType::ObjectFile;
-    if (target_machine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+    if (target_machine.value()->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
         llvm::errs() << "TargetMachine can't emit a file of this type!\n";
         return false;
     }
@@ -268,7 +283,8 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     // Run the passes to generate machine code
     Profiler::start_task("Generate machine code");
     pass.run(*module);
-    dest.flush(); // Ensure the file is written
+    dest.flush();
+    delete target_machine.value();
     Profiler::end_task("Generate machine code");
 
     if (DEBUG_MODE) {
@@ -338,6 +354,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     auto builder = std::make_unique<llvm::IRBuilder<>>(context);
     auto module = std::make_unique<llvm::Module>(program_name, context);
     main_module[0] = module.get();
+
+    const std::optional<llvm::TargetMachine *> target_machine = init_target_machine(module.get());
+    if (!target_machine.has_value()) {
+        return std::nullopt;
+    }
 
     // Initialize the debug info builder when in debug mode
     if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
