@@ -2592,7 +2592,15 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     ctx.dest = builder.CreatePointerCast(field_ptr, PTR_TY);
                 }
 
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get());
+                const bool is_opt_literal =                                              //
+                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
+                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+                const bool is_reference = !is_opt_literal //
+                    && elem_type->is_freeable()           //
+                    && elem_type->get_variation() == Type::Variation::OPTIONAL;
+
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get(), is_reference);
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -2613,10 +2621,6 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
                 const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
-                const bool is_opt_literal =                                              //
-                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
-                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
                 bool is_slice = false;
                 if (arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS) {
                     const auto *arg_arr_access = arg_expr->as<ArrayAccessNode>();
@@ -4259,9 +4263,9 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             return cast_vector;
         }
     } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::FUNC) {
-        // We "cast" an object to a func component by extracting the required data of the func component from the object and storing it in the
-        // func component. Whenever we extract and store a data value from the entity to the func component we call `dima.retain` on that value
-        // first for proper ARC-tracking
+        // We "cast" an object to a func component by extracting the required data of the func component from the object and storing it in
+        // the func component. Whenever we extract and store a data value from the entity to the func component we call `dima.retain` on
+        // that value first for proper ARC-tracking
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
         llvm::Type *const object_ty = IR::get_type(ctx.parent->getParent(), from_type).first;
         const ObjectNode *object_node = from_type->as<ObjectType>()->object_node;

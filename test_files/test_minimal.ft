@@ -1,8 +1,23 @@
 use Core.print
 
-def crash(i32 x) -> i32:
-	return x + crash(x + 1);
+data Vec2:
+	i32 x;
+	i32 y;
+	Vec2(x, y);
+
+data Nested:
+	Vec2? v2m;
+	Nested(v2m);
 
 def main():
-	i32 x = crash(0);
-	print($"x = {x}\n");
+	Vec2 v2 = Vec2(10, 20);
+	Vec2? v2m = v2;
+	Nested n = Nested(v2m);
+	Nested? nm = n;
+
+	print("Hello, World!\n");
+	//i32? x = nm?.v2m?.x;
+	//if x == none:
+	//	print("one value in the chain has has no value!\n");
+	//else:
+	//	print($"x! = {x!}\n");
