@@ -267,6 +267,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         if (Matcher::tokens_contain(if_chain.front().first, Matcher::token(TOK_IF))) {
             // 'else if'
             else_scope = create_if(scope, scope_segment, if_chain);
+            if (!else_scope.has_value()) {
+                return std::nullopt;
+            }
         } else {
             // 'else'
             if (if_chain.size() > 1) {
@@ -2870,8 +2873,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0 //
     ) {
         // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
-        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func component call
-        // within a call)
+        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func component
+        // call within a call)
         token_slice tokens_mut = tokens;
         if (tokens_mut.first->token == TOK_TYPE) {
             switch (tokens_mut.first->type->get_variation()) {
