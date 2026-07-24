@@ -71,6 +71,7 @@
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
 #include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"
 #include "error_types/parsing/expressions/err_expr_call_ambiguous.hpp"
+#include "error_types/parsing/expressions/err_expr_call_missing_closing_paren.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_virtual_function.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"

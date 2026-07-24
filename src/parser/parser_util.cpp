@@ -559,7 +559,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
     }
     if (!arg_range.has_value()) {
-        // Function call does not have opening and closing brackets ()
+        THROW_ERR(ErrExprCallMissingClosingParen, ERR_PARSING, file_hash, tokens);
         return std::nullopt;
     }
     // remove the '(' and ')' tokens from the arg_range
