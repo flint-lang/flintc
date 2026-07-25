@@ -653,9 +653,9 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //         real_to = src_len;
     //     }
     //     if (from == real_to) {
-    //         // If real_to is equal to from, this block hard crashes no matter the setting, as we
-    //         // would now handle with an explicit 'x..x' range, which is not allowed, since the range does not contain a single element
-    //         abort();
+    //         size_t lengths = 0;
+    //         str *empty = create_arr(1, element_size, &lengths);
+    //         return empty;
     //     }
     //     size_t real_from = from;
     //     if (from > real_to) {
@@ -802,10 +802,11 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
         builder->CreateCondBr(is_range_empty, range_empty_block, range_empty_merge_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(range_empty_block);
-        llvm::Value *const msg = IR::generate_const_string(module, "Cannot get empty slice %lu..%lu from array\n");
-        builder->CreateCall(printf_fn, {msg, arg_from, real_to});
-        builder->CreateCall(abort_fn);
-        builder->CreateUnreachable();
+        llvm::AllocaInst *const lengths_alloca = builder->CreateAlloca(i64_ty, nullptr, "lengths_alloca");
+        llvm::Value *const empty_arr = builder->CreateCall(                                      //
+            create_arr_fn, {builder->getInt64(1), arg_element_size, lengths_alloca}, "empty_arr" //
+        );
+        builder->CreateRet(empty_arr);
 
         builder->SetInsertPoint(range_empty_merge_block);
     }
