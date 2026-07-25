@@ -1035,8 +1035,18 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //             src_offset += current_indices[i] * src_strides[i];
     //         }
     //
-    //         // Copy the chunk (either 1 element or chunk_size elements)
-    //         memcpy(dest_data + dest_index * element_size, src_data + src_offset * element_size, chunk_size * element_size);
+    //         // Copy the chunk (either 1 element or chunk_size elements) deep or shallow depending on the type_id
+    //         if (type_id == 0) {
+    //             memcpy(dest_data + dest_index * element_size, src_data + src_offset * element_size, chunk_size * element_size);
+    //         } else {
+    //             for (size_t j = 0; j < chunk_size; j++) {
+    //                 const size_t src_val_offset = (src_offset + j) * element_size;
+    //                 char *src_val_ptr = src_data + src_val_offset;
+    //                 const size_t dest_val_offset = (dest_index + j) * element_size;
+    //                 char *dest_val_ptr = dest_data + dest_val_offset;
+    //                 clone(src_val_ptr, dest_val_ptr, type_id);
+    //             }
+    //         }
     //         dest_index += chunk_size;
     //     }
     //
@@ -1057,6 +1067,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Function *const abort_fn = c_functions.at(ABORT);
     llvm::Function *const create_arr_fn = array_manip_functions.at("create_arr");
     llvm::Function *const get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
+    llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
 
     llvm::FunctionType *get_arr_slice_type = llvm::FunctionType::get( //
         PTR_TY,                                                       // Return Type: str*
@@ -1164,8 +1175,6 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //             }
     //         }
     //     }
-    llvm::BasicBlock *const chunk_loop_offset_loop_merge_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_merge", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_index_loop_action_block =
         llvm::BasicBlock::Create(context, "chunk_loop_index_loop_action", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_index_loop_init_block =
@@ -1178,11 +1187,26 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_cond", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_offset_loop_body_block =
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_body", get_arr_slice_fn);
+    //     }
+    llvm::BasicBlock *const chunk_loop_offset_loop_merge_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_merge", get_arr_slice_fn);
+    //     if (type_id == 0) {
+    llvm::BasicBlock *const chunk_loop_type_id_zero_block = llvm::BasicBlock::Create(context, "chunk_loop_type_id_zero", get_arr_slice_fn);
+    //     } else {
+    llvm::BasicBlock *const chunk_loop_type_id_nonzero_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero", get_arr_slice_fn);
+    //         for (size_t j = 0; j < chunk_size; j++) {
+    llvm::BasicBlock *const chunk_loop_type_id_nonzero_loop_cond_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero_loop_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const chunk_loop_type_id_nonzero_loop_body_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero_loop_body", get_arr_slice_fn);
+    //    }
+    llvm::BasicBlock *const chunk_loop_type_id_merge_block =
+        llvm::BasicBlock::Create(context, "chunk_loop_type_id_merge", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_offset_loop_action_block =
         llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_action", get_arr_slice_fn);
-    //     }
-    llvm::BasicBlock *const chunk_loop_action_block = llvm::BasicBlock::Create(context, "chunk_loop_action", get_arr_slice_fn);
     // }
+    llvm::BasicBlock *const chunk_loop_action_block = llvm::BasicBlock::Create(context, "chunk_loop_action", get_arr_slice_fn);
     llvm::BasicBlock *const chunk_loop_merge_block = llvm::BasicBlock::Create(context, "chunk_loop_merge", get_arr_slice_fn);
 
     // Get the arguments
@@ -1597,18 +1621,54 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
             IR::aligned_store(*builder, next_i_val, i);
             builder->CreateBr(chunk_loop_offset_loop_cond_block);
         }
-        builder->SetInsertPoint(chunk_loop_offset_loop_merge_block);
 
-        // Copy the chunk (either 1 element or chunk_size elements)
-        llvm::Value *dest_index_val = IR::aligned_load(*builder, i64_ty, dest_index, "dest_index_val");
-        llvm::Value *dest_idx_mul_elem_size = builder->CreateMul(dest_index_val, arg_element_size, "dest_idx_mul_elem_size");
-        llvm::Value *cpy_dest_data_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_data, dest_idx_mul_elem_size, "cpy_dest_data_ptr");
-        llvm::Value *src_offset_val = IR::aligned_load(*builder, i64_ty, src_offset, "src_offset_val");
-        llvm::Value *src_offset_mul_elem_size = builder->CreateMul(src_offset_val, arg_element_size, "src_offset_mul_elem_size");
-        llvm::Value *cpy_src_data_ptr = builder->CreateGEP(builder->getInt8Ty(), src_data, src_offset_mul_elem_size, "cpy_src_data_ptr");
-        llvm::Value *cpy_amount = builder->CreateMul(chunk_size, arg_element_size, "cpy_amount");
+        // Copy the chunk (either 1 element or chunk_size elements) deep or shallow depending on the type_id
+        builder->SetInsertPoint(chunk_loop_offset_loop_merge_block);
+        llvm::Value *const src_offset_val = IR::aligned_load(*builder, i64_ty, src_offset, "src_offset_val");
+        llvm::Value *const dest_index_val = IR::aligned_load(*builder, i64_ty, dest_index, "dest_index_val");
+        llvm::Value *const type_id_is_zero = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_is_zero");
+        builder->CreateCondBr(type_id_is_zero, chunk_loop_type_id_zero_block, chunk_loop_type_id_nonzero_block);
+
+        //     if (type_id == 0) {
+        builder->SetInsertPoint(chunk_loop_type_id_zero_block);
+        llvm::Value *const dest_idx_mul_elem_size = builder->CreateMul(dest_index_val, arg_element_size, "dest_idx_mul_elem_size");
+        llvm::Value *const cpy_dest_data_ptr =
+            builder->CreateGEP(builder->getInt8Ty(), dest_data, dest_idx_mul_elem_size, "cpy_dest_data_ptr");
+        llvm::Value *const src_offset_mul_elem_size = builder->CreateMul(src_offset_val, arg_element_size, "src_offset_mul_elem_size");
+        llvm::Value *const cpy_src_data_ptr =
+            builder->CreateGEP(builder->getInt8Ty(), src_data, src_offset_mul_elem_size, "cpy_src_data_ptr");
+        llvm::Value *const cpy_amount = builder->CreateMul(chunk_size, arg_element_size, "cpy_amount");
         builder->CreateCall(memcpy_fn, {cpy_dest_data_ptr, cpy_src_data_ptr, cpy_amount});
+        builder->CreateBr(chunk_loop_type_id_merge_block);
+
+        {
+            //     } else {
+            builder->SetInsertPoint(chunk_loop_type_id_nonzero_block);
+            llvm::Value *const j_alloca = builder->CreateAlloca(i64_ty, nullptr, "j");
+            IR::aligned_store(*builder, builder->getInt64(0), j_alloca);
+            builder->CreateBr(chunk_loop_type_id_nonzero_loop_cond_block);
+
+            //         for (size_t j = 0; j < chunk_size; j++) {
+            builder->SetInsertPoint(chunk_loop_type_id_nonzero_loop_cond_block);
+            llvm::Value *const j_value = IR::aligned_load(*builder, i64_ty, j_alloca, "j_value");
+            llvm::Value *const j_lt_chunk_size = builder->CreateICmpULT(j_value, chunk_size, "j_lt_chunk_size");
+            builder->CreateCondBr(j_lt_chunk_size, chunk_loop_type_id_nonzero_loop_body_block, chunk_loop_type_id_merge_block);
+
+            builder->SetInsertPoint(chunk_loop_type_id_nonzero_loop_body_block);
+            llvm::Value *const src_offset_p_j = builder->CreateAdd(src_offset_val, j_value, "src_offset_p_j");
+            llvm::Value *const src_val_offset = builder->CreateMul(src_offset_p_j, arg_element_size, "src_val_offset");
+            llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_data_ptr, src_val_offset, "src_val_ptr");
+            llvm::Value *const dest_index_p_j = builder->CreateAdd(dest_index_val, j_value, "dest_index_p_j");
+            llvm::Value *const dest_val_offset = builder->CreateMul(dest_index_p_j, arg_element_size, "dest_val_offset");
+            llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_data_ptr, dest_val_offset, "dest_val_ptr");
+            builder->CreateCall(clone_fn, {src_val_ptr, dest_val_ptr, arg_type_id});
+            llvm::Value *const j_next = builder->CreateAdd(j_value, builder->getInt64(1), "j_next");
+            IR::aligned_store(*builder, j_next, j_alloca);
+            builder->CreateBr(chunk_loop_type_id_nonzero_loop_cond_block);
+        }
+
         // Increment dest index
+        builder->SetInsertPoint(chunk_loop_type_id_merge_block);
         llvm::Value *new_dest_index = builder->CreateAdd(dest_index_val, chunk_size, "new_dest_index");
         IR::aligned_store(*builder, new_dest_index, dest_index);
         builder->CreateBr(chunk_loop_action_block);
