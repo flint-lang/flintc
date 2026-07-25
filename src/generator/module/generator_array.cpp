@@ -643,7 +643,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     const bool only_declarations                                   //
 ) {
     // THE C IMPLEMENTATION:
-    // str *get_arr_slice_1d(const str *src, const size_t element_size, const size_t from, const size_t to) {
+    // str *get_arr_slice_1d(const str *src, const size_t element_size, const size_t from, const size_t to, const uint32_t type_id) {
     //     const size_t src_len = *(size_t *)src->value;
     //     size_t real_to = to == UINT64_MAX ? src_len : to;
     //     if (real_to > src_len) {
@@ -672,30 +672,43 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //     str *slice = create_arr(1, element_size, &len);
     //     char *dest_ptr = (char *)(((size_t *)slice->value) + 1);
     //     char *src_ptr = (char *)(((size_t *)src->value) + 1);
-    //     memcpy(dest_ptr, src_ptr + (real_from * element_size), len * element_size);
+    //     if (type_id == 0) {
+    //         memcpy(dest_ptr, src_ptr + (real_from * element_size), len * element_size);
+    //         return slice;
+    //     }
+    //     for (size_t i = 0; i < len; i++) {
+    //         size_t offset = i *element_size;
+    //         char *src_val_ptr = src_ptr + offset;
+    //         char *dest_val_ptr = dest_ptr + offset;
+    //         clone(src_ptr, dest_ptr, type_id);
+    //     }
     //     return slice;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
-    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
-    llvm::Function *create_arr_fn = array_manip_functions.at("create_arr");
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+    llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const abort_fn = c_functions.at(ABORT);
+    llvm::Function *const create_arr_fn = array_manip_functions.at("create_arr");
+    llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
 
-    llvm::FunctionType *get_arr_slice_1d_type = llvm::FunctionType::get( //
-        PTR_TY,                                                          // Return Type: str*
+    llvm::FunctionType *const get_arr_slice_1d_type = llvm::FunctionType::get( //
+        PTR_TY,                                                                // Return Type: str*
         {
-            PTR_TY,                          // Argument: str* src
-            llvm::Type::getInt64Ty(context), // Argument: u64 element_size
-            llvm::Type::getInt64Ty(context), // Argument: u64 from
-            llvm::Type::getInt64Ty(context)  // Argument: u64 to
-        },                                   //
-        false                                // No varargs
+            PTR_TY, // Argument: str* src
+            i64_ty, // Argument: u64 element_size
+            i64_ty, // Argument: u64 from
+            i64_ty, // Argument: u64 to
+            i32_ty  // Argument: u32 type_id
+        },          //
+        false       // No varargs
     );
-    llvm::Function *get_arr_slice_1d_fn = llvm::Function::Create( //
-        get_arr_slice_1d_type,                                    //
-        llvm::Function::ExternalLinkage,                          //
-        prefix + "get_arr_slice_1d",                              //
-        module                                                    //
+    llvm::Function *const get_arr_slice_1d_fn = llvm::Function::Create( //
+        get_arr_slice_1d_type,                                          //
+        llvm::Function::ExternalLinkage,                                //
+        prefix + "get_arr_slice_1d",                                    //
+        module                                                          //
     );
     array_manip_functions["get_arr_slice_1d"] = get_arr_slice_1d_fn;
     if (only_declarations) {
@@ -703,15 +716,15 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     }
 
     // Create a basic block for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_arr_slice_1d_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", get_arr_slice_1d_fn);
     llvm::BasicBlock *end_oob_block = nullptr;
     llvm::BasicBlock *end_oob_merge_block = nullptr;
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
         end_oob_block = llvm::BasicBlock::Create(context, "end_oob", get_arr_slice_1d_fn);
         end_oob_merge_block = llvm::BasicBlock::Create(context, "end_oob_merge", get_arr_slice_1d_fn);
     }
-    llvm::BasicBlock *range_empty_block = llvm::BasicBlock::Create(context, "range_empty", get_arr_slice_1d_fn);
-    llvm::BasicBlock *range_empty_merge_block = llvm::BasicBlock::Create(context, "range_empty_merge", get_arr_slice_1d_fn);
+    llvm::BasicBlock *const range_empty_block = llvm::BasicBlock::Create(context, "range_empty", get_arr_slice_1d_fn);
+    llvm::BasicBlock *const range_empty_merge_block = llvm::BasicBlock::Create(context, "range_empty_merge", get_arr_slice_1d_fn);
     llvm::BasicBlock *from_gt_to_block = nullptr;
     llvm::BasicBlock *real_to_eq_0_block = nullptr;
     llvm::BasicBlock *real_to_eq_0_merge_block = nullptr;
@@ -724,30 +737,37 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
         }
         from_gt_to_merge_block = llvm::BasicBlock::Create(context, "from_gt_to_merge", get_arr_slice_1d_fn);
     }
+    llvm::BasicBlock *const type_id_zero_block = llvm::BasicBlock::Create(context, "type_id_zero", get_arr_slice_1d_fn);
+    llvm::BasicBlock *const type_id_nonzero_block = llvm::BasicBlock::Create(context, "type_id_nonzero", get_arr_slice_1d_fn);
+    llvm::BasicBlock *const type_id_nonzero_loop_cond_block = llvm::BasicBlock::Create( //
+        context, "type_id_nonzero_loop_cond", get_arr_slice_1d_fn                       //
+    );
+    llvm::BasicBlock *const type_id_nonzero_loop_body_block = llvm::BasicBlock::Create( //
+        context, "type_id_nonzero_loop_body", get_arr_slice_1d_fn                       //
+    );
+    llvm::BasicBlock *const type_id_nonzero_loop_merge_block = llvm::BasicBlock::Create( //
+        context, "type_id_nonzero_loop_merge", get_arr_slice_1d_fn                       //
+    );
     builder->SetInsertPoint(entry_block);
 
-    // Get the src argument
-    llvm::Argument *arg_src = get_arr_slice_1d_fn->arg_begin();
+    // Get the arguments
+    llvm::Argument *const arg_src = get_arr_slice_1d_fn->arg_begin();
     arg_src->setName("src");
-
-    // Get the element_size argument
-    llvm::Argument *arg_element_size = get_arr_slice_1d_fn->arg_begin() + 1;
+    llvm::Argument *const arg_element_size = get_arr_slice_1d_fn->arg_begin() + 1;
     arg_element_size->setName("element_size");
-
-    // Get the from argument
-    llvm::Argument *arg_from = get_arr_slice_1d_fn->arg_begin() + 2;
+    llvm::Argument *const arg_from = get_arr_slice_1d_fn->arg_begin() + 2;
     arg_from->setName("from");
-
-    // Get the to argument
-    llvm::Argument *arg_to = get_arr_slice_1d_fn->arg_begin() + 3;
+    llvm::Argument *const arg_to = get_arr_slice_1d_fn->arg_begin() + 3;
     arg_to->setName("to");
+    llvm::Argument *const arg_type_id = get_arr_slice_1d_fn->arg_begin() + 4;
+    arg_type_id->setName("type_id");
 
     builder->SetInsertPoint(entry_block);
-    llvm::Value *to_eq_max = builder->CreateICmpEQ(arg_to, builder->getInt64(UINT64_MAX), "to_eq_max");
+    llvm::Value *const to_eq_max = builder->CreateICmpEQ(arg_to, builder->getInt64(UINT64_MAX), "to_eq_max");
     // For arrays, the length is stored as the first element in the value array: *(size_t *)src->value
-    llvm::Value *src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "src_value_ptr");
-    llvm::Value *src_len_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_len_ptr");
-    llvm::Value *src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
+    llvm::Value *const src_value_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "src_value_ptr");
+    llvm::Value *const src_len_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_len_ptr");
+    llvm::Value *const src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
     llvm::Value *real_to = builder->CreateSelect(to_eq_max, src_len, arg_to, "real_to");
 
     // if (real_to > src_len) { ... }
@@ -768,7 +788,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
         builder->SetInsertPoint(end_oob_merge_block);
         if (oob_mode != ArrayOutOfBoundsMode::CRASH) {
             // We only need a phi node if we do not crash here
-            llvm::PHINode *to_selection = builder->CreatePHI(builder->getInt64Ty(), 2, "real_to_phi");
+            llvm::PHINode *to_selection = builder->CreatePHI(i64_ty, 2, "real_to_phi");
             to_selection->addIncoming(real_to, entry_block);
             to_selection->addIncoming(src_len, end_oob_block);
             real_to = to_selection;
@@ -777,11 +797,11 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
     // if (from == real_to) { ... }
     {
-        llvm::Value *is_range_empty = builder->CreateICmpEQ(arg_from, real_to, "is_range_empty");
+        llvm::Value *const is_range_empty = builder->CreateICmpEQ(arg_from, real_to, "is_range_empty");
         builder->CreateCondBr(is_range_empty, range_empty_block, range_empty_merge_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(range_empty_block);
-        llvm::Value *msg = IR::generate_const_string(module, "Cannot get empty slice %lu..%lu from array\n");
+        llvm::Value *const msg = IR::generate_const_string(module, "Cannot get empty slice %lu..%lu from array\n");
         builder->CreateCall(printf_fn, {msg, arg_from, real_to});
         builder->CreateCall(abort_fn);
         builder->CreateUnreachable();
@@ -792,12 +812,12 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     // if (from > real_to) { ... }
     llvm::Value *real_from = arg_from;
     if (oob_mode != ArrayOutOfBoundsMode::UNSAFE) {
-        llvm::Value *from_gt_to = builder->CreateICmpUGT(arg_from, real_to, "from_gt_to");
+        llvm::Value *const from_gt_to = builder->CreateICmpUGT(arg_from, real_to, "from_gt_to");
         builder->CreateCondBr(from_gt_to, from_gt_to_block, from_gt_to_merge_block, IR::generate_weights(1, 100));
 
         builder->SetInsertPoint(from_gt_to_block);
         if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
-            llvm::Value *msg = IR::generate_const_string(module, "Array slice lower bound greater than upper bound\n");
+            llvm::Value *const msg = IR::generate_const_string(module, "Array slice lower bound greater than upper bound\n");
             builder->CreateCall(printf_fn, {msg});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
@@ -806,12 +826,14 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
         } else {
             // if (real_to == 0) { ... }
             {
-                llvm::Value *real_to_eq_0 = builder->CreateICmpEQ(real_to, builder->getInt64(0), "real_to_eq_0");
+                llvm::Value *const real_to_eq_0 = builder->CreateICmpEQ(real_to, builder->getInt64(0), "real_to_eq_0");
                 builder->CreateCondBr(real_to_eq_0, real_to_eq_0_block, real_to_eq_0_merge_block, IR::generate_weights(1, 100));
 
                 builder->SetInsertPoint(real_to_eq_0_block);
                 if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
-                    llvm::Value *msg = IR::generate_const_string(module, "Upper bound is 0, lower bound cannot be lowered any further\n");
+                    llvm::Value *const msg = IR::generate_const_string(                         //
+                        module, "Upper bound is 0, lower bound cannot be lowered any further\n" //
+                    );
                     builder->CreateCall(printf_fn, {msg});
                 }
                 builder->CreateCall(abort_fn);
@@ -819,7 +841,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
                 builder->SetInsertPoint(real_to_eq_0_merge_block);
                 if (oob_mode != ArrayOutOfBoundsMode::SILENT) {
-                    llvm::Value *msg = IR::generate_const_string(module, "Clamping lower bound to be (to - 1)\n");
+                    llvm::Value *const msg = IR::generate_const_string(module, "Clamping lower bound to be (to - 1)\n");
                     builder->CreateCall(printf_fn, {msg});
                 }
                 real_from = builder->CreateSub(real_to, builder->getInt64(1), "real_from");
@@ -829,7 +851,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
         builder->SetInsertPoint(from_gt_to_merge_block);
         if (oob_mode != ArrayOutOfBoundsMode::CRASH) {
-            llvm::PHINode *from_select = builder->CreatePHI(builder->getInt64Ty(), 2, "from_select");
+            llvm::PHINode *from_select = builder->CreatePHI(i64_ty, 2, "from_select");
             from_select->addIncoming(arg_from, range_empty_merge_block);
             from_select->addIncoming(real_from, real_to_eq_0_merge_block);
             real_from = from_select;
@@ -837,33 +859,62 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     }
 
     // The actual slicing
-    llvm::Value *len = builder->CreateSub(real_to, real_from, "len");
+    llvm::Value *const len = builder->CreateSub(real_to, real_from, "len");
     // create_arr(1, element_size, &len) - we need to pass len by reference
-    llvm::Value *len_ptr = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "len_ptr");
+    llvm::Value *const len_ptr = builder->CreateAlloca(i64_ty, nullptr, "len_ptr");
     IR::aligned_store(*builder, len, len_ptr);
-    llvm::Value *dimensionality = builder->getInt64(1);
-    llvm::Value *result = builder->CreateCall(create_arr_fn, {dimensionality, arg_element_size, len_ptr}, "result");
+    llvm::Value *const dimensionality = builder->getInt64(1);
+    llvm::Value *const result = builder->CreateCall(create_arr_fn, {dimensionality, arg_element_size, len_ptr}, "result");
 
     // char *dest_ptr = (char *)(((size_t *)slice->value) + 1);
-    llvm::Value *result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
-    llvm::Value *result_size_ptr = builder->CreateBitCast(result_value_ptr, PTR_TY, "result_size_ptr");
-    llvm::Value *result_data_ptr = builder->CreateGEP(builder->getInt64Ty(), result_size_ptr, {builder->getInt64(1)}, "result_data_ptr");
-    llvm::Value *dest_ptr = builder->CreateBitCast(result_data_ptr, PTR_TY, "dest_ptr");
+    llvm::Value *const result_value_ptr = builder->CreateStructGEP(str_type, result, 1, "result_value_ptr");
+    llvm::Value *const result_size_ptr = builder->CreateBitCast(result_value_ptr, PTR_TY, "result_size_ptr");
+    llvm::Value *const result_data_ptr = builder->CreateGEP(i64_ty, result_size_ptr, {builder->getInt64(1)}, "result_data_ptr");
+    llvm::Value *const dest_ptr = builder->CreateBitCast(result_data_ptr, PTR_TY, "dest_ptr");
 
     // char *src_ptr = (char *)(((size_t *)src->value) + 1);
-    llvm::Value *src_size_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_size_ptr");
-    llvm::Value *src_data_ptr = builder->CreateGEP(builder->getInt64Ty(), src_size_ptr, {builder->getInt64(1)}, "src_data_ptr");
-    llvm::Value *src_ptr = builder->CreateBitCast(src_data_ptr, PTR_TY, "src_ptr");
+    llvm::Value *const src_size_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_size_ptr");
+    llvm::Value *const src_data_ptr = builder->CreateGEP(i64_ty, src_size_ptr, {builder->getInt64(1)}, "src_data_ptr");
+    llvm::Value *const src_ptr = builder->CreateBitCast(src_data_ptr, PTR_TY, "src_ptr");
 
-    // src_ptr + (real_from * element_size)
-    llvm::Value *offset_bytes = builder->CreateMul(real_from, arg_element_size, "offset_bytes");
-    llvm::Value *src_offset_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, {offset_bytes}, "src_offset_ptr");
+    llvm::Value *const type_id_zero = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_zero");
+    builder->CreateCondBr(type_id_zero, type_id_zero_block, type_id_nonzero_block);
 
-    // len * element_size
-    llvm::Value *copy_bytes = builder->CreateMul(len, arg_element_size, "copy_bytes");
+    {
+        builder->SetInsertPoint(type_id_zero_block);
+        // src_ptr + (real_from * element_size)
+        llvm::Value *offset_bytes = builder->CreateMul(real_from, arg_element_size, "offset_bytes");
+        llvm::Value *src_offset_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, {offset_bytes}, "src_offset_ptr");
 
-    builder->CreateCall(memcpy_fn, {dest_ptr, src_offset_ptr, copy_bytes});
-    builder->CreateRet(result);
+        // len * element_size
+        llvm::Value *copy_bytes = builder->CreateMul(len, arg_element_size, "copy_bytes");
+        builder->CreateCall(memcpy_fn, {dest_ptr, src_offset_ptr, copy_bytes});
+        builder->CreateRet(result);
+    }
+
+    {
+        builder->SetInsertPoint(type_id_nonzero_block);
+        llvm::AllocaInst *const i_alloca = builder->CreateAlloca(i64_ty, nullptr, "i");
+        IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+        builder->CreateBr(type_id_nonzero_loop_cond_block);
+
+        builder->SetInsertPoint(type_id_nonzero_loop_cond_block);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i_alloca, "i_value");
+        llvm::Value *const i_lt_len = builder->CreateICmpULT(i_value, len, "i_lt_len");
+        builder->CreateCondBr(i_lt_len, type_id_nonzero_loop_body_block, type_id_nonzero_loop_merge_block);
+
+        builder->SetInsertPoint(type_id_nonzero_loop_body_block);
+        llvm::Value *const offset = builder->CreateMul(i_value, arg_element_size, "offset");
+        llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, offset, "src_val_ptr");
+        llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_ptr, offset, "dest_val_ptr");
+        builder->CreateCall(clone_fn, {src_val_ptr, dest_val_ptr, arg_type_id});
+        llvm::Value *const i_pp = builder->CreateAdd(i_value, builder->getInt64(1), "i_pp");
+        IR::aligned_store(*builder, i_pp, i_alloca);
+        builder->CreateBr(type_id_nonzero_loop_cond_block);
+
+        builder->SetInsertPoint(type_id_nonzero_loop_merge_block);
+        builder->CreateRet(result);
+    }
 }
 
 void Generator::Module::Array::generate_get_arr_slice_function( //
@@ -872,7 +923,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     const bool only_declarations                                //
 ) {
     // THE C IMPLEMENTATION:
-    // str *get_arr_slice(const str *src, const size_t element_size, const size_t *ranges) {
+    // str *get_arr_slice(const str *src, const size_t element_size, const size_t *ranges, const uint32_t type_id) {
     //     const size_t src_dimensionality = src->len;
     //     size_t *src_dim_lengths = (size_t *)src->value;
     //
@@ -907,7 +958,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //     const bool is_first_range = ranges[0] != ranges[1];
     //     if (src_dimensionality == 1 && new_dimensionality == 1) {
     //         assert(is_first_range);
-    //         return get_arr_slice_1d(src, element_size, ranges[0], ranges[1]);
+    //         return get_arr_slice_1d(src, element_size, ranges[0], ranges[1], type_id);
     //     }
     //
     //     // Calculate new dimension lengths for ranges only
@@ -998,20 +1049,22 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
     llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
-    llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
-    llvm::Function *free_fn = c_functions.at(FREE);
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
-    llvm::Function *abort_fn = c_functions.at(ABORT);
-    llvm::Function *create_arr_fn = array_manip_functions.at("create_arr");
-    llvm::Function *get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
+    llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+    llvm::Function *const malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *const free_fn = c_functions.at(FREE);
+    llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const abort_fn = c_functions.at(ABORT);
+    llvm::Function *const create_arr_fn = array_manip_functions.at("create_arr");
+    llvm::Function *const get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
 
     llvm::FunctionType *get_arr_slice_type = llvm::FunctionType::get( //
         PTR_TY,                                                       // Return Type: str*
         {
             PTR_TY, // Argument: str* src
             i64_ty, // Argument: u64 element_size
-            PTR_TY  // Argument: u64* ranges
+            PTR_TY, // Argument: u64* ranges
+            i32_ty  // Argument: u64* ranges
         },          //
         false       // No varargs
     );
@@ -1132,17 +1185,15 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     // }
     llvm::BasicBlock *const chunk_loop_merge_block = llvm::BasicBlock::Create(context, "chunk_loop_merge", get_arr_slice_fn);
 
-    // Get the src argument
+    // Get the arguments
     llvm::Argument *const arg_src = get_arr_slice_fn->arg_begin();
     arg_src->setName("src");
-
-    // Get the element_size argument
     llvm::Argument *const arg_element_size = get_arr_slice_fn->arg_begin() + 1;
     arg_element_size->setName("element_size");
-
-    // Get the from argument
     llvm::Argument *const arg_ranges = get_arr_slice_fn->arg_begin() + 2;
     arg_ranges->setName("ranges");
+    llvm::Argument *const arg_type_id = get_arr_slice_fn->arg_begin() + 3;
+    arg_type_id->setName("type_id");
 
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *const new_dimensionality = builder->CreateAlloca(i64_ty, 0, nullptr, "new_dimensionality");
@@ -1273,7 +1324,9 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     // if (src_dimensionality == 1 && new_dimensionality == 1) {
     {
         builder->SetInsertPoint(is_1d_slice_block);
-        llvm::Value *result = builder->CreateCall(get_arr_slice_1d_fn, {arg_src, arg_element_size, ranges_0, ranges_1}, "result");
+        llvm::Value *result = builder->CreateCall(                                                      //
+            get_arr_slice_1d_fn, {arg_src, arg_element_size, ranges_0, ranges_1, arg_type_id}, "result" //
+        );
         builder->CreateRet(result);
     }
 

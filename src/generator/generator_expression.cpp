@@ -3576,8 +3576,10 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         }
         case Type::Variation::ARRAY: {
             // This is a slicing operation
-            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
-                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                       //
+            const ArrayType *array_type = result_type->as<ArrayType>();
+            const uint32_t type_id = array_type->type->get_id();
+            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"),      //
+                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices, builder.getInt32(type_id)} //
             );
             return result;
         }
