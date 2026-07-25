@@ -1,15 +1,7 @@
 use Core.print
 
-def thing(u64 input) -> u64:
-	return switch input:
-		0 -> 0;
-		1 -> 1;
-		2 -> 2;
-		3 -> 4;
-		4 -> 8;
-		5 -> 16;
-		else -> 32;
-
 def main():
-	for (i, _) in 0..7:
-		print($"thing({i}) = {thing(i)}\n");
+	i32[] arr = i32[6]{0, 1, 2, 3, 4, 5};
+	u64 i = 0;
+	i32[] arr2 = arr[0..i];
+	print($"arr2.len = {arr2.len}\n");
