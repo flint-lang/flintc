@@ -5724,9 +5724,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     ASSERT(rhs_expr->type->get_variation() == Type::Variation::VARIANT);
     const auto &possible_types = variant_type->get_possible_types();
     // First we create all the basic blocks we need
-    llvm::BasicBlock *inserter = builder.GetInsertBlock();
-    llvm::BasicBlock *same_type_check = llvm::BasicBlock::Create(context, "same_type_check", ctx.parent);
-    llvm::BasicBlock *switch_on_type = llvm::BasicBlock::Create(context, "switch_on_type", ctx.parent);
+    llvm::BasicBlock *const inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *const same_type_check = llvm::BasicBlock::Create(context, "same_type_check", ctx.parent);
+    llvm::BasicBlock *const switch_on_type = llvm::BasicBlock::Create(context, "switch_on_type", ctx.parent);
     std::vector<llvm::BasicBlock *> type_switch_blocks;
     type_switch_blocks.reserve(possible_types.size());
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
@@ -5734,23 +5734,23 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
         const std::string block_name = "switch_type_" + std::to_string(type_id);
         type_switch_blocks.push_back(llvm::BasicBlock::Create(context, block_name, ctx.parent));
     }
-    llvm::BasicBlock *switch_merge = llvm::BasicBlock::Create(context, "switch_merge", ctx.parent);
-    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "merge", ctx.parent);
+    llvm::BasicBlock *const switch_merge = llvm::BasicBlock::Create(context, "switch_merge", ctx.parent);
+    llvm::BasicBlock *const merge = llvm::BasicBlock::Create(context, "merge", ctx.parent);
 
     builder.SetInsertPoint(inserter);
     builder.CreateBr(same_type_check);
 
     builder.SetInsertPoint(same_type_check);
-    llvm::Type *var_type = IR::get_type(ctx.parent->getParent(), lhs_expr->type).first;
-    llvm::Value *lhs_type_ptr = builder.CreateStructGEP(var_type, lhs, 0, "lhs_type_ptr");
-    llvm::Value *lhs_type = IR::aligned_load(builder, builder.getInt8Ty(), lhs_type_ptr, "lhs_type");
-    llvm::Value *rhs_type_ptr = builder.CreateStructGEP(var_type, rhs, 0, "rhs_type_ptr");
-    llvm::Value *rhs_type = IR::aligned_load(builder, builder.getInt8Ty(), rhs_type_ptr, "rhs_type");
-    llvm::Value *types_match = builder.CreateICmpEQ(lhs_type, rhs_type, "types_match");
+    llvm::Type *const var_type = IR::get_type(ctx.parent->getParent(), lhs_expr->type).first;
+    llvm::Value *const lhs_type_ptr = builder.CreateStructGEP(var_type, lhs, 0, "lhs_type_ptr");
+    llvm::Value *const lhs_type = IR::aligned_load(builder, builder.getInt8Ty(), lhs_type_ptr, "lhs_type");
+    llvm::Value *const rhs_type_ptr = builder.CreateStructGEP(var_type, rhs, 0, "rhs_type_ptr");
+    llvm::Value *const rhs_type = IR::aligned_load(builder, builder.getInt8Ty(), rhs_type_ptr, "rhs_type");
+    llvm::Value *const types_match = builder.CreateICmpEQ(lhs_type, rhs_type, "types_match");
     builder.CreateCondBr(types_match, switch_on_type, merge);
 
     builder.SetInsertPoint(switch_on_type);
-    llvm::SwitchInst *type_switch = builder.CreateSwitch(lhs_type, merge, possible_types.size());
+    llvm::SwitchInst *const type_switch = builder.CreateSwitch(lhs_type, merge, possible_types.size());
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
         const unsigned int type_id = 1 + std::distance(possible_types.begin(), type_it);
         type_switch->addCase(builder.getInt8(type_id), type_switch_blocks.at(type_id - 1));
@@ -5761,6 +5761,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
         const unsigned int idx = std::distance(possible_types.begin(), type_it);
         builder.SetInsertPoint(type_switch_blocks.at(idx));
+        if (type_it->second->to_string() == "void") {
+            switch_values.push_back(builder.getInt64(0));
+            builder.CreateBr(switch_merge);
+            continue;
+        }
         const auto &pair = IR::get_type(ctx.parent->getParent(), type_it->second);
         const unsigned int type_size = pair.second.second ? 8 : Allocation::get_type_size(ctx.parent->getParent(), pair.first);
         switch_values.push_back(builder.getInt64(type_size));
