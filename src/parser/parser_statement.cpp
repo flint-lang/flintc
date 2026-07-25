@@ -124,30 +124,38 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
     return ThrowNode(file_hash, tokens, expr.value());
 }
 
-std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
+std::optional<ReturnNode> Parser::create_return(       //
+    std::shared_ptr<Scope> &scope,                     //
+    const token_slice &tokens,                         //
+    std::optional<std::unique_ptr<ExpressionNode>> rhs //
+) {
     PROFILE_CUMULATIVE("Parser::create_return");
     // Get the return type of the function
     std::shared_ptr<Type> return_type = scope->get_variable_type("flint.return_type").value();
-    unsigned int return_id = 0;
-    for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->token == TOK_RETURN) {
-            if (std::next(it) == tokens.second && return_type->to_string() != "void") {
-                // Return statement without expression for a function that returns a non-void value
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+    std::optional<std::unique_ptr<ExpressionNode>> expr;
+    if (rhs.has_value()) {
+        expr = std::move(rhs);
+    } else {
+        unsigned int return_id = 0;
+        for (auto it = tokens.first; it != tokens.second; ++it) {
+            if (it->token == TOK_RETURN) {
+                if (std::next(it) == tokens.second && return_type->to_string() != "void") {
+                    // Return statement without expression for a function that returns a non-void value
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                return_id = std::distance(tokens.first, it);
             }
-            return_id = std::distance(tokens.first, it);
         }
-    }
 
-    token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
-    std::optional<std::unique_ptr<ExpressionNode>> return_expr;
-    if (std::next(expression_tokens.first) == expression_tokens.second) {
-        // This can be asserted because of the check above
-        ASSERT(return_type->to_string() == "void");
-        return ReturnNode(file_hash, tokens, return_expr);
+        token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
+        if (std::next(expression_tokens.first) == expression_tokens.second) {
+            // This can be asserted because of the check above
+            ASSERT(return_type->to_string() == "void");
+            return ReturnNode(file_hash, tokens, expr);
+        }
+        expr = create_expression(_ctx_, scope, expression_tokens);
     }
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(_ctx_, scope, expression_tokens);
     if (!expr.has_value()) {
         return std::nullopt;
     }
@@ -201,6 +209,16 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     if (!check_castability(return_type, expr.value())) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
+    }
+    // Special handling for switch expressions
+    if (expr.value()->get_variation() == ExpressionNode::Variation::SWITCH_EXPRESSION) {
+        auto *switch_expr = expr.value()->as<SwitchExpression>();
+        for (auto &branch : switch_expr->branches) {
+            if (!check_castability(return_type, branch.expr)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
     }
     return ReturnNode(file_hash, tokens, expr);
 }
@@ -2858,7 +2876,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         }
         statement_node = std::make_unique<AssignmentNode>(file_hash, tokens, rhs_expr.value()->type, "_", rhs_expr.value());
     } else if (Matcher::tokens_contain(tokens, Matcher::return_statement)) {
-        std::optional<ReturnNode> return_node = create_return(scope, tokens);
+        std::optional<ReturnNode> return_node = create_return(scope, tokens, std::move(rhs));
         if (!return_node.has_value()) {
             return std::nullopt;
         }

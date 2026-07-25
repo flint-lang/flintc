@@ -2709,6 +2709,29 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
     }
 }
 
+void Generator::Expression::generate_switch_branch_garbage_cleanup( //
+    llvm::IRBuilder<> &builder,                                     //
+    garbage_type &garbage,                                          //
+    garbage_type &garbage_before,                                   //
+    llvm::Value *const branch_value                                 //
+) {
+    for (auto &[depth, values] : garbage) {
+        const auto it = garbage_before.find(depth);
+        const size_t before_size = it == garbage_before.end() ? 0 : it->second.size();
+        for (size_t j = before_size; j < values.size(); j++) {
+            const auto &[type, val] = values.at(j);
+            if (val == branch_value) {
+                // Do not free the result of the branch
+                continue;
+            }
+            ASSERT(type->is_freeable());
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            builder.CreateCall(free_fn, {val, builder.getInt32(type->get_id())});
+        }
+    }
+    std::swap(garbage, garbage_before);
+}
+
 Generator::group_mapping Generator::Expression::generate_optional_switch_expression( //
     llvm::IRBuilder<> &builder,                                                      //
     GenerationContext &ctx,                                                          //
@@ -2725,19 +2748,19 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-    llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
+    llvm::StructType *const opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
     }
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
 
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
     int value_block_idx = -1;
@@ -2773,17 +2796,19 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
             value_block_idx = i;
         }
         ctx.scope = branch.scope;
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, builder.GetInsertBlock());
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -2808,15 +2833,10 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 Generator::group_mapping Generator::Expression::generate_variant_switch_expression( //
@@ -2828,12 +2848,12 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     llvm::Value *switch_value                                                       //
 ) {
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
 
@@ -2846,15 +2866,17 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
-    const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
+    const auto *const switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-    llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
+    llvm::StructType *const variant_struct_type = IR::add_and_or_get_type( //
+        ctx.parent->getParent(), switch_expression->switcher->type, false  //
+    );
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, variant_struct_type, switch_value, "loaded_rhs");
     }
     switch_value = builder.CreateExtractValue(switch_value, {0}, "variant_flag");
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
 
     // First pass: create all branch blocks and detect default case
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
@@ -2885,18 +2907,18 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         }
         ctx.scope = branch.scope;
 
-        // Create the actual expression of the branch and store it's result value in the phi_values vector
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, branch_blocks[i]);
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -2945,15 +2967,10 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 Generator::group_mapping Generator::Expression::generate_switch_expression( //
@@ -2981,12 +2998,12 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     }
 
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
 
@@ -3013,19 +3030,20 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
         // Generate the branch expression in its block
         builder.SetInsertPoint(branch_blocks[i]);
-
         ctx.scope = branch.scope;
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, builder.GetInsertBlock());
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -3104,15 +3122,10 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 llvm::Value *Generator::Expression::generate_inline_array_initializer( //

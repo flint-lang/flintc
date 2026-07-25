@@ -1891,6 +1891,20 @@ class Generator {
             const InitializerNode *initializer     //
         );
 
+        /// @function `generate_switch_branch_garbage_cleanup`
+        /// @brief Cleans up all the garbage from a switch expressions branches while keeping the result value of the branch in-tact.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `garbage` The current garbage of the switch branch to clean up
+        /// @param `garbage_before` The garbage before the switch branch generation, everything in there is kept as-is and is not cleaned up
+        /// @param `branch_value` The result value of the switch expression branch, which is not cleaned up
+        static void generate_switch_branch_garbage_cleanup( //
+            llvm::IRBuilder<> &builder,                     //
+            garbage_type &garbage,                          //
+            garbage_type &garbage_before,                   //
+            llvm::Value *const branch_value                 //
+        );
+
         /// @function `generate_optional_switch_expression`
         /// @brief Generates the optional switch expression from the given SwitchStatement node
         ///
@@ -1938,12 +1952,12 @@ class Generator {
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `switch_expression` The switch expression to generate
         /// @return `group_mapping` The result of the switch expression
-        static group_mapping generate_switch_expression( //
-            llvm::IRBuilder<> &builder,                  //
-            GenerationContext &ctx,                      //
-            garbage_type &garbage,                       //
-            const unsigned int expr_depth,               //
-            const SwitchExpression *switch_expression    //
+        [[nodiscard]] static group_mapping generate_switch_expression( //
+            llvm::IRBuilder<> &builder,                                //
+            GenerationContext &ctx,                                    //
+            garbage_type &garbage,                                     //
+            const unsigned int expr_depth,                             //
+            const SwitchExpression *switch_expression                  //
         );
 
         /// @function `generate_inline_array_initializer`

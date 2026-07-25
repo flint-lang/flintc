@@ -1430,8 +1430,13 @@ class Parser {
     ///
     /// @param `scope` The scope in which the return statement is defined
     /// @param `tokens` The list of tokens representing the return statement
+    /// @param `rhs` The already parsed rhs expression of the return statement, nullopt if it is not parsed yet
     /// @return `std::optional<ReturnNode>` An optional ReturnNode if creation is successful, nullopt otherwise
-    std::optional<ReturnNode> create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens);
+    std::optional<ReturnNode> create_return(                              //
+        std::shared_ptr<Scope> &scope,                                    //
+        const token_slice &tokens,                                        //
+        std::optional<std::unique_ptr<ExpressionNode>> rhs = std::nullopt //
+    );
 
     /// @function `create_if`
     /// @brief Creates an IfNode from the given if chain
