@@ -2,13 +2,20 @@ use Core.system
 use Core.assert
 use Core.print
 
+/// @brief Default values for the global configuration, needed in the places where the current global
+//         value is temporary changed, so that it resets to the correct value.
+const data DefaultConfig:
+	bool COMPILE_V_STATIC = true;
+	bool COMPILE_V_PARALLEL = true;
+	bool COMPILE_V_FAST = true;
+
 /// @brief Configuration to control which compilations to execute. Can be changed on a per-test run basis
 //         Everything raylib-related is unable to be compiled statically because raylib is linked dynamically,
 //         so these tests fail only because of this problem.
 shared data Config:
-	bool compile_v_static = true;
-	bool compile_v_parallel = true;
-	bool compile_v_fast = true;
+	bool compile_v_static = DefaultConfig.COMPILE_V_STATIC;
+	bool compile_v_parallel = DefaultConfig.COMPILE_V_PARALLEL;
+	bool compile_v_fast = DefaultConfig.COMPILE_V_FAST;
 
 /// @brief Appends a single string value to a string array
 ///

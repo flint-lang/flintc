@@ -29,7 +29,7 @@ test "pong-2.0":
 	str file = "main.ft";
 	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = true;
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
 
 #test_performance
 test "pong-3.0":
@@ -37,7 +37,7 @@ test "pong-3.0":
 	str file = "main.ft";
 	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = true;
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
 
 #test_performance
 test "pong-4.0":
@@ -45,4 +45,4 @@ test "pong-4.0":
 	str file = "main.ft";
 	Config.compile_v_static = false;
 	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = true;
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
