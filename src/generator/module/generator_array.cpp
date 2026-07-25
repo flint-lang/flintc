@@ -681,7 +681,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //         size_t offset = i *element_size;
     //         char *src_val_ptr = src_start_ptr + offset;
     //         char *dest_val_ptr = dest_ptr + offset;
-    //         clone(src_ptr, dest_ptr, type_id);
+    //         clone(src_val_ptr, dest_val_ptr, type_id);
     //     }
     //     return slice;
     // }
@@ -803,6 +803,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
         builder->SetInsertPoint(range_empty_block);
         llvm::AllocaInst *const lengths_alloca = builder->CreateAlloca(i64_ty, nullptr, "lengths_alloca");
+        IR::aligned_store(*builder, builder->getInt64(0), lengths_alloca);
         llvm::Value *const empty_arr = builder->CreateCall(                                      //
             create_arr_fn, {builder->getInt64(1), arg_element_size, lengths_alloca}, "empty_arr" //
         );
