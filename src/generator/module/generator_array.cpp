@@ -672,13 +672,14 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //     str *slice = create_arr(1, element_size, &len);
     //     char *dest_ptr = (char *)(((size_t *)slice->value) + 1);
     //     char *src_ptr = (char *)(((size_t *)src->value) + 1);
+    //     char *src_start_ptr = src_ptr + (real_from * element_size);
     //     if (type_id == 0) {
-    //         memcpy(dest_ptr, src_ptr + (real_from * element_size), len * element_size);
+    //         memcpy(dest_ptr, src_start_ptr, len * element_size);
     //         return slice;
     //     }
     //     for (size_t i = 0; i < len; i++) {
     //         size_t offset = i *element_size;
-    //         char *src_val_ptr = src_ptr + offset;
+    //         char *src_val_ptr = src_start_ptr + offset;
     //         char *dest_val_ptr = dest_ptr + offset;
     //         clone(src_ptr, dest_ptr, type_id);
     //     }
@@ -876,15 +877,15 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::Value *const src_size_ptr = builder->CreateBitCast(src_value_ptr, PTR_TY, "src_size_ptr");
     llvm::Value *const src_data_ptr = builder->CreateGEP(i64_ty, src_size_ptr, {builder->getInt64(1)}, "src_data_ptr");
     llvm::Value *const src_ptr = builder->CreateBitCast(src_data_ptr, PTR_TY, "src_ptr");
+    // src_ptr + (real_from * element_size)
+    llvm::Value *const offset_bytes = builder->CreateMul(real_from, arg_element_size, "offset_bytes");
+    llvm::Value *const src_offset_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, {offset_bytes}, "src_offset_ptr");
 
     llvm::Value *const type_id_zero = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_zero");
     builder->CreateCondBr(type_id_zero, type_id_zero_block, type_id_nonzero_block);
 
     {
         builder->SetInsertPoint(type_id_zero_block);
-        // src_ptr + (real_from * element_size)
-        llvm::Value *offset_bytes = builder->CreateMul(real_from, arg_element_size, "offset_bytes");
-        llvm::Value *src_offset_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, {offset_bytes}, "src_offset_ptr");
 
         // len * element_size
         llvm::Value *copy_bytes = builder->CreateMul(len, arg_element_size, "copy_bytes");
@@ -905,7 +906,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
 
         builder->SetInsertPoint(type_id_nonzero_loop_body_block);
         llvm::Value *const offset = builder->CreateMul(i_value, arg_element_size, "offset");
-        llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_ptr, offset, "src_val_ptr");
+        llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_offset_ptr, offset, "src_val_ptr");
         llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_ptr, offset, "dest_val_ptr");
         builder->CreateCall(clone_fn, {src_val_ptr, dest_val_ptr, arg_type_id});
         llvm::Value *const i_pp = builder->CreateAdd(i_value, builder->getInt64(1), "i_pp");
