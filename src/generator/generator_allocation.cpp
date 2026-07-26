@@ -28,26 +28,18 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
     for (size_t ret_id = 0; ret_id < function->return_types.size(); ret_id++) {
         const auto &ret_type = function->return_types.at(ret_id);
-        auto ret_ty = IR::get_type(parent->getParent(), ret_type);
+        const IR::TypeStorageInfo &ret_ty_info = IR::get_type(parent->getParent(), ret_type);
         const std::string ret_name = "flint.ret." + std::to_string(ret_id);
-        if (ret_ty.second.first) {
-            types_list.emplace_back(ret_name, PTR_TY);
-        } else {
-            types_list.emplace_back(ret_name, ret_ty.first);
-        }
+        types_list.emplace_back(ret_name, ret_ty_info.is_complex ? PTR_TY : ret_ty_info.type);
     }
 
     // Then we move on to the function parameters for the allocation map
     for (size_t param_id = 0; param_id < function->parameters.size(); param_id++) {
         const auto &param = function->parameters.at(param_id);
         const std::string param_name = "s" + std::to_string(function->scope.value()->scope_id) + "::" + std::get<1>(param);
-        auto param_type = IR::get_type(parent->getParent(), std::get<0>(function->parameters.at(param_id)));
-        ASSERT(param_type.first != nullptr);
-        if (param_type.second.first) {
-            types_list.emplace_back(param_name, PTR_TY);
-        } else {
-            types_list.emplace_back(param_name, param_type.first);
-        }
+        const IR::TypeStorageInfo &param_type_info = IR::get_type(parent->getParent(), std::get<0>(function->parameters.at(param_id)));
+        ASSERT(param_type_info.type != nullptr);
+        types_list.emplace_back(param_name, param_type_info.is_complex ? PTR_TY : param_type_info.type);
     }
 
     std::string frame_type_name = function->file_hash.to_string() + ".type.ts." + function->name;
@@ -392,7 +384,7 @@ bool Generator::Allocation::generate_call_allocations(                    //
 
     // For extern functions returning structs > 16 bytes, allocate sret scratch space in the function frame
     if (call_node->function != nullptr && call_node->function->is_extern && call_node->type->to_string() != "void") {
-        llvm::Type *return_ty = IR::get_type(parent->getParent(), call_node->type, false).first;
+        llvm::Type *const return_ty = IR::get_type(parent->getParent(), call_node->type, false).type;
         size_t return_size = Allocation::get_type_size(parent->getParent(), return_ty);
         if (return_size > 16) {
             const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
@@ -460,7 +452,7 @@ bool Generator::Allocation::generate_enh_for_allocations(                 //
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         const std::string it_name = std::get<std::string>(for_node->iterators);
         const auto it_variable = for_node->definition_scope->variables.at(it_name);
-        llvm::Type *it_type = IR::get_type(parent->getParent(), it_variable.type).first;
+        llvm::Type *const it_type = IR::get_type(parent->getParent(), it_variable.type).type;
         const unsigned int scope_id = for_node->definition_scope->scope_id;
         std::string alloca_name = "s" + std::to_string(scope_id) + "::" + it_name;
         struct_types.emplace_back(alloca_name, it_type);
@@ -580,8 +572,8 @@ bool Generator::Allocation::generate_declaration_allocations(             //
     }
 
     const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + declaration_node->name;
-    auto type = IR::get_type(parent->getParent(), declaration_node->type);
-    struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);
+    const IR::TypeStorageInfo &type_info = IR::get_type(parent->getParent(), declaration_node->type);
+    struct_types.emplace_back(var_name, type_info.is_complex ? PTR_TY : type_info.type);
 
     return true;
 }
@@ -604,8 +596,8 @@ bool Generator::Allocation::generate_group_declaration_allocations(       //
             continue;
         }
         const std::string var_name = "s" + std::to_string(scope->scope_id) + "::" + variable.second;
-        auto type = IR::get_type(parent->getParent(), variable.first);
-        struct_types.emplace_back(var_name, type.second.first ? PTR_TY : type.first);
+        const IR::TypeStorageInfo &type_info = IR::get_type(parent->getParent(), variable.first);
+        struct_types.emplace_back(var_name, type_info.is_complex ? PTR_TY : type_info.type);
     }
     return true;
 }

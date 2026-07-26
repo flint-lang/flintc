@@ -123,7 +123,7 @@ void Generator::Module::Print::generate_print_str_lit_function( //
     llvm::Module *module,                                       //
     const bool only_declarations                                //
 ) {
-    llvm::Type *str_lit_type = IR::get_type(module, Type::get_primitive_type("type.flint.str.lit")).first;
+    llvm::Type *const str_lit_type = IR::get_type(module, Type::get_primitive_type("type.flint.str.lit")).type;
 
     // Create print function type
     llvm::FunctionType *print_str_lit_type = llvm::FunctionType::get( //
@@ -162,9 +162,12 @@ void Generator::Module::Print::generate_print_str_lit_function( //
     builder->CreateRetVoid();
 }
 
-void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+void Generator::Module::Print::generate_print_str_var_function( //
+    llvm::IRBuilder<> *builder,                                 //
+    llvm::Module *module,                                       //
+    const bool only_declarations                                //
+) {
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     // Create print function type
     llvm::FunctionType *print_str_type = llvm::FunctionType::get( //
@@ -212,13 +215,16 @@ void Generator::Module::Print::generate_print_str_var_function(llvm::IRBuilder<>
     builder->CreateRetVoid();
 }
 
-void Generator::Module::Print::generate_print_bool_function(llvm::IRBuilder<> *builder, llvm::Module *module,
-    const bool only_declarations) {
+void Generator::Module::Print::generate_print_bool_function( //
+    llvm::IRBuilder<> *builder,                              //
+    llvm::Module *module,                                    //
+    const bool only_declarations                             //
+) {
     // Create print function type
-    llvm::FunctionType *print_type = llvm::FunctionType::get(           //
-        llvm::Type::getVoidTy(context),                                 // return void
-        {IR::get_type(module, Type::get_primitive_type("bool")).first}, // takes type
-        false                                                           // no vararg
+    llvm::FunctionType *const print_type = llvm::FunctionType::get(    //
+        llvm::Type::getVoidTy(context),                                // return void
+        {IR::get_type(module, Type::get_primitive_type("bool")).type}, // takes type
+        false                                                          // no vararg
     );
     // Create the print_int function
     llvm::Function *print_function = llvm::Function::Create( //

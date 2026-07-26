@@ -21,7 +21,7 @@ void Generator::Module::String::generate_access_str_at_function( //
     //     }
     //     return string->value[idx];
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     llvm::FunctionType *access_str_at_type = llvm::FunctionType::get( //
         llvm::Type::getInt8Ty(context),                               // Return type: char (i8)
@@ -116,7 +116,7 @@ void Generator::Module::String::generate_assign_str_at_function( //
     //     }
     //     string->value[idx] = value;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     llvm::FunctionType *assign_str_at_type = llvm::FunctionType::get( //
         llvm::Type::getVoidTy(context),                               // Return type: void
@@ -212,7 +212,7 @@ void Generator::Module::String::generate_create_str_function( //
     //     string->value[len] = 0;
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
 
     llvm::FunctionType *create_str_type = llvm::FunctionType::get( //
@@ -271,7 +271,7 @@ void Generator::Module::String::generate_init_str_function(llvm::IRBuilder<> *bu
     //     memcpy(string->value, value, len);
     //     return string;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -333,7 +333,7 @@ void Generator::Module::String::generate_compare_str_function( //
     //     }
     //     return memcmp(lhs->value, rhs->value, lhs->len);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *memcmp_fn = c_functions.at(MEMCMP);
 
     llvm::FunctionType *compare_str_type = llvm::FunctionType::get( //
@@ -481,7 +481,7 @@ void Generator::Module::String::generate_assign_lit_function( //
     //     memcpy(new_string->value, value, len);
     //     new_string->value[len] = 0;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -566,7 +566,7 @@ void Generator::Module::String::generate_append_str_function( //
     //     new_dest->len = new_len;
     //     new_dest->value[new_len] = 0;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -659,7 +659,7 @@ void Generator::Module::String::generate_append_lit_function( //
     //     new_dest->len = new_len;
     //     new_dest->value[new_len] = 0;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -746,7 +746,7 @@ void Generator::Module::String::generate_add_str_str_function( //
     //     memcpy(result->value + lhs->len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -829,7 +829,7 @@ void Generator::Module::String::generate_add_str_lit_function( //
     //     memcpy(result->value + lhs->len, rhs, rhs_len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -910,7 +910,7 @@ void Generator::Module::String::generate_add_lit_str_function( //
     //     memcpy(result->value + lhs_len, rhs->value, rhs->len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *create_str_fn = string_manip_functions.at("create_str");
 
@@ -1012,7 +1012,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
     //     memcpy(result->value, src->value + real_from, len);
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
@@ -1281,10 +1281,10 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
         } else {
             llvm::Function *add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
-            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
-                && lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
-            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
-                && rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
+            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
+                lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
+            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
+                rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
             if (garbage.count(expr_depth) == 0) {
                 if (is_lhs_not_var) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
@@ -1322,8 +1322,8 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 std::get<LitStr>(rhs_lit->value).value.length() //
             );
             llvm::Value *addition_result = builder.CreateCall(add_str_lit_fn, {lhs, rhs, rhs_len}, "add_str_lit_res");
-            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
-                && lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
+            if (lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
+                lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
                 if (garbage.count(expr_depth) == 0) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 } else {
@@ -1340,8 +1340,8 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
             std::get<LitStr>(lhs_lit->value).value.length() //
         );
         llvm::Value *addition_result = builder.CreateCall(add_lit_str_fn, {lhs, lhs_len, rhs}, "add_lit_str_res");
-        if (rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE
-            && rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
+        if (rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
+            rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION) {
             if (garbage.count(expr_depth) == 0) {
                 garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
             } else {

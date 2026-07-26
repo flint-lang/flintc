@@ -23,7 +23,7 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     //         return init_str(c_env, strlen(c_env));
     //     }
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *getenv_fn = c_functions.at(GETENV);
@@ -207,7 +207,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     }
     //     return true;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 #ifdef __WIN32__
     llvm::Function *setenv_fn = env_functions.at("setenv");
 #else

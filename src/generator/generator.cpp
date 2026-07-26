@@ -389,7 +389,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     std::vector<std::shared_ptr<Type>> nonfreeable_types = Parser::get_all_nonfreeable_types();
     size_t max_size = 0;
     for (const auto &type : nonfreeable_types) {
-        llvm::Type *const type_ptr = IR::get_type(module.get(), type).first;
+        llvm::Type *const type_ptr = IR::get_type(module.get(), type).type;
         const size_t type_size = Allocation::get_type_size(module.get(), type_ptr);
         if (type_size > max_size) {
             max_size = type_size;
@@ -440,11 +440,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             continue;
         }
         for (const auto &[name, var] : ns->public_symbols.globals) {
-            const auto llvm_type = IR::get_type(module.get(), var.type);
-            ASSERT(llvm_type.first != nullptr);
-            llvm::Constant *const zero_init = llvm::Constant::getNullValue(llvm_type.first);
-            llvm::GlobalVariable *const global = new llvm::GlobalVariable(                           //
-                *module, llvm_type.first, false, llvm::GlobalValue::ExternalLinkage, zero_init, name //
+            llvm::Type *const type = IR::get_type(module.get(), var.type).type;
+            ASSERT(type != nullptr);
+            llvm::Constant *const zero_init = llvm::Constant::getNullValue(type);
+            llvm::GlobalVariable *const global = new llvm::GlobalVariable(                //
+                *module, type, false, llvm::GlobalValue::ExternalLinkage, zero_init, name //
             );
             shared_globals[name] = global;
         }

@@ -82,7 +82,7 @@ void Generator::Module::System::generate_system_command_function( //
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
     llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
@@ -427,7 +427,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     //     }
     //     return init_str(buffer, buffer_len);
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 #ifdef __WIN32__
     llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
 #endif
@@ -1017,7 +1017,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     //     free(captured_buffer);
     //     return output_array;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const free_fn = c_functions.at(FREE);
 
     llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
@@ -1191,7 +1191,8 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::Value *arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
     llvm::Value *arr_dim_lengths = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths");
     llvm::Value *arr_data = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
-    llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {ptr_size, arr_data, arr_dim, arr_dim_lengths, output_id_alloca}, "element_ptr");
+    llvm::Value *element_ptr =
+        builder->CreateCall(access_arr_fn, {ptr_size, arr_data, arr_dim, arr_dim_lengths, output_id_alloca}, "element_ptr");
     IR::aligned_store(*builder, line_string, element_ptr);
     llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
     llvm::Value *next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");

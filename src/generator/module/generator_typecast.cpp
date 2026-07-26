@@ -364,7 +364,7 @@ void Generator::Module::TypeCast::generate_vector_to_str( //
     //     return i32x2_str;
     // }
     const std::string vector_string = type_str + "x" + std::to_string(width);
-    llvm::Type *vector_type = IR::get_type(module, Type::get_type_from_str(vector_string).value()).first;
+    llvm::Type *const vector_type = IR::get_type(module, Type::get_type_from_str(vector_string).value()).type;
     llvm::Function *elem_to_str_fn = typecast_functions.at(type_str + "_to_str");
     llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *append_str_fn = String::string_manip_functions.at("append_str");
@@ -454,7 +454,7 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     //
     //     return result;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *const count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
@@ -620,7 +620,7 @@ void Generator::Module::TypeCast::generate_iN_to_str( //
     //
     //     return result;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *const count_digits_fn = typecast_functions.at("count_digits");
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
@@ -769,7 +769,7 @@ void Generator::Module::TypeCast::generate_bool8_to_str_function( //
 ) {
     // The string result of the bool8 value will always be of size 8. Each character of the string is either '0' or '1', depending of the
     // bit value of each element
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
 
     llvm::FunctionType *bool8_to_str_type = llvm::FunctionType::get( //

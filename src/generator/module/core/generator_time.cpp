@@ -36,7 +36,7 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
         }
         std::vector<llvm::Type *> types_vec;
         for (const auto &[field_type, field_name] : fields) {
-            types_vec.emplace_back(IR::get_type(module, Type::get_primitive_type(std::string(field_type))).first);
+            types_vec.emplace_back(IR::get_type(module, Type::get_primitive_type(std::string(field_type))).type);
         }
         llvm::ArrayRef<llvm::Type *> return_types_arr(types_vec);
         time_data_types[type_name] = IR::create_struct_type(prefix + "type.data." + type_name, return_types_arr);

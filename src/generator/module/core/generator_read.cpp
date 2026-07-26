@@ -256,7 +256,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     //     result->len = len;
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *printf_fn = c_functions.at(PRINTF);
     llvm::Function *abort_fn = c_functions.at(ABORT);
     llvm::Function *realloc_fn = c_functions.at(REALLOC);
@@ -370,7 +370,7 @@ void Generator::Module::Read::generate_read_int_function( //
     const unsigned int ParseInt = 1;
     const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
     const std::string ParseIntMessage(ErrReadValues.at(ParseInt).second);
-    llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
+    llvm::Type *const result_type = IR::get_type(module, result_type_ptr).type;
     llvm::FunctionType *read_int_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_int_fn = llvm::Function::Create(                      //
         read_int_type,                                                         //
@@ -510,7 +510,7 @@ void Generator::Module::Read::generate_read_uint_function( //
     const std::string ReadLinesMessage(ErrReadValues.at(ReadLines).second);
     const std::string ParseIntMessage(ErrReadValues.at(ParseInt).second);
     const std::string NegativeUintMessage(ErrReadValues.at(NegativeUint).second);
-    llvm::Type *result_type = IR::get_type(module, result_type_ptr).first;
+    llvm::Type *const result_type = IR::get_type(module, result_type_ptr).type;
     llvm::FunctionType *read_uint_type = llvm::FunctionType::get(function_result_type, false);
     llvm::Function *read_uint_fn = llvm::Function::Create(                     //
         read_uint_type,                                                        //

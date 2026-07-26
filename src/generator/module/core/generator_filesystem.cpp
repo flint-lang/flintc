@@ -51,7 +51,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     //     }
     //     return content;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);
@@ -317,7 +317,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     //     fclose(file);
     //     return lines_array;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *free_fn = c_functions.at(FREE);
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -529,18 +529,18 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *fill_arr_len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "fill_arr_len_ptr");
     llvm::Value *fill_arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), fill_arr_len_ptr, "fill_arr_dim");
     llvm::Value *fill_arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "fill_arr_dim_lengths");
-    llvm::Value *fill_arr_data = builder->CreateBitCast(
-        builder->CreateGEP(builder->getInt64Ty(), fill_arr_dim_lengths, fill_arr_dim, "fill_arr_data"), PTR_TY);
+    llvm::Value *fill_arr_data =
+        builder->CreateBitCast(builder->CreateGEP(builder->getInt64Ty(), fill_arr_dim_lengths, fill_arr_dim, "fill_arr_data"), PTR_TY);
 
     // Fill array with NULL pointers using new fill_arr signature
     builder->CreateCall(fill_arr_fn,
         {
-            fill_arr_data,                          // char* data
-            fill_arr_dim,                           // size_t dim
-            fill_arr_dim_lengths,                    // size_t* dim_lengths
-            builder->getInt64(sizeof(void *)),      // size_t value_size
-            null_str_ptr,                           // void* value
-            builder->getInt32(0)                    // i32 type_id
+            fill_arr_data,                     // char* data
+            fill_arr_dim,                      // size_t dim
+            fill_arr_dim_lengths,              // size_t* dim_lengths
+            builder->getInt64(sizeof(void *)), // size_t value_size
+            null_str_ptr,                      // void* value
+            builder->getInt32(0)               // i32 type_id
         });
 
     // Allocate buffer for reading lines (4096 bytes)
@@ -644,9 +644,10 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "len_ptr");
     llvm::Value *arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
     llvm::Value *arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths");
-    llvm::Value *arr_access_data = builder->CreateBitCast(
-        builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_access_data"), PTR_TY);
-    llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn, {builder->getInt64(sizeof(void *)), arr_access_data, arr_dim, arr_dim_lengths, idx_alloca}, "elem_ptr");
+    llvm::Value *arr_access_data =
+        builder->CreateBitCast(builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_access_data"), PTR_TY);
+    llvm::Value *elem_ptr = builder->CreateCall(access_arr_fn,
+        {builder->getInt64(sizeof(void *)), arr_access_data, arr_dim, arr_dim_lengths, idx_alloca}, "elem_ptr");
 
     // Load the string pointer
     llvm::Value *elem_str_ptr = IR::aligned_load(*builder, PTR_TY, elem_ptr, "elem_str_ptr");
@@ -691,7 +692,7 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Value *arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
     llvm::Value *arr_dim_lengths_2 = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths_2");
     llvm::Value *arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
-    llvm::Value *line_elem_ptr = builder->CreateCall(                                                //
+    llvm::Value *line_elem_ptr = builder->CreateCall(                                                                             //
         access_arr_fn, {builder->getInt64(sizeof(void *)), arr_data_2, arr_dim_2, arr_dim_lengths_2, idx_alloca}, "line_elem_ptr" //
     );
 
@@ -764,7 +765,7 @@ void Generator::Module::FileSystem::generate_file_exists_function( //
     //     return false;
     // }
     // Get required function pointers
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
 
@@ -834,7 +835,7 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -955,7 +956,7 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     //     // Close the file
     //     fclose(file);
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fwrite_fn = c_functions.at(FWRITE);
     llvm::Function *fclose_fn = c_functions.at(FCLOSE);
@@ -1084,7 +1085,7 @@ void Generator::Module::FileSystem::generate_is_file_function( //
     //
     //     return FALSE;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *fopen_fn = c_functions.at(FOPEN);
     llvm::Function *fread_fn = c_functions.at(FREAD);
     llvm::Function *fseek_fn = c_functions.at(FSEEK);

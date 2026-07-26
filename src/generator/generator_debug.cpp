@@ -18,8 +18,8 @@ llvm::DIType *Generator::Debug::create_debug_type_array(llvm::Module *const modu
     if (array_type->sizes.has_value()) {
         // Static array: comptime-known sizes
         llvm::DIType *const elem_dt = get_or_create_debug_type(module, array_type->type);
-        const auto elem_llvm_pair = IR::get_type(module, array_type->type);
-        llvm::Type *const elem_llvm = elem_llvm_pair.second.first ? PTR_TY : elem_llvm_pair.first;
+        const IR::TypeStorageInfo &elem_type_info = IR::get_type(module, array_type->type);
+        llvm::Type *const elem_llvm = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;
 
         size_t total_elems = 1;
         for (const size_t len : array_type->sizes.value()) {
@@ -46,8 +46,8 @@ llvm::DIType *Generator::Debug::create_debug_type_array(llvm::Module *const modu
     llvm::DIType *const u64_dt = get_or_create_debug_type(module, Type::get_primitive_type("u64"));
     llvm::DIType *const elem_dt = get_or_create_debug_type(module, array_type->type);
 
-    const auto elem_llvm_pair = IR::get_type(module, array_type->type);
-    llvm::Type *const elem_llvm = elem_llvm_pair.second.first ? PTR_TY : elem_llvm_pair.first;
+    const IR::TypeStorageInfo &elem_type_info = IR::get_type(module, array_type->type);
+    llvm::Type *const elem_llvm = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;
     const uint32_t elem_align = Allocation::calculate_type_alignment(elem_llvm) * 8;
     llvm::Type *const i64_llvm = llvm::Type::getInt64Ty(context);
     const uint32_t i64_align = Allocation::calculate_type_alignment(i64_llvm) * 8;
@@ -692,7 +692,7 @@ llvm::DIType *Generator::Debug::create_debug_type_vector(llvm::Module *const mod
         );
     }
 
-    llvm::Type *const llvm_type = IR::get_type(module, type).first;
+    llvm::Type *const llvm_type = IR::get_type(module, type).type;
     llvm::DIType *const elem_debug_type = get_or_create_debug_type(module, vector_type->base_type);
     const uint64_t size_bits = elem_debug_type->getSizeInBits() * vector_type->width;
     const uint32_t align_bits = Allocation::calculate_type_alignment(llvm_type) * 8;

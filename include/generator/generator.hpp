@@ -508,6 +508,26 @@ class Generator {
             const std::shared_ptr<Type> &type               //
         );
 
+        /// @struct `TypeStorageInfo`
+        /// @brief Struct containing named fields for type storage information, only used by the `get_type` function
+        struct TypeStorageInfo {
+            /// @var `type`
+            /// @brief The actual type of the type storage info
+            llvm::Type *type;
+
+            /// @var `is_complex`
+            /// @brief Whether this type is complex, e.g. heap-allocated (data, object etc)
+            bool is_complex;
+
+            /// @var `is_reference`
+            /// @brief Whether this type is passed by reference (data, object, tuple, optional, variant, etc)
+            bool is_reference;
+
+            /// @var `is_indirect`
+            /// @brief Whether this type needs to be loaded when slicing arrays with this type stored in them
+            bool is_indirect;
+        };
+
         /// @function `get_type`
         /// @brief Returns the llvm Type from a given Type
         ///
@@ -519,10 +539,10 @@ class Generator {
         ///     - a pair of boolean values determining whether the given type is:
         ///         - A complex heap-allocated type (data, object, etc)
         ///         - Passed by reference (data, object, tuple, optional, variant, etc)
-        static std::pair<llvm::Type *, std::pair<bool, bool>> get_type( //
-            llvm::Module *module,                                       //
-            const std::shared_ptr<Type> &type,                          //
-            const bool is_extern = false                                //
+        static TypeStorageInfo get_type(       //
+            llvm::Module *module,              //
+            const std::shared_ptr<Type> &type, //
+            const bool is_extern = false       //
         );
 
         /// @function `get_default_value_of_type`

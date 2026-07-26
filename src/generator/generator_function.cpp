@@ -30,7 +30,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
         }
 
         // Check if return type is > 16 bytes
-        llvm::Type *actual_return_type = IR::get_type(module, ret_type, false).first;
+        llvm::Type *const actual_return_type = IR::get_type(module, ret_type, false).type;
         size_t return_size = Allocation::get_type_size(module, actual_return_type);
         if (return_size > 16) {
             // Return type becomes void
@@ -39,7 +39,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
             sret_param_type = PTR_TY;
         } else {
             // Existing logic for <= 16 bytes
-            return_types = IR::get_type(module, ret_type, true).first;
+            return_types = IR::get_type(module, ret_type, true).type;
         }
     }
 
@@ -51,7 +51,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     }
 
     for (const auto &param : function_node->parameters) {
-        llvm::Type *param_type = IR::get_type(module, std::get<0>(param), true).first;
+        llvm::Type *const param_type = IR::get_type(module, std::get<0>(param), true).type;
         if (param_type->isStructTy()) {
             llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
             for (const auto &element_type : struct_type->elements()) {

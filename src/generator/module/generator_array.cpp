@@ -21,7 +21,7 @@ void Generator::Module::Array::generate_get_arr_len_function( //
     //     }
     //     return arr_len;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     llvm::FunctionType *get_arr_len_type = llvm::FunctionType::get( //
         llvm::Type::getInt64Ty(context),                            // Return type: size_t
@@ -121,7 +121,7 @@ void Generator::Module::Array::generate_create_arr_function( //
     //     memcpy(arr->value, lengths, dimensionality * sizeof(size_t));
     //     return arr;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *malloc_fn = c_functions.at(MALLOC);
     llvm::Function *memcpy_fn = c_functions.at(MEMCPY);
 
@@ -685,7 +685,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //     }
     //     return slice;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
     llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
     llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
@@ -1060,7 +1060,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //
     //     return result;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
     llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
     llvm::Function *const malloc_fn = c_functions.at(MALLOC);

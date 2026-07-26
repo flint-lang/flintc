@@ -60,7 +60,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
     //     return (intN_t)value;
     // }
     llvm::Function *strtoll_fn = c_functions.at(STRTOLL);
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("i" + std::to_string(bit_width));
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
@@ -230,7 +230,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     //     return (uintN_t)value;
     // }
     llvm::Function *strtoull_fn = c_functions.at(STRTOULL);
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("u" + std::to_string(bit_width));
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
@@ -394,7 +394,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     //     return value;
     // }
     llvm::Function *strtof_fn = c_functions.at(STRTOF);
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f32");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
@@ -512,7 +512,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     //     return value;
     // }
     llvm::Function *strtod_fn = c_functions.at(STRTOD);
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f64");
     llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
