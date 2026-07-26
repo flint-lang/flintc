@@ -59,23 +59,23 @@ void Generator::Module::Parse::generate_parse_int_function( //
     //     }
     //     return (intN_t)value;
     // }
-    llvm::Function *strtoll_fn = c_functions.at(STRTOLL);
+    llvm::Function *const strtoll_fn = c_functions.at(STRTOLL);
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("i" + std::to_string(bit_width));
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     const unsigned int ErrParse = hash.get_type_id_from_str("ErrParse");
     const std::vector<error_value> &ErrParseValues = std::get<2>(core_module_error_sets.at("parse").front());
     const unsigned int OutOfBounds = 0;
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
-    llvm::Function *parse_uN_fn = llvm::Function::Create( //
-        parse_uN_type,                                    //
-        llvm::Function::ExternalLinkage,                  //
-        prefix + "parse_i" + std::to_string(bit_width),   //
-        module                                            //
+    llvm::FunctionType *const parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
+    llvm::Function *const parse_uN_fn = llvm::Function::Create( //
+        parse_uN_type,                                          //
+        llvm::Function::ExternalLinkage,                        //
+        prefix + "parse_i" + std::to_string(bit_width),         //
+        module                                                  //
     );
     const std::string fn_name = std::string("parse_i" + std::to_string(bit_width));
     parse_functions[fn_name] = parse_uN_fn;
@@ -84,51 +84,51 @@ void Generator::Module::Parse::generate_parse_int_function( //
     }
 
     // Get the input argument
-    llvm::Argument *arg_input = parse_uN_fn->arg_begin();
+    llvm::Argument *const arg_input = parse_uN_fn->arg_begin();
     arg_input->setName("input");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", parse_uN_fn);
-    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_uN_fn);
-    llvm::BasicBlock *errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_uN_fn);
-    llvm::BasicBlock *errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_uN_fn);
-    llvm::BasicBlock *parse_ok_block = llvm::BasicBlock::Create(context, "parse_ok");
-    llvm::BasicBlock *below_min_block = llvm::BasicBlock::Create(context, "below_min");
-    llvm::BasicBlock *above_min_block = llvm::BasicBlock::Create(context, "above_min");
-    llvm::BasicBlock *above_max_block = llvm::BasicBlock::Create(context, "above_max");
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", parse_uN_fn);
+    llvm::BasicBlock *const parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_uN_fn);
+    llvm::BasicBlock *const errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_uN_fn);
+    llvm::BasicBlock *const errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_uN_fn);
+    llvm::BasicBlock *const parse_ok_block = llvm::BasicBlock::Create(context, "parse_ok");
+    llvm::BasicBlock *const below_min_block = llvm::BasicBlock::Create(context, "below_min");
+    llvm::BasicBlock *const above_min_block = llvm::BasicBlock::Create(context, "above_min");
+    llvm::BasicBlock *const above_max_block = llvm::BasicBlock::Create(context, "above_max");
     if (bit_width < 64) {
         parse_ok_block->insertInto(parse_uN_fn);
         below_min_block->insertInto(parse_uN_fn);
         above_min_block->insertInto(parse_uN_fn);
         above_max_block->insertInto(parse_uN_fn);
     }
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", parse_uN_fn);
+    llvm::BasicBlock *const exit_block = llvm::BasicBlock::Create(context, "exit", parse_uN_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
     // Get the length of the input string
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
-    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
+    llvm::Value *const len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    llvm::Value *const endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtoll: long long value = strtoll(input.c_str, &endptr, 10)
-    llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    llvm::Value *const input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
+    llvm::Value *const errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtoll_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
+    llvm::Value *const value = builder->CreateCall(strtoll_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtoll call
-    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
+    llvm::Value *const endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
-    llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
+    llvm::Value *const input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
 
     // Check if endptr < input.c_str + len (not all input was parsed)
-    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
+    llvm::Value *const endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
 
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, errno_check_block);
@@ -144,8 +144,8 @@ void Generator::Module::Parse::generate_parse_int_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `i64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
-    llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
+    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
     } else {
@@ -164,8 +164,8 @@ void Generator::Module::Parse::generate_parse_int_function( //
     if (bit_width < 64) {
         // Parsing was okay, check if the value is below MIN(iN)
         builder->SetInsertPoint(parse_ok_block);
-        llvm::Value *min = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getSignedMinValue(bit_width).sext(64));
-        llvm::Value *lt_min = builder->CreateICmpSLT(value, min, "lt_min");
+        llvm::Value *const min = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getSignedMinValue(bit_width).sext(64));
+        llvm::Value *const lt_min = builder->CreateICmpSLT(value, min, "lt_min");
         builder->CreateCondBr(lt_min, below_min_block, above_min_block);
 
         // Parse error: throw ErrParse.OutOfBounds
@@ -178,8 +178,8 @@ void Generator::Module::Parse::generate_parse_int_function( //
         builder->CreateRet(parse_ret_val);
 
         builder->SetInsertPoint(above_min_block);
-        llvm::Value *max = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getSignedMaxValue(bit_width).sext(64));
-        llvm::Value *gt_max = builder->CreateICmpSGT(value, max, "gt_max");
+        llvm::Value *const max = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getSignedMaxValue(bit_width).sext(64));
+        llvm::Value *const gt_max = builder->CreateICmpSGT(value, max, "gt_max");
         builder->CreateCondBr(gt_max, above_max_block, exit_block);
 
         // Parse error: throw ErrParse.OutOfBounds
@@ -194,12 +194,12 @@ void Generator::Module::Parse::generate_parse_int_function( //
 
     // Exit block: return the uN value
     builder->SetInsertPoint(exit_block);
-    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
-    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    llvm::Type *int_type = builder->getIntNTy(bit_width);
-    llvm::Value *trunc_val = bit_width < 64 ? builder->CreateTrunc(value, int_type) : value;
+    llvm::AllocaInst *const ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *const val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    llvm::Type *const int_type = builder->getIntNTy(bit_width);
+    llvm::Value *const trunc_val = bit_width < 64 ? builder->CreateTrunc(value, int_type) : value;
     IR::aligned_store(*builder, trunc_val, val_ptr);
-    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
+    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -229,23 +229,23 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     //     }
     //     return (uintN_t)value;
     // }
-    llvm::Function *strtoull_fn = c_functions.at(STRTOULL);
+    llvm::Function *const strtoull_fn = c_functions.at(STRTOULL);
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("u" + std::to_string(bit_width));
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     const unsigned int ErrParse = hash.get_type_id_from_str("ErrParse");
     const std::vector<error_value> &ErrParseValues = std::get<2>(core_module_error_sets.at("parse").front());
     const unsigned int OutOfBounds = 0;
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
-    llvm::Function *parse_uN_fn = llvm::Function::Create( //
-        parse_uN_type,                                    //
-        llvm::Function::ExternalLinkage,                  //
-        prefix + "parse_u" + std::to_string(bit_width),   //
-        module                                            //
+    llvm::FunctionType *const parse_uN_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
+    llvm::Function *const parse_uN_fn = llvm::Function::Create( //
+        parse_uN_type,                                          //
+        llvm::Function::ExternalLinkage,                        //
+        prefix + "parse_u" + std::to_string(bit_width),         //
+        module                                                  //
     );
     const std::string fn_name = std::string("parse_u" + std::to_string(bit_width));
     parse_functions[fn_name] = parse_uN_fn;
@@ -254,51 +254,51 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     }
 
     // Get the input argument
-    llvm::Argument *arg_input = parse_uN_fn->arg_begin();
+    llvm::Argument *const arg_input = parse_uN_fn->arg_begin();
     arg_input->setName("input");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", parse_uN_fn);
-    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_uN_fn);
-    llvm::BasicBlock *errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_uN_fn);
-    llvm::BasicBlock *errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_uN_fn);
-    llvm::BasicBlock *parse_ok_block = llvm::BasicBlock::Create(context, "parse_ok");
-    llvm::BasicBlock *below_0_block = llvm::BasicBlock::Create(context, "below_0");
-    llvm::BasicBlock *above_0_block = llvm::BasicBlock::Create(context, "above_0");
-    llvm::BasicBlock *above_max_block = llvm::BasicBlock::Create(context, "above_max");
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", parse_uN_fn);
+    llvm::BasicBlock *const parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_uN_fn);
+    llvm::BasicBlock *const errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_uN_fn);
+    llvm::BasicBlock *const errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_uN_fn);
+    llvm::BasicBlock *const parse_ok_block = llvm::BasicBlock::Create(context, "parse_ok");
+    llvm::BasicBlock *const below_0_block = llvm::BasicBlock::Create(context, "below_0");
+    llvm::BasicBlock *const above_0_block = llvm::BasicBlock::Create(context, "above_0");
+    llvm::BasicBlock *const above_max_block = llvm::BasicBlock::Create(context, "above_max");
     if (bit_width < 64) {
         parse_ok_block->insertInto(parse_uN_fn);
         below_0_block->insertInto(parse_uN_fn);
         above_0_block->insertInto(parse_uN_fn);
         above_max_block->insertInto(parse_uN_fn);
     }
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", parse_uN_fn);
+    llvm::BasicBlock *const exit_block = llvm::BasicBlock::Create(context, "exit", parse_uN_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
     // Get the length of the input string
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
-    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
+    llvm::Value *const len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    llvm::Value *const endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtoull: unsigned long long value = strtoull(input.c_str, &endptr, 10)
-    llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    llvm::Value *const input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
+    llvm::Value *const errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtoull_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
+    llvm::Value *const value = builder->CreateCall(strtoull_fn, {input_cstr, endptr_ptr, builder->getInt32(10)}, "value");
 
     // Load the endptr value after strtoull call
-    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
+    llvm::Value *const endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
-    llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
+    llvm::Value *const input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
 
     // Check if endptr < input.c_str + len (not all input was parsed)
-    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
+    llvm::Value *const endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
 
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, errno_check_block);
@@ -314,8 +314,8 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `u64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
-    llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
+    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
     } else {
@@ -334,7 +334,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
     if (bit_width < 64) {
         // Parsing was okay, check if the value is below 0
         builder->SetInsertPoint(parse_ok_block);
-        llvm::Value *lt_0 = builder->CreateICmpSLT(value, builder->getInt64(0), "lt_0");
+        llvm::Value *const lt_0 = builder->CreateICmpSLT(value, builder->getInt64(0), "lt_0");
         builder->CreateCondBr(lt_0, below_0_block, above_0_block);
 
         // Parse error: throw ErrParse.OutOfBounds
@@ -347,8 +347,8 @@ void Generator::Module::Parse::generate_parse_uint_function( //
         builder->CreateRet(parse_ret_val);
 
         builder->SetInsertPoint(above_0_block);
-        llvm::Value *max = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getMaxValue(bit_width).zext(64));
-        llvm::Value *gt_max = builder->CreateICmpSGT(value, max, "gt_max");
+        llvm::Value *const max = llvm::ConstantInt::get(builder->getInt64Ty(), llvm::APInt::getMaxValue(bit_width).zext(64));
+        llvm::Value *const gt_max = builder->CreateICmpSGT(value, max, "gt_max");
         builder->CreateCondBr(gt_max, above_max_block, exit_block);
 
         // Parse error: throw ErrParse.OutOfBounds
@@ -363,12 +363,12 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 
     // Exit block: return the uN value
     builder->SetInsertPoint(exit_block);
-    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
-    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
-    llvm::Type *int_type = builder->getIntNTy(bit_width);
-    llvm::Value *trunc_val = bit_width < 64 ? builder->CreateTrunc(value, int_type) : value;
+    llvm::AllocaInst *const ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *const val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    llvm::Type *const int_type = builder->getIntNTy(bit_width);
+    llvm::Value *const trunc_val = bit_width < 64 ? builder->CreateTrunc(value, int_type) : value;
     IR::aligned_store(*builder, trunc_val, val_ptr);
-    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
+    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -393,23 +393,23 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     //     }
     //     return value;
     // }
-    llvm::Function *strtof_fn = c_functions.at(STRTOF);
+    llvm::Function *const strtof_fn = c_functions.at(STRTOF);
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f32");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     const unsigned int ErrParse = hash.get_type_id_from_str("ErrParse");
     const std::vector<error_value> &ErrParseValues = std::get<2>(core_module_error_sets.at("parse").front());
     const unsigned int OutOfBounds = 0;
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_f32_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
-    llvm::Function *parse_f32_fn = llvm::Function::Create( //
-        parse_f32_type,                                    //
-        llvm::Function::ExternalLinkage,                   //
-        prefix + "parse_f32",                              //
-        module                                             //
+    llvm::FunctionType *const parse_f32_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
+    llvm::Function *const parse_f32_fn = llvm::Function::Create( //
+        parse_f32_type,                                          //
+        llvm::Function::ExternalLinkage,                         //
+        prefix + "parse_f32",                                    //
+        module                                                   //
     );
     parse_functions["parse_f32"] = parse_f32_fn;
     if (only_declarations) {
@@ -417,41 +417,41 @@ void Generator::Module::Parse::generate_parse_f32_function( //
     }
 
     // Get the input argument
-    llvm::Argument *arg_input = parse_f32_fn->arg_begin();
+    llvm::Argument *const arg_input = parse_f32_fn->arg_begin();
     arg_input->setName("input");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", parse_f32_fn);
-    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_f32_fn);
-    llvm::BasicBlock *errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_f32_fn);
-    llvm::BasicBlock *errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_f32_fn);
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", parse_f32_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", parse_f32_fn);
+    llvm::BasicBlock *const parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_f32_fn);
+    llvm::BasicBlock *const errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_f32_fn);
+    llvm::BasicBlock *const errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_f32_fn);
+    llvm::BasicBlock *const exit_block = llvm::BasicBlock::Create(context, "exit", parse_f32_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
     // Get the length of the input string
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
-    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
+    llvm::Value *const len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    llvm::Value *const endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtof: float value = strtof(input.c_str, &endptr)
-    llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    llvm::Value *const input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
+    llvm::Value *const errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtof_fn, {input_cstr, endptr_ptr}, "value");
+    llvm::Value *const value = builder->CreateCall(strtof_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
-    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
+    llvm::Value *const endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
-    llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
+    llvm::Value *const input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
 
     // Check if endptr < input.c_str + len (not all input was parsed)
-    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
+    llvm::Value *const endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
 
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, errno_check_block);
@@ -467,8 +467,8 @@ void Generator::Module::Parse::generate_parse_f32_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f32`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
-    llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
+    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 
     // Errno error: throw ErrParse.OutOfBounds
@@ -482,10 +482,10 @@ void Generator::Module::Parse::generate_parse_f32_function( //
 
     // Exit block: return the float value
     builder->SetInsertPoint(exit_block);
-    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
-    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    llvm::AllocaInst *const ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *const val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
     IR::aligned_store(*builder, value, val_ptr);
-    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
+    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -511,23 +511,23 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     //     }
     //     return value;
     // }
-    llvm::Function *strtod_fn = c_functions.at(STRTOD);
+    llvm::Function *const strtod_fn = c_functions.at(STRTOD);
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 
     const std::shared_ptr<Type> result_type_ptr = Type::get_primitive_type("f64");
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
     const unsigned int ErrParse = hash.get_type_id_from_str("ErrParse");
     const std::vector<error_value> &ErrParseValues = std::get<2>(core_module_error_sets.at("parse").front());
     const unsigned int OutOfBounds = 0;
     const unsigned int InvalidCharacter = 1;
     const std::string OutOfBoundsMessage(ErrParseValues.at(OutOfBounds).second);
     const std::string InvalidCharacterMessage(ErrParseValues.at(InvalidCharacter).second);
-    llvm::FunctionType *parse_f64_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
-    llvm::Function *parse_f64_fn = llvm::Function::Create( //
-        parse_f64_type,                                    //
-        llvm::Function::ExternalLinkage,                   //
-        prefix + "parse_f64",                              //
-        module                                             //
+    llvm::FunctionType *const parse_f64_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
+    llvm::Function *const parse_f64_fn = llvm::Function::Create( //
+        parse_f64_type,                                          //
+        llvm::Function::ExternalLinkage,                         //
+        prefix + "parse_f64",                                    //
+        module                                                   //
     );
     parse_functions["parse_f64"] = parse_f64_fn;
     if (only_declarations) {
@@ -535,41 +535,41 @@ void Generator::Module::Parse::generate_parse_f64_function( //
     }
 
     // Get the input argument
-    llvm::Argument *arg_input = parse_f64_fn->arg_begin();
+    llvm::Argument *const arg_input = parse_f64_fn->arg_begin();
     arg_input->setName("input");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", parse_f64_fn);
-    llvm::BasicBlock *parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_f64_fn);
-    llvm::BasicBlock *errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_f64_fn);
-    llvm::BasicBlock *errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_f64_fn);
-    llvm::BasicBlock *exit_block = llvm::BasicBlock::Create(context, "exit", parse_f64_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", parse_f64_fn);
+    llvm::BasicBlock *const parse_error_block = llvm::BasicBlock::Create(context, "parse_error", parse_f64_fn);
+    llvm::BasicBlock *const errno_check_block = llvm::BasicBlock::Create(context, "errno_check", parse_f64_fn);
+    llvm::BasicBlock *const errno_fail_block = llvm::BasicBlock::Create(context, "errno_fail", parse_f64_fn);
+    llvm::BasicBlock *const exit_block = llvm::BasicBlock::Create(context, "exit", parse_f64_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
     // Get the length of the input string
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
-    llvm::Value *len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arg_input, 0);
+    llvm::Value *const len = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "len");
 
     // Create endptr variable: char *endptr = NULL
-    llvm::Value *endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
+    llvm::Value *const endptr_ptr = builder->CreateAlloca(PTR_TY, nullptr, "endptr_ptr");
     IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), endptr_ptr);
 
     // Call strtof: float value = strtod(input.c_str, &endptr)
-    llvm::Value *input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
-    llvm::Value *errno_ptr = get_errno_ptr(builder, module);
+    llvm::Value *const input_cstr = builder->CreateStructGEP(str_type, arg_input, 1);
+    llvm::Value *const errno_ptr = get_errno_ptr(builder, module);
     IR::aligned_store(*builder, builder->getInt32(0), errno_ptr);
-    llvm::Value *value = builder->CreateCall(strtod_fn, {input_cstr, endptr_ptr}, "value");
+    llvm::Value *const value = builder->CreateCall(strtod_fn, {input_cstr, endptr_ptr}, "value");
 
     // Load the endptr value after strtof call
-    llvm::Value *endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
+    llvm::Value *const endptr = IR::aligned_load(*builder, PTR_TY, endptr_ptr, "endptr");
 
     // Calculate input.c_str + len (end of the input c string)
-    llvm::Value *input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
+    llvm::Value *const input_end = builder->CreateGEP(builder->getInt8Ty(), input_cstr, len, "cstr_end");
 
     // Check if endptr < input.c_str + len (not all input was parsed)
-    llvm::Value *endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
+    llvm::Value *const endptr_lt_end = builder->CreateICmpULT(endptr, input_end, "endptr_lt_end");
 
     // Branch if an parse error occured
     builder->CreateCondBr(endptr_lt_end, parse_error_block, errno_check_block);
@@ -585,8 +585,8 @@ void Generator::Module::Parse::generate_parse_f64_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
-    llvm::Value *is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
+    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 
     // Errno error: throw ErrParse.OutOfBounds
@@ -600,9 +600,9 @@ void Generator::Module::Parse::generate_parse_f64_function( //
 
     // Exit block: return the double value
     builder->SetInsertPoint(exit_block);
-    llvm::AllocaInst *ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
-    llvm::Value *val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
+    llvm::AllocaInst *const ret_alloca = Allocation::generate_default_struct(*builder, function_result_type, "ret_alloca", false);
+    llvm::Value *const val_ptr = builder->CreateStructGEP(function_result_type, ret_alloca, 1, "ret_value_ptr");
     IR::aligned_store(*builder, value, val_ptr);
-    llvm::Value *ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
+    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloca, "ret_val");
     builder->CreateRet(ret_val);
 }
