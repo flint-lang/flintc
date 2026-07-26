@@ -3578,8 +3578,10 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             // This is a slicing operation
             const ArrayType *array_type = result_type->as<ArrayType>();
             const uint32_t type_id = array_type->type->is_freeable() ? array_type->type->get_id() : 0;
-            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"),      //
-                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices, builder.getInt32(type_id)} //
+            const bool is_indirect = IR::get_type(ctx.parent->getParent(), array_type->type).is_indirect;
+            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"),
+                {array_ptr, builder.getInt64(element_size_in_bytes),                             //
+                    temp_array_indices, builder.getInt32(type_id), builder.getInt1(is_indirect)} //
             );
             return result;
         }

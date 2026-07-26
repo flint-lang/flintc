@@ -643,7 +643,14 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     const bool only_declarations                                   //
 ) {
     // THE C IMPLEMENTATION:
-    // str *get_arr_slice_1d(const str *src, const size_t element_size, const size_t from, const size_t to, const uint32_t type_id) {
+    // str *get_arr_slice_1d(          //
+    //     const str *src,             //
+    //     const size_t element_size,  //
+    //     const size_t from,          //
+    //     const size_t to,            //
+    //     const uint32_t type_id,     //
+    //     const bool elem_is_indirect //
+    // ) {
     //     const size_t src_len = *(size_t *)src->value;
     //     size_t real_to = to == UINT64_MAX ? src_len : to;
     //     if (real_to > src_len) {
@@ -681,6 +688,9 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     //         size_t offset = i *element_size;
     //         char *src_val_ptr = src_start_ptr + offset;
     //         char *dest_val_ptr = dest_ptr + offset;
+    //         if (elem_is_indirect) {
+    //             src_val_ptr = *(char **)src_val_ptr;
+    //         }
     //         clone(src_val_ptr, dest_val_ptr, type_id);
     //     }
     //     return slice;
@@ -697,13 +707,14 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::FunctionType *const get_arr_slice_1d_type = llvm::FunctionType::get( //
         PTR_TY,                                                                // Return Type: str*
         {
-            PTR_TY, // Argument: str* src
-            i64_ty, // Argument: u64 element_size
-            i64_ty, // Argument: u64 from
-            i64_ty, // Argument: u64 to
-            i32_ty  // Argument: u32 type_id
-        },          //
-        false       // No varargs
+            PTR_TY,                         // Argument: str* src
+            i64_ty,                         // Argument: u64 element_size
+            i64_ty,                         // Argument: u64 from
+            i64_ty,                         // Argument: u64 to
+            i32_ty,                         // Argument: u32 type_id
+            llvm::Type::getInt1Ty(context), // Argument: bool elem_is_indirect
+        },                                  //
+        false                               // No varargs
     );
     llvm::Function *const get_arr_slice_1d_fn = llvm::Function::Create( //
         get_arr_slice_1d_type,                                          //
@@ -762,6 +773,8 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     arg_to->setName("to");
     llvm::Argument *const arg_type_id = get_arr_slice_1d_fn->arg_begin() + 4;
     arg_type_id->setName("type_id");
+    llvm::Argument *const arg_elem_is_indirect = get_arr_slice_1d_fn->arg_begin() + 5;
+    arg_elem_is_indirect->setName("elem_is_indirect");
 
     builder->SetInsertPoint(entry_block);
     llvm::Value *const to_eq_max = builder->CreateICmpEQ(arg_to, builder->getInt64(UINT64_MAX), "to_eq_max");
@@ -909,8 +922,12 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
         builder->SetInsertPoint(type_id_nonzero_loop_body_block);
         llvm::Value *const offset = builder->CreateMul(i_value, arg_element_size, "offset");
         llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_offset_ptr, offset, "src_val_ptr");
+        llvm::Value *const loaded_src_val_ptr = IR::aligned_load(*builder, PTR_TY, src_val_ptr, "loaded_src_val_ptr");
+        llvm::Value *const actual_src_val_ptr = builder->CreateSelect(                  //
+            arg_elem_is_indirect, loaded_src_val_ptr, src_val_ptr, "actual_src_val_ptr" //
+        );
         llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_ptr, offset, "dest_val_ptr");
-        builder->CreateCall(clone_fn, {src_val_ptr, dest_val_ptr, arg_type_id});
+        builder->CreateCall(clone_fn, {actual_src_val_ptr, dest_val_ptr, arg_type_id});
         llvm::Value *const i_pp = builder->CreateAdd(i_value, builder->getInt64(1), "i_pp");
         IR::aligned_store(*builder, i_pp, i_alloca);
         builder->CreateBr(type_id_nonzero_loop_cond_block);
@@ -926,7 +943,13 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     const bool only_declarations                                //
 ) {
     // THE C IMPLEMENTATION:
-    // str *get_arr_slice(const str *src, const size_t element_size, const size_t *ranges, const uint32_t type_id) {
+    // str *get_arr_slice(             //
+    //     const str *src,             //
+    //     const size_t element_size,  //
+    //     const size_t *ranges,       //
+    //     const uint32_t type_id,     //
+    //     const bool elem_is_indirect //
+    // ) {
     //     const size_t src_dimensionality = src->len;
     //     size_t *src_dim_lengths = (size_t *)src->value;
     //
@@ -961,7 +984,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //     const bool is_first_range = ranges[0] != ranges[1];
     //     if (src_dimensionality == 1 && new_dimensionality == 1) {
     //         assert(is_first_range);
-    //         return get_arr_slice_1d(src, element_size, ranges[0], ranges[1], type_id);
+    //         return get_arr_slice_1d(src, element_size, ranges[0], ranges[1], type_id, elem_is_indirect);
     //     }
     //
     //     // Calculate new dimension lengths for ranges only
@@ -1045,6 +1068,9 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //             for (size_t j = 0; j < chunk_size; j++) {
     //                 const size_t src_val_offset = (src_offset + j) * element_size;
     //                 char *src_val_ptr = src_data + src_val_offset;
+    //                 if (elem_is_indirect) {
+    //                     src_val_ptr = *(char **)src_val_ptr;
+    //                 }
     //                 const size_t dest_val_offset = (dest_index + j) * element_size;
     //                 char *dest_val_ptr = dest_data + dest_val_offset;
     //                 clone(src_val_ptr, dest_val_ptr, type_id);
@@ -1075,12 +1101,13 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::FunctionType *get_arr_slice_type = llvm::FunctionType::get( //
         PTR_TY,                                                       // Return Type: str*
         {
-            PTR_TY, // Argument: str* src
-            i64_ty, // Argument: u64 element_size
-            PTR_TY, // Argument: u64* ranges
-            i32_ty  // Argument: u64* ranges
-        },          //
-        false       // No varargs
+            PTR_TY,                        // Argument: str* src
+            i64_ty,                        // Argument: u64 element_size
+            PTR_TY,                        // Argument: u64* ranges
+            i32_ty,                        // Argument: u32 type_id
+            llvm::Type::getInt1Ty(context) // Argument: bool elem_is_indirect
+        },                                 //
+        false                              // No varargs
     );
     llvm::Function *get_arr_slice_fn = llvm::Function::Create( //
         get_arr_slice_type,                                    //
@@ -1221,6 +1248,8 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     arg_ranges->setName("ranges");
     llvm::Argument *const arg_type_id = get_arr_slice_fn->arg_begin() + 3;
     arg_type_id->setName("type_id");
+    llvm::Argument *const arg_elem_is_indirect = get_arr_slice_fn->arg_begin() + 4;
+    arg_elem_is_indirect->setName("elem_is_indirect");
 
     builder->SetInsertPoint(entry_block);
     llvm::AllocaInst *const new_dimensionality = builder->CreateAlloca(i64_ty, 0, nullptr, "new_dimensionality");
@@ -1351,8 +1380,8 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     // if (src_dimensionality == 1 && new_dimensionality == 1) {
     {
         builder->SetInsertPoint(is_1d_slice_block);
-        llvm::Value *result = builder->CreateCall(                                                      //
-            get_arr_slice_1d_fn, {arg_src, arg_element_size, ranges_0, ranges_1, arg_type_id}, "result" //
+        llvm::Value *const result = builder->CreateCall(                                                                      //
+            get_arr_slice_1d_fn, {arg_src, arg_element_size, ranges_0, ranges_1, arg_type_id, arg_elem_is_indirect}, "result" //
         );
         builder->CreateRet(result);
     }
@@ -1661,10 +1690,14 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
             llvm::Value *const src_offset_p_j = builder->CreateAdd(src_offset_val, j_value, "src_offset_p_j");
             llvm::Value *const src_val_offset = builder->CreateMul(src_offset_p_j, arg_element_size, "src_val_offset");
             llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_data_ptr, src_val_offset, "src_val_ptr");
+            llvm::Value *const loaded_src_val_ptr = IR::aligned_load(*builder, PTR_TY, src_val_ptr, "loaded_src_val_ptr");
+            llvm::Value *const actual_src_val_ptr = builder->CreateSelect(                  //
+                arg_elem_is_indirect, loaded_src_val_ptr, src_val_ptr, "actual_src_val_ptr" //
+            );
             llvm::Value *const dest_index_p_j = builder->CreateAdd(dest_index_val, j_value, "dest_index_p_j");
             llvm::Value *const dest_val_offset = builder->CreateMul(dest_index_p_j, arg_element_size, "dest_val_offset");
             llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_data_ptr, dest_val_offset, "dest_val_ptr");
-            builder->CreateCall(clone_fn, {src_val_ptr, dest_val_ptr, arg_type_id});
+            builder->CreateCall(clone_fn, {actual_src_val_ptr, dest_val_ptr, arg_type_id});
             llvm::Value *const j_next = builder->CreateAdd(j_value, builder->getInt64(1), "j_next");
             IR::aligned_store(*builder, j_next, j_alloca);
             builder->CreateBr(chunk_loop_type_id_nonzero_loop_cond_block);
