@@ -31,7 +31,7 @@ func FPaddleCommon requires(DPaddle paddle):
 		else if paddle.pos.y > max_y:
 			paddle.pos.y = max_y;
 
-entity Paddle:
+object Paddle:
 	data: DPaddle;
 	func: FPaddleCommon;
 	Paddle(DPaddle);

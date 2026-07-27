@@ -13,7 +13,7 @@ func FCpuControl requires(DPaddle paddle):
 	def reset():
 		paddle.pos = f32x2(10 + paddle.size.x / 2, GetScreenHeight() / 2);
 
-entity Cpu:
+object Cpu:
 	data: DPaddle;
 	func: FPaddleCommon, FCpuControl;
 	Cpu(DPaddle);

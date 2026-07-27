@@ -43,7 +43,7 @@ class Namespace {
         std::unordered_map<std::string, std::shared_ptr<Type>> unknown_types;
 
         /// @var `definitions`
-        /// @brief All top-level definitions (functions, data, entities, etc.) of this namespace
+        /// @brief All top-level definitions (functions, data, objects, etc.) of this namespace
         std::vector<std::unique_ptr<DefinitionNode>> definitions;
 
         /// @var `imports`

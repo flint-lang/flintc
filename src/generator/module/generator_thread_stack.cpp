@@ -64,3 +64,27 @@ void Generator::Module::ThreadStack::generate_types() {
         );
     }
 }
+
+void Generator::Module::ThreadStack::generate_capacity_check( //
+    llvm::IRBuilder<> &builder,                               //
+    llvm::Function *const function,                           //
+    llvm::Value *const remaining,                             //
+    llvm::Type *const frame_type                              //
+) {
+    llvm::Value *const callee_frame_size = builder.getInt64(Allocation::get_type_size(function->getParent(), frame_type));
+    llvm::BasicBlock *const current_block = builder.GetInsertBlock();
+    llvm::Value *const has_space = builder.CreateICmpUGE(remaining, callee_frame_size, "has_stack_space");
+
+    llvm::BasicBlock *const overflow_block = llvm::BasicBlock::Create(context, "stack_overflow", function);
+    llvm::BasicBlock *const ok_block = llvm::BasicBlock::Create(context, "stack_ok", function);
+    builder.SetInsertPoint(current_block);
+    builder.CreateCondBr(has_space, ok_block, overflow_block, IR::generate_weights(100, 1));
+
+    builder.SetInsertPoint(overflow_block);
+    llvm::Value *msg = IR::generate_const_string(function->getParent(), "Stack overflow detected\n");
+    builder.CreateCall(c_functions.at(PRINTF), {msg});
+    builder.CreateCall(c_functions.at(ABORT), {});
+    builder.CreateUnreachable();
+
+    builder.SetInsertPoint(ok_block);
+}

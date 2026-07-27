@@ -82,15 +82,15 @@ void Generator::Module::System::generate_system_command_function( //
     //
     //     return result;
     // }
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
-    llvm::Function *create_str_fn = String::string_manip_functions.at("create_str");
-    llvm::Function *add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
-    llvm::Function *append_lit_fn = String::string_manip_functions.at("append_lit");
-    llvm::Function *free_fn = c_functions.at(FREE);
-    llvm::Function *popen_fn = c_functions.at(POPEN);
-    llvm::Function *fgets_fn = c_functions.at(FGETS);
-    llvm::Function *strlen_fn = c_functions.at(STRLEN);
-    llvm::Function *pclose_fn = c_functions.at(PCLOSE);
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
+    llvm::Function *const add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
+    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
+    llvm::Function *const free_fn = c_functions.at(FREE);
+    llvm::Function *const popen_fn = c_functions.at(POPEN);
+    llvm::Function *const fgets_fn = c_functions.at(FGETS);
+    llvm::Function *const strlen_fn = c_functions.at(STRLEN);
+    llvm::Function *const pclose_fn = c_functions.at(PCLOSE);
 
     const unsigned int ErrSystem = hash.get_type_id_from_str("ErrSystem");
     const std::vector<error_value> &ErrSystemValues = std::get<2>(core_module_error_sets.at("system").at(0));
@@ -107,17 +107,17 @@ void Generator::Module::System::generate_system_command_function( //
         const std::vector<std::shared_ptr<Type>> types = {i32_type, str_type_ptr};
         result_type_ptr = std::make_shared<GroupType>(types);
     }
-    llvm::StructType *function_result_type = IR::add_and_or_get_type(module, result_type_ptr.value(), true);
-    llvm::FunctionType *system_type = llvm::FunctionType::get( //
-        function_result_type,                                  //
-        {PTR_TY},                                              //
-        false                                                  // No vaarg
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr.value(), true);
+    llvm::FunctionType *const system_type = llvm::FunctionType::get( //
+        function_result_type,                                        //
+        {PTR_TY},                                                    //
+        false                                                        // No vaarg
     );
-    llvm::Function *system_fn = llvm::Function::Create( //
-        system_type,                                    //
-        llvm::Function::ExternalLinkage,                //
-        prefix + "system_command",                      //
-        module                                          //
+    llvm::Function *const system_fn = llvm::Function::Create( //
+        system_type,                                          //
+        llvm::Function::ExternalLinkage,                      //
+        prefix + "system_command",                            //
+        module                                                //
     );
     system_functions["system_command"] = system_fn;
     if (only_declarations) {
@@ -125,79 +125,79 @@ void Generator::Module::System::generate_system_command_function( //
     }
 
     // Get the parameters
-    llvm::Argument *arg_command = system_fn->arg_begin();
+    llvm::Argument *const arg_command = system_fn->arg_begin();
     arg_command->setName("command");
 
     // Create basic blocks
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", system_fn);
-    llvm::BasicBlock *empty_command_block = llvm::BasicBlock::Create(context, "empty_command", system_fn);
-    llvm::BasicBlock *nonempty_command_block = llvm::BasicBlock::Create(context, "nonempty_command", system_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", system_fn);
+    llvm::BasicBlock *const empty_command_block = llvm::BasicBlock::Create(context, "empty_command", system_fn);
+    llvm::BasicBlock *const nonempty_command_block = llvm::BasicBlock::Create(context, "nonempty_command", system_fn);
 #ifdef __WIN32__
-    llvm::BasicBlock *replace_slash_block = llvm::BasicBlock::Create(context, "replace_slash", system_fn);
-    llvm::BasicBlock *is_slash_to_replace_block = llvm::BasicBlock::Create(context, "is_slash_to_replace", system_fn);
-    llvm::BasicBlock *oob_check_block = llvm::BasicBlock::Create(context, "oob_check", system_fn);
-    llvm::BasicBlock *replace_slash_condition_block = llvm::BasicBlock::Create(context, "replace_slash_condition", system_fn);
-    llvm::BasicBlock *replace_slash_merge_block = llvm::BasicBlock::Create(context, "replace_slash_merge", system_fn);
+    llvm::BasicBlock *const replace_slash_block = llvm::BasicBlock::Create(context, "replace_slash", system_fn);
+    llvm::BasicBlock *const is_slash_to_replace_block = llvm::BasicBlock::Create(context, "is_slash_to_replace", system_fn);
+    llvm::BasicBlock *const oob_check_block = llvm::BasicBlock::Create(context, "oob_check", system_fn);
+    llvm::BasicBlock *const replace_slash_condition_block = llvm::BasicBlock::Create(context, "replace_slash_condition", system_fn);
+    llvm::BasicBlock *const replace_slash_merge_block = llvm::BasicBlock::Create(context, "replace_slash_merge", system_fn);
 #endif
-    llvm::BasicBlock *pipe_null_block = llvm::BasicBlock::Create(context, "pipe_null", system_fn);
-    llvm::BasicBlock *pipe_valid_block = llvm::BasicBlock::Create(context, "pipe_valid", system_fn);
-    llvm::BasicBlock *read_loop_header = llvm::BasicBlock::Create(context, "read_loop_header", system_fn);
-    llvm::BasicBlock *read_loop_body = llvm::BasicBlock::Create(context, "read_loop_body", system_fn);
-    llvm::BasicBlock *read_loop_exit = llvm::BasicBlock::Create(context, "read_loop_exit", system_fn);
+    llvm::BasicBlock *const pipe_null_block = llvm::BasicBlock::Create(context, "pipe_null", system_fn);
+    llvm::BasicBlock *const pipe_valid_block = llvm::BasicBlock::Create(context, "pipe_valid", system_fn);
+    llvm::BasicBlock *const read_loop_header = llvm::BasicBlock::Create(context, "read_loop_header", system_fn);
+    llvm::BasicBlock *const read_loop_body = llvm::BasicBlock::Create(context, "read_loop_body", system_fn);
+    llvm::BasicBlock *const read_loop_exit = llvm::BasicBlock::Create(context, "read_loop_exit", system_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
 
     // Create result struct on stack
-    llvm::AllocaInst *result_struct = builder->CreateAlloca(function_result_type, nullptr, "result_struct");
+    llvm::AllocaInst *const result_struct = builder->CreateAlloca(function_result_type, nullptr, "result_struct");
 
     // Initialize error value to be empty
-    llvm::Value *error_value_ptr = builder->CreateStructGEP(function_result_type, result_struct, 0, "error_value_ptr");
-    llvm::StructType *err_type = type_map.at("type.flint.err");
-    llvm::Value *err_struct = IR::get_default_value_of_type(err_type);
+    llvm::Value *const error_value_ptr = builder->CreateStructGEP(function_result_type, result_struct, 0, "error_value_ptr");
+    llvm::StructType *const err_type = type_map.at("type.flint.err");
+    llvm::Value *const err_struct = IR::get_default_value_of_type(err_type);
     IR::aligned_store(*builder, err_struct, error_value_ptr);
 
     // Initialize exit_code field to -1
-    llvm::Value *exit_code_ptr = builder->CreateStructGEP(function_result_type, result_struct, 1, "exit_code_ptr");
+    llvm::Value *const exit_code_ptr = builder->CreateStructGEP(function_result_type, result_struct, 1, "exit_code_ptr");
     IR::aligned_store(*builder, builder->getInt32(-1), exit_code_ptr);
 
     // Create empty string for output
-    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
-    llvm::Value *output_ptr = builder->CreateStructGEP(function_result_type, result_struct, 2, "output_ptr");
+    llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
+    llvm::Value *const output_ptr = builder->CreateStructGEP(function_result_type, result_struct, 2, "output_ptr");
     IR::aligned_store(*builder, empty_str, output_ptr);
 
     // Check if the command is empty
-    llvm::Value *arg_command_len_ptr = builder->CreateStructGEP(str_type, arg_command, 0, "command_len_ptr");
-    llvm::Value *arg_command_len = IR::aligned_load(*builder, builder->getInt64Ty(), arg_command_len_ptr, "command_len");
-    llvm::Value *is_command_empty = builder->CreateICmpEQ(arg_command_len, builder->getInt64(0), "is_command_empty");
+    llvm::Value *const arg_command_len_ptr = builder->CreateStructGEP(str_type, arg_command, 0, "command_len_ptr");
+    llvm::Value *const arg_command_len = IR::aligned_load(*builder, builder->getInt64Ty(), arg_command_len_ptr, "command_len");
+    llvm::Value *const is_command_empty = builder->CreateICmpEQ(arg_command_len, builder->getInt64(0), "is_command_empty");
     builder->CreateCondBr(is_command_empty, empty_command_block, nonempty_command_block);
 
     // Handle empty command error, throw ErrSystem.EmptyCommand
     builder->SetInsertPoint(empty_command_block);
-    llvm::Value *err_value_empty = IR::generate_err_value(*builder, module, ErrSystem, EmptyCommand, EmptyCommandMessage);
+    llvm::Value *const err_value_empty = IR::generate_err_value(*builder, module, ErrSystem, EmptyCommand, EmptyCommandMessage);
     IR::aligned_store(*builder, err_value_empty, error_value_ptr);
-    llvm::Value *result_ret_empty = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
+    llvm::Value *const result_ret_empty = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
     builder->CreateRet(result_ret_empty);
 
     builder->SetInsertPoint(nonempty_command_block);
-    llvm::Value *command_to_use = arg_command;
+    llvm::Value *const command_to_use = arg_command;
 #ifdef __WIN32__
     // Replace all slashes in the command with backslashes as a do-while loop. First copy the argument into the new string value and then
     // modify that string inplace
-    llvm::Function *init_str_fn = String::string_manip_functions.at("init_str");
-    llvm::AllocaInst *replace_idx_alloca = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "replace_idx");
+    llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::AllocaInst *const replace_idx_alloca = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "replace_idx");
     IR::aligned_store(*builder, builder->getInt64(0), replace_idx_alloca);
-    llvm::Value *arg_command_value_ptr = builder->CreateStructGEP(str_type, arg_command, 1, "command_value_ptr");
-    llvm::Value *command_copy = builder->CreateCall(init_str_fn, {arg_command_value_ptr, arg_command_len}, "command_copy_value");
+    llvm::Value *const arg_command_value_ptr = builder->CreateStructGEP(str_type, arg_command, 1, "command_value_ptr");
+    llvm::Value *const command_copy = builder->CreateCall(init_str_fn, {arg_command_value_ptr, arg_command_len}, "command_copy_value");
     command_to_use = command_copy;
-    llvm::Value *command_copy_value_ptr = builder->CreateStructGEP(str_type, command_copy, 1, "command_copy_value_ptr");
+    llvm::Value *const command_copy_value_ptr = builder->CreateStructGEP(str_type, command_copy, 1, "command_copy_value_ptr");
     builder->CreateBr(replace_slash_block);
 
     builder->SetInsertPoint(replace_slash_block);
-    llvm::Value *replace_idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), replace_idx_alloca, "replace_idx_value");
-    llvm::Value *curr_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, replace_idx_value, "curr_char_ptr");
-    llvm::Value *curr_char = IR::aligned_load(*builder, builder->getInt8Ty(), curr_char_ptr, "curr_char");
-    llvm::Value *curr_is_slash = builder->CreateICmpEQ(curr_char, builder->getInt8('/'), "curr_is_slash");
+    llvm::Value *const replace_idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), replace_idx_alloca, "replace_idx_value");
+    llvm::Value *const curr_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, replace_idx_value, "curr_char_ptr");
+    llvm::Value *const curr_char = IR::aligned_load(*builder, builder->getInt8Ty(), curr_char_ptr, "curr_char");
+    llvm::Value *const curr_is_slash = builder->CreateICmpEQ(curr_char, builder->getInt8('/'), "curr_is_slash");
     builder->CreateCondBr(curr_is_slash, is_slash_to_replace_block, oob_check_block);
 
     builder->SetInsertPoint(is_slash_to_replace_block);
@@ -205,14 +205,14 @@ void Generator::Module::System::generate_system_command_function( //
     builder->CreateBr(oob_check_block);
 
     builder->SetInsertPoint(oob_check_block);
-    llvm::Value *next_idx_value = builder->CreateAdd(replace_idx_value, builder->getInt64(1), "next_idx_value");
-    llvm::Value *is_oob = builder->CreateICmpEQ(next_idx_value, arg_command_len, "is_oob");
+    llvm::Value *const next_idx_value = builder->CreateAdd(replace_idx_value, builder->getInt64(1), "next_idx_value");
+    llvm::Value *const is_oob = builder->CreateICmpEQ(next_idx_value, arg_command_len, "is_oob");
     builder->CreateCondBr(is_oob, replace_slash_merge_block, replace_slash_condition_block);
 
     builder->SetInsertPoint(replace_slash_condition_block);
-    llvm::Value *next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, next_idx_value, "next_char_ptr");
-    llvm::Value *next_char = IR::aligned_load(*builder, builder->getInt8Ty(), next_char_ptr, "next_char");
-    llvm::Value *next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
+    llvm::Value *const next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), command_copy_value_ptr, next_idx_value, "next_char_ptr");
+    llvm::Value *const next_char = IR::aligned_load(*builder, builder->getInt8Ty(), next_char_ptr, "next_char");
+    llvm::Value *const next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
     IR::aligned_store(*builder, next_idx_value, replace_idx_alloca);
     builder->CreateCondBr(next_is_space, replace_slash_merge_block, replace_slash_block);
 
@@ -220,23 +220,25 @@ void Generator::Module::System::generate_system_command_function( //
 #endif
 
     // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
-    llvm::Value *redirect_str = IR::generate_const_string(module, " 2>&1");
-    llvm::Value *full_command = builder->CreateCall(add_str_lit_fn, {command_to_use, redirect_str, builder->getInt64(5)}, "full_command");
+    llvm::Value *const redirect_str = IR::generate_const_string(module, " 2>&1");
+    llvm::Value *const full_command = builder->CreateCall(                                   //
+        add_str_lit_fn, {command_to_use, redirect_str, builder->getInt64(5)}, "full_command" //
+    );
 
     // Get C string: c_command = (char *)full_command->value
-    llvm::Value *c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
+    llvm::Value *const c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
 
     // Create "r" string for popen mode
-    llvm::Value *mode_str = IR::generate_const_string(module, "r");
+    llvm::Value *const mode_str = IR::generate_const_string(module, "r");
 
     // Open pipe: pipe = popen(c_command, "r")
-    llvm::Value *pipe = builder->CreateCall(popen_fn, {c_command, mode_str}, "pipe");
+    llvm::Value *const pipe = builder->CreateCall(popen_fn, {c_command, mode_str}, "pipe");
 
     // Free the full_command
     builder->CreateCall(free_fn, {full_command});
 
     // Check if pipe is NULL
-    llvm::Value *pipe_null_check = builder->CreateIsNull(pipe, "pipe_is_null");
+    llvm::Value *const pipe_null_check = builder->CreateIsNull(pipe, "pipe_is_null");
     builder->CreateCondBr(pipe_null_check, pipe_null_block, pipe_valid_block);
 
     // Handle pipe NULL error, throw ErrSystem.SpawnFailed
@@ -244,21 +246,21 @@ void Generator::Module::System::generate_system_command_function( //
 #ifdef __WIN32__
     builder->CreateCall(free_fn, command_copy);
 #endif
-    llvm::Value *output_load_null = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load_null");
+    llvm::Value *const output_load_null = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load_null");
     builder->CreateCall(free_fn, {output_load_null});
-    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrSystem, SpawnFailed, SpawnFailedMessage);
+    llvm::Value *const err_value = IR::generate_err_value(*builder, module, ErrSystem, SpawnFailed, SpawnFailedMessage);
     IR::aligned_store(*builder, err_value, error_value_ptr);
     IR::aligned_store(*builder, builder->getInt32(0), exit_code_ptr);
     IR::aligned_store(*builder, builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str"), output_ptr);
-    llvm::Value *result_ret_null = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
+    llvm::Value *const result_ret_null = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret_null");
     builder->CreateRet(result_ret_null);
 
     // Continue with valid pipe
     builder->SetInsertPoint(pipe_valid_block);
 
     // Create buffer for reading: char buffer[BUFFER_SIZE]
-    llvm::Value *buffer_size = builder->getInt32(4096); // Set buffer size to 4096
-    llvm::AllocaInst *buffer = builder->CreateAlloca(builder->getInt8Ty(), buffer_size, "buffer");
+    llvm::Value *const buffer_size = builder->getInt32(4096); // Set buffer size to 4096
+    llvm::AllocaInst *const buffer = builder->CreateAlloca(builder->getInt8Ty(), buffer_size, "buffer");
 
     // Start the read loop
     builder->CreateBr(read_loop_header);
@@ -266,22 +268,22 @@ void Generator::Module::System::generate_system_command_function( //
     // Read loop header
     builder->SetInsertPoint(read_loop_header);
     // fgets(buffer, BUFFER_SIZE, pipe)
-    llvm::Value *read_result = builder->CreateCall(fgets_fn, {buffer, buffer_size, pipe}, "read_result");
+    llvm::Value *const read_result = builder->CreateCall(fgets_fn, {buffer, buffer_size, pipe}, "read_result");
     // Check if fgets returned NULL (end of pipe)
-    llvm::Value *read_end_check = builder->CreateIsNull(read_result, "read_end_check");
+    llvm::Value *const read_end_check = builder->CreateIsNull(read_result, "read_end_check");
     builder->CreateCondBr(read_end_check, read_loop_exit, read_loop_body);
 
     // Read loop body
     builder->SetInsertPoint(read_loop_body);
     // Load the current output
-    llvm::Value *output_load = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load");
+    llvm::Value *const output_load = IR::aligned_load(*builder, PTR_TY, output_ptr, "output_load");
     // Append buffer to output: append_lit(&result.output, buffer)
-    llvm::Value *output_addr = builder->CreateAlloca(PTR_TY, nullptr, "output_addr");
+    llvm::Value *const output_addr = builder->CreateAlloca(PTR_TY, nullptr, "output_addr");
     IR::aligned_store(*builder, output_load, output_addr);
-    llvm::Value *buffer_len = builder->CreateCall(strlen_fn, {buffer}, "buffer_len");
+    llvm::Value *const buffer_len = builder->CreateCall(strlen_fn, {buffer}, "buffer_len");
     builder->CreateCall(append_lit_fn, {output_addr, buffer, buffer_len});
     // Update the output in result struct
-    llvm::Value *updated_output = IR::aligned_load(*builder, PTR_TY, output_addr, "updated_output");
+    llvm::Value *const updated_output = IR::aligned_load(*builder, PTR_TY, output_addr, "updated_output");
     IR::aligned_store(*builder, updated_output, output_ptr);
     // Loop back to read more
     builder->CreateBr(read_loop_header);
@@ -289,19 +291,19 @@ void Generator::Module::System::generate_system_command_function( //
     // Read loop exit
     builder->SetInsertPoint(read_loop_exit);
     // Get command exit status: status = pclose(pipe)
-    llvm::Value *status = builder->CreateCall(pclose_fn, {pipe}, "status");
+    llvm::Value *const status = builder->CreateCall(pclose_fn, {pipe}, "status");
     // Extract the low byte: result.exit_code = status & 0xFF
 #ifdef __WIN32__
     // Raw exit code on Windows
-    llvm::Value *exit_code = status;
+    llvm::Value *const exit_code = status;
 #else
-    llvm::Value *shifted_status = builder->CreateLShr(status, builder->getInt32(8), "shifted_status");
-    llvm::Value *exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
+    llvm::Value *const shifted_status = builder->CreateLShr(status, builder->getInt32(8), "shifted_status");
+    llvm::Value *const exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
 #endif
     IR::aligned_store(*builder, exit_code, exit_code_ptr);
 
     // Return the result struct
-    llvm::Value *result_ret = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret");
+    llvm::Value *const result_ret = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret");
 #ifdef __WIN32__
     builder->CreateCall(free_fn, command_copy);
 #endif
@@ -323,17 +325,17 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     //     }
     //     return init_str(buffer, strlen(buffer));
     // }
-    llvm::Function *getcwd_fn = c_functions.at(GETCWD);
-    llvm::Function *strlen_fn = c_functions.at(STRLEN);
-    llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
-    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+    llvm::Function *const getcwd_fn = c_functions.at(GETCWD);
+    llvm::Function *const strlen_fn = c_functions.at(STRLEN);
+    llvm::Function *const create_str_fn = Module::String::string_manip_functions.at("create_str");
+    llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
 
-    llvm::FunctionType *get_cwd_type = llvm::FunctionType::get(PTR_TY, {}, false);
-    llvm::Function *get_cwd_fn = llvm::Function::Create( //
-        get_cwd_type,                                    //
-        llvm::Function::ExternalLinkage,                 //
-        prefix + "get_cwd",                              //
-        module                                           //
+    llvm::FunctionType *const get_cwd_type = llvm::FunctionType::get(PTR_TY, {}, false);
+    llvm::Function *const get_cwd_fn = llvm::Function::Create( //
+        get_cwd_type,                                          //
+        llvm::Function::ExternalLinkage,                       //
+        prefix + "get_cwd",                                    //
+        module                                                 //
     );
     system_functions["get_cwd"] = get_cwd_fn;
     if (only_declarations) {
@@ -347,19 +349,19 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
 
     // Allocate the buffer on the stack
     builder->SetInsertPoint(entry_block);
-    llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
-    llvm::Value *getcwd_result = builder->CreateCall(getcwd_fn, {buffer, builder->getInt32(256)}, "getcwd_result");
-    llvm::Value *nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
-    llvm::Value *getcwd_failed = builder->CreateICmpEQ(getcwd_result, nullpointer, "getcwd_failed");
+    llvm::AllocaInst *const buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
+    llvm::Value *const getcwd_result = builder->CreateCall(getcwd_fn, {buffer, builder->getInt32(256)}, "getcwd_result");
+    llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
+    llvm::Value *const getcwd_failed = builder->CreateICmpEQ(getcwd_result, nullpointer, "getcwd_failed");
     builder->CreateCondBr(getcwd_failed, getcwd_fail_block, getcwd_ok_block);
 
     builder->SetInsertPoint(getcwd_fail_block);
-    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
+    llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
     builder->CreateRet(empty_str);
 
     builder->SetInsertPoint(getcwd_ok_block);
-    llvm::Value *cwd_str_len = builder->CreateCall(strlen_fn, {buffer}, "cwd_str_len");
-    llvm::Value *cwd_str = builder->CreateCall(init_str_fn, {buffer, cwd_str_len}, "cwd_str");
+    llvm::Value *const cwd_str_len = builder->CreateCall(strlen_fn, {buffer}, "cwd_str_len");
+    llvm::Value *const cwd_str = builder->CreateCall(init_str_fn, {buffer, cwd_str_len}, "cwd_str");
     builder->CreateRet(cwd_str);
 }
 
@@ -427,66 +429,68 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
     //     }
     //     return init_str(buffer, buffer_len);
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
 #ifdef __WIN32__
-    llvm::Function *memmove_fn = c_functions.at(MEMMOVE);
+    llvm::Function *const memmove_fn = c_functions.at(MEMMOVE);
 #endif
-    llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
-    llvm::Function *init_str_fn = Module::String::string_manip_functions.at("init_str");
+    llvm::Function *const create_str_fn = Module::String::string_manip_functions.at("create_str");
+    llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
 
-    llvm::FunctionType *get_path_type = llvm::FunctionType::get(PTR_TY, {PTR_TY}, false);
-    llvm::Function *get_path_fn = llvm::Function::Create(get_path_type, llvm::Function::ExternalLinkage, prefix + "get_path", module);
+    llvm::FunctionType *const get_path_type = llvm::FunctionType::get(PTR_TY, {PTR_TY}, false);
+    llvm::Function *const get_path_fn = llvm::Function::Create(                     //
+        get_path_type, llvm::Function::ExternalLinkage, prefix + "get_path", module //
+    );
     system_functions["get_path"] = get_path_fn;
     if (only_declarations) {
         return;
     }
 
     // Get the path parameter
-    llvm::Value *path_param = get_path_fn->arg_begin();
+    llvm::Value *const path_param = get_path_fn->arg_begin();
     path_param->setName("path");
 
     // Create all basic blocks at the top
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", get_path_fn);
-    llvm::BasicBlock *size_fail_block = llvm::BasicBlock::Create(context, "size_fail", get_path_fn);
-    llvm::BasicBlock *loop_init_block = llvm::BasicBlock::Create(context, "loop_init", get_path_fn);
-    llvm::BasicBlock *loop_cond_block = llvm::BasicBlock::Create(context, "loop_cond", get_path_fn);
-    llvm::BasicBlock *loop_body_block = llvm::BasicBlock::Create(context, "loop_body", get_path_fn);
-    llvm::BasicBlock *post_loop_block = llvm::BasicBlock::Create(context, "post_loop", get_path_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", get_path_fn);
+    llvm::BasicBlock *const size_fail_block = llvm::BasicBlock::Create(context, "size_fail", get_path_fn);
+    llvm::BasicBlock *const loop_init_block = llvm::BasicBlock::Create(context, "loop_init", get_path_fn);
+    llvm::BasicBlock *const loop_cond_block = llvm::BasicBlock::Create(context, "loop_cond", get_path_fn);
+    llvm::BasicBlock *const loop_body_block = llvm::BasicBlock::Create(context, "loop_body", get_path_fn);
+    llvm::BasicBlock *const post_loop_block = llvm::BasicBlock::Create(context, "post_loop", get_path_fn);
 #ifdef __WIN32__
-    llvm::BasicBlock *check_next_space_block = llvm::BasicBlock::Create(context, "check_next_space", get_path_fn);
-    llvm::BasicBlock *not_backslash_space_block = llvm::BasicBlock::Create(context, "not_backslash_space", get_path_fn);
-    llvm::BasicBlock *windows_special_case_block = llvm::BasicBlock::Create(context, "windows_special_case", get_path_fn);
-    llvm::BasicBlock *handle_slash_block = llvm::BasicBlock::Create(context, "handle_slash", get_path_fn);
-    llvm::BasicBlock *handle_space_or_other_block = llvm::BasicBlock::Create(context, "handle_space_or_other", get_path_fn);
-    llvm::BasicBlock *set_space_flag_block = llvm::BasicBlock::Create(context, "set_space_flag", get_path_fn);
-    llvm::BasicBlock *store_normal_block = llvm::BasicBlock::Create(context, "store_normal", get_path_fn);
-    llvm::BasicBlock *add_quotes_block = llvm::BasicBlock::Create(context, "add_quotes", get_path_fn);
-    llvm::BasicBlock *return_block = llvm::BasicBlock::Create(context, "return", get_path_fn);
-    llvm::BasicBlock *quote_fail_block = llvm::BasicBlock::Create(context, "quote_fail", get_path_fn);
-    llvm::BasicBlock *quote_ok_block = llvm::BasicBlock::Create(context, "quote_ok", get_path_fn);
+    llvm::BasicBlock *const check_next_space_block = llvm::BasicBlock::Create(context, "check_next_space", get_path_fn);
+    llvm::BasicBlock *const not_backslash_space_block = llvm::BasicBlock::Create(context, "not_backslash_space", get_path_fn);
+    llvm::BasicBlock *const windows_special_case_block = llvm::BasicBlock::Create(context, "windows_special_case", get_path_fn);
+    llvm::BasicBlock *const handle_slash_block = llvm::BasicBlock::Create(context, "handle_slash", get_path_fn);
+    llvm::BasicBlock *const handle_space_or_other_block = llvm::BasicBlock::Create(context, "handle_space_or_other", get_path_fn);
+    llvm::BasicBlock *const set_space_flag_block = llvm::BasicBlock::Create(context, "set_space_flag", get_path_fn);
+    llvm::BasicBlock *const store_normal_block = llvm::BasicBlock::Create(context, "store_normal", get_path_fn);
+    llvm::BasicBlock *const add_quotes_block = llvm::BasicBlock::Create(context, "add_quotes", get_path_fn);
+    llvm::BasicBlock *const return_block = llvm::BasicBlock::Create(context, "return", get_path_fn);
+    llvm::BasicBlock *const quote_fail_block = llvm::BasicBlock::Create(context, "quote_fail", get_path_fn);
+    llvm::BasicBlock *const quote_ok_block = llvm::BasicBlock::Create(context, "quote_ok", get_path_fn);
 #else
-    llvm::BasicBlock *check_backslash_space_block = llvm::BasicBlock::Create(context, "check_backslash_space", get_path_fn);
-    llvm::BasicBlock *handle_other_block = llvm::BasicBlock::Create(context, "handle_other", get_path_fn);
-    llvm::BasicBlock *convert_to_slash_block = llvm::BasicBlock::Create(context, "convert_to_slash", get_path_fn);
-    llvm::BasicBlock *keep_backslash_block = llvm::BasicBlock::Create(context, "keep_backslash", get_path_fn);
+    llvm::BasicBlock *const check_backslash_space_block = llvm::BasicBlock::Create(context, "check_backslash_space", get_path_fn);
+    llvm::BasicBlock *const handle_other_block = llvm::BasicBlock::Create(context, "handle_other", get_path_fn);
+    llvm::BasicBlock *const convert_to_slash_block = llvm::BasicBlock::Create(context, "convert_to_slash", get_path_fn);
+    llvm::BasicBlock *const keep_backslash_block = llvm::BasicBlock::Create(context, "keep_backslash", get_path_fn);
 #endif
 
     // Entry block: Allocate variables and check path length
     builder->SetInsertPoint(entry_block);
-    llvm::AllocaInst *buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
-    llvm::AllocaInst *buffer_len = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "buffer_len");
-    llvm::AllocaInst *i_var = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
-    llvm::AllocaInst *path_contains_space = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "path_contains_space");
+    llvm::AllocaInst *const buffer = builder->CreateAlloca(llvm::ArrayType::get(builder->getInt8Ty(), 256), nullptr, "buffer");
+    llvm::AllocaInst *const buffer_len = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "buffer_len");
+    llvm::AllocaInst *const i_var = builder->CreateAlloca(builder->getInt64Ty(), nullptr, "i");
+    llvm::AllocaInst *const path_contains_space = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "path_contains_space");
 
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, path_param, 0, "len_ptr");
-    llvm::Value *path_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "path_len");
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, path_param, 0, "len_ptr");
+    llvm::Value *const path_len = builder->CreateLoad(builder->getInt64Ty(), len_ptr, "path_len");
 
-    llvm::Value *size_check = builder->CreateICmpUGE(path_len, builder->getInt64(256), "size_check");
+    llvm::Value *const size_check = builder->CreateICmpUGE(path_len, builder->getInt64(256), "size_check");
     builder->CreateCondBr(size_check, size_fail_block, loop_init_block);
 
     // Size fail: Return empty string
     builder->SetInsertPoint(size_fail_block);
-    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
+    llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_str");
     builder->CreateRet(empty_str);
 
     // Loop init: Initialize variables
@@ -498,62 +502,62 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
 
     // Loop cond: Check i < path_len
     builder->SetInsertPoint(loop_cond_block);
-    llvm::Value *i_val = builder->CreateLoad(builder->getInt64Ty(), i_var, "i_val");
-    llvm::Value *cond = builder->CreateICmpULT(i_val, path_len, "cond");
+    llvm::Value *const i_val = builder->CreateLoad(builder->getInt64Ty(), i_var, "i_val");
+    llvm::Value *const cond = builder->CreateICmpULT(i_val, path_len, "cond");
     builder->CreateCondBr(cond, loop_body_block, post_loop_block);
 
     // Loop body: Load current char
     builder->SetInsertPoint(loop_body_block);
-    llvm::Value *value_ptr = builder->CreateStructGEP(str_type, path_param, 1, "value_ptr");
-    llvm::Value *char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {i_val}, "char_ptr");
-    llvm::Value *ci = builder->CreateLoad(builder->getInt8Ty(), char_ptr, "ci");
+    llvm::Value *const value_ptr = builder->CreateStructGEP(str_type, path_param, 1, "value_ptr");
+    llvm::Value *const char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {i_val}, "char_ptr");
+    llvm::Value *const ci = builder->CreateLoad(builder->getInt8Ty(), char_ptr, "ci");
 
 #ifdef __WIN32__
     // Windows: Check for backslash followed by space
-    llvm::Value *is_backslash = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash");
-    llvm::Value *next_i = builder->CreateAdd(i_val, builder->getInt64(1), "next_i");
-    llvm::Value *has_next = builder->CreateICmpULT(next_i, path_len, "has_next");
-    llvm::Value *next_i_valid = builder->CreateAnd(is_backslash, has_next, "next_i_valid");
+    llvm::Value *const is_backslash = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash");
+    llvm::Value *const next_i = builder->CreateAdd(i_val, builder->getInt64(1), "next_i");
+    llvm::Value *const has_next = builder->CreateICmpULT(next_i, path_len, "has_next");
+    llvm::Value *const next_i_valid = builder->CreateAnd(is_backslash, has_next, "next_i_valid");
     builder->CreateCondBr(next_i_valid, check_next_space_block, not_backslash_space_block);
 
     // Check next space
     builder->SetInsertPoint(check_next_space_block);
-    llvm::Value *next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i}, "next_char_ptr");
-    llvm::Value *next_char = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr, "next_char");
-    llvm::Value *next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
+    llvm::Value *const next_char_ptr = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i}, "next_char_ptr");
+    llvm::Value *const next_char = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr, "next_char");
+    llvm::Value *const next_is_space = builder->CreateICmpEQ(next_char, builder->getInt8(' '), "next_is_space");
     builder->CreateCondBr(next_is_space, windows_special_case_block, not_backslash_space_block);
 
     // Windows special case
     builder->SetInsertPoint(windows_special_case_block);
-    llvm::Value *buf_len_sc = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_sc");
-    llvm::Value *buf_ptr_sc = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_sc}, "buf_ptr_sc");
+    llvm::Value *const buf_len_sc = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_sc");
+    llvm::Value *const buf_ptr_sc = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_sc}, "buf_ptr_sc");
     builder->CreateStore(builder->getInt8(' '), buf_ptr_sc);
-    llvm::Value *new_buf_len_sc = builder->CreateAdd(buf_len_sc, builder->getInt64(1), "new_buf_len_sc");
+    llvm::Value *const new_buf_len_sc = builder->CreateAdd(buf_len_sc, builder->getInt64(1), "new_buf_len_sc");
     builder->CreateStore(new_buf_len_sc, buffer_len);
-    llvm::Value *new_i_sc = builder->CreateAdd(i_val, builder->getInt64(2), "new_i_sc");
+    llvm::Value *const new_i_sc = builder->CreateAdd(i_val, builder->getInt64(2), "new_i_sc");
     builder->CreateStore(new_i_sc, i_var);
     builder->CreateStore(builder->getInt1(true), path_contains_space);
     builder->CreateBr(loop_cond_block);
 
     // Not backslash space: Check for forward slash
     builder->SetInsertPoint(not_backslash_space_block);
-    llvm::Value *is_forward_slash = builder->CreateICmpEQ(ci, builder->getInt8('/'), "is_forward_slash");
+    llvm::Value *const is_forward_slash = builder->CreateICmpEQ(ci, builder->getInt8('/'), "is_forward_slash");
     builder->CreateCondBr(is_forward_slash, handle_slash_block, handle_space_or_other_block);
 
     // Handle slash
     builder->SetInsertPoint(handle_slash_block);
-    llvm::Value *buf_len_slash = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_slash");
-    llvm::Value *buf_ptr_slash = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_slash}, "buf_ptr_slash");
+    llvm::Value *const buf_len_slash = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_slash");
+    llvm::Value *const buf_ptr_slash = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_slash}, "buf_ptr_slash");
     builder->CreateStore(builder->getInt8('\\'), buf_ptr_slash);
-    llvm::Value *new_buf_len_slash = builder->CreateAdd(buf_len_slash, builder->getInt64(1), "new_buf_len_slash");
+    llvm::Value *const new_buf_len_slash = builder->CreateAdd(buf_len_slash, builder->getInt64(1), "new_buf_len_slash");
     builder->CreateStore(new_buf_len_slash, buffer_len);
-    llvm::Value *new_i_slash = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_slash");
+    llvm::Value *const new_i_slash = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_slash");
     builder->CreateStore(new_i_slash, i_var);
     builder->CreateBr(loop_cond_block);
 
     // Handle space or other
     builder->SetInsertPoint(handle_space_or_other_block);
-    llvm::Value *is_space = builder->CreateICmpEQ(ci, builder->getInt8(' '), "is_space");
+    llvm::Value *const is_space = builder->CreateICmpEQ(ci, builder->getInt8(' '), "is_space");
     builder->CreateCondBr(is_space, set_space_flag_block, store_normal_block);
 
     // Set space flag
@@ -563,59 +567,59 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
 
     // Store normal
     builder->SetInsertPoint(store_normal_block);
-    llvm::Value *buf_len_normal = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_normal");
-    llvm::Value *buf_ptr_normal = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_normal}, "buf_ptr_normal");
+    llvm::Value *const buf_len_normal = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_normal");
+    llvm::Value *const buf_ptr_normal = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_normal}, "buf_ptr_normal");
     builder->CreateStore(ci, buf_ptr_normal);
-    llvm::Value *new_buf_len_normal = builder->CreateAdd(buf_len_normal, builder->getInt64(1), "new_buf_len_normal");
+    llvm::Value *const new_buf_len_normal = builder->CreateAdd(buf_len_normal, builder->getInt64(1), "new_buf_len_normal");
     builder->CreateStore(new_buf_len_normal, buffer_len);
-    llvm::Value *new_i_normal = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_normal");
+    llvm::Value *const new_i_normal = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_normal");
     builder->CreateStore(new_i_normal, i_var);
     builder->CreateBr(loop_cond_block);
 #else
     // Linux: Check for backslash
-    llvm::Value *is_backslash_linux = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash_linux");
+    llvm::Value *const is_backslash_linux = builder->CreateICmpEQ(ci, builder->getInt8('\\'), "is_backslash_linux");
     builder->CreateCondBr(is_backslash_linux, check_backslash_space_block, handle_other_block);
 
     // Check backslash space
     builder->SetInsertPoint(check_backslash_space_block);
-    llvm::Value *next_i_linux = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_linux");
+    llvm::Value *const next_i_linux = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_linux");
     // Convert or keep
-    llvm::Value *next_char_ptr_linux = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i_linux}, "next_char_ptr_linux");
-    llvm::Value *next_char_linux = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr_linux, "next_char_linux");
-    llvm::Value *next_is_space_linux = builder->CreateICmpEQ(next_char_linux, builder->getInt8(' '), "next_is_space_linux");
-    llvm::Value *should_convert = builder->CreateNot(next_is_space_linux, "should_convert");
+    llvm::Value *const next_char_ptr_linux = builder->CreateGEP(builder->getInt8Ty(), value_ptr, {next_i_linux}, "next_char_ptr_linux");
+    llvm::Value *const next_char_linux = builder->CreateLoad(builder->getInt8Ty(), next_char_ptr_linux, "next_char_linux");
+    llvm::Value *const next_is_space_linux = builder->CreateICmpEQ(next_char_linux, builder->getInt8(' '), "next_is_space_linux");
+    llvm::Value *const should_convert = builder->CreateNot(next_is_space_linux, "should_convert");
     builder->CreateCondBr(should_convert, convert_to_slash_block, keep_backslash_block);
 
     // Convert to slash
     builder->SetInsertPoint(convert_to_slash_block);
-    llvm::Value *buf_len_convert = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_convert");
-    llvm::Value *buf_ptr_convert = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_convert}, "buf_ptr_convert");
+    llvm::Value *const buf_len_convert = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_convert");
+    llvm::Value *const buf_ptr_convert = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_convert}, "buf_ptr_convert");
     builder->CreateStore(builder->getInt8('/'), buf_ptr_convert);
-    llvm::Value *new_buf_len_convert = builder->CreateAdd(buf_len_convert, builder->getInt64(1), "new_buf_len_convert");
+    llvm::Value *const new_buf_len_convert = builder->CreateAdd(buf_len_convert, builder->getInt64(1), "new_buf_len_convert");
     builder->CreateStore(new_buf_len_convert, buffer_len);
-    llvm::Value *new_i_convert = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_convert");
+    llvm::Value *const new_i_convert = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_convert");
     builder->CreateStore(new_i_convert, i_var);
     builder->CreateBr(loop_cond_block);
 
     // Keep backslash
     builder->SetInsertPoint(keep_backslash_block);
-    llvm::Value *buf_len_keep = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_keep");
-    llvm::Value *buf_ptr_keep = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_keep}, "buf_ptr_keep");
+    llvm::Value *const buf_len_keep = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_keep");
+    llvm::Value *const buf_ptr_keep = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_keep}, "buf_ptr_keep");
     builder->CreateStore(builder->getInt8('\\'), buf_ptr_keep);
-    llvm::Value *new_buf_len_keep = builder->CreateAdd(buf_len_keep, builder->getInt64(1), "new_buf_len_keep");
+    llvm::Value *const new_buf_len_keep = builder->CreateAdd(buf_len_keep, builder->getInt64(1), "new_buf_len_keep");
     builder->CreateStore(new_buf_len_keep, buffer_len);
-    llvm::Value *new_i_keep = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_keep");
+    llvm::Value *const new_i_keep = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_keep");
     builder->CreateStore(new_i_keep, i_var);
     builder->CreateBr(loop_cond_block);
 
     // Handle other
     builder->SetInsertPoint(handle_other_block);
-    llvm::Value *buf_len_other = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_other");
-    llvm::Value *buf_ptr_other = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_other}, "buf_ptr_other");
+    llvm::Value *const buf_len_other = builder->CreateLoad(builder->getInt64Ty(), buffer_len, "buf_len_other");
+    llvm::Value *const buf_ptr_other = builder->CreateGEP(builder->getInt8Ty(), buffer, {buf_len_other}, "buf_ptr_other");
     builder->CreateStore(ci, buf_ptr_other);
-    llvm::Value *new_buf_len_other = builder->CreateAdd(buf_len_other, builder->getInt64(1), "new_buf_len_other");
+    llvm::Value *const new_buf_len_other = builder->CreateAdd(buf_len_other, builder->getInt64(1), "new_buf_len_other");
     builder->CreateStore(new_buf_len_other, buffer_len);
-    llvm::Value *new_i_other = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_other");
+    llvm::Value *const new_i_other = builder->CreateAdd(i_val, builder->getInt64(1), "new_i_other");
     builder->CreateStore(new_i_other, i_var);
     builder->CreateBr(loop_cond_block);
 #endif
@@ -626,28 +630,28 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
 
 #ifdef __WIN32__
     // Windows: Check for adding quotes
-    llvm::Value *has_space = builder->CreateLoad(builder->getInt1Ty(), path_contains_space, "has_space");
+    llvm::Value *const has_space = builder->CreateLoad(builder->getInt1Ty(), path_contains_space, "has_space");
     builder->CreateCondBr(has_space, add_quotes_block, return_block);
 
     // Add quotes
     builder->SetInsertPoint(add_quotes_block);
-    llvm::Value *with_quotes_len = builder->CreateAdd(final_buffer_len, builder->getInt64(2), "with_quotes_len");
-    llvm::Value *quote_check = builder->CreateICmpUGE(with_quotes_len, builder->getInt64(256), "quote_check");
+    llvm::Value *const with_quotes_len = builder->CreateAdd(final_buffer_len, builder->getInt64(2), "with_quotes_len");
+    llvm::Value *const quote_check = builder->CreateICmpUGE(with_quotes_len, builder->getInt64(256), "quote_check");
     builder->CreateCondBr(quote_check, quote_fail_block, quote_ok_block);
 
     // Quote fail
     builder->SetInsertPoint(quote_fail_block);
-    llvm::Value *quote_fail_result = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "quote_fail_result");
+    llvm::Value *const quote_fail_result = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "quote_fail_result");
     builder->CreateRet(quote_fail_result);
 
     // Quote ok
     builder->SetInsertPoint(quote_ok_block);
-    llvm::Value *buf_first = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(0)}, "buf_first");
-    llvm::Value *buf_second = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(1)}, "buf_second");
+    llvm::Value *const buf_first = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(0)}, "buf_first");
+    llvm::Value *const buf_second = builder->CreateGEP(builder->getInt8Ty(), buffer, {builder->getInt64(1)}, "buf_second");
     builder->CreateCall(memmove_fn, {buf_second, buf_first, final_buffer_len});
     builder->CreateStore(builder->getInt8('"'), buf_first);
-    llvm::Value *quote_pos = builder->CreateAdd(final_buffer_len, builder->getInt64(1), "quote_pos");
-    llvm::Value *buf_last = builder->CreateGEP(builder->getInt8Ty(), buffer, {quote_pos}, "buf_last");
+    llvm::Value *const quote_pos = builder->CreateAdd(final_buffer_len, builder->getInt64(1), "quote_pos");
+    llvm::Value *const buf_last = builder->CreateGEP(builder->getInt8Ty(), buffer, {quote_pos}, "buf_last");
     builder->CreateStore(builder->getInt8('"'), buf_last);
     builder->CreateStore(with_quotes_len, buffer_len);
     builder->CreateBr(return_block);
@@ -658,7 +662,7 @@ void Generator::Module::System::generate_get_path_function(llvm::IRBuilder<> *bu
 #endif
 
     // Final return
-    llvm::Value *result = builder->CreateCall(init_str_fn, {buffer, final_buffer_len}, "result");
+    llvm::Value *const result = builder->CreateCall(init_str_fn, {buffer, final_buffer_len}, "result");
     builder->CreateRet(result);
 }
 
@@ -735,9 +739,9 @@ void Generator::Module::System::generate_start_capture_function( //
 
     // Entry: Check if already capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
-    llvm::Type *capture_file_ptr_ty = capture_file_gv->getValueType();
-    llvm::Value *capture_file = IR::aligned_load(*builder, capture_file_ptr_ty, capture_file_gv, "capture_file_load");
-    llvm::Value *is_capturing = builder->CreateICmpNE(capture_file, null_ptr, "is_capturing");
+    llvm::Type *const capture_file_ptr_ty = capture_file_gv->getValueType();
+    llvm::Value *const capture_file = IR::aligned_load(*builder, capture_file_ptr_ty, capture_file_gv, "capture_file_load");
+    llvm::Value *const is_capturing = builder->CreateICmpNE(capture_file, null_ptr, "is_capturing");
     builder->CreateCondBr(is_capturing, already_capturing_block, flush_block);
 
     // Already capturing: return
@@ -747,48 +751,48 @@ void Generator::Module::System::generate_start_capture_function( //
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
 #ifdef __WIN32__
-    llvm::FunctionType *acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
+    llvm::FunctionType *const acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
     llvm::FunctionCallee acrt_iob_fn = module->getOrInsertFunction("__acrt_iob_func", acrt_iob_ty);
-    llvm::Value *stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
-    llvm::Value *stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
+    llvm::Value *const stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
+    llvm::Value *const stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
 #else
-    llvm::Value *stdout_ptr = builder->CreateLoad(PTR_TY, stdout_gv, "stdout_load");
-    llvm::Value *stderr_ptr = builder->CreateLoad(PTR_TY, stderr_gv, "stderr_load");
+    llvm::Value *const stdout_ptr = builder->CreateLoad(PTR_TY, stdout_gv, "stdout_load");
+    llvm::Value *const stderr_ptr = builder->CreateLoad(PTR_TY, stderr_gv, "stderr_load");
 #endif
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
 
     // Save original fds
-    llvm::Value *stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
-    llvm::Value *orig_stdout = builder->CreateCall(dup_fn, {stdout_fileno}, "orig_stdout");
+    llvm::Value *const stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
+    llvm::Value *const orig_stdout = builder->CreateCall(dup_fn, {stdout_fileno}, "orig_stdout");
     builder->CreateStore(orig_stdout, orig_stdout_fd_gv);
 
-    llvm::Value *stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
-    llvm::Value *orig_stderr = builder->CreateCall(dup_fn, {stderr_fileno}, "orig_stderr");
+    llvm::Value *const stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
+    llvm::Value *const orig_stderr = builder->CreateCall(dup_fn, {stderr_fileno}, "orig_stderr");
     builder->CreateStore(orig_stderr, orig_stderr_fd_gv);
 
     // Create temp file
-    llvm::Value *temp_file = builder->CreateCall(tmpfile_fn, {}, "temp_file");
+    llvm::Value *const temp_file = builder->CreateCall(tmpfile_fn, {}, "temp_file");
     builder->CreateStore(temp_file, capture_file_gv);
 
     // Check if temp_file == NULL
-    llvm::Value *is_null = builder->CreateICmpEQ(temp_file, null_ptr, "tmpfile_is_null");
+    llvm::Value *const is_null = builder->CreateICmpEQ(temp_file, null_ptr, "tmpfile_is_null");
     builder->CreateCondBr(is_null, tmpfile_null_block, redirect_block);
 
     // tmpfile null: set orig fds to -1, return
     builder->SetInsertPoint(tmpfile_null_block);
-    llvm::Value *neg_one = builder->getInt32(-1);
+    llvm::Value *const neg_one = builder->getInt32(-1);
     builder->CreateStore(neg_one, orig_stdout_fd_gv);
     builder->CreateStore(neg_one, orig_stderr_fd_gv);
     builder->CreateRetVoid();
 
     // Redirect
     builder->SetInsertPoint(redirect_block);
-    llvm::Value *capture_fileno = builder->CreateCall(fileno_fn, {temp_file}, "capture_fileno");
-    llvm::Value *new_stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "new_stdout_fileno");
+    llvm::Value *const capture_fileno = builder->CreateCall(fileno_fn, {temp_file}, "capture_fileno");
+    llvm::Value *const new_stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "new_stdout_fileno");
     builder->CreateCall(dup2_fn, {capture_fileno, new_stdout_fileno});
 
-    llvm::Value *new_stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "new_stderr_fileno");
+    llvm::Value *const new_stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "new_stderr_fileno");
     builder->CreateCall(dup2_fn, {new_stdout_fileno, new_stderr_fileno});
     builder->CreateRetVoid();
 }
@@ -882,25 +886,25 @@ void Generator::Module::System::generate_end_capture_function( //
 
     // Entry: Check if capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
-    llvm::Value *capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
-    llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
+    llvm::Value *const capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
+    llvm::Value *const is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
     builder->CreateCondBr(is_null, not_capturing_block, flush_block);
 
     // Not capturing: return empty str
     builder->SetInsertPoint(not_capturing_block);
-    llvm::Value *empty_str = builder->CreateCall(create_str_fn, {zero_i64}, "empty_str");
+    llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {zero_i64}, "empty_str");
     builder->CreateRet(empty_str);
 
     // Flush stdout and stderr
     builder->SetInsertPoint(flush_block);
 #ifdef __WIN32__
-    llvm::FunctionType *acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
+    llvm::FunctionType *const acrt_iob_ty = llvm::FunctionType::get(PTR_TY, {builder->getInt32Ty()}, false);
     llvm::FunctionCallee acrt_iob_fn = module->getOrInsertFunction("__acrt_iob_func", acrt_iob_ty);
-    llvm::Value *stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
-    llvm::Value *stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
+    llvm::Value *const stdout_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(1)}, "stdout_ptr");
+    llvm::Value *const stderr_ptr = builder->CreateCall(acrt_iob_fn, {builder->getInt32(2)}, "stderr_ptr");
 #else
-    llvm::Value *stdout_ptr = IR::aligned_load(*builder, PTR_TY, stdout_gv, "stdout_load");
-    llvm::Value *stderr_ptr = IR::aligned_load(*builder, PTR_TY, stderr_gv, "stderr_load");
+    llvm::Value *const stdout_ptr = IR::aligned_load(*builder, PTR_TY, stdout_gv, "stdout_load");
+    llvm::Value *const stderr_ptr = IR::aligned_load(*builder, PTR_TY, stderr_gv, "stderr_load");
 #endif
     builder->CreateCall(fflush_fn, {stdout_ptr});
     builder->CreateCall(fflush_fn, {stderr_ptr});
@@ -908,12 +912,12 @@ void Generator::Module::System::generate_end_capture_function( //
 
     // Restore original fds and clean up orig fds
     builder->SetInsertPoint(restore_block);
-    llvm::Value *orig_stdout_fd = builder->CreateLoad(i32_ty, orig_stdout_fd_gv, "orig_stdout_fd_load");
-    llvm::Value *stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
+    llvm::Value *const orig_stdout_fd = builder->CreateLoad(i32_ty, orig_stdout_fd_gv, "orig_stdout_fd_load");
+    llvm::Value *const stdout_fileno = builder->CreateCall(fileno_fn, {stdout_ptr}, "stdout_fileno");
     builder->CreateCall(dup2_fn, {orig_stdout_fd, stdout_fileno});
 
-    llvm::Value *orig_stderr_fd = builder->CreateLoad(i32_ty, orig_stderr_fd_gv, "orig_stderr_fd_load");
-    llvm::Value *stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
+    llvm::Value *const orig_stderr_fd = builder->CreateLoad(i32_ty, orig_stderr_fd_gv, "orig_stderr_fd_load");
+    llvm::Value *const stderr_fileno = builder->CreateCall(fileno_fn, {stderr_ptr}, "stderr_fileno");
     builder->CreateCall(dup2_fn, {orig_stderr_fd, stderr_fileno});
 
     builder->CreateCall(close_fn, {orig_stdout_fd});
@@ -926,19 +930,19 @@ void Generator::Module::System::generate_end_capture_function( //
     builder->CreateCall(rewind_fn, {capture_file});
 
     // Create empty captured str
-    llvm::AllocaInst *captured_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "captured_alloca");
+    llvm::AllocaInst *const captured_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "captured_alloca");
     llvm::Value *captured = builder->CreateCall(create_str_fn, {zero_i64}, "captured");
     IR::aligned_store(*builder, captured, captured_alloca);
 
     // Allocate buffer
-    llvm::AllocaInst *buffer = builder->CreateAlloca(builder->getInt8Ty(), buffer_size, "buffer");
+    llvm::AllocaInst *const buffer = builder->CreateAlloca(builder->getInt8Ty(), buffer_size, "buffer");
 
     builder->CreateBr(read_loop_header);
 
     // Read loop header: bytes_read = fread(buffer, 1, 4096, capture_file)
     builder->SetInsertPoint(read_loop_header);
-    llvm::Value *bytes_read = builder->CreateCall(fread_fn, {buffer, one_i64, buffer_size, capture_file}, "bytes_read");
-    llvm::Value *read_gt_zero = builder->CreateICmpUGT(bytes_read, zero_i64, "read_gt_zero");
+    llvm::Value *const bytes_read = builder->CreateCall(fread_fn, {buffer, one_i64, buffer_size, capture_file}, "bytes_read");
+    llvm::Value *const read_gt_zero = builder->CreateICmpUGT(bytes_read, zero_i64, "read_gt_zero");
     builder->CreateCondBr(read_gt_zero, read_loop_body, read_loop_exit);
 
     // Read loop body: append_lit(&captured, buffer, bytes_read)
@@ -1017,7 +1021,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     //     free(captured_buffer);
     //     return output_array;
     // }
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const free_fn = c_functions.at(FREE);
 
     llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
@@ -1071,157 +1075,160 @@ void Generator::Module::System::generate_end_capture_lines_function( //
 
     // Entry: Check if capturing (capture_file != NULL)
     builder->SetInsertPoint(entry_block);
-    llvm::Value *capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
-    llvm::Value *is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
+    llvm::Value *const capture_file = IR::aligned_load(*builder, PTR_TY, capture_file_gv, "capture_file_load");
+    llvm::Value *const is_null = builder->CreateICmpEQ(capture_file, null_ptr, "is_null");
     builder->CreateCondBr(is_null, not_capturing_block, capture_block);
 
     // Not capturing: return create_arr(1, sizeof_ptr, &0)
     builder->SetInsertPoint(not_capturing_block);
-    llvm::AllocaInst *zero_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "zero_count_alloca");
+    llvm::AllocaInst *const zero_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "zero_count_alloca");
     builder->CreateStore(zero_i64, zero_count_alloca);
-    llvm::Value *empty_arr = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, zero_count_alloca}, "empty_arr");
+    llvm::Value *const empty_arr = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, zero_count_alloca}, "empty_arr");
     builder->CreateRet(empty_arr);
 
     // Capture: call end_capture
     builder->SetInsertPoint(capture_block);
-    llvm::Value *captured_buffer = builder->CreateCall(end_capture_fn, {}, "captured_buffer");
+    llvm::Value *const captured_buffer = builder->CreateCall(end_capture_fn, {}, "captured_buffer");
 
     // Alloca line_count = 0, last_newline = 0, count_i = 0
-    llvm::AllocaInst *line_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_count_alloca");
+    llvm::AllocaInst *const line_count_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_count_alloca");
     builder->CreateStore(zero_i64, line_count_alloca);
-    llvm::AllocaInst *last_newline_alloca = builder->CreateAlloca(i64_ty, nullptr, "last_newline_alloca");
+    llvm::AllocaInst *const last_newline_alloca = builder->CreateAlloca(i64_ty, nullptr, "last_newline_alloca");
     builder->CreateStore(zero_i64, last_newline_alloca);
-    llvm::AllocaInst *count_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "count_i_alloca");
+    llvm::AllocaInst *const count_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "count_i_alloca");
     builder->CreateStore(zero_i64, count_i_alloca);
 
     // Load len
-    llvm::Value *buffer_len_ptr = builder->CreateStructGEP(str_type, captured_buffer, 0, "buffer_len_ptr");
-    llvm::Value *buffer_len = IR::aligned_load(*builder, i64_ty, buffer_len_ptr, "buffer_len");
+    llvm::Value *const buffer_len_ptr = builder->CreateStructGEP(str_type, captured_buffer, 0, "buffer_len_ptr");
+    llvm::Value *const buffer_len = IR::aligned_load(*builder, i64_ty, buffer_len_ptr, "buffer_len");
 
     // captured_buffer_value = getelementptr to value[0]
-    llvm::Value *buffer_value_ptr = builder->CreateStructGEP(str_type, captured_buffer, 1, "buffer_value_ptr");
+    llvm::Value *const buffer_value_ptr = builder->CreateStructGEP(str_type, captured_buffer, 1, "buffer_value_ptr");
 
     builder->CreateBr(count_loop_cond_block);
 
     // Count loop cond: i < len
     builder->SetInsertPoint(count_loop_cond_block);
-    llvm::Value *count_i = IR::aligned_load(*builder, i64_ty, count_i_alloca, "count_i");
-    llvm::Value *count_cond = builder->CreateICmpULT(count_i, buffer_len, "count_cond");
+    llvm::Value *const count_i = IR::aligned_load(*builder, i64_ty, count_i_alloca, "count_i");
+    llvm::Value *const count_cond = builder->CreateICmpULT(count_i, buffer_len, "count_cond");
     builder->CreateCondBr(count_cond, count_loop_body_block, count_loop_exit_block);
 
     // Count loop body
     builder->SetInsertPoint(count_loop_body_block);
-    llvm::Value *char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, count_i, "char_ptr");
-    llvm::Value *curr_char = IR::aligned_load(*builder, i8_ty, char_ptr, "curr_char");
-    llvm::Value *is_newline = builder->CreateICmpEQ(curr_char, newline_const, "is_newline");
+    llvm::Value *const char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, count_i, "char_ptr");
+    llvm::Value *const curr_char = IR::aligned_load(*builder, i8_ty, char_ptr, "curr_char");
+    llvm::Value *const is_newline = builder->CreateICmpEQ(curr_char, newline_const, "is_newline");
     builder->CreateCondBr(is_newline, count_newline_block, count_loop_continue_block);
 
     // Count newline
     builder->SetInsertPoint(count_newline_block);
     llvm::Value *line_count_load = IR::aligned_load(*builder, i64_ty, line_count_alloca, "line_count_load");
-    llvm::Value *line_count_inc = builder->CreateAdd(line_count_load, one_i64, "line_count_inc");
+    llvm::Value *const line_count_inc = builder->CreateAdd(line_count_load, one_i64, "line_count_inc");
     builder->CreateStore(line_count_inc, line_count_alloca);
     builder->CreateStore(count_i, last_newline_alloca);
     builder->CreateBr(count_loop_continue_block);
 
     // Count loop continue
     builder->SetInsertPoint(count_loop_continue_block);
-    llvm::Value *next_i_count = builder->CreateAdd(count_i, one_i64, "next_i_count");
+    llvm::Value *const next_i_count = builder->CreateAdd(count_i, one_i64, "next_i_count");
     builder->CreateStore(next_i_count, count_i_alloca);
     builder->CreateBr(count_loop_cond_block);
 
     // Count loop exit: check trailing
     builder->SetInsertPoint(count_loop_exit_block);
-    llvm::Value *last_newline = IR::aligned_load(*builder, i64_ty, last_newline_alloca, "last_newline_load");
+    llvm::Value *const last_newline = IR::aligned_load(*builder, i64_ty, last_newline_alloca, "last_newline_load");
     llvm::Value *last_newline_p1 = builder->CreateAdd(last_newline, builder->getInt64(1), "last_newline_p1");
-    llvm::Value *has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "has_trailing");
+    llvm::Value *const has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "has_trailing");
     line_count_load = IR::aligned_load(*builder, i64_ty, line_count_alloca, "line_count_load");
-    llvm::Value *line_count_inc_trailing = builder->CreateAdd(line_count_load, one_i64, "line_count_inc_trailing");
-    llvm::Value *line_count_final = builder->CreateSelect(has_trailing, line_count_inc_trailing, line_count_load, "line_count_final");
+    llvm::Value *const line_count_inc_trailing = builder->CreateAdd(line_count_load, one_i64, "line_count_inc_trailing");
+    llvm::Value *const line_count_final = builder->CreateSelect(has_trailing, line_count_inc_trailing, line_count_load, "line_count_final");
     builder->CreateStore(line_count_final, line_count_alloca);
     builder->CreateBr(create_array_block);
 
     // Create array
     builder->SetInsertPoint(create_array_block);
-    llvm::Value *output_array = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, line_count_alloca}, "output_array");
+    llvm::Value *const output_array = builder->CreateCall(create_arr_fn, {one_i64, sizeof_ptr, line_count_alloca}, "output_array");
 
     // Alloca output_id = 0, line_start = 0, assign_i = 0
-    llvm::AllocaInst *output_id_alloca = builder->CreateAlloca(i64_ty, nullptr, "output_id_alloca");
+    llvm::AllocaInst *const output_id_alloca = builder->CreateAlloca(i64_ty, nullptr, "output_id_alloca");
     builder->CreateStore(zero_i64, output_id_alloca);
-    llvm::AllocaInst *line_start_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_start_alloca");
+    llvm::AllocaInst *const line_start_alloca = builder->CreateAlloca(i64_ty, nullptr, "line_start_alloca");
     builder->CreateStore(zero_i64, line_start_alloca);
-    llvm::AllocaInst *assign_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "assign_i_alloca");
+    llvm::AllocaInst *const assign_i_alloca = builder->CreateAlloca(i64_ty, nullptr, "assign_i_alloca");
     builder->CreateStore(zero_i64, assign_i_alloca);
 
     builder->CreateBr(assign_loop_cond_block);
 
     // Assign loop cond: i < len
     builder->SetInsertPoint(assign_loop_cond_block);
-    llvm::Value *assign_i = IR::aligned_load(*builder, i64_ty, assign_i_alloca, "assign_i");
-    llvm::Value *assign_cond = builder->CreateICmpULT(assign_i, buffer_len, "assign_cond");
+    llvm::Value *const assign_i = IR::aligned_load(*builder, i64_ty, assign_i_alloca, "assign_i");
+    llvm::Value *const assign_cond = builder->CreateICmpULT(assign_i, buffer_len, "assign_cond");
     builder->CreateCondBr(assign_cond, assign_loop_body_block, assign_loop_exit_block);
 
     // Assign loop body
     builder->SetInsertPoint(assign_loop_body_block);
-    llvm::Value *assign_char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, assign_i, "assign_char_ptr");
-    llvm::Value *assign_curr_char = IR::aligned_load(*builder, i8_ty, assign_char_ptr, "assign_curr_char");
-    llvm::Value *assign_is_newline = builder->CreateICmpEQ(assign_curr_char, newline_const, "assign_is_newline");
+    llvm::Value *const assign_char_ptr = builder->CreateGEP(i8_ty, buffer_value_ptr, assign_i, "assign_char_ptr");
+    llvm::Value *const assign_curr_char = IR::aligned_load(*builder, i8_ty, assign_char_ptr, "assign_curr_char");
+    llvm::Value *const assign_is_newline = builder->CreateICmpEQ(assign_curr_char, newline_const, "assign_is_newline");
     builder->CreateCondBr(assign_is_newline, assign_newline_block, assign_loop_continue_block);
 
     // Assign newline
     builder->SetInsertPoint(assign_newline_block);
-    llvm::Value *line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "line_start_load");
-    llvm::Value *is_line_empty = builder->CreateICmpEQ(assign_i, line_start, "is_line_empty");
+    llvm::Value *const line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "line_start_load");
+    llvm::Value *const is_line_empty = builder->CreateICmpEQ(assign_i, line_start, "is_line_empty");
     builder->CreateCondBr(is_line_empty, empty_line_block, slice_line_block);
 
     builder->SetInsertPoint(empty_line_block);
-    llvm::Value *empty_line_string = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_line_string");
+    llvm::Value *const empty_line_string = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "empty_line_string");
     builder->CreateBr(line_select_block);
 
     builder->SetInsertPoint(slice_line_block);
-    llvm::Value *slice_line_string = builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "slice_line_string");
+    llvm::Value *const slice_line_string =
+        builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "slice_line_string");
     builder->CreateBr(line_select_block);
 
     builder->SetInsertPoint(line_select_block);
-    llvm::PHINode *line_string = builder->CreatePHI(PTR_TY, 2, "line_string");
+    llvm::PHINode *const line_string = builder->CreatePHI(PTR_TY, 2, "line_string");
     line_string->addIncoming(empty_line_string, empty_line_block);
     line_string->addIncoming(slice_line_string, slice_line_block);
-    llvm::Value *ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
-    llvm::Value *len_ptr = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr");
-    llvm::Value *arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
-    llvm::Value *arr_dim_lengths = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths");
-    llvm::Value *arr_data = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
-    llvm::Value *element_ptr = builder->CreateCall(access_arr_fn, {ptr_size, arr_data, arr_dim, arr_dim_lengths, output_id_alloca}, "element_ptr");
+    llvm::Value *const ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr");
+    llvm::Value *const arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
+    llvm::Value *const arr_dim_lengths = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths");
+    llvm::Value *const arr_data = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_data");
+    llvm::Value *element_ptr = builder->CreateCall(                                                    //
+        access_arr_fn, {ptr_size, arr_data, arr_dim, arr_dim_lengths, output_id_alloca}, "element_ptr" //
+    );
     IR::aligned_store(*builder, line_string, element_ptr);
-    llvm::Value *output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
-    llvm::Value *next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");
+    llvm::Value *const output_id_load = IR::aligned_load(*builder, i64_ty, output_id_alloca, "output_id_load");
+    llvm::Value *const next_output_id = builder->CreateAdd(output_id_load, one_i64, "next_output_id");
     builder->CreateStore(next_output_id, output_id_alloca);
-    llvm::Value *assign_i_p1 = builder->CreateAdd(assign_i, builder->getInt64(1), "assign_i_p1");
+    llvm::Value *const assign_i_p1 = builder->CreateAdd(assign_i, builder->getInt64(1), "assign_i_p1");
     builder->CreateStore(assign_i_p1, line_start_alloca);
     builder->CreateBr(assign_loop_continue_block);
 
     // Assign loop continue
     builder->SetInsertPoint(assign_loop_continue_block);
-    llvm::Value *next_i_assign = builder->CreateAdd(assign_i, one_i64, "next_i_assign");
+    llvm::Value *const next_i_assign = builder->CreateAdd(assign_i, one_i64, "next_i_assign");
     builder->CreateStore(next_i_assign, assign_i_alloca);
     builder->CreateBr(assign_loop_cond_block);
 
     // Assign loop exit: check trailing
     builder->SetInsertPoint(assign_loop_exit_block);
     last_newline_p1 = builder->CreateAdd(last_newline, builder->getInt64(1), "last_newline_p1");
-    llvm::Value *final_has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "final_has_trailing");
+    llvm::Value *const final_has_trailing = builder->CreateICmpULT(last_newline_p1, buffer_len, "final_has_trailing");
     builder->CreateCondBr(final_has_trailing, trailing_assign_block, cleanup_block);
 
     // Trailing assign
     builder->SetInsertPoint(trailing_assign_block);
-    llvm::Value *trailing_line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "trailing_line_start_load");
-    llvm::Value *trailing_line_string = builder->CreateCall(                                         //
+    llvm::Value *const trailing_line_start = IR::aligned_load(*builder, i64_ty, line_start_alloca, "trailing_line_start_load");
+    llvm::Value *const trailing_line_string = builder->CreateCall(                                   //
         get_str_slice_fn, {captured_buffer, trailing_line_start, buffer_len}, "trailing_line_string" //
     );
-    llvm::Value *len_ptr_2 = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr_2");
-    llvm::Value *arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
-    llvm::Value *arr_dim_lengths_2 = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths_2");
-    llvm::Value *arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
+    llvm::Value *const len_ptr_2 = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr_2");
+    llvm::Value *const arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
+    llvm::Value *const arr_dim_lengths_2 = builder->CreateStructGEP(str_type, output_array, 1, "arr_dim_lengths_2");
+    llvm::Value *const arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
     element_ptr = builder->CreateCall(access_arr_fn, {ptr_size, arr_data_2, arr_dim_2, arr_dim_lengths_2, output_id_alloca}, "element_ptr");
     IR::aligned_store(*builder, trailing_line_string, element_ptr);
     builder->CreateBr(cleanup_block);

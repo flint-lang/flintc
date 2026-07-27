@@ -80,6 +80,18 @@ class Generator {
     /// @return `std::filesystem::path` The path to the flint cache directory
     static std::filesystem::path get_flintc_cache_path();
 
+    /// @function `init_target_machine`
+    /// @brief This function creates a target machine and set's it for the passed-in `module`. Also sets up things like correct data layout
+    /// in the module, PIC etc.
+    ///
+    /// @param `module` The LLVM IR module to set the target machine for
+    /// @return `std::optional<llvm::TargetMachine *>` The initialized target machine
+    ///
+    /// @attention The returned value needs to be deleted using `delete` when done using it. Note that the returned value is only allowed to
+    /// be deleted once. It is safe to not delete the returned value wihtin the program, but at the end of the program it should have been
+    /// deleted or otherwise it leaks.
+    static std::optional<llvm::TargetMachine *> init_target_machine(llvm::Module *module);
+
     /// @function `compile_program`
     /// @brief Compiles the given program module down to a binary
     ///
@@ -399,10 +411,10 @@ class Generator {
     /// file B can call the extern-defined functions defined in file A)
     static inline std::unordered_map<std::string, FunctionNode *> extern_functions;
 
-    /// @var `entity_dispatch_functions`
-    /// @brief A map of all entity dispatch functions. The key is the type ID of the entity, the value is the generated entity dispatch
-    /// function needed for proper function dispatch when calling functions of func module instances (interfaces).
-    static inline std::unordered_map<uint32_t, llvm::Function *> entity_dispatch_functions;
+    /// @var `object_dispatch_functions`
+    /// @brief A map of all object dispatch functions. The key is the type ID of the object, the value is the generated object dispatch
+    /// function needed for proper function dispatch when calling functions of func component instances (interfaces).
+    static inline std::unordered_map<uint32_t, llvm::Function *> object_dispatch_functions;
 
     /// @class `IR`
     /// @brief The class which is responsible for the utility functions for the IR generation
@@ -478,11 +490,11 @@ class Generator {
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
         static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
 
-        /// @function `generate_entity_dispatch_functions`
-        /// @brief Generates all entity dispatch functions of every entity type defined in the program
+        /// @function `generate_object_dispatch_functions`
+        /// @brief Generates all object dispatch functions of every object type defined in the program
         ///
-        /// @param `module` THe module in which to generate the entity dispatch functions in
-        static void generate_entity_dispatch_functions(llvm::Module *module);
+        /// @param `module` THe module in which to generate the object dispatch functions in
+        static void generate_object_dispatch_functions(llvm::Module *module);
 
         /// @function `get_extern_type`
         /// @brief Returns the llvm Type from a given Type for the use with FIP
@@ -496,6 +508,26 @@ class Generator {
             const std::shared_ptr<Type> &type               //
         );
 
+        /// @struct `TypeStorageInfo`
+        /// @brief Struct containing named fields for type storage information, only used by the `get_type` function
+        struct TypeStorageInfo {
+            /// @var `type`
+            /// @brief The actual type of the type storage info
+            llvm::Type *type;
+
+            /// @var `is_complex`
+            /// @brief Whether this type is complex, e.g. heap-allocated (data, object etc)
+            bool is_complex;
+
+            /// @var `is_reference`
+            /// @brief Whether this type is passed by reference (data, object, tuple, optional, variant, etc)
+            bool is_reference;
+
+            /// @var `is_indirect`
+            /// @brief Whether this type needs to be loaded when slicing arrays with this type stored in them
+            bool is_indirect;
+        };
+
         /// @function `get_type`
         /// @brief Returns the llvm Type from a given Type
         ///
@@ -505,12 +537,12 @@ class Generator {
         /// @return `std::pair<llvm::Type *, std::pair<bool, bool>>` A pair containing:
         ///     - a pointer to the correct llvm Type from the given string
         ///     - a pair of boolean values determining whether the given type is:
-        ///         - A complex heap-allocated type (data, entity, etc)
-        ///         - Passed by reference (data, entity, tuple, optional, variant, etc)
-        static std::pair<llvm::Type *, std::pair<bool, bool>> get_type( //
-            llvm::Module *module,                                       //
-            const std::shared_ptr<Type> &type,                          //
-            const bool is_extern = false                                //
+        ///         - A complex heap-allocated type (data, object, etc)
+        ///         - Passed by reference (data, object, tuple, optional, variant, etc)
+        static TypeStorageInfo get_type(       //
+            llvm::Module *module,              //
+            const std::shared_ptr<Type> &type, //
+            const bool is_extern = false       //
         );
 
         /// @function `get_default_value_of_type`
@@ -1879,6 +1911,20 @@ class Generator {
             const InitializerNode *initializer     //
         );
 
+        /// @function `generate_switch_branch_garbage_cleanup`
+        /// @brief Cleans up all the garbage from a switch expressions branches while keeping the result value of the branch in-tact.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `garbage` The current garbage of the switch branch to clean up
+        /// @param `garbage_before` The garbage before the switch branch generation, everything in there is kept as-is and is not cleaned up
+        /// @param `branch_value` The result value of the switch expression branch, which is not cleaned up
+        static void generate_switch_branch_garbage_cleanup( //
+            llvm::IRBuilder<> &builder,                     //
+            garbage_type &garbage,                          //
+            garbage_type &garbage_before,                   //
+            llvm::Value *const branch_value                 //
+        );
+
         /// @function `generate_optional_switch_expression`
         /// @brief Generates the optional switch expression from the given SwitchStatement node
         ///
@@ -1926,12 +1972,12 @@ class Generator {
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `switch_expression` The switch expression to generate
         /// @return `group_mapping` The result of the switch expression
-        static group_mapping generate_switch_expression( //
-            llvm::IRBuilder<> &builder,                  //
-            GenerationContext &ctx,                      //
-            garbage_type &garbage,                       //
-            const unsigned int expr_depth,               //
-            const SwitchExpression *switch_expression    //
+        [[nodiscard]] static group_mapping generate_switch_expression( //
+            llvm::IRBuilder<> &builder,                                //
+            GenerationContext &ctx,                                    //
+            garbage_type &garbage,                                     //
+            const unsigned int expr_depth,                             //
+            const SwitchExpression *switch_expression                  //
         );
 
         /// @function `generate_inline_array_initializer`
@@ -2571,13 +2617,13 @@ class Generator {
         /// @return `llvm::DIType *` The LLVM debug type of the data type
         static llvm::DIType *create_debug_type_data(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
-        /// @function `create_debug_type_entity`
-        /// @brief Creates a DIType for a given entity type
+        /// @function `create_debug_type_object`
+        /// @brief Creates a DIType for a given object type
         ///
-        /// @param `module` The module in which to create the debug entity type in
-        /// @param `type` The entity type to get the debug type of
-        /// @return `llvm::DIType *` The LLVM debug type of the entity type
-        static llvm::DIType *create_debug_type_entity(llvm::Module *const module, const std::shared_ptr<Type> &type);
+        /// @param `module` The module in which to create the debug object type in
+        /// @param `type` The object type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the object type
+        static llvm::DIType *create_debug_type_object(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
         /// @function `create_debug_type_enum`
         /// @brief Creates a DIType for a given enum type
@@ -2609,13 +2655,21 @@ class Generator {
         /// @return `llvm::DIType *` The LLVM debug type of the fn type
         static llvm::DIType *create_debug_type_fn(llvm::Module *const module);
 
-        /// @function `create_debug_type_multi`
-        /// @brief Creates a DIType for a given multi type
+        /// @function `create_debug_type_interface`
+        /// @brief Creates a DIType for a given interface type
         ///
-        /// @param `module` The module in which to create the debug multi type in
-        /// @param `type` The multi type to get the debug type of
-        /// @return `llvm::DIType *` The LLVM debug type of the multi type
-        static llvm::DIType *create_debug_type_multi(llvm::Module *const module, const std::shared_ptr<Type> &type);
+        /// @param `module` The module in which to create the debug interface type in
+        /// @param `type` The interface type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the interface type
+        static llvm::DIType *create_debug_type_interface(llvm::Module *const module, const std::shared_ptr<Type> &type);
+
+        /// @function `create_debug_type_vector`
+        /// @brief Creates a DIType for a given vector type
+        ///
+        /// @param `module` The module in which to create the debug vector type in
+        /// @param `type` The vector type to get the debug type of
+        /// @return `llvm::DIType *` The LLVM debug type of the vector type
+        static llvm::DIType *create_debug_type_vector(llvm::Module *const module, const std::shared_ptr<Type> &type);
 
         /// @function `create_debug_type_opaque`
         /// @brief Creates a DIType for a given opaque type
@@ -2813,7 +2867,7 @@ class Generator {
                 {"i64_safe_mul", nullptr},
                 {"i64_safe_div", nullptr},
                 {"i64_pow", nullptr},
-                // Unsigned Multi Types of length 2
+                // Unsigned Vector Types of length 2
                 {"u8x2_safe_add", nullptr},
                 {"u8x2_safe_sub", nullptr},
                 {"u8x2_safe_mul", nullptr},
@@ -2830,7 +2884,7 @@ class Generator {
                 {"u64x2_safe_sub", nullptr},
                 {"u64x2_safe_mul", nullptr},
                 {"u64x2_safe_div", nullptr},
-                // Unsigned Multi Types of length 3
+                // Unsigned Vector Types of length 3
                 {"u8x3_safe_add", nullptr},
                 {"u8x3_safe_sub", nullptr},
                 {"u8x3_safe_mul", nullptr},
@@ -2847,7 +2901,7 @@ class Generator {
                 {"u64x3_safe_sub", nullptr},
                 {"u64x3_safe_mul", nullptr},
                 {"u64x3_safe_div", nullptr},
-                // Unsigned Multi Types of length 4
+                // Unsigned Vector Types of length 4
                 {"u8x4_safe_add", nullptr},
                 {"u8x4_safe_sub", nullptr},
                 {"u8x4_safe_mul", nullptr},
@@ -2864,7 +2918,7 @@ class Generator {
                 {"u64x4_safe_sub", nullptr},
                 {"u64x4_safe_mul", nullptr},
                 {"u64x4_safe_div", nullptr},
-                // Unsigned Multi Types of length 8
+                // Unsigned Vector Types of length 8
                 {"u8x8_safe_add", nullptr},
                 {"u8x8_safe_sub", nullptr},
                 {"u8x8_safe_mul", nullptr},
@@ -2877,7 +2931,7 @@ class Generator {
                 {"u32x8_safe_sub", nullptr},
                 {"u32x8_safe_mul", nullptr},
                 {"u32x8_safe_div", nullptr},
-                // Signed Multi Types of length 2
+                // Signed Vector Types of length 2
                 {"i8x2_safe_add", nullptr},
                 {"i8x2_safe_sub", nullptr},
                 {"i8x2_safe_mul", nullptr},
@@ -2894,7 +2948,7 @@ class Generator {
                 {"i64x2_safe_sub", nullptr},
                 {"i64x2_safe_mul", nullptr},
                 {"i64x2_safe_div", nullptr},
-                // Signed Multi Types of length 3
+                // Signed Vector Types of length 3
                 {"i8x3_safe_add", nullptr},
                 {"i8x3_safe_sub", nullptr},
                 {"i8x3_safe_mul", nullptr},
@@ -2911,7 +2965,7 @@ class Generator {
                 {"i64x3_safe_sub", nullptr},
                 {"i64x3_safe_mul", nullptr},
                 {"i64x3_safe_div", nullptr},
-                // Signed Multi Types of length 4
+                // Signed Vector Types of length 4
                 {"i8x4_safe_add", nullptr},
                 {"i8x4_safe_sub", nullptr},
                 {"i8x4_safe_mul", nullptr},
@@ -2928,7 +2982,7 @@ class Generator {
                 {"i64x4_safe_sub", nullptr},
                 {"i64x4_safe_mul", nullptr},
                 {"i64x4_safe_div", nullptr},
-                // Signed Multi Types of length 8
+                // Signed Vector Types of length 8
                 {"i8x8_safe_add", nullptr},
                 {"i8x8_safe_sub", nullptr},
                 {"i8x8_safe_mul", nullptr},
@@ -3152,7 +3206,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_add( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3170,7 +3224,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_sub( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3188,7 +3242,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_mul( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3206,7 +3260,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'i32x3' or 'i64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'i32x3' or 'i64x2' for example)
             static void generate_int_vector_safe_div( //
                 llvm::IRBuilder<> *builder,           //
                 llvm::Module *module,                 //
@@ -3224,7 +3278,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_add( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3242,7 +3296,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_sub( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3260,7 +3314,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_mul( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -3278,7 +3332,7 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `vector_int_type` The vector type to generate the function for
             /// @param `vector_width` The width of the vector
-            /// @param `name` The name of the generated function (The name of the multi-type, e.g. 'u32x3' or 'u64x2' for example)
+            /// @param `name` The name of the generated function (The name of the vector-type, e.g. 'u32x3' or 'u64x2' for example)
             static void generate_uint_vector_safe_div( //
                 llvm::IRBuilder<> *builder,            //
                 llvm::Module *module,                  //
@@ -4674,7 +4728,7 @@ class Generator {
             };
 
             /// @var `ts`
-            /// @brief The global thread stack variable itself, only one variable for now as multi-threading is not implemented yet
+            /// @brief The global thread stack variable itself, only one variable for now as vector-threading is not implemented yet
             static inline llvm::GlobalVariable *ts;
 
             /// @var `ts_frames`
@@ -4717,6 +4771,20 @@ class Generator {
             /// @function `generate_types`
             /// @brief Generates the struct types for everything thread-stack related
             static void generate_types();
+
+            /// @function `generate_capacity_check`
+            /// @brief Generates a capacity check to check if there is enough space left on the stack before calling a function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `function` The function to generate the check in
+            /// @param `remaining` Value containin the remaining capacity on the stack
+            /// @param `frame_type` The type of the function frame which will be called
+            static void generate_capacity_check( //
+                llvm::IRBuilder<> &builder,      //
+                llvm::Function *const function,  //
+                llvm::Value *const remaining,    //
+                llvm::Type *const frame_type     //
+            );
         };
 
         /// @class `TypeCast`
@@ -4948,20 +5016,20 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_bool_to_str(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
 
-            /// @function `generate_multitype_to_str`
-            /// @brief Generates the `<type>x<width>_to_str` function which is used to convert multitype values to str values
+            /// @function `generate_vector_to_str`
+            /// @brief Generates the `<type>x<width>_to_str` function which is used to convert vector values to str values
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module in which the function is generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             /// @param `type_str` The string of the base type, for example `i32` or `f32`
-            /// @param `width` The width of the multi-type, for example `2` or `4`
-            static void generate_multitype_to_str( //
-                llvm::IRBuilder<> *builder,        //
-                llvm::Module *module,              //
-                const bool only_declarations,      //
-                const std::string &type_str,       //
-                const size_t width                 //
+            /// @param `width` The width of the vector-type, for example `2` or `4`
+            static void generate_vector_to_str( //
+                llvm::IRBuilder<> *builder,     //
+                llvm::Module *module,           //
+                const bool only_declarations,   //
+                const std::string &type_str,    //
+                const size_t width              //
             );
 
             /// @function `generate_uN_to_str`

@@ -1,0 +1,29 @@
+use Core.print
+
+data Data:
+	i32 value;
+	Data(value);
+
+func Func1 requires(Data d):
+	const def fn1():
+		print($"fn1: {d.value}\n");
+
+func Func2 requires(Data d):
+	const def fn2():
+		print($"fn2: {d.value}\n");
+
+object Object:
+	data:
+		Data d;
+	func:
+		Func1, Func2;
+	Object(d);
+	
+	def do_stuff():
+		self.fn1();
+		d.value += 5;
+		self.fn2();
+
+def main():
+	o := Object(Data(10));
+	o.do_stuff();

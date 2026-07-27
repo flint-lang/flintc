@@ -8,5 +8,5 @@ data DVec3:
 	i32 z;
 	DVec3(x, y, z);
 
-def somefn(mut MyEntity e):
+def somefn(mut MyObject e):
 	e.print();

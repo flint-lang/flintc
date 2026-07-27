@@ -88,7 +88,7 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
             }
             break;
         }
-        case DefinitionNode::Variation::ENTITY:
+        case DefinitionNode::Variation::OBJECT:
             break;
         case DefinitionNode::Variation::ENUM:
             break;
@@ -166,6 +166,8 @@ Analyzer::Result Analyzer::analyze_definition(const Context &ctx, const Definiti
             break;
         }
         case DefinitionNode::Variation::IMPORT:
+            break;
+        case DefinitionNode::Variation::INTERFACE:
             break;
         case DefinitionNode::Variation::TEST: {
             const auto *node = definition->as<TestNode>();
@@ -821,8 +823,6 @@ Analyzer::Result Analyzer::analyze_type(          //
         }
         case Type::Variation::DATA:
             break;
-        case Type::Variation::ENTITY:
-            break;
         case Type::Variation::ENUM:
             break;
         case Type::Variation::ERROR_SET:
@@ -855,7 +855,9 @@ Analyzer::Result Analyzer::analyze_type(          //
             }
             break;
         }
-        case Type::Variation::MULTI:
+        case Type::Variation::INTERFACE:
+            break;
+        case Type::Variation::OBJECT:
             break;
         case Type::Variation::OPAQUE:
             break;
@@ -907,6 +909,8 @@ Analyzer::Result Analyzer::analyze_type(          //
             }
             break;
         }
+        case Type::Variation::VECTOR:
+            break;
     }
     return result;
 }

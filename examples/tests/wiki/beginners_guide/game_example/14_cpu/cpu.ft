@@ -2,7 +2,7 @@ use Fip.raylib as rl
 
 use "paddle.ft"
 
-entity Cpu:
+object Cpu:
 	data: DPaddle paddle;
 	func: FPaddleCommon;
 	Cpu(paddle);

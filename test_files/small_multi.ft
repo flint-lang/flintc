@@ -9,12 +9,12 @@ func MyFunc requires(BaseData d):
 	def get_x() -> i32:
 		return 0;
 
-entity MyEntity extends(BaseEntity e):
+object MyObject extends(BaseObject e):
 	data;
 	func: MyFunc;
-	MyEntity(e);
+	MyObject(e);
 
-def somefn(MyEntity e):
+def somefn(MyObject e):
 	e.print();
 
 def main():
@@ -23,10 +23,10 @@ def main():
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
 
-	be := BaseEntity(BaseData(10));
+	be := BaseObject(BaseData(10));
 	be.base();
 
-	me := MyEntity(BaseData(10));
+	me := MyObject(BaseData(10));
 	me.base();
 	me.print();
 	x = me.get_x();

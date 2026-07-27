@@ -56,7 +56,7 @@ def main():
 	print($"asd 3 7 5 = {add_square_div(3, 7, 5)}"); // Result of add_square_div will be '20'
 	str some_val = $"{$"{((i32 x, i32 y) -> x + y)(1, 2)}" + supi}";
 
-	// Because the result of 'divide_2' is a multi-type, splitting it into two i32 is allowed, because a multi-type is just a native group!
+	// Because the result of 'divide_2' is a vector-type, splitting it into two i32 is allowed, because a vector-type is just a native group!
 	fn<i32x2, i32x2 -> i32> div_2_add = ::divide_2(_, _) |> ::add($1, $2);
 	// The above is the same as the one below
 	div_2_add = (i32x2 x, y) -> divide_2(x, y) |> add($1, $1);

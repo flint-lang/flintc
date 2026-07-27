@@ -51,7 +51,7 @@ test "8_string_char.ft":
 test "9_string_ascii.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "9_string_ascii.ft";
-	test_file_ok($"{path}/{file}", "third = 'r' at idx 114\n");
+	test_file_ok($"{path}/{file}", "third = 'r' = 114\n");
 
 test "10_string_char_arithmetic.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
@@ -61,7 +61,7 @@ test "10_string_char_arithmetic.ft":
 test "11_string_length.ft":
 	str path = "tests/wiki/beginners_guide/arrays";
 	str file = "11_string_length.ft";
-	test_file_ok($"{path}/{file}", "string 'some neat string' is 16 characters long\n");
+	test_file_ok($"{path}/{file}", "string \"some neat string\" is 16 characters long\n");
 
 test "12_string_iterate.ft":
 	str path = "tests/wiki/beginners_guide/arrays";

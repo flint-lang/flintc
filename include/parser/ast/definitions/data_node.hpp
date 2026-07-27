@@ -57,7 +57,7 @@ class DataNode : public DefinitionNode {
     bool is_const{false};
 
     /// @var `is_shared`
-    /// @brief Determines whether the data is shared between multiple entities
+    /// @brief Determines whether the data is shared between multiple objects
     bool is_shared{false};
 
     /// @var `name`

@@ -1,0 +1,41 @@
+use Core.print
+
+interface Serializable:
+	const def to_string() -> str;
+
+
+data Data:
+	i32 x;
+	Data(x);
+
+object Object1 implements(Serializable):
+	data: Data d;
+	Object1(d)
+
+	const def to_string() -> str:
+		return $"\{ x: {d.x} \}";
+
+
+data Data2:
+	i32 y;
+	Data2(y);
+
+object Object2 implements(Serializable):
+	data:
+		Data d1,
+		Data2 d2;
+	Object2(d1, d2);
+
+	const def to_string() -> str:
+		return $"\{ x: {d1.x}, y: {d2.y} \}";
+
+
+def serialize(Serializable s):
+	print($"s.to_string() = {s.to_string()}\n");
+
+def main():
+	o1 := Object1(Data(10));
+	o2 := Object2(Data(20), Data2(30));
+
+	serialize(o1);
+	serialize(o2);

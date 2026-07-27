@@ -6,8 +6,6 @@
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
-#include "parser/type/entity_type.hpp"
-#include "parser/type/func_type.hpp"
 #include "parser/type/tuple_type.hpp"
 
 #include "fip.hpp"
@@ -212,7 +210,7 @@ std::optional<FunctionNode> Parser::create_function(                            
             return std::nullopt;
         }
         if (required_data.has_value()) {
-            // It is not allowed to define the main function within a func module
+            // It is not allowed to define the main function within a func component
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
@@ -300,7 +298,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         next_mangle_id++;
     }
     if (required_data.has_value()) {
-        // If there is required data then this function is defined inside a func module, the name needs to be changed accordingly
+        // If there is required data then this function is defined inside a func component, the name needs to be changed accordingly
         name = required_data.value().first + "." + name;
     }
     return FunctionNode(                                                                         //
@@ -581,11 +579,8 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             break;
         }
         if (function_body_lines.empty()) {
-            // Function has no body. This means it will not be added to the open functions list, since it's body will not be parsed
-            // anyways. This function now is a "virtual" function which needs to be linked, if an entity contains any virtual function
-            // of any func module which is not linked to a different concrete function, an error will be thrown.
-            functions.emplace_back(added_function.value());
-            continue;
+            THROW_ERR(ErrDefFuncContansVirtualFunction, ERR_PARSING, file_hash, function_definition_line.tokens);
+            return std::nullopt;
         }
         add_open_function({added_function.value(), function_body_lines});
         functions.emplace_back(added_function.value());
@@ -604,51 +599,107 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     );
 }
 
-std::optional<EntityNode> Parser::create_entity(const token_slice &definition, const std::vector<Line> &body) {
-    PROFILE_CUMULATIVE("Parser::create_entity");
+std::optional<InterfaceNode> Parser::create_interface(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_interface");
+    token_slice token_mut = definition;
+    ASSERT(token_mut.first->token == TOK_INTERFACE);
+    token_mut.first++;
+    ASSERT(token_mut.first->token == TOK_IDENTIFIER);
+    const std::string interface_name(token_mut.first->lexme);
+    token_mut.first++;
+
+    std::vector<FunctionNode *> functions;
+    std::vector<Line> body_mut = body;
+    while (!body_mut.empty()) {
+        const Line function_definition_line = body_mut.front();
+        body_mut.erase(body_mut.begin());
+        const std::pair<std::string, std::vector<FuncNode::RequiredData>> required_data = {interface_name, {}};
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data);
+        if (!fn.has_value()) {
+            return std::nullopt;
+        }
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_namespaces);
+        if (!added_function.has_value()) {
+            return std::nullopt;
+        }
+        std::vector<Line> function_body_lines;
+        for (auto it = body_mut.begin(); it != body_mut.end();) {
+            if (it->indent_lvl > function_definition_line.indent_lvl) {
+                function_body_lines.emplace_back(*it);
+                body_mut.erase(it);
+                continue;
+            }
+            break;
+        }
+        if (!function_body_lines.empty()) {
+            THROW_ERR(ErrDefInterfaceContainsConcreteFunction, ERR_PARSING, file_hash, function_definition_line.tokens);
+            return std::nullopt;
+        }
+        functions.emplace_back(added_function.value());
+    }
+    const unsigned int line = definition.first->line;
+    const unsigned int column = definition.first->column;
+    const unsigned int length = definition.second->column - definition.first->column;
+    return InterfaceNode( //
+        file_hash,        //
+        line,             //
+        column,           //
+        length,           //
+        interface_name,   //
+        functions         //
+    );
+}
+
+std::optional<ObjectNode> Parser::create_object(const token_slice &definition, const std::vector<Line> &body) {
+    PROFILE_CUMULATIVE("Parser::create_object");
     auto tok_it = definition.first;
-    ASSERT(tok_it->token == TOK_ENTITY);
+    ASSERT(tok_it->token == TOK_OBJECT);
     tok_it++;
     ASSERT(tok_it->token == TOK_IDENTIFIER);
-    const std::string entity_name(tok_it->lexme);
+    const std::string object_name(tok_it->lexme);
     tok_it++;
-    std::vector<EntityNode::ParentEntity> parent_entities;
-    if (tok_it->token == TOK_EXTENDS) {
+    std::vector<ObjectNode::ImplementedInterface> interfaces;
+    if (tok_it->token == TOK_IMPLEMENTS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
-            const auto extended_entity_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
-            if (!extended_entity_type.has_value()) {
+            const auto interface_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            if (!interface_type.has_value()) {
                 return std::nullopt;
             }
-            if (extended_entity_type.value()->get_variation() != Type::Variation::ENTITY     //
-                && extended_entity_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            if (interface_type.value()->get_variation() != Type::Variation::INTERFACE  //
+                && interface_type.value()->get_variation() != Type::Variation::UNKNOWN //
             ) {
-                THROW_ERR(                                                                         //
-                    ErrDefEntityExtendedTypeNotEntity, ERR_PARSING, file_hash,                     //
-                    tok_it->line, tok_it->column, extended_entity_type.value()->to_string().size() //
+                THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, file_hash,
+                    ASTNode::PosTriple{
+                        tok_it->line,
+                        tok_it->column,
+                        static_cast<unsigned int>(interface_type.value()->to_string().size()),
+                    } //
                 );
                 return std::nullopt;
             }
-            // Check if this entity type is already present in the extension list
-            for (const auto &pe : parent_entities) {
-                if (pe.type->equals(extended_entity_type.value())) {
-                    THROW_ERR(ErrDefEntityDuplicateParent, ERR_PARSING, file_hash, tok_it->line, tok_it->column, pe.type->to_string());
+            // Check if this interface type is already present in the interfaces list
+            for (const auto &interface : interfaces) {
+                if (interface.type->equals(interface_type.value())) {
+                    THROW_ERR(                                                                                                            //
+                        ErrDefObjectDuplicateInterface, ERR_PARSING, file_hash, tok_it->line, tok_it->column, interface.type->to_string() //
+                    );
                     return std::nullopt;
                 }
             }
-            // The next token is the extended entity accessor name
-            ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
-            const std::string access_name((tok_it + 1)->lexme);
-            parent_entities.emplace_back(EntityNode::ParentEntity{
-                .type = extended_entity_type.value(),
-                .accessor_name = access_name,
-                .line = tok_it->line,
-                .column = tok_it->column,
+            interfaces.push_back(ObjectNode::ImplementedInterface{
+                .type = interface_type.value(),
+                .pos =
+                    ASTNode::PosTriple{
+                        .line = tok_it->line,
+                        .column = tok_it->column,
+                        .length = static_cast<uint32_t>(interface_type.value()->to_string().size()),
+                    },
             });
-            tok_it += 2;
+            tok_it++;
             if (tok_it->token != TOK_COMMA && tok_it->token != TOK_RIGHT_PAREN) {
                 THROW_ERR(                                                                                      //
                     ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                             //
@@ -690,14 +741,14 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
             return std::nullopt;
         }
         // Dont actually parse the function body, only its definition
-        std::shared_ptr<Type> entity_type = std::make_shared<UnknownType>(entity_name);
-        if (!file_node_ptr->file_namespace->add_type(entity_type)) {
-            entity_type = file_node_ptr->file_namespace->get_type_from_str(entity_type->to_string()).value();
+        std::shared_ptr<Type> object_type = std::make_shared<UnknownType>(object_name);
+        if (!file_node_ptr->file_namespace->add_type(object_type)) {
+            object_type = file_node_ptr->file_namespace->get_type_from_str(object_type->to_string()).value();
         }
         const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> required_data = std::make_pair( //
-            entity_name,
+            object_name,
             std::vector<FuncNode::RequiredData>{FuncNode::RequiredData{
-                .type = entity_type,
+                .type = object_type,
                 .accessor_name = "self",
                 .line = 0,
                 .column = 0,
@@ -707,7 +758,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
         if (!function_node.has_value()) {
             return std::nullopt;
         }
-        // Check if the same function (with same signature) already exists within this entity as a free-floating function
+        // Check if the same function (with same signature) already exists within this object as a free-floating function
         for (const FunctionNode *function : functions) {
             if (function->name != function_node.value().name) {
                 continue;
@@ -725,7 +776,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
                 }
             }
             if (all_match) {
-                // Duplicate function inside entity definition, the free-floating function already exists
+                // Duplicate function inside object definition, the free-floating function already exists
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -741,104 +792,7 @@ std::optional<EntityNode> Parser::create_entity(const token_slice &definition, c
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return EntityNode(file_hash, line, column, length, entity_name, functions, parent_entities);
-}
-
-std::optional<std::pair<const FunctionNode *, const FunctionNode *>> Parser::create_link( //
-    const token_slice &tokens,                                                            //
-    const EntityNode *entity                                                              //
-) {
-    PROFILE_CUMULATIVE("Parser::create_link");
-
-    std::optional<uint2> arrow_range = Matcher::get_next_match_range(tokens, Matcher::until_arrow);
-    ASSERT(arrow_range.has_value());
-    const token_slice src_tokens = {tokens.first, tokens.first + arrow_range.value().second - 1};
-    const token_slice dest_tokens = {src_tokens.second + 1, tokens.second};
-    auto src = create_function_reference(src_tokens);
-    if (!src.has_value()) {
-        return std::nullopt;
-    }
-    auto dest = create_function_reference(dest_tokens);
-    if (!dest.has_value()) {
-        return std::nullopt;
-    }
-
-    const FunctionNode *src_fn = src.value()->referenced_function;
-    const std::string &src_name = src_fn->name;
-    const auto src_dot_it = std::find(src_name.begin(), src_name.end(), '.');
-    if (src_dot_it == src_name.end()) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const size_t src_dot_idx = std::distance(src_name.begin(), src_dot_it);
-    const std::string src_type_name = src_name.substr(0, src_dot_idx);
-    const auto src_type = file_node_ptr->file_namespace->get_type_from_str(src_type_name).value();
-    if (src_type->get_variation() != Type::Variation::FUNC) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const FuncNode *src_func = src_type->as<FuncType>()->func_node;
-    if (std::find(entity->func_modules.begin(), entity->func_modules.end(), src_func) == entity->func_modules.end()) {
-        // Referencing a function from a func module not present in this entity
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const FunctionNode *dest_fn = dest.value()->referenced_function;
-    const std::string &dest_name = dest_fn->name;
-    const auto dest_dot_it = std::find(dest_name.begin(), dest_name.end(), '.');
-    if (dest_dot_it == dest_name.end()) {
-        // It is not allowed to reference functions not coming from func modules
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    const size_t dest_dot_idx = std::distance(dest_name.begin(), dest_dot_it);
-    const std::string dest_type_name = dest_name.substr(0, dest_dot_idx);
-    const auto dest_type = file_node_ptr->file_namespace->get_type_from_str(dest_type_name).value();
-    size_t dest_start_id = 0;
-    switch (dest_type->get_variation()) {
-        default:
-            // It is not allowed link to functions not coming from func modules or the entity type itself
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        case Type::Variation::FUNC: {
-            const FuncNode *dest_func = dest_type->as<FuncType>()->func_node;
-            if (std::find(entity->func_modules.begin(), entity->func_modules.end(), dest_func) == entity->func_modules.end()) {
-                // Referencing a function from a func module not present in this entity
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            dest_start_id = dest_func->required_data.size();
-            break;
-        }
-        case Type::Variation::ENTITY: {
-            const EntityNode *entity_node = dest_type->as<EntityType>()->entity_node;
-            if (entity_node != entity) {
-                // The target function of the link is not allowed to come from a different entity than ourselve
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            dest_start_id = 1;
-            break;
-        }
-    }
-    const std::string src_fn_name = src_name.substr(src_dot_idx + 1);
-    const std::string dest_fn_name = dest_name.substr(dest_dot_idx + 1);
-    if (src_fn_name != dest_fn_name) {
-        // It is not allowed to link two functions with different names
-        THROW_ERR(ErrDefEntityLinkNameMismatch, ERR_PARSING, file_hash, tokens);
-        return std::nullopt;
-    }
-
-    // Check if the source function and dest function signatures match
-    const std::string src_fn_sig = src_fn->get_signature_string(src_func->required_data.size(), false, true, false, true, true);
-    const std::string dest_fn_sig = dest_fn->get_signature_string(dest_start_id, false, true, false, true, true);
-    if (src_fn_sig != dest_fn_sig) {
-        THROW_ERR(ErrDefEntityLinkSignatureMismatch, ERR_PARSING, file_hash, tokens, src_fn_sig, dest_fn_sig);
-        return std::nullopt;
-    }
-    return std::make_pair(src_fn, dest_fn);
+    return ObjectNode(file_hash, line, column, length, object_name, functions, interfaces);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {

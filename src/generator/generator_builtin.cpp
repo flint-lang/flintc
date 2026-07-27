@@ -18,6 +18,7 @@ bool Generator::Builtin::init_global_variables( //
         const Namespace *ns = file.file_node_ptr->file_namespace.get();
         for (const auto &global : ns->public_symbols.globals) {
             init_scope->variables[global.first] = global.second;
+            allocations.emplace("s0::" + global.first, shared_globals.at(global.first));
         }
     }
     if (allocations.empty()) {
@@ -221,7 +222,7 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         llvm::Argument *argv = main_function->args().begin() + 1;
         argv->setName("argv");
         // Now get the string type
-        llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+        llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
         const llvm::DataLayout &data_layout = module->getDataLayout();
         const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
         llvm::Value *arr_len = builder->CreateAdd(                                                      //
@@ -327,7 +328,7 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Function *get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
     llvm::Value *err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
     llvm::Value *err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
     llvm::Value *message_begin_ptr = IR::generate_const_string(                         //
         module, "The given error bubbled up to the main function:\n └─ %s.%s: \"%s\"\n" //
@@ -1386,7 +1387,7 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     builder->SetInsertPoint(print_output_block);
     llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
     IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *line_count_ptr = builder->CreateStructGEP(str_type, captured_output, 1, "line_count_ptr");
     llvm::Value *line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_ptr, "line_count");
     llvm::Value *line_iter_start_ptr = builder->CreateGEP(PTR_TY, line_count_ptr, builder->getInt64(1), "line_iter_start_ptr");

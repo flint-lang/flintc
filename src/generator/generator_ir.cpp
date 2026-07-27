@@ -6,13 +6,14 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/func_type.hpp"
-#include "parser/type/multi_type.hpp"
+#include "parser/type/interface_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -89,19 +90,19 @@ llvm::StructType *Generator::IR::add_and_or_get_type( //
         if (type->get_variation() == Type::Variation::GROUP) {
             const GroupType *group_type = type->as<GroupType>();
             for (const auto &elem : group_type->types) {
-                auto elem_type = get_type(module, elem, is_extern);
-                types_vec.emplace_back(elem_type.second.first ? PTR_TY : elem_type.first);
+                const TypeStorageInfo elem_type = get_type(module, elem, is_extern);
+                types_vec.emplace_back(elem_type.is_complex ? PTR_TY : elem_type.type);
             }
         } else {
-            auto ret_type = get_type(module, type, is_extern);
-            types_vec.emplace_back(ret_type.second.first ? PTR_TY : ret_type.first);
+            const TypeStorageInfo ret_type = get_type(module, type, is_extern);
+            types_vec.emplace_back(ret_type.is_complex ? PTR_TY : ret_type.type);
         }
         type_map[type_str] = IR::create_struct_type(type_str, types_vec);
         return type_map.at(type_str);
     }
-    auto llvm_type = get_type(module, type, is_extern);
-    ASSERT(llvm_type.first->isStructTy());
-    type_map[type_str] = llvm::cast<llvm::StructType>(llvm_type.first);
+    const TypeStorageInfo llvm_type = get_type(module, type, is_extern);
+    ASSERT(llvm_type.type->isStructTy());
+    type_map[type_str] = llvm::cast<llvm::StructType>(llvm_type.type);
     return type_map.at(type_str);
 }
 
@@ -169,20 +170,24 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
     }
 }
 
-void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
+void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
     llvm::FunctionType *const dispatch_fn_type = llvm::FunctionType::get( //
         PTR_TY,                                                           // ptr to argument start or whether an error happened
         {
             PTR_TY,                          // ptr inreg stack
-            PTR_TY,                          // ptr entity
+            PTR_TY,                          // ptr object
             llvm::Type::getInt64Ty(context), // u64 fn_id
             llvm::Type::getInt1Ty(context)   // bool is_setup
         },                                   //
         false                                //
     );
 
-    for (const EntityNode *entity : Parser::get_all_entities()) {
-        const std::string dispatch_fn_name = entity->file_hash.to_string() + "." + entity->name + ".dispatch";
+    for (const ObjectNode *object : Parser::get_all_objects()) {
+        if (object->interfaces.empty()) {
+            // Only objects implementing any interfaces need a dispatch function
+            continue;
+        }
+        const std::string dispatch_fn_name = object->file_hash.to_string() + "." + object->name + ".dispatch";
         llvm::Function *const dispatch_fn = llvm::Function::Create(                     //
             dispatch_fn_type, llvm::Function::ExternalLinkage, dispatch_fn_name, module //
         );
@@ -196,8 +201,8 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
 #endif
         }
 
-        llvm::Argument *const arg_entity = dispatch_fn->args().begin() + 1;
-        arg_entity->setName("entity");
+        llvm::Argument *const arg_object = dispatch_fn->args().begin() + 1;
+        arg_object->setName("object");
 
         llvm::Argument *const arg_fn_id = dispatch_fn->args().begin() + 2;
         arg_fn_id->setName("fn_id");
@@ -205,7 +210,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         llvm::Argument *const arg_is_setup = dispatch_fn->args().begin() + 3;
         arg_is_setup->setName("is_setup");
 
-        // We need a switch instructions with as many branches as functions defined across all functions of the entity
+        // We need a switch instructions with as many branches as functions defined across all functions of the object
         llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", dispatch_fn);
         llvm::BasicBlock *const setup_entry_block = llvm::BasicBlock::Create(context, "setup_entry", dispatch_fn);
         llvm::BasicBlock *const execute_entry_block = llvm::BasicBlock::Create(context, "execute_entry", dispatch_fn);
@@ -221,13 +226,8 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
 
         // Generate all basic block targets
         std::unordered_map<const FunctionNode *, std::pair<llvm::BasicBlock *, llvm::BasicBlock *>> branches;
-        for (const FuncNode *func : entity->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
-                const FunctionNode *dest_fn = entity->edg.get_mapped_fn(function_node).value();
-                if (function_node != dest_fn) {
-                    // Function linked to other function, do not generate branch for it
-                    continue;
-                }
                 std::string branch_name = "_case_" + function_node->name;
                 for (size_t i = func->required_data.size(); i < function_node->parameters.size(); i++) {
                     if (i == func->required_data.size()) {
@@ -240,7 +240,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 branches[function_node] = {setup_block, execute_block};
             }
         }
-        for (const FunctionNode *function_node : entity->functions) {
+        for (const FunctionNode *function_node : object->functions) {
             std::string branch_name = "_case_" + function_node->name;
             for (size_t i = 1; i < function_node->parameters.size(); i++) {
                 if (i == 1) {
@@ -253,16 +253,25 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
             branches[function_node] = {setup_block, execute_block};
         }
 
+        // Let all interface functions branch to their respective destination blocks
+        for (const auto &interface : object->interfaces) {
+            for (const auto &[src, dest] : interface.mapping) {
+                std::string branch_name = "_case_" + dest->name;
+                for (size_t i = 1; i < dest->parameters.size(); i++) {
+                    if (i == 1) {
+                        branch_name += "_";
+                    }
+                    branch_name += "_" + std::get<0>(dest->parameters.at(i))->to_string();
+                }
+                setup_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).first);
+                execute_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).second);
+            }
+        }
+
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
-        for (const FuncNode *func : entity->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(function_node) == branches.end()) {
-                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const FunctionNode *target_fn = entity->edg.get_mapped_fn(function_node).value();
-                    setup_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).first);
-                    continue;
-                }
                 setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
                 builder.SetInsertPoint(branches.at(function_node).first);
 
@@ -278,7 +287,7 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
             }
         }
         // Generate all the bodies of the basic blocks, being the setups of the frames & returning the pointer to the argument start
-        for (const FunctionNode *function_node : entity->functions) {
+        for (const FunctionNode *function_node : object->functions) {
             const size_t fn_id = function_node->get_id();
             ASSERT(branches.find(function_node) != branches.end());
             setup_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).first);
@@ -296,15 +305,9 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         }
 
         // Generate all the bodies of the basic blocks, being the calls to the linked-to functions
-        for (const FuncNode *func : entity->func_modules) {
+        for (const FuncNode *func : object->func_components) {
             for (const FunctionNode *function_node : func->functions) {
                 const size_t fn_id = function_node->get_id();
-                if (branches.find(function_node) == branches.end()) {
-                    // Function linked to other function, do not generate branch for it, this switch branches to a different branch
-                    const FunctionNode *target_fn = entity->edg.get_mapped_fn(function_node).value();
-                    execute_switch->addCase(builder.getInt64(fn_id), branches.at(target_fn).second);
-                    continue;
-                }
                 execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
                 builder.SetInsertPoint(branches.at(function_node).second);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
@@ -315,22 +318,22 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 llvm::Function *const function = module->getFunction(function_name);
                 ASSERT(function != nullptr);
 
-                // Store the data values of the entity inside the implicit parameters of the targetted function
+                // Store the data values of the object inside the implicit parameters of the targetted function
                 llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
                 std::vector<std::pair<llvm::Value *, llvm::Value *>> data_ptr_pairs;
                 for (size_t i = 0; i < func->required_data.size(); i++) {
                     const auto &required_data = func->required_data.at(i);
                     size_t data_id = 0;
-                    for (; data_id < entity->data_modules.size(); data_id++) {
+                    for (; data_id < object->data_modules.size(); data_id++) {
                         // Since data nodes are generated as unique pointers, the raw pointers can be compared directly
-                        if (entity->data_modules.at(data_id).first == required_data.type->as<DataType>()->data_node) {
+                        if (object->data_modules.at(data_id).first == required_data.type->as<DataType>()->data_node) {
                             break;
                         }
                     }
-                    // The required data definitely should be part of the entity, otherwise the parser would have crashed
-                    ASSERT(data_id != entity->data_modules.size());
-                    // Load the data pointer from the passed-in entity
-                    llvm::Value *const data_ptr_ptr = builder.CreateGEP(PTR_TY, arg_entity, builder.getInt32(data_id), "data_ptr_ptr");
+                    // The required data definitely should be part of the object, otherwise the parser would have crashed
+                    ASSERT(data_id != object->data_modules.size());
+                    // Load the data pointer from the passed-in object
+                    llvm::Value *const data_ptr_ptr = builder.CreateGEP(PTR_TY, arg_object, builder.getInt32(data_id), "data_ptr_ptr");
                     llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
                     const std::string arg_ptr_str = "arg_" + std::to_string(i) + "_ptr";
                     const size_t arg_ptr_id = 1 + function_node->return_types.size() + i;
@@ -349,10 +352,10 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 }
 #endif
 
-                // Store back the data values of the function frame to the entity if the local data has been overwritten
-                for (const auto &[entity_data, fn_frame_data] : data_ptr_pairs) {
+                // Store back the data values of the function frame to the object if the local data has been overwritten
+                for (const auto &[object_data, fn_frame_data] : data_ptr_pairs) {
                     llvm::Value *const new_data = IR::aligned_load(builder, PTR_TY, fn_frame_data, "new_data");
-                    IR::aligned_store(builder, new_data, entity_data);
+                    IR::aligned_store(builder, new_data, object_data);
                 }
                 // We return "garbage" in the case of error, nullpointer if no error happened. This return value of the dispatch function
                 // should *never* be read when calling the dispatch function in execute mode
@@ -360,8 +363,8 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
                 builder.CreateRet(err_ptr);
             }
         }
-        // Generate all the bodies of the entity branches
-        for (const FunctionNode *function_node : entity->functions) {
+        // Generate all the bodies of the object branches
+        for (const FunctionNode *function_node : object->functions) {
             const size_t fn_id = function_node->get_id();
             ASSERT(branches.find(function_node) != branches.end());
             execute_switch->addCase(builder.getInt64(fn_id), branches.at(function_node).second);
@@ -374,15 +377,15 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
             llvm::Function *const function = module->getFunction(function_name);
             ASSERT(function != nullptr);
 
-            // Store the entity value in the called entity-function
-            // Store the data values of the entity inside the implicit parameters of the targetted function
+            // Store the object value in the called object-function
+            // Store the data values of the object inside the implicit parameters of the targetted function
             llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
             const std::string arg_ptr_str = "arg_self_ptr";
             const size_t arg_ptr_id = 1 + function_node->return_types.size();
             llvm::Value *const arg_self_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, arg_ptr_id, "arg_self_ptr");
-            IR::aligned_store(builder, arg_entity, arg_self_ptr);
+            IR::aligned_store(builder, arg_object, arg_self_ptr);
 
-            // Now that the entity is stored in the function frame, we can call the function
+            // Now that the object is stored in the function frame, we can call the function
             llvm::CallInst *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
 #ifndef __WIN32__
             call_err->addParamAttr(0, llvm::Attribute::InReg);
@@ -405,10 +408,10 @@ void Generator::IR::generate_entity_dispatch_functions(llvm::Module *module) {
         builder.CreateCall(c_functions.at(ABORT), {});
         builder.CreateUnreachable();
 
-        // It is safe to cast away the const here using `const_cast` since the lifetime of the entity type is *very* short
-        const uint32_t entity_type_id = std::make_shared<EntityType>(const_cast<EntityNode *const>(entity))->get_id();
-        ASSERT(entity_dispatch_functions.find(entity_type_id) == entity_dispatch_functions.end());
-        entity_dispatch_functions[entity_type_id] = dispatch_fn;
+        // It is safe to cast away the const here using `const_cast` since the lifetime of the object type is *very* short
+        const uint32_t object_type_id = std::make_shared<ObjectType>(const_cast<ObjectNode *const>(object))->get_id();
+        ASSERT(object_dispatch_functions.find(object_type_id) == object_dispatch_functions.end());
+        object_dispatch_functions[object_type_id] = dispatch_fn;
     }
 }
 
@@ -435,11 +438,11 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
-    if (type_variation == Type::Variation::MULTI) {
-        const auto *multi_type = type->as<MultiType>();
-        // Let's first look at how each multi-type behaves, considereing the 16 byte rule as well
-        // They follow the same rules as above, as multi-types are passed as structs into FIP functions
-        // We now see how each multi-type looks
+    if (type_variation == Type::Variation::VECTOR) {
+        const auto *vector_type = type->as<VectorType>();
+        // Let's first look at how each vector-type behaves, considereing the 16 byte rule as well
+        // They follow the same rules as above, as vector-types are passed as structs into FIP functions
+        // We now see how each vector-type looks
         //
         //  bool8 -> i8 (handled in the normal `get_type` function)
         //  u8x2 / i8x2 -> i16
@@ -468,20 +471,20 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         //  f64x2 -> { f64, f64 }
         //  f64x3 and f64x4 are greater than 16 bytes
         //
-        llvm::Type *element_type = get_type(module, multi_type->base_type).first;
-        const std::string type_str = "type." + multi_type->to_string() + ".extern";
+        llvm::Type *const element_type = get_type(module, vector_type->base_type).type;
+        const std::string type_str = "type." + vector_type->to_string() + ".extern";
         if (type_str == "bool8") {
             // Handle the `bool8` type in the normal `get_type` function
             return std::nullopt;
         }
-        const std::string base_type_str = multi_type->base_type->to_string();
+        const std::string base_type_str = vector_type->base_type->to_string();
         if (base_type_str == "u8" || base_type_str == "i8") {
-            return llvm::Type::getIntNTy(context, multi_type->width * 8);
+            return llvm::Type::getIntNTy(context, vector_type->width * 8);
         }
         llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
         if (base_type_str == "u16" || base_type_str == "i16") {
-            if (multi_type->width <= 4) {
-                return llvm::Type::getIntNTy(context, multi_type->width * 16);
+            if (vector_type->width <= 4) {
+                return llvm::Type::getIntNTy(context, vector_type->width * 16);
             } else if (type_map.find(type_str) == type_map.end()) {
                 type_map[type_str] = IR::create_struct_type(type_str, {i64_ty, i64_ty});
             }
@@ -491,16 +494,16 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             std::vector<llvm::Type *> types;
             llvm::VectorType *vec2_type = llvm::VectorType::get(element_type, 2, false);
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     types.emplace_back(element_type);
                 }
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "f32") {
                     return vec2_type;
                 } else if (base_type_str == "u32" || base_type_str == "i32") {
                     return i64_ty;
                 }
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "f32") {
                     types.emplace_back(vec2_type);
                 } else if (base_type_str == "u32" || base_type_str == "i32") {
@@ -508,7 +511,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
                 }
                 types.emplace_back(element_type);
             } else {
-                for (size_t i = 0; i < multi_type->width; i += 2) {
+                for (size_t i = 0; i < vector_type->width; i += 2) {
                     if (base_type_str == "f32") {
                         types.emplace_back(vec2_type);
                     } else {
@@ -560,7 +563,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     }
     // First we need to check the total size of the data structure. If it's bigger than 16 bytes the 16-byte-rule applies (we pass in
     // the struct by reference or we need to pass in a pointer to the returned struct as first argument)
-    llvm::Type *_struct_type = get_type(module, type, false).first;
+    llvm::Type *const _struct_type = get_type(module, type, false).type;
     ASSERT(_struct_type->isStructTy());
     if (Allocation::get_type_size(module, _struct_type) > 16) {
         // The 16 byte rule applies, all values > 16 bytes are passed around as pointers
@@ -627,7 +630,7 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     // applies
     // Padding is handled by just different offsets of the struct elements, the total size of the first stack is also tracked for
     // sub-64-byte packed results like packing 5 u8 values into one i40.
-    llvm::StructType *struct_type = llvm::cast<llvm::StructType>(_struct_type);
+    llvm::StructType *const struct_type = llvm::cast<llvm::StructType>(_struct_type);
     std::vector<llvm::Type *> elem_types;
     for (llvm::Type *const elem : struct_type->elements()) {
         expand_type(elem, elem_types);
@@ -746,15 +749,15 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     return out_struct;
 }
 
-std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
-    llvm::Module *module,                                               //
-    const std::shared_ptr<Type> &type,                                  //
-    const bool is_extern                                                //
+Generator::IR::TypeStorageInfo Generator::IR::get_type( //
+    llvm::Module *module,                               //
+    const std::shared_ptr<Type> &type,                  //
+    const bool is_extern                                //
 ) {
     if (is_extern) {
         auto ext_type = get_extern_type(module, type);
         if (ext_type.has_value()) {
-            return {ext_type.value(), {false, false}};
+            return {.type = ext_type.value(), .is_complex = false, .is_reference = false, .is_indirect = false};
         }
     }
     switch (type->get_variation()) {
@@ -766,7 +769,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             const auto *array_type = type->as<ArrayType>();
             if (!array_type->sizes.has_value()) {
                 // Dynamic arrays are *always* of type 'str', as a 'str' is just one i64 followed by a byte array
-                return {PTR_TY, {false, false}};
+                return {.type = PTR_TY, .is_complex = false, .is_reference = false, .is_indirect = true};
             }
             // "Static" arrays (comptime-known sizes) are direct arrays
             size_t num_elems = 1;
@@ -774,16 +777,16 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 num_elems *= len;
             }
             const auto elem_type_pair = IR::get_type(module, array_type->type);
-            llvm::Type *const elem_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+            llvm::Type *const elem_type = elem_type_pair.is_complex ? PTR_TY : elem_type_pair.type;
             llvm::ArrayType *const arr_type = llvm::ArrayType::get(elem_type, num_elems);
-            return {arr_type, {false, true}};
+            return {.type = arr_type, .is_complex = false, .is_reference = true, .is_indirect = true};
         }
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();
             // Check if its a known data type
             const std::string type_str = data_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {true, true}};
+                return {.type = type_map.at(type_str), .is_complex = true, .is_reference = true, .is_indirect = true};
             }
             llvm::StructType *struct_type = llvm::StructType::create(context, type_str);
             // Create an opaque struct type and store it in the map before trying to resolve the field types to prevent circles
@@ -791,141 +794,163 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             // Now process the field types
             std::vector<llvm::Type *> field_types;
             for (auto field_it = data_type->data_node->fields.begin(); field_it != data_type->data_node->fields.end(); ++field_it) {
-                auto pair = get_type(module, field_it->type);
-                if (pair.second.first && field_it->type->get_variation() != Type::Variation::OPTIONAL) {
+                TypeStorageInfo field_info = get_type(module, field_it->type);
+                if (field_info.is_complex && field_it->type->get_variation() != Type::Variation::OPTIONAL) {
                     field_types.emplace_back(PTR_TY);
                 } else {
-                    field_types.emplace_back(pair.first);
+                    field_types.emplace_back(field_info.type);
                 }
             }
             // Set the body of the struct now that we have all field types
             struct_type->setBody(field_types, false); // false = not packed
-            return {struct_type, {true, true}};
+            return {.type = struct_type, .is_complex = true, .is_reference = true, .is_indirect = true};
         }
-        case Type::Variation::ENTITY: {
-            const auto *entity_type = type->as<EntityType>();
-            // Check if it's a known entity type
-            const std::string type_str = entity_type->get_type_string();
+        case Type::Variation::OBJECT: {
+            const auto *object_type = type->as<ObjectType>();
+            // Check if it's a known object type
+            const std::string type_str = object_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {true, true}};
+                return {.type = type_map.at(type_str), .is_complex = true, .is_reference = true, .is_indirect = true};
             }
-            // Create the entity type, it's just a struct containing pointers to the entities' defined data
+            // Create the object type, it's just a struct containing pointers to the objects' defined data
             std::vector<llvm::Type *> field_types;
-            for (size_t i = 0; i < entity_type->entity_node->data_modules.size(); i++) {
+            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
                 field_types.emplace_back(PTR_TY);
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {true, true}};
+            return {.type = type_map.at(type_str), .is_complex = true, .is_reference = true, .is_indirect = true};
         }
         case Type::Variation::ENUM:
-            return {llvm::Type::getInt32Ty(context), {false, false}};
+            return {.type = llvm::Type::getInt32Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
         case Type::Variation::ERROR_SET:
-            return {type_map.at("type.flint.err"), {false, true}};
+            return {.type = type_map.at("type.flint.err"), .is_complex = false, .is_reference = true, .is_indirect = false};
         case Type::Variation::FUNC: {
             const auto *func_type = type->as<FuncType>();
             // Check if it's a known func type
             const std::string type_str = func_type->get_type_string();
             if (type_map.find(type_str) != type_map.end()) {
-                return {type_map.at(type_str), {false, true}};
+                return {.type = type_map.at(type_str), .is_complex = false, .is_reference = false, .is_indirect = false};
             }
-            // Because a func module can only exist through an entity being stored on it, a func module is a rather simple structure
-            // contianing of:
-            // - A pointer to the entity assigned to the func-module instance
-            // - A pointer to the entity dispatch function to call
-            // - A pointer to the entitie's DIMA head
-            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, PTR_TY};
+            // Check if the func type even requires any data. If it does not then it's type cannot be created
+            if (func_type->func_node->required_data.empty()) {
+                // Creating an instance of a func component which does not require any data does not make sense since we just call it using
+                // `FuncType.function` anyways
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return {.type = type_map.at(type_str), .is_complex = false, .is_reference = false, .is_indirect = false};
+            }
+            // Create the func type, it's just a struct containing pointers to the defined data
+            std::vector<llvm::Type *> field_types;
+            for (size_t i = 0; i < func_type->func_node->required_data.size(); i++) {
+                field_types.emplace_back(PTR_TY);
+            }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);
-            return {type_map.at(type_str), {false, true}};
+            return {.type = type_map.at(type_str), .is_complex = false, .is_reference = false, .is_indirect = false};
         }
         case Type::Variation::FN: {
             // A fn variable is just a pointer to the heap-allocated function frame, so it is literally just a simple pointer
-            return {PTR_TY, {true, true}};
+            return {.type = PTR_TY, .is_complex = true, .is_reference = true, .is_indirect = true};
         }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             const std::string type_str = group_type->get_type_string();
             std::vector<llvm::Type *> type_vector;
             for (const auto &tup_type : group_type->types) {
-                auto pair = get_type(module, tup_type);
-                if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
-                    pair.first = PTR_TY;
+                TypeStorageInfo type_info = get_type(module, tup_type);
+                if (type_info.is_complex && tup_type->get_variation() != Type::Variation::OPTIONAL) {
+                    type_info.type = PTR_TY;
                 }
-                type_vector.emplace_back(pair.first);
+                type_vector.emplace_back(type_info.type);
             }
             if (type_map.find(type_str) == type_map.end()) {
                 type_map[type_str] = IR::create_struct_type(type_str, type_vector);
             }
-            return {type_map.at(type_str), {false, true}};
+            return {.type = type_map.at(type_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
-            if (type->to_string() == "bool8") {
-                return {llvm::Type::getInt8Ty(context), {false, false}};
+        case Type::Variation::INTERFACE: {
+            const auto *interface_type = type->as<InterfaceType>();
+            // Check if the interface type already has been generated
+            const std::string type_str = interface_type->get_type_string();
+            if (type_map.find(type_str) != type_map.end()) {
+                return {.type = type_map.at(type_str), .is_complex = false, .is_reference = true, .is_indirect = false};
             }
-            llvm::Type *element_type = get_type(module, multi_type->base_type).first;
-            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
-            return {vector_type, {false, false}};
+            // Because an interface can only exist through an object being stored on it, an interface is a rather simple structure
+            // contianing of:
+            // - A pointer to the object assigned to the interface instance
+            // - A pointer to the object dispatch function to call
+            // - A pointer to the objects DIMA head
+            std::vector<llvm::Type *> field_types = {PTR_TY, PTR_TY, PTR_TY};
+            type_map[type_str] = IR::create_struct_type(type_str, field_types);
+            return {.type = type_map.at(type_str), .is_complex = false, .is_reference = true, .is_indirect = false};
+        }
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
+            if (type->to_string() == "bool8") {
+                return {.type = llvm::Type::getInt8Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
+            }
+            llvm::Type *const element_type = get_type(module, vector_type->base_type).type;
+            llvm::VectorType *vector_ty = llvm::VectorType::get(element_type, vector_type->width, false);
+            return {.type = vector_ty, .is_complex = false, .is_reference = false, .is_indirect = false};
         }
         case Type::Variation::OPAQUE:
-            return {PTR_TY, {false, true}};
+            return {.type = PTR_TY, .is_complex = false, .is_reference = true, .is_indirect = true};
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             const std::string opt_str = type->get_type_string();
             if (type_map.find(opt_str) == type_map.end()) {
-                auto pair = get_type(module, optional_type->base_type);
-                if (pair.second.first) {
-                    pair.first = PTR_TY;
+                TypeStorageInfo type_info = get_type(module, optional_type->base_type);
+                if (type_info.is_complex) {
+                    type_info.type = PTR_TY;
                 }
-                type_map[opt_str] = IR::create_struct_type(opt_str, {llvm::Type::getInt1Ty(context), pair.first});
+                type_map[opt_str] = IR::create_struct_type(opt_str, {llvm::Type::getInt1Ty(context), type_info.type});
             }
-            return {type_map.at(opt_str), {false, true}};
+            return {.type = type_map.at(opt_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }
         case Type::Variation::POINTER:
-            return {PTR_TY, {false, false}};
+            return {.type = PTR_TY, .is_complex = false, .is_reference = false, .is_indirect = false};
         case Type::Variation::PRIMITIVE: {
             const auto *primitive_type = type->as<PrimitiveType>();
             if (primitive_type->type_name == "type.flint.str") {
                 // A string is a struct of type 'type { i64, [0 x i8] }'
-                return {type_map.at("type.str"), {false, false}};
+                return {.type = type_map.at("type.str"), .is_complex = false, .is_reference = false, .is_indirect = false};
             }
             if (primitive_type->type_name == "type.flint.str.lit") {
-                return {PTR_TY, {false, false}};
+                return {.type = PTR_TY, .is_complex = false, .is_reference = false, .is_indirect = false};
             }
             if (primitive_type->type_name == "anyerror") {
-                return {type_map.at("type.flint.err"), {false, false}};
+                return {.type = type_map.at("type.flint.err"), .is_complex = false, .is_reference = false, .is_indirect = false};
             }
             if (primitives.find(primitive_type->type_name) != primitives.end()) {
                 switch (primitives.at(primitive_type->type_name)) {
                     default:
                         THROW_BASIC_ERR(ERR_GENERATING);
-                        return {nullptr, {false, false}};
+                        return {.type = nullptr, .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_U8:
                     case TOK_I8:
-                        return {llvm::Type::getInt8Ty(context), {false, false}};
+                        return {.type = llvm::Type::getInt8Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_U16:
                     case TOK_I16:
-                        return {llvm::Type::getInt16Ty(context), {false, false}};
+                        return {.type = llvm::Type::getInt16Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_U32:
                     case TOK_I32:
-                        return {llvm::Type::getInt32Ty(context), {false, false}};
+                        return {.type = llvm::Type::getInt32Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_U64:
                     case TOK_I64:
-                        return {llvm::Type::getInt64Ty(context), {false, false}};
+                        return {.type = llvm::Type::getInt64Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_F32:
-                        return {llvm::Type::getFloatTy(context), {false, false}};
+                        return {.type = llvm::Type::getFloatTy(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_F64:
-                        return {llvm::Type::getDoubleTy(context), {false, false}};
+                        return {.type = llvm::Type::getDoubleTy(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_FLINT:
                         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                        return {nullptr, {false, false}};
+                        return {.type = nullptr, .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_STR:
-                        return {PTR_TY, {false, false}};
+                        return {.type = PTR_TY, .is_complex = false, .is_reference = false, .is_indirect = true};
                     case TOK_BOOL:
-                        return {llvm::Type::getInt1Ty(context), {false, false}};
+                        return {.type = llvm::Type::getInt1Ty(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_VOID:
-                        return {llvm::Type::getVoidTy(context), {false, false}};
+                        return {.type = llvm::Type::getVoidTy(context), .is_complex = false, .is_reference = false, .is_indirect = false};
                     case TOK_OPAQUE:
-                        return {PTR_TY, {false, false}};
+                        return {.type = PTR_TY, .is_complex = false, .is_reference = false, .is_indirect = false};
                 }
             }
             break;
@@ -938,16 +963,16 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
             const std::string tuple_str = type->get_type_string();
             std::vector<llvm::Type *> type_vector;
             for (const auto &tup_type : tuple_type->types) {
-                auto pair = get_type(module, tup_type);
-                if (pair.second.first && tup_type->get_variation() != Type::Variation::OPTIONAL) {
-                    pair.first = PTR_TY;
+                TypeStorageInfo type_info = get_type(module, tup_type);
+                if (type_info.is_complex && tup_type->get_variation() != Type::Variation::OPTIONAL) {
+                    type_info.type = PTR_TY;
                 }
-                type_vector.emplace_back(pair.first);
+                type_vector.emplace_back(type_info.type);
             }
             if (type_map.find(tuple_str) == type_map.end()) {
                 type_map[tuple_str] = IR::create_struct_type(tuple_str, type_vector);
             }
-            return {type_map.at(tuple_str), {false, true}};
+            return {.type = type_map.at(tuple_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }
         case Type::Variation::UNKNOWN:
             // TODO: Add this?
@@ -955,7 +980,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
         case Type::Variation::VARIANT: {
             const auto *variant_type = type->as<VariantType>();
             if (variant_type->is_err_variant) {
-                return {type_map.at("type.flint.err"), {false, true}};
+                return {.type = type_map.at("type.flint.err"), .is_complex = false, .is_reference = true, .is_indirect = false};
             }
             const std::string var_str = type->get_type_string();
             // Check if its a known data type
@@ -970,7 +995,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                         if (variation->to_string() == "void") {
                             continue;
                         }
-                        llvm::Type *const ty = get_type(module, variation).first;
+                        llvm::Type *const ty = get_type(module, variation).type;
                         const unsigned int type_size = Allocation::get_type_size(module, ty);
                         if (type_size > max_size) {
                             max_size = type_size;
@@ -983,7 +1008,7 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 } else {
                     const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(variant_type->var_or_list);
                     for (const auto &variation : possible_types) {
-                        llvm::Type *const ty = get_type(module, variation).first;
+                        llvm::Type *const ty = get_type(module, variation).type;
                         const unsigned int type_size = Allocation::get_type_size(module, ty);
                         if (type_size > max_size) {
                             max_size = type_size;
@@ -1006,12 +1031,12 @@ std::pair<llvm::Type *, std::pair<bool, bool>> Generator::IR::get_type( //
                 );
                 type_map[var_str] = variant_struct_type;
             }
-            return {type_map.at(var_str), {false, true}};
+            return {.type = type_map.at(var_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }
     }
     // Pointer to non-supported type
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return {nullptr, {false, false}};
+    return {.type = nullptr, .is_complex = false, .is_reference = false, .is_indirect = false};
 }
 
 llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder, llvm::Module *module, const std::shared_ptr<Type> &type) {
@@ -1019,7 +1044,7 @@ llvm::Value *Generator::IR::get_default_value_of_type(llvm::IRBuilder<> &builder
     if (type_string == "str") {
         return builder.CreateCall(Module::String::string_manip_functions.at("create_str"), {builder.getInt64(0)}, "empty_string");
     }
-    return get_default_value_of_type(IR::get_type(module, type).first);
+    return get_default_value_of_type(IR::get_type(module, type).type);
 }
 
 llvm::Constant *Generator::IR::get_default_value_of_type(llvm::Type *type) {

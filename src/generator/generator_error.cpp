@@ -182,7 +182,7 @@ void Generator::Error::generate_get_err_str_function(llvm::IRBuilder<> *builder,
     llvm::Function *get_err_val_str_fn = error_functions.at("get_err_val_str");
     llvm::Function *create_str_fn = Module::String::string_manip_functions.at("create_str");
 
-    llvm::Type *str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::StructType *error_type = type_map.at("type.flint.err");
     llvm::FunctionType *get_err_str_type = llvm::FunctionType::get( //
         PTR_TY,                                                     // returns str*

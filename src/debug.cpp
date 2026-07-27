@@ -235,9 +235,9 @@ namespace Debug {
                         print_data(0, bits, *node);
                         break;
                     }
-                    case DefinitionNode::Variation::ENTITY: {
-                        const auto *node = def->as<EntityNode>();
-                        print_entity(0, bits, *node);
+                    case DefinitionNode::Variation::OBJECT: {
+                        const auto *node = def->as<ObjectNode>();
+                        print_object(0, bits, *node);
                         break;
                     }
                     case DefinitionNode::Variation::ENUM: {
@@ -263,6 +263,11 @@ namespace Debug {
                     case DefinitionNode::Variation::IMPORT: {
                         const auto *node = def->as<ImportNode>();
                         print_import(0, bits, *node);
+                        break;
+                    }
+                    case DefinitionNode::Variation::INTERFACE: {
+                        const auto *node = def->as<InterfaceNode>();
+                        print_interface(0, bits, *node);
                         break;
                     }
                     case DefinitionNode::Variation::TEST: {
@@ -1549,41 +1554,43 @@ namespace Debug {
             }
         }
 
-        // print_entity
-        //     Prints the content of the generated EntityNode
-        void print_entity(unsigned int indent_lvl, TreeBits &bits, const EntityNode &entity) {
-            Local::print_header(indent_lvl, bits, "Entity ");
-            std::cout << entity.name << "(";
-            for (size_t i = 0; i < entity.constructor_order.size(); i++) {
+        // print_object
+        //     Prints the content of the generated ObjectNode
+        void print_object(unsigned int indent_lvl, TreeBits &bits, const ObjectNode &object) {
+            Local::print_header(indent_lvl, bits, "Object ");
+            std::cout << object.name << "(";
+            for (size_t i = 0; i < object.constructor_order.size(); i++) {
                 if (i > 0) {
                     std::cout << ", ";
                 }
-                const auto &[data_type, accessor] = entity.data_modules.at(entity.constructor_order.at(i));
+                const auto &[data_type, accessor] = object.data_modules.at(object.constructor_order.at(i));
                 if (accessor.has_value()) {
                     std::cout << accessor.value();
                 } else {
                     std::cout << data_type->name;
                 }
             }
-            std::cout << ")";
-            if (!entity.parent_entities.empty()) {
-                std::cout << " extends(";
-                for (size_t i = 0; i < entity.parent_entities.size(); i++) {
-                    if (i > 0) {
-                        std::cout << ", ";
-                    }
-                    const auto &pe = entity.parent_entities.at(i);
-                    std::cout << pe.type->to_string() << " " << pe.accessor_name;
+            std::cout << ")\n";
+
+            if (!object.interfaces.empty()) {
+                TreeBits interface_bits = bits.child(indent_lvl + 1, false);
+                Local::print_header(indent_lvl + 1, interface_bits, "Implements ");
+                std::cout << "\n";
+                size_t i = 0;
+                for (const auto &interface : object.interfaces) {
+                    TreeBits interface_module_bits = interface_bits.child(indent_lvl + 2, i + 1 == object.interfaces.size());
+                    Local::print_header(indent_lvl + 2, interface_module_bits, interface.type->to_string() + " ");
+                    std::cout << "\n";
+                    i++;
                 }
-                std::cout << ")";
             }
-            std::cout << "\n";
+
             TreeBits data_bits = bits.child(indent_lvl + 1, false);
             Local::print_header(indent_lvl + 1, data_bits, "Data ");
             std::cout << "\n";
-            for (size_t i = 0; i < entity.data_modules.size(); i++) {
-                TreeBits data_module_bits = data_bits.child(indent_lvl + 2, i + 1 == entity.data_modules.size());
-                const auto &pair = entity.data_modules.at(i);
+            for (size_t i = 0; i < object.data_modules.size(); i++) {
+                TreeBits data_module_bits = data_bits.child(indent_lvl + 2, i + 1 == object.data_modules.size());
+                const auto &pair = object.data_modules.at(i);
                 Local::print_header(indent_lvl + 2, data_module_bits, pair.first->name + " ");
                 if (pair.second.has_value()) {
                     std::cout << pair.second.value();
@@ -1591,41 +1598,21 @@ namespace Debug {
                 std::cout << "\n";
             }
 
-            const auto &edg_mappings = entity.edg.get_all_mappings();
-            if (!entity.func_modules.empty()) {
-                TreeBits func_bits = bits.child(indent_lvl + 1, edg_mappings.empty());
+            if (!object.func_components.empty()) {
+                TreeBits func_bits = bits.child(indent_lvl + 1, object.functions.empty());
                 Local::print_header(indent_lvl + 1, func_bits, "Func ");
                 std::cout << "\n";
-                for (size_t i = 0; i < entity.func_modules.size(); i++) {
-                    TreeBits func_module_bits = func_bits.child(indent_lvl + 2, i + 1 == entity.func_modules.size());
-                    Local::print_header(indent_lvl + 2, func_module_bits, entity.func_modules.at(i)->name + " ");
+                for (size_t i = 0; i < object.func_components.size(); i++) {
+                    TreeBits func_component_bits = func_bits.child(indent_lvl + 2, i + 1 == object.func_components.size());
+                    Local::print_header(indent_lvl + 2, func_component_bits, object.func_components.at(i)->name + " ");
                     std::cout << "\n";
                 }
             }
 
-            if (!edg_mappings.empty()) {
-                TreeBits link_bits = bits.child(indent_lvl + 1, entity.functions.empty());
-                Local::print_header(indent_lvl + 1, link_bits, "Links ");
-                std::cout << "\n";
-                for (auto it = edg_mappings.begin(); it != edg_mappings.end(); it++) {
-                    const size_t i = std::distance(edg_mappings.begin(), it);
-                    TreeBits link_node_bits = link_bits.child(indent_lvl + 2, i + 1 == edg_mappings.size());
-                    Local::print_header(indent_lvl + 2, link_node_bits, "Link ");
-                    const auto src_name = it->first->name;
-                    const size_t src_start_idx = std::distance(src_name.begin(), std::find(src_name.begin(), src_name.end(), '.')) + 1;
-                    std::cout << it->first->name << "::" << src_name.substr(src_start_idx);
-                    std::cout << " -> ";
-                    const auto dest_name = it->second->name;
-                    const size_t dest_start_idx = std::distance(dest_name.begin(), std::find(dest_name.begin(), dest_name.end(), '.')) + 1;
-                    std::cout << it->second->name << "::" << dest_name.substr(dest_start_idx);
-                    std::cout << "\n";
-                }
-            }
-
-            if (!entity.functions.empty()) {
-                for (size_t i = 0; i < entity.functions.size(); i++) {
-                    const auto *function = entity.functions.at(i);
-                    TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == entity.functions.size());
+            if (!object.functions.empty()) {
+                for (size_t i = 0; i < object.functions.size(); i++) {
+                    const auto *function = object.functions.at(i);
+                    TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == object.functions.size());
                     Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
                     std::cout << function->get_signature_string(0, false, true, true, false, false) << "\n";
                 }
@@ -1683,6 +1670,18 @@ namespace Debug {
             for (size_t i = 0; i < func.functions.size(); i++) {
                 const auto *function = func.functions.at(i);
                 TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == func.functions.size());
+                Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
+                std::cout << function->get_signature_string(0, false, true, true, false, false) << "\n";
+            }
+        }
+
+        void print_interface(unsigned int indent_lvl, TreeBits &bits, const InterfaceNode &interface) {
+            Local::print_header(indent_lvl, bits, "Interface ");
+            std::cout << interface.name;
+            std::cout << "\n";
+            for (size_t i = 0; i < interface.functions.size(); i++) {
+                const auto *function = interface.functions.at(i);
+                TreeBits func_body_bits = bits.child(indent_lvl + 1, i + 1 == interface.functions.size());
                 Local::print_header(indent_lvl + 1, func_body_bits, "Function ");
                 std::cout << function->get_signature_string(0, false, true, true, false, false) << "\n";
             }

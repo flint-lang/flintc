@@ -188,10 +188,10 @@ class Scope {
     /// @brief All the variables visible within this scope
     std::unordered_map<std::string, Variable> variables;
 
-    /// @var `captured_entity_identifiers`
-    /// @brief A list of all "variables" (like data accessors) captured from the entity this functions scope is defined in. The name of the
+    /// @var `captured_object_identifiers`
+    /// @brief A list of all "variables" (like data accessors) captured from the object this functions scope is defined in. The name of the
     /// captured identifier maps to it's respective type
-    std::unordered_map<std::string, std::shared_ptr<Type>> captured_entity_identifiers{};
+    std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers{};
 
     /// @var `function`
     /// @brief The parent function this scope is defined in, or the parent test this scope is defined in

@@ -15,14 +15,14 @@ class ErrFnParamShadowsRequiredData : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Function parameter shadows data required by func module";
+        oss << BaseError::to_string() << "└─ Function parameter shadows data required by func component";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Function parameter shadows data required by func module";
+        d.message = "Function parameter shadows data required by func component";
         return d;
     }
 };

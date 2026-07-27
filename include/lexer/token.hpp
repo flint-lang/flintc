@@ -179,13 +179,13 @@ enum Token {
     TOK_SHARED,
 
     // func keywords
+    TOK_INTERFACE,
     TOK_FUNC,
     TOK_REQUIRES,
 
-    // entity keywords
-    TOK_ENTITY,
-    TOK_EXTENDS,
-    TOK_LINK,
+    // object keywords
+    TOK_OBJECT,
+    TOK_IMPLEMENTS,
 
     // threading keywords
     TOK_SPAWN,

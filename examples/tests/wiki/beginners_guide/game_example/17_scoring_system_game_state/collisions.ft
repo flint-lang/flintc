@@ -6,7 +6,7 @@ use "paddle.ft"
 enum GameState:
 	RUNNING, P1_WON, P2_WON;
 
-def check_collisions(mut Ball ball, FPaddleCommon player, FPaddleCommon cpu) -> GameState:
+def check_collisions(mut Ball ball, IPaddle player, IPaddle cpu) -> GameState:
 	// Check if the ball passed one of the players
 	if cpu.ball_passed(ball):
 		return GameState.P1_WON;

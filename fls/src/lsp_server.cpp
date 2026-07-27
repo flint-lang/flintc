@@ -5,6 +5,7 @@
 #include "lexer/lexer.hpp"
 #include "lsp_protocol.hpp"
 #include "parser/parser.hpp"
+#include "parser/type/interface_type.hpp"
 #include "profiler.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -56,10 +57,10 @@
 #include "parser/ast/statements/while_node.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/type.hpp"
 #include "parser/type/variant_type.hpp"
 
@@ -154,7 +155,7 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         parser_cleanup();
         return std::nullopt;
     }
-    parsed_successful = Parser::parse_all_open_entities(parse_parallel);
+    parsed_successful = Parser::parse_all_open_objects(parse_parallel);
     if (!parsed_successful) {
         parser_cleanup();
         return std::nullopt;
@@ -1445,8 +1446,8 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_def( //
             const auto &node = def->as<DataNode>();
             return ns->get_type_from_str(node->name).value();
         }
-        case DefinitionNode::Variation::ENTITY: {
-            const auto &node = def->as<EntityNode>();
+        case DefinitionNode::Variation::OBJECT: {
+            const auto &node = def->as<ObjectNode>();
             for (const auto &fn : node->functions) {
                 const auto &pos = find_node_in_def(ns, fn, line, col);
                 if (pos.has_value()) {
@@ -1483,6 +1484,16 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_def( //
             }
             if (node->scope.has_value()) {
                 return find_node_in_scope(ns, node->scope.value().get(), line, col);
+            }
+            break;
+        }
+        case DefinitionNode::Variation::INTERFACE: {
+            const auto &node = def->as<InterfaceNode>();
+            for (const auto &fn : node->functions) {
+                const auto &pos = find_node_in_def(ns, fn, line, col);
+                if (pos.has_value()) {
+                    return pos;
+                }
             }
             break;
         }
@@ -1624,10 +1635,10 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             ss << "Defined at `" << node->file_hash.path.filename().string() << ":" << node->line << ":" << node->column << "`";
             break;
         }
-        case Type::Variation::ENTITY: {
-            const auto *entity_type = type->as<EntityType>();
-            const auto *node = entity_type->entity_node;
-            ss << "**entity** **`" << node->name << "`**\n```\n";
+        case Type::Variation::OBJECT: {
+            const auto *object_type = type->as<ObjectType>();
+            const auto *node = object_type->object_node;
+            ss << "**object** **`" << node->name << "`**\n```\n";
             ss << node->name << "(";
             for (size_t i = 0; i < node->constructor_order.size(); i++) {
                 if (i > 0) {
@@ -1637,6 +1648,19 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             }
             ss << ")\n\n";
 
+            for (auto it = node->interfaces.begin(); it != node->interfaces.end(); ++it) {
+                if (it == node->interfaces.begin()) {
+                    ss << "```\n";
+                    ss << "Interfaces:\n```\n";
+                }
+                ss << "\t" << it->type->to_string() << ":\n";
+                for (auto map_it = it->mapping.begin(); map_it != it->mapping.end(); ++map_it) {
+                    const auto &[from, to] = *map_it;
+                    ss << "\t\t" << from->get_signature_string(0, true, true, false, false, false);
+                    ss << " -> " << to->get_signature_string(0, true, true, false, false, false) << "\n";
+                }
+            }
+
             for (size_t i = 0; i < node->data_modules.size(); i++) {
                 if (i == 0) {
                     ss << "```\n";
@@ -1645,23 +1669,12 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                 ss << "\t" << node->data_modules.at(i).first->name << "\n";
             }
 
-            for (size_t i = 0; i < node->func_modules.size(); i++) {
+            for (size_t i = 0; i < node->func_components.size(); i++) {
                 if (i == 0) {
                     ss << "```\n";
                     ss << "Func modules:\n```\n";
                 }
-                ss << "\t" << node->func_modules.at(i)->name << "\n";
-            }
-
-            const auto &all_mappings = node->edg.get_all_mappings();
-            for (auto it = all_mappings.begin(); it != all_mappings.end(); ++it) {
-                if (it == all_mappings.begin()) {
-                    ss << "```\n";
-                    ss << "Links:\n```\n";
-                }
-                const auto &[from, to] = *it;
-                ss << "\t" << from->get_signature_string(0, true, true, false, false, false);
-                ss << " -> " << to->get_signature_string(0, true, true, false, false, false) << "\n";
+                ss << "\t" << node->func_components.at(i)->name << "\n";
             }
 
             for (size_t i = 0; i < node->functions.size(); i++) {
@@ -1728,9 +1741,23 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
         case Type::Variation::GROUP:
             ss << "**group**\n```\n" << type->to_string() << "\n```\n";
             break;
-        case Type::Variation::MULTI:
-            ss << "**multi**\n```\n" << type->to_string() << "\n```\n";
+        case Type::Variation::INTERFACE: {
+            const auto *interface_type = type->as<InterfaceType>();
+            const auto *node = interface_type->interface_node;
+            ss << "**interface** **`" << node->name << "`**\n```\n";
+
+            for (size_t i = 0; i < node->functions.size(); i++) {
+                if (i == 0) {
+                    ss << "```\n";
+                    ss << "Functions:\n```\n";
+                }
+                const auto &fn = node->functions.at(i);
+                ss << "\t" << fn->get_signature_string() << "\n";
+            }
+            ss << "```\n";
+            ss << "Defined at `" << node->file_hash.path.filename().string() << ":" << node->line << ":" << node->column << "`";
             break;
+        }
         case Type::Variation::OPAQUE:
             ss << "**opaque**\n```\n" << type->to_string() << "\n```\n";
             break;
@@ -1775,6 +1802,9 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             }
             break;
         }
+        case Type::Variation::VECTOR:
+            ss << "**vector**\n```\n" << type->to_string() << "\n```\n";
+            break;
     }
     return ss.str();
 }

@@ -19,7 +19,7 @@ def main():
 	// Initialize game objects
 	ball := Ball(DBall(_));
 	ball.reset();
-	player := Player(DPaddle(_, f32x2(screen / 2), _));
+	player := Player(DPaddle(_));
 	player.reset();
 
 	TimeStamp last_frame = now();

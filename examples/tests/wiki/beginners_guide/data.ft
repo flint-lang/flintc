@@ -105,10 +105,10 @@ test "20_tuple_grouped.ft":
 	str file = "20_tuple_grouped.ft";
 	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (7, 4.7, \"yes\")\n");
 
-test "21_tuple_multitype_overlap.ft":
+test "21_tuple_vector_overlap.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "21_tuple_multitype_overlap.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/21_tuple_multitype_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a multi-type\n");
+	str file = "21_tuple_vector_overlap.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/21_tuple_vector_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a vector-type\n");
 
 test "22_tuple_return_wrong.ft":
 	str path = "tests/wiki/beginners_guide/data";
@@ -130,19 +130,19 @@ test "25_tuple_param_mutable.ft":
 	str file = "25_tuple_param_mutable.ft";
 	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\ntuple.(i32, f32, str) = (2, 3.3, \"four\")\n");
 
-test "26_multitype.ft":
+test "26_vector.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "26_multitype.ft";
+	str file = "26_vector.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3 = (4, 5, 6)\n");
 
-test "27_multitype_function.ft":
+test "27_vector_function.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "27_multitype_function.ft";
+	str file = "27_vector_function.ft";
 	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
 
-test "28_multitype_arithmetic.ft":
+test "28_vector_arithmetic.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "28_multitype_arithmetic.ft";
+	str file = "28_vector_arithmetic.ft";
 	test_file_ok($"{path}/{file}", "sum = (6, 8, 10, 12)\n");
 
 test "29_splatting.ft":

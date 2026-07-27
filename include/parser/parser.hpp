@@ -11,12 +11,13 @@
 #include "ast/file_node.hpp"
 
 #include "ast/definitions/data_node.hpp"
-#include "ast/definitions/entity_node.hpp"
 #include "ast/definitions/enum_node.hpp"
 #include "ast/definitions/error_node.hpp"
 #include "ast/definitions/func_node.hpp"
 #include "ast/definitions/function_node.hpp"
 #include "ast/definitions/import_node.hpp"
+#include "ast/definitions/interface_node.hpp"
+#include "ast/definitions/object_node.hpp"
 #include "ast/definitions/test_node.hpp"
 #include "ast/definitions/variant_node.hpp"
 
@@ -179,6 +180,19 @@ class Parser {
         return source_code_lines;
     }
 
+    /// @function `resolve_comptime_type_of_expr`
+    /// @brief Resolves the comptime type a given expression has. Resolves the types of group expressions as well as literal expressions,
+    /// for example changing `int` to `i32` (the default type for the given comptime type)
+    ///
+    /// @brief `expr` The expression to resolve all comptime types in
+    /// @brief `target_type` The target type of the literal, if it is known. This type will only be applied in the `int` or `float` literal
+    /// type cases, if it is set
+    /// @return Whether the type of the expression was changed
+    bool resolve_comptime_type_of_expr(                         //
+        std::unique_ptr<ExpressionNode> &expr,                  //
+        const std::optional<std::shared_ptr<Type>> &target_type //
+    );
+
     /// @function `check_primitive_castability`
     /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
     ///
@@ -257,17 +271,17 @@ class Parser {
     static std::vector<const ErrorNode *> get_all_errors();
 
     /// @function `get_all_functions`
-    /// @brief Collects and returns all functions from all files, including functions defined within func modules
+    /// @brief Collects and returns all functions from all files, including functions defined within func components
     ///
     /// @param `include_core` Whether to also collect all functions provided from the Core modules
     /// @return `std::vector<const FunctionNode *>` A list of all functions from all files
     static std::vector<const FunctionNode *> get_all_functions(const bool include_core = false);
 
-    /// @function `get_all_entities`
-    /// @brief Collects and returns all entities defined across all files
+    /// @function `get_all_objects`
+    /// @brief Collects and returns all objects defined across all files
     ///
-    /// @return `std::vector<const EntityNode *>` A list of all entities from all files
-    static std::vector<const EntityNode *> get_all_entities();
+    /// @return `std::vector<const ObjectNode *>` A list of all objects from all files
+    static std::vector<const ObjectNode *> get_all_objects();
 
     /// @function `get_all_data_types`
     /// @brief Collects and returns all data types from all files
@@ -302,21 +316,21 @@ class Parser {
     /// @return `bool` Whether all data modules were able to be parsed
     static bool parse_all_open_data_modules(const bool parse_parallel);
 
-    /// @function `parse_open_entity`
-    /// @brief Parses a single open entity body
+    /// @function `parse_open_object`
+    /// @brief Parses a single open object body
     ///
-    /// @param `parser` The parser instance in which the entity is defined in
-    /// @param `entity` The entity definition to parse
-    /// @param `body` The body of the entity to parse
-    /// @return `bool` Whether the entity was able to be parsed
-    static bool parse_open_entity(Parser &parser, EntityNode *entity, std::vector<Line> body);
+    /// @param `parser` The parser instance in which the object is defined in
+    /// @param `object` The object definition to parse
+    /// @param `body` The body of the object to parse
+    /// @return `bool` Whether the object was able to be parsed
+    static bool parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body);
 
-    /// @function `parse_all_open_entities`
-    /// @brief Parses all still open entity bodies
+    /// @function `parse_all_open_objects`
+    /// @brief Parses all still open object bodies
     ///
-    /// @param `parse_parallel` Whether to parse the open entities in parallel
-    /// @return `bool` Wheter all entities were able to be parsed
-    static bool parse_all_open_entities(const bool parse_parallel);
+    /// @param `parse_parallel` Whether to parse the open objects in parallel
+    /// @return `bool` Wheter all objects were able to be parsed
+    static bool parse_all_open_objects(const bool parse_parallel);
 
     /// @function `parse_open_function`
     /// @brief Parses a single open function body
@@ -396,9 +410,9 @@ class Parser {
     /// @brief The list of all open data modules which will be parsed in the second phase of the parser
     std::vector<DataNode *> open_data_list{};
 
-    /// @var `open_entity_list`
-    /// @brief The list of all open entities which will be parsed in the second phase of the parser
-    std::vector<std::pair<EntityNode *, std::vector<Line>>> open_entity_list{};
+    /// @var `open_object_list`
+    /// @brief The list of all open objects which will be parsed in the second phase of the parser
+    std::vector<std::pair<ObjectNode *, std::vector<Line>>> open_object_list{};
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
@@ -612,17 +626,17 @@ class Parser {
         open_data_list.push_back(std::move(open_data));
     }
 
-    /// @function `add_open_entity`
-    /// @brief Adds a open entity to the list of all open entities
+    /// @function `add_open_object`
+    /// @brief Adds a open object to the list of all open objects
     ///
-    /// @param `open_function` A rvalue reference to the OpenEntity to add to the list
+    /// @param `open_function` A rvalue reference to the OpenObject to add to the list
     ///
-    /// @attention This function takes ownership of the `open_entity` parameter
-    void add_open_entity(std::pair<EntityNode *, std::vector<Line>> &&open_entity) {
-        if (!open_entity.second.empty()) {
-            open_entity.first->end_line = open_entity.second.back().tokens.second->line;
+    /// @attention This function takes ownership of the `open_object` parameter
+    void add_open_object(std::pair<ObjectNode *, std::vector<Line>> &&open_object) {
+        if (!open_object.second.empty()) {
+            open_object.first->end_line = open_object.second.back().tokens.second->line;
         }
-        open_entity_list.push_back(std::move(open_entity));
+        open_object_list.push_back(std::move(open_object));
     }
 
     /// @function `add_open_function`
@@ -641,7 +655,7 @@ class Parser {
     /// @function `get_next_open_data`
     /// @brief Returns the next open data module to parse
     ///
-    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func module to parse. Returns a nullopt if there
+    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func component to parse. Returns a nullopt if there
     /// are no open funct modules left
     std::optional<DataNode *> get_next_open_data() {
         if (open_data_list.empty()) {
@@ -652,17 +666,17 @@ class Parser {
         return od;
     }
 
-    /// @function `get_next_open_entity`
-    /// @brief Returns the next open entity to parse
+    /// @function `get_next_open_object`
+    /// @brief Returns the next open object to parse
     ///
-    /// @return `std::optional<std::pair<EntityNode *, std::vector<Line>>>` The next open entity to parse. Returns a nullopt if there
+    /// @return `std::optional<std::pair<ObjectNode *, std::vector<Line>>>` The next open object to parse. Returns a nullopt if there
     /// are no open functions left
-    std::optional<std::pair<EntityNode *, std::vector<Line>>> get_next_open_entity() {
-        if (open_entity_list.empty()) {
+    std::optional<std::pair<ObjectNode *, std::vector<Line>>> get_next_open_object() {
+        if (open_object_list.empty()) {
             return std::nullopt;
         }
-        std::pair<EntityNode *, std::vector<Line>> oe = std::move(open_entity_list.back());
-        open_entity_list.pop_back();
+        std::pair<ObjectNode *, std::vector<Line>> oe = std::move(open_object_list.back());
+        open_object_list.pop_back();
         return oe;
     }
 
@@ -823,7 +837,7 @@ class Parser {
         FunctionNode *function{nullptr};
 
         /// @var `instance_variable`
-        /// @brief The instance variable expression the call is done at, if any (`entity_variable.call()` for example)
+        /// @brief The instance variable expression the call is done at, if any (`object_variable.call()` for example)
         std::optional<std::unique_ptr<ExpressionNode>> instance_variable;
 
         /// @var `callable`
@@ -841,8 +855,8 @@ class Parser {
     /// @param `tokens` The tokens which will be interpreted as call
     /// @param `call_namespace` The namespace the called function comes from, for example when called via an alias the namespace is the
     /// alias namepsace, when called directly it's the namespace of this file
-    /// @param `is_typed_call` Whether the call is targetting a func module's or entities function like `<FuncType>.<call>` or
-    /// `<EntityType>.<call>`
+    /// @param `is_typed_call` Whether the call is targetting a func component's or objects function like `<FuncType>.<call>` or
+    /// `<ObjectType>.<call>`
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
     std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
         const Context &ctx,                                                        //
@@ -918,18 +932,18 @@ class Parser {
         const bool has_inbetween_operator = false                     //
     );
 
-    /// @function `create_multi_type_access`
-    /// @brief Checks the multi-typed acccess and returns the index as well as the field name, where the returned field name is always in
+    /// @function `create_vector_type_access`
+    /// @brief Checks the vector-typed acccess and returns the index as well as the field name, where the returned field name is always in
     /// the form of $N instead of the x, y, z or r, g, b, a form thats possible
     ///
-    /// @param `tokens` The tokens in which the multi-type field access happens
-    /// @param `type` The multi-type the field access is based on (asserts it to be of type 'MultiType')
+    /// @param `tokens` The tokens in which the vector-type field access happens
+    /// @param `type` The vector-type the field access is based on (asserts it to be of type 'VectorType')
     /// @param `field_name` The field name of the access
     /// @return `std::optional<std::tuple<std::string, unsigned int>>` A tuple of the "new" access name and the access id, nullopt if failed
-    std::optional<std::tuple<std::string, unsigned int>> create_multi_type_access( //
-        const token_slice &tokens,                                                 //
-        const std::shared_ptr<Type> multi_type,                                    //
-        const std::string &field_name                                              //
+    std::optional<std::tuple<std::string, unsigned int>> create_vector_type_access( //
+        const token_slice &tokens,                                                  //
+        const std::shared_ptr<Type> vector_type,                                    //
+        const std::string &field_name                                               //
     );
 
     /// @struct `CreateGroupedAccessBaseRet`
@@ -1145,14 +1159,14 @@ class Parser {
     /// @param `scope` The scope in which the call expression is defined
     /// @param `tokens` The list of tokens representing the call expression
     /// @param `alias` The potential alias base on which the call is done
-    /// @param `is_func_module_call` Whether the call is targetting a func module's function like `<FuncType>.<call>`
+    /// @param `is_func_component_call` Whether the call is targetting a func component's function like `<FuncType>.<call>`
     /// @return `std::optional<std::unique_ptr<ExpressionNode>>` A unique pointer to the created call node expression
     std::optional<std::unique_ptr<ExpressionNode>> create_call_expression( //
         const Context &ctx,                                                //
         std::shared_ptr<Scope> &scope,                                     //
         const token_slice &tokens,                                         //
         const std::optional<Namespace *> &alias,                           //
-        const bool is_func_module_call = false                             //
+        const bool is_func_component_call = false                          //
     );
 
     /// @function `creat_function_reference`
@@ -1392,8 +1406,8 @@ class Parser {
     /// @param `scope` The scope in which the call statement is defined
     /// @param `tokens` The list of tokens representing the call statement
     /// @param `alias` The potential alias base of the call
-    /// @param `is_typed_call` Whether the call is targetting a func module's or entities function like `<FuncType>.<call>` or
-    /// `<EntityType>.<call>`
+    /// @param `is_typed_call` Whether the call is targetting a func component's or objects function like `<FuncType>.<call>` or
+    /// `<ObjectType>.<call>`
     /// @return `std::optional<std::unique_ptr<StatementNode>>` A unique pointer to the created StatementNode. It could be either a "normal"
     /// call or an instance call, that's why we return it as a statement node instead
     std::optional<std::unique_ptr<StatementNode>> create_call_statement( //
@@ -1416,8 +1430,13 @@ class Parser {
     ///
     /// @param `scope` The scope in which the return statement is defined
     /// @param `tokens` The list of tokens representing the return statement
+    /// @param `rhs` The already parsed rhs expression of the return statement, nullopt if it is not parsed yet
     /// @return `std::optional<ReturnNode>` An optional ReturnNode if creation is successful, nullopt otherwise
-    std::optional<ReturnNode> create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens);
+    std::optional<ReturnNode> create_return(                              //
+        std::shared_ptr<Scope> &scope,                                    //
+        const token_slice &tokens,                                        //
+        std::optional<std::unique_ptr<ExpressionNode>> rhs = std::nullopt //
+    );
 
     /// @function `create_if`
     /// @brief Creates an IfNode from the given if chain
@@ -1939,7 +1958,7 @@ class Parser {
     /// creation of AST Nodes for the body
     ///
     /// @param `definition` The list of tokens representing the function definition
-    /// @param `required_data` A list of required data if the function is defined within a func module
+    /// @param `required_data` A list of required data if the function is defined within a func component
     /// @return `std::optional<FunctionNode>` The created FunctionNode
     std::optional<FunctionNode> create_function(                                                        //
         const token_slice &definition,                                                                  //
@@ -1972,27 +1991,27 @@ class Parser {
     /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
     std::optional<FuncNode> create_func(const token_slice &definition, const std::vector<Line> &body);
 
+    /// @function `create_interface`
+    /// @brief Creates an InterfaceNode from the given definition and body tokens
+    ///
+    /// @param `definition` The list of tokens representing the interface definition
+    /// @param `body` The list of tokens representing the interface body
+    /// @return `std::optional<InterfaceNode>` The created InterfaceNode or nullopt if creation failed
+    ///
+    /// @note The FuncNode's body is only allowed to house function definitions, and each function has a body respectively
+    std::optional<InterfaceNode> create_interface(const token_slice &definition, const std::vector<Line> &body);
+
     /// @function `create_entity`
     /// @brief Creates an EntityNode from the given definition and body tokens
     ///
-    /// @details An Entity can either be monolithic or modular. If its modular, only the EntityNode (result.first) will be returned.
-    /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func modules
-    /// then will be added to the AST too. "Monolithic" entities are no different to modular ones internally.
+    /// @details An Object can either be monolithic or modular. If its modular, only the ObjectNode (result.first) will be returned.
+    /// However, if it is monolithic, the data and func content will be returned within the optional pair. The data and func components
+    /// then will be added to the AST too. "Monolithic" objects are no different to modular ones internally.
     ///
-    /// @param `definition` The list of tokens representing the entity definition
-    /// @param `body` The list of tokens representing the entity body
-    /// @return `std::optional<EntityNode>` The created entity, or nullopt if it's creation failed
-    std::optional<EntityNode> create_entity(const token_slice &definition, const std::vector<Line> &body);
-
-    /// @function `create_link`
-    /// @brief Creates a LinkNode from the given list of tokens
-    ///
-    /// @param `tokens` The list of tokens representing the link
-    /// @param `entity` The entity in which the link is defined. Needed to check whether the given functions do exit within that entity at
-    /// all
-    /// @return `std::optional<std::pair<const FunctionNode *, const FunctionNode *>>` The mapping of the source function to the dest
-    /// function, nullopt if the link is faulty
-    std::optional<std::pair<const FunctionNode *, const FunctionNode *>> create_link(const token_slice &tokens, const EntityNode *entity);
+    /// @param `definition` The list of tokens representing the object definition
+    /// @param `body` The list of tokens representing the object body
+    /// @return `std::optional<ObjectNode>` The created object, or nullopt if it's creation failed
+    std::optional<ObjectNode> create_object(const token_slice &definition, const std::vector<Line> &body);
 
     /// @function `create_enum`
     /// @brief Creates an EnumNode from the given definition and body tokens

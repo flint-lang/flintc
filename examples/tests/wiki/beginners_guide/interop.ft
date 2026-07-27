@@ -45,8 +45,8 @@ test "7_tuples":
 	str file = "main.ft";
 	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");
 
-test "8_multi_types":
-	str path = "tests/wiki/beginners_guide/interop/8_multi_types";
+test "8_vectors":
+	str path = "tests/wiki/beginners_guide/interop/8_vectors";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
 
@@ -142,4 +142,4 @@ test "20_named_opaque_simple":
 test "21_named_opaque_type_mismatch":
 	str path = "tests/wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Parse Error at main.ft:5:22\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame object = create_object();\n┌─┴──────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");
+	test_file_fail_in(path, file, "Parse Error at main.ft:5:19\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame obj = create_object();\n┌─┴───────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");

@@ -14,16 +14,17 @@
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
-#include "parser/type/multi_type.hpp"
+#include "parser/type/interface_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 
@@ -429,18 +430,18 @@ llvm::Value *Generator::Expression::generate_variable( //
     }
 
     // Get the type that the pointer points to
-    auto type = IR::get_type(ctx.parent->getParent(), variable_node->type);
+    const IR::TypeStorageInfo &type_info = IR::get_type(ctx.parent->getParent(), variable_node->type);
 
     // Check if the variable is complex, in that case we need to load a pointer to the value, not the value itself (the type of the load
     // inst differs)
-    if (type.second.first) {
-        llvm::LoadInst *load = IR::aligned_load(builder, PTR_TY, variable, variable_node->name + "_ptr");
+    if (type_info.is_complex) {
+        llvm::LoadInst *const load = IR::aligned_load(builder, PTR_TY, variable, variable_node->name + "_ptr");
         load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load ptr to '" + variable_node->name + "'")));
         return load;
     }
 
     // Load the variable's value from the allocation or the pointer to the memory it's located at
-    llvm::LoadInst *load = IR::aligned_load(builder, type.first, variable, variable_node->name + "_val");
+    llvm::LoadInst *const load = IR::aligned_load(builder, type_info.type, variable, variable_node->name + "_val");
     load->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + variable_node->name + "'")));
     return load;
 }
@@ -529,21 +530,21 @@ void Generator::Expression::convert_type_to_ext( //
             convert_data_type_to_ext(builder, ctx, type, data_ptr, args);
             return;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
-            // Multi-types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
-            // to the functions too. This means that the multi-type needs to be converted not into a struct but into a multiple of
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
+            // Vector types need to be passed as structs to extern functions. But the structs themselves need to be passed in 8 byte chunks
+            // to the functions too. This means that the vector-type needs to be converted not into a struct but into a multiple of
             // two-component vector types.
             // A vector type of size 2 can be passed to the function directly and does not need to be converted at all
             // A vector type of size 3 is split into a two-component vector type + a scalar value
             // All bigger vector types N / 2 vector tuples (`<T x N> -> <T x 2> x (N / 2)`)
-            const std::string base_type_str = multi_type->base_type->to_string();
+            const std::string base_type_str = vector_type->base_type->to_string();
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     args.emplace_back(builder.CreateExtractElement(value, builder.getInt64(i)));
                 }
                 return;
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // We need to pack the two u8 values as one i16
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt16Ty()));
@@ -557,7 +558,7 @@ void Generator::Expression::convert_type_to_ext( //
                     args.emplace_back(value);
                 }
                 return;
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // We can simply cast the u8x3 to a i24 value
                     args.emplace_back(builder.CreateBitCast(value, builder.getIntNTy(24)));
@@ -581,21 +582,21 @@ void Generator::Expression::convert_type_to_ext( //
                 return;
             }
             if (base_type_str == "u8" || base_type_str == "i8") {
-                // Since all following multi-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
+                // Since all following vector-types are a multiple of 4, e.g. u8x4 or u8x8, we can just bitcast them to i64 and add them to
                 // the argument list
-                if (multi_type->width == 4) {
+                if (vector_type->width == 4) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt32Ty()));
-                } else if (multi_type->width == 8) {
+                } else if (vector_type->width == 8) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
                 } else {
                     UNREACHABLE();
                 }
                 return;
             } else if (base_type_str == "u16" || base_type_str == "i16") {
-                if (multi_type->width == 4) {
+                if (vector_type->width == 4) {
                     args.emplace_back(builder.CreateBitCast(value, builder.getInt64Ty()));
-                } else if (multi_type->width == 8) {
-                    for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 4) {
+                } else if (vector_type->width == 8) {
+                    for (int32_t i = 0; i < static_cast<int32_t>(vector_type->width); i += 4) {
                         llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1, i + 2, i + 3});
                         args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
                     }
@@ -605,9 +606,9 @@ void Generator::Expression::convert_type_to_ext( //
                 return;
             }
 
-            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... multi-types in Flint, so we know all bigger than 3 are even
+            // Bigger than size 3. But there are only 2, 3, 4, 8, 16, ... vector-types in Flint, so we know all bigger than 3 are even
             // numbers
-            for (int32_t i = 0; i < static_cast<int32_t>(multi_type->width); i += 2) {
+            for (int32_t i = 0; i < static_cast<int32_t>(vector_type->width); i += 2) {
                 llvm::Value *next_shuffle = builder.CreateShuffleVector(value, {i, i + 1});
                 if (base_type_str == "u32" || base_type_str == "i32") {
                     args.emplace_back(builder.CreateBitCast(next_shuffle, builder.getInt64Ty()));
@@ -619,7 +620,7 @@ void Generator::Expression::convert_type_to_ext( //
         }
         case Type::Variation::PRIMITIVE:
             if (type->to_string() == "str") {
-                llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
                 args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
                 return;
             }
@@ -693,7 +694,7 @@ void Generator::Expression::convert_data_type_to_ext( //
     std::vector<llvm::Value *> &args                  //
 ) {
     // get the LLVM struct type and its elements
-    llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
+    llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
     size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
     if (struct_size > 16) {
@@ -932,20 +933,20 @@ void Generator::Expression::convert_type_from_ext( //
         case Type::Variation::DATA:
             convert_data_type_from_ext(builder, ctx, type, value);
             return;
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type->as<MultiType>();
-            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type->as<VectorType>();
+            llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), vector_type->base_type).type;
+            llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, vector_type->width, false);
             llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder.getInt32Ty(), 2, false);
-            const std::string base_type_str = multi_type->base_type->to_string();
+            const std::string base_type_str = vector_type->base_type->to_string();
             if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
                 llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
-                for (size_t i = 0; i < multi_type->width; i++) {
+                for (size_t i = 0; i < vector_type->width; i++) {
                     llvm::Value *elem_i = builder.CreateExtractValue(value, i);
                     result_vec = builder.CreateInsertElement(result_vec, elem_i, builder.getInt64(i));
                 }
                 value = result_vec;
-            } else if (multi_type->width == 2) {
+            } else if (vector_type->width == 2) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i16` value
                     value = builder.CreateBitCast(value, target_vector_type);
@@ -958,7 +959,7 @@ void Generator::Expression::convert_type_from_ext( //
                     // vec2 is returned as <2 x T> directly for floats - no conversion needed
                     return;
                 }
-            } else if (multi_type->width == 3) {
+            } else if (vector_type->width == 3) {
                 if (base_type_str == "u8" || base_type_str == "i8") {
                     // Value returned as `i24` value
                     value = builder.CreateBitCast(value, target_vector_type);
@@ -998,11 +999,11 @@ void Generator::Expression::convert_type_from_ext( //
                     value = builder.CreateBitCast(value, target_vector_type);
                     return;
                 } else if (base_type_str == "u16" || base_type_str == "i16") {
-                    if (multi_type->width == 4) {
+                    if (vector_type->width == 4) {
                         // Value returned as `i64` value directly
                         value = builder.CreateBitCast(value, target_vector_type);
                         return;
-                    } else if (multi_type->width == 8) {
+                    } else if (vector_type->width == 8) {
                         // Value returned as a struct of two i64 values
                         llvm::Value *lhs_i64 = builder.CreateExtractValue(value, 0, "chunk_vec_left4");
                         llvm::Value *rhs_i64 = builder.CreateExtractValue(value, 1, "chunk_vec_right4");
@@ -1025,7 +1026,7 @@ void Generator::Expression::convert_type_from_ext( //
                 size_t element_index = 0;
 
                 // Extract each <2 x T> chunk and rebuild the original vector
-                for (size_t chunk = 0; chunk < (multi_type->width + 1) / 2; chunk++) {
+                for (size_t chunk = 0; chunk < (vector_type->width + 1) / 2; chunk++) {
                     llvm::Value *chunk_vec = builder.CreateExtractValue(value, chunk, "chunk_vec");
 
                     // The first element of the struct is `i64` not a vector so we need to cast it first
@@ -1057,7 +1058,7 @@ void Generator::Expression::convert_data_type_from_ext( //
     llvm::Value *&value                                 //
 ) {
     // get the LLVM struct type and its elements
-    llvm::Type *_struct_type = IR::get_type(ctx.parent->getParent(), type, false).first;
+    llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
     size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
     if (struct_size > 16) {
@@ -1281,7 +1282,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     llvm::Value *sret_alloc = nullptr;
     size_t return_size = 0;
     if (call_node->type->to_string() != "void") {
-        llvm::Type *return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
+        llvm::Type *const return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
         return_size = Allocation::get_type_size(ctx.parent->getParent(), return_type);
 
         if (return_size > 16) {
@@ -1307,7 +1308,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
         // Add byval attributes for > 16 byte input parameters
         for (size_t i = 0; i < call_node->arguments.size(); i++) {
-            llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).first;
+            llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
             size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
             if (arg_size > 16) {
                 call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
@@ -1325,14 +1326,14 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
             llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "' (sret)")));
 
         // Add sret attribute to first parameter (index 0)
-        llvm::Type *return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
+        llvm::Type *const return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
         call->addParamAttr(0, llvm::Attribute::get(context, llvm::Attribute::StructRet, return_type));
         call->addParamAttr(0, llvm::Attribute::NoAlias);
 
         // Add byval attributes for > 16 byte input parameters
         size_t param_idx = 1;
         for (const auto &arg : call_node->arguments) {
-            llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).first;
+            llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).type;
             size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
             if (arg_size > 16) {
                 call->addParamAttr(param_idx, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
@@ -1355,7 +1356,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     );
     // Add byval attributes for > 16 byte input parameters
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
-        llvm::Type *arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).first;
+        llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
         size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
         if (arg_size > 16) {
             call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
@@ -1379,10 +1380,10 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
 
             // Now ret_val is a pointer to the internal struct representation
             // Extract individual elements from the struct
-            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).first;
+            llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
             for (unsigned int i = 0; i < group_type->types.size(); i++) {
                 llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, ret_val, i);
-                llvm::Value *elem = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), group_type->types[i]).first, elem_ptr);
+                llvm::Value *elem = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), group_type->types[i]).type, elem_ptr);
                 return_value.emplace_back(elem);
             }
             // The Group's return value has been allocated before the extern call, now that we have extracted the results we need to free it
@@ -1486,8 +1487,13 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
     const size_t called_fn_id = call_node->function->get_id();
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
-    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
+
+    // Check if there is enough space left on the TS
+    llvm::Value *const remaining = ctx.allocations.at("flint.stack.remaining");
+    Module::ThreadStack::generate_capacity_check(builder, ctx.parent, remaining, called_fn_type);
+
     // Load the default frame of the to-be-called function
+    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
     llvm::Value *fn_frame = IR::aligned_load(builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame");
     // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
     llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
@@ -1498,8 +1504,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
         const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
         llvm::Value *arg_value = args[i];
         if (is_arg_reference(call_node->arguments[i], param_type)) {
-            const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-            llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
+            const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
+            llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
         // arg_value->dump();
@@ -1647,7 +1653,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             // stored in the TS frame of the called function
             // If the value contained within the optional is a reference then we need to load that reference first
             if (arg_type->is_reference()) {
-                expr_val = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), arg_type).first, expr_val, "loaded_expr_val");
+                expr_val = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), arg_type).type, expr_val, "loaded_expr_val");
             }
             llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
             llvm::Value *temp_opt = IR::get_default_value_of_type(opt_struct_type);
@@ -1767,7 +1773,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         size_t offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
         // Now the offset is at the function return values, we need to skip them as they are placed in front of the arguments
         for (const auto &return_type : fn_ret_types) {
-            llvm::Type *const return_ty = IR::get_type(module, return_type).first;
+            llvm::Type *const return_ty = IR::get_type(module, return_type).type;
             const size_t return_size = Allocation::get_type_size(module, return_ty);
             const size_t return_align = Allocation::calculate_type_alignment(return_ty);
             // Add alignment
@@ -1777,7 +1783,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         }
         // Align to the first parameter's alignment so the parameter area starts on a correct boundary
         if (!parameters.empty()) {
-            const size_t first_param_align = Allocation::calculate_type_alignment(IR::get_type(module, parameters.front().first).first);
+            const size_t first_param_align = Allocation::calculate_type_alignment(IR::get_type(module, parameters.front().first).type);
             offset += (first_param_align - (offset % first_param_align)) % first_param_align;
         }
         param_start_ptr = builder.CreateGEP(builder.getInt8Ty(), next_stack_frame, builder.getInt64(offset), "param_start_ptr");
@@ -1825,8 +1831,8 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
             continue;
         }
 
-        const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-        llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
+        const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
+        llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
         llvm::Value *value_ptr = nullptr;
         if (called_fn_type.has_value()) {
             value_ptr = builder.CreateStructGEP(                                                                           //
@@ -2165,8 +2171,8 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     size_t offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
     // Skip all the return values first
     for (const auto &return_type : fn_type->return_types) {
-        const auto type_pair = IR::get_type(module, return_type);
-        llvm::Type *const return_ty = type_pair.second.first ? PTR_TY : type_pair.first;
+        const IR::TypeStorageInfo &type_info = IR::get_type(module, return_type);
+        llvm::Type *const return_ty = type_info.is_complex ? PTR_TY : type_info.type;
         const size_t return_size = Allocation::get_type_size(module, return_ty);
         const size_t return_align = Allocation::calculate_type_alignment(return_ty);
         // Add alignment
@@ -2177,8 +2183,8 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // Then store the arguments
     for (size_t i = 0; i < fn_type->params.size(); i++) {
         const auto &param_type = fn_type->params.at(i).first;
-        const auto type_pair = IR::get_type(module, param_type);
-        llvm::Type *const param_ty = type_pair.second.first ? PTR_TY : type_pair.first;
+        const IR::TypeStorageInfo &type_info = IR::get_type(module, param_type);
+        llvm::Type *const param_ty = type_info.is_complex ? PTR_TY : type_info.type;
         const size_t param_size = Allocation::get_type_size(module, param_ty);
         const size_t param_align = Allocation::calculate_type_alignment(param_ty);
         // Add alignment
@@ -2239,8 +2245,8 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     offset = Allocation::get_type_size(module, type_map.at("type.ts.function"));
     for (unsigned int i = 0; i < fn_type->return_types.size(); i++) {
         const auto &return_type = fn_type->return_types.at(i);
-        const auto &ret_type_pair = IR::get_type(module, return_type);
-        llvm::Type *const ret_llvm_type = ret_type_pair.second.first ? PTR_TY : ret_type_pair.first;
+        const IR::TypeStorageInfo &ret_type_info = IR::get_type(module, return_type);
+        llvm::Type *const ret_llvm_type = ret_type_info.is_complex ? PTR_TY : ret_type_info.type;
         const size_t return_type_size = Allocation::get_type_size(module, ret_llvm_type);
         const size_t return_type_align = Allocation::calculate_type_alignment(ret_llvm_type);
         // Add alignment for the return type
@@ -2254,7 +2260,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
         if (is_reference) {
             return_value.emplace_back(elem_ptr);
         } else {
-            llvm::Type *const ret_type = ret_type_pair.second.first ? PTR_TY : ret_type_pair.first;
+            llvm::Type *const ret_type = ret_type_info.is_complex ? PTR_TY : ret_type_info.type;
             llvm::LoadInst *elem_value = IR::aligned_load(builder,                                      //
                 ret_type,                                                                               //
                 elem_ptr,                                                                               //
@@ -2280,13 +2286,13 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
         default:
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
-        case Type::Variation::FUNC: {
+        case Type::Variation::INTERFACE: {
             auto result = generate_expression(builder, ctx, garbage, expr_depth, call_node->instance_variable.get(), true);
             if (!result.has_value()) {
                 return std::nullopt;
             }
             ASSERT(result.value().size() == 1);
-            llvm::Value *const func_instance = result.value().front();
+            llvm::Value *const interface_instance = result.value().front();
 
             // Prepare all the arguments we pass to the function
             std::vector<llvm::Value *> args;
@@ -2298,21 +2304,23 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 return std::nullopt;
             }
 
+            // TODO: Either add it here or in the dispatch function, a capacity check of the TS
+
             // Set up the frame by calling the dispatch function in setup-mode
             llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
-            const FuncType *func_type = call_node->instance_variable->type->as<FuncType>();
-            llvm::StructType *const func_ty = type_map.at(func_type->get_type_string());
+            const InterfaceType *interface_type = call_node->instance_variable->type->as<InterfaceType>();
+            llvm::StructType *const interface_ty = type_map.at(interface_type->get_type_string());
             llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
-            llvm::Value *const entity_ptr_ptr = builder.CreateStructGEP(func_ty, func_instance, 0, "entity_ptr_ptr");
-            llvm::Value *const entity_ptr = IR::aligned_load(builder, PTR_TY, entity_ptr_ptr, "entity_ptr");
-            llvm::Value *const dispatch_fn_ptr = builder.CreateStructGEP(func_ty, func_instance, 1, "dispatch_fn_ptr");
+            llvm::Value *const object_ptr_ptr = builder.CreateStructGEP(interface_ty, interface_instance, 0, "object_ptr_ptr");
+            llvm::Value *const object_ptr = IR::aligned_load(builder, PTR_TY, object_ptr_ptr, "object_ptr");
+            llvm::Value *const dispatch_fn_ptr = builder.CreateStructGEP(interface_ty, interface_instance, 1, "dispatch_fn_ptr");
             llvm::Value *const dispatch_fn_raw = IR::aligned_load(builder, PTR_TY, dispatch_fn_ptr, "dispatch_fn");
             llvm::FunctionType *const dispatch_fn_ty = llvm::FunctionType::get(            //
                 PTR_TY, {PTR_TY, PTR_TY, builder.getInt64Ty(), builder.getInt1Ty()}, false //
             );
             llvm::FunctionCallee dispatch_fn(dispatch_fn_ty, dispatch_fn_raw);
             llvm::CallInst *const setup_call = builder.CreateCall(                                     //
-                dispatch_fn, {next_stack_frame, entity_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
+                dispatch_fn, {next_stack_frame, object_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
             );
 #ifndef __WIN32__
             setup_call->addParamAttr(0, llvm::Attribute::InReg);
@@ -2332,16 +2340,13 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             IR::aligned_store(builder, ts_ptr, ts_ptr_ptr);
 
             // Store extra function parameters starting at the returned arg pointer
-            // The dispatch function's setup mode already handles required_data args from the entity,
-            // so only store the remaining extra arguments.
-            const size_t required_data_count = func_type->func_node->required_data.size();
             llvm::Value *arg_ptr = setup_call;
-            for (size_t i = required_data_count; i < args.size(); i++) {
+            for (size_t i = 0; i < args.size(); i++) {
                 const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
                 llvm::Value *arg_value = args[i];
                 if (is_arg_reference(call_node->arguments[i], param_type)) {
-                    const auto param_type_pair = IR::get_type(ctx.parent->getParent(), param_type);
-                    llvm::Type *const param_ty = param_type_pair.second.first ? PTR_TY : param_type_pair.first;
+                    const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
+                    llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
                     arg_value = IR::aligned_load(builder, param_ty, arg_value);
                 }
                 IR::aligned_store(builder, arg_value, arg_ptr);
@@ -2351,8 +2356,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // Call dispatch function in execute mode to actually call the targetted function
             llvm::CallInst *call = builder.CreateCall(                         //
                 dispatch_fn,                                                   //
-                {next_stack_frame, entity_ptr, fn_id, builder.getInt1(false)}, //
-                func_type->func_node->name + "_dispatch__call"                 //
+                {next_stack_frame, object_ptr, fn_id, builder.getInt1(false)}, //
+                interface_type->interface_node->name + "_dispatch__call"       //
             );
             call->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Call of dispatch function '" + call_node->function->name + "'")));
@@ -2388,8 +2393,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                     ret_ptr = builder.CreateGEP(type_map.at("type.ts.function"), next_stack_frame, builder.getInt32(1), "ret_ptr_0");
                 }
                 const std::shared_ptr<Type> &ret_type = call_node->function->return_types.at(i);
-                const auto ret_pair = IR::get_type(ctx.parent->getParent(), ret_type);
-                llvm::Type *const ret_ty = ret_pair.second.first ? PTR_TY : ret_pair.first;
+                const IR::TypeStorageInfo &ret_type_info = IR::get_type(ctx.parent->getParent(), ret_type);
+                llvm::Type *const ret_ty = ret_type_info.is_complex ? PTR_TY : ret_type_info.type;
                 if (is_reference) {
                     return_value.emplace_back(ret_ptr);
                 } else {
@@ -2400,11 +2405,13 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                     );
                     return_value.emplace_back(ret_value);
                 }
-                ret_ptr = builder.CreateGEP(ret_ty, arg_ptr, builder.getInt32(1), "ret_ptr_" + std::to_string(i + 1));
+                ret_ptr = builder.CreateGEP(ret_ty, setup_call, builder.getInt32(1), "ret_ptr_" + std::to_string(i + 1));
             }
             return return_value;
         }
-        case Type::Variation::ENTITY:
+        case Type::Variation::FUNC:
+            [[fallthrough]];
+        case Type::Variation::OBJECT:
             return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), is_reference);
     }
 }
@@ -2571,7 +2578,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             llvm::Value *data_ptr = builder.CreateCall(                                             //
                 dima_allocate_fn, {data_head}, "initializer.data." + initializer->type->to_string() //
             );
-            llvm::Type *struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
 
             for (unsigned int i = 0; i < initializer->args.size(); i++) {
                 const auto &arg_expr = initializer->args.at(i);
@@ -2585,7 +2592,15 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     ctx.dest = builder.CreatePointerCast(field_ptr, PTR_TY);
                 }
 
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get());
+                const bool is_opt_literal =                                              //
+                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
+                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+                const bool is_reference = !is_opt_literal //
+                    && elem_type->is_freeable()           //
+                    && elem_type->get_variation() == Type::Variation::OPTIONAL;
+
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get(), is_reference);
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -2606,10 +2621,6 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
                 const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
-                const bool is_opt_literal =                                              //
-                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
-                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
                 bool is_slice = false;
                 if (arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS) {
                     const auto *arg_arr_access = arg_expr->as<ArrayAccessNode>();
@@ -2635,14 +2646,14 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             }
             return std::vector<llvm::Value *>{data_ptr};
         }
-        case Type::Variation::ENTITY: {
-            // Allocate space for the entity
+        case Type::Variation::OBJECT: {
+            // Allocate space for the object
             llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-            llvm::GlobalVariable *const entity_head = Module::DIMA::get_head(initializer->type);
-            llvm::Value *const entity_ptr = builder.CreateCall(                                         //
-                dima_allocate_fn, {entity_head}, "initializer.entity." + initializer->type->to_string() //
+            llvm::GlobalVariable *const object_head = Module::DIMA::get_head(initializer->type);
+            llvm::Value *const object_ptr = builder.CreateCall(                                         //
+                dima_allocate_fn, {object_head}, "initializer.object." + initializer->type->to_string() //
             );
-            llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+            llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
 
             for (size_t i = 0; i < initializer->args.size(); i++) {
                 const auto &arg = initializer->args.at(i);
@@ -2656,21 +2667,21 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                // Do a GEP in the initialized entity to be able to call `flint.clone`
-                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, entity_ptr, i, "entity_init_" + std::to_string(i));
-                // Call `flint.clone` to store the data in the entity
+                // Do a GEP in the initialized object to be able to call `flint.clone`
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, object_ptr, i, "object_init_" + std::to_string(i));
+                // Call `flint.clone` to store the data in the object
                 llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
                 llvm::Value *const expr_val = expr_result.value().front();
                 builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(arg->type->get_id())});
             }
-            return std::vector<llvm::Value *>{entity_ptr};
+            return std::vector<llvm::Value *>{object_ptr};
         }
-        case Type::Variation::MULTI: {
-            // Create an "empty" vector of the multi-type
-            llvm::Type *const vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).first;
+        case Type::Variation::VECTOR: {
+            // Create an "empty" vector of the vector-type
+            llvm::Type *const vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
             if (initializer->args.size() == 1) {
                 const auto &arg = initializer->args[0];
-                ASSERT(arg->type->get_variation() == Type::Variation::MULTI);
+                ASSERT(arg->type->get_variation() == Type::Variation::VECTOR);
                 const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
                 if (!expr_result.has_value()) {
                     return std::nullopt;
@@ -2698,6 +2709,29 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
     }
 }
 
+void Generator::Expression::generate_switch_branch_garbage_cleanup( //
+    llvm::IRBuilder<> &builder,                                     //
+    garbage_type &garbage,                                          //
+    garbage_type &garbage_before,                                   //
+    llvm::Value *const branch_value                                 //
+) {
+    for (auto &[depth, values] : garbage) {
+        const auto it = garbage_before.find(depth);
+        const size_t before_size = it == garbage_before.end() ? 0 : it->second.size();
+        for (size_t j = before_size; j < values.size(); j++) {
+            const auto &[type, val] = values.at(j);
+            if (val == branch_value) {
+                // Do not free the result of the branch
+                continue;
+            }
+            ASSERT(type->is_freeable());
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            builder.CreateCall(free_fn, {val, builder.getInt32(type->get_id())});
+        }
+    }
+    std::swap(garbage, garbage_before);
+}
+
 Generator::group_mapping Generator::Expression::generate_optional_switch_expression( //
     llvm::IRBuilder<> &builder,                                                      //
     GenerationContext &ctx,                                                          //
@@ -2714,19 +2748,19 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-    llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
+    llvm::StructType *const opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
     }
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
 
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
     int value_block_idx = -1;
@@ -2762,17 +2796,19 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
             value_block_idx = i;
         }
         ctx.scope = branch.scope;
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, builder.GetInsertBlock());
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -2797,15 +2833,10 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 Generator::group_mapping Generator::Expression::generate_variant_switch_expression( //
@@ -2817,12 +2848,12 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     llvm::Value *switch_value                                                       //
 ) {
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
 
@@ -2835,15 +2866,17 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
         return std::nullopt;
     }
-    const auto *switcher_var_node = switch_expression->switcher->as<VariableNode>();
+    const auto *const switcher_var_node = switch_expression->switcher->as<VariableNode>();
     const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
-    llvm::StructType *variant_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_expression->switcher->type, false);
+    llvm::StructType *const variant_struct_type = IR::add_and_or_get_type( //
+        ctx.parent->getParent(), switch_expression->switcher->type, false  //
+    );
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, variant_struct_type, switch_value, "loaded_rhs");
     }
     switch_value = builder.CreateExtractValue(switch_value, {0}, "variant_flag");
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
 
     // First pass: create all branch blocks and detect default case
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
@@ -2874,18 +2907,18 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         }
         ctx.scope = branch.scope;
 
-        // Create the actual expression of the branch and store it's result value in the phi_values vector
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, branch_blocks[i]);
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -2934,15 +2967,10 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 Generator::group_mapping Generator::Expression::generate_switch_expression( //
@@ -2970,12 +2998,12 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     }
 
     // Get the current block
-    llvm::BasicBlock *pred_block = builder.GetInsertBlock();
+    llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
 
     // Create the basic blocks for each branch
     std::vector<llvm::BasicBlock *> branch_blocks;
     branch_blocks.reserve(switch_expression->branches.size());
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "switch_expr_merge");
     llvm::BasicBlock *default_block = nullptr;
     const std::shared_ptr<Scope> original_scope = ctx.scope;
 
@@ -3002,19 +3030,20 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
         // Generate the branch expression in its block
         builder.SetInsertPoint(branch_blocks[i]);
-
         ctx.scope = branch.scope;
-        group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
+
+        // Save garbage state before generating this branch expression
+        garbage_type garbage_before = garbage;
+        const group_mapping branch_expr = generate_expression(builder, ctx, garbage, expr_depth + 1, branch.expr.get());
         if (!branch_expr.has_value() || branch_expr.value().empty()) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *branch_value = branch_expr.value().front();
+        llvm::Value *const branch_value = branch_expr.value().front();
 
-        // Store this value for the phi node
+        generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
+
         phi_values.emplace_back(branch_value, builder.GetInsertBlock());
-
-        // Add branch to merge block if this block doesn't already have a terminator
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
@@ -3093,15 +3122,10 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
 
     // Create the phi node to combine results from all branches
     llvm::PHINode *phi = builder.CreatePHI(phi_values[0].first->getType(), phi_values.size(), "switch_expr_result");
-
-    // Add all the incoming values to the phi node
     for (const auto &[value, block] : phi_values) {
         phi->addIncoming(value, block);
     }
-
-    // Return the phi node as the result of the expression
-    std::vector<llvm::Value *> result = {phi};
-    return result;
+    return std::vector<llvm::Value *>{phi};
 }
 
 llvm::Value *Generator::Expression::generate_inline_array_initializer( //
@@ -3135,7 +3159,7 @@ llvm::Value *Generator::Expression::generate_inline_array_initializer( //
     // Get element type info
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
     const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
-    llvm::Type *llvm_element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.first;
+    llvm::Type *const llvm_element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.type;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(llvm_element_type);
 
     // Generate and cast each element value
@@ -3187,7 +3211,7 @@ llvm::Value *Generator::Expression::generate_inline_array_initializer( //
                     std::string(length_expressions.size() - 1, ',') + "]")));
 
     // Extract the data pointer from the str*: data_start = (char*)(str->value + str->len * sizeof(size_t))
-    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, created_array, 1, "arr_dim_lengths");
     llvm::Value *const loaded_dim = IR::aligned_load(                                                               //
         builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim" //
@@ -3235,7 +3259,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     }
     const llvm::DataLayout &data_layout = ctx.parent->getParent()->getDataLayout();
     const auto &elem_type_pair = IR::get_type(ctx.parent->getParent(), initializer->element_type);
-    llvm::Type *element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.first;
+    llvm::Type *const element_type = initializer->element_type->is_dima_managed() ? PTR_TY : elem_type_pair.type;
     size_t element_size_in_bytes = data_layout.getTypeAllocSize(element_type);
 
     // Generate the initializer expression (shared between const and dynamic paths)
@@ -3306,7 +3330,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
                     std::string(length_expressions.size() - 1, ',') + "]")));
 
     // Extract the data pointer from the str*: data_start = (char*)(str->value + str->len * sizeof(size_t))
-    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, created_array, 1, "arr_dim_lengths");
     llvm::Value *const loaded_dim =
         IR::aligned_load(builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim");
@@ -3421,13 +3445,12 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             from_type = range_type->bound_type;
             index_expr = {index.value().front(), index.value().at(1)};
         } else {
-            index_expr = {index.value().front(), nullptr};
+            // UINT64_MAX - 1 means "single value"
+            index_expr = {index.value().front(), builder.getInt64(llvm::maxUIntN(64) - 1)};
         }
         if (!from_type->equals(to_type)) {
             index_expr[0] = generate_type_cast(builder, ctx, index_expr[0], from_type, to_type);
-            if (index_expr[1] != nullptr) {
-                index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
-            }
+            index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
         }
         index_expressions.emplace_back(index_expr);
     }
@@ -3469,40 +3492,34 @@ llvm::Value *Generator::Expression::generate_array_access(           //
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
         if (!is_slice) {
-            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                    //
+            llvm::Value *const index_ptr = builder.CreateInBoundsGEP(                                              //
                 builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
             );
-            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
+            llvm::StoreInst *const index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
             index_store->setMetadata("comment",                                                                       //
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
             );
             continue;
         }
-        const bool is_range = indexing_expressions.at(i)->type->get_variation() == Type::Variation::RANGE;
-        for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
-            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                                    //
-                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + j), "idx_" + std::to_string(i * 2 + j) + "_ptr" //
-            );
-            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[j], index_ptr);
-            index_store->setMetadata("comment",                                                                               //
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + j))) //
-            );
-            if (is_slice && !is_range) {
-                // The slicing function expects indices of non-ranges to be '1, 1' for the index 1, and '1, 3' for the range [1, 3)
-                index_ptr = builder.CreateInBoundsGEP(                                                                                 //
-                    builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i * 2 + 1) + "_ptr" //
-                );
-                index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
-                index_store->setMetadata("comment",                                                                               //
-                    llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + 1))) //
-                );
-            }
-        }
+        llvm::Value *const from_ptr = builder.CreateInBoundsGEP(                                                        //
+            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2), "idx_" + std::to_string(i) + "_from_ptr" //
+        );
+        llvm::StoreInst *const from_store = IR::aligned_store(builder, index_expressions.at(i)[0], from_ptr);
+        from_store->setMetadata("comment",                                                                     //
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Save 'from' of id " + std::to_string(i))) //
+        );
+        llvm::Value *const to_ptr = builder.CreateInBoundsGEP(                                                            //
+            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i) + "_to_ptr" //
+        );
+        llvm::StoreInst *const to_store = IR::aligned_store(builder, index_expressions.at(i)[1], to_ptr);
+        to_store->setMetadata("comment",                                                                     //
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Save 'to' of id " + std::to_string(i))) //
+        );
     }
-    const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), result_type);
-    llvm::Type *element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+    const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), result_type);
+    llvm::Type *element_type = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;
     if (is_slice) {
-        element_type = IR::get_type(ctx.parent->getParent(), result_type->as<ArrayType>()->type).first;
+        element_type = IR::get_type(ctx.parent->getParent(), result_type->as<ArrayType>()->type).type;
     }
     const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
     switch (result_type->get_variation()) {
@@ -3514,7 +3531,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
-        case Type::Variation::MULTI: {
+        case Type::Variation::VECTOR: {
             ASSERT(base_expr->type->get_variation() == Type::Variation::ARRAY);
             const ArrayType *base_arr_type = base_expr->type->as<ArrayType>();
             llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
@@ -3535,7 +3552,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
                 arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
             } else {
                 // It's a dynamic array
-                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
                 llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
                 arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
                 arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
@@ -3552,8 +3569,12 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         }
         case Type::Variation::ARRAY: {
             // This is a slicing operation
-            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"), //
-                {array_ptr, builder.getInt64(element_size_in_bytes), temp_array_indices}                       //
+            const ArrayType *array_type = result_type->as<ArrayType>();
+            const uint32_t type_id = array_type->type->is_freeable() ? array_type->type->get_id() : 0;
+            const bool is_indirect = IR::get_type(ctx.parent->getParent(), array_type->type).is_indirect;
+            llvm::Value *result = builder.CreateCall(Module::Array::array_manip_functions.at("get_arr_slice"),
+                {array_ptr, builder.getInt64(element_size_in_bytes),                             //
+                    temp_array_indices, builder.getInt32(type_id), builder.getInt1(is_indirect)} //
             );
             return result;
         }
@@ -3597,7 +3618,8 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
     const bool is_reference                                           //
 ) {
     // First, generate the base expression to get the value of the data variable
-    group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, data_access->base_expr.get());
+    const bool base_is_ref = is_reference && data_access->base_expr->type->get_variation() == Type::Variation::FUNC;
+    group_mapping base_expr = generate_expression(builder, ctx, garbage, expr_depth, data_access->base_expr.get(), base_is_ref);
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
@@ -3613,7 +3635,7 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+        llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
         llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 0, "length_ptr");
         llvm::Value *length = IR::aligned_load(builder, builder.getInt64Ty(), length_ptr, "length");
         return std::vector<llvm::Value *>{length};
@@ -3633,9 +3655,16 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
                 return std::nullopt;
             }
             ASSERT(!is_reference);
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
-            llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
             std::vector<llvm::Value *> length_values;
+            if (array_type->sizes.has_value()) {
+                // It's a fixed array with compile-time known sizes, so we can just create a few integer values directly
+                for (size_t len : array_type->sizes.value()) {
+                    length_values.emplace_back(builder.getInt64(len));
+                }
+                return length_values;
+            }
+            llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
+            llvm::Value *length_ptr = builder.CreateStructGEP(str_type, expr_val, 1, "length_ptr");
             for (size_t i = 0; i < array_type->dimensionality; i++) {
                 llvm::Value *actual_length_ptr = builder.CreateGEP(builder.getInt64Ty(), length_ptr, builder.getInt64(i));
                 llvm::Value *length_value = IR::aligned_load(                                             //
@@ -3645,11 +3674,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             }
             return length_values;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = data_access->base_expr->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = data_access->base_expr->type->as<VectorType>();
             ASSERT(!is_reference);
             std::vector<llvm::Value *> values;
-            if (multi_type->base_type->to_string() == "bool") {
+            if (vector_type->base_type->to_string() == "bool") {
                 // Special case for accessing an "element" on a bool8 type
                 values.emplace_back(get_bool8_element_at(builder, expr_val, data_access->field_id));
             } else {
@@ -3657,11 +3686,11 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
             }
             return values;
         }
-        case Type::Variation::ENTITY: {
-            llvm::Type *entity_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).first;
-            llvm::Value *data_ptr = builder.CreateStructGEP(entity_type, expr_val, data_access->field_id, "entity_data_ptr_gep");
+        case Type::Variation::OBJECT: {
+            llvm::Type *const object_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).type;
+            llvm::Value *data_ptr = builder.CreateStructGEP(object_type, expr_val, data_access->field_id, "object_data_ptr_gep");
             if (!is_reference) {
-                data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr, "entity_data_ptr");
+                data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr, "object_data_ptr");
             }
             std::vector<llvm::Value *> values = {data_ptr};
             return values;
@@ -3673,7 +3702,12 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         }
         case Type::Variation::FUNC: {
             std::vector<llvm::Value *> values;
-            values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "func_data_ptr"));
+            if (is_reference) {
+                llvm::Type *const func_type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type).type;
+                values.emplace_back(builder.CreateStructGEP(func_type, expr_val, data_access->field_id, "func_data_ptr_ref"));
+            } else {
+                values.emplace_back(builder.CreateExtractValue(expr_val, data_access->field_id, "func_data_ptr"));
+            }
             return values;
         }
         case Type::Variation::TUPLE: {
@@ -3693,19 +3727,19 @@ Generator::group_mapping Generator::Expression::generate_data_access( //
         return std::nullopt;
     }
     std::vector<llvm::Value *> values;
-    auto type = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type);
-    llvm::Value *elem_ptr = builder.CreateStructGEP(                                                     //
-        type.first, expr_val, data_access->field_id, "elem_ptr_" + std::to_string(data_access->field_id) //
+    const IR::TypeStorageInfo &type_info = IR::get_type(ctx.parent->getParent(), data_access->base_expr->type);
+    llvm::Value *elem_ptr = builder.CreateStructGEP(                                                         //
+        type_info.type, expr_val, data_access->field_id, "elem_ptr_" + std::to_string(data_access->field_id) //
     );
     // If this expression is requested as a reference then we return the pointer to the element if the element is not complex in of itself
     // (like data, strings etc) as these values themselves point somewhere
-    auto elem_type = IR::get_type(ctx.parent->getParent(), data_access->type);
+    const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), data_access->type);
     if (is_reference) {
         values.emplace_back(elem_ptr);
     } else {
-        values.emplace_back(IR::aligned_load(                           //
-            builder, elem_type.second.first ? PTR_TY : elem_type.first, //
-            elem_ptr, "elem_" + std::to_string(data_access->field_id)   //
+        values.emplace_back(IR::aligned_load(                                  //
+            builder, elem_type_info.is_complex ? PTR_TY : elem_type_info.type, //
+            elem_ptr, "elem_" + std::to_string(data_access->field_id)          //
             ));
     }
     return values;
@@ -3742,7 +3776,7 @@ Generator::group_mapping Generator::Expression::generate_grouped_data_access( //
     }
     // Check if expr_val is a pointer type
     if (expr && expr->getType()->isPointerTy()) {
-        llvm::Type *struct_value_type = IR::get_type(ctx.parent->getParent(), grouped_data_access->base_expr->type).first;
+        llvm::Type *const struct_value_type = IR::get_type(ctx.parent->getParent(), grouped_data_access->base_expr->type).type;
         expr = IR::aligned_load(builder, struct_value_type, expr);
     }
     // Its a normal grouped data access
@@ -3779,7 +3813,7 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
     // First we need to create all the basic blocks the optional chain needs. This includes one "happy path" block for when the chain
     // has a value and one single "bad path" block for when the chain short-circuits.
     const bool is_toplevel_chain = !ctx.short_circuit_block.has_value();
-    llvm::Type *result_type = IR::get_type(ctx.parent->getParent(), chain->type).first;
+    llvm::Type *const result_type = IR::get_type(ctx.parent->getParent(), chain->type).type;
     if (is_toplevel_chain) {
         // We add the short_circuit_block at the very end of the generation function to the body of this generation function
         ctx.short_circuit_block = llvm::BasicBlock::Create(context, "short_circuit");
@@ -3813,13 +3847,13 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
     if (std::holds_alternative<ChainFieldAccess>(chain->operation)) {
         const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain->operation);
         const auto *base_expr_type = chain->base_expr->type->as<OptionalType>();
-        llvm::Type *data_type = IR::get_type(ctx.parent->getParent(), base_expr_type->base_type).first;
+        llvm::Type *const data_type = IR::get_type(ctx.parent->getParent(), base_expr_type->base_type).type;
         llvm::Type *field_type = nullptr;
         if (chain->is_toplevel_chain_node) {
             const auto *optional_result_type = chain->type->as<OptionalType>();
-            field_type = IR::get_type(ctx.parent->getParent(), optional_result_type->base_type).first;
+            field_type = IR::get_type(ctx.parent->getParent(), optional_result_type->base_type).type;
         } else {
-            field_type = IR::get_type(ctx.parent->getParent(), chain->type).first;
+            field_type = IR::get_type(ctx.parent->getParent(), chain->type).type;
         }
 
         llvm::Value *opt_value_ptr = builder.CreateStructGEP(data_type, base_expr_value, access.field_id, "opt_value_ptr");
@@ -3939,8 +3973,8 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     const auto *result_type_ptr = extraction->type->as<OptionalType>();
     const std::shared_ptr<Type> &extract_type_ptr = result_type_ptr->base_type;
-    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), extract_type_ptr).first;
-    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), extraction->base_expr->type).first;
+    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), extract_type_ptr).type;
+    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), extraction->base_expr->type).type;
 
     // First, check if the variant holds a value of our wanted type
     llvm::BasicBlock *inserter = builder.GetInsertBlock();
@@ -3956,7 +3990,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     llvm::BranchInst *branch = builder.CreateCondBr(holds_type, holds_correct_type, holds_wrong_type);
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
 
-    llvm::Type *opt_type = IR::get_type(ctx.parent->getParent(), extraction->type).first;
+    llvm::Type *const opt_type = IR::get_type(ctx.parent->getParent(), extraction->type).type;
 
     // The none block, in the case the variant does not hold the requested type
     builder.SetInsertPoint(holds_wrong_type);
@@ -3990,8 +4024,8 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     const auto *variable_node = unwrap->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
-    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).first;
-    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).first;
+    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).type;
+    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).type;
     if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
         llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
@@ -4106,12 +4140,12 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                     default:
                         THROW_BASIC_ERR(ERR_GENERATING);
                         return std::nullopt;
-                    case Type::Variation::MULTI: {
-                        const auto *multi_type = type_cast_node->expr->type->as<MultiType>();
+                    case Type::Variation::VECTOR: {
+                        const auto *vector_type = type_cast_node->expr->type->as<VectorType>();
                         ASSERT(expr.size() == 1);
                         llvm::Value *mult_expr = expr.front();
                         expr.clear();
-                        for (size_t i = 0; i < multi_type->width; i++) {
+                        for (size_t i = 0; i < vector_type->width; i++) {
                             expr.emplace_back(builder.CreateExtractElement(mult_expr, i, "mult_group_" + std::to_string(i)));
                         }
                         return expr;
@@ -4131,8 +4165,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
             to_type = types.front();
             break;
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = type_cast_node->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type_cast_node->type->as<VectorType>();
             if (type_cast_node->type->to_string() == "bool8") {
                 ASSERT(type_cast_node->expr->type->to_string() == "u8");
                 ASSERT(expr.size() == 1);
@@ -4140,30 +4174,28 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 result.emplace_back(expr.at(0));
                 return result;
             }
-            // The expression now must be a group type, so the `expr` size must be the multi-type width
-            if (expr.size() != multi_type->width) {
-                // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the multi-type
-                if (expr.size() == 1 && type_cast_node->expr->type == multi_type->base_type) {
+            // The expression now must be a group type, so the `expr` size must be the vector-type width
+            if (expr.size() != vector_type->width) {
+                // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the vector-type
+                if (expr.size() == 1 && type_cast_node->expr->type == vector_type->base_type) {
                     // We now can create a single value extension for the vector
-                    expr[0] = builder.CreateVectorSplat(multi_type->width, expr[0], "vec_ext");
+                    expr[0] = builder.CreateVectorSplat(vector_type->width, expr[0], "vec_ext");
                     return expr;
                 }
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
-            llvm::Type *element_type = IR::get_type(ctx.parent->getParent(), multi_type->base_type).first;
-            llvm::VectorType *vector_type = llvm::VectorType::get(element_type, multi_type->width, false);
+            llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), vector_type->base_type).type;
+            llvm::VectorType *const vector_ty = llvm::VectorType::get(element_type, vector_type->width, false);
 
             // Create and undefined vector to insert elements into
-            llvm::Value *vec = llvm::UndefValue::get(vector_type);
+            llvm::Value *vec = llvm::UndefValue::get(vector_ty);
 
             // "Store" all the values inside the vector which will be stored in the alloca in the `generate_declaration` function
             for (unsigned int i = 0; i < expr.size(); i++) {
                 vec = builder.CreateInsertElement(vec, expr[i], builder.getInt32(i), "vec_insert");
             }
-            std::vector<llvm::Value *> result;
-            result.emplace_back(vec);
-            return result;
+            return std::vector<llvm::Value *>{vec};
         }
         case Type::Variation::TUPLE: {
             if (type_cast_node->expr->type->get_variation() == Type::Variation::GROUP) {
@@ -4171,7 +4203,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 // Type-checking should have been happened in the parser, so we can assert that the types match
                 [[maybe_unused]] const auto *tuple_type = type_cast_node->type->as<TupleType>();
                 ASSERT(tuple_type->types.size() == expr_group_type->types.size());
-                llvm::Type *tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).first;
+                llvm::Type *const tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).type;
                 llvm::Value *result = IR::get_default_value_of_type(tup_type);
                 for (unsigned int i = 0; i < expr_group_type->types.size(); i++) {
                     ASSERT(expr_group_type->types[i] == tuple_type->types[i]);
@@ -4214,7 +4246,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), {expr}, "lit_len");
         // Call the `init_str` function
         return builder.CreateCall(init_str_fn, {expr, str_len}, "str_init");
-    } else if (from_type->get_variation() == Type::Variation::MULTI) {
+    } else if (from_type->get_variation() == Type::Variation::VECTOR) {
         if (from_type_str == "bool8") {
             if (to_type_str == "str") {
                 return builder.CreateCall(Module::TypeCast::typecast_functions.at("bool8_to_str"), {expr}, "b8_to_str_val");
@@ -4224,37 +4256,61 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         } else if (to_type_str == "str") {
             llvm::Function *cast_fn = Module::TypeCast::typecast_functions.at(from_type_str + "_to_str");
             return builder.CreateCall(cast_fn, {expr}, from_type_str + "_to_str_res");
-        } else if (to_type->get_variation() == Type::Variation::MULTI) {
-            const MultiType *from_mult = from_type->as<MultiType>();
-            const MultiType *to_mult = to_type->as<MultiType>();
+        } else if (to_type->get_variation() == Type::Variation::VECTOR) {
+            const VectorType *from_mult = from_type->as<VectorType>();
+            const VectorType *to_mult = to_type->as<VectorType>();
             ASSERT(from_mult->width == to_mult->width);
-            llvm::Type *const dest_el_type = IR::get_type(ctx.parent->getParent(), to_mult->base_type).first;
+            llvm::Type *const dest_el_type = IR::get_type(ctx.parent->getParent(), to_mult->base_type).type;
             llvm::VectorType *const dest_vec_type = llvm::VectorType::get(dest_el_type, from_mult->width, false);
-            llvm::Value *cast_multitype = llvm::UndefValue::get(dest_vec_type);
+            llvm::Value *cast_vector = llvm::UndefValue::get(dest_vec_type);
             for (unsigned int i = 0; i < from_mult->width; i++) {
                 llvm::Value *const elem = builder.CreateExtractElement(expr, builder.getInt64(i), "src_el_" + std::to_string(i));
                 llvm::Value *const cast_elem = generate_type_cast(builder, ctx, elem, from_mult->base_type, to_mult->base_type);
-                cast_multitype = builder.CreateInsertElement(                                      //
-                    cast_multitype, cast_elem, builder.getInt64(i), "cast_el_" + std::to_string(i) //
+                cast_vector = builder.CreateInsertElement(                                      //
+                    cast_vector, cast_elem, builder.getInt64(i), "cast_el_" + std::to_string(i) //
                 );
             }
-            return cast_multitype;
+            return cast_vector;
         }
-    } else if (from_type->get_variation() == Type::Variation::ENTITY && to_type->get_variation() == Type::Variation::FUNC) {
-        // We "cast" an entity to a func module by storing the pointer to the entity alongside the pointer to the dispatch function and the
-        // ID of the entity in a new structure.
-        const EntityType *entity_type = from_type->as<EntityType>();
+    } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::FUNC) {
+        // We "cast" an object to a func component by extracting the required data of the func component from the object and storing it in
+        // the func component. Whenever we extract and store a data value from the entity to the func component we call `dima.retain` on
+        // that value first for proper ARC-tracking
         llvm::Value *func_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
-        const std::string &cast_name = entity_type->to_string() + "_to_" + to_type->to_string();
-        llvm::Function *const entity_dispatch_fn = entity_dispatch_functions.at(entity_type->get_id());
-        const std::string head_key = entity_type->entity_node->file_hash.to_string() + "." + entity_type->entity_node->name;
-        llvm::Value *const entity_dima_head = Module::DIMA::dima_heads.at(head_key);
+        llvm::Type *const object_ty = IR::get_type(ctx.parent->getParent(), from_type).type;
+        const ObjectNode *object_node = from_type->as<ObjectType>()->object_node;
+        const FuncNode *func_node = to_type->as<FuncType>()->func_node;
+        llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
+        for (size_t i = 0; i < func_node->required_data.size(); i++) {
+            const DataNode *data_node = func_node->required_data.at(i).type->as<DataType>()->data_node;
+            size_t idx = 0;
+            for (; idx < object_node->data_modules.size(); idx++) {
+                const DataNode *data_ptr = object_node->data_modules.at(idx).first;
+                if (data_ptr == data_node) {
+                    break;
+                }
+            }
+            llvm::Value *const ext_data_ptr = builder.CreateStructGEP(object_ty, expr, idx, "extracted_data_ptr_" + std::to_string(idx));
+            llvm::Value *const ext_data = IR::aligned_load(builder, PTR_TY, ext_data_ptr, "extracted_data_" + std::to_string(idx));
+            builder.CreateCall(retain_fn, {ext_data});
+            func_value = builder.CreateInsertValue(func_value, ext_data, i, "func_value__insert_" + std::to_string(i));
+        }
+        return func_value;
+    } else if (from_type->get_variation() == Type::Variation::OBJECT && to_type->get_variation() == Type::Variation::INTERFACE) {
+        // We "cast" an object to an interface by storing the pointer to the object alongside the pointer to the dispatch function and the
+        // ID of the object in a new structure.
+        const ObjectType *object_type = from_type->as<ObjectType>();
+        llvm::Value *interface_value = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
+        const std::string &cast_name = object_type->to_string() + "_to_" + to_type->to_string();
+        llvm::Function *const object_dispatch_fn = object_dispatch_functions.at(object_type->get_id());
+        const std::string head_key = object_type->object_node->file_hash.to_string() + "." + object_type->object_node->name;
+        llvm::Value *const object_dima_head = Module::DIMA::dima_heads.at(head_key);
         llvm::Function *const dima_retain_fn = Module::DIMA::dima_functions.at("retain");
         builder.CreateCall(dima_retain_fn, {expr});
-        func_value = builder.CreateInsertValue(func_value, expr, 0);
-        func_value = builder.CreateInsertValue(func_value, entity_dispatch_fn, 1);
-        func_value = builder.CreateInsertValue(func_value, entity_dima_head, 2, cast_name);
-        return func_value;
+        interface_value = builder.CreateInsertValue(interface_value, expr, 0);
+        interface_value = builder.CreateInsertValue(interface_value, object_dispatch_fn, 1);
+        interface_value = builder.CreateInsertValue(interface_value, object_dima_head, 2, cast_name);
+        return interface_value;
     } else if (from_type->get_variation() == Type::Variation::ARRAY && to_type->get_variation() == Type::Variation::ARRAY) {
         [[maybe_unused]] const ArrayType *from_array = from_type->as<ArrayType>();
         [[maybe_unused]] const ArrayType *to_array = to_type->as<ArrayType>();
@@ -4270,7 +4326,7 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             llvm::Value *str_value = builder.CreateCall(                                                   //
                 Module::String::string_manip_functions.at("create_str"), {builder.getInt64(1)}, "char_val" //
             );
-            llvm::Type *str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+            llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
             llvm::Value *val_ptr = builder.CreateStructGEP(str_type, str_value, 1);
             IR::aligned_store(builder, expr, val_ptr);
             return str_value;
@@ -4786,7 +4842,7 @@ Generator::group_mapping Generator::Expression::generate_unary_op_expression( //
                     // The array struct has layout { i64 dim, i64 lengths[], data[] }.
                     // Load the array struct pointer, then GEP past the metadata to get the data pointer.
                     operand.front() = IR::aligned_load(builder, PTR_TY, operand.front(), "arr_struct_ptr");
-                    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+                    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
                     llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, operand.front(), 0, "len_ptr");
                     llvm::Value *const dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
                     llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, operand.front(), 1, "dim_lengths");
@@ -4916,11 +4972,11 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
     }
     std::vector<llvm::Value *> return_value;
 
-    const bool is_lhs_mult = bin_op_node->left->type->get_variation() == Type::Variation::MULTI;
-    const bool is_rhs_mult = bin_op_node->right->type->get_variation() == Type::Variation::MULTI;
+    const bool is_lhs_mult = bin_op_node->left->type->get_variation() == Type::Variation::VECTOR;
+    const bool is_rhs_mult = bin_op_node->right->type->get_variation() == Type::Variation::VECTOR;
     if (is_lhs_mult && is_rhs_mult) {
-        const auto *lhs_mult = bin_op_node->left->type->as<MultiType>();
-        const auto *rhs_mult = bin_op_node->right->type->as<MultiType>();
+        const auto *lhs_mult = bin_op_node->left->type->as<VectorType>();
+        const auto *rhs_mult = bin_op_node->right->type->as<VectorType>();
         if (!lhs_mult->base_type->equals(rhs_mult->base_type)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
@@ -4929,7 +4985,7 @@ Generator::group_mapping Generator::Expression::generate_binary_op( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        // For multi-types we have exactly one value in each vector
+        // For vector-types we have exactly one value in each vector
         ASSERT(lhs.size() == 1 && rhs.size() == 1);
         const std::string type_str = bin_op_node->type->to_string();
         std::optional<llvm::Value *> result = generate_binary_op_vector(builder, bin_op_node, type_str, lhs[0], rhs[0]);
@@ -5343,7 +5399,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     if (bin_op_node->right->type->get_variation() != Type::Variation::VARIANT) {
                         break;
                     }
-                    llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
+                    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).type;
                     const auto left_variation = bin_op_node->left->get_variation();
                     const auto right_variation = bin_op_node->right->get_variation();
                     if (left_variation == ExpressionNode::Variation::TYPE_CAST) {
@@ -5424,7 +5480,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     if (bin_op_node->right->type->get_variation() != Type::Variation::VARIANT) {
                         break;
                     }
-                    llvm::Type *variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).first;
+                    llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), bin_op_node->left->type).type;
                     const auto left_variation = bin_op_node->left->get_variation();
                     const auto right_variation = bin_op_node->right->get_variation();
                     if (left_variation == ExpressionNode::Variation::TYPE_CAST) {
@@ -5665,9 +5721,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     ASSERT(rhs_expr->type->get_variation() == Type::Variation::VARIANT);
     const auto &possible_types = variant_type->get_possible_types();
     // First we create all the basic blocks we need
-    llvm::BasicBlock *inserter = builder.GetInsertBlock();
-    llvm::BasicBlock *same_type_check = llvm::BasicBlock::Create(context, "same_type_check", ctx.parent);
-    llvm::BasicBlock *switch_on_type = llvm::BasicBlock::Create(context, "switch_on_type", ctx.parent);
+    llvm::BasicBlock *const inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *const same_type_check = llvm::BasicBlock::Create(context, "same_type_check", ctx.parent);
+    llvm::BasicBlock *const switch_on_type = llvm::BasicBlock::Create(context, "switch_on_type", ctx.parent);
     std::vector<llvm::BasicBlock *> type_switch_blocks;
     type_switch_blocks.reserve(possible_types.size());
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
@@ -5675,23 +5731,23 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
         const std::string block_name = "switch_type_" + std::to_string(type_id);
         type_switch_blocks.push_back(llvm::BasicBlock::Create(context, block_name, ctx.parent));
     }
-    llvm::BasicBlock *switch_merge = llvm::BasicBlock::Create(context, "switch_merge", ctx.parent);
-    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "merge", ctx.parent);
+    llvm::BasicBlock *const switch_merge = llvm::BasicBlock::Create(context, "switch_merge", ctx.parent);
+    llvm::BasicBlock *const merge = llvm::BasicBlock::Create(context, "merge", ctx.parent);
 
     builder.SetInsertPoint(inserter);
     builder.CreateBr(same_type_check);
 
     builder.SetInsertPoint(same_type_check);
-    llvm::Type *var_type = IR::get_type(ctx.parent->getParent(), lhs_expr->type).first;
-    llvm::Value *lhs_type_ptr = builder.CreateStructGEP(var_type, lhs, 0, "lhs_type_ptr");
-    llvm::Value *lhs_type = IR::aligned_load(builder, builder.getInt8Ty(), lhs_type_ptr, "lhs_type");
-    llvm::Value *rhs_type_ptr = builder.CreateStructGEP(var_type, rhs, 0, "rhs_type_ptr");
-    llvm::Value *rhs_type = IR::aligned_load(builder, builder.getInt8Ty(), rhs_type_ptr, "rhs_type");
-    llvm::Value *types_match = builder.CreateICmpEQ(lhs_type, rhs_type, "types_match");
+    llvm::Type *const var_type = IR::get_type(ctx.parent->getParent(), lhs_expr->type).type;
+    llvm::Value *const lhs_type_ptr = builder.CreateStructGEP(var_type, lhs, 0, "lhs_type_ptr");
+    llvm::Value *const lhs_type = IR::aligned_load(builder, builder.getInt8Ty(), lhs_type_ptr, "lhs_type");
+    llvm::Value *const rhs_type_ptr = builder.CreateStructGEP(var_type, rhs, 0, "rhs_type_ptr");
+    llvm::Value *const rhs_type = IR::aligned_load(builder, builder.getInt8Ty(), rhs_type_ptr, "rhs_type");
+    llvm::Value *const types_match = builder.CreateICmpEQ(lhs_type, rhs_type, "types_match");
     builder.CreateCondBr(types_match, switch_on_type, merge);
 
     builder.SetInsertPoint(switch_on_type);
-    llvm::SwitchInst *type_switch = builder.CreateSwitch(lhs_type, merge, possible_types.size());
+    llvm::SwitchInst *const type_switch = builder.CreateSwitch(lhs_type, merge, possible_types.size());
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
         const unsigned int type_id = 1 + std::distance(possible_types.begin(), type_it);
         type_switch->addCase(builder.getInt8(type_id), type_switch_blocks.at(type_id - 1));
@@ -5702,8 +5758,13 @@ std::optional<llvm::Value *> Generator::Expression::generate_variant_cmp( //
     for (auto type_it = possible_types.begin(); type_it != possible_types.end(); ++type_it) {
         const unsigned int idx = std::distance(possible_types.begin(), type_it);
         builder.SetInsertPoint(type_switch_blocks.at(idx));
-        const auto &pair = IR::get_type(ctx.parent->getParent(), type_it->second);
-        const unsigned int type_size = pair.second.second ? 8 : Allocation::get_type_size(ctx.parent->getParent(), pair.first);
+        if (type_it->second->to_string() == "void") {
+            switch_values.push_back(builder.getInt64(0));
+            builder.CreateBr(switch_merge);
+            continue;
+        }
+        const IR::TypeStorageInfo &type_info = IR::get_type(ctx.parent->getParent(), type_it->second);
+        const unsigned int type_size = type_info.is_reference ? 8 : Allocation::get_type_size(ctx.parent->getParent(), type_info.type);
         switch_values.push_back(builder.getInt64(type_size));
         builder.CreateBr(switch_merge);
     }

@@ -18,14 +18,14 @@ class ErrDefFuncRedefinition : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Redefinition of func module: " << YELLOW << func_name << DEFAULT;
+        oss << BaseError::to_string() << "└─ Redefinition of func component: " << YELLOW << func_name << DEFAULT;
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Redefinition of func module '" + func_name + "'";
+        d.message = "Redefinition of func component '" + func_name + "'";
         return d;
     }
 

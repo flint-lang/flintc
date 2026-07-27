@@ -8,7 +8,7 @@ func BaseFunc requires(BaseData d):
 	def base():
 		print($"speed = {d.speed}\n");
 
-entity BaseEntity:
+object BaseObject:
 	data: BaseData;
 	func: BaseFunc;
-	BaseEntity(BaseData);
+	BaseObject(BaseData);

@@ -34,7 +34,7 @@ func FPaddleCommon requires(DPaddle paddle):
 
 		// Left/right paddles differ only in which side of the ball matters.
 		// This shared function assumes "the paddle" decides what direction it occupies
-		// through the concrete entity that links to it.
+		// through the concrete object that links to it.
 		f32 x_paddle = paddle.pos.x;
 		f32 x_ball = ball.get_x();
 

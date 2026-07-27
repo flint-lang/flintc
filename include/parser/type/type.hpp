@@ -35,13 +35,13 @@ class Type {
         ALIAS,
         ARRAY,
         DATA,
-        ENTITY,
         ENUM,
         ERROR_SET,
         FUNC,
         FN,
         GROUP,
-        MULTI,
+        INTERFACE,
+        OBJECT,
         OPAQUE,
         OPTIONAL,
         POINTER,
@@ -50,6 +50,7 @@ class Type {
         TUPLE,
         UNKNOWN,
         VARIANT,
+        VECTOR,
     };
 
     /// @function `get_variation`
@@ -66,7 +67,7 @@ class Type {
     virtual bool equals(const std::shared_ptr<Type> &other) const = 0;
 
     /// @function `is_freeable`
-    /// @brief Whether this type is freeable, e.g. if freeing it needs special-case handling (for example for data, entities etc)
+    /// @brief Whether this type is freeable, e.g. if freeing it needs special-case handling (for example for data, objects etc)
     ///
     /// @return `bool` Whether this type is freeable
     virtual bool is_freeable() const = 0;

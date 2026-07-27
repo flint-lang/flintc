@@ -1,0 +1,20 @@
+use Core.print
+
+data Transform:
+	f32x2 pos;
+	f32x2 dir;
+	f32 speed;
+	Transform(pos, dir, speed);
+
+func Movement requires(Transform t):
+	def move():
+		t.pos += t.dir * t.speed;
+	
+	def print_position():
+		print($"t.pos = {t.pos}\n");
+
+def main():
+	t := Transform((1.2, 3.4), (4.5, 6.7), 0.12);
+	Movement.print_position(t);
+	Movement.move(t);
+	Movement.print_position(t);

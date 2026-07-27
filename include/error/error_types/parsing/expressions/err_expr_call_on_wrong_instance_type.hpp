@@ -15,14 +15,14 @@ class ErrExprCallOnWrongInstanceType : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Instance calls are only allowed on variables of type 'entity' or 'func'";
+        oss << BaseError::to_string() << "└─ Instance calls are only allowed on variables of type 'object' or 'func'";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Instance calls are only allowed on variables of type 'entity' or 'func'";
+        d.message = "Instance calls are only allowed on variables of type 'object' or 'func'";
         return d;
     }
 };

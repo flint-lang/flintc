@@ -19,7 +19,7 @@ data DAudio:
 	bool playing = false;
 	DAudio(stream, buffer, phase, frequency, total_frames, frames_written, playing);
 
-entity Audio:
+object Audio:
 	data: DAudio a;
 	Audio(a);
 

@@ -2,10 +2,11 @@
 #include "error/error.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <utility>
@@ -21,7 +22,7 @@ std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
         }
     }
     imports.emplace_back(std::make_unique<ImportNode>(std::move(import)));
-    ImportNode *added_import = static_cast<ImportNode *>(imports.back().get());
+    ImportNode *const added_import = static_cast<ImportNode *>(imports.back().get());
     if (std::holds_alternative<std::vector<std::string>>(added_import->path)) {
         const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(added_import->path);
         if (import_vec.size() == 2 && import_vec.front() == "Core") {
@@ -34,7 +35,7 @@ std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
 std::optional<DataNode *> FileNode::add_data(DataNode &data) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<DataNode>(std::move(data)));
-    DataNode *added_data = static_cast<DataNode *>(definitions.back().get());
+    DataNode *const added_data = static_cast<DataNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<DataType>(added_data))) {
         THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_hash, added_data->line, added_data->column, added_data->name);
         return std::nullopt;
@@ -62,7 +63,7 @@ std::optional<DataNode *> FileNode::add_data(DataNode &data) {
 std::optional<FuncNode *> FileNode::add_func(FuncNode &func) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<FuncNode>(std::move(func)));
-    FuncNode *added_func = static_cast<FuncNode *>(definitions.back().get());
+    FuncNode *const added_func = static_cast<FuncNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<FuncType>(added_func))) {
         THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_func->line, added_func->column, added_func->name);
         return std::nullopt;
@@ -70,15 +71,26 @@ std::optional<FuncNode *> FileNode::add_func(FuncNode &func) {
     return added_func;
 }
 
-std::optional<EntityNode *> FileNode::add_entity(EntityNode &entity) {
+std::optional<InterfaceNode *> FileNode::add_interface(InterfaceNode &interface) {
     auto &definitions = file_namespace->public_symbols.definitions;
-    definitions.emplace_back(std::make_unique<EntityNode>(std::move(entity)));
-    EntityNode *added_entity = static_cast<EntityNode *>(definitions.back().get());
-    if (!file_namespace->add_type(std::make_shared<EntityType>(added_entity))) {
-        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_entity->line, added_entity->column, added_entity->name);
+    definitions.emplace_back(std::make_unique<InterfaceNode>(std::move(interface)));
+    InterfaceNode *const added_interface = static_cast<InterfaceNode *>(definitions.back().get());
+    if (!file_namespace->add_type(std::make_shared<InterfaceType>(added_interface))) {
+        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_interface->line, added_interface->column, added_interface->name);
         return std::nullopt;
     }
-    return added_entity;
+    return added_interface;
+}
+
+std::optional<ObjectNode *> FileNode::add_object(ObjectNode &object) {
+    auto &definitions = file_namespace->public_symbols.definitions;
+    definitions.emplace_back(std::make_unique<ObjectNode>(std::move(object)));
+    ObjectNode *added_object = static_cast<ObjectNode *>(definitions.back().get());
+    if (!file_namespace->add_type(std::make_shared<ObjectType>(added_object))) {
+        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_object->line, added_object->column, added_object->name);
+        return std::nullopt;
+    }
+    return added_object;
 }
 
 std::optional<FunctionNode *> FileNode::add_function(                                  //
@@ -171,7 +183,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
         }
     }
     public_definitions.emplace_back(std::make_unique<FunctionNode>(std::move(function)));
-    FunctionNode *added_function = static_cast<FunctionNode *>(public_definitions.back().get());
+    FunctionNode *const added_function = static_cast<FunctionNode *>(public_definitions.back().get());
     if (added_function->name == "_main") {
         ASSERT(Parser::main_function.load() == nullptr);
         Parser::main_function.store(added_function, std::memory_order_release);
@@ -185,7 +197,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
 bool FileNode::add_enum(EnumNode &enum_node) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<EnumNode>(std::move(enum_node)));
-    EnumNode *added_enum = static_cast<EnumNode *>(definitions.back().get());
+    EnumNode *const added_enum = static_cast<EnumNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<EnumType>(added_enum))) {
         // Enum redifinition
         THROW_BASIC_ERR(ERR_PARSING);
@@ -197,7 +209,7 @@ bool FileNode::add_enum(EnumNode &enum_node) {
 bool FileNode::add_error(ErrorNode &error) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<ErrorNode>(std::move(error)));
-    ErrorNode *added_error = static_cast<ErrorNode *>(definitions.back().get());
+    ErrorNode *const added_error = static_cast<ErrorNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<ErrorSetType>(added_error))) {
         // Error Set redefinition or naming collision
         THROW_BASIC_ERR(ERR_PARSING);
@@ -209,7 +221,7 @@ bool FileNode::add_error(ErrorNode &error) {
 bool FileNode::add_variant(VariantNode &variant) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<VariantNode>(std::move(variant)));
-    VariantNode *added_variant = static_cast<VariantNode *>(definitions.back().get());
+    VariantNode *const added_variant = static_cast<VariantNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<VariantType>(added_variant, false))) {
         // Varaint type redefinition
         THROW_BASIC_ERR(ERR_PARSING);
@@ -221,7 +233,7 @@ bool FileNode::add_variant(VariantNode &variant) {
 TestNode *FileNode::add_test(TestNode &test) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<TestNode>(std::move(test)));
-    TestNode *test_node = static_cast<TestNode *>(definitions.back().get());
+    TestNode *const test_node = static_cast<TestNode *>(definitions.back().get());
     test_node->scope->function = test_node;
     return test_node;
 }

@@ -13,16 +13,16 @@
 #include "parser/ast/statements/callable_call_node_statement.hpp"
 #include "parser/ast/statements/continue_node.hpp"
 #include "parser/ast/statements/instance_call_node_statement.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
-#include "parser/type/multi_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/primitive_type.hpp"
 #include "parser/type/range_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "types.hpp"
 
 #include <iterator>
@@ -124,30 +124,38 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
     return ThrowNode(file_hash, tokens, expr.value());
 }
 
-std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
+std::optional<ReturnNode> Parser::create_return(       //
+    std::shared_ptr<Scope> &scope,                     //
+    const token_slice &tokens,                         //
+    std::optional<std::unique_ptr<ExpressionNode>> rhs //
+) {
     PROFILE_CUMULATIVE("Parser::create_return");
     // Get the return type of the function
     std::shared_ptr<Type> return_type = scope->get_variable_type("flint.return_type").value();
-    unsigned int return_id = 0;
-    for (auto it = tokens.first; it != tokens.second; ++it) {
-        if (it->token == TOK_RETURN) {
-            if (std::next(it) == tokens.second && return_type->to_string() != "void") {
-                // Return statement without expression for a function that returns a non-void value
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+    std::optional<std::unique_ptr<ExpressionNode>> expr;
+    if (rhs.has_value()) {
+        expr = std::move(rhs);
+    } else {
+        unsigned int return_id = 0;
+        for (auto it = tokens.first; it != tokens.second; ++it) {
+            if (it->token == TOK_RETURN) {
+                if (std::next(it) == tokens.second && return_type->to_string() != "void") {
+                    // Return statement without expression for a function that returns a non-void value
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                return_id = std::distance(tokens.first, it);
             }
-            return_id = std::distance(tokens.first, it);
         }
-    }
 
-    token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
-    std::optional<std::unique_ptr<ExpressionNode>> return_expr;
-    if (std::next(expression_tokens.first) == expression_tokens.second) {
-        // This can be asserted because of the check above
-        ASSERT(return_type->to_string() == "void");
-        return ReturnNode(file_hash, tokens, return_expr);
+        token_slice expression_tokens = {tokens.first + return_id + 1, tokens.second};
+        if (std::next(expression_tokens.first) == expression_tokens.second) {
+            // This can be asserted because of the check above
+            ASSERT(return_type->to_string() == "void");
+            return ReturnNode(file_hash, tokens, expr);
+        }
+        expr = create_expression(_ctx_, scope, expression_tokens);
     }
-    std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(_ctx_, scope, expression_tokens);
     if (!expr.has_value()) {
         return std::nullopt;
     }
@@ -201,6 +209,16 @@ std::optional<ReturnNode> Parser::create_return(std::shared_ptr<Scope> &scope, c
     if (!check_castability(return_type, expr.value())) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
+    }
+    // Special handling for switch expressions
+    if (expr.value()->get_variation() == ExpressionNode::Variation::SWITCH_EXPRESSION) {
+        auto *switch_expr = expr.value()->as<SwitchExpression>();
+        for (auto &branch : switch_expr->branches) {
+            if (!check_castability(return_type, branch.expr)) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
     }
     return ReturnNode(file_hash, tokens, expr);
 }
@@ -267,6 +285,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         if (Matcher::tokens_contain(if_chain.front().first, Matcher::token(TOK_IF))) {
             // 'else if'
             else_scope = create_if(scope, scope_segment, if_chain);
+            if (!else_scope.has_value()) {
+                return std::nullopt;
+            }
         } else {
             // 'else'
             if (if_chain.size() > 1) {
@@ -1915,17 +1936,17 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
             }
             return GroupDeclarationNode(file_hash, tokens, variables, expression.value());
         }
-        case Type::Variation::MULTI: {
-            const auto *multi_type = expression.value()->type->as<MultiType>();
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = expression.value()->type->as<VectorType>();
             for (unsigned int i = 0; i < variables.size(); i++) {
-                variables.at(i).first = multi_type->base_type;
+                variables.at(i).first = vector_type->base_type;
                 if (variables.at(i).second.empty()) {
                     // Skip discarded "variables" in group declarations
                     continue;
                 }
                 if (!scope->add_variable(variables.at(i).second,
                         Scope::Variable{
-                            .type = multi_type->base_type,
+                            .type = vector_type->base_type,
                             .scope_id = scope->scope_id,
                             .scope_segment = scope_segment,
                             .is_mutable = true,
@@ -1947,18 +1968,18 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 }
             }
             std::string group_type_str = "(";
-            for (unsigned int i = 0; i < multi_type->width; i++) {
+            for (unsigned int i = 0; i < vector_type->width; i++) {
                 if (i > 0) {
                     group_type_str += ", ";
                 }
-                group_type_str += multi_type->base_type->to_string();
+                group_type_str += vector_type->base_type->to_string();
             }
             group_type_str += ")";
             std::optional<std::shared_ptr<Type>> expr_group_type = file_node_ptr->file_namespace->get_type_from_str(group_type_str);
             if (!expr_group_type.has_value()) {
                 std::vector<std::shared_ptr<Type>> group_types;
-                for (unsigned int i = 0; i < multi_type->width; i++) {
-                    group_types.emplace_back(multi_type->base_type);
+                for (unsigned int i = 0; i < vector_type->width; i++) {
+                    group_types.emplace_back(vector_type->base_type);
                 }
                 expr_group_type = std::make_shared<GroupType>(group_types);
                 if (!file_node_ptr->file_namespace->add_type(expr_group_type.value())) {
@@ -2140,24 +2161,55 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         }
     }
 
-    // Check for invalid group types in inference
-    if (is_inferred && rhs.value()->type->get_variation() == Type::Variation::GROUP) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-
     // Determine final type and handle conversions
     std::shared_ptr<Type> final_type = declared_type;
     if (is_inferred) {
         // Resolve literals to default types for inferred declarations
-        const std::string type_str = rhs.value()->type->to_string();
-        if (type_str == "int") {
-            final_type = Type::get_primitive_type("i32");
-        } else if (type_str == "float") {
-            final_type = Type::get_primitive_type("f32");
-        } else if (type_str == "type.flint.str.lit") {
-            final_type = Type::get_primitive_type("str");
-        } else {
+        resolve_comptime_type_of_expr(rhs.value(), std::nullopt);
+        final_type = rhs.value()->type;
+        if (rhs.value()->type->get_variation() == Type::Variation::GROUP) {
+            const ASTNode::PosTriple rhs_pos{
+                .line = rhs.value()->line,
+                .column = rhs.value()->column,
+                .length = rhs.value()->length,
+            };
+            const GroupType *group_type = rhs.value()->type->as<GroupType>();
+            std::optional<std::shared_ptr<Type>> homogeneous_type = group_type->get_homogeneous_type();
+            const size_t group_width = group_type->types.size();
+            const bool group_2_3_4_wide = group_width == 2 || group_width == 3 || group_width == 4;
+            const bool group_8_wide = group_width == 8;
+            if (homogeneous_type.has_value() && (group_2_3_4_wide || group_8_wide)) {
+                // It may be able to turn into a vector type
+                const auto &type = homogeneous_type.value();
+                if (type->get_variation() == Type::Variation::PRIMITIVE) {
+                    const std::string &primitive_name = type->as<PrimitiveType>()->type_name;
+                    // It is not a vector type if:
+                    //   - The base type is a string *or*
+                    //   - (The base type is a bool *and* the group is not 8 elements large) *or*
+                    //   - (The base type is 64 bit *and* the group is 8 elements large)
+                    const bool is_str = primitive_name == "str";
+                    const bool is_invalid_bool8 = primitive_name == "bool" && !group_8_wide;
+                    const bool is_invalid_64bit = primitive_name.substr(primitive_name.size() - 2) == "64" && group_8_wide;
+                    const bool is_not_vector = is_str || is_invalid_bool8 || is_invalid_64bit;
+                    if (!is_not_vector) {
+                        // The rhs expression needs to be wrapped in a `TypeCastNode` since just changing the type of the group
+                        // expression does not properly work. We instead need to cast the group to a vector
+                        rhs.value()->type = final_type;
+                        const std::string &vector_type_string = primitive_name + "x" + std::to_string(group_width);
+                        const auto vec_ty = file_node_ptr->file_namespace->get_type_from_str(vector_type_string).value();
+                        rhs = std::make_unique<TypeCastNode>(file_hash, rhs_pos, vec_ty, rhs.value());
+                        final_type = vec_ty;
+                    }
+                }
+            }
+            if (!homogeneous_type.has_value()) {
+                // It was not able to turn into a vector type, so we turn it into a tuple
+                final_type = std::make_shared<TupleType>(group_type->types);
+                if (!file_node_ptr->file_namespace->add_type(final_type)) {
+                    final_type = file_node_ptr->file_namespace->get_type_from_str(final_type->to_string()).value();
+                }
+                rhs = std::make_unique<TypeCastNode>(file_hash, rhs_pos, final_type, rhs.value());
+            }
             final_type = rhs.value()->type;
         }
     }
@@ -2824,7 +2876,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         }
         statement_node = std::make_unique<AssignmentNode>(file_hash, tokens, rhs_expr.value()->type, "_", rhs_expr.value());
     } else if (Matcher::tokens_contain(tokens, Matcher::return_statement)) {
-        std::optional<ReturnNode> return_node = create_return(scope, tokens);
+        std::optional<ReturnNode> return_node = create_return(scope, tokens, std::move(rhs));
         if (!return_node.has_value()) {
             return std::nullopt;
         }
@@ -2839,20 +2891,20 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
         && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0 //
     ) {
         // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
-        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func module call
-        // within a call)
+        // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func component
+        // call within a call)
         token_slice tokens_mut = tokens;
         if (tokens_mut.first->token == TOK_TYPE) {
             switch (tokens_mut.first->type->get_variation()) {
                 default:
-                    // Aliased function calls are only allowed on entities or func modules, no other *type* can contain functions
+                    // Aliased function calls are only allowed on objects or func components, no other *type* can contain functions
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
-                case Type::Variation::ENTITY: {
-                    const auto *entity_node = tokens_mut.first->type->as<EntityType>()->entity_node;
-                    if (entity_node->file_hash.to_string() != file_hash.to_string()) {
-                        auto *entity_namespace = Resolver::get_namespace_from_hash(entity_node->file_hash);
-                        statement_node = create_call_statement(scope, tokens_mut, entity_namespace, true);
+                case Type::Variation::OBJECT: {
+                    const auto *object_node = tokens_mut.first->type->as<ObjectType>()->object_node;
+                    if (object_node->file_hash.to_string() != file_hash.to_string()) {
+                        auto *object_namespace = Resolver::get_namespace_from_hash(object_node->file_hash);
+                        statement_node = create_call_statement(scope, tokens_mut, object_namespace, true);
                     } else {
                         statement_node = create_call_statement(scope, tokens_mut, std::nullopt, true);
                     }

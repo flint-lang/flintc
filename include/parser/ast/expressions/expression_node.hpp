@@ -97,8 +97,9 @@ class ExpressionNode : public ASTNode {
     virtual bool is_producer() const {
         const auto type_variation = type->get_variation();
         const bool is_optional = type_variation == Type::Variation::OPTIONAL;
-        const bool is_interface = type_variation == Type::Variation::FUNC;
-        return is_optional || is_interface;
+        const bool is_func = type_variation == Type::Variation::FUNC;
+        const bool is_interface = type_variation == Type::Variation::INTERFACE;
+        return is_optional || is_func || is_interface;
     }
 
     /// @function `clone`

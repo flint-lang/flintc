@@ -85,6 +85,18 @@ class GroupType : public Type {
         return type_str;
     }
 
+    std::optional<std::shared_ptr<Type>> get_homogeneous_type() const {
+        ASSERT(!types.empty());
+        std::shared_ptr<Type> type = types.front();
+        for (size_t i = 1; i < types.size(); i++) {
+            const auto &element_type = types.at(i);
+            if (!type->equals(element_type)) {
+                return std::nullopt;
+            }
+        }
+        return type;
+    }
+
     /// @var `types`
     /// @brief The types of this group
     std::vector<std::shared_ptr<Type>> types;

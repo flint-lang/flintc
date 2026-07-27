@@ -1,0 +1,38 @@
+#pragma once
+
+#include "colors.hpp"
+#include "error/error_types/base_error.hpp"
+
+class ErrDefObjectConstructorWrongName : public BaseError {
+  public:
+    ErrDefObjectConstructorWrongName(     //
+        const ErrorType error_type,       //
+        const Hash &file_hash,            //
+        const unsigned int line,          //
+        const unsigned int column,        //
+        const std::string &expected_name, //
+        const std::string &actual_name    //
+        ) :
+        BaseError(error_type, file_hash, line, column, actual_name.size()),
+        expected_name(expected_name),
+        actual_name(actual_name) {}
+
+    [[nodiscard]]
+    std::string to_string() const override {
+        std::ostringstream oss;
+        oss << BaseError::to_string() << "└─ Expected object constructor name '" << YELLOW << expected_name << DEFAULT << "' but got '"
+            << YELLOW << actual_name << DEFAULT << "'";
+        return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected object constructor name '" + expected_name + "' but got '" + actual_name + "'";
+        return d;
+    }
+
+  private:
+    std::string expected_name;
+    std::string actual_name;
+};

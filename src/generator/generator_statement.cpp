@@ -326,12 +326,12 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
         llvm::Value *const alloca = ctx.allocations.at(alloca_name);
         llvm::Value *variable_value = alloca;
-        std::pair<llvm::Type *, std::pair<bool, bool>> variable_type = IR::get_type(ctx.parent->getParent(), var_type);
+        const IR::TypeStorageInfo &variable_type_info = IR::get_type(ctx.parent->getParent(), var_type);
         const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY && !var_type->as<ArrayType>()->sizes.has_value();
         const bool var_is_str = var_type->to_string() == "str";
         const bool var_is_opaque = var_type->get_variation() == Type::Variation::OPAQUE;
-        if ((variable_type.second.first || var_is_array || var_is_str || var_is_opaque) && !variable.is_fn_param) {
-            llvm::Type *type_to_load = variable_type.second.first ? PTR_TY : variable_type.first;
+        if ((variable_type_info.is_complex || var_is_array || var_is_str || var_is_opaque) && !variable.is_fn_param) {
+            llvm::Type *type_to_load = variable_type_info.is_complex ? PTR_TY : variable_type_info.type;
             variable_value = IR::aligned_load(builder, type_to_load, alloca, "variable_value");
         }
         if (var_type->is_dima_managed()) {
@@ -921,7 +921,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         return false;
     }
     llvm::Value *const iterable_expr = iterable.value().front();
-    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *length = nullptr;
     llvm::Value *value_ptr = nullptr;
     llvm::Type *element_type = nullptr;
@@ -955,8 +955,8 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
             // The values start right after the lengths
             value_ptr = builder.CreateGEP(builder.getInt64Ty(), len_ptr, dimensionality);
         }
-        const auto type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
-        element_type = array_type->type->is_dima_managed() ? PTR_TY : type_pair.first;
+        const IR::TypeStorageInfo &type_info = IR::get_type(ctx.parent->getParent(), array_type->type);
+        element_type = array_type->type->is_dima_managed() ? PTR_TY : type_info.type;
     } else if (is_range) {
         ASSERT(iterable.value().size() == 2);
         lower_bound = iterable.value().front();
@@ -999,7 +999,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
         tuple_alloca = ctx.allocations.at(tuple_alloca_name);
         const auto tuple_var = for_node->definition_scope->variables.at(std::get<std::string>(for_node->iterators));
-        tuple_type = IR::get_type(ctx.parent->getParent(), tuple_var.type).first;
+        tuple_type = IR::get_type(ctx.parent->getParent(), tuple_var.type).type;
         llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
         IR::aligned_store(builder, builder.getInt64(0), idx_ptr);
     } else {
@@ -2037,11 +2037,11 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         }
         // Free the lhs before assigning
         llvm::Value *lhs_value = lhs;
-        std::pair<llvm::Type *, std::pair<bool, bool>> var_type = IR::get_type(ctx.parent->getParent(), lhs_type);
+        const IR::TypeStorageInfo &var_type_info = IR::get_type(ctx.parent->getParent(), lhs_type);
         const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY && !lhs_type->as<ArrayType>()->sizes.has_value();
         const bool var_is_str = lhs_type->to_string() == "str";
-        if (var_type.second.first || var_is_array || var_is_str) {
-            llvm::Type *type_to_load = var_type.second.first ? PTR_TY : var_type.first;
+        if (var_type_info.is_complex || var_is_array || var_is_str) {
+            llvm::Type *type_to_load = var_type_info.is_complex ? PTR_TY : var_type_info.type;
             lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
         }
         if (lhs_type->is_dima_managed()) {
@@ -2132,9 +2132,9 @@ bool Generator::Statement::generate_data_field_assignment( //
     const auto &base_expr_type = data_field_assignment->base_expr->type;
     const bool is_bool8 = base_expr_type->to_string() == "bool8";
     const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
-    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
-    auto base_expr = Expression::generate_expression(                                                      //
-        builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    const bool is_vector = base_expr_type->get_variation() == Type::Variation::VECTOR;
+    auto base_expr = Expression::generate_expression(                                                       //
+        builder, ctx, garbage, 0, data_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_vector //
     );
     if (!base_expr.has_value()) {
         return false;
@@ -2166,8 +2166,8 @@ bool Generator::Statement::generate_data_field_assignment( //
 
     // Get the type of the field we're assigning to
     const std::shared_ptr<Type> &field_type = data_field_assignment->field_type;
-    auto data_type = IR::get_type(ctx.parent->getParent(), data_field_assignment->base_expr->type);
-    llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, var_alloca, data_field_assignment->field_id);
+    const IR::TypeStorageInfo &data_type_info = IR::get_type(ctx.parent->getParent(), data_field_assignment->base_expr->type);
+    llvm::Value *field_ptr = builder.CreateStructGEP(data_type_info.type, var_alloca, data_field_assignment->field_id);
 
     // Check if the field is an optional type
     if (field_type->get_variation() == Type::Variation::OPTIONAL) {
@@ -2277,9 +2277,9 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
     const auto &base_expr_type = grouped_field_assignment->base_expr->type;
     const bool is_bool8 = base_expr_type->to_string() == "bool8";
     const bool is_tuple = base_expr_type->get_variation() == Type::Variation::TUPLE;
-    const bool is_multi = base_expr_type->get_variation() == Type::Variation::MULTI;
-    auto base_expr = Expression::generate_expression(                                                         //
-        builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_multi //
+    const bool is_vector = base_expr_type->get_variation() == Type::Variation::VECTOR;
+    auto base_expr = Expression::generate_expression(                                                          //
+        builder, ctx, garbage, 0, grouped_field_assignment->base_expr.get(), is_bool8 || is_tuple || is_vector //
     );
     if (!base_expr.has_value()) {
         return false;
@@ -2318,9 +2318,9 @@ bool Generator::Statement::generate_grouped_data_field_assignment( //
         return true;
     }
 
-    auto data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->base_expr->type);
+    const IR::TypeStorageInfo &data_type = IR::get_type(ctx.parent->getParent(), grouped_field_assignment->base_expr->type);
     for (size_t i = 0; i < expression.value().size(); i++) {
-        llvm::Value *field_ptr = builder.CreateStructGEP(data_type.first, var_alloca, grouped_field_assignment->field_ids.at(i));
+        llvm::Value *field_ptr = builder.CreateStructGEP(data_type.type, var_alloca, grouped_field_assignment->field_ids.at(i));
         llvm::StoreInst *store = IR::aligned_store(builder, expression.value().at(i), field_ptr);
         store->setMetadata("comment",
             llvm::MDNode::get(context,
@@ -2394,8 +2394,8 @@ bool Generator::Statement::generate_array_assignment( //
     ASSERT(array_assignment->base_expr->type->get_variation() == Type::Variation::ARRAY);
     const ArrayType *array_type = array_assignment->base_expr->type->as<ArrayType>();
     const std::shared_ptr<Type> &base_type = array_type->type;
-    const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), array_type->type);
-    llvm::Type *const element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+    const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), array_type->type);
+    llvm::Type *const element_type = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;
     const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
     llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
     llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
@@ -2414,7 +2414,7 @@ bool Generator::Statement::generate_array_assignment( //
         arr_dim_lengths = scratchspace;
         arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
     } else {
-        llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+        llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
         llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
         arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
         arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
@@ -2429,13 +2429,13 @@ bool Generator::Statement::generate_array_assignment( //
         return true;
     }
     // Free the value stored in the array before assigning the new value
-    const auto base_type_pair = IR::get_type(ctx.parent->getParent(), base_type);
+    const IR::TypeStorageInfo &base_type_info = IR::get_type(ctx.parent->getParent(), base_type);
     const bool var_is_array = base_type->get_variation() == Type::Variation::ARRAY && !base_type->as<ArrayType>()->sizes.has_value();
     const bool var_is_str = base_type->to_string() == "str";
     const bool var_is_opaque = base_type->get_variation() == Type::Variation::OPAQUE;
     llvm::Value *arr_value = arr_value_ptr;
-    if (base_type_pair.second.first || var_is_array || var_is_str || var_is_opaque) {
-        llvm::Type *type_to_load = base_type_pair.second.first ? PTR_TY : base_type_pair.first;
+    if (base_type_info.is_complex || var_is_array || var_is_str || var_is_opaque) {
+        llvm::Type *type_to_load = base_type_info.is_complex ? PTR_TY : base_type_info.type;
         arr_value = IR::aligned_load(builder, type_to_load, arr_value_ptr, "arr_value");
     }
     if (base_type->is_dima_managed()) {
@@ -2531,8 +2531,8 @@ bool Generator::Statement::generate_grouped_array_assignment( //
         }
         const ArrayType *const_arr_type = array_assignment->base_expr->type->as<ArrayType>();
         const std::shared_ptr<Type> &base_type = const_arr_type->type;
-        const auto elem_type_pair = IR::get_type(ctx.parent->getParent(), const_arr_type->type);
-        llvm::Type *const element_type = elem_type_pair.second.first ? PTR_TY : elem_type_pair.first;
+        const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), const_arr_type->type);
+        llvm::Type *const element_type = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;
         const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
         llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
         llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
@@ -2551,7 +2551,7 @@ bool Generator::Statement::generate_grouped_array_assignment( //
             arr_dim_lengths = scratchspace;
             arr_data = builder.CreateBitCast(array_ptr, PTR_TY, "arr_data");
         } else {
-            llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).first;
+            llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
             llvm::Value *const len_ptr = builder.CreateStructGEP(str_type, array_ptr, 0, "len_ptr");
             arr_dim = IR::aligned_load(builder, builder.getInt64Ty(), len_ptr, "arr_dim");
             arr_dim_lengths = builder.CreateStructGEP(str_type, array_ptr, 1, "arr_dim_lengths");
@@ -2588,10 +2588,10 @@ bool Generator::Statement::generate_unary_op_statement( //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
     llvm::Value *const alloca = ctx.allocations.at(var_name);
 
-    llvm::LoadInst *var_value = IR::aligned_load(builder,            //
-        IR::get_type(ctx.parent->getParent(), var_node->type).first, //
-        alloca,                                                      //
-        var_node->name + "_val"                                      //
+    llvm::LoadInst *var_value = IR::aligned_load(builder,           //
+        IR::get_type(ctx.parent->getParent(), var_node->type).type, //
+        alloca,                                                     //
+        var_node->name + "_val"                                     //
     );
     var_value->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Load val of var '" + var_node->name + "'")));
     llvm::Value *operation_result = nullptr;

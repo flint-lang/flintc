@@ -2,11 +2,11 @@
 
 #include "lexer/lexer_utils.hpp"
 #include "parser/type/array_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/vector_type.hpp"
 
 #include <mutex>
 #include <optional>
@@ -53,54 +53,54 @@ void Type::init_types() {
     get_primitive_type("int");
     get_primitive_type("float");
 
-    add_type(std::make_shared<MultiType>(bool_type, 8));
+    add_type(std::make_shared<VectorType>(bool_type, 8));
 
-    add_type(std::make_shared<MultiType>(u8_type, 2));
-    add_type(std::make_shared<MultiType>(u8_type, 3));
-    add_type(std::make_shared<MultiType>(u8_type, 4));
-    add_type(std::make_shared<MultiType>(u8_type, 8));
+    add_type(std::make_shared<VectorType>(u8_type, 2));
+    add_type(std::make_shared<VectorType>(u8_type, 3));
+    add_type(std::make_shared<VectorType>(u8_type, 4));
+    add_type(std::make_shared<VectorType>(u8_type, 8));
 
-    add_type(std::make_shared<MultiType>(i8_type, 2));
-    add_type(std::make_shared<MultiType>(i8_type, 3));
-    add_type(std::make_shared<MultiType>(i8_type, 4));
-    add_type(std::make_shared<MultiType>(i8_type, 8));
+    add_type(std::make_shared<VectorType>(i8_type, 2));
+    add_type(std::make_shared<VectorType>(i8_type, 3));
+    add_type(std::make_shared<VectorType>(i8_type, 4));
+    add_type(std::make_shared<VectorType>(i8_type, 8));
 
-    add_type(std::make_shared<MultiType>(u16_type, 2));
-    add_type(std::make_shared<MultiType>(u16_type, 3));
-    add_type(std::make_shared<MultiType>(u16_type, 4));
-    add_type(std::make_shared<MultiType>(u16_type, 8));
+    add_type(std::make_shared<VectorType>(u16_type, 2));
+    add_type(std::make_shared<VectorType>(u16_type, 3));
+    add_type(std::make_shared<VectorType>(u16_type, 4));
+    add_type(std::make_shared<VectorType>(u16_type, 8));
 
-    add_type(std::make_shared<MultiType>(i16_type, 2));
-    add_type(std::make_shared<MultiType>(i16_type, 3));
-    add_type(std::make_shared<MultiType>(i16_type, 4));
-    add_type(std::make_shared<MultiType>(i16_type, 8));
+    add_type(std::make_shared<VectorType>(i16_type, 2));
+    add_type(std::make_shared<VectorType>(i16_type, 3));
+    add_type(std::make_shared<VectorType>(i16_type, 4));
+    add_type(std::make_shared<VectorType>(i16_type, 8));
 
-    add_type(std::make_shared<MultiType>(u32_type, 2));
-    add_type(std::make_shared<MultiType>(u32_type, 3));
-    add_type(std::make_shared<MultiType>(u32_type, 4));
-    add_type(std::make_shared<MultiType>(u32_type, 8));
+    add_type(std::make_shared<VectorType>(u32_type, 2));
+    add_type(std::make_shared<VectorType>(u32_type, 3));
+    add_type(std::make_shared<VectorType>(u32_type, 4));
+    add_type(std::make_shared<VectorType>(u32_type, 8));
 
-    add_type(std::make_shared<MultiType>(i32_type, 2));
-    add_type(std::make_shared<MultiType>(i32_type, 3));
-    add_type(std::make_shared<MultiType>(i32_type, 4));
-    add_type(std::make_shared<MultiType>(i32_type, 8));
+    add_type(std::make_shared<VectorType>(i32_type, 2));
+    add_type(std::make_shared<VectorType>(i32_type, 3));
+    add_type(std::make_shared<VectorType>(i32_type, 4));
+    add_type(std::make_shared<VectorType>(i32_type, 8));
 
-    add_type(std::make_shared<MultiType>(u64_type, 2));
-    add_type(std::make_shared<MultiType>(u64_type, 3));
-    add_type(std::make_shared<MultiType>(u64_type, 4));
+    add_type(std::make_shared<VectorType>(u64_type, 2));
+    add_type(std::make_shared<VectorType>(u64_type, 3));
+    add_type(std::make_shared<VectorType>(u64_type, 4));
 
-    add_type(std::make_shared<MultiType>(i64_type, 2));
-    add_type(std::make_shared<MultiType>(i64_type, 3));
-    add_type(std::make_shared<MultiType>(i64_type, 4));
+    add_type(std::make_shared<VectorType>(i64_type, 2));
+    add_type(std::make_shared<VectorType>(i64_type, 3));
+    add_type(std::make_shared<VectorType>(i64_type, 4));
 
-    add_type(std::make_shared<MultiType>(f32_type, 2));
-    add_type(std::make_shared<MultiType>(f32_type, 3));
-    add_type(std::make_shared<MultiType>(f32_type, 4));
-    add_type(std::make_shared<MultiType>(f32_type, 8));
+    add_type(std::make_shared<VectorType>(f32_type, 2));
+    add_type(std::make_shared<VectorType>(f32_type, 3));
+    add_type(std::make_shared<VectorType>(f32_type, 4));
+    add_type(std::make_shared<VectorType>(f32_type, 8));
 
-    add_type(std::make_shared<MultiType>(f64_type, 2));
-    add_type(std::make_shared<MultiType>(f64_type, 3));
-    add_type(std::make_shared<MultiType>(f64_type, 4));
+    add_type(std::make_shared<VectorType>(f64_type, 2));
+    add_type(std::make_shared<VectorType>(f64_type, 3));
+    add_type(std::make_shared<VectorType>(f64_type, 4));
 
     add_type(std::make_shared<ArrayType>(1, str_type, std::nullopt));
 }

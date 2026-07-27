@@ -57,7 +57,7 @@ func FBall requires(DBall ball):
 	def passed(mut Player player) -> bool:
 		return ball.pos.x + ball.radius > player.get_x();
 
-entity Ball:
+object Ball:
 	data: DBall;
 	func: FBall;
 	Ball(DBall);

@@ -28,11 +28,11 @@
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
-#include "parser/type/entity_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -341,61 +341,62 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::create_variable");
     for (auto tok = tokens.first; tok != tokens.second; tok++) {
-        if (tok->token == TOK_IDENTIFIER) {
-            const std::string name(tok->lexme);
-            if (scope->variables.find(name) != scope->variables.end()) {
-                return std::make_unique<VariableNode>(                                                                             //
-                    file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
-                );
-            }
-            if (scope->captured_entity_identifiers.find(name) == scope->captured_entity_identifiers.end()) {
-                THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
+        if (tok->token != TOK_IDENTIFIER) {
+            continue;
+        }
+        const std::string name(tok->lexme);
+        if (scope->variables.find(name) != scope->variables.end()) {
+            return std::make_unique<VariableNode>(                                                                             //
+                file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
+            );
+        }
+        if (scope->captured_object_identifiers.find(name) == scope->captured_object_identifiers.end()) {
+            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
+            return std::nullopt;
+        }
+        const auto &captured_type = scope->captured_object_identifiers.at(name);
+        switch (captured_type->get_variation()) {
+            default:
+                UNREACHABLE();
                 return std::nullopt;
-            }
-            const auto &captured_type = scope->captured_entity_identifiers.at(name);
-            switch (captured_type->get_variation()) {
-                default:
-                    UNREACHABLE();
-                    return std::nullopt;
-                case Type::Variation::DATA: {
-                    ASSERT(scope->variables.find("self") != scope->variables.end());
-                    const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
-                    const EntityNode *entity_node = self.type->as<EntityType>()->entity_node;
-                    const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
-                    size_t idx = 0;
-                    for (const auto &[data_node, accessor] : entity_node->data_modules) {
-                        if (data_node == required_data_node) {
-                            break;
-                        }
-                        idx++;
+            case Type::Variation::DATA: {
+                ASSERT(scope->variables.find("self") != scope->variables.end());
+                const auto &self = scope->variables.at("self");
+                ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
+                const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
+                const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
+                size_t idx = 0;
+                for (const auto &[data_node, accessor] : object_node->data_modules) {
+                    if (data_node == required_data_node) {
+                        break;
                     }
-                    if (idx == entity_node->data_modules.size()) {
-                        // The data node is not present in the entity type
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
-                        file_hash, get_pos_triple(tokens), "self", self.type, false             //
-                    );
-                    std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
-                        file_hash, get_pos_triple(tokens),                                     //
-                        base_expr,                                                             //
-                        std::nullopt,                                                          // Entity fields have no name
-                        idx,                                                                   // The index of the data in the entity struct
-                        captured_type                                                          //
-                    );
-                    return std::move(access);
+                    idx++;
                 }
-                case Type::Variation::ENTITY:
-                    ASSERT(scope->variables.find("self") != scope->variables.end());
-                    const auto &self = scope->variables.at("self");
-                    ASSERT(self.type->get_variation() == Type::Variation::ENTITY);
-                    // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
-                    // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
-                    // `create_field_access_base` function.
-                    return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, false);
+                if (idx == object_node->data_modules.size()) {
+                    // The data node is not present in the object type
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
+                    file_hash, get_pos_triple(tokens), "self", self.type, !self.is_mutable  //
+                );
+                std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
+                    file_hash, get_pos_triple(tokens),                                     //
+                    base_expr,                                                             //
+                    std::nullopt,                                                          // Object fields have no name
+                    idx,                                                                   // The index of the data in the object struct
+                    captured_type                                                          //
+                );
+                return std::move(access);
             }
+            case Type::Variation::OBJECT:
+                ASSERT(scope->variables.find("self") != scope->variables.end());
+                const auto &self = scope->variables.at("self");
+                ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
+                // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
+                // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
+                // `create_field_access_base` function.
+                return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, !self.is_mutable);
         }
     }
     return std::nullopt;
@@ -859,16 +860,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     std::shared_ptr<Scope> &scope,                                             //
     const token_slice &tokens,                                                 //
     const std::optional<Namespace *> &alias,                                   //
-    const bool is_func_module_call                                             //
+    const bool is_func_component_call                                          //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
     std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_module_call);
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_component_call);
     } else {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_module_call);
+        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_component_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -928,17 +929,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
 }
 
 std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_reference(const token_slice &tokens) {
-    // If the first token is a type then it's a func module's or entities' function reference, so we need to search for the referenced
-    // function within that func module / entity type
+    // If the first token is a type then it's a func component's or objects' function reference, so we need to search for the referenced
+    // function within that func component / object type
     token_slice tokens_mut = tokens;
     std::string referenced_fn_name = "";
     if (tokens.first->token == TOK_TYPE) {
         switch (tokens.first->type->get_variation()) {
             default:
-                // Referencing functions is only allowed when referencing functions of func modules or entities (yet)
+                // Referencing functions is only allowed when referencing functions of func components or objects (yet)
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
-            case Type::Variation::ENTITY:
+            case Type::Variation::OBJECT:
                 [[fallthrough]];
             case Type::Variation::FUNC:
                 referenced_fn_name = tokens.first->type->to_string() + ".";
@@ -1077,8 +1078,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
         );
         return std::nullopt;
     }
-    if (expr_type_str == "int" || expr_type_str == "float") {
-        expression.value()->type = to_type;
+    if (resolve_comptime_type_of_expr(expression.value(), to_type)) {
         return expression;
     }
 
@@ -2412,8 +2412,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::nullopt;
             }
             return initializer;
-        } else if (tokens_mut.first->type->get_variation() == Type::Variation::MULTI && tokens_mut.first->type->to_string() != "bool8") {
-            // It's an explicit initializer of an multi-type
+        } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR && tokens_mut.first->type->to_string() != "bool8") {
+            // It's an explicit initializer of an vector-type
             std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
             if (!initializer.has_value()) {
                 return std::nullopt;

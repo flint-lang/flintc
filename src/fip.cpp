@@ -13,10 +13,10 @@ fip_master_state_t master_state;
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
-#include "parser/type/multi_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/vector_type.hpp"
 #include "profiler.hpp"
 #include "single_executor_guard.hpp"
 
@@ -297,19 +297,6 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             }
             break;
         }
-        case Type::Variation::MULTI: {
-            const auto *type = src->as<MultiType>();
-            // A multi-type will be handled just as a struct type and nothing more
-            dest->type = FIP_TYPE_STRUCT;
-            dest->u.struct_t.field_count = static_cast<uint8_t>(type->width);
-            dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->width));
-            for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
-                if (!convert_type(&dest->u.struct_t.fields[i], type->base_type, true)) {
-                    return false;
-                }
-            }
-            break;
-        }
         case Type::Variation::DATA: {
             const auto *type = src->as<DataType>();
             // A data-type is just a struct and will be handled as such
@@ -374,6 +361,19 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             dest->u.enum_t.values = static_cast<size_t *>(malloc(sizeof(size_t) * dest->u.enum_t.value_count));
             for (size_t i = 0; i < enum_node->values.size(); i++) {
                 dest->u.enum_t.values[i] = enum_node->values.at(i).second;
+            }
+            break;
+        }
+        case Type::Variation::VECTOR: {
+            const auto *type = src->as<VectorType>();
+            // A vector-type will be handled just as a struct type and nothing more
+            dest->type = FIP_TYPE_STRUCT;
+            dest->u.struct_t.field_count = static_cast<uint8_t>(type->width);
+            dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->width));
+            for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
+                if (!convert_type(&dest->u.struct_t.fields[i], type->base_type, true)) {
+                    return false;
+                }
             }
             break;
         }
@@ -591,21 +591,21 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
             }
             case FIP_SYM_DATA: {
                 const fip_sig_data_t *const d = &list->sigs[i].sig.data;
-                // Check if the data could be a multi-type instead, emit a type alias for that case
+                // Check if the data could be a vector-type instead, emit a type alias for that case
                 if (d->value_types[0].type == FIP_TYPE_PRIMITIVE) {
-                    bool is_multitype = true;
+                    bool is_vector = true;
                     const fip_type_prim_e prim_type = d->value_types[0].u.prim;
                     for (size_t j = 1; j < d->value_count; j++) {
                         if (d->value_types[j].type != FIP_TYPE_PRIMITIVE) {
-                            is_multitype = false;
+                            is_vector = false;
                             break;
                         }
                         if (d->value_types[j].u.prim != prim_type) {
-                            is_multitype = false;
+                            is_vector = false;
                             break;
                         }
                     }
-                    if (is_multitype &&             //
+                    if (is_vector &&                //
                         (prim_type == FIP_U8        //
                             || prim_type == FIP_I32 //
                             || prim_type == FIP_I64 //
@@ -639,7 +639,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                             file << "type " << d->name << " " << type_str << "\n";
                             break;
                         }
-                        generated_types[d->name] = Type::Variation::MULTI;
+                        generated_types[d->name] = Type::Variation::VECTOR;
                     }
                 }
                 file << "data " << d->name << ":\n";
