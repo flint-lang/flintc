@@ -3445,13 +3445,12 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             from_type = range_type->bound_type;
             index_expr = {index.value().front(), index.value().at(1)};
         } else {
-            index_expr = {index.value().front(), nullptr};
+            // UINT64_MAX - 1 means "single value"
+            index_expr = {index.value().front(), builder.getInt64(llvm::maxUIntN(64) - 1)};
         }
         if (!from_type->equals(to_type)) {
             index_expr[0] = generate_type_cast(builder, ctx, index_expr[0], from_type, to_type);
-            if (index_expr[1] != nullptr) {
-                index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
-            }
+            index_expr[1] = generate_type_cast(builder, ctx, index_expr[1], from_type, to_type);
         }
         index_expressions.emplace_back(index_expr);
     }
@@ -3493,35 +3492,29 @@ llvm::Value *Generator::Expression::generate_array_access(           //
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
         if (!is_slice) {
-            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                    //
+            llvm::Value *const index_ptr = builder.CreateInBoundsGEP(                                              //
                 builder.getInt64Ty(), temp_array_indices, builder.getInt64(i), "idx_" + std::to_string(i) + "_ptr" //
             );
-            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
+            llvm::StoreInst *const index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
             index_store->setMetadata("comment",                                                                       //
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i))) //
             );
             continue;
         }
-        const bool is_range = indexing_expressions.at(i)->type->get_variation() == Type::Variation::RANGE;
-        for (size_t j = 0; j < 1 + static_cast<size_t>(is_range); j++) {
-            llvm::Value *index_ptr = builder.CreateInBoundsGEP(                                                                    //
-                builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + j), "idx_" + std::to_string(i * 2 + j) + "_ptr" //
-            );
-            llvm::StoreInst *index_store = IR::aligned_store(builder, index_expressions.at(i)[j], index_ptr);
-            index_store->setMetadata("comment",                                                                               //
-                llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + j))) //
-            );
-            if (is_slice && !is_range) {
-                // The slicing function expects indices of non-ranges to be '1, 1' for the index 1, and '1, 3' for the range [1, 3)
-                index_ptr = builder.CreateInBoundsGEP(                                                                                 //
-                    builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i * 2 + 1) + "_ptr" //
-                );
-                index_store = IR::aligned_store(builder, index_expressions.at(i)[0], index_ptr);
-                index_store->setMetadata("comment",                                                                               //
-                    llvm::MDNode::get(context, llvm::MDString::get(context, "Save the index of id " + std::to_string(i * 2 + 1))) //
-                );
-            }
-        }
+        llvm::Value *const from_ptr = builder.CreateInBoundsGEP(                                                        //
+            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2), "idx_" + std::to_string(i) + "_from_ptr" //
+        );
+        llvm::StoreInst *const from_store = IR::aligned_store(builder, index_expressions.at(i)[0], from_ptr);
+        from_store->setMetadata("comment",                                                                     //
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Save 'from' of id " + std::to_string(i))) //
+        );
+        llvm::Value *const to_ptr = builder.CreateInBoundsGEP(                                                            //
+            builder.getInt64Ty(), temp_array_indices, builder.getInt64(i * 2 + 1), "idx_" + std::to_string(i) + "_to_ptr" //
+        );
+        llvm::StoreInst *const to_store = IR::aligned_store(builder, index_expressions.at(i)[1], to_ptr);
+        to_store->setMetadata("comment",                                                                     //
+            llvm::MDNode::get(context, llvm::MDString::get(context, "Save 'to' of id " + std::to_string(i))) //
+        );
     }
     const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), result_type);
     llvm::Type *element_type = elem_type_info.is_complex ? PTR_TY : elem_type_info.type;

@@ -949,55 +949,54 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //     const size_t *ranges,       //
     //     const uint32_t type_id,     //
     //     const bool elem_is_indirect //
-    // ) {
+    // ) {                                                                          // B0 [entry]
     //     const size_t src_dimensionality = src->len;
     //     size_t *src_dim_lengths = (size_t *)src->value;
     //
+    //     // This value as the 'to' means that 'from' is a single index, not a range
+    //     const size_t SINGLE_IDX = UINT64_MAX - 1;
+    //
     //     // First, validate ranges and count new dimensionality
     //     size_t new_dimensionality = 0;
-    //     for (size_t i = 0; i < src_dimensionality; i++) {
+    //     for (size_t i = 0; i < src_dimensionality; i++) {                        // B1 [cond], B2 [body]
     //         const size_t from = ranges[i * 2];
     //         const size_t to = ranges[i * 2 + 1];
-    //         if (from != to) {
-    //             // Validate range bounds
-    //             if (to == UINT64_MAX) {
-    //                 // Until-end range, change to range to the dim length
-    //                 ranges[i * 2 + 1] = src_dim_lengths[i];
-    //             } else if (to > src_dim_lengths[i]) {
-    //                 // Out of bounds range
-    //                 return NULL;
-    //             } else if (to - from < 2) {
-    //                 // "Range" is less than 2, so it's actually a single value, which means that the dimensionality would decrase. But in
-    //                 // that case not a range but a single value should have been provided instead
-    //                 return NULL;
-    //             }
-    //             new_dimensionality++;
-    //         } else {
+    //         if (to == SINGLE_IDX) {                                              // B3
     //             // Validate single index
-    //             if (from >= src_dim_lengths[i]) {
+    //             if (from >= src_dim_lengths[i]) {                                // B4
     //                 // Index out of bounds
     //                 return NULL;
     //             }
-    //         }
-    //     }
+    //             continue;
+    //         }                                                                    // B5
+    //         // Validate range bounds
+    //         if (to == UINT64_MAX) {                                              // B6
+    //             // Until-end range, change to range to the dim length
+    //             ranges[i * 2 + 1] = src_dim_lengths[i];
+    //         } else if (to > src_dim_lengths[i]) {                                // B7, B8
+    //             // Out of bounds range
+    //             return NULL;
+    //         }                                                                    // B9
+    //         new_dimensionality++;
+    //     }                                                                        // B10 [action] B11 [merge]
     //     assert(new_dimensionality > 0);
-    //     const bool is_first_range = ranges[0] != ranges[1];
-    //     if (src_dimensionality == 1 && new_dimensionality == 1) {
+    //     const bool is_first_range = ranges[1] != SINGLE_IDX;
+    //     if (src_dimensionality == 1 && new_dimensionality == 1) {                // B12
     //         assert(is_first_range);
     //         return get_arr_slice_1d(src, element_size, ranges[0], ranges[1], type_id, elem_is_indirect);
-    //     }
+    //     }                                                                        // B13
     //
     //     // Calculate new dimension lengths for ranges only
     //     size_t *new_dim_lengths = (size_t *)malloc(new_dimensionality * sizeof(size_t));
     //     size_t new_dim_index = 0;
-    //     for (size_t i = 0; i < src_dimensionality; i++) {
-    //         const size_t from = ranges[i * 2];
+    //     for (size_t i = 0; i < src_dimensionality; i++) {                        // B14 [cond], B15 [body]
     //         const size_t to = ranges[i * 2 + 1];
-    //         if (from != to) {
+    //         if (to != SINGLE_IDX) {                                              // B16
+    //             const size_t from = ranges[i * 2];
     //             new_dim_lengths[new_dim_index] = to - from;
     //             new_dim_index++;
     //         }
-    //     }
+    //     }                                                                        // B17 [action], B18 [merge]
     //
     //     // Create the new sliced array
     //     str *result = create_arr(new_dimensionality, element_size, new_dim_lengths);
@@ -1007,65 +1006,62 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //     // Calculate strides for each dimension in source array
     //     size_t *src_strides = (size_t *)malloc(src_dimensionality * sizeof(size_t));
     //     src_strides[0] = 1;
-    //     for (size_t i = 1; i < src_dimensionality; i++) {
+    //     for (size_t i = 1; i < src_dimensionality; i++) {                        // B19 [cond], B20 [body]
     //         src_strides[i] = src_strides[i - 1] * src_dim_lengths[i - 1];
-    //     }
+    //     }                                                                        // B21 [merge]
     //
     //     // Calculate total elements in the result
     //     size_t total_result_elements = 1;
-    //     for (size_t i = 0; i < new_dimensionality; i++) {
+    //     for (size_t i = 0; i < new_dimensionality; i++) {                        // B22 [cond], B23 [body]
     //         total_result_elements *= new_dim_lengths[i];
-    //     }
-    //
-    //     // Copy elements from source to destination
-    //     size_t dest_index = 0;
+    //     }                                                                        // B24 [merge]
     //
     //     // We need to iterate through all combinations of the ranges
     //     // This is a recursive-like problem, but we'll do it iteratively
     //     size_t *current_indices = (size_t *)malloc(src_dimensionality * sizeof(size_t));
     //
     //     // Initialize indices to the start of each range/index
-    //     for (size_t i = 0; i < src_dimensionality; i++) {
+    //     for (size_t i = 0; i < src_dimensionality; i++) {                        // B25 [cond], B26 [body]
     //         current_indices[i] = ranges[i * 2];
-    //     }
+    //     }                                                                        // B27 [merge]
     //
     //     // Check whether the first indexing element is a range
-    //     size_t chunk_size = 1;
-    //     if (is_first_range) {
-    //         chunk_size = ranges[1] - ranges[0];
-    //     }
+    //     size_t chunk_size = is_first_range ? ranges[1] - ranges[0] : 1;
     //
-    //     // Calculate how many chunks we need (total elements divided by chunk size)
-    //     assert(total_result_elements % chunk_size == 0);
-    //     size_t num_chunks = total_result_elements / chunk_size;
-    //     for (size_t chunk = 0; chunk < num_chunks; chunk++) {
-    //         if (chunk > 0) {
+    //     // Calculate how many chunks we need (total elements divided by chunk size, with a zero-division guard)
+    //     size_t num_chunks = 0;
+    //     if (chunk_size > 0) {                                                    // B28
+    //         num_chunks = total_result_elements / chunk_size;
+    //     }                                                                        // B29
+    //     size_t dest_index = 0;
+    //     for (size_t chunk = 0; chunk < num_chunks; chunk++) {                    // B30 [cond], B31 [body]
+    //         if (chunk > 0) {                                                     // B32
     //             size_t start_dim = (size_t)is_first_range;
-    //             for (size_t i = src_dimensionality - 1; i >= start_dim; i--) {
+    //             for (size_t i = src_dimensionality - 1; i >= start_dim; i--) {   // B33 [cond], B34 [body]
     //                 const size_t from = ranges[i * 2];
     //                 const size_t to = ranges[i * 2 + 1];
-    //                 if (from != to) {
-    //                     current_indices[i]++;
-    //                     if (current_indices[i] < to) {
-    //                         break;
-    //                     } else {
-    //                         current_indices[i] = from;
-    //                     }
-    //                 }
-    //             }
-    //         }
+    //                 if (to == SINGLE_IDX) {
+    //                     continue;
+    //                 }                                                            // B35
+    //                 current_indices[i]++;
+    //                 if (current_indices[i] < to) {
+    //                     break;
+    //                 }                                                            // B36
+    //                 current_indices[i] = from;
+    //             }                                                                // B37 [action]
+    //         }                                                                    // B38
     //
     //         // Calculate source offset
     //         size_t src_offset = 0;
-    //         for (size_t i = 0; i < src_dimensionality; i++) {
+    //         for (size_t i = 0; i < src_dimensionality; i++) {                    // B39 [cond], B40 [body]
     //             src_offset += current_indices[i] * src_strides[i];
-    //         }
+    //         }                                                                    // B41 [merge]
     //
     //         // Copy the chunk (either 1 element or chunk_size elements) deep or shallow depending on the type_id
-    //         if (type_id == 0) {
+    //         if (type_id == 0) {                                                  // B42
     //             memcpy(dest_data + dest_index * element_size, src_data + src_offset * element_size, chunk_size * element_size);
-    //         } else {
-    //             for (size_t j = 0; j < chunk_size; j++) {
+    //         } else {                                                             // B43
+    //             for (size_t j = 0; j < chunk_size; j++) {                        // B44 [cond], B45 [body]
     //                 const size_t src_val_offset = (src_offset + j) * element_size;
     //                 char *src_val_ptr = src_data + src_val_offset;
     //                 if (elem_is_indirect) {
@@ -1075,9 +1071,9 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     //                 char *dest_val_ptr = dest_data + dest_val_offset;
     //                 clone(src_val_ptr, dest_val_ptr, type_id);
     //             }
-    //         }
+    //         }                                                                    // B46 [merge]
     //         dest_index += chunk_size;
-    //     }
+    //     }                                                                        // B47 [merge]
     //
     //     // Clean up
     //     free(new_dim_lengths);
@@ -1098,8 +1094,8 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Function *const get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
     llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
 
-    llvm::FunctionType *get_arr_slice_type = llvm::FunctionType::get( //
-        PTR_TY,                                                       // Return Type: str*
+    llvm::FunctionType *const get_arr_slice_type = llvm::FunctionType::get( //
+        PTR_TY,                                                             // Return Type: str*
         {
             PTR_TY,                        // Argument: str* src
             i64_ty,                        // Argument: u64 element_size
@@ -1109,11 +1105,11 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         },                                 //
         false                              // No varargs
     );
-    llvm::Function *get_arr_slice_fn = llvm::Function::Create( //
-        get_arr_slice_type,                                    //
-        llvm::Function::ExternalLinkage,                       //
-        prefix + "get_arr_slice",                              //
-        module                                                 //
+    llvm::Function *const get_arr_slice_fn = llvm::Function::Create( //
+        get_arr_slice_type,                                          //
+        llvm::Function::ExternalLinkage,                             //
+        prefix + "get_arr_slice",                                    //
+        module                                                       //
     );
     array_manip_functions["get_arr_slice"] = get_arr_slice_fn;
     if (only_declarations) {
@@ -1121,123 +1117,54 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     }
 
     // Create the basic blocks for the function
-    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", get_arr_slice_fn);
-    // for (size_t i = 0; i < src_dimensionality; i++) {
-    llvm::BasicBlock *const get_dim_loop_cond_block = llvm::BasicBlock::Create(context, "get_dim_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const get_dim_loop_body_block = llvm::BasicBlock::Create(context, "get_dim_loop_body", get_arr_slice_fn);
-    //     if (from != to) {
-    llvm::BasicBlock *const get_dim_loop_is_range_block = llvm::BasicBlock::Create(context, "get_dim_loop_is_range", get_arr_slice_fn);
-    //         if (to == UINT64_MAX) {
-    llvm::BasicBlock *const get_dim_loop_is_range_is_end_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_end", get_arr_slice_fn);
-    llvm::BasicBlock *const get_dim_loop_is_range_is_not_end_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_not_end", get_arr_slice_fn);
-    //         } else if (to > src_dim_lengths[i]) {
-    llvm::BasicBlock *const get_dim_loop_is_range_is_oob_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_oob", get_arr_slice_fn);
-    llvm::BasicBlock *const get_dim_loop_is_range_is_not_oob_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_not_oob", get_arr_slice_fn);
-    //         } else if (to - from < 2) {
-    llvm::BasicBlock *const get_dim_loop_is_range_is_empty_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_is_empty", get_arr_slice_fn);
-    //         }
-    llvm::BasicBlock *const get_dim_loop_is_range_merge_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_range_merge", get_arr_slice_fn);
-    //     } else {
-    llvm::BasicBlock *const get_dim_loop_is_no_range_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_no_range", get_arr_slice_fn);
-    llvm::BasicBlock *const get_dim_loop_is_no_range_is_oob_block =
-        llvm::BasicBlock::Create(context, "get_dim_loop_is_no_range_is_oob", get_arr_slice_fn);
-    //     }
-    llvm::BasicBlock *const get_dim_loop_action_block = llvm::BasicBlock::Create(context, "get_dim_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const get_dim_loop_merge_block = llvm::BasicBlock::Create(context, "get_dim_loop_merge", get_arr_slice_fn);
-    // if (src_dimensionality == 1 && new_dimensionality == 1) {
-    llvm::BasicBlock *const is_1d_slice_block = llvm::BasicBlock::Create(context, "is_1d_slice", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const is_1d_slice_merge_block = llvm::BasicBlock::Create(context, "is_1d_slice_merge", get_arr_slice_fn);
-    // for (size_t i = 0; i < src_dimensionality; i++) {
-    llvm::BasicBlock *const new_dim_loop_cond_block = llvm::BasicBlock::Create(context, "new_dim_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const new_dim_loop_body_block = llvm::BasicBlock::Create(context, "new_dim_loop_body", get_arr_slice_fn);
-    //     if (from != to) {
-    llvm::BasicBlock *const new_dim_loop_is_range_block = llvm::BasicBlock::Create(context, "new_dim_loop_is_range", get_arr_slice_fn);
-    //     }
-    llvm::BasicBlock *const new_dim_loop_action_block = llvm::BasicBlock::Create(context, "new_dim_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const new_dim_loop_merge_block = llvm::BasicBlock::Create(context, "new_dim_loop_merge_block", get_arr_slice_fn);
-    // for (size_t i = 1; i < src_dimensionality; i++) {
-    llvm::BasicBlock *const strides_loop_cond_block = llvm::BasicBlock::Create(context, "strides_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const strides_loop_body_block = llvm::BasicBlock::Create(context, "strides_loop_body", get_arr_slice_fn);
-    llvm::BasicBlock *const strides_loop_action_block = llvm::BasicBlock::Create(context, "strides_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const strides_loop_merge_block = llvm::BasicBlock::Create(context, "strides_loop_merge", get_arr_slice_fn);
-    // for (size_t i = 0; i < new_dimensionality; i++) {
-    llvm::BasicBlock *const tre_loop_cond_block = llvm::BasicBlock::Create(context, "tre_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const tre_loop_body_block = llvm::BasicBlock::Create(context, "tre_loop_body", get_arr_slice_fn);
-    llvm::BasicBlock *const tre_loop_action_block = llvm::BasicBlock::Create(context, "tre_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const tre_loop_merge_block = llvm::BasicBlock::Create(context, "tre_loop_merge", get_arr_slice_fn);
-    // for (size_t i = 0; i < src_dimensionality; i++) {
-    llvm::BasicBlock *const idx_init_loop_cond_block = llvm::BasicBlock::Create(context, "idx_init_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const idx_init_loop_body_block = llvm::BasicBlock::Create(context, "idx_init_loop_body", get_arr_slice_fn);
-    llvm::BasicBlock *const idx_init_loop_action_block = llvm::BasicBlock::Create(context, "idx_init_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const idx_init_loop_merge_block = llvm::BasicBlock::Create(context, "idx_init_loop_merge", get_arr_slice_fn);
-    // for (size_t chunk = 0; chunk < num_chunks; chunk++) {
-    llvm::BasicBlock *const chunk_loop_cond_block = llvm::BasicBlock::Create(context, "chunk_loop_cond_block", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_body_block = llvm::BasicBlock::Create(context, "chunk_loop_body", get_arr_slice_fn);
-    //     if (chunk > 0) {
-    //         for (size_t i = src_dimensionality - 1; i >= start_dim; i--) {
-    llvm::BasicBlock *const chunk_loop_index_loop_cond_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_index_loop_body_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_body", get_arr_slice_fn);
-    //             if (from != to) {
-    llvm::BasicBlock *const chunk_loop_index_loop_is_range_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_is_range", get_arr_slice_fn);
-    //                 if (current_indices[i] < to) {
-    llvm::BasicBlock *const chunk_loop_index_loop_is_range_is_past =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_is_range_is_past", get_arr_slice_fn);
-    //                 } else {
-    llvm::BasicBlock *const chunk_loop_index_loop_is_range_is_not_past =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_is_range_is_not_past", get_arr_slice_fn);
-    //                 }
-    //             }
-    //         }
-    //     }
-    llvm::BasicBlock *const chunk_loop_index_loop_action_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_action", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_index_loop_init_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_index_loop_init", get_arr_slice_fn);
-    //     }
-    //     for (size_t i = 0; i < src_dimensionality; i++) {
-    llvm::BasicBlock *const chunk_loop_offset_loop_init_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_init", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_offset_loop_cond_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_offset_loop_body_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_body", get_arr_slice_fn);
-    //     }
-    llvm::BasicBlock *const chunk_loop_offset_loop_merge_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_merge", get_arr_slice_fn);
-    //     if (type_id == 0) {
-    llvm::BasicBlock *const chunk_loop_type_id_zero_block = llvm::BasicBlock::Create(context, "chunk_loop_type_id_zero", get_arr_slice_fn);
-    //     } else {
-    llvm::BasicBlock *const chunk_loop_type_id_nonzero_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero", get_arr_slice_fn);
-    //         for (size_t j = 0; j < chunk_size; j++) {
-    llvm::BasicBlock *const chunk_loop_type_id_nonzero_loop_cond_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero_loop_cond", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_type_id_nonzero_loop_body_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_type_id_nonzero_loop_body", get_arr_slice_fn);
-    //    }
-    llvm::BasicBlock *const chunk_loop_type_id_merge_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_type_id_merge", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_offset_loop_action_block =
-        llvm::BasicBlock::Create(context, "chunk_loop_offset_loop_action", get_arr_slice_fn);
-    // }
-    llvm::BasicBlock *const chunk_loop_action_block = llvm::BasicBlock::Create(context, "chunk_loop_action", get_arr_slice_fn);
-    llvm::BasicBlock *const chunk_loop_merge_block = llvm::BasicBlock::Create(context, "chunk_loop_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b0_entry = llvm::BasicBlock::Create(context, "entry", get_arr_slice_fn);
+    llvm::BasicBlock *const b1_cond = llvm::BasicBlock::Create(context, "B1_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b2_body = llvm::BasicBlock::Create(context, "B2_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b3 = llvm::BasicBlock::Create(context, "B3", get_arr_slice_fn);
+    llvm::BasicBlock *const b4 = llvm::BasicBlock::Create(context, "B4", get_arr_slice_fn);
+    llvm::BasicBlock *const b5 = llvm::BasicBlock::Create(context, "B5", get_arr_slice_fn);
+    llvm::BasicBlock *const b6 = llvm::BasicBlock::Create(context, "B6", get_arr_slice_fn);
+    llvm::BasicBlock *const b7 = llvm::BasicBlock::Create(context, "B7", get_arr_slice_fn);
+    llvm::BasicBlock *const b8 = llvm::BasicBlock::Create(context, "B8", get_arr_slice_fn);
+    llvm::BasicBlock *const b9 = llvm::BasicBlock::Create(context, "B9", get_arr_slice_fn);
+    llvm::BasicBlock *const b10_action = llvm::BasicBlock::Create(context, "B10_action", get_arr_slice_fn);
+    llvm::BasicBlock *const b11_merge = llvm::BasicBlock::Create(context, "B11_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b12 = llvm::BasicBlock::Create(context, "B12", get_arr_slice_fn);
+    llvm::BasicBlock *const b13 = llvm::BasicBlock::Create(context, "B13", get_arr_slice_fn);
+    llvm::BasicBlock *const b14_cond = llvm::BasicBlock::Create(context, "B14_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b15_body = llvm::BasicBlock::Create(context, "B15_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b16 = llvm::BasicBlock::Create(context, "B16", get_arr_slice_fn);
+    llvm::BasicBlock *const b17_action = llvm::BasicBlock::Create(context, "B17_action", get_arr_slice_fn);
+    llvm::BasicBlock *const b18_merge = llvm::BasicBlock::Create(context, "B18_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b19_cond = llvm::BasicBlock::Create(context, "B19_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b20_body = llvm::BasicBlock::Create(context, "B20_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b21_merge = llvm::BasicBlock::Create(context, "B21_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b22_cond = llvm::BasicBlock::Create(context, "B22_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b23_body = llvm::BasicBlock::Create(context, "B23_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b24_merge = llvm::BasicBlock::Create(context, "B24_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b25_cond = llvm::BasicBlock::Create(context, "B25_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b26_body = llvm::BasicBlock::Create(context, "B26_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b27_merge = llvm::BasicBlock::Create(context, "B27_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b28 = llvm::BasicBlock::Create(context, "B28", get_arr_slice_fn);
+    llvm::BasicBlock *const b29 = llvm::BasicBlock::Create(context, "B29", get_arr_slice_fn);
+    llvm::BasicBlock *const b30_cond = llvm::BasicBlock::Create(context, "B30_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b31_body = llvm::BasicBlock::Create(context, "B31_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b32 = llvm::BasicBlock::Create(context, "B32", get_arr_slice_fn);
+    llvm::BasicBlock *const b33_cond = llvm::BasicBlock::Create(context, "B33_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b34_body = llvm::BasicBlock::Create(context, "B34_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b35 = llvm::BasicBlock::Create(context, "B35", get_arr_slice_fn);
+    llvm::BasicBlock *const b36 = llvm::BasicBlock::Create(context, "B36", get_arr_slice_fn);
+    llvm::BasicBlock *const b37_action = llvm::BasicBlock::Create(context, "B37_action", get_arr_slice_fn);
+    llvm::BasicBlock *const b38 = llvm::BasicBlock::Create(context, "B38", get_arr_slice_fn);
+    llvm::BasicBlock *const b39_cond = llvm::BasicBlock::Create(context, "B39_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b40_body = llvm::BasicBlock::Create(context, "B40_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b41_merge = llvm::BasicBlock::Create(context, "B41_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b42 = llvm::BasicBlock::Create(context, "B42", get_arr_slice_fn);
+    llvm::BasicBlock *const b43 = llvm::BasicBlock::Create(context, "B43", get_arr_slice_fn);
+    llvm::BasicBlock *const b44_cond = llvm::BasicBlock::Create(context, "B44_cond", get_arr_slice_fn);
+    llvm::BasicBlock *const b45_body = llvm::BasicBlock::Create(context, "B45_body", get_arr_slice_fn);
+    llvm::BasicBlock *const b46_merge = llvm::BasicBlock::Create(context, "B46_merge", get_arr_slice_fn);
+    llvm::BasicBlock *const b47_merge = llvm::BasicBlock::Create(context, "B47_merge", get_arr_slice_fn);
 
     // Get the arguments
     llvm::Argument *const arg_src = get_arr_slice_fn->arg_begin();
@@ -1251,9 +1178,10 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Argument *const arg_elem_is_indirect = get_arr_slice_fn->arg_begin() + 4;
     arg_elem_is_indirect->setName("elem_is_indirect");
 
-    builder->SetInsertPoint(entry_block);
+    builder->SetInsertPoint(b0_entry);
     llvm::AllocaInst *const new_dimensionality = builder->CreateAlloca(i64_ty, 0, nullptr, "new_dimensionality");
     llvm::AllocaInst *const i = builder->CreateAlloca(i64_ty, 0, nullptr, "i");
+    llvm::AllocaInst *const j = builder->CreateAlloca(i64_ty, 0, nullptr, "j");
     llvm::AllocaInst *const new_dim_index = builder->CreateAlloca(i64_ty, 0, nullptr, "new_dim_index");
     llvm::AllocaInst *const total_result_elements = builder->CreateAlloca(i64_ty, 0, nullptr, "total_result_elements");
     llvm::AllocaInst *const dest_index = builder->CreateAlloca(i64_ty, 0, nullptr, "dest_index");
@@ -1267,173 +1195,126 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     // const size_t *src_dim_lengths = (size_t *)src->value;
     llvm::Value *const src_dim_lengths_ptr = builder->CreateStructGEP(str_type, arg_src, 1, "src_dim_lengths_ptr");
     llvm::Value *const src_dim_lengths = builder->CreateBitCast(src_dim_lengths_ptr, PTR_TY, "src_dim_legnths");
+    llvm::Value *const SINGLE_IDX = builder->getInt64(llvm::maxUIntN(64) - 1);
 
     IR::aligned_store(*builder, builder->getInt64(0), new_dimensionality);
     IR::aligned_store(*builder, builder->getInt64(0), i);
-    builder->CreateBr(get_dim_loop_cond_block);
-    // for (size_t i = 0; i < src_dimensionality; i++) { ... }
+    builder->CreateBr(b1_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(get_dim_loop_cond_block);
-        llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-        llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
-        builder->CreateCondBr(i_lt_src_dimensionality, get_dim_loop_body_block, get_dim_loop_merge_block);
+        builder->SetInsertPoint(b1_cond);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+        llvm::Value *const i_lt_dim = builder->CreateICmpULT(i_value, src_dimensionality, "i_lt_dim");
+        builder->CreateCondBr(i_lt_dim, b2_body, b11_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(get_dim_loop_body_block);
-        llvm::Value *from_offset = builder->CreateMul(i_val, builder->getInt64(2), "from_offset");
-        llvm::Value *from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
-        llvm::Value *from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
-        llvm::Value *to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_offset");
-        llvm::Value *to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
-        llvm::Value *src_dim_lengths_i_ptr = builder->CreateGEP(i64_ty, src_dim_lengths, i_val, "src_dim_lengths_i_ptr");
-        llvm::Value *src_dim_lengths_i = IR::aligned_load(*builder, i64_ty, src_dim_lengths_i_ptr, "src_dim_lengths_i");
-        llvm::Value *is_range = builder->CreateICmpNE(from, to, "is_range");
-        builder->CreateCondBr(is_range, get_dim_loop_is_range_block, get_dim_loop_is_no_range_block);
+        builder->SetInsertPoint(b2_body);
+        llvm::Value *const from_offset = builder->CreateMul(i_value, builder->getInt64(2), "from_offset");
+        llvm::Value *const from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
+        llvm::Value *const from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
+        llvm::Value *const to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_ptr");
+        llvm::Value *const to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
+        llvm::Value *const src_dim_lengths_i_ptr = builder->CreateGEP(i64_ty, src_dim_lengths, i_value, "src_dim_lengths_i_ptr");
+        llvm::Value *const src_dim_lengths_i = IR::aligned_load(*builder, i64_ty, src_dim_lengths_i_ptr, "src_dim_lengths_i");
+        llvm::Value *const to_eq_single_idx = builder->CreateICmpEQ(to, SINGLE_IDX, "to_eq_single_idx");
+        builder->CreateCondBr(to_eq_single_idx, b3, b5);
 
-        // if (from != to) {
-        {
-            builder->SetInsertPoint(get_dim_loop_is_range_block);
-            llvm::Value *to_eq_max = builder->CreateICmpEQ(to, builder->getInt64(UINT64_MAX), "to_eq_max");
-            builder->CreateCondBr(to_eq_max, get_dim_loop_is_range_is_end_block, get_dim_loop_is_range_is_not_end_block);
+        builder->SetInsertPoint(b3);
+        llvm::Value *const from_ge_src_dim_lengths_i = builder->CreateICmpUGE(from, src_dim_lengths_i, "from_ge_src_dim_lengths_i");
+        builder->CreateCondBr(from_ge_src_dim_lengths_i, b4, b10_action, IR::generate_weights(1, 100));
 
-            // if (to == UINT64_MAX) {
-            {
-                builder->SetInsertPoint(get_dim_loop_is_range_is_end_block);
-                IR::aligned_store(*builder, src_dim_lengths_i, to_ptr);
-                builder->CreateBr(get_dim_loop_is_range_merge_block);
-            }
+        builder->SetInsertPoint(b4);
+        llvm::Value *const oob_msg = IR::generate_const_string(module, "OOB ranged array access: len=%lu, upper_bound=%lu\n");
+        builder->CreateCall(printf_fn, {oob_msg, src_dim_lengths_i, to});
+        builder->CreateCall(abort_fn);
+        builder->CreateUnreachable();
 
-            builder->SetInsertPoint(get_dim_loop_is_range_is_not_end_block);
-            llvm::Value *to_gt_lengths_i = builder->CreateICmpUGT(to, src_dim_lengths_i, "to_gt_lengths_i");
-            builder->CreateCondBr(                                                                                                        //
-                to_gt_lengths_i, get_dim_loop_is_range_is_oob_block, get_dim_loop_is_range_is_not_oob_block, IR::generate_weights(1, 100) //
-            );
+        builder->SetInsertPoint(b5);
+        llvm::Value *const to_eq_max = builder->CreateICmpEQ(to, builder->getInt64(UINT64_MAX), "to_eq_max");
+        builder->CreateCondBr(to_eq_max, b6, b7);
 
-            // } else if (to > src_dim_lengths[i]) {
-            {
-                builder->SetInsertPoint(get_dim_loop_is_range_is_oob_block);
-                llvm::Value *msg = IR::generate_const_string(module, "OOB ranged array access: len=%lu, upper_bound=%lu\n");
-                builder->CreateCall(printf_fn, {msg, src_dim_lengths_i, to});
-                builder->CreateCall(abort_fn);
-                builder->CreateUnreachable();
-            }
+        builder->SetInsertPoint(b6);
+        IR::aligned_store(*builder, src_dim_lengths_i, to_ptr);
+        builder->CreateBr(b9);
 
-            builder->SetInsertPoint(get_dim_loop_is_range_is_not_oob_block);
-            llvm::Value *to_m_from = builder->CreateSub(to, from, "to_m_from");
-            llvm::Value *to_m_from_lt_2 = builder->CreateICmpULT(to_m_from, builder->getInt64(2), "to_m_from_lt_2");
-            builder->CreateCondBr(                                                                                                    //
-                to_m_from_lt_2, get_dim_loop_is_range_is_empty_block, get_dim_loop_is_range_merge_block, IR::generate_weights(1, 100) //
-            );
+        builder->SetInsertPoint(b7);
+        llvm::Value *const to_gt_lengths_i = builder->CreateICmpUGT(to, src_dim_lengths_i, "to_gt_lengths_i");
+        builder->CreateCondBr(to_gt_lengths_i, b8, b9, IR::generate_weights(1, 100));
 
-            // } else if (to - from < 2) {
-            {
-                builder->SetInsertPoint(get_dim_loop_is_range_is_empty_block);
-                llvm::Value *msg = IR::generate_const_string(module, "Empty ranged array access\n");
-                builder->CreateCall(printf_fn, {msg});
-                builder->CreateCall(abort_fn);
-                builder->CreateUnreachable();
-            }
+        builder->SetInsertPoint(b8);
+        builder->CreateCall(printf_fn, {oob_msg, src_dim_lengths_i, to});
+        builder->CreateCall(abort_fn);
+        builder->CreateUnreachable();
 
-            builder->SetInsertPoint(get_dim_loop_is_range_merge_block);
-            llvm::Value *nd_val = IR::aligned_load(*builder, i64_ty, new_dimensionality, "nd_val");
-            llvm::Value *nd_val_p1 = builder->CreateAdd(nd_val, builder->getInt64(1), "nd_val_p1");
-            IR::aligned_store(*builder, nd_val_p1, new_dimensionality);
-            builder->CreateBr(get_dim_loop_action_block);
-        }
-        // } else {
-        {
-            builder->SetInsertPoint(get_dim_loop_is_no_range_block);
-            llvm::Value *from_ge_lengths_i = builder->CreateICmpUGE(from, src_dim_lengths_i, "from_ge_lengths_i");
-            builder->CreateCondBr(                                                                                                //
-                from_ge_lengths_i, get_dim_loop_is_no_range_is_oob_block, get_dim_loop_action_block, IR::generate_weights(1, 100) //
-            );
+        builder->SetInsertPoint(b9);
+        llvm::Value *const new_dim_value = IR::aligned_load(*builder, i64_ty, new_dimensionality, "new_dim_value");
+        llvm::Value *const new_dim_value_p1 = builder->CreateAdd(new_dim_value, builder->getInt64(1), "new_dim_value_p1");
+        IR::aligned_store(*builder, new_dim_value_p1, new_dimensionality);
+        builder->CreateBr(b10_action);
 
-            // if (from >= src_dim_lengths[i]) {
-            {
-                builder->SetInsertPoint(get_dim_loop_is_no_range_is_oob_block);
-                llvm::Value *msg = IR::generate_const_string(module, "OOB array access: len=%lu, upper_bound=%lu\n");
-                builder->CreateCall(printf_fn, {msg, src_dim_lengths_i, from});
-                builder->CreateCall(abort_fn);
-                builder->CreateUnreachable();
-            }
-        }
-
-        // ACTION Block
-        builder->SetInsertPoint(get_dim_loop_action_block);
-        llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-        IR::aligned_store(*builder, next_i_val, i);
-        builder->CreateBr(get_dim_loop_cond_block);
+        builder->SetInsertPoint(b10_action);
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i);
+        builder->CreateBr(b1_cond);
     }
 
-    builder->SetInsertPoint(get_dim_loop_merge_block);
+    builder->SetInsertPoint(b11_merge);
     llvm::Value *const ranges_0 = IR::aligned_load(*builder, i64_ty, arg_ranges, "ranges_0");
     llvm::Value *const ranges_1_ptr = builder->CreateGEP(i64_ty, arg_ranges, builder->getInt64(1), "ranges_1_ptr");
     llvm::Value *const ranges_1 = IR::aligned_load(*builder, i64_ty, ranges_1_ptr, "ranges_1");
-    llvm::Value *const is_first_range = builder->CreateICmpNE(ranges_0, ranges_1, "is_first_range");
-    llvm::Value *src_dim_eq_1 = builder->CreateICmpEQ(src_dimensionality, builder->getInt64(1), "src_dim_eq_1");
-    llvm::Value *new_dim_val = IR::aligned_load(*builder, i64_ty, new_dimensionality, "new_dim_val");
-    llvm::Value *new_dim_eq_1 = builder->CreateICmpEQ(new_dim_val, builder->getInt64(1), "new_dim_eq_1");
-    llvm::Value *both_dim_eq_1 = builder->CreateAnd(src_dim_eq_1, new_dim_eq_1, "both_dim_eq_1");
-    builder->CreateCondBr(both_dim_eq_1, is_1d_slice_block, is_1d_slice_merge_block);
+    llvm::Value *const is_first_range = builder->CreateICmpNE(ranges_1, SINGLE_IDX, "is_first_range");
+    llvm::Value *const src_dim_eq_1 = builder->CreateICmpEQ(src_dimensionality, builder->getInt64(1), "src_dim_eq_1");
+    llvm::Value *const new_dim_val = IR::aligned_load(*builder, i64_ty, new_dimensionality, "new_dim_val");
+    llvm::Value *const new_dim_eq_1 = builder->CreateICmpEQ(new_dim_val, builder->getInt64(1), "new_dim_eq_1");
+    llvm::Value *const both_dim_eq_1 = builder->CreateAnd(src_dim_eq_1, new_dim_eq_1, "both_dim_eq_1");
+    builder->CreateCondBr(both_dim_eq_1, b12, b13);
 
-    // if (src_dimensionality == 1 && new_dimensionality == 1) {
     {
-        builder->SetInsertPoint(is_1d_slice_block);
+        builder->SetInsertPoint(b12);
         llvm::Value *const result = builder->CreateCall(                                                                      //
             get_arr_slice_1d_fn, {arg_src, arg_element_size, ranges_0, ranges_1, arg_type_id, arg_elem_is_indirect}, "result" //
         );
         builder->CreateRet(result);
     }
 
-    builder->SetInsertPoint(is_1d_slice_merge_block);
+    builder->SetInsertPoint(b13);
     llvm::Value *const new_dim_lengths_size = builder->CreateMul(new_dim_val, builder->getInt64(8), "new_dim_lengths_size");
     llvm::Value *const new_dim_lengths_ptr = builder->CreateCall(malloc_fn, {new_dim_lengths_size}, "new_dim_lengths_ptr");
     llvm::Value *const new_dim_lengths = builder->CreateBitCast(new_dim_lengths_ptr, PTR_TY, "new_dim_lengths");
-
     IR::aligned_store(*builder, builder->getInt64(0), new_dim_index);
     IR::aligned_store(*builder, builder->getInt64(0), i);
-    builder->CreateBr(new_dim_loop_cond_block);
-    // for (size_t i = 0; i < src_dimensionality; i++) {
+    builder->CreateBr(b14_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(new_dim_loop_cond_block);
-        llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-        llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
-        builder->CreateCondBr(i_lt_src_dimensionality, new_dim_loop_body_block, new_dim_loop_merge_block);
+        builder->SetInsertPoint(b14_cond);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+        llvm::Value *const i_lt_src_dim = builder->CreateICmpULT(i_value, src_dimensionality, "i_lt_src_dim");
+        builder->CreateCondBr(i_lt_src_dim, b15_body, b18_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(new_dim_loop_body_block);
-        llvm::Value *from_offset = builder->CreateMul(i_val, builder->getInt64(2), "from_offset");
-        llvm::Value *from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
-        llvm::Value *from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
-        llvm::Value *to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_offset");
-        llvm::Value *to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
-        llvm::Value *is_range = builder->CreateICmpNE(from, to, "is_range");
-        builder->CreateCondBr(is_range, new_dim_loop_is_range_block, new_dim_loop_action_block);
+        builder->SetInsertPoint(b15_body);
+        llvm::Value *const from_offset = builder->CreateMul(i_value, builder->getInt64(2), "from_offset");
+        llvm::Value *const from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
+        llvm::Value *const to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_offset");
+        llvm::Value *const to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
+        llvm::Value *const to_ne_single_idx = builder->CreateICmpNE(to, SINGLE_IDX, "to_ne_single_idx");
+        builder->CreateCondBr(to_ne_single_idx, b16, b17_action);
 
-        // if (from != to) {
-        {
-            builder->SetInsertPoint(new_dim_loop_is_range_block);
-            llvm::Value *new_dim_index_val = IR::aligned_load(*builder, i64_ty, new_dim_index, "new_dim_index_val");
-            llvm::Value *new_dim_lengths_idx_ptr = builder->CreateGEP(            //
-                i64_ty, new_dim_lengths, new_dim_index_val, "new_dim_lenghts_ptr" //
-            );
-            llvm::Value *to_m_from = builder->CreateSub(to, from, "to_m_from");
-            IR::aligned_store(*builder, to_m_from, new_dim_lengths_idx_ptr);
-            llvm::Value *new_dim_index_p1 = builder->CreateAdd(new_dim_index_val, builder->getInt64(1), "new_dim_index_p1");
-            IR::aligned_store(*builder, new_dim_index_p1, new_dim_index);
-            builder->CreateBr(new_dim_loop_action_block);
-        }
+        builder->SetInsertPoint(b16);
+        llvm::Value *const from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
+        llvm::Value *const new_dim_index_val = IR::aligned_load(*builder, i64_ty, new_dim_index, "new_dim_index_val");
+        llvm::Value *const new_dim_lengths_idx_ptr = builder->CreateGEP(i64_ty, new_dim_lengths, new_dim_index_val, "new_dim_lenghts_ptr");
+        llvm::Value *const to_m_from = builder->CreateSub(to, from, "to_m_from");
+        IR::aligned_store(*builder, to_m_from, new_dim_lengths_idx_ptr);
+        llvm::Value *const new_dim_index_p1 = builder->CreateAdd(new_dim_index_val, builder->getInt64(1), "new_dim_index_p1");
+        IR::aligned_store(*builder, new_dim_index_p1, new_dim_index);
+        builder->CreateBr(b17_action);
 
-        // ACTION Block
-        builder->SetInsertPoint(new_dim_loop_action_block);
-        llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-        IR::aligned_store(*builder, next_i_val, i);
-        builder->CreateBr(new_dim_loop_cond_block);
+        builder->SetInsertPoint(b17_action);
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i);
+        builder->CreateBr(b14_cond);
     }
-    builder->SetInsertPoint(new_dim_loop_merge_block);
 
+    builder->SetInsertPoint(b18_merge);
     // Create the new sliced array
     llvm::Value *const new_dimensionality_val = IR::aligned_load(*builder, i64_ty, new_dimensionality, "new_dimensionality_val");
     llvm::Value *const result = builder->CreateCall(create_arr_fn, {new_dimensionality_val, arg_element_size, new_dim_lengths}, "result");
@@ -1443,282 +1324,231 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Value *const result_value_cast = builder->CreateBitCast(result_value_ptr, PTR_TY, "result_value_cast");
     llvm::Value *const dest_data_ptr = builder->CreateGEP(i64_ty, result_value_cast, new_dimensionality_val, "dest_data_ptr");
     llvm::Value *const dest_data = builder->CreateBitCast(dest_data_ptr, PTR_TY, "dest_data");
-
     // Calculate strides for each dimension in source array
     llvm::Value *const src_strides_size = builder->CreateMul(src_dimensionality, builder->getInt64(8), "src_strides_size");
     llvm::Value *const src_strides_ptr = builder->CreateCall(malloc_fn, {src_strides_size}, "src_strides_ptr");
     llvm::Value *const src_strides = builder->CreateBitCast(src_strides_ptr, PTR_TY, "src_strides");
-
     IR::aligned_store(*builder, builder->getInt64(1), src_strides);
     IR::aligned_store(*builder, builder->getInt64(1), i);
-    builder->CreateBr(strides_loop_cond_block);
-    // for (size_t i = 1; i < src_dimensionality; i++) {
+    builder->CreateBr(b19_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(strides_loop_cond_block);
-        llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-        llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
-        builder->CreateCondBr(i_lt_src_dimensionality, strides_loop_body_block, strides_loop_merge_block);
+        builder->SetInsertPoint(b19_cond);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+        llvm::Value *const i_lt_src_dim = builder->CreateICmpULT(i_value, src_dimensionality, "i_lt_src_dim");
+        builder->CreateCondBr(i_lt_src_dim, b20_body, b21_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(strides_loop_body_block);
-        llvm::Value *i_m1 = builder->CreateSub(i_val, builder->getInt64(1), "i_m1");
-        llvm::Value *src_strides_i_m1_ptr = builder->CreateGEP(i64_ty, src_strides, i_m1, "src_strides_i_m1_ptr");
-        llvm::Value *src_strides_i_m1 = IR::aligned_load(*builder, i64_ty, src_strides_i_m1_ptr, "src_strides_i_m1");
-        llvm::Value *src_dim_lengths_i_m1_ptr = builder->CreateGEP(i64_ty, src_dim_lengths, i_m1, "src_dim_lengths_i_m1_ptr");
-        llvm::Value *src_dim_lengths_i_m1 = IR::aligned_load(*builder, i64_ty, src_dim_lengths_i_m1_ptr, "src_dim_lengths_i_m1");
-        llvm::Value *src_stride_i_val = builder->CreateMul(src_strides_i_m1, src_dim_lengths_i_m1, "src_stride_i_val");
-        llvm::Value *src_strides_i_ptr = builder->CreateGEP(i64_ty, src_strides, i_val, "src_strides_i_ptr");
+        builder->SetInsertPoint(b20_body);
+        llvm::Value *const i_m1 = builder->CreateSub(i_value, builder->getInt64(1), "i_m1");
+        llvm::Value *const src_strides_i_m1_ptr = builder->CreateGEP(i64_ty, src_strides, i_m1, "src_strides_i_m1_ptr");
+        llvm::Value *const src_strides_i_m1 = IR::aligned_load(*builder, i64_ty, src_strides_i_m1_ptr, "src_strides_i_m1");
+        llvm::Value *const src_dim_lengths_i_m1_ptr = builder->CreateGEP(i64_ty, src_dim_lengths, i_m1, "src_dim_lengths_i_m1_ptr");
+        llvm::Value *const src_dim_lengths_i_m1 = IR::aligned_load(*builder, i64_ty, src_dim_lengths_i_m1_ptr, "src_dim_lengths_i_m1");
+        llvm::Value *const src_stride_i_val = builder->CreateMul(src_strides_i_m1, src_dim_lengths_i_m1, "src_stride_i_val");
+        llvm::Value *const src_strides_i_ptr = builder->CreateGEP(i64_ty, src_strides, i_value, "src_strides_i_ptr");
         IR::aligned_store(*builder, src_stride_i_val, src_strides_i_ptr);
-        builder->CreateBr(strides_loop_action_block);
-
-        // ACTION Block
-        builder->SetInsertPoint(strides_loop_action_block);
-        llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-        IR::aligned_store(*builder, next_i_val, i);
-        builder->CreateBr(strides_loop_cond_block);
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i);
+        builder->CreateBr(b19_cond);
     }
-    builder->SetInsertPoint(strides_loop_merge_block);
 
+    builder->SetInsertPoint(b21_merge);
     IR::aligned_store(*builder, builder->getInt64(0), i);
     IR::aligned_store(*builder, builder->getInt64(1), total_result_elements);
-    builder->CreateBr(tre_loop_cond_block);
-    // for (size_t i = 0; i < new_dimensionality; i++) {
+    builder->CreateBr(b22_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(tre_loop_cond_block);
-        llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-        llvm::Value *i_lt_new_dimensionality = builder->CreateICmpULT(i_val, new_dimensionality_val, "i_lt_new_dimensionality");
-        builder->CreateCondBr(i_lt_new_dimensionality, tre_loop_body_block, tre_loop_merge_block);
+        builder->SetInsertPoint(b22_cond);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+        llvm::Value *const i_lt_new_dim = builder->CreateICmpULT(i_value, new_dim_val, "i_lt_new_dim");
+        builder->CreateCondBr(i_lt_new_dim, b23_body, b24_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(tre_loop_body_block);
-        llvm::Value *total_result_elements_val = IR::aligned_load(*builder, i64_ty, total_result_elements, "total_result_elements_val");
-        llvm::Value *new_dim_lengths_i_ptr = builder->CreateGEP(i64_ty, new_dim_lengths, i_val, "new_dim_lengths_i_ptr");
-        llvm::Value *new_dim_lengths_i = IR::aligned_load(*builder, i64_ty, new_dim_lengths_i_ptr, "new_dim_lengths_i");
-        llvm::Value *new_total_result = builder->CreateMul(total_result_elements_val, new_dim_lengths_i, "new_total_result");
+        builder->SetInsertPoint(b23_body);
+        llvm::Value *const total_result_elements_val = IR::aligned_load(         //
+            *builder, i64_ty, total_result_elements, "total_result_elements_val" //
+        );
+        llvm::Value *const new_dim_lengths_i_ptr = builder->CreateGEP(i64_ty, new_dim_lengths, i_value, "new_dim_lengths_i_ptr");
+        llvm::Value *const new_dim_lengths_i = IR::aligned_load(*builder, i64_ty, new_dim_lengths_i_ptr, "new_dim_lengths_i");
+        llvm::Value *const new_total_result = builder->CreateMul(total_result_elements_val, new_dim_lengths_i, "new_total_result");
         IR::aligned_store(*builder, new_total_result, total_result_elements);
-        builder->CreateBr(tre_loop_action_block);
-
-        // ACTION Block
-        builder->SetInsertPoint(tre_loop_action_block);
-        llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-        IR::aligned_store(*builder, next_i_val, i);
-        builder->CreateBr(tre_loop_cond_block);
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i);
+        builder->CreateBr(b22_cond);
     }
 
-    builder->SetInsertPoint(tre_loop_merge_block);
-    // Initialize indices to the start of each range/index
+    builder->SetInsertPoint(b24_merge);
     llvm::Value *const current_indices_ptr = builder->CreateCall(malloc_fn, src_strides_size, "current_indices_ptr");
     llvm::Value *const current_indices = builder->CreateBitCast(current_indices_ptr, PTR_TY, "current_indices");
-
     IR::aligned_store(*builder, builder->getInt64(0), i);
-    builder->CreateBr(idx_init_loop_cond_block);
-    // for (size_t i = 1; i < src_dimensionality; i++) {
+    builder->CreateBr(b25_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(idx_init_loop_cond_block);
-        llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-        llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
-        builder->CreateCondBr(i_lt_src_dimensionality, idx_init_loop_body_block, idx_init_loop_merge_block);
+        builder->SetInsertPoint(b25_cond);
+        llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+        llvm::Value *const i_lt_src_dim = builder->CreateICmpULT(i_value, src_dimensionality, "i_lt_src_dim");
+        builder->CreateCondBr(i_lt_src_dim, b26_body, b27_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(idx_init_loop_body_block);
-        llvm::Value *ix2 = builder->CreateMul(i_val, builder->getInt64(2), "ix2");
-        llvm::Value *ranges_ix2_ptr = builder->CreateGEP(i64_ty, arg_ranges, ix2, "ranges_ix2_ptr");
-        llvm::Value *ranges_ix2 = IR::aligned_load(*builder, i64_ty, ranges_ix2_ptr, "ranges_ix2");
-        llvm::Value *current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_val, "current_indices_i_ptr");
+        builder->SetInsertPoint(b26_body);
+        llvm::Value *const ix2 = builder->CreateMul(i_value, builder->getInt64(2), "ix2");
+        llvm::Value *const ranges_ix2_ptr = builder->CreateGEP(i64_ty, arg_ranges, ix2, "ranges_ix2_ptr");
+        llvm::Value *const ranges_ix2 = IR::aligned_load(*builder, i64_ty, ranges_ix2_ptr, "ranges_ix2");
+        llvm::Value *const current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_value, "current_indices_i_ptr");
         IR::aligned_store(*builder, ranges_ix2, current_indices_i_ptr);
-        builder->CreateBr(idx_init_loop_action_block);
-
-        // ACTION Block
-        builder->SetInsertPoint(idx_init_loop_action_block);
-        llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-        IR::aligned_store(*builder, next_i_val, i);
-        builder->CreateBr(idx_init_loop_cond_block);
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i);
+        builder->CreateBr(b25_cond);
     }
-    builder->SetInsertPoint(idx_init_loop_merge_block);
 
-    // Get the chunk size of the extraction
+    builder->SetInsertPoint(b27_merge);
     llvm::Value *const ranges_1_m_r0 = builder->CreateSub(ranges_1, ranges_0, "ranges_1_m_r0");
     llvm::Value *const chunk_size = builder->CreateSelect(is_first_range, ranges_1_m_r0, builder->getInt64(1), "chunk_size");
-    llvm::Value *const total_result_elements_val = IR::aligned_load(*builder, i64_ty, total_result_elements, "tre_val");
-    llvm::Value *const num_chunks = builder->CreateUDiv(total_result_elements_val, chunk_size, "num_chunks");
+    llvm::Value *const chunk_size_gt_0 = builder->CreateICmpUGT(chunk_size, builder->getInt64(0), "chunk_size_gt_0");
+    builder->CreateCondBr(chunk_size_gt_0, b28, b29);
 
+    builder->SetInsertPoint(b28);
+    llvm::Value *const total_result_elements_val = IR::aligned_load(*builder, i64_ty, total_result_elements, "tre_val");
+    llvm::Value *const num_chunks_calulated = builder->CreateUDiv(total_result_elements_val, chunk_size, "num_chunks_calculated");
+    builder->CreateBr(b29);
+
+    builder->SetInsertPoint(b29);
+    llvm::PHINode *const num_chunks = builder->CreatePHI(i64_ty, 2);
+    num_chunks->addIncoming(builder->getInt64(0), b27_merge);
+    num_chunks->addIncoming(num_chunks_calulated, b28);
     IR::aligned_store(*builder, builder->getInt64(0), dest_index);
     IR::aligned_store(*builder, builder->getInt64(0), chunk);
-    builder->CreateBr(chunk_loop_cond_block);
-    // for (size_t chunk = 0; chunk < num_chunks; chunk++) {
+    builder->CreateBr(b30_cond);
+
     {
-        // CONDITION Block
-        builder->SetInsertPoint(chunk_loop_cond_block);
-        llvm::Value *chunk_val = IR::aligned_load(*builder, i64_ty, chunk, "chunk_val");
-        llvm::Value *chunk_lt_num_chunks = builder->CreateICmpULT(chunk_val, num_chunks, "chunk_lt_num_chunks");
-        builder->CreateCondBr(chunk_lt_num_chunks, chunk_loop_body_block, chunk_loop_merge_block);
+        builder->SetInsertPoint(b30_cond);
+        llvm::Value *const chunk_value = IR::aligned_load(*builder, i64_ty, chunk, "chunk_value");
+        llvm::Value *const chunk_lt_num_chunks = builder->CreateICmpULT(chunk_value, num_chunks, "chunk_lt_num_chunks");
+        builder->CreateCondBr(chunk_lt_num_chunks, b31_body, b47_merge);
 
-        // BODY Block
-        builder->SetInsertPoint(chunk_loop_body_block);
+        builder->SetInsertPoint(b31_body);
+        llvm::Value *const chunk_gt_0 = builder->CreateICmpUGT(chunk_value, builder->getInt64(0), "chunk_gt_0");
+        builder->CreateCondBr(chunk_gt_0, b32, b38);
 
-        // Check if chunk > 0 before incrementing indices
-        llvm::Value *chunk_val_check = IR::aligned_load(*builder, i64_ty, chunk, "chunk_val_check");
-        llvm::Value *chunk_gt_0 = builder->CreateICmpUGT(chunk_val_check, builder->getInt64(0), "chunk_gt_0");
-        builder->CreateCondBr(chunk_gt_0, chunk_loop_index_loop_init_block, chunk_loop_offset_loop_init_block);
+        builder->SetInsertPoint(b32);
+        llvm::Value *const start_dim = builder->CreateZExt(is_first_range, i64_ty, "start_dim");
+        llvm::Value *const src_dimensionality_m1 = builder->CreateSub(src_dimensionality, builder->getInt64(1), "src_dim_m1");
+        IR::aligned_store(*builder, src_dimensionality_m1, i);
+        builder->CreateBr(b33_cond);
 
-        // for (size_t i = src_dimensionality - 1; i >= start_dim; i--) { (index increment loop)
         {
-            // INITIALIZATION Block (only run once when chunk > 0)
-            builder->SetInsertPoint(chunk_loop_index_loop_init_block);
-            llvm::Value *src_dimensionality_m1 = builder->CreateSub(src_dimensionality, builder->getInt64(1), "src_dimensionality_m1");
-            IR::aligned_store(*builder, src_dimensionality_m1, i);
-            builder->CreateBr(chunk_loop_index_loop_cond_block);
+            builder->SetInsertPoint(b33_cond);
+            llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+            llvm::Value *const i_gt_start_dim = builder->CreateICmpUGE(i_value, start_dim, "i_gt_start_dim");
+            builder->CreateCondBr(i_gt_start_dim, b34_body, b38);
 
-            // CONDITION Block
-            builder->SetInsertPoint(chunk_loop_index_loop_cond_block);
-            // Calculate start_dim inside the loop
-            llvm::Value *start_dim = builder->CreateZExt(is_first_range, i64_ty, "start_dim");
-            llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-            llvm::Value *i_ge_start_dim = builder->CreateICmpUGE(i_val, start_dim, "i_ge_start_dim");
-            builder->CreateCondBr(i_ge_start_dim, chunk_loop_index_loop_body_block, chunk_loop_offset_loop_init_block);
+            builder->SetInsertPoint(b34_body);
+            llvm::Value *const from_offset = builder->CreateMul(i_value, builder->getInt64(2), "from_offset");
+            llvm::Value *const from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
+            llvm::Value *const from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
+            llvm::Value *const to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_offset");
+            llvm::Value *const to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
+            llvm::Value *const to_eq_single_idx = builder->CreateICmpEQ(to, SINGLE_IDX, "to_eq_single_idx");
+            builder->CreateCondBr(to_eq_single_idx, b37_action, b35);
 
-            // BODY Block
-            builder->SetInsertPoint(chunk_loop_index_loop_body_block);
-            llvm::Value *from_offset = builder->CreateMul(i_val, builder->getInt64(2), "from_offset");
-            llvm::Value *from_ptr = builder->CreateGEP(i64_ty, arg_ranges, from_offset, "from_ptr");
-            llvm::Value *from = IR::aligned_load(*builder, i64_ty, from_ptr, "from");
-            llvm::Value *to_ptr = builder->CreateGEP(i64_ty, from_ptr, builder->getInt64(1), "to_offset");
-            llvm::Value *to = IR::aligned_load(*builder, i64_ty, to_ptr, "to");
-            llvm::Value *is_range = builder->CreateICmpNE(from, to, "is_range");
-            builder->CreateCondBr(is_range, chunk_loop_index_loop_is_range_block, chunk_loop_index_loop_action_block);
+            builder->SetInsertPoint(b35);
+            llvm::Value *const current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_value, "current_indices_i_ptr");
+            llvm::Value *const current_indices_i = IR::aligned_load(*builder, i64_ty, current_indices_i_ptr, "current_indices_i");
+            llvm::Value *const new_cii_val = builder->CreateAdd(current_indices_i, builder->getInt64(1), "new_cii_val");
+            IR::aligned_store(*builder, new_cii_val, current_indices_i_ptr);
+            llvm::Value *const new_cii_lt_to = builder->CreateICmpULT(new_cii_val, to, "new_cii_lt_to");
+            builder->CreateCondBr(new_cii_lt_to, b38, b36);
 
-            // if (from != to) {
-            {
-                builder->SetInsertPoint(chunk_loop_index_loop_is_range_block);
-                llvm::Value *current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_val, "current_indices_i_ptr");
-                llvm::Value *current_indices_i = IR::aligned_load(*builder, i64_ty, current_indices_i_ptr, "current_indices_i");
-                llvm::Value *new_cii_val = builder->CreateAdd(current_indices_i, builder->getInt64(1), "new_cii_val");
-                IR::aligned_store(*builder, new_cii_val, current_indices_i_ptr);
-                llvm::Value *is_past = builder->CreateICmpULT(new_cii_val, to, "is_past");
-                builder->CreateCondBr(is_past, chunk_loop_index_loop_is_range_is_past, chunk_loop_index_loop_is_range_is_not_past);
+            builder->SetInsertPoint(b36);
+            IR::aligned_store(*builder, from, current_indices_i_ptr);
+            builder->CreateBr(b37_action);
 
-                // if (current_indices[i] < to) {
-                {
-                    builder->SetInsertPoint(chunk_loop_index_loop_is_range_is_past);
-                    builder->CreateBr(chunk_loop_offset_loop_init_block);
-                }
-
-                // } else {
-                {
-                    builder->SetInsertPoint(chunk_loop_index_loop_is_range_is_not_past);
-                    IR::aligned_store(*builder, from, current_indices_i_ptr);
-                    builder->CreateBr(chunk_loop_index_loop_action_block);
-                }
-            }
-
-            // ACTION Block
-            builder->SetInsertPoint(chunk_loop_index_loop_action_block);
-            llvm::Value *next_i_val = builder->CreateSub(i_val, builder->getInt64(1), "next_i_val");
-            IR::aligned_store(*builder, next_i_val, i);
-            builder->CreateBr(chunk_loop_index_loop_cond_block);
+            builder->SetInsertPoint(b37_action);
+            llvm::Value *const next_i_value = builder->CreateSub(i_value, builder->getInt64(1), "next_i_value");
+            IR::aligned_store(*builder, next_i_value, i);
+            builder->CreateBr(b33_cond);
         }
 
-        // for (size_t i = 0; i < src_dimensionality; i++) {
+        builder->SetInsertPoint(b38);
+        IR::aligned_store(*builder, builder->getInt64(0), src_offset);
+        IR::aligned_store(*builder, builder->getInt64(0), i);
+        builder->CreateBr(b39_cond);
+
         {
-            // INITIALIZATION Block (only run once per chunk)
-            builder->SetInsertPoint(chunk_loop_offset_loop_init_block);
-            IR::aligned_store(*builder, builder->getInt64(0), i);
-            IR::aligned_store(*builder, builder->getInt64(0), src_offset);
-            builder->CreateBr(chunk_loop_offset_loop_cond_block);
+            builder->SetInsertPoint(b39_cond);
+            llvm::Value *const i_value = IR::aligned_load(*builder, i64_ty, i, "i_value");
+            llvm::Value *const i_lt_src_dim = builder->CreateICmpULT(i_value, src_dimensionality, "i_lt_src_dim");
+            builder->CreateCondBr(i_lt_src_dim, b40_body, b41_merge);
 
-            // CONDITION Block (no longer resets variables)
-            builder->SetInsertPoint(chunk_loop_offset_loop_cond_block);
-            llvm::Value *i_val = IR::aligned_load(*builder, i64_ty, i, "i_val");
-            llvm::Value *i_lt_src_dimensionality = builder->CreateICmpULT(i_val, src_dimensionality, "i_lt_src_dimensionality");
-            builder->CreateCondBr(i_lt_src_dimensionality, chunk_loop_offset_loop_body_block, chunk_loop_offset_loop_merge_block);
-
-            // BODY Block
-            builder->SetInsertPoint(chunk_loop_offset_loop_body_block);
-            llvm::Value *current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_val, "current_indices_i_ptr");
-            llvm::Value *current_indices_i = IR::aligned_load(*builder, i64_ty, current_indices_i_ptr, "current_indices_i");
-            llvm::Value *src_strides_i_ptr = builder->CreateGEP(i64_ty, src_strides, i_val, "src_strides_i_ptr");
-            llvm::Value *src_strides_i = IR::aligned_load(*builder, i64_ty, src_strides_i_ptr, "src_strides_i");
-            llvm::Value *curr_idx_mult_src_strides = builder->CreateMul(current_indices_i, src_strides_i, "curr_idx_mult_src_strides");
-            llvm::Value *src_offset_val = IR::aligned_load(*builder, i64_ty, src_offset, "src_offest_val");
-            llvm::Value *new_src_offset_val = builder->CreateAdd(src_offset_val, curr_idx_mult_src_strides, "new_src_offset_val");
+            builder->SetInsertPoint(b40_body);
+            llvm::Value *const current_indices_i_ptr = builder->CreateGEP(i64_ty, current_indices, i_value, "current_indices_i_ptr");
+            llvm::Value *const current_indices_i = IR::aligned_load(*builder, i64_ty, current_indices_i_ptr, "current_indices_i");
+            llvm::Value *const src_strides_i_ptr = builder->CreateGEP(i64_ty, src_strides, i_value, "src_strides_i_ptr");
+            llvm::Value *const src_strides_i = IR::aligned_load(*builder, i64_ty, src_strides_i_ptr, "src_strides_i");
+            llvm::Value *const curr_idx_mult_src_strides = builder->CreateMul( //
+                current_indices_i, src_strides_i, "curr_idx_mult_src_strides"  //
+            );
+            llvm::Value *const src_offset_val = IR::aligned_load(*builder, i64_ty, src_offset, "src_offest_val");
+            llvm::Value *const new_src_offset_val = builder->CreateAdd(src_offset_val, curr_idx_mult_src_strides, "new_src_offset_val");
             IR::aligned_store(*builder, new_src_offset_val, src_offset);
-            builder->CreateBr(chunk_loop_offset_loop_action_block);
-
-            // ACTION Block
-            builder->SetInsertPoint(chunk_loop_offset_loop_action_block);
-            llvm::Value *next_i_val = builder->CreateAdd(i_val, builder->getInt64(1), "next_i_val");
-            IR::aligned_store(*builder, next_i_val, i);
-            builder->CreateBr(chunk_loop_offset_loop_cond_block);
+            llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+            IR::aligned_store(*builder, next_i_value, i);
+            builder->CreateBr(b39_cond);
         }
 
-        // Copy the chunk (either 1 element or chunk_size elements) deep or shallow depending on the type_id
-        builder->SetInsertPoint(chunk_loop_offset_loop_merge_block);
-        llvm::Value *const src_offset_val = IR::aligned_load(*builder, i64_ty, src_offset, "src_offset_val");
-        llvm::Value *const dest_index_val = IR::aligned_load(*builder, i64_ty, dest_index, "dest_index_val");
-        llvm::Value *const type_id_is_zero = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_is_zero");
-        builder->CreateCondBr(type_id_is_zero, chunk_loop_type_id_zero_block, chunk_loop_type_id_nonzero_block);
+        builder->SetInsertPoint(b41_merge);
+        llvm::Value *const src_offset_value = IR::aligned_load(*builder, i64_ty, src_offset, "src_offset_value");
+        llvm::Value *const dest_index_value = IR::aligned_load(*builder, i64_ty, dest_index, "dest_index_value");
+        llvm::Value *const type_id_eq_0 = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_eq_0");
+        builder->CreateCondBr(type_id_eq_0, b42, b43);
 
-        //     if (type_id == 0) {
-        builder->SetInsertPoint(chunk_loop_type_id_zero_block);
-        llvm::Value *const dest_idx_mul_elem_size = builder->CreateMul(dest_index_val, arg_element_size, "dest_idx_mul_elem_size");
-        llvm::Value *const cpy_dest_data_ptr =
-            builder->CreateGEP(builder->getInt8Ty(), dest_data, dest_idx_mul_elem_size, "cpy_dest_data_ptr");
-        llvm::Value *const src_offset_mul_elem_size = builder->CreateMul(src_offset_val, arg_element_size, "src_offset_mul_elem_size");
-        llvm::Value *const cpy_src_data_ptr =
-            builder->CreateGEP(builder->getInt8Ty(), src_data, src_offset_mul_elem_size, "cpy_src_data_ptr");
+        builder->SetInsertPoint(b42);
+        llvm::Value *const dest_idx_mul_elem_size = builder->CreateMul(dest_index_value, arg_element_size, "dest_idx_mul_elem_size");
+        llvm::Value *const cpy_dest_data_ptr = builder->CreateGEP(                       //
+            builder->getInt8Ty(), dest_data, dest_idx_mul_elem_size, "cpy_dest_data_ptr" //
+        );
+        llvm::Value *const src_offset_mul_elem_size = builder->CreateMul(src_offset_value, arg_element_size, "src_offset_mul_elem_size");
+        llvm::Value *const cpy_src_data_ptr = builder->CreateGEP(                        //
+            builder->getInt8Ty(), src_data, src_offset_mul_elem_size, "cpy_src_data_ptr" //
+        );
         llvm::Value *const cpy_amount = builder->CreateMul(chunk_size, arg_element_size, "cpy_amount");
         builder->CreateCall(memcpy_fn, {cpy_dest_data_ptr, cpy_src_data_ptr, cpy_amount});
-        builder->CreateBr(chunk_loop_type_id_merge_block);
+        builder->CreateBr(b46_merge);
+
+        builder->SetInsertPoint(b43);
+        IR::aligned_store(*builder, builder->getInt64(0), j);
+        builder->CreateBr(b44_cond);
 
         {
-            //     } else {
-            builder->SetInsertPoint(chunk_loop_type_id_nonzero_block);
-            llvm::Value *const j_alloca = builder->CreateAlloca(i64_ty, nullptr, "j");
-            IR::aligned_store(*builder, builder->getInt64(0), j_alloca);
-            builder->CreateBr(chunk_loop_type_id_nonzero_loop_cond_block);
-
-            //         for (size_t j = 0; j < chunk_size; j++) {
-            builder->SetInsertPoint(chunk_loop_type_id_nonzero_loop_cond_block);
-            llvm::Value *const j_value = IR::aligned_load(*builder, i64_ty, j_alloca, "j_value");
+            builder->SetInsertPoint(b44_cond);
+            llvm::Value *const j_value = IR::aligned_load(*builder, i64_ty, j, "j_value");
             llvm::Value *const j_lt_chunk_size = builder->CreateICmpULT(j_value, chunk_size, "j_lt_chunk_size");
-            builder->CreateCondBr(j_lt_chunk_size, chunk_loop_type_id_nonzero_loop_body_block, chunk_loop_type_id_merge_block);
+            builder->CreateCondBr(j_lt_chunk_size, b45_body, b46_merge);
 
-            builder->SetInsertPoint(chunk_loop_type_id_nonzero_loop_body_block);
-            llvm::Value *const src_offset_p_j = builder->CreateAdd(src_offset_val, j_value, "src_offset_p_j");
+            builder->SetInsertPoint(b45_body);
+            llvm::Value *const src_offset_p_j = builder->CreateAdd(src_offset_value, j_value, "src_offset_p_j");
             llvm::Value *const src_val_offset = builder->CreateMul(src_offset_p_j, arg_element_size, "src_val_offset");
             llvm::Value *const src_val_ptr = builder->CreateGEP(builder->getInt8Ty(), src_data_ptr, src_val_offset, "src_val_ptr");
             llvm::Value *const loaded_src_val_ptr = IR::aligned_load(*builder, PTR_TY, src_val_ptr, "loaded_src_val_ptr");
             llvm::Value *const actual_src_val_ptr = builder->CreateSelect(                  //
                 arg_elem_is_indirect, loaded_src_val_ptr, src_val_ptr, "actual_src_val_ptr" //
             );
-            llvm::Value *const dest_index_p_j = builder->CreateAdd(dest_index_val, j_value, "dest_index_p_j");
+            llvm::Value *const dest_index_p_j = builder->CreateAdd(dest_index_value, j_value, "dest_index_p_j");
             llvm::Value *const dest_val_offset = builder->CreateMul(dest_index_p_j, arg_element_size, "dest_val_offset");
             llvm::Value *const dest_val_ptr = builder->CreateGEP(builder->getInt8Ty(), dest_data_ptr, dest_val_offset, "dest_val_ptr");
             builder->CreateCall(clone_fn, {actual_src_val_ptr, dest_val_ptr, arg_type_id});
-            llvm::Value *const j_next = builder->CreateAdd(j_value, builder->getInt64(1), "j_next");
-            IR::aligned_store(*builder, j_next, j_alloca);
-            builder->CreateBr(chunk_loop_type_id_nonzero_loop_cond_block);
+            llvm::Value *const next_j_value = builder->CreateAdd(j_value, builder->getInt64(1), "next_j_value");
+            IR::aligned_store(*builder, next_j_value, j);
+            builder->CreateBr(b44_cond);
         }
 
-        // Increment dest index
-        builder->SetInsertPoint(chunk_loop_type_id_merge_block);
-        llvm::Value *new_dest_index = builder->CreateAdd(dest_index_val, chunk_size, "new_dest_index");
-        IR::aligned_store(*builder, new_dest_index, dest_index);
-        builder->CreateBr(chunk_loop_action_block);
-
-        // ACTION Block
-        builder->SetInsertPoint(chunk_loop_action_block);
-        llvm::Value *chunk_val_action = IR::aligned_load(*builder, i64_ty, chunk, "chunk_val_action");
-        llvm::Value *next_chunk_val = builder->CreateAdd(chunk_val_action, builder->getInt64(1), "next_chunk_val");
-        IR::aligned_store(*builder, next_chunk_val, chunk);
-        builder->CreateBr(chunk_loop_cond_block);
+        builder->SetInsertPoint(b46_merge);
+        llvm::Value *const next_dest_index_value = builder->CreateAdd(dest_index_value, chunk_size, "next_dest_index_value");
+        IR::aligned_store(*builder, next_dest_index_value, dest_index);
+        llvm::Value *const next_chunk_value = builder->CreateAdd(chunk_value, builder->getInt64(1), "next_chunk_value");
+        IR::aligned_store(*builder, next_chunk_value, chunk);
+        builder->CreateBr(b30_cond);
     }
-    builder->SetInsertPoint(chunk_loop_merge_block);
 
-    // Clean up and return
+    builder->SetInsertPoint(b47_merge);
     builder->CreateCall(free_fn, new_dim_lengths);
     builder->CreateCall(free_fn, src_strides);
     builder->CreateCall(free_fn, current_indices);
