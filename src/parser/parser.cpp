@@ -607,32 +607,6 @@ Parser::CastDirection Parser::check_castability( //
         } else if (lhs_type->to_string() == "str" && rhs_type->to_string() == "type.flint.str.lit") {
             return CastDirection::rhs_to_lhs();
         }
-        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
-        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
-        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
-        if (lhs_var != nullptr && rhs_var != nullptr) {
-            return CastDirection::not_castable();
-        } else if (lhs_var != nullptr) {
-            const std::string lhs_type_str = lhs_type->to_string();
-            const std::string rhs_type_str = rhs_type->to_string();
-            for (const auto &[_, type] : lhs_var->get_possible_types()) {
-                const std::string type_str = type->to_string();
-                if (type == rhs_type) {
-                    return CastDirection::rhs_to_lhs();
-                }
-            }
-            return CastDirection::not_castable();
-        } else if (rhs_var != nullptr) {
-            const std::string lhs_type_str = lhs_type->to_string();
-            const std::string rhs_type_str = rhs_type->to_string();
-            for (const auto &[_, type] : rhs_var->get_possible_types()) {
-                const std::string type_str = type->to_string();
-                if (type == lhs_type) {
-                    return CastDirection::lhs_to_rhs();
-                }
-            }
-            return CastDirection::not_castable();
-        }
         // Check one or both of the sides are optional types
         const OptionalType *lhs_opt = dynamic_cast<const OptionalType *>(lhs_type.get());
         const OptionalType *rhs_opt = dynamic_cast<const OptionalType *>(rhs_type.get());
@@ -683,6 +657,33 @@ Parser::CastDirection Parser::check_castability( //
                 }
             }
         }
+        // Check if one or both of the sides are variant types, the other side then needs to be one of the possible variant types
+        const VariantType *lhs_var = dynamic_cast<const VariantType *>(lhs_type.get());
+        const VariantType *rhs_var = dynamic_cast<const VariantType *>(rhs_type.get());
+        if (lhs_var != nullptr && rhs_var != nullptr) {
+            return CastDirection::not_castable();
+        } else if (lhs_var != nullptr) {
+            const std::string lhs_type_str = lhs_type->to_string();
+            const std::string rhs_type_str = rhs_type->to_string();
+            for (const auto &[_, type] : lhs_var->get_possible_types()) {
+                const std::string type_str = type->to_string();
+                if (type == rhs_type) {
+                    return CastDirection::rhs_to_lhs();
+                }
+            }
+            return CastDirection::not_castable();
+        } else if (rhs_var != nullptr) {
+            const std::string lhs_type_str = lhs_type->to_string();
+            const std::string rhs_type_str = rhs_type->to_string();
+            for (const auto &[_, type] : rhs_var->get_possible_types()) {
+                const std::string type_str = type->to_string();
+                if (type == lhs_type) {
+                    return CastDirection::lhs_to_rhs();
+                }
+            }
+            return CastDirection::not_castable();
+        }
+        // Check if one or both of the sides are array types, the only allowed cast direction is fixed array -> dynamic array
         const ArrayType *lhs_arr = dynamic_cast<const ArrayType *>(lhs_type.get());
         const ArrayType *rhs_arr = dynamic_cast<const ArrayType *>(rhs_type.get());
         if (lhs_arr != nullptr && rhs_arr != nullptr) {
@@ -700,6 +701,7 @@ Parser::CastDirection Parser::check_castability( //
             }
             return CastDirection::not_castable();
         }
+        // If none of the above apply, check if its a primitive castability situation
         return check_primitive_castability(lhs_type, rhs_type, is_implicit);
     } else if (lhs_group == nullptr && rhs_group != nullptr) {
         // Left is no group, right is group

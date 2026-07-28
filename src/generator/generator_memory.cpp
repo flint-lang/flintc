@@ -487,6 +487,9 @@ void Generator::Memory::generate_free_value( //
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             ASSERT(optional_type->base_type->is_freeable());
+            if (optional_type->base_type->get_variation() == Type::Variation::VARIANT) {
+                return generate_free_value(builder, module, value, optional_type->base_type);
+            }
             // We check if the optional holds a value and only if it does then we free anything. This means that we need a basic block for
             // the freeing code and if it does not hold a value then we simply skip it
             llvm::BasicBlock *const current_block = builder->GetInsertBlock();
@@ -501,7 +504,8 @@ void Generator::Memory::generate_free_value( //
             // Check if the optional holds a value
             builder->SetInsertPoint(current_block);
             llvm::Value *const has_value_ptr = builder->CreateStructGEP(opt_struct_type, value, 0, "has_value_ptr");
-            llvm::Value *const has_value = IR::aligned_load(*builder, builder->getInt1Ty(), has_value_ptr, "has_value");
+            llvm::Value *const has_value_i8 = IR::aligned_load(*builder, builder->getInt8Ty(), has_value_ptr, "has_value_i8");
+            llvm::Value *const has_value = builder->CreateICmpNE(has_value_i8, builder->getInt8(0), "has_value");
             builder->CreateCondBr(has_value, has_value_block, merge_block);
 
             // Now we get the type of the value contained in the optional and call `flint.free` and pass that loaded value to the function
@@ -967,6 +971,9 @@ void Generator::Memory::generate_clone_value( //
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             ASSERT(optional_type->base_type->is_freeable());
+            if (optional_type->base_type->get_variation() == Type::Variation::VARIANT) {
+                return generate_clone_value(builder, module, src, dest, optional_type->base_type);
+            }
             // We check if the optional holds a value and only if it does then we clone anything. This means that we need a basic block
             // for the cloning code and if it does not hold a value then we store `none` in the value
             llvm::BasicBlock *const current_block = builder->GetInsertBlock();
@@ -984,7 +991,8 @@ void Generator::Memory::generate_clone_value( //
             // Check if the optional holds a value
             builder->SetInsertPoint(current_block);
             llvm::Value *const has_value_ptr = builder->CreateStructGEP(opt_struct_type, src, 0, "has_value_ptr");
-            llvm::Value *const has_value = IR::aligned_load(*builder, builder->getInt1Ty(), has_value_ptr, "has_value");
+            llvm::Value *const has_value_i8 = IR::aligned_load(*builder, builder->getInt8Ty(), has_value_ptr, "has_value_i8");
+            llvm::Value *const has_value = builder->CreateICmpNE(has_value_i8, builder->getInt8(0), "has_value");
             builder->CreateCondBr(has_value, has_value_block, has_no_value_block);
 
             // Now we get the type of the value contained in the optional and call `flint.clone` and pass that loaded value to the
@@ -1004,7 +1012,7 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *const dest_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 1, "dest_value_ptr");
             builder->CreateCall(clone_fn, {opt_value, dest_value_ptr, builder->getInt32(optional_type->base_type->get_id())});
             llvm::Value *const dest_has_value_ptr = builder->CreateStructGEP(opt_struct_type, dest, 0, "dest_has_value_ptr");
-            IR::aligned_store(*builder, builder->getInt1(true), dest_has_value_ptr);
+            IR::aligned_store(*builder, builder->getInt8(1), dest_has_value_ptr);
             builder->CreateBr(merge_block);
 
             // Just store the default-value of the optional type at the destination

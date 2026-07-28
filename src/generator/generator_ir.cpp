@@ -895,13 +895,16 @@ Generator::IR::TypeStorageInfo Generator::IR::get_type( //
             return {.type = PTR_TY, .is_complex = false, .is_reference = true, .is_indirect = true};
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
+            if (optional_type->base_type->get_variation() == Type::Variation::VARIANT) {
+                return get_type(module, optional_type->base_type);
+            }
             const std::string opt_str = type->get_type_string();
             if (type_map.find(opt_str) == type_map.end()) {
                 TypeStorageInfo type_info = get_type(module, optional_type->base_type);
                 if (type_info.is_complex) {
                     type_info.type = PTR_TY;
                 }
-                type_map[opt_str] = IR::create_struct_type(opt_str, {llvm::Type::getInt1Ty(context), type_info.type});
+                type_map[opt_str] = create_struct_type(opt_str, {llvm::Type::getInt8Ty(context), type_info.type});
             }
             return {.type = type_map.at(opt_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }

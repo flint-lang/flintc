@@ -113,7 +113,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
             const auto *node = expression_node->as<OptionalUnwrapNode>();
-            return generate_optional_unwrap(builder, ctx, garbage, expr_depth, node);
+            return generate_optional_unwrap(builder, ctx, garbage, expr_depth, node, is_reference);
         }
         case ExpressionNode::Variation::RANGE_EXPRESSION: {
             const auto *node = expression_node->as<RangeExpressionNode>();
@@ -157,7 +157,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::VARIANT_UNWRAP: {
             const auto *node = expression_node->as<VariantUnwrapNode>();
-            return generate_variant_unwrap(builder, ctx, node);
+            return generate_variant_unwrap(builder, ctx, garbage, expr_depth, node, is_reference);
         }
     }
     __builtin_unreachable();
@@ -1429,7 +1429,7 @@ bool Generator::Expression::is_arg_reference(                    //
     const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
     const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
     const bool is_reference = arg.second && !is_temporary && (!is_literal || is_variant_literal) //
-        && !is_initializer && !is_opt_unwrap && !is_type_cast;
+        && !is_initializer && (!is_opt_unwrap || param_type->is_reference()) && !is_type_cast;
     return is_reference;
 }
 
@@ -1657,7 +1657,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             }
             llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
             llvm::Value *temp_opt = IR::get_default_value_of_type(opt_struct_type);
-            temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt1(true), 0);
+            temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt8(1), 0);
             temp_opt = builder.CreateInsertValue(temp_opt, expr_val, 1, "temp_opt");
             expr_val = temp_opt;
         } else if (is_dima_managed) {
@@ -2820,8 +2820,9 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
 
     // Because it's a switch on an optional we can have a simple conditional branch here instead of the switch
     // We just check for the "has_value" field and select our result depending on what block we come from using a phi node
-    llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
-    llvm::Value *has_value = IR::aligned_load(builder, builder.getInt1Ty(), has_value_ptr, "has_value");
+    llvm::Value *const has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
+    llvm::Value *const has_value_u8 = IR::aligned_load(builder, builder.getInt8Ty(), has_value_ptr, "has_value_i8");
+    llvm::Value *const has_value = builder.CreateICmpNE(has_value_u8, builder.getInt8(0), "has_value_i1");
     llvm::BasicBlock *has_value_block = branch_blocks.at(value_block_idx);
     // If value block idx == 1 none block is 0, if it's 0 the none block is idx 1
     llvm::BasicBlock *none_block = branch_blocks.at(1 - value_block_idx);
@@ -3834,7 +3835,8 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
 
     // We need to check whether the base expression even *has* a value stored in it and then we need to branch depending on whether it
     // has a value
-    llvm::Value *has_value = builder.CreateExtractValue(base_expr, {0}, "base_expr_has_value");
+    llvm::Value *const has_value_i8 = builder.CreateExtractValue(base_expr, {0}, "base_expr_has_value_i8");
+    llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "base_expr_has_value");
     // Now we branch depending on whether the base expression has a value
     llvm::BasicBlock *happy_path = llvm::BasicBlock::Create(context, "happy_path", ctx.parent);
     builder.CreateCondBr(has_value, happy_path, ctx.short_circuit_block.value());
@@ -3843,7 +3845,7 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
     builder.SetInsertPoint(happy_path);
     llvm::Value *base_expr_value = builder.CreateExtractValue(base_expr, {1}, "base_expr_value");
     llvm::Value *result_value = IR::get_default_value_of_type(result_type);
-    result_value = builder.CreateInsertValue(result_value, builder.getInt1(true), {0});
+    result_value = builder.CreateInsertValue(result_value, builder.getInt8(1), {0});
     if (std::holds_alternative<ChainFieldAccess>(chain->operation)) {
         const ChainFieldAccess &access = std::get<ChainFieldAccess>(chain->operation);
         const auto *base_expr_type = chain->base_expr->type->as<OptionalType>();
@@ -3910,6 +3912,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     const bool is_reference                                               //
 ) {
     ASSERT(unwrap->base_expr->type->get_variation() == Type::Variation::OPTIONAL);
+    const bool base_is_variant = unwrap->base_expr->type->as<OptionalType>()->base_type->get_variation() == Type::Variation::VARIANT;
     auto base_expressions = generate_expression(builder, ctx, garbage, expr_depth + 1, unwrap->base_expr.get(), is_reference);
     if (!base_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -3918,16 +3921,19 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     // For now, we assume that the base expression is not a group type
     ASSERT(base_expressions.value().size() == 1);
     llvm::Value *base_expr = base_expressions.value().front();
-    if (base_expr->getType()->isPointerTy()) {
-        llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unwrap->base_expr->type, false);
+    llvm::StructType *const opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), unwrap->base_expr->type, false);
+    if (base_expr->getType()->isPointerTy() && !is_reference) {
         base_expr = IR::aligned_load(builder, opt_struct_type, base_expr, "loaded_base_expr");
     }
     if (opt_unwrap_mode == OptionalUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
+        if (base_is_variant) {
+            return std::vector<llvm::Value *>{base_expr};
+        }
         if (is_reference) {
-            base_expr = builder.CreateStructGEP(base_expr->getType(), base_expr, 1, "opt_value_unsafe");
+            base_expr = builder.CreateStructGEP(opt_struct_type, base_expr, 1, "opt_value_unsafe");
         } else {
-            base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value_unsafe");
+            base_expr = builder.CreateExtractValue(base_expr, 1, "opt_value_unsafe");
         }
         return std::vector<llvm::Value *>{base_expr};
     }
@@ -3938,11 +3944,12 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     builder.SetInsertPoint(inserter);
     llvm::Value *opt_has_value = nullptr;
     if (is_reference) {
-        llvm::Value *opt_has_value_ptr = builder.CreateStructGEP(base_expr->getType(), base_expr, 0, "opt_has_value_ptr");
-        opt_has_value = IR::aligned_load(builder, builder.getInt1Ty(), opt_has_value_ptr, "opt_has_value");
+        llvm::Value *opt_has_value_ptr = builder.CreateStructGEP(opt_struct_type, base_expr, 0, "opt_has_value_ptr");
+        opt_has_value = IR::aligned_load(builder, builder.getInt8Ty(), opt_has_value_ptr, "opt_has_value_i8");
     } else {
-        opt_has_value = builder.CreateExtractValue(base_expr, {0}, "opt_has_value");
+        opt_has_value = builder.CreateExtractValue(base_expr, {0}, "opt_has_value_i8");
     }
+    opt_has_value = builder.CreateICmpNE(opt_has_value, builder.getInt8(0), "opt_has_value");
     llvm::BranchInst *branch = builder.CreateCondBr(opt_has_value, merge, has_no_value, IR::generate_weights(100, 1));
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the 'has_value' property is true")));
 
@@ -3955,8 +3962,11 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
 
     // The merge block, when the optional access was okay
     builder.SetInsertPoint(merge);
+    if (base_is_variant) {
+        return std::vector<llvm::Value *>{base_expr};
+    }
     if (is_reference) {
-        base_expr = builder.CreateStructGEP(base_expr->getType(), base_expr, 1, "opt_value");
+        base_expr = builder.CreateStructGEP(opt_struct_type, base_expr, !base_is_variant, "opt_value");
     } else {
         base_expr = builder.CreateExtractValue(base_expr, {1}, "opt_value");
     }
@@ -4004,7 +4014,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
     llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
     llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
     llvm::Value *value_ok = IR::get_default_value_of_type(opt_type);
-    value_ok = builder.CreateInsertValue(value_ok, builder.getInt1(true), {0}, "value_ok_fill_has_value");
+    value_ok = builder.CreateInsertValue(value_ok, builder.getInt8(1), {0}, "value_ok_fill_has_value");
     value_ok = builder.CreateInsertValue(value_ok, value, {1}, "value_ok_fill_value");
     builder.CreateBr(merge);
 
@@ -4019,46 +4029,58 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
 Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     llvm::IRBuilder<> &builder,                                          //
     GenerationContext &ctx,                                              //
-    const VariantUnwrapNode *unwrap                                      //
+    garbage_type &garbage,                                               //
+    const unsigned int expr_depth,                                       //
+    const VariantUnwrapNode *unwrap,                                     //
+    const bool is_reference                                              //
 ) {
-    const auto *variable_node = unwrap->base_expr->as<VariableNode>();
-    const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
-    llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    const group_mapping base_expr_maybe = generate_expression(builder, ctx, garbage, expr_depth, unwrap->base_expr.get(), true);
+    if (!base_expr_maybe.has_value()) {
+        return std::nullopt;
+    }
+    llvm::Value *const base_expr = base_expr_maybe.value().front();
+
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).type;
     llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).type;
     if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
-        llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, variable, 1, "var_value_ptr");
-        llvm::Value *value_cast_ptr = builder.CreateBitCast(value_ptr, PTR_TY, "value_ptr_unsafe");
-        llvm::Value *value = IR::aligned_load(builder, element_type, value_cast_ptr, "var_value_unsafe");
+        llvm::Value *const value_ptr = builder.CreateStructGEP(variant_type, base_expr, 1, "var_value_ptr");
+        llvm::Value *const value_cast_ptr = builder.CreateBitCast(value_ptr, PTR_TY, "value_ptr_unsafe");
+        if (is_reference) {
+            return std::vector<llvm::Value *>{value_cast_ptr};
+        }
+        llvm::Value *const value = IR::aligned_load(builder, element_type, value_cast_ptr, "var_value_unsafe");
         return std::vector<llvm::Value *>{value};
     }
 
     // First, check if the variant holds a value of our wanted type
-    llvm::BasicBlock *inserter = builder.GetInsertBlock();
-    llvm::BasicBlock *holds_wrong_type = llvm::BasicBlock::Create(context, "var_upwrap_wrong_type", ctx.parent);
-    llvm::BasicBlock *merge = llvm::BasicBlock::Create(context, "var_unwrap", ctx.parent);
+    llvm::BasicBlock *const inserter = builder.GetInsertBlock();
+    llvm::BasicBlock *const holds_wrong_type = llvm::BasicBlock::Create(context, "var_upwrap_wrong_type", ctx.parent);
+    llvm::BasicBlock *const merge = llvm::BasicBlock::Create(context, "var_unwrap", ctx.parent);
     builder.SetInsertPoint(inserter);
     const unsigned char id = unwrap->unwrap_id;
-    llvm::Value *wanted_type = builder.getInt8(id);
-    llvm::Value *current_type_ptr = builder.CreateStructGEP(variant_type, variable, 0, "var_type_ptr");
-    llvm::Value *current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
-    llvm::Value *holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
+    llvm::Value *const wanted_type = builder.getInt8(id);
+    llvm::Value *const current_type_ptr = builder.CreateStructGEP(variant_type, base_expr, 0, "var_type_ptr");
+    llvm::Value *const current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
+    llvm::Value *const holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
     llvm::BranchInst *branch = builder.CreateCondBr(holds_type, merge, holds_wrong_type, IR::generate_weights(100, 1));
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
 
     // The crash block, in the case of a bad variant unwrap
     builder.SetInsertPoint(holds_wrong_type);
-    llvm::Value *err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad variant unwrap occurred\n");
+    llvm::Value *const err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad variant unwrap occurred\n");
     builder.CreateCall(c_functions.at(PRINTF), {err_msg});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();
 
     // The merge block, when the variant access is okay
     builder.SetInsertPoint(merge);
-    llvm::Value *value_raw_ptr = builder.CreateStructGEP(variant_type, variable, 1, "value_raw_ptr");
-    llvm::Value *value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
-    llvm::Value *value = IR::aligned_load(builder, element_type, value_ptr, "value");
+    llvm::Value *const value_raw_ptr = builder.CreateStructGEP(variant_type, base_expr, 1, "value_raw_ptr");
+    llvm::Value *const value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
+    if (is_reference) {
+        return std::vector<llvm::Value *>{value_ptr};
+    }
+    llvm::Value *const value = IR::aligned_load(builder, element_type, value_ptr, "value");
     return std::vector<llvm::Value *>{value};
 }
 
@@ -4589,12 +4611,15 @@ llvm::Value *Generator::Expression::generate_type_cast( //
             break;
         case Type::Variation::OPTIONAL: {
             const auto *to_opt_type = to_type->as<OptionalType>();
+            if (from_type->get_variation() == Type::Variation::VARIANT) {
+                return expr;
+            }
             if (!from_type->equals(to_opt_type->base_type)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
                 return nullptr;
             }
             llvm::Value *cast_optional = IR::get_default_value_of_type(builder, ctx.parent->getParent(), to_type);
-            cast_optional = builder.CreateInsertValue(cast_optional, builder.getInt1(true), 0);
+            cast_optional = builder.CreateInsertValue(cast_optional, builder.getInt8(1), 0);
             return builder.CreateInsertValue(cast_optional, expr, 1, "cast_optional");
         }
         case Type::Variation::VARIANT: {
@@ -5528,7 +5553,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), bin_op_node->left->type, false);
                 lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
             }
-            llvm::Value *const has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(lhs, {0}, "has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "has_value");
             llvm::Value *const lhs_value = builder.CreateExtractValue(lhs, {1}, "value");
             if (!bin_op_node->type->is_freeable()) {
                 return builder.CreateSelect(has_value, lhs_value, rhs, "selected_value");
@@ -5618,7 +5644,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), rhs_expr->type, false);
                 rhs = IR::aligned_load(builder, opt_struct_type, rhs, "loaded_rhs");
             }
-            llvm::Value *has_value = builder.CreateExtractValue(rhs, {0}, "has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(rhs, {0}, "has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "has_value");
             if (eq) {
                 return builder.CreateNot(has_value, "has_no_value");
             } else {
@@ -5635,7 +5662,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
                 llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), lhs_expr->type, false);
                 lhs = IR::aligned_load(builder, opt_struct_type, lhs, "loaded_lhs");
             }
-            llvm::Value *has_value = builder.CreateExtractValue(lhs, {0}, "has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(lhs, {0}, "has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "has_value");
             if (eq) {
                 return builder.CreateNot(has_value, "has_no_value");
             } else {
@@ -5661,9 +5689,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     if (rhs->getType()->isPointerTy()) {
         rhs = IR::aligned_load(builder, opt_struct_type, rhs, "loaded_rhs");
     }
-    llvm::Value *lhs_has_value = builder.CreateExtractValue(lhs, {0}, "lhs_has_value");
-    llvm::Value *rhs_has_value = builder.CreateExtractValue(rhs, {0}, "rhs_has_value");
-    llvm::Value *both_have_value = builder.CreateAnd(lhs_has_value, rhs_has_value, "both_have_value");
+    llvm::Value *const lhs_has_value_i8 = builder.CreateExtractValue(lhs, {0}, "lhs_has_value_i8");
+    llvm::Value *const lhs_has_value = builder.CreateICmpNE(lhs_has_value_i8, builder.getInt8(0), "lhs_has_value");
+    llvm::Value *const rhs_has_value_i8 = builder.CreateExtractValue(rhs, {0}, "rhs_has_value_i8");
+    llvm::Value *const rhs_has_value = builder.CreateICmpNE(rhs_has_value_i8, builder.getInt8(0), "rhs_has_value");
+    llvm::Value *const both_have_value = builder.CreateAnd(lhs_has_value, rhs_has_value, "both_have_value");
     builder.CreateCondBr(both_have_value, both_value_block, one_no_value_block);
 
     // The optionals are still equal if both have no value stored in them

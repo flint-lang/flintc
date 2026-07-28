@@ -1188,9 +1188,10 @@ bool Generator::Statement::generate_optional_switch_statement( //
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
     llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
     // We just check for the "has_value" field and branch to our blocks depending on that field's value
-    llvm::Value *has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
-    llvm::Value *has_value = IR::aligned_load(builder, builder.getInt1Ty(), has_value_ptr, "has_value");
-    llvm::BasicBlock *has_value_block = branch_blocks.at(value_block_idx);
+    llvm::Value *const has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
+    llvm::Value *const has_value_i8 = IR::aligned_load(builder, builder.getInt8Ty(), has_value_ptr, "has_value_i8");
+    llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "has_value");
+    llvm::BasicBlock *const has_value_block = branch_blocks.at(value_block_idx);
     // If value block idx == 1 none block is 0, if it's 0 the none block is idx 1
     llvm::BasicBlock *none_block = branch_blocks.at(1 - value_block_idx);
     builder.CreateCondBr(has_value, has_value_block, none_block);
@@ -1742,7 +1743,7 @@ bool Generator::Statement::generate_declaration( //
                 }
                 // Get the pointer to the i1 element of the optional variable and set it to 1
                 llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
-                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), var_has_value_ptr);
+                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(1), var_has_value_ptr);
                 store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
@@ -1834,7 +1835,8 @@ bool Generator::Statement::generate_declaration( //
             llvm::BasicBlock *opt_merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
 
             builder.SetInsertPoint(current_block);
-            llvm::Value *has_value = builder.CreateExtractValue(expression, 0, "rhs_has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(expression, 0, "rhs_has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "rhs_has_value");
             builder.CreateCondBr(has_value, retain_block, opt_merge_block);
 
             builder.SetInsertPoint(retain_block);
@@ -1940,7 +1942,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
                 // Get the pointer to the i1 element of the optional variable and set it to 1
                 llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, lhs, 0, assignment_node->name + "_has_value_ptr");
-                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), var_has_value_ptr);
+                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(1), var_has_value_ptr);
                 store->setMetadata("comment",
                     llvm::MDNode::get(context,
                         llvm::MDString::get(context, "Set 'has_value' property of optional '" + assignment_node->name + "' to 1")));
@@ -1964,7 +1966,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             const bool types_match = expr.value().front()->getType() == var_type;
             if (is_type_cast && !is_opt_literal && !types_match) {
                 llvm::Value *opt_aggregate = IR::get_default_value_of_type(builder, ctx.parent->getParent(), variable_type);
-                opt_aggregate = builder.CreateInsertValue(opt_aggregate, builder.getInt1(true), 0, "opt_agg_has_value");
+                opt_aggregate = builder.CreateInsertValue(opt_aggregate, builder.getInt8(1), 0, "opt_agg_has_value");
                 opt_aggregate = builder.CreateInsertValue(opt_aggregate, expr.value().front(), 1, "opt_agg_value");
                 expr.value().front() = opt_aggregate;
             }
@@ -2024,7 +2026,8 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
             llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
 
             builder.SetInsertPoint(current_block);
-            llvm::Value *has_value = builder.CreateExtractValue(expression, 0, "rhs_has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(expression, 0, "rhs_has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "rhs_has_value");
             builder.CreateCondBr(has_value, retain_block, merge_block);
 
             builder.SetInsertPoint(retain_block);
@@ -2187,7 +2190,7 @@ bool Generator::Statement::generate_data_field_assignment( //
         if (!types_match && (rhs_cast == nullptr || rhs_cast->expr->type->to_string() != "void?")) {
             // Set has_value to true
             llvm::Value *field_has_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 0, "field_has_value_ptr");
-            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt1(1), field_has_value_ptr);
+            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(1), field_has_value_ptr);
             store->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Set 'has_value' property of optional field to 1")));
 
@@ -2228,7 +2231,8 @@ bool Generator::Statement::generate_data_field_assignment( //
             llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
 
             builder.SetInsertPoint(current_block);
-            llvm::Value *has_value = builder.CreateExtractValue(expr_val, 0, "rhs_has_value");
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(expr_val, 0, "rhs_has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "rhs_has_value");
             builder.CreateCondBr(has_value, retain_block, merge_block);
 
             builder.SetInsertPoint(retain_block);

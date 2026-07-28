@@ -2208,12 +2208,18 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
+        /// @param `garbage` A list of all accumulated temporary variables that need cleanup
+        /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `unwrap` The variant unwrap node node to generate
+        /// @param `is_reference` Whether the result of the optional unwrap should be a reference
         /// @return `group_mapping` The value(s) containing the result of the variant unwrap
         static group_mapping generate_variant_unwrap( //
             llvm::IRBuilder<> &builder,               //
             GenerationContext &ctx,                   //
-            const VariantUnwrapNode *unwrap           //
+            garbage_type &garbage,                    //
+            const unsigned int expr_depth,            //
+            const VariantUnwrapNode *unwrap,          //
+            const bool is_reference = false           //
         );
 
         /// @function `generate_type_cast`

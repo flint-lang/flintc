@@ -709,6 +709,9 @@ llvm::DIType *Generator::Debug::create_debug_type_opaque(llvm::Module *const mod
 
 llvm::DIType *Generator::Debug::create_debug_type_optional(llvm::Module *const module, const std::shared_ptr<Type> &type) {
     const auto *optional_type = type->as<OptionalType>();
+    if (optional_type->base_type->get_variation() == Type::Variation::VARIANT) {
+        return create_debug_type_variant(module, optional_type->base_type);
+    }
 
     ASSERT(DCU != nullptr);
     llvm::DIFile *const file = DCU->getFile();

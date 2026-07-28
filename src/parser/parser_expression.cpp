@@ -2172,11 +2172,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (base_expr.value()->get_variation() != ExpressionNode::Variation::VARIABLE) {
-            // Unwrapping non-variable expressions is not supported yet
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
         return std::make_unique<VariantUnwrapNode>(                                                           //
             file_hash, get_pos_triple(tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value() //
         );
