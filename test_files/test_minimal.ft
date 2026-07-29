@@ -1,17 +1,19 @@
 use Core.print
 
-variant MyVar:
-	Int(i32), Float(f32), Bool(bool);
+def somefunction() -> i32:
+	return 69;
+
+def otherfunction() -> i32:
+	return 420;
 
 def main():
-	MyVar var = MyVar.Float(3.14);
-	MyVar? opt = var;
+	i32 x = somefunction()
+		+ otherfunction();
+	print($"x = {x}\n");
 
-	print($"opt!.active_type = {i32(opt!.active_type)}\n");
+	if true: print("first\n"); print("second\n");
+	if false: print("first\n"); print("second\n");
 
-	if opt! == MyVar.Int:
-		print($"holds i32 value {opt!!(MyVar.Int)}\n");
-	else if opt! == MyVar.Float:
-		print($"holds f32 value {opt!!(MyVar.Float)}\n");
-	else if opt! == MyVar.Bool:
-		print($"holds bool value {opt!!(MyVar.Bool)}\n");
+	for u64 i = 0;
+	i < 3;
+	i++: print($"i = {i}\n");

@@ -23,20 +23,14 @@
 
 #include <algorithm>
 
-bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
+bool Parser::add_next_main_node(token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::add_next_main_node");
-    token_slice definition_tokens = get_definition_tokens(tokens);
-    tokens.first = definition_tokens.second;
-    // Make sure that `tokens.first` does not point at the `end` iterator because it's content is undefined
-    if (tokens.first == file_node_ptr->tokens.end()) {
-        tokens.first = std::prev(tokens.first);
-        ASSERT(tokens.first->token == TOK_EOF);
+    // First check if the next definition is a type alias, annotation or use clause, these do not end with a semicolon and wont be catched
+    // by the `get_definition_tokens` function call.
+    token_slice definition_tokens = {tokens.first, tokens.first};
+    while (definition_tokens.second != tokens.second and definition_tokens.second->token != TOK_EOL) {
+        ++definition_tokens.second;
     }
-    if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
-        definition_tokens.second--;
-    }
-
-    // Find the indentation of the definition
     int definition_indentation = 0;
     for (auto tok = definition_tokens.first; tok != definition_tokens.second; ++tok) {
         if (tok->token == TOK_INDENT) {
@@ -46,9 +40,11 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
     }
 
-    if (Matcher::tokens_contain(definition_tokens, Matcher::token(TOK_ANNOTATION))) {
+    if (Matcher::tokens_start_with(definition_tokens, Matcher::token(TOK_ANNOTATION))) {
+        tokens.first = definition_tokens.second + 1;
         return add_annotation(definition_tokens);
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::use_statement)) {
+    } else if (Matcher::tokens_start_with(definition_tokens, Matcher::use_statement)) {
+        tokens.first = definition_tokens.second + 1;
         if (definition_indentation > 0) {
             THROW_ERR(ErrImportNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
             return false;
@@ -102,7 +98,7 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
                 }
             }
         }
-        std::optional<ImportNode *> added_import = file_node.add_import(import_node.value());
+        std::optional<ImportNode *> added_import = file_node_ptr->add_import(import_node.value());
         if (!added_import.has_value()) {
             return false;
         }
@@ -119,7 +115,8 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             imported_files.emplace_back(added_import.value());
         }
         return true;
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::type_alias)) {
+    } else if (Matcher::tokens_start_with(definition_tokens, Matcher::type_alias)) {
+        tokens.first = definition_tokens.second + 1;
         ASSERT(definition_tokens.first->token == TOK_TYPE_KEYWORD);
         ASSERT((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
         const std::string type_alias((definition_tokens.first + 1)->lexme);
@@ -138,12 +135,32 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
             type = file_node_ptr->file_namespace->get_type_from_str(type->to_string()).value();
         }
         return true;
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::extern_function_declaration)) {
+    }
+
+    std::optional<token_slice> definition_tokens_maybe = get_definition_tokens(file_node_ptr->tokens, tokens);
+    if (!definition_tokens_maybe.has_value()) {
+        return false;
+    }
+    definition_tokens = definition_tokens_maybe.value();
+    tokens.first = definition_tokens.second;
+    // Make sure that `tokens.first` does not point at the `end` iterator because it's content is undefined
+    if (tokens.first == file_node_ptr->tokens.end()) {
+        tokens.first = std::prev(tokens.first);
+        ASSERT(tokens.first->token == TOK_EOF);
+    }
+    if (tokens.first->token == TOK_EOL) [[likely]] {
+        tokens.first++;
+    }
+    if (std::prev(definition_tokens.second)->token == TOK_EOL) [[likely]] {
+        definition_tokens.second--;
+    }
+
+    if (Matcher::tokens_contain(definition_tokens, Matcher::extern_function_declaration)) {
         std::optional<FunctionNode> function_node = create_extern_function(definition_tokens);
         if (!function_node.has_value()) {
             return false;
         }
-        std::optional<FunctionNode *> added_function = file_node.add_function(function_node.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
         if (!added_function.has_value()) {
             return false;
         }
@@ -167,8 +184,16 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         }
     }
 
-    std::vector<Line> body_lines = get_body_lines(definition_indentation, tokens);
-    if (body_lines.empty()) {
+    // Only the bodies of functions and tests can contain statements so only these definitions need a terminator for each line, other
+    // definitions may have terminators like commas etc
+    const bool is_test = Matcher::tokens_contain(definition_tokens, Matcher::test_definition);
+    const bool is_function = Matcher::tokens_contain(definition_tokens, Matcher::function_definition);
+    const bool needs_term = is_test || is_function;
+    std::optional<std::vector<Line>> body_lines = get_body_lines(definition_indentation, tokens, needs_term);
+    if (!body_lines.has_value()) {
+        return false;
+    }
+    if (body_lines.value().empty()) {
         // TODO: This prints the same error twice which is... not pretty
         // For example when writing `def main():` and the `print("Hello\n");` in the line below the error first is printed for the `def
         // main():` line and then again for the `print("Hello\n");` line. We somehow need to print this error only if the current line we
@@ -177,94 +202,94 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
         THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, tokens);
         return false;
     }
-    if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
-        // Dont actually parse the function body, only its definition
+    if (is_function) {
+        // Dont parse the function body, only its definition
         std::optional<FunctionNode> function_node = create_function(definition_tokens, {});
         if (!function_node.has_value()) {
             return false;
         }
-        std::optional<FunctionNode *> added_function = file_node.add_function(function_node.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
         if (!added_function.has_value()) {
             return false;
         }
-        add_open_function({added_function.value(), body_lines});
+        add_open_function({added_function.value(), body_lines.value()});
+    } else if (is_test) {
+        std::optional<TestNode> test_node = create_test(definition_tokens);
+        if (!test_node.has_value()) {
+            return false;
+        }
+        TestNode *added_test = file_node_ptr->add_test(test_node.value());
+        add_open_test({added_test, body_lines.value()});
+        add_parsed_test(added_test, file_name);
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
-        std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
+        std::optional<DataNode> data_node = create_data(definition_tokens, body_lines.value());
         if (!data_node.has_value()) {
             return false;
         }
-        std::optional<DataNode *> added_data = file_node.add_data(data_node.value());
+        std::optional<DataNode *> added_data = file_node_ptr->add_data(data_node.value());
         if (!added_data.has_value()) {
             return false;
         }
         add_open_data(added_data.value());
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
-        std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
+        std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines.value());
         if (!func_node.has_value()) {
             return false;
         }
-        std::optional<FuncNode *> added_func = file_node.add_func(func_node.value());
+        std::optional<FuncNode *> added_func = file_node_ptr->add_func(func_node.value());
         if (!added_func.has_value()) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::interface_definition)) {
-        std::optional<InterfaceNode> interface_node = create_interface(definition_tokens, body_lines);
+        std::optional<InterfaceNode> interface_node = create_interface(definition_tokens, body_lines.value());
         if (!interface_node.has_value()) {
             return false;
         }
-        std::optional<InterfaceNode *> added_interface = file_node.add_interface(interface_node.value());
+        std::optional<InterfaceNode *> added_interface = file_node_ptr->add_interface(interface_node.value());
         if (!added_interface.has_value()) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::object_definition)) {
-        std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines);
+        std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines.value());
         if (!object_node.has_value()) {
             return false;
         }
-        std::optional<ObjectNode *> added_object = file_node.add_object(object_node.value());
+        std::optional<ObjectNode *> added_object = file_node_ptr->add_object(object_node.value());
         if (!added_object.has_value()) {
             return false;
         }
-        add_open_object({added_object.value(), body_lines});
+        add_open_object({added_object.value(), body_lines.value()});
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
-        std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines);
+        std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines.value());
         if (!enum_node.has_value()) {
             return false;
         }
-        if (!file_node.add_enum(enum_node.value())) {
+        if (!file_node_ptr->add_enum(enum_node.value())) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
-        std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
+        std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines.value());
         if (!error_node.has_value()) {
             return false;
         }
-        if (!file_node.add_error(error_node.value())) {
+        if (!file_node_ptr->add_error(error_node.value())) {
             return false;
         }
     } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
-        std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
+        std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines.value());
         if (!variant_node.has_value()) {
             return false;
         }
-        if (!file_node.add_variant(variant_node.value())) {
+        if (!file_node_ptr->add_variant(variant_node.value())) {
             return false;
         }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
-        std::optional<TestNode> test_node = create_test(definition_tokens);
-        if (!test_node.has_value()) {
-            return false;
-        }
-        TestNode *added_test = file_node.add_test(test_node.value());
-        add_open_test({added_test, body_lines});
-        add_parsed_test(added_test, file_name);
     } else {
         Debug::print_token_context_vector(definition_tokens, file_name);
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
         return false;
     }
     if (!annotation_queue.empty()) {
-        DefinitionNode *last_definition = file_node.file_namespace->public_symbols.definitions.back().get();
+        DefinitionNode *last_definition = file_node_ptr->file_namespace->public_symbols.definitions.back().get();
         THROW_ERR(                                                                                    //
             ErrAnnoLeftover, ERR_PARSING, file_hash,                                                  //
             last_definition->line, last_definition->column, last_definition->length, annotation_queue //
@@ -274,31 +299,50 @@ bool Parser::add_next_main_node(FileNode &file_node, token_slice &tokens) {
     return true;
 }
 
-token_slice Parser::get_definition_tokens(const token_slice &tokens) {
+std::optional<token_slice> Parser::get_definition_tokens(token_list &token_source, const token_slice &tokens) {
     PROFILE_CUMULATIVE("Parser::get_definition_tokens");
-    // Scan through all the tokens and first extract all tokens from this line
-    int end_index = 0;
-    unsigned int start_line = tokens.first->line;
-    for (auto tok = tokens.first; tok != tokens.second; ++tok) {
-        if (tok->line == start_line) {
-            end_index++;
-        } else {
+    // Definition tokens are all tokens up until a colon or semicolon token. All EOL or TAB tokens are deleted within a definition slice
+    auto end = tokens.first;
+    for (; end != tokens.second; ++end) {
+        if (end->token == TOK_COLON || end->token == TOK_SEMICOLON) {
+            ++end;
             break;
         }
     }
-    return {tokens.first, tokens.first + end_index};
+    if (end == tokens.second) {
+        // Definition does not contain colon token
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    auto it = tokens.first;
+    bool is_at_beginning = true;
+    while (it != end) {
+        if (!is_at_beginning && (it->token == TOK_INDENT || it->token == TOK_EOL)) {
+            Line::delete_tokens(token_source, it, 1);
+            continue;
+        }
+        is_at_beginning = false;
+        ++it;
+    }
+    return token_slice{tokens.first, end};
 }
 
-std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, token_slice &tokens) {
+std::optional<std::vector<Line>> Parser::get_body_lines( //
+    unsigned int definition_indentation,                 //
+    token_slice &tokens,                                 //
+    const bool needs_terminator                          //
+) {
     PROFILE_CUMULATIVE("Parser::get_body_lines");
-    std::vector<Line> body_lines;
+    std::vector<Line> physical_lines;
     auto current_line_start = tokens.first;
     unsigned int current_indent_lvl = 0;
 
+    // A logical line is everything from the start of a line up to a semicolon. Line-continuation is only possible if the next line has a
+    // higher indentation level than the "last" line. We start by regularly collecting physical lines.
     for (auto it = tokens.first; it != tokens.second;) {
         if (it->token == TOK_EOL) {
             token_slice current_line = {current_line_start, it};
-            body_lines.emplace_back(current_indent_lvl, current_line);
+            physical_lines.emplace_back(current_indent_lvl, current_line);
             ++it;
             current_line_start = it;
             current_indent_lvl = 0;
@@ -310,7 +354,7 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
                 break;
             }
             token_slice current_line = {current_line_start, it};
-            body_lines.emplace_back(current_indent_lvl, current_line);
+            physical_lines.emplace_back(current_indent_lvl, current_line);
             break;
         }
         // Skip all the \t tokens but remember the indentation depth
@@ -333,8 +377,116 @@ std::vector<Line> Parser::get_body_lines(unsigned int definition_indentation, to
         }
         ++it;
     }
+    if (physical_lines.empty()) {
+        return physical_lines;
+    }
 
-    return body_lines;
+    // Now we iterate all the lines and create logical lines from the physical lines. So if the line does not have a continuator but the
+    // next line has a higher indentation level, those two are merged into a new logical line.
+    std::vector<Line> logical_lines;
+    auto line = physical_lines.begin();
+    token_list::iterator line_start = line->tokens.first;
+    token_list::iterator line_end = line->tokens.first;
+    while (line != physical_lines.end()) {
+        // Remove all leading or trailing EOL and TOK_INDENT tokens
+        while (std::prev(line->tokens.second)->token == TOK_INDENT || std::prev(line->tokens.second)->token == TOK_EOL) {
+            --line->tokens.second;
+        }
+        while (line->tokens.first->token == TOK_INDENT || line->tokens.first->token == TOK_EOL) {
+            ++line->tokens.first;
+        }
+        // We iterate through all tokens within the logical line
+        size_t indentation_offset = 0;
+        while (line_end != line->tokens.second) {
+            const bool is_colon = line_end->token == TOK_COLON;
+            if (line_end->token == TOK_SEMICOLON || is_colon) {
+                ++line_end;
+                const token_slice logical_line = {line_start, line_end};
+                logical_lines.emplace_back(line->indent_lvl + indentation_offset, logical_line);
+                line_start = line_end;
+                if (is_colon) {
+                    indentation_offset++;
+                }
+                continue;
+            }
+            ++line_end;
+        }
+        if (line_start != line_end) {
+            // Line not finished, needs to continue in the next line. We now check indentation level of the next line to check whether we
+            // are allowed to continue on in the next line
+            if (needs_terminator) {
+                if (line + 1 == physical_lines.end() || (line + 1)->indent_lvl <= line->indent_lvl) {
+                    THROW_ERR(ErrMissingSemicolon, ERR_PARSING, file_hash, token_slice{line_start, line_end});
+                    return std::nullopt;
+                }
+                // The this logical line continues on in the next physiclal line
+                ++line;
+                continue;
+            } else {
+                // If no terminator is required, just add this line as a logical line
+                const token_slice logical_line = {line_start, line_end};
+                logical_lines.emplace_back(line->indent_lvl, logical_line);
+                ++line;
+                line_start = line->tokens.first;
+                continue;
+            }
+        }
+        if (line_start->token == TOK_EOL) {
+            line_start++;
+        }
+        ++line;
+    }
+
+    // Now remove all TOK_IDENT and TOK_EOL tokens which are contained within the logical lines
+    line = logical_lines.begin();
+    while (line != logical_lines.end()) {
+        auto it = line->tokens.first;
+        while (it != line->tokens.second) {
+            if (it->token == TOK_INDENT || it->token == TOK_EOL) {
+                Line::delete_tokens(file_node_ptr->tokens, it, 1);
+                tokens.first--;
+                tokens.second--;
+                continue;
+            }
+            ++it;
+        }
+        ++line;
+    }
+
+    // Special-case to merge 3 logical lines into one line for c-style for loops
+    line = logical_lines.begin();
+    while (line != logical_lines.end()) {
+        if (line->tokens.first->token == TOK_FOR && std::prev(line->tokens.second)->token == TOK_SEMICOLON) {
+            ASSERT(line + 2 < logical_lines.end());
+            line->tokens.second = (line + 2)->tokens.second;
+            logical_lines.erase(line + 1);
+            logical_lines.erase(line + 1);
+        }
+        ++line;
+    }
+
+    // Because of the new line parser, something like
+    //     for i64 i = 0;
+    //     i < 3;
+    //     i++: print($"i = {i}\n");
+    // is totally valid code, as these three logical lines are merged into one. This means that we need to do the TOK_IDENT and TOK_EOL pass
+    // again after the lines have been merged or otherwise these tokens would stay end up within the line
+    line = logical_lines.begin();
+    while (line != logical_lines.end()) {
+        auto it = line->tokens.first;
+        while (it != line->tokens.second) {
+            if (it->token == TOK_INDENT || it->token == TOK_EOL) {
+                Line::delete_tokens(file_node_ptr->tokens, it, 1);
+                tokens.first--;
+                tokens.second--;
+                continue;
+            }
+            ++it;
+        }
+        ++line;
+    }
+
+    return logical_lines;
 }
 
 void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {

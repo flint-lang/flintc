@@ -765,22 +765,22 @@ class Parser {
      *************************************************************************************************************************************/
 
     /// @function `add_next_main_node`
-    /// @brief Creates the next main node from the list of tokens and adds it to the file node
+    /// @brief Creates the next main node from the list of tokens and adds it to this parsers file node instance
     ///
-    /// @details A main node is every node which is able to be at the top-level of a file (functions, modules, file imports etc.)
+    /// @details A main node is every node which is able to be at the top-level of a file (functions, type definitions, file imports etc.)
     ///
-    /// @param `file_node` The file node the next created main node will be added to
     /// @param `tokens` The list of tokens from which the next main node will be created from
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
-    bool add_next_main_node(FileNode &file_node, token_slice &tokens);
+    bool add_next_main_node(token_slice &tokens);
 
     /// @function `get_definition_tokens`
     /// @brief Extracts all the tokens which are part of the definition
     ///
-    /// @return `token_list` Returns the extracted tokens, being part of the definition
-    ///
-    /// @attention Deletes all tokens which are part of the definition from the given tokens list
-    token_slice get_definition_tokens(const token_slice &tokens);
+    /// @param `token_source` The source token list the `tokens` slice views into
+    /// @param `tokens` The token slice to get the definition from
+    /// @return `std::optional<token_slice>` Returns the extracted tokens, being part of the definition, nullopt if the definition does not
+    /// contain a colon
+    std::optional<token_slice> get_definition_tokens(token_list &token_source, const token_slice &tokens);
 
     /// @function `get_body_lines`
     /// @brief Extracts all the body lines based on their indentation. Returns a list of lines, where each line is a slice view into the
@@ -789,8 +789,13 @@ class Parser {
     /// @param `definition_indentation` The indentation level of the definition. The body of the definition will have at least one
     /// indentation level more
     /// @param `tokens` The tokens from which the body will be extracted from
-    /// @return `std::vector<Line>` The extracted next body lines
-    std::vector<Line> get_body_lines(unsigned int definition_indentation, token_slice &tokens);
+    /// @param `needs_terminator` Whether each logical line needs a terminator
+    /// @return `std::optional<std::vector<Line>>` The extracted next body lines, nullopt if body extraction failed
+    std::optional<std::vector<Line>> get_body_lines( //
+        const unsigned int definition_indentation,   //
+        token_slice &tokens,                         //
+        const bool needs_terminator = true           //
+    );
 
     /// @function `collapse_types_in_slice`
     /// @brief Collapses all types found within a given source slice

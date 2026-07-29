@@ -105,8 +105,9 @@ struct Line {
 
     // Static function to delete tokens and update all Lines
     static void delete_tokens(token_list &list, token_list::iterator start_point, unsigned int length) {
-        if (length == 0)
+        if (length == 0) {
             return;
+        }
 
         // Acquire exclusive write lock - blocks all move/copy operations
         std::unique_lock write_lock(rw_mutex);
@@ -129,7 +130,7 @@ struct Line {
         // Make sure we don't delete beyond the end of the list
         unsigned int actual_length = std::min(length, static_cast<unsigned int>(std::distance(start_point, list.end())));
         if (actual_length > 0) {
-            list.erase(start_point, start_point + actual_length);
+            start_point = list.erase(start_point, start_point + actual_length);
         }
     }
 

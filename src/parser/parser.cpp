@@ -186,7 +186,7 @@ std::optional<FileNode *> Parser::parse() {
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
     while (token_slice.first != token_slice.second && token_slice.first->token != TOK_EOF) {
-        if (!add_next_main_node(*(file_node_ptr.get()), token_slice)) {
+        if (!add_next_main_node(token_slice)) {
             had_failure = true;
         }
     }
@@ -2333,7 +2333,7 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     }
     Profiler::end_task("Collect all open tests");
 
-    // Go through all open functions and refine their body lines before the loop
+    // Go through all open tests and refine their body lines before the loop
     Profiler::start_task("Refine test body lines");
     for (auto &[parser, test, body] : open_tests) {
         parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
