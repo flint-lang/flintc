@@ -4,9 +4,9 @@
 #include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
-class ErrMissingSemicolon : public BaseError {
+class ErrMissingColon : public BaseError {
   public:
-    ErrMissingSemicolon(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
+    ErrMissingColon(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
         BaseError(                                                        //
             error_type,                                                   //
             file_hash,                                                    //
@@ -21,14 +21,14 @@ class ErrMissingSemicolon : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "└─ Missing " << YELLOW << ";" << DEFAULT << " detected";
+        oss << BaseError::to_string() << "└─ Missing " << YELLOW << ":" << DEFAULT << " detected";
         return oss.str();
     }
 
     [[nodiscard]]
     Diagnostic to_diagnostic() const override {
         Diagnostic d = BaseError::to_diagnostic();
-        d.message = "Missing ; detected";
+        d.message = "Missing : detected";
         return d;
     }
 };

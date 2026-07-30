@@ -5,6 +5,7 @@
 #include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
+#include "linearizer/linearizer.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -179,14 +180,18 @@ std::optional<FileNode *> Parser::parse() {
             line_idx++;
         }
     }
-    token_slice token_slice = {file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
     if (PRINT_TOK_STREAM) {
+        const token_slice token_slice{file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
         Debug::print_token_context_vector(token_slice, file_name);
+    }
+    std::optional<std::vector<Line>> lines = Linearizer::linearize(file_hash, file_node_ptr->tokens);
+    if (!lines.has_value()) {
+        return std::nullopt;
     }
     // Consume all tokens and convert them to nodes
     bool had_failure = false;
-    while (token_slice.first != token_slice.second && token_slice.first->token != TOK_EOF) {
-        if (!add_next_main_node(token_slice)) {
+    while (!lines.value().empty()) {
+        if (!add_next_main_node(lines.value())) {
             had_failure = true;
         }
     }
@@ -1718,177 +1723,144 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
     auto &func_components = object->func_components;
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
 
-    // TODO: Make the order of definition for the data and func components order-independant. This means that one could then also first
-    // define all func components before defining all data modules. For now, to keep it simple, we will have a fixed order of data first
-    // and then func components
-
-    // Add all data modules defined in the `data` section of the object
     auto line_it = body.begin();
-    auto tok_it = line_it->tokens.first;
-    if (tok_it->token != TOK_DATA) {
-        THROW_ERR(                                                                    //
-            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                    //
-            tok_it->line, tok_it->column, std::vector<Token>{TOK_DATA}, tok_it->token //
-        );
-        return false;
-    }
-    tok_it++;
-    bool semicolon_found = false;
-    if (tok_it->token != TOK_COLON) {
-        THROW_ERR(                                                                     //
-            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
-            tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
-        );
-        return false;
-    }
-    tok_it++;
-    while (line_it != body.end()) {
-        while (tok_it != line_it->tokens.second) {
-            switch (tok_it->token) {
-                default:
-                    THROW_ERR(                                                                                              //
-                        ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
-                        tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
-                    );
+    bool data_parsed = false;
+    bool func_parsed = false;
+    for (size_t i = 0; i < 2; i++) {
+        auto tok_it = line_it->tokens.first;
+        switch (tok_it->token) {
+            default:
+                break;
+            case TOK_DATA:
+                if (data_parsed) {
+                    // data: section defined twice
+                    THROW_BASIC_ERR(ERR_PARSING);
                     return false;
-                case TOK_COMMA:
-                    break;
-                case TOK_SEMICOLON:
-                    semicolon_found = true;
-                    break;
-                case TOK_IDENTIFIER: {
-                    auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                    if (!type.has_value()) {
-                        THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                        return false;
-                    }
-                    *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                    [[fallthrough]];
                 }
-                case TOK_TYPE: {
-                    if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                        THROW_ERR(ErrDefObjectProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                        return false;
-                    }
-                    const auto &data_type = tok_it->type;
-                    DataNode *const data_node = data_type->as<DataType>()->data_node;
-                    for (const auto &pair : data_modules) {
-                        if (pair.first != data_node) {
-                            continue;
-                        }
-                        THROW_ERR(                                                    //
-                            ErrDefObjectDuplicateData, ERR_PARSING, parser.file_hash, //
-                            tok_it->line, tok_it->column, tok_it->type->to_string()   //
-                        );
-                        return false;
-                    }
-                    if (std::next(tok_it)->token == TOK_IDENTIFIER) {
-                        // An accessor follows, we need to check whether that accessor is already taken
-                        const std::string accessor(std::next(tok_it)->lexme);
-                        if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
-                            tok_it++;
-                            THROW_ERR(                                                        //
-                                ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
-                                tok_it->line, tok_it->column, accessor                        //
+                ++tok_it;
+                // Add all data modules defined in the `data` section of the object
+                while (tok_it != line_it->tokens.second) {
+                    switch (tok_it->token) {
+                        default:
+                            THROW_ERR(                                                                                              //
+                                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
+                                tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
                             );
                             return false;
+                        case TOK_COMMA:
+                        case TOK_COLON:
+                        case TOK_SEMICOLON:
+                            break;
+                        case TOK_IDENTIFIER: {
+                            auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                            if (!type.has_value()) {
+                                THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                return false;
+                            }
+                            *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                            [[fallthrough]];
                         }
-                        captured_object_identifiers[accessor] = data_type;
-                        data_modules.emplace_back(data_node, accessor);
-                        tok_it++;
-                    } else {
-                        // No data accessor, just the type
-                        data_modules.emplace_back(data_node, std::nullopt);
+                        case TOK_TYPE: {
+                            if (tok_it->type->get_variation() != Type::Variation::DATA) {
+                                THROW_ERR(ErrDefObjectProvidedTypeNotData, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                return false;
+                            }
+                            const auto &data_type = tok_it->type;
+                            DataNode *const data_node = data_type->as<DataType>()->data_node;
+                            for (const auto &pair : data_modules) {
+                                if (pair.first != data_node) {
+                                    continue;
+                                }
+                                THROW_ERR(                                                    //
+                                    ErrDefObjectDuplicateData, ERR_PARSING, parser.file_hash, //
+                                    tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                                );
+                                return false;
+                            }
+                            if (std::next(tok_it)->token == TOK_IDENTIFIER) {
+                                // An accessor follows, we need to check whether that accessor is already taken
+                                const std::string accessor(std::next(tok_it)->lexme);
+                                if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
+                                    tok_it++;
+                                    THROW_ERR(                                                        //
+                                        ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                                        tok_it->line, tok_it->column, accessor                        //
+                                    );
+                                    return false;
+                                }
+                                captured_object_identifiers[accessor] = data_type;
+                                data_modules.emplace_back(data_node, accessor);
+                                tok_it++;
+                            } else {
+                                // No data accessor, just the type
+                                data_modules.emplace_back(data_node, std::nullopt);
+                            }
+                            break;
+                        }
                     }
-                    break;
+                    tok_it++;
                 }
-            }
-            if (semicolon_found) {
+                data_parsed = true;
+                ++line_it;
                 break;
-            }
-            tok_it++;
+            case TOK_FUNC:
+                if (func_parsed) {
+                    // func: section defined twice
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return false;
+                }
+                ++tok_it;
+                while (tok_it != line_it->tokens.second) {
+                    switch (tok_it->token) {
+                        default:
+                            THROW_ERR(                                                                                              //
+                                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
+                                tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
+                            );
+                            return false;
+                        case TOK_COMMA:
+                        case TOK_COLON:
+                        case TOK_SEMICOLON:
+                            break;
+                        case TOK_IDENTIFIER: {
+                            auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
+                            if (!type.has_value()) {
+                                THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                return false;
+                            }
+                            *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
+                            [[fallthrough]];
+                        }
+                        case TOK_TYPE: {
+                            if (tok_it->type->get_variation() != Type::Variation::FUNC) {
+                                THROW_ERR(ErrDefObjectProvidedTypeNotFunc, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                return false;
+                            }
+                            auto *func_node = tok_it->type->as<FuncType>()->func_node;
+                            if (std::find(func_components.begin(), func_components.end(), func_node) != func_components.end()) {
+                                THROW_ERR(                                                    //
+                                    ErrDefObjectDuplicateFunc, ERR_PARSING, parser.file_hash, //
+                                    tok_it->line, tok_it->column, tok_it->type->to_string()   //
+                                );
+                                return false;
+                            }
+                            func_components.emplace_back(func_node);
+                            break;
+                        }
+                    }
+                    tok_it++;
+                }
+                func_parsed = true;
+                ++line_it;
+                break;
         }
-        line_it++;
-        tok_it = line_it->tokens.first;
-        if (semicolon_found) {
-            break;
+        if (line_it == body.end()) {
+            THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
+            return false;
         }
     }
     if (data_modules.empty()) {
         THROW_ERR(ErrDefObjectNoData, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
-        return false;
-    }
-    if (line_it == body.end()) {
-        THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
-        return false;
-    }
-
-    tok_it = line_it->tokens.first;
-    if (tok_it->token == TOK_FUNC) {
-        tok_it++;
-        if (tok_it->token != TOK_COLON) {
-            THROW_ERR(                                                                     //
-                ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                     //
-                tok_it->line, tok_it->column, std::vector<Token>{TOK_COLON}, tok_it->token //
-            );
-            return false;
-        }
-        tok_it++;
-        semicolon_found = false;
-        while (line_it != body.end()) {
-            while (tok_it != line_it->tokens.second) {
-                switch (tok_it->token) {
-                    default:
-                        THROW_ERR(                                                                                              //
-                            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                              //
-                            tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_SEMICOLON, TOK_TYPE}, tok_it->token //
-                        );
-                        return false;
-                    case TOK_COMMA:
-                        break;
-                    case TOK_SEMICOLON:
-                        semicolon_found = true;
-                        break;
-                    case TOK_IDENTIFIER: {
-                        auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
-                        if (!type.has_value()) {
-                            THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                            return false;
-                        }
-                        *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                        [[fallthrough]];
-                    }
-                    case TOK_TYPE: {
-                        if (tok_it->type->get_variation() != Type::Variation::FUNC) {
-                            THROW_ERR(ErrDefObjectProvidedTypeNotFunc, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
-                            return false;
-                        }
-                        auto *func_node = tok_it->type->as<FuncType>()->func_node;
-                        if (std::find(func_components.begin(), func_components.end(), func_node) != func_components.end()) {
-                            THROW_ERR(                                                    //
-                                ErrDefObjectDuplicateFunc, ERR_PARSING, parser.file_hash, //
-                                tok_it->line, tok_it->column, tok_it->type->to_string()   //
-                            );
-                            return false;
-                        }
-                        func_components.emplace_back(func_node);
-                        break;
-                    }
-                }
-                if (semicolon_found) {
-                    break;
-                }
-                tok_it++;
-            }
-            line_it++;
-            tok_it = line_it->tokens.first;
-            if (semicolon_found) {
-                break;
-            }
-        }
-    }
-    if (line_it == body.end()) {
-        THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
     }
 
@@ -1913,6 +1885,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         }
     }
 
+    auto tok_it = line_it->tokens.first;
     if (tok_it->token != TOK_IDENTIFIER && tok_it->token != TOK_TYPE) {
         THROW_ERR(                                                                                    //
             ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                    //

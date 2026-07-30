@@ -7,7 +7,7 @@
 class ErrMissingBody : public BaseError {
   public:
     ErrMissingBody(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
-        BaseError(error_type, file_hash, (tokens.first - 1)->line, (tokens.first - 2)->column),
+        BaseError(error_type, file_hash, std::prev(tokens.second)->line, std::prev(tokens.second)->column),
         tokens(tokens) {}
 
     [[nodiscard]]

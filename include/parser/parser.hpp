@@ -2,7 +2,7 @@
 
 #include "analyzer/analyzer.hpp"
 #include "io.hpp"
-#include "line.hpp"
+#include "linearizer/line.hpp"
 #include "matcher/matcher.hpp"
 #include "types.hpp"
 
@@ -769,33 +769,9 @@ class Parser {
     ///
     /// @details A main node is every node which is able to be at the top-level of a file (functions, type definitions, file imports etc.)
     ///
-    /// @param `tokens` The list of tokens from which the next main node will be created from
+    /// @param `lines` The lines from which to take the next main node
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
-    bool add_next_main_node(token_slice &tokens);
-
-    /// @function `get_definition_tokens`
-    /// @brief Extracts all the tokens which are part of the definition
-    ///
-    /// @param `token_source` The source token list the `tokens` slice views into
-    /// @param `tokens` The token slice to get the definition from
-    /// @return `std::optional<token_slice>` Returns the extracted tokens, being part of the definition, nullopt if the definition does not
-    /// contain a colon
-    std::optional<token_slice> get_definition_tokens(token_list &token_source, const token_slice &tokens);
-
-    /// @function `get_body_lines`
-    /// @brief Extracts all the body lines based on their indentation. Returns a list of lines, where each line is a slice view into the
-    /// token list
-    ///
-    /// @param `definition_indentation` The indentation level of the definition. The body of the definition will have at least one
-    /// indentation level more
-    /// @param `tokens` The tokens from which the body will be extracted from
-    /// @param `needs_terminator` Whether each logical line needs a terminator
-    /// @return `std::optional<std::vector<Line>>` The extracted next body lines, nullopt if body extraction failed
-    std::optional<std::vector<Line>> get_body_lines( //
-        const unsigned int definition_indentation,   //
-        token_slice &tokens,                         //
-        const bool needs_terminator = true           //
-    );
+    bool add_next_main_node(std::vector<Line> &lines);
 
     /// @function `collapse_types_in_slice`
     /// @brief Collapses all types found within a given source slice

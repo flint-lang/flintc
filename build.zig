@@ -211,6 +211,7 @@ fn buildFLS(
             "src/debug.cpp",
             "src/fip.cpp",
             "src/lexer.cpp",
+            "src/linearizer.cpp",
             "src/matcher.cpp",
             "src/profiler.cpp",
             "src/resolver.cpp",

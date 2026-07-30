@@ -105,6 +105,7 @@
 #include "error_types/parsing/fip/err_extern_without_fip.hpp"
 
 #include "error_types/parsing/scopes/err_missing_body.hpp"
+#include "error_types/parsing/scopes/err_missing_colon.hpp"
 #include "error_types/parsing/scopes/err_missing_semicolon.hpp"
 
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"

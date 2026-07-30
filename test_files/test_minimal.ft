@@ -1,9 +1,46 @@
 use Core.print
 
-def somefunction() -> i32:
+data Data1:
+	i32 x = 10;
+		i32 y = 20;
+			Data1(x, y);
+
+data Data2:
+			i32 z = 30;
+		i32 w = 40;
+	Data2(z, w);
+
+func Func1 requires(
+	Data1 d1
+):
+	def print():
+		print( $"d1.(x, y) = {d1.(x, y)}\n");
+
+func Func2 requires(Data2 d2):
+	def print(
+):
+		print($"d2.(z, w) = {d2.(z, w)}\n");
+
+object Object:
+	func: Func1,
+					Func2;
+	data:
+	Data1 d1,
+	Data2 d2;
+	Object(d1, d2);
+
+	def				print		(		
+		)
+:
+		Func1.print(d1);
+		Func2.print(d2);
+
+def somefunction()
+-> i32:
 	return 69;
 
-def otherfunction() -> i32:
+def otherfunction()
+-> i32:
 	return 420;
 
 def main():
@@ -11,9 +48,19 @@ def main():
 		+ otherfunction();
 	print($"x = {x}\n");
 
-	if true: print("first\n"); print("second\n");
-	if false: print("first\n"); print("second\n");
+	if true: print("first1\n"); print("second1\n");
+	if false: print("first2\n"); print("second2\n");
+
+	if true: print("first3\n"); if true: print("second3\n");
+			print("first4\n");
+		print("second4\n");
 
 	for u64 i = 0;
 	i < 3;
 	i++: print($"i = {i}\n");
+
+	o := Object(
+		Data1(20, 10),
+		Data2(40, 30)
+		);
+	o.print();
