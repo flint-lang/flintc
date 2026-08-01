@@ -3,20 +3,20 @@
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
 #include "lexer/lexer_utils.hpp"
-#include "types.hpp"
 
 class ErrExprBinopTypeMismatch : public BaseError {
   public:
-    ErrExprBinopTypeMismatch(          //
-        const ErrorType error_type,    //
-        const Hash &file_hash,         //
-        const token_slice &lhs_tokens, //
-        const token_slice &rhs_tokens, //
-        const Token &operator_token,   //
-        const std::string &lhs_type,   //
-        const std::string &rhs_type    //
+    ErrExprBinopTypeMismatch(        //
+        const ErrorType error_type,  //
+        const Hash &file_hash,       //
+        const unsigned int line,     //
+        const unsigned int column,   //
+        const unsigned int length,   //
+        const Token &operator_token, //
+        const std::string &lhs_type, //
+        const std::string &rhs_type  //
         ) :
-        BaseError(error_type, file_hash, token_slice{lhs_tokens.first, rhs_tokens.second}),
+        BaseError(error_type, file_hash, line, column, length),
         operator_token(operator_token),
         lhs_type(lhs_type),
         rhs_type(rhs_type) {}

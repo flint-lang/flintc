@@ -92,9 +92,9 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
             }
 
             // Check if argument can be implicitly cast to parameter type
-            const Parser::CastDirection castability = Parser::check_castability(arg_type, param_type);
+            const Analyzer::Castability::CastDirection castability = Analyzer::Castability::check_castability(arg_type, param_type);
             const std::string arg_type_str = arg_type->to_string();
-            if (castability.kind != Parser::CastDirection::Kind::CAST_LHS_TO_RHS) {
+            if (castability.kind != Analyzer::Castability::CastDirection::Kind::CAST_LHS_TO_RHS) {
                 all_params_match = false;
                 break;
             }

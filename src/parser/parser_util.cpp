@@ -611,11 +611,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                         arguments[i].first = data_node->fields.at(i).initializer.value()->clone(scope->scope_id);
                         arg_type = arguments[i].first->type;
                     }
-                    const auto &field_type = fields.at(i).type;
-                    if (!check_castability(field_type, arguments[i].first, false)) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, field_type, arg_type);
-                        return std::nullopt;
-                    }
                 }
                 return CreateCallOrInitializerBaseRet{
                     .args = std::move(arguments),
@@ -656,7 +651,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             }
             case Type::Variation::VECTOR: {
                 const auto *vector_type = name_token->type->as<VectorType>();
-                const std::shared_ptr<Type> base_type = vector_type->base_type;
                 const unsigned int width = vector_type->width;
                 if (arguments.size() == 1) {
                     // The "argument" needs to be a compatible vector-type
@@ -675,16 +669,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     if (arguments.size() != width) {
                         THROW_ERR(ErrExprCastVectorLengthMismatch, ERR_PARSING, file_hash, tokens, width, arguments.size());
                         return std::nullopt;
-                    }
-                    for (size_t i = 0; i < arguments.size(); i++) {
-                        if (!check_castability(base_type, arguments[i].first, false)) {
-                            const auto &arg = arguments[i].first;
-                            THROW_ERR(                                                           //
-                                ErrExprCastInvalid, ERR_PARSING, file_hash,                      //
-                                arg->line, arg->column, arg->length, name_token->type, arg->type //
-                            );
-                            return std::nullopt;
-                        }
                     }
                 }
                 return CreateCallOrInitializerBaseRet{
@@ -841,7 +825,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     continue;
                 }
                 // Check if argument can be implicitly cast to parameter type
-                if (!check_castability(param_type, arguments.at(i).first)) {
+                if (!Analyzer::Castability::check_castability(*this, param_type, arguments.at(i).first)) {
                     types_match = false;
                     break;
                 }
@@ -1022,19 +1006,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     // case), otherwise no function would have been found
     // Lastly, update the arguments of the call with the information of the function definition, if the arguments should be references Every
     // non-primitive type is always a reference (except enum types, for now)
-    // We also check if the argument type is of type 'int' or 'float' and simply change it to the function parameter type directly
     for (size_t i = arg_start_id; i < arguments.size(); i++) {
-        const std::string arg_str = arguments[i].first->type->to_string();
-        if (arg_str == "int" || arg_str == "float") {
-            // Set the type of the argument to the expected parameter type, since we know it's compatible, otherwise the function would
-            // never been suggested as a possible function to call in the first place
-            arguments[i].first->type = std::get<0>(parameters[i]);
-        }
-        const auto &param_type = std::get<0>(parameters.at(i));
-        if (!check_castability(param_type, arguments[i].first)) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, param_type, arguments[i].first->type);
-            return std::nullopt;
-        }
         arguments[i].second = arguments[i].first->type->is_reference();
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
@@ -1783,31 +1755,16 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     if (!indexing_expressions.has_value()) {
         return std::nullopt;
     }
-    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast
-    // it.
-    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
     if (is_grouped_access) {
         // If the array access is grouped then every indexing expression needs to be castable to a group of u64 types
         // Grouped array accesses do not need the below dimensionality-changes and special-case stuff like regular array accesses which
         // could reduce the dimensionality of the array.
         std::shared_ptr<Type> base_type;
-        std::shared_ptr<Type> index_type = u64_ty;
         if (base_expr.value()->type->to_string() == "str") {
             base_type = Type::get_primitive_type("u8");
         } else {
             const auto *array_type = base_expr.value()->type->as<ArrayType>();
             base_type = array_type->type;
-            if (array_type->dimensionality > 1) {
-                const std::vector<std::shared_ptr<Type>> index_types(array_type->dimensionality, u64_ty);
-                index_type = std::make_shared<GroupType>(index_types);
-                if (!Type::add_type(index_type)) {
-                    index_type = Type::get_type_from_str(index_type->to_string()).value();
-                }
-            }
-        }
-        // All indexing expressions need to be castable to either the index type
-        if (!ensure_castability_multiple(index_type, indexing_expressions.value(), indexing_tokens)) {
-            return std::nullopt;
         }
 
         const std::vector<std::shared_ptr<Type>> result_types(indexing_expressions.value().size(), base_type);
@@ -1821,9 +1778,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
             .indexing_exprs = std::move(indexing_expressions.value()),
             .result_type = result_type,
         };
-    }
-    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
-        return std::nullopt;
     }
     // Calculate the new dimensionality of the result based on the number of range expressions in the indexing expressions
     uint32_t dimensionality = 0;
@@ -1868,46 +1822,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         .indexing_exprs = std::move(indexing_expressions.value()),
         .result_type = result_type,
     };
-}
-
-bool Parser::ensure_castability_multiple(                      //
-    const std::shared_ptr<Type> &to_type,                      //
-    std::vector<std::unique_ptr<ExpressionNode>> &expressions, //
-    const token_slice &tokens                                  //
-) {
-    PROFILE_CUMULATIVE("Parser::ensure_castability_multiple");
-    // Every expression in the length expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
-    for (auto &expr : expressions) {
-        if (expr->type->equals(to_type)) {
-            continue;
-        }
-        const std::string type_str = expr->type->to_string();
-        if (resolve_comptime_type_of_expr(expr, to_type)) {
-            continue;
-        }
-        if (expr->type->get_variation() == Type::Variation::RANGE) {
-            continue;
-        }
-        const CastDirection castability = check_primitive_castability(expr->type, to_type);
-        switch (castability.kind) {
-            default: {
-                const size_t n = expressions.size();
-                if (n > 1) {
-                    const std::vector<std::shared_ptr<Type>> types(n, to_type);
-                    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(types);
-                    const std::shared_ptr<Type> expected_type;
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, group_type, expected_type);
-                    return false;
-                }
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, to_type, expr->type);
-                return false;
-            }
-            case CastDirection::Kind::CAST_LHS_TO_RHS:
-                expr = std::make_unique<TypeCastNode>(file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, to_type, expr);
-                break;
-        }
-    }
-    return true;
 }
 
 bool Parser::add_annotation(const token_slice &tokens) {

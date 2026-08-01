@@ -65,65 +65,17 @@
 /// @note This class cannot be initialized and all functions within this class are static
 class Parser {
   public:
+    // Set the Analyzer and Analyzer::Castability classes as friends so they can access the private fields of Parser instances (like the
+    // hash)
+    friend class Analyzer;
+    friend class Analyzer::Castability;
+
     /// @struct `Context`
     /// @brief The context of the parsing
     struct Context {
         /// @var `level`
         /// @brief The context level the parser is currently at
         ContextLevel level;
-    };
-
-    /// @struct `CastDirection`
-    /// @brief A small helper structure representing the casting direction, it makes the whole system a lot easier and more extensible. I do
-    /// not think that it will ever be extended in the future, but it makes everything around castability so much more clear and more
-    /// readable that I just prefer this solution annyway
-    struct CastDirection {
-      public:
-        /// @enum `Kind`
-        /// @brief The kind of the cast direction, determining the direction in which to cast
-        enum class Kind {
-            NOT_CASTABLE,        // Types are incpomatible
-            SAME_TYPE,           // The two types are actually the exact same type, just present inside different shared pointer containers
-            CAST_LHS_TO_RHS,     // Cast left operand to right's type
-            CAST_RHS_TO_LHS,     // Cast right operand to left's type
-            CAST_BOTH_TO_COMMON, // Cast both operands to the common type below
-            CAST_BIDIRECTIONAL,  // Casting both ways is possible without a problem
-        };
-
-        /// @var `kind`
-        /// @brief The kind of this cast direction
-        Kind kind;
-
-        /// @var `common_type`
-        /// @brief The common type to cast to
-        ///
-        /// @attention This variable is **ONLY** meaningful if the Kind is `CAST_BOTH_TO_COMMON`, access to this value is UB in all other
-        /// cases
-        std::shared_ptr<Type> common_type;
-
-        static CastDirection not_castable() {
-            return {Kind::NOT_CASTABLE, nullptr};
-        }
-
-        static CastDirection same_type() {
-            return {Kind::SAME_TYPE, nullptr};
-        }
-
-        static CastDirection lhs_to_rhs() {
-            return {Kind::CAST_LHS_TO_RHS, nullptr};
-        }
-
-        static CastDirection rhs_to_lhs() {
-            return {Kind::CAST_RHS_TO_LHS, nullptr};
-        }
-
-        static CastDirection both_to_common(std::shared_ptr<Type> type) {
-            return {Kind::CAST_BOTH_TO_COMMON, std::move(type)};
-        }
-
-        static CastDirection bidirectional() {
-            return {Kind::CAST_BIDIRECTIONAL, nullptr};
-        }
     };
 
     /// @var `_ctx_`
@@ -179,69 +131,6 @@ class Parser {
     std::vector<std::pair<unsigned int, std::string_view>> get_source_code_lines() const {
         return source_code_lines;
     }
-
-    /// @function `resolve_comptime_type_of_expr`
-    /// @brief Resolves the comptime type a given expression has. Resolves the types of group expressions as well as literal expressions,
-    /// for example changing `int` to `i32` (the default type for the given comptime type)
-    ///
-    /// @brief `expr` The expression to resolve all comptime types in
-    /// @brief `target_type` The target type of the literal, if it is known. This type will only be applied in the `int` or `float` literal
-    /// type cases, if it is set
-    /// @return Whether the type of the expression was changed
-    bool resolve_comptime_type_of_expr(                         //
-        std::unique_ptr<ExpressionNode> &expr,                  //
-        const std::optional<std::shared_ptr<Type>> &target_type //
-    );
-
-    /// @function `check_primitive_castability`
-    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
-    ///
-    /// @param `lhs` The lhs type to check
-    /// @param `rhs` The rhs type to check
-    /// @param `is_implicit` Whether the cast is implicit or explicit
-    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
-    static CastDirection check_primitive_castability( //
-        const std::shared_ptr<Type> &lhs_type,        //
-        const std::shared_ptr<Type> &rhs_type,        //
-        const bool is_implicit = true                 //
-    );
-
-    /// @function `check_castability`
-    /// @brief Checks if one of the two types can be implicitely cast to the other type. Returns the directionality of the cast
-    ///
-    /// @param `lhs` The lhs type to check
-    /// @param `rhs` The rhs type to check
-    /// @param `is_implicit` Whether the cast is implicit or explicit
-    /// @return `CastDirection` The direction in which to cast indicating if/how types can be cast
-    static CastDirection check_castability(    //
-        const std::shared_ptr<Type> &lhs_type, //
-        const std::shared_ptr<Type> &rhs_type, //
-        const bool is_implicit = true          //
-    );
-
-    /// @function `is_castable_to`
-    /// @brief Checks if the given type is castable 'from' the given type 'to' the given type, and whether it needs to be implicitely
-    /// castable or explicitely castable
-    ///
-    /// @param `from` The type to cast from
-    /// @param `to` The type to cast to
-    /// @param `is_implicit` Whether the cast needs to be able to be done implicitely
-    static bool is_castable_to(const std::shared_ptr<Type> &from, const std::shared_ptr<Type> &to, const bool is_implicit = true);
-
-    /// @function `check_castability`
-    /// @brief Checks whether the given expression can be cast to the target type and casts the expression to the type if needed. If the
-    /// expression is not castable to the given type the function will return false.
-    ///
-    /// @param `target_type` The type to cast towards, the target type of the expression
-    /// @param `expr` The expression to cast / check
-    /// @param `is_implicit` Whether casting is implicit or was explicit
-    ///
-    /// @note If the expression already is the target type this function will leave the expression unchanged and simply return true
-    bool check_castability(                       //
-        const std::shared_ptr<Type> &target_type, //
-        std::unique_ptr<ExpressionNode> &expr,    //
-        const bool is_implicit = true             //
-    );
 
     /// @function `resolve_all_imports`
     /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
@@ -1002,19 +891,6 @@ class Parser {
         const bool has_inbetween_operator = false                     //
     );
 
-    /// @function `ensure_castability_multiple`
-    /// @brief Ensures that all expressions in the expression vector are castable to the given type respectively
-    ///
-    /// @param `to_type` The type to cast all expressions to if they are not that type already
-    /// @param `expressions` The expressions to ensure to be compatible
-    /// @param `tokens` The tokens forming the expressions
-    /// @return `bool` Whether all expressions are compatible with the given type
-    bool ensure_castability_multiple(                              //
-        const std::shared_ptr<Type> &to_type,                      //
-        std::vector<std::unique_ptr<ExpressionNode>> &expressions, //
-        const token_slice &tokens                                  //
-    );
-
     /// @function `add_annotation`
     /// @brief Adds the annotation contained in the given tokens to the annotation queue to be consumed by definitions or statements alike
     ///
@@ -1037,17 +913,6 @@ class Parser {
      * @region `Expression`
      * @brief This region is responsible for parsing everything about expressions
      *************************************************************************************************************************************/
-
-    /// @function `check_castability`
-    /// @brief Checks if one of the two expression can be implicitely cast to the other expression. If yes, it wraps the expression in a
-    /// type cast
-    ///
-    /// @param `lhs` The lhs of which to check the type and cast if needed
-    /// @param `rhs` The rhs of which to check the type and cast if needed
-    /// @return `bool` Whether the casting was sucessful
-    ///
-    /// @attention Modifies the `lhs` or `rhs` expressions, depending on castablity, or throws an error if its not castable
-    bool check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs);
 
     /// @function `check_const_folding`
     /// @brief Checks if the lhs and rhs of a binary operation are able to be constant folded, if they can it returns the result of the

@@ -1,6 +1,5 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
-#include "lexer/builtins.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
@@ -42,41 +41,6 @@
 #include <cstdint>
 #include <memory>
 #include <variant>
-
-bool Parser::check_castability(std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
-    PROFILE_CUMULATIVE("Parser::check_castability_expr");
-    if (lhs->type->equals(rhs->type)) {
-        return true;
-    }
-    const CastDirection castability = check_castability(lhs->type, rhs->type);
-    switch (castability.kind) {
-        case CastDirection::Kind::NOT_CASTABLE: {
-            return false;
-        }
-        case CastDirection::Kind::SAME_TYPE: {
-            return true;
-        }
-        case CastDirection::Kind::CAST_LHS_TO_RHS: {
-            return check_castability(rhs->type, lhs);
-        }
-        case CastDirection::Kind::CAST_BIDIRECTIONAL:
-        case CastDirection::Kind::CAST_RHS_TO_LHS: {
-            return check_castability(lhs->type, rhs);
-        }
-        case CastDirection::Kind::CAST_BOTH_TO_COMMON: {
-            if (!check_castability(castability.common_type, lhs, false)) {
-                return false;
-            }
-            if (!check_castability(castability.common_type, rhs, false)) {
-                return false;
-            }
-            return true;
-        }
-    }
-    // Should never reach here
-    UNREACHABLE();
-    return false;
-}
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     std::unique_ptr<ExpressionNode> &lhs,                                   //
@@ -739,12 +703,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         if (!expr.has_value()) {
             return std::nullopt;
         }
-        // Cast every expression inside to a str type (if it isn't already)
-        const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
-        if (!check_castability(str_type, expr.value(), true)) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expr_slice, str_type, expr.value()->type);
-            return std::nullopt;
-        }
+        // Casting the expression content to a str type happens in the analyzer
         interpol_content.emplace_back(std::move(expr.value()));
 
         // Add string after last } symbol
@@ -771,7 +730,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(elem)) {
             auto &expr = std::get<std::unique_ptr<ExpressionNode>>(elem);
 
-            // Check if it's a type.flint.str.lit literal (after our int/float->str conversion)
+            // Check if it's a type.flint.str.lit literal
             if (expr->type->to_string() == "type.flint.str.lit" && expr->get_variation() == ExpressionNode::Variation::LITERAL) {
                 auto *lit = expr->as<LiteralNode>();
                 const auto &lit_str = std::get<LitStr>(lit->value);
@@ -827,14 +786,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         optimized_content.emplace_back(std::move(lit_node));
     }
 
-    // If the result is a single string literal, cast to str and return directly
+    // If the result is a single string literal, return it directly
     if (optimized_content.size() == 1) {
-        const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
-
         if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(optimized_content[0])) {
             auto expr = std::move(std::get<std::unique_ptr<ExpressionNode>>(optimized_content[0]));
             if (expr->type->to_string() == "type.flint.str.lit") {
-                check_castability(str_type, expr, true);
                 return expr;
             } else {
                 // Interpolating only a single expression like `$"{val}"` is not allowed, you should use `str(val)` instead
@@ -844,9 +800,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         } else {
             auto lit = std::move(std::get<std::unique_ptr<LiteralNode>>(optimized_content[0]));
             if (lit->type->to_string() == "type.flint.str.lit") {
-                std::unique_ptr<ExpressionNode> expr = std::make_unique<LiteralNode>(std::move(*lit));
-                check_castability(str_type, expr, true);
-                return expr;
+                return std::make_unique<LiteralNode>(std::move(*lit));
             }
         }
     }
@@ -1036,7 +990,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
 
     // Get the type the expression needs to be converted to
     const std::shared_ptr<Type> to_type = tokens.first->type;
-    const std::string to_type_string = to_type->to_string();
 
     // Create the expression
     token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
@@ -1049,51 +1002,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     if (expression.value()->type == to_type) {
         return expression;
     }
-
-    // Enums are allowed to be cast to strings and to integers
-    if (expression.value()->type->get_variation() == Type::Variation::ENUM) {
-        if (to_type_string == "str") {
-            return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
-        } else if (to_type_string == "u8" || to_type_string == "u16" || to_type_string == "u32" || to_type_string == "u64" //
-            || to_type_string == "i8" || to_type_string == "i16" || to_type_string == "i32" || to_type_string == "i64"     //
-        ) {
-            return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
-        }
-    }
-
-    // Check if the type of the expression is castable at all
-    const std::string expr_type_str = expression.value()->type->to_string();
-    if (primitive_casting_table.find(expr_type_str) == primitive_casting_table.end()) {
-        THROW_ERR(                                                                                                              //
-            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
-            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
-        );
-        return std::nullopt;
-    }
-    const std::vector<std::string_view> &to_types = primitive_casting_table.at(expr_type_str);
-    if (std::find(to_types.begin(), to_types.end(), to_type_string) == to_types.end()) {
-        THROW_ERR(                                                                                                              //
-            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
-            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
-        );
-        return std::nullopt;
-    }
-    if (resolve_comptime_type_of_expr(expression.value(), to_type)) {
-        return expression;
-    }
-
-    if (!check_castability(to_type, expression.value(), false)) {
-        THROW_ERR(                                                                                                              //
-            ErrExprCastInvalid, ERR_PARSING, file_hash,                                                                         //
-            expression.value()->line, expression.value()->column, expression.value()->length, to_type, expression.value()->type //
-        );
-        return std::nullopt;
-    }
-    // Set source location on the resulting expression
-    expression.value()->line = tokens.first->line;
-    expression.value()->column = tokens.first->column;
-    expression.value()->length = (tokens.first + expr_range.value().second + 1)->column - tokens.first->column;
-    return expression;
+    return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
 }
 
 std::optional<GroupExpressionNode> Parser::create_group_expression( //
@@ -1263,13 +1172,19 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
         rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), rhs_max, u64_ty);
     }
-    if (!check_castability(u64_ty, lhs_expr.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, lhs_tokens, u64_ty, lhs_expr.value()->type);
-        return std::nullopt;
+    // Normalize the bounds to a u64 type so that the range expression can be constructed with equal bound types. The actual validation of
+    // the bounds happens in the analyzer
+    if (!lhs_expr.value()->type->equals(u64_ty)) {
+        if (!Analyzer::Castability::resolve_comptime_type_of_expr(*this, lhs_expr.value(), u64_ty)) {
+            const ASTNode::PosTriple &lhs_pos = {lhs_expr.value()->line, lhs_expr.value()->column, lhs_expr.value()->length};
+            lhs_expr.value() = std::make_unique<TypeCastNode>(file_hash, lhs_pos, u64_ty, lhs_expr.value());
+        }
     }
-    if (!check_castability(u64_ty, rhs_expr.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_tokens, u64_ty, rhs_expr.value()->type);
-        return std::nullopt;
+    if (!rhs_expr.value()->type->equals(u64_ty)) {
+        if (!Analyzer::Castability::resolve_comptime_type_of_expr(*this, rhs_expr.value(), u64_ty)) {
+            const ASTNode::PosTriple &rhs_pos = {rhs_expr.value()->line, rhs_expr.value()->column, rhs_expr.value()->length};
+            rhs_expr.value() = std::make_unique<TypeCastNode>(file_hash, rhs_pos, u64_ty, rhs_expr.value());
+        }
     }
     const bool is_lhs_lit = lhs_expr.value()->get_variation() == ExpressionNode::Variation::LITERAL;
     const bool is_rhs_lit = rhs_expr.value()->get_variation() == ExpressionNode::Variation::LITERAL;
@@ -1414,13 +1329,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
                 return std::nullopt;
             }
 
-            // Counts match up, check if all expressions are castable to the base type of the array
-            for (auto &expr : exprs.value()) {
-                if (!check_castability(arr_type->type, expr, true)) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, arr_type->type, expr->type);
-                    return std::nullopt;
-                }
-            }
             return std::make_unique<InlineArrayInitializerNode>(                                 //
                 file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
             );
@@ -1434,10 +1342,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             initializer = create_expression(ctx, scope, initializer_tokens);
         }
         if (!initializer.has_value()) {
-            return std::nullopt;
-        }
-        if (!check_castability(arr_type->type, initializer.value(), true)) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, arr_type->type, initializer.value()->type);
             return std::nullopt;
         }
 
@@ -1521,10 +1425,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             if (!expr.has_value()) {
                 return std::nullopt;
             }
-            if (!check_castability(u64_ty, expr.value(), true)) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, dim_tokens, u64_ty, expr.value()->type);
-                return std::nullopt;
-            }
             std::optional<size_t> size = get_size_from_expr(expr.value());
             if (!size.has_value()) {
                 // Length expressions in inline array initializers must be comptime-known
@@ -1565,13 +1465,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             array_type = file_node_ptr->file_namespace->get_type_from_str(array_type->to_string()).value();
         }
 
-        // Check castability of all brace expressions to the element type
-        for (auto &expr : exprs.value()) {
-            if (!check_castability(element_type.value(), expr, true)) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, element_type.value(), expr->type);
-                return std::nullopt;
-            }
-        }
         return std::make_unique<InlineArrayInitializerNode>(                                 //
             file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
         );
@@ -1587,10 +1480,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     if (!initializer.has_value()) {
         return std::nullopt;
     }
-    if (!check_castability(element_type.value(), initializer.value(), true)) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, initializer_tokens, element_type.value(), initializer.value()->type);
-        return std::nullopt;
-    }
 
     // The first token in the tokens list should be a left bracket
     ASSERT(tokens_mut.first->token == TOK_LEFT_BRACKET);
@@ -1602,11 +1491,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     auto length_expressions = create_group_expressions(ctx, scope, tokens_mut);
     if (!length_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    // Every expression in the indexing expressions needs to be castable a `u64` type, if it's not of that type already we need to cast it
-    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-    if (!ensure_castability_multiple(u64_ty, length_expressions.value(), tokens_mut)) {
         return std::nullopt;
     }
 
@@ -1692,10 +1576,6 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         ctx, scope, indexing_tokens                                                                              //
     );
     if (!indexing_expressions.has_value()) {
-        return std::nullopt;
-    }
-    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-    if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
         return std::nullopt;
     }
     if (is_str_type) {
@@ -1791,28 +1671,12 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     if (!indexing_expressions.has_value()) {
         return std::nullopt;
     }
-    // The indexing expressions must all have the type of a group with N values where N is the dimensionality of the accessed array
-    const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-    std::shared_ptr<Type> indexing_ty = u64_ty;
     std::shared_ptr<Type> base_ty{nullptr};
     if (is_array_type) {
         const auto *array_ty = base_expr.value()->type->as<ArrayType>();
-        if (array_ty->dimensionality > 1) {
-            std::vector<std::shared_ptr<Type>> indexing_group_types;
-            for (size_t i = 0; i < array_ty->dimensionality; i++) {
-                indexing_group_types.emplace_back(u64_ty);
-            }
-            indexing_ty = std::make_shared<GroupType>(indexing_group_types);
-            if (!Type::add_type(indexing_ty)) {
-                indexing_ty = Type::get_type_from_str(indexing_ty->to_string()).value();
-            }
-        }
         base_ty = array_ty->type;
     } else {
         base_ty = Type::get_primitive_type("u8");
-    }
-    if (!ensure_castability_multiple(indexing_ty, indexing_expressions.value(), indexing_tokens)) {
-        return std::nullopt;
     }
     // The retuned type is the base type of the array as a group of N where N is the number of indexing expression
     std::vector<std::shared_ptr<Type>> return_types;
@@ -1951,10 +1815,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         }
         if (indexing_expressions.value().size() != dimensionality) {
             THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
-        if (!ensure_castability_multiple(u64_ty, indexing_expressions.value(), indexing_tokens)) {
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>( //
@@ -2682,135 +2542,28 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         return std::nullopt;
     }
 
-    // Check if both sides of the binop match, if they don't then crash
-    if (!lhs.value()->type->equals(rhs.value()->type)) {
-        // Check if the operator is a optional default, in this case we need to check whether the lhs is an optional and whether the rhs
-        // is the base type of the optional, otherwise it is considered an error
-        if (pivot_token == TOK_OPT_DEFAULT) {
-            if (lhs.value()->type->get_variation() != Type::Variation::OPTIONAL) {
+    // Match the two operands of the binary operation against each other, coercing them in place. This is performed at parse time so that
+    // type mismatches are reported as parse errors, exactly as they were before the castability checks were moved into the analyzer
+    const std::string lhs_type_str = lhs.value()->type->to_string();
+    const std::string rhs_type_str = rhs.value()->type->to_string();
+    const ASTNode::PosTriple binop_pos = get_pos_triple(tokens);
+    switch (Analyzer::Castability::match_binop_operands(*this, pivot_token, lhs.value(), rhs.value())) {
+        case Analyzer::Castability::BinopMatchResult::OK:
+            break;
+        case Analyzer::Castability::BinopMatchResult::TYPE_MISMATCH:
+            if (pivot_token == TOK_OPT_DEFAULT) {
                 // ?? operator not possible on non-optional type
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
+            THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, binop_pos.length, pivot_token,
+                lhs_type_str, rhs_type_str);
+            return std::nullopt;
+        case Analyzer::Castability::BinopMatchResult::OPT_DEFAULT_MISMATCH: {
             const auto *lhs_opt = lhs.value()->type->as<OptionalType>();
-            if (!check_castability(lhs_opt->base_type, rhs.value(), true)) {
-                THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, lhs_opt->base_type, rhs.value()->type);
-                return std::nullopt;
-            }
-            return std::make_unique<BinaryOpNode>(                                                           //
-                file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), lhs_opt->base_type //
-            );
-        } else {
-            // Check if one of the sides is a homogeneous group variation of the other side
-            // This only works if the *other side*s type is comparable at all. Only primitive types and enums are comparable
-            bool is_castable = true;
-            const std::shared_ptr<Type> &lhs_type = lhs.value()->type;
-            const std::shared_ptr<Type> &rhs_type = rhs.value()->type;
-
-            const auto lhs_variation = lhs_type->get_variation();
-            const auto rhs_variation = rhs_type->get_variation();
-
-            const bool lhs_is_group = lhs_variation == Type::Variation::GROUP;
-            const bool rhs_is_group = rhs_variation == Type::Variation::GROUP;
-            const bool lhs_is_comparable = lhs_variation == Type::Variation::ENUM || lhs_variation == Type::Variation::PRIMITIVE;
-            const bool rhs_is_comparable = rhs_variation == Type::Variation::ENUM || rhs_variation == Type::Variation::PRIMITIVE;
-
-            if (lhs_is_group && rhs_is_comparable) {
-                // All elements of the lhs group must match the rhs type, otherwise it's not a homogenous group
-                const GroupType *lhs_group_type = lhs_type->as<GroupType>();
-                GroupExpressionNode *lhs_group_expr = dynamic_cast<GroupExpressionNode *>(rhs.value().get());
-                const bool rhs_is_literal = rhs_type->to_string() == "int" || rhs_type->to_string() == "float";
-                const std::shared_ptr<Type> cmp_type = rhs_is_literal ? lhs_group_type->types.front() : rhs_type;
-                for (size_t i = 0; i < lhs_group_type->types.size(); i++) {
-                    const auto &type = lhs_group_type->types.at(i);
-                    if (lhs_group_expr != nullptr) {
-                        if (!check_castability(rhs_type, lhs_group_expr->expressions.at(i))) {
-                            is_castable = false;
-                            break;
-                        }
-                        continue;
-                    }
-                    if (!type->equals(cmp_type)) {
-                        is_castable = false;
-                        break;
-                    }
-                }
-                if (is_castable && rhs_is_literal) {
-                    // Set the type of the rhs literal to mark it as "resolved"
-                    rhs.value()->type = cmp_type;
-                }
-            } else if (rhs_is_group && lhs_is_comparable) {
-                // All elements of the rhs group must match the lhs type or be castable to it, otherwise it's not a homogenous group
-                const GroupType *rhs_group_type = rhs_type->as<GroupType>();
-                GroupExpressionNode *rhs_group_expr = dynamic_cast<GroupExpressionNode *>(rhs.value().get());
-                const bool lhs_is_literal = lhs_type->to_string() == "int" || lhs_type->to_string() == "float";
-                const std::shared_ptr<Type> cmp_type = lhs_is_literal ? rhs_group_type->types.front() : lhs_type;
-                for (size_t i = 0; i < rhs_group_type->types.size(); i++) {
-                    const auto &type = rhs_group_type->types.at(i);
-                    if (rhs_group_expr != nullptr) {
-                        if (!check_castability(lhs_type, rhs_group_expr->expressions.at(i))) {
-                            is_castable = false;
-                            break;
-                        }
-                        continue;
-                    }
-                    if (!type->equals(lhs_type)) {
-                        const std::string type_str = type->to_string();
-                        if (type_str == "int" || type_str == "float")
-                            is_castable = false;
-                        break;
-                    }
-                }
-                if (is_castable && lhs_is_literal) {
-                    // Set the type of the lhs literal to mark it as "resolved"
-                    lhs.value()->type = cmp_type;
-                }
-            } else if (lhs_is_group && rhs_is_group) {
-                // Both sides are groups, each element of each side must be castable or equal to the other side
-                // For example the groups (int, i32) and (i64, int) should result in both sides being of type (i64, i32)
-                //
-                // Non-group expressions could also have a group type as their result. Only GroupExpressionNodes can be cast to other group
-                // types, for example if we do a function call which returns `(u32, i32)` then we cannot cast it's expressions directly. For
-                // this case the whole group needs to be cast. from `(u32, i32) -> (u64, i64)` for example. This means that we have three
-                // four distinct possibilities to account for:
-                // - both sides are group expressions
-                // - left group expression, right other expression returning a group
-                // - left some expression returning a group, right group expression
-                // - none of the sides are group expressions
-                const GroupType *lhs_group_type = lhs_type->as<GroupType>();
-                const GroupType *rhs_group_type = rhs_type->as<GroupType>();
-                GroupExpressionNode *lhs_group_expr = dynamic_cast<GroupExpressionNode *>(lhs.value().get());
-                GroupExpressionNode *rhs_group_expr = dynamic_cast<GroupExpressionNode *>(rhs.value().get());
-                if (lhs_group_type->types.size() == rhs_group_type->types.size()) {
-                    if (lhs_group_expr != nullptr && rhs_group_expr != nullptr) {
-                        // Both sides are group expressions
-                        for (size_t i = 0; i < lhs_group_type->types.size(); i++) {
-                            if (!check_castability(lhs_group_expr->expressions.at(i), rhs_group_expr->expressions.at(i))) {
-                                is_castable = false;
-                                break;
-                            }
-                        }
-                    } else if (lhs_group_expr != nullptr && rhs_group_expr == nullptr) {
-                        // Rhs is no group expr, lhs is a group expr
-                        is_castable = check_castability(rhs_type, lhs.value());
-                    } else if (lhs_group_expr == nullptr && rhs_group_expr != nullptr) {
-                        // Lhs is no group expr, rhs is a group expr
-                        is_castable = check_castability(lhs_type, rhs.value());
-                    } else {
-                        // TODO: Both sides are non-group expressions
-                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                        is_castable = false;
-                    }
-                }
-            } else {
-                is_castable = check_castability(lhs.value(), rhs.value());
-            }
-            if (!is_castable) {
-                THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_hash,                           //
-                    lhs_tokens, rhs_tokens, pivot_token, lhs_type->to_string(), rhs_type->to_string() //
-                );
-                return std::nullopt;
-            }
+            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, binop_pos.length, lhs_opt->base_type,
+                rhs.value()->type);
+            return std::nullopt;
         }
     }
 
@@ -2818,14 +2571,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     std::optional<std::unique_ptr<ExpressionNode>> folded_result = check_const_folding(lhs.value(), pivot_token, rhs.value());
     if (folded_result.has_value()) {
         return std::move(folded_result.value());
-    }
-
-    // Finally check if one of the two sides are string literals, if they are they need to become a string variable
-    if (lhs.value()->type->to_string() == "type.flint.str.lit") {
-        lhs = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), lhs.value());
-    }
-    if (rhs.value()->type->to_string() == "type.flint.str.lit") {
-        rhs = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), rhs.value());
     }
 
     // Check it the binary operator is a `catch` keyword, if so the lhs should be a function call. We then set it's "has_catch" field to
@@ -2854,6 +2599,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool") //
         );
     }
+    // The optional default operator `??` has the base type of its lhs optional as its own type, otherwise its type would
+    // remain that of the optional which the analyzer would have to fix up later
+    if (pivot_token == TOK_OPT_DEFAULT && lhs.value()->type->get_variation() == Type::Variation::OPTIONAL) {
+        return std::make_unique<BinaryOpNode>(                                        //
+            file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), //
+            lhs.value()->type->as<OptionalType>()->base_type                          //
+        );
+    }
     return std::make_unique<BinaryOpNode>(                                                          //
         file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), lhs.value()->type //
     );
@@ -2879,7 +2632,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     if (expected_type.has_value() && !expected_type.value()->equals(expression.value()->type)) {
         switch (expected_type.value()->get_variation()) {
             default: {
-                if (!check_castability(expected_type.value(), expression.value(), true)) {
+                if (!Analyzer::Castability::check_castability(*this, expected_type.value(), expression.value(), true)) {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
                     return std::nullopt;
                 }

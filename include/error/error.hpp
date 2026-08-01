@@ -75,7 +75,6 @@
 #include "error_types/parsing/expressions/err_expr_call_of_virtual_function.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
 #include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"
-#include "error_types/parsing/expressions/err_expr_cast_invalid.hpp"
 #include "error_types/parsing/expressions/err_expr_cast_vector_length_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_enum_tag_not_present.hpp"
 #include "error_types/parsing/expressions/err_expr_field_access_not_allowed_on_type.hpp"
@@ -89,17 +88,14 @@
 #include "error_types/parsing/fip/err_no_fip_directory_found.hpp"
 #include "error_types/parsing/fip/err_unknown_module_tag.hpp"
 #include "error_types/parsing/fip/err_use_without_fip.hpp"
-#include "error_types/parsing/types/err_empty_stored_fixed_array.hpp"
-#include "error_types/parsing/types/err_unknown_type.hpp"
 
-#include "error_types/parsing/expressions/err_expr_binop_type_mismatch.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
 #include "error_types/parsing/expressions/err_expr_data_initializer_missing_default_value.hpp"
 #include "error_types/parsing/expressions/err_expr_initializer_wrong_arg_count.hpp"
 #include "error_types/parsing/expressions/err_expr_interpolation_only_one_expr.hpp"
 #include "error_types/parsing/expressions/err_expr_nested_group.hpp"
 #include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
-#include "error_types/parsing/expressions/err_expr_type_mismatch.hpp"
+#include "error_types/parsing/types/err_unknown_type.hpp"
 
 #include "error_types/parsing/fip/err_extern_fn_not_found.hpp"
 #include "error_types/parsing/fip/err_extern_without_fip.hpp"
@@ -126,6 +122,10 @@
 #include "error_types/generating/fip/err_extern_duplicate_function.hpp"
 
 // --- ANALYZING ERRORS ---
+#include "error_types/analyzing/err_empty_stored_fixed_array.hpp"
+#include "error_types/analyzing/err_expr_binop_type_mismatch.hpp"
+#include "error_types/analyzing/err_expr_cast_invalid.hpp"
+#include "error_types/analyzing/err_expr_type_mismatch.hpp"
 #include "error_types/analyzing/err_ptr_not_allowed_in_internal_function_definition.hpp"
 #include "error_types/analyzing/err_ptr_not_allowed_in_non_extern_context.hpp"
 

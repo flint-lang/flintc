@@ -1,12 +1,17 @@
 #pragma once
 
 #include "error/error_types/base_error.hpp"
-#include "parser/ast/expressions/expression_node.hpp"
 
 class ErrPtrNotAllowedInNonExternContext : public BaseError {
   public:
-    ErrPtrNotAllowedInNonExternContext(const ErrorType error_type, const ExpressionNode *expr) :
-        BaseError(error_type, expr->file_hash, expr->line, expr->column, expr->length) {}
+    ErrPtrNotAllowedInNonExternContext( //
+        const ErrorType error_type,     //
+        const Hash &file_hash,          //
+        const unsigned int line,        //
+        const unsigned int column,      //
+        const unsigned int length       //
+        ) :
+        BaseError(error_type, file_hash, line, column, length) {}
 
     [[nodiscard]]
     std::string to_string() const override {

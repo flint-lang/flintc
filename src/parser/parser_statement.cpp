@@ -206,20 +206,6 @@ std::optional<ReturnNode> Parser::create_return(       //
             }
         }
     }
-    if (!check_castability(return_type, expr.value())) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
-    // Special handling for switch expressions
-    if (expr.value()->get_variation() == ExpressionNode::Variation::SWITCH_EXPRESSION) {
-        auto *switch_expr = expr.value()->as<SwitchExpression>();
-        for (auto &branch : switch_expr->branches) {
-            if (!check_castability(return_type, branch.expr)) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        }
-    }
     return ReturnNode(file_hash, tokens, expr);
 }
 
@@ -790,10 +776,6 @@ bool Parser::create_switch_branches(            //
             const bool is_not_default_value = variation != ExpressionNode::Variation::DEFAULT;
             if (is_not_literal && is_not_default_value) {
                 // Not allowed value for the switch statement's expression
-                THROW_BASIC_ERR(ERR_PARSING);
-                return false;
-            }
-            if (!check_castability(switcher_type, match)) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
@@ -1396,35 +1378,31 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             continue;
         }
 
-        CastDirection cast_dir = check_primitive_castability(common_type, branch.expr->type);
+        Analyzer::Castability::CastDirection cast_dir = Analyzer::Castability::check_primitive_castability(common_type, branch.expr->type);
         switch (cast_dir.kind) {
-            case CastDirection::Kind::NOT_CASTABLE:
+            case Analyzer::Castability::CastDirection::Kind::NOT_CASTABLE:
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
-            case CastDirection::Kind::SAME_TYPE:
+            case Analyzer::Castability::CastDirection::Kind::SAME_TYPE:
                 continue;
-            case CastDirection::Kind::CAST_LHS_TO_RHS:
+            case Analyzer::Castability::CastDirection::Kind::CAST_LHS_TO_RHS:
                 // Common type casts to branch type - branch type is "wider"
                 common_type = branch.expr->type;
                 break;
-            case CastDirection::Kind::CAST_BIDIRECTIONAL: // Keep the common type since the rhs can cast to it too
-            case CastDirection::Kind::CAST_RHS_TO_LHS:
+            case Analyzer::Castability::CastDirection::Kind::CAST_BIDIRECTIONAL: // Keep the common type since the rhs can cast to it too
+            case Analyzer::Castability::CastDirection::Kind::CAST_RHS_TO_LHS:
                 // Branch type casts to common type - keep common type
                 break;
-            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+            case Analyzer::Castability::CastDirection::Kind::CAST_BOTH_TO_COMMON:
                 // Both cast to a third type (e.g., i32 + float → f32)
                 common_type = cast_dir.common_type;
                 break;
         }
     }
-    // Cast all branch expressions to the common type, only if the expression's type differs from the common type
-    for (auto &branch : e_branches) {
-        if (!check_castability(common_type, branch.expr, true)) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-    }
     auto switch_expr = std::make_unique<SwitchExpression>(file_hash, get_pos_triple(definition), switcher.value(), e_branches);
+    // Set the type of the switch expression to the common type of all its branches, the branch expressions are cast to this type in the
+    // analyzer
+    switch_expr->type = common_type;
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};
     ASSERT(lhs_tokens.second->token == TOK_SWITCH);
@@ -1712,10 +1690,6 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     }
     const auto &lhs_pos = get_pos_triple(token_slice{tokens.first, tokens_mut.first - 1});
     std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_pos, lhs_expressions);
-    if (!check_castability(lhs_expr, expr.value())) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
-    }
 
     // The "real" expression of the assignment is a binop between the lhs and the "real" expression
     expr = std::make_unique<BinaryOpNode>( //
@@ -1986,10 +1960,6 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                     expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
                 }
             }
-            if (!check_castability(expr_group_type.value(), expression.value())) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
             return GroupDeclarationNode(file_hash, tokens, variables, expression.value());
         }
         case Type::Variation::TUPLE: {
@@ -2045,10 +2015,6 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                 if (!file_node_ptr->file_namespace->add_type(expr_group_type.value())) {
                     expr_group_type = file_node_ptr->file_namespace->get_type_from_str(expr_group_type.value()->to_string()).value();
                 }
-            }
-            if (!check_castability(expr_group_type.value(), expression.value())) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
             }
             return GroupDeclarationNode(file_hash, tokens, variables, expression.value());
         }
@@ -2165,7 +2131,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     std::shared_ptr<Type> final_type = declared_type;
     if (is_inferred) {
         // Resolve literals to default types for inferred declarations
-        resolve_comptime_type_of_expr(rhs.value(), std::nullopt);
+        Analyzer::Castability::resolve_comptime_type_of_expr(*this, rhs.value(), std::nullopt);
         final_type = rhs.value()->type;
         if (rhs.value()->type->get_variation() == Type::Variation::GROUP) {
             const ASTNode::PosTriple rhs_pos{
@@ -2213,20 +2179,13 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             final_type = rhs.value()->type;
         }
     }
-    if (!check_castability(final_type, rhs.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, final_type, rhs.value()->type);
-        return std::nullopt;
-    }
 
-    // Special handling for switch expressions
-    if (rhs.value()->get_variation() == ExpressionNode::Variation::SWITCH_EXPRESSION) {
-        auto *switch_expr = rhs.value()->as<SwitchExpression>();
-        for (auto &branch : switch_expr->branches) {
-            if (!check_castability(final_type, branch.expr)) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-        }
+    // Check if the rhs is castable to the final type, this is done at parse time so that type mismatches are reported as parse errors,
+    // exactly as they were before the castability checks were moved into the analyzer
+    if (!Analyzer::Castability::check_castability(*this, final_type, rhs.value())) {
+        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs.value()->line, rhs.value()->column, rhs.value()->length, final_type,
+            rhs.value()->type);
+        return std::nullopt;
     }
 
     // Add variable to scope
@@ -2333,11 +2292,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_data_field_assignme
         const auto &var = scope->variables.at(mangled_name);
         // A global variable cannot be defined as const
         ASSERT(var.is_mutable);
-        const token_slice rhs_tokens = {tokens.first + 4, tokens.second};
-        if (!check_castability(var.type, expression.value())) {
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs_tokens, var.type, expression.value()->type);
-            return std::nullopt;
-        }
         return std::make_unique<AssignmentNode>(file_hash, tokens, var.type, mangled_name, expression.value());
     }
 
@@ -2347,10 +2301,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_data_field_assignme
         return std::nullopt;
     }
     const auto &field_type = field_access_base.value().field_type;
-    if (!check_castability(field_type, expression.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, field_type, expression.value()->type);
-        return std::nullopt;
-    }
 
     return std::make_unique<DataFieldAssignmentNode>( //
         file_hash, tokens,                            //
@@ -2440,10 +2390,6 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
         field_type                                                                //
     );
 
-    if (!check_castability(field_type, expression.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, field_type, expression.value()->type);
-        return std::nullopt;
-    }
     expression = std::make_unique<BinaryOpNode>( //
         file_hash,                               //
         rhs_pos,                                 //
@@ -2497,11 +2443,6 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
     const auto &field_names = grouped_field_access_base.value().field_names;
     const auto &field_ids = grouped_field_access_base.value().field_ids;
     const auto &field_types = grouped_field_access_base.value().field_types;
-    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
-    if (!check_castability(group_type, expression.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
-        return std::nullopt;
-    }
     return GroupedDataFieldAssignmentNode(file_hash, tokens, base_expr, field_names, field_ids, field_types, expression.value());
 }
 
@@ -2582,13 +2523,6 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
         field_types                                                                      //
     );
 
-    // The expression already is the rhs of the binop, so now we only need to check whether the types of the expression matches the types of
-    // the assignment
-    const std::shared_ptr<Type> group_type = std::make_shared<GroupType>(field_types);
-    if (!check_castability(group_type, expression.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens_mut, group_type, expression.value()->type);
-        return std::nullopt;
-    }
     expression = std::make_unique<BinaryOpNode>( //
         file_hash,                               //
         rhs_pos,                                 //
