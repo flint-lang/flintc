@@ -103,14 +103,14 @@ class Namespace {
     ///
     /// @param `type_str` The type string to search for
     /// @return `std::optional<std::shared_ptr<Type>>` The found type, nullopt if the
-    std::optional<std::shared_ptr<Type>> get_type_from_str(const std::string &type_str) const;
+    [[nodiscard]] std::optional<std::shared_ptr<Type>> get_type_from_str(const std::string &type_str) const;
 
     /// @function `get_namespace_from_alias`
     /// @brief Returns the namespace imported through an alias
     ///
     /// @param `alias` The alias to get the namespace from
     /// @return `std::optional<Namespace *>` The namespace from the given alias
-    std::optional<Namespace *> get_namespace_from_alias(const std::string &alias) const;
+    [[nodiscard]] std::optional<Namespace *> get_namespace_from_alias(const std::string &alias) const;
 
     /// @function `get_functions_from_call_types`
     /// @brief Returns all possible functions from the given argument types and the function name found in this namespace
@@ -120,11 +120,12 @@ class Namespace {
     /// @param `is_aliased` Whether the this namespace is the current file's namespace (for non-aliased calls the private functions are
     /// available too, but for aliased calls only publically available functions are visible)
     /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which would match the name and arg types
-    std::vector<FunctionNode *> get_functions_from_call_types( //
-        const std::string &fn_name,                            //
-        const std::vector<std::shared_ptr<Type>> &arg_types,   //
-        const bool is_aliased                                  //
+    [[nodiscard]] std::vector<FunctionNode *> get_functions_from_call_types( //
+        const std::string &fn_name,                                          //
+        const std::vector<std::shared_ptr<Type>> &arg_types,                 //
+        const bool is_aliased                                                //
     ) const;
+
     /// @function `get_functions_with_name`
     /// @brief Returns all possible functions with the givne function name found in this namespace
     ///
@@ -133,10 +134,10 @@ class Namespace {
     /// available too, but for aliased calls only publically available functions are visible)
     /// @param `exclude_core` Whether to exclude all functions from Core modules
     /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which match the function name
-    std::vector<const FunctionNode *> get_functions_with_name( //
-        const std::string &fn_name,                            //
-        const bool is_aliased,                                 //
-        const bool exclude_core = false                        //
+    [[nodiscard]] std::vector<const FunctionNode *> get_functions_with_name( //
+        const std::string &fn_name,                                          //
+        const bool is_aliased,                                               //
+        const bool exclude_core = false                                      //
     ) const;
 
     /// @function `get_type`
@@ -144,35 +145,35 @@ class Namespace {
     ///
     /// @param `tokens` The tokens to create a type from
     /// @return `std::optional<std::shared_ptr<Type>>` The type the tokens represent, nullopt if not convertible to any type
-    std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens);
+    [[nodiscard]] std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens);
 
     /// @function `add_type`
     /// @brief Adds the given type to the public or global type list
     ///
     /// @param `type` The type to add to this namespace
     /// @return `bool` Whether the type was newly added (true) or already present (false) in this namespace
-    bool add_type(const std::shared_ptr<Type> &type);
+    [[nodiscard]] bool add_type(const std::shared_ptr<Type> &type);
 
     /// @function `resolve_type`
     /// @brief Resolves the given type recursively to search and resolve all unknown types in it
     ///
     /// @param `type` The type to resolve
     /// @return `bool` Whether resolving was successful
-    bool resolve_type(std::shared_ptr<Type> &type);
+    [[nodiscard]] bool resolve_type(std::shared_ptr<Type> &type);
 
     /// @function `create_type`
     /// @brief Creates a type from a given list of tokens
     ///
     /// @param `tokens` The list of tokens to create the type from
     /// @return `std::optional<Type>` The created type, nullopt if creation failed
-    std::optional<std::shared_ptr<Type>> create_type(const token_slice &tokens);
+    [[nodiscard]] std::optional<std::shared_ptr<Type>> create_type(const token_slice &tokens);
 
     /// @function `can_be_global`
     /// @brief Checks whether the given type can be put into the global type map, e.g. whether it does not contain any user-defined types
     ///
     /// @param `type` The type to check
     /// @return `bool` Whether the given type is considered to be globally available
-    bool can_be_global(const std::shared_ptr<Type> &type);
+    [[nodiscard]] bool can_be_global(const std::shared_ptr<Type> &type);
 
     /// @function `find_core_function`
     /// @brief Finds the given function from the given core module in this namespace, if available
@@ -181,9 +182,9 @@ class Namespace {
     /// @param `fn_name` The name of the function to search for
     /// @param `arg_types` The types of the arguments with which the function is being called
     /// @return `std::optional<FunctionNode *>` A pointer to the function node if found, nullopt otherwise
-    std::optional<FunctionNode *> find_core_function(       //
-        const std::string &module_name,                     //
-        const std::string &fn_name,                         //
-        const std::vector<std::shared_ptr<Type>> &arg_types //
+    [[nodiscard]] std::optional<FunctionNode *> find_core_function( //
+        const std::string &module_name,                             //
+        const std::string &fn_name,                                 //
+        const std::vector<std::shared_ptr<Type>> &arg_types         //
     ) const;
 };

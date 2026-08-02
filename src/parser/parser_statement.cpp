@@ -103,7 +103,10 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
         return std::nullopt;
     }
     if (expr.value()->type->get_variation() != Type::Variation::ERROR_SET && expr.value()->type->to_string() != "anyerror") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, expression_tokens, Type::get_primitive_type("anyerror"), expr.value()->type);
+        THROW_ERR(                                                                          //
+            ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(expression_tokens), //
+            Type::get_primitive_type("anyerror"), expr.value()->type                        //
+        );
         return std::nullopt;
     }
     if (expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE) {
@@ -254,8 +257,10 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         return std::nullopt;
     }
     if (condition.value()->type->to_string() != "bool") {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, this_if_pair.first, Type::get_primitive_type("bool"),
-            condition.value()->type);
+        THROW_ERR(                                                                           //
+            ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(this_if_pair.first), //
+            Type::get_primitive_type("bool"), condition.value()->type                        //
+        );
         return std::nullopt;
     }
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(scope, scope_segment);
@@ -2183,8 +2188,10 @@ std::optional<DeclarationNode> Parser::create_declaration( //
     // Check if the rhs is castable to the final type, this is done at parse time so that type mismatches are reported as parse errors,
     // exactly as they were before the castability checks were moved into the analyzer
     if (!Analyzer::Castability::check_castability(*this, final_type, rhs.value())) {
-        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs.value()->line, rhs.value()->column, rhs.value()->length, final_type,
-            rhs.value()->type);
+        THROW_ERR(                                                                               //
+            ErrExprTypeMismatch, ERR_PARSING, file_hash, rhs.value()->line, rhs.value()->column, //
+            rhs.value()->length, final_type, rhs.value()->type                                   //
+        );
         return std::nullopt;
     }
 

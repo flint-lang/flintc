@@ -1,6 +1,7 @@
 #include "analyzer/analyzer.hpp"
 
 #include "error/error.hpp"
+#include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -47,6 +48,7 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/fn_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/object_type.hpp"
@@ -560,82 +562,119 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
     return true;
 }
 
-static bool analyze_binop(const Analyzer::Context &ctx, BinaryOpNode &node) {
-    if (!Analyzer::analyze_expression(ctx, node.left)) {
+bool Analyzer::analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<ExpressionNode> &expr) {
+    auto *const node = expr->as<BinaryOpNode>();
+    if (!Analyzer::analyze_expression(ctx, node->left)) {
         return false;
     }
-    if (!Analyzer::analyze_expression(ctx, node.right)) {
+    if (!Analyzer::analyze_expression(ctx, node->right)) {
         return false;
     }
 
-    const Token &pivot_token = node.operator_token;
-
-    // Match the two operands of the binary operation against each other, coercing them in place. This is the same check the parser
-    // performs before creating the `BinaryOpNode`, the analyzer only re-verifies it (it is a no-op if the parser already coerced the
-    // operands)
-    const std::string lhs_type_str = node.left->type->to_string();
-    const std::string rhs_type_str = node.right->type->to_string();
-    switch (Analyzer::Castability::match_binop_operands(ctx.parser, pivot_token, node.left, node.right)) {
-        case Analyzer::Castability::BinopMatchResult::OK:
+    // Match the two operands of the binary operation against each other, coercing them in place
+    const std::string lhs_type_str = node->left->type->to_string();
+    const std::string rhs_type_str = node->right->type->to_string();
+    switch (Castability::match_binop_operands(ctx.parser, node->operator_token, node->left, node->right)) {
+        case Castability::BinopMatchResult::OK:
             break;
-        case Analyzer::Castability::BinopMatchResult::TYPE_MISMATCH:
-            THROW_ERR(                                                              //
-                ErrExprBinopTypeMismatch, ERR_ANALYZING, node.file_hash, node.line, //
-                node.column, node.length, pivot_token, lhs_type_str, rhs_type_str   //
+        case Castability::BinopMatchResult::TYPE_MISMATCH:
+            if (node->operator_token == TOK_OPT_DEFAULT) {
+                // ?? operator not possible on non-optional type
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            THROW_ERR(                                                                                           //
+                ErrExprBinopTypeMismatch, ERR_PARSING, ctx.parser.file_node_ptr->file_namespace->namespace_hash, //
+                node->line, node->column, node->length, node->operator_token, lhs_type_str, rhs_type_str         //
             );
             return false;
-        case Analyzer::Castability::BinopMatchResult::OPT_DEFAULT_MISMATCH:
-            THROW_ERR(                                                                        //
-                ErrExprTypeMismatch, ERR_ANALYZING, node.file_hash, node.line, node.column,   //
-                node.length, node.left->type->as<OptionalType>()->base_type, node.right->type //
+        case Castability::BinopMatchResult::OPT_DEFAULT_MISMATCH: {
+            const auto *lhs_opt = node->left->type->as<OptionalType>();
+            THROW_ERR(                                                                                      //
+                ErrExprTypeMismatch, ERR_PARSING, ctx.parser.file_node_ptr->file_namespace->namespace_hash, //
+                node->line, node->column, node->length, lhs_opt->base_type, node->right->type               //
             );
-            return false;
-    }
-
-    // The `??` operator returns its optional's base type and skips the string literal handling below
-    if (pivot_token == TOK_OPT_DEFAULT) {
-        node.type = node.left->type->as<OptionalType>()->base_type;
-        return true;
-    }
-
-    // Finally check if one of the two sides are string literals, if they are they need to become a string variable
-    if (node.left->type->to_string() == "type.flint.str.lit") {
-        node.left = std::make_unique<TypeCastNode>(                                                    //
-            node.file_hash, ASTNode::PosTriple{node.left->line, node.left->column, node.left->length}, //
-            Type::get_primitive_type("str"), node.left                                                 //
-        );
-    }
-    if (node.right->type->to_string() == "type.flint.str.lit") {
-        node.right = std::make_unique<TypeCastNode>(                                                      //
-            node.file_hash, ASTNode::PosTriple{node.right->line, node.right->column, node.right->length}, //
-            Type::get_primitive_type("str"), node.right                                                   //
-        );
-    }
-
-    // Set the type of the binary operator node
-    if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
-        node.type = Type::get_primitive_type("bool");
-    } else {
-        node.type = node.left->type;
-    }
-    return true;
-}
-
-bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<ExpressionNode> &expression) {
-    // Check if the type is a pointer type and if we are not in a context which allows pointer types
-    {
-        Context local_ctx = ctx;
-        local_ctx.line = expression->line;
-        local_ctx.column = expression->column;
-        local_ctx.length = expression->length;
-        if (!analyze_type(local_ctx, expression->type, true)) {
             return false;
         }
     }
 
-    switch (expression->get_variation()) {
+    // Check for const folding, and return the folded value if const folding was able to be applied
+    std::optional<std::unique_ptr<ExpressionNode>> folded_result = ctx.parser.check_const_folding( //
+        node->left, node->operator_token, node->right                                              //
+    );
+    if (folded_result.has_value()) {
+        expr = std::move(folded_result.value());
+        return true;
+    }
+
+    // Check it the binary operator is a `catch` keyword, if so the lhs should be a function call. We then set it's "has_catch"
+    // field to true
+    if (node->operator_token == TOK_CATCH) {
+        switch (node->left->get_variation()) {
+            default:
+                // Not allowed lhs expression to catch binop
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            case ExpressionNode::Variation::CALL:
+                node->left->as<CallNodeExpression>()->has_catch = true;
+                break;
+            case ExpressionNode::Variation::CALLABLE_CALL:
+                node->left->as<CallableCallNodeExpression>()->has_catch = true;
+                break;
+            case ExpressionNode::Variation::INSTANCE_CALL:
+                node->left->as<InstanceCallNodeExpression>()->has_catch = true;
+                break;
+        }
+    }
+
+    // Set the type of the binop expression itself to the base type of the optional for opt default expressions
+    if (node->operator_token == TOK_OPT_DEFAULT) {
+        node->type = node->left->type->as<OptionalType>()->base_type;
+        return true;
+    }
+
+    // Finally check if one of the two sides are string literals, if they are they need to become a string variable
+    if (node->left->type->to_string() == "type.flint.str.lit") {
+        node->left = std::make_unique<TypeCastNode>(                                                       //
+            node->file_hash, ASTNode::PosTriple{node->left->line, node->left->column, node->left->length}, //
+            Type::get_primitive_type("str"), node->left                                                    //
+        );
+    }
+    if (node->right->type->to_string() == "type.flint.str.lit") {
+        node->right = std::make_unique<TypeCastNode>(                                                         //
+            node->file_hash, ASTNode::PosTriple{node->right->line, node->right->column, node->right->length}, //
+            Type::get_primitive_type("str"), node->right                                                      //
+        );
+    }
+
+    // Set the type of the binary operator node
+    if (Matcher::token_match(node->operator_token, Matcher::relational_binop)) {
+        node->type = Type::get_primitive_type("bool");
+    } else {
+        node->type = node->left->type;
+    }
+    return true;
+}
+
+bool Analyzer::analyze_expression(                            //
+    const Context &ctx,                                       //
+    std::unique_ptr<ExpressionNode> &expr,                    //
+    const std::optional<std::shared_ptr<Type>> &expected_type //
+) {
+    // Check if the type is a pointer type and if we are not in a context which allows pointer types
+    {
+        Context local_ctx = ctx;
+        local_ctx.line = expr->line;
+        local_ctx.column = expr->column;
+        local_ctx.length = expr->length;
+        if (!analyze_type(local_ctx, expr->type, true)) {
+            return false;
+        }
+    }
+
+    switch (expr->get_variation()) {
         case ExpressionNode::Variation::ARRAY_ACCESS: {
-            auto *node = expression->as<ArrayAccessNode>();
+            auto *node = expr->as<ArrayAccessNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
@@ -659,7 +698,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::ARRAY_INITIALIZER: {
-            auto *node = expression->as<ArrayInitializerNode>();
+            auto *node = expr->as<ArrayInitializerNode>();
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &length_expr : node->length_expressions) {
                 if (!analyze_expression(ctx, length_expr)) {
@@ -691,14 +730,13 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::BINARY_OP: {
-            auto *node = expression->as<BinaryOpNode>();
-            if (!analyze_binop(ctx, *node)) {
+            if (!analyze_binop(ctx, expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::CALL: {
-            auto *node = expression->as<CallNodeExpression>();
+            auto *node = expr->as<CallNodeExpression>();
             Context local_ctx = ctx;
             if (node->function->is_extern) {
                 local_ctx.level = ContextLevel::EXTERNAL;
@@ -725,7 +763,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::CALLABLE_CALL: {
-            auto *node = expression->as<CallableCallNodeExpression>();
+            auto *node = expr->as<CallableCallNodeExpression>();
             Context local_ctx = ctx;
             local_ctx.level = ContextLevel::INTERNAL;
             for (auto &arg : node->arguments) {
@@ -736,7 +774,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
-            auto *node = expression->as<DataAccessNode>();
+            auto *node = expr->as<DataAccessNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
@@ -745,9 +783,9 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
         case ExpressionNode::Variation::DEFAULT:
             break;
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
-            auto *node = expression->as<GroupExpressionNode>();
-            for (auto &expr : node->expressions) {
-                if (!analyze_expression(ctx, expr)) {
+            auto *node = expr->as<GroupExpressionNode>();
+            for (auto &expression : node->expressions) {
+                if (!analyze_expression(ctx, expression)) {
                     return false;
                 }
             }
@@ -756,7 +794,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
         case ExpressionNode::Variation::FUNCTION_REFERENCE:
             break;
         case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
-            auto *node = expression->as<GroupedArrayAccessNode>();
+            auto *node = expr->as<GroupedArrayAccessNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
@@ -795,14 +833,14 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
-            auto *node = expression->as<GroupedDataAccessNode>();
+            auto *node = expr->as<GroupedDataAccessNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::INITIALIZER: {
-            auto *node = expression->as<InitializerNode>();
+            auto *node = expr->as<InitializerNode>();
             for (auto &arg : node->args) {
                 if (!analyze_expression(ctx, arg)) {
                     return false;
@@ -867,7 +905,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
-            auto *node = expression->as<InlineArrayInitializerNode>();
+            auto *node = expr->as<InlineArrayInitializerNode>();
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &length_expr : node->length_expressions) {
                 if (!analyze_expression(ctx, length_expr)) {
@@ -900,7 +938,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
-            auto *node = expression->as<InstanceCallNodeExpression>();
+            auto *node = expr->as<InstanceCallNodeExpression>();
             Context local_ctx = ctx;
             if (node->function->is_extern) {
                 local_ctx.level = ContextLevel::EXTERNAL;
@@ -927,7 +965,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::LITERAL: {
-            auto *node = expression->as<LiteralNode>();
+            auto *node = expr->as<LiteralNode>();
             // Literals can contain sub-expressions (error value messages and variant constructor values) which need to be analyzed and
             // cast so that e.g. string interpolation content inside of them gets properly retyped
             if (std::holds_alternative<LitError>(node->value)) {
@@ -938,9 +976,9 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
                         return false;
                     }
                     if (!Analyzer::Castability::check_castability(ctx.parser, str_type, lit_error.message.value())) {
-                        THROW_ERR(                                                                            //
-                            ErrExprTypeMismatch, ERR_ANALYZING, expression->file_hash, expression->line,      //
-                            expression->column, expression->length, str_type, lit_error.message.value()->type //
+                        THROW_ERR(                                                                //
+                            ErrExprTypeMismatch, ERR_ANALYZING, expr->file_hash, expr->line,      //
+                            expr->column, expr->length, str_type, lit_error.message.value()->type //
                         );
                         return false;
                     }
@@ -956,21 +994,21 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::OPTIONAL_CHAIN: {
-            auto *node = expression->as<OptionalChainNode>();
+            auto *node = expr->as<OptionalChainNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
-            auto *node = expression->as<OptionalUnwrapNode>();
+            auto *node = expr->as<OptionalUnwrapNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::RANGE_EXPRESSION: {
-            auto *node = expression->as<RangeExpressionNode>();
+            auto *node = expr->as<RangeExpressionNode>();
             if (!analyze_expression(ctx, node->lower_bound)) {
                 return false;
             }
@@ -980,7 +1018,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::STRING_INTERPOLATION: {
-            auto *node = expression->as<StringInterpolationNode>();
+            auto *node = expr->as<StringInterpolationNode>();
             const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
             for (auto &content : node->string_content) {
                 if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(content)) {
@@ -1001,7 +1039,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             break;
         }
         case ExpressionNode::Variation::SWITCH_EXPRESSION: {
-            auto *node = expression->as<SwitchExpression>();
+            auto *node = expr->as<SwitchExpression>();
             if (!analyze_expression(ctx, node->switcher)) {
                 return false;
             }
@@ -1048,13 +1086,13 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
         case ExpressionNode::Variation::SWITCH_MATCH:
             break;
         case ExpressionNode::Variation::TYPE_CAST: {
-            auto *node = expression->as<TypeCastNode>();
+            auto *node = expr->as<TypeCastNode>();
             if (!analyze_expression(ctx, node->expr)) {
                 return false;
             }
             if (node->expr->type->equals(node->type)) {
                 // The cast is redundant, the inner expression already has the target type
-                expression = std::move(node->expr);
+                expr = std::move(node->expr);
                 break;
             }
             // Enums are allowed to be cast to strings and to integers without any further validation
@@ -1065,30 +1103,34 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
                 if (to_type_str == "str" || is_enum_int_cast) {
                     break;
                 }
-                THROW_ERR(ErrExprCastInvalid, ERR_ANALYZING, node->file_hash, node->line, node->column, node->length, node->type,
-                    node->expr->type);
+                THROW_ERR(                                                          //
+                    ErrExprCastInvalid, ERR_ANALYZING, node->file_hash, node->line, //
+                    node->column, node->length, node->type, node->expr->type        //
+                );
                 return false;
             }
             // If the inner expression is a literal, retype the literal and remove the cast node
             if (Analyzer::Castability::resolve_comptime_type_of_expr(ctx.parser, node->expr, node->type)) {
-                expression = std::move(node->expr);
+                expr = std::move(node->expr);
                 break;
             }
             if (!Analyzer::Castability::check_castability(ctx.parser, node->type, node->expr, false)) {
-                THROW_ERR(ErrExprCastInvalid, ERR_ANALYZING, node->file_hash, node->line, node->column, node->length, node->type,
-                    node->expr->type);
+                THROW_ERR(                                                          //
+                    ErrExprCastInvalid, ERR_ANALYZING, node->file_hash, node->line, //
+                    node->column, node->length, node->type, node->expr->type        //
+                );
                 return false;
             }
             // Collapse the cast node if the inner expression already has the target type after the castability check
             if (node->expr->type->equals(node->type)) {
-                expression = std::move(node->expr);
+                expr = std::move(node->expr);
             }
             break;
         }
         case ExpressionNode::Variation::TYPE:
             break;
         case ExpressionNode::Variation::UNARY_OP: {
-            auto *node = expression->as<UnaryOpExpression>();
+            auto *node = expr->as<UnaryOpExpression>();
             if (!analyze_expression(ctx, node->operand)) {
                 return false;
             }
@@ -1097,20 +1139,66 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
         case ExpressionNode::Variation::VARIABLE:
             break;
         case ExpressionNode::Variation::VARIANT_EXTRACTION: {
-            auto *node = expression->as<VariantExtractionNode>();
+            auto *node = expr->as<VariantExtractionNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::VARIANT_UNWRAP: {
-            auto *node = expression->as<VariantUnwrapNode>();
+            auto *node = expr->as<VariantUnwrapNode>();
             if (!analyze_expression(ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
     }
+
+    // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
+    if (expected_type.has_value() && !expected_type.value()->equals(expr->type)) {
+        const ASTNode::PosTriple expr_pos = ASTNode::PosTriple{
+            .line = expr->line,
+            .column = expr->column,
+            .length = expr->length,
+        };
+        switch (expected_type.value()->get_variation()) {
+            default: {
+                if (!Castability::check_castability(ctx.parser, expected_type.value(), expr, true)) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, ctx.parser.file_hash, expr_pos, expected_type.value(), expr->type);
+                    return false;
+                }
+                break;
+            }
+            case Type::Variation::ERROR_SET: {
+                const auto *target_error_type = expected_type.value()->as<ErrorSetType>();
+                if (expr->type->get_variation() != Type::Variation::ERROR_SET) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, ctx.parser.file_hash, expr_pos, expected_type.value(), expr->type);
+                    return false;
+                }
+                const auto *expr_error_type = expr->type->as<ErrorSetType>();
+                // The expr error set type needs to be a superset of the target error type to be castable to it, this means that the
+                // expression type "extends" the target type
+                std::optional<const ErrorNode *> parent_node = target_error_type->error_node;
+                bool is_castable = false;
+                while (parent_node.has_value()) {
+                    if (parent_node.value() == expr_error_type->error_node) {
+                        is_castable = true;
+                        break;
+                    }
+                    parent_node = parent_node.value()->get_parent_node();
+                }
+                if (!is_castable) {
+                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, ctx.parser.file_hash, expr_pos, expected_type.value(), expr->type);
+                    return false;
+                }
+                expr = std::make_unique<TypeCastNode>(                          //
+                    ctx.parser.file_hash, expr_pos, expected_type.value(), expr //
+                );
+                break;
+            }
+        }
+    }
+
     return true;
 }
 

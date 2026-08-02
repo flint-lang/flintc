@@ -1522,7 +1522,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
         } else {
             actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value(), std::nullopt);
         }
-        file_node_ptr->file_namespace->add_type(actual_array_type.value());
+        if (!file_node_ptr->file_namespace->add_type(actual_array_type.value())) {
+            return std::nullopt;
+        }
     }
     return std::make_unique<ArrayInitializerNode>(                                                                    //
         file_hash, get_pos_triple(tokens), actual_array_type.value(), length_expressions.value(), initializer.value() //
@@ -2556,13 +2558,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            THROW_ERR(ErrExprBinopTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, binop_pos.length, pivot_token,
-                lhs_type_str, rhs_type_str);
+            THROW_ERR(                                                                              //
+                ErrExprBinopTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, //
+                binop_pos.length, pivot_token, lhs_type_str, rhs_type_str                           //
+            );
             return std::nullopt;
         case Analyzer::Castability::BinopMatchResult::OPT_DEFAULT_MISMATCH: {
             const auto *lhs_opt = lhs.value()->type->as<OptionalType>();
-            THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, binop_pos.length, lhs_opt->base_type,
-                rhs.value()->type);
+            THROW_ERR(                                                                         //
+                ErrExprTypeMismatch, ERR_PARSING, file_hash, binop_pos.line, binop_pos.column, //
+                binop_pos.length, lhs_opt->base_type, rhs.value()->type                        //
+            );
             return std::nullopt;
         }
     }
@@ -2623,7 +2629,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
 
     // Parse expression using precedence levels
     auto expression = create_pivot_expression(ctx, scope, expr_tokens, expected_type);
-
     if (!expression.has_value()) {
         return std::nullopt;
     }
@@ -2633,7 +2638,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         switch (expected_type.value()->get_variation()) {
             default: {
                 if (!Analyzer::Castability::check_castability(*this, expected_type.value(), expression.value(), true)) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(                                                               //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
+                        expected_type.value(), expression.value()->type                      //
+                    );
                     return std::nullopt;
                 }
                 break;
@@ -2641,7 +2649,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             case Type::Variation::ERROR_SET: {
                 const auto *target_error_type = expected_type.value()->as<ErrorSetType>();
                 if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(                                                               //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
+                        expected_type.value(), expression.value()->type                      //
+                    );
                     return std::nullopt;
                 }
                 const auto *expr_error_type = expression.value()->type->as<ErrorSetType>();
@@ -2657,7 +2668,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     parent_node = parent_node.value()->get_parent_node();
                 }
                 if (!is_castable) {
-                    THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, expected_type.value(), expression.value()->type);
+                    THROW_ERR(                                                               //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
+                        expected_type.value(), expression.value()->type                      //
+                    );
                     return std::nullopt;
                 }
                 expression = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), expected_type.value(), expression.value());

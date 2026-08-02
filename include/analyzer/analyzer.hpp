@@ -82,12 +82,12 @@ class Analyzer {
             /// @enum `Kind`
             /// @brief The kind of the cast direction, determining the direction in which to cast
             enum class Kind {
-                NOT_CASTABLE,    // Types are incpomatible
-                SAME_TYPE,       // The two types are actually the exact same type, just present inside different shared pointer containers
-                CAST_LHS_TO_RHS, // Cast left operand to right's type
-                CAST_RHS_TO_LHS, // Cast right operand to left's type
-                CAST_BOTH_TO_COMMON, // Cast both operands to the common type below
-                CAST_BIDIRECTIONAL,  // Casting both ways is possible without a problem
+                NOT_CASTABLE,
+                SAME_TYPE,
+                CAST_LHS_TO_RHS,
+                CAST_RHS_TO_LHS,
+                CAST_BOTH_TO_COMMON,
+                CAST_BIDIRECTIONAL,
             };
 
             /// @var `kind`
@@ -193,6 +193,20 @@ class Analyzer {
             const bool is_implicit = true             //
         );
 
+        /// @function `check_castability`
+        /// @brief Checks whether the given expressions can be cast to one another and casts them if needed. Will return false if the
+        /// expressions are not castable to one another
+        ///
+        /// @param `parser` The parser instance the expression belongs to
+        /// @param `lhs_expr` The left expression to check the castability of
+        /// @param `rhs_expr` The right expression to check the castability of
+        /// @return `bool` Whether the expressions were successfully cast and now are compatible
+        static bool check_castability(                 //
+            Parser &parser,                            //
+            std::unique_ptr<ExpressionNode> &lhs_expr, //
+            std::unique_ptr<ExpressionNode> &rhs_expr  //
+        );
+
         /// @enum `BinopMatchResult`
         /// @brief The result of matching the two operands of a binary operation against each other
         enum class BinopMatchResult {
@@ -202,9 +216,7 @@ class Analyzer {
         };
 
         /// @function `match_binop_operands`
-        /// @brief Checks whether the two operands of a binary operation can be coerced to matching types, coercing them in place. This
-        /// mirrors the castability check the parser used to perform before creating the `BinaryOpNode`, and is shared between the parser
-        /// and the analyzer so that mismatches are reported at the correct stage
+        /// @brief Checks whether the two operands of a binary operation can be coerced to matching types, coercing them in place
         ///
         /// @param `parser` The parser instance the expressions belong to, used for the file hash and type storage
         /// @param `pivot_token` The operator token of the binary operation
@@ -250,13 +262,26 @@ class Analyzer {
     /// @return `bool` Whether the statement was analyzed successfully
     static bool analyze_statement(const Context &ctx, StatementNode &statement);
 
+    /// @function `analyze_binop`
+    /// @brief Analyzes the given binop node for semantic correctness
+    ///
+    /// @param `ctx` The context of the analyzation
+    /// @param `expr` The binop expression node to analyze
+    /// @return `bool` Whether the binop expression was analyzed successfully
+    static bool analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<ExpressionNode> &expr);
+
     /// @function `analyze_expression`
     /// @brief Analyzes the given expression node for semantic correctness
     ///
     /// @param `ctx` The context of the analyzation
-    /// @param `expression` The expression node to analyze
+    /// @param `expr` The expression node to analyze
+    /// @param `expected_type` The expected type of the expression. If possible, applies implicit type conversion to get this type
     /// @return `bool` Whether the expression was analyzed successfully
-    static bool analyze_expression(const Context &ctx, std::unique_ptr<ExpressionNode> &expression);
+    static bool analyze_expression(                                              //
+        const Context &ctx,                                                      //
+        std::unique_ptr<ExpressionNode> &expr,                                   //
+        const std::optional<std::shared_ptr<Type>> &expected_type = std::nullopt //
+    );
 
     /// @function `analyze_type`
     /// @brief Analyzes the given type for correctness (for example using a pointer type in a non-extern context)

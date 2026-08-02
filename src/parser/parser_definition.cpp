@@ -206,7 +206,10 @@ std::optional<FunctionNode> Parser::create_function(                            
     }
     // Check if a body should follow (`:`) or if it's just a function declaration (`;`)
     if (tok_it->token != TOK_COLON && tok_it->token != TOK_SEMICOLON) {
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(                                                                        //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, tok_it->line, tok_it->column, //
+            std::vector<Token>{TOK_COLON, TOK_SEMICOLON}, tok_it->token                   //
+        );
         return std::nullopt;
     }
     const bool is_declaration = tok_it->token == TOK_SEMICOLON;

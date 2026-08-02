@@ -31,8 +31,11 @@
 #include <unordered_map>
 #include <vector>
 
-bool Analyzer::Castability::resolve_comptime_type_of_expr(Parser &parser, std::unique_ptr<ExpressionNode> &expr,
-    const std::optional<std::shared_ptr<Type>> &target_type) {
+bool Analyzer::Castability::resolve_comptime_type_of_expr(  //
+    Parser &parser,                                         //
+    std::unique_ptr<ExpressionNode> &expr,                  //
+    const std::optional<std::shared_ptr<Type>> &target_type //
+) {
     const std::string &type_str = expr->type->to_string();
     if (type_str == "int") {
         if (target_type.has_value()) {
@@ -95,9 +98,10 @@ bool Analyzer::Castability::resolve_comptime_type_of_expr(Parser &parser, std::u
     return true;
 }
 
-Analyzer::Castability::CastDirection Analyzer::Castability::check_primitive_castability(const std::shared_ptr<Type> &lhs_type, //
-    const std::shared_ptr<Type> &rhs_type,                                                                                     //
-    const bool is_implicit                                                                                                     //
+Analyzer::Castability::CastDirection Analyzer::Castability::check_primitive_castability( //
+    const std::shared_ptr<Type> &lhs_type,                                               //
+    const std::shared_ptr<Type> &rhs_type,                                               //
+    const bool is_implicit                                                               //
 ) {
     PROFILE_CUMULATIVE("Analyzer::Castability::check_primitive_castability");
     const std::string lhs_str = lhs_type->to_string();
@@ -303,9 +307,10 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_primitive_cast
     return CastDirection::lhs_to_rhs();
 }
 
-Analyzer::Castability::CastDirection Analyzer::Castability::check_castability(const std::shared_ptr<Type> &lhs_type, //
-    const std::shared_ptr<Type> &rhs_type,                                                                           //
-    const bool is_implicit                                                                                           //
+Analyzer::Castability::CastDirection Analyzer::Castability::check_castability( //
+    const std::shared_ptr<Type> &lhs_type,                                     //
+    const std::shared_ptr<Type> &rhs_type,                                     //
+    const bool is_implicit                                                     //
 ) {
     PROFILE_CUMULATIVE("Analyzer::Castability::check_castability_type");
     if (lhs_type->get_variation() == Type::Variation::ALIAS) {
@@ -579,38 +584,41 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_castability(co
     return CastDirection::rhs_to_lhs();
 }
 
-Analyzer::Castability::BinopMatchResult Analyzer::Castability::match_binop_operands(Parser &parser, const Token &pivot_token,
-    std::unique_ptr<ExpressionNode> &lhs, std::unique_ptr<ExpressionNode> &rhs) {
-    PROFILE_CUMULATIVE("Analyzer::Castability::match_binop_operands");
-
-    // Coercion helper mirroring the former `Parser::check_castability(lhs, rhs)` wrapper
-    auto check_and_coerce = [&parser](std::unique_ptr<ExpressionNode> &lhs_expr, std::unique_ptr<ExpressionNode> &rhs_expr) -> bool {
-        if (lhs_expr->type->equals(rhs_expr->type)) {
+bool Analyzer::Castability::check_castability( //
+    Parser &parser,                            //
+    std::unique_ptr<ExpressionNode> &lhs_expr, //
+    std::unique_ptr<ExpressionNode> &rhs_expr  //
+) {
+    const CastDirection castability = check_castability(lhs_expr->type, rhs_expr->type);
+    switch (castability.kind) {
+        case CastDirection::Kind::NOT_CASTABLE:
+            return false;
+        case CastDirection::Kind::SAME_TYPE:
             return true;
-        }
-        const CastDirection castability = check_castability(lhs_expr->type, rhs_expr->type);
-        switch (castability.kind) {
-            case CastDirection::Kind::NOT_CASTABLE:
+        case CastDirection::Kind::CAST_LHS_TO_RHS:
+            return check_castability(parser, rhs_expr->type, lhs_expr);
+        case CastDirection::Kind::CAST_BIDIRECTIONAL:
+        case CastDirection::Kind::CAST_RHS_TO_LHS:
+            return check_castability(parser, lhs_expr->type, rhs_expr);
+        case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+            if (!check_castability(parser, castability.common_type, lhs_expr, false)) {
                 return false;
-            case CastDirection::Kind::SAME_TYPE:
-                return true;
-            case CastDirection::Kind::CAST_LHS_TO_RHS:
-                return check_castability(parser, rhs_expr->type, lhs_expr);
-            case CastDirection::Kind::CAST_BIDIRECTIONAL:
-            case CastDirection::Kind::CAST_RHS_TO_LHS:
-                return check_castability(parser, lhs_expr->type, rhs_expr);
-            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
-                if (!check_castability(parser, castability.common_type, lhs_expr, false)) {
-                    return false;
-                }
-                if (!check_castability(parser, castability.common_type, rhs_expr, false)) {
-                    return false;
-                }
-                return true;
-        }
-        UNREACHABLE();
-    };
+            }
+            if (!check_castability(parser, castability.common_type, rhs_expr, false)) {
+                return false;
+            }
+            return true;
+    }
+    UNREACHABLE();
+}
 
+Analyzer::Castability::BinopMatchResult Analyzer::Castability::match_binop_operands( //
+    Parser &parser,                                                                  //
+    const Token &pivot_token,                                                        //
+    std::unique_ptr<ExpressionNode> &lhs,                                            //
+    std::unique_ptr<ExpressionNode> &rhs                                             //
+) {
+    PROFILE_CUMULATIVE("Analyzer::Castability::match_binop_operands");
     if (lhs->type->equals(rhs->type)) {
         return BinopMatchResult::OK;
     }
@@ -712,7 +720,7 @@ Analyzer::Castability::BinopMatchResult Analyzer::Castability::match_binop_opera
             if (lhs_group_expr != nullptr && rhs_group_expr != nullptr) {
                 // Both sides are group expressions
                 for (size_t i = 0; i < lhs_group_type->types.size(); i++) {
-                    if (!check_and_coerce(lhs_group_expr->expressions.at(i), rhs_group_expr->expressions.at(i))) {
+                    if (!check_castability(parser, lhs_group_expr->expressions.at(i), rhs_group_expr->expressions.at(i))) {
                         is_castable = false;
                         break;
                     }
@@ -730,7 +738,7 @@ Analyzer::Castability::BinopMatchResult Analyzer::Castability::match_binop_opera
             }
         }
     } else {
-        is_castable = check_and_coerce(lhs, rhs);
+        is_castable = check_castability(parser, lhs, rhs);
     }
     if (!is_castable) {
         return BinopMatchResult::TYPE_MISMATCH;

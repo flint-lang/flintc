@@ -636,7 +636,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                     const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                     if (!arg_type->equals(data_type)) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, tokens, data_type, arg_type);
+                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), data_type, arg_type);
                         return std::nullopt;
                     }
                 }
