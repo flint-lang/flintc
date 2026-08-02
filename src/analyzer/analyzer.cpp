@@ -116,15 +116,15 @@ bool Analyzer::analyze_definition(const Context &ctx, std::unique_ptr<Definition
             local_ctx.is_function_definition_context = true;
             // Analyze all parameter types
             for (const auto &param : node->parameters) {
-                if (std::get<2>(param)) {
+                if (param.is_mutable) {
                     local_ctx.column += 4; // Skip 'mut '
                 }
-                if (!analyze_type(local_ctx, std::get<0>(param))) {
+                if (!analyze_type(local_ctx, param.type)) {
                     return false;
                 }
-                local_ctx.column += std::get<0>(param)->to_string().length(); // Skip type
-                local_ctx.column += std::get<1>(param).length();              // Skip identifier
-                local_ctx.column += 2;                                        // Skip ', '
+                local_ctx.column += param.type->to_string().length(); // Skip type
+                local_ctx.column += param.name.length();              // Skip identifier
+                local_ctx.column += 2;                                // Skip ', '
             }
             // Analyze all return types
             // local_ctx.column += ;
@@ -237,7 +237,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             // Cast all arguments to the parameter types of the called function
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 auto &arg = node->arguments.at(i);
-                const auto &param_type = std::get<0>(node->function->parameters.at(i));
+                const auto &param_type = node->function->parameters.at(i).type;
                 if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
@@ -473,11 +473,12 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             }
             // Cast all arguments to the parameter types of the called function
             for (size_t i = 0; i < node->arguments.size(); i++) {
-                const auto &param_type = std::get<0>(node->function->parameters.at(i));
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, node->arguments[i].first)) {
-                    THROW_ERR(                                                                                                         //
-                        ErrExprTypeMismatch, ERR_ANALYZING, node->arguments[i].first->file_hash, node->arguments[i].first->line,       //
-                        node->arguments[i].first->column, node->arguments[i].first->length, param_type, node->arguments[i].first->type //
+                const auto &param_type = node->function->parameters.at(i).type;
+                auto &arg = node->arguments.at(i);
+                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                    THROW_ERR(                                                                     //
+                        ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
+                        arg.first->column, arg.first->length, param_type, arg.first->type          //
                     );
                     return false;
                 }
@@ -711,11 +712,12 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             }
             // Cast all arguments to the parameter types of the called function
             for (size_t i = 0; i < node->arguments.size(); i++) {
-                const auto &param_type = std::get<0>(node->function->parameters.at(i));
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, node->arguments[i].first)) {
-                    THROW_ERR(                                                                                                         //
-                        ErrExprTypeMismatch, ERR_ANALYZING, node->arguments[i].first->file_hash, node->arguments[i].first->line,       //
-                        node->arguments[i].first->column, node->arguments[i].first->length, param_type, node->arguments[i].first->type //
+                const auto &param_type = node->function->parameters.at(i).type;
+                auto &arg = node->arguments.at(i);
+                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                    THROW_ERR(                                                                     //
+                        ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
+                        arg.first->column, arg.first->length, param_type, arg.first->type          //
                     );
                     return false;
                 }
@@ -913,7 +915,7 @@ bool Analyzer::analyze_expression(const Context &ctx, std::unique_ptr<Expression
             // Cast all arguments to the parameter types of the called function
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 auto &arg = node->arguments.at(i);
-                const auto &param_type = std::get<0>(node->function->parameters.at(i));
+                const auto &param_type = node->function->parameters.at(i).type;
                 if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //

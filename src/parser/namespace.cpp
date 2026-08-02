@@ -78,7 +78,7 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
         // Check if all argument types are compatible with parameter types
         bool all_params_match = true;
         for (size_t i = 0; i < arg_types.size(); i++) {
-            std::shared_ptr<Type> &param_type = std::get<0>(fn->parameters[i]);
+            std::shared_ptr<Type> &param_type = fn->parameters[i].type;
             if (param_type->get_variation() == Type::Variation::ALIAS) {
                 param_type = param_type->as<AliasType>()->type;
             }
@@ -762,7 +762,7 @@ std::optional<FunctionNode *> Namespace::find_core_function( //
         }
         bool match = true;
         for (size_t i = 0; i < arg_types.size(); i++) {
-            if (std::get<0>(fn->parameters[i]) != arg_types[i]) {
+            if (!fn->parameters[i].type->equals(arg_types[i])) {
                 match = false;
                 break;
             }

@@ -103,12 +103,16 @@ void Parser::init_core_modules() {
             const std::string function_name(function_name_view);
             for (const auto &overload : overloads) {
                 const auto &parameters_str = std::get<0>(overload);
-                std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+                std::vector<FunctionNode::Parameter> parameters;
                 for (const auto &[param_type_view, param_name_view] : parameters_str) {
                     const std::string param_type_str(param_type_view);
                     const std::string param_name_str(param_name_view);
                     const std::shared_ptr<Type> param_type = core_namespace->get_type_from_str(param_type_str).value();
-                    parameters.emplace_back(param_type, param_name_str, false);
+                    parameters.emplace_back(FunctionNode::Parameter{
+                        .type = param_type,
+                        .name = param_name_str,
+                        .is_mutable = false,
+                    });
                 }
 
                 const auto &return_types_str = std::get<1>(overload);
@@ -446,7 +450,7 @@ bool Parser::resolve_all_unknown_types() {
                     }
                     // Resolve all argument and return type aliases
                     for (auto &param : function_node->parameters) {
-                        if (!file_namespace->resolve_type(std::get<0>(param))) {
+                        if (!file_namespace->resolve_type(param.type)) {
                             return false;
                         }
                     }
@@ -487,7 +491,7 @@ bool Parser::resolve_all_unknown_types() {
         // Resolve the parameter and return types of all functions
         for (FunctionNode *function : parser.get_open_functions()) {
             for (auto &param : function->parameters) {
-                if (!file_namespace->resolve_type(std::get<0>(param))) {
+                if (!file_namespace->resolve_type(param.type)) {
                     return false;
                 }
             }

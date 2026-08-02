@@ -115,12 +115,12 @@ bool Generator::Builtin::init_global_variables( //
 bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
-    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    std::vector<FunctionNode::Parameter> parameters;
     const bool main_function_has_args = !Parser::main_function.load()->parameters.empty();
     const bool main_function_has_ret = !Parser::main_function.load()->return_types.empty();
     if (main_function_has_args) {
         std::shared_ptr<Type> str_arr_type = Type::get_type_from_str("str[]").value();
-        parameters.emplace_back(std::make_tuple(str_arr_type, "args", false));
+        parameters.emplace_back(FunctionNode::Parameter{.type = str_arr_type, .name = "args", .is_mutable = false});
     }
     std::vector<std::shared_ptr<Type>> return_types;
     std::optional<std::shared_ptr<Scope>> scope;
@@ -1681,7 +1681,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
             // Compute the test function's ID to look up its frame in ts_frames/ts_defaults
             // This must match the ID computed in generate_test_function when the frame was registered
-            std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> fake_fn_parameters;
+            std::vector<FunctionNode::Parameter> fake_fn_parameters;
             std::vector<std::shared_ptr<Type>> fake_fn_return_types;
             std::vector<std::shared_ptr<Type>> fake_fn_error_types;
             const std::optional<size_t> fake_fn_mangle_id;

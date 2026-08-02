@@ -1501,7 +1501,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // Insert all arguments into the loaded default-value
     const size_t fn_ret_count = call_node->function->return_types.size();
     for (size_t i = 0; i < args.size(); i++) {
-        const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
+        const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
         llvm::Value *arg_value = args[i];
         if (is_arg_reference(call_node->arguments[i], param_type)) {
             const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
@@ -2342,7 +2342,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // Store extra function parameters starting at the returned arg pointer
             llvm::Value *arg_ptr = setup_call;
             for (size_t i = 0; i < args.size(); i++) {
-                const std::shared_ptr<Type> &param_type = std::get<0>(call_node->function->parameters.at(i));
+                const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
                 llvm::Value *arg_value = args[i];
                 if (is_arg_reference(call_node->arguments[i], param_type)) {
                     const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);

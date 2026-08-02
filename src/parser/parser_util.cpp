@@ -880,7 +880,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
         for (auto &fn : functions) {
             bool all_match = true;
             for (size_t i = 0; i < argument_types.size(); i++) {
-                const auto &param_type = std::get<0>(fn.first->parameters.at(i + fn.second));
+                const auto &param_type = fn.first->parameters.at(i + fn.second).type;
                 if (!param_type->equals(argument_types.at(i))) {
                     all_match = false;
                     break;
@@ -1030,7 +1030,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             }
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
-                if (!scope->variables.at(variable_node->name).is_mutable && std::get<2>(parameters[i])) {
+                if (!scope->variables.at(variable_node->name).is_mutable && parameters[i].is_mutable) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }

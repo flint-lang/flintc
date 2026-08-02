@@ -51,7 +51,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
     }
 
     for (const auto &param : function_node->parameters) {
-        llvm::Type *const param_type = IR::get_type(module, std::get<0>(param), true).type;
+        llvm::Type *const param_type = IR::get_type(module, param.type, true).type;
         if (param_type->isStructTy()) {
             llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
             for (const auto &element_type : struct_type->elements()) {
@@ -250,7 +250,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
 
     // The test function has no parameters when called, it just returns whether it has succeeded through the error value
     llvm::IRBuilder<> builder(entry_block);
-    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> fake_fn_parameters;
+    std::vector<FunctionNode::Parameter> fake_fn_parameters;
     std::vector<std::shared_ptr<Type>> fake_fn_return_types;
     std::vector<std::shared_ptr<Type>> fake_fn_error_types;
     const std::optional<size_t> fake_fn_mangle_id;

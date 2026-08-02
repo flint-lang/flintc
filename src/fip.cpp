@@ -437,9 +437,9 @@ bool FIP::resolve_function(FunctionNode *function) {
         msg.u.sym_req.sig.fn.args_len = args_len;
         msg.u.sym_req.sig.fn.args = static_cast<fip_sig_fn_arg_t *>(malloc(sizeof(fip_sig_fn_arg_t) * args_len));
         for (uint8_t i = 0; i < args_len; i++) {
-            const auto &param = function->parameters.at(i);
-            if (!convert_type(&msg.u.sym_req.sig.fn.args[i].type, std::get<0>(param), std::get<2>(param))) {
-                const std::string type_str = std::get<0>(function->parameters.at(i))->to_string();
+            const FunctionNode::Parameter &param = function->parameters.at(i);
+            if (!convert_type(&msg.u.sym_req.sig.fn.args[i].type, param.type, param.is_mutable)) {
+                const std::string type_str = function->parameters.at(i).type->to_string();
                 fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
             }
@@ -455,7 +455,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     fake_function fake_fn{};
     fake_fn.ret_types = function->return_types;
     for (const auto &param : function->parameters) {
-        fake_fn.arg_types.emplace_back(std::get<0>(param));
+        fake_fn.arg_types.emplace_back(param.type);
     }
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         if (master_state.responses[i].type == FIP_MSG_SYMBOL_RESPONSE //

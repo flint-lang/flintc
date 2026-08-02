@@ -36,8 +36,8 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     // Then we move on to the function parameters for the allocation map
     for (size_t param_id = 0; param_id < function->parameters.size(); param_id++) {
         const auto &param = function->parameters.at(param_id);
-        const std::string param_name = "s" + std::to_string(function->scope.value()->scope_id) + "::" + std::get<1>(param);
-        const IR::TypeStorageInfo &param_type_info = IR::get_type(parent->getParent(), std::get<0>(function->parameters.at(param_id)));
+        const std::string param_name = "s" + std::to_string(function->scope.value()->scope_id) + "::" + param.name;
+        const IR::TypeStorageInfo &param_type_info = IR::get_type(parent->getParent(), function->parameters.at(param_id).type);
         ASSERT(param_type_info.type != nullptr);
         types_list.emplace_back(param_name, param_type_info.is_complex ? PTR_TY : param_type_info.type);
     }
@@ -58,7 +58,7 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
         if (i > 0) {
             frame_type_name += "_";
         }
-        frame_type_name += std::get<0>(function->parameters.at(i))->to_string();
+        frame_type_name += function->parameters.at(i).type->to_string();
     }
     llvm::StructType *frame_type = IR::create_struct_type(frame_type_name, type_list);
     const size_t fn_id = function->get_id();

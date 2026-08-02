@@ -1687,8 +1687,6 @@ namespace Debug {
             }
         }
 
-        /// print_function
-        ///     Prints the content of the generated FunctionNode
         void print_function(unsigned int indent_lvl, TreeBits &bits, const FunctionNode &function) {
             Local::print_header(indent_lvl, bits, "Function ");
 
@@ -1701,11 +1699,11 @@ namespace Debug {
             std::cout << function.name;
             std::cout << "(";
             size_t counter = 0;
-            for (const std::tuple<std::shared_ptr<Type>, std::string, bool> &param : function.parameters) {
-                std::cout << (std::get<2>(param) ? "mut" : "const") << " "; // Whether the param is const or mut
-                std::cout << (primitives.find(std::get<0>(param)->to_string()) == primitives.end() ? "&" : ""); // If primitive or complex
-                std::cout << std::get<0>(param)->to_string() << " ";                                            // The actual type
-                std::cout << std::get<1>(param);                                                                // The parameter name
+            for (const FunctionNode::Parameter &param : function.parameters) {
+                std::cout << (param.is_mutable ? "mut" : "const") << " ";
+                std::cout << (primitives.find(param.type->to_string()) == primitives.end() ? "&" : "");
+                std::cout << param.type->to_string() << " ";
+                std::cout << param.name;
                 if (++counter != function.parameters.size()) {
                     std::cout << ", ";
                 }

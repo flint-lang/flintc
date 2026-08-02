@@ -233,7 +233,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                     if (i == func->required_data.size()) {
                         branch_name += "_";
                     }
-                    branch_name += "_" + std::get<0>(function_node->parameters.at(i))->to_string();
+                    branch_name += "_" + function_node->parameters.at(i).type->to_string();
                 }
                 llvm::BasicBlock *const setup_block = llvm::BasicBlock::Create(context, "setup" + branch_name, dispatch_fn);
                 llvm::BasicBlock *const execute_block = llvm::BasicBlock::Create(context, "execute" + branch_name, dispatch_fn);
@@ -246,7 +246,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                 if (i == 1) {
                     branch_name += "_";
                 }
-                branch_name += "_" + std::get<0>(function_node->parameters.at(i))->to_string();
+                branch_name += "_" + function_node->parameters.at(i).type->to_string();
             }
             llvm::BasicBlock *const setup_block = llvm::BasicBlock::Create(context, "setup" + branch_name, dispatch_fn);
             llvm::BasicBlock *const execute_block = llvm::BasicBlock::Create(context, "execute" + branch_name, dispatch_fn);
@@ -261,7 +261,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                     if (i == 1) {
                         branch_name += "_";
                     }
-                    branch_name += "_" + std::get<0>(dest->parameters.at(i))->to_string();
+                    branch_name += "_" + dest->parameters.at(i).type->to_string();
                 }
                 setup_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).first);
                 execute_switch->addCase(builder.getInt64(src->get_id()), branches.at(dest).second);

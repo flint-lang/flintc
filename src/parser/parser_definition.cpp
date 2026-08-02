@@ -21,7 +21,7 @@ std::optional<FunctionNode> Parser::create_function(                            
 ) {
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
-    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    std::vector<FunctionNode::Parameter> parameters;
     std::vector<std::shared_ptr<Type>> return_types;
     bool is_const = false;
     bool is_extern = false;
@@ -50,7 +50,11 @@ std::optional<FunctionNode> Parser::create_function(                            
     // Add implicit required data parameters with mutability based on is_const
     if (required_data.has_value()) {
         for (auto &data_param : required_data.value().second) {
-            parameters.emplace_back(data_param.type, data_param.accessor_name, !is_const);
+            parameters.emplace_back(FunctionNode::Parameter{
+                .type = data_param.type,
+                .name = data_param.accessor_name,
+                .is_mutable = !is_const,
+            });
         }
     }
     // Check if the name is reserved
@@ -109,7 +113,11 @@ std::optional<FunctionNode> Parser::create_function(                            
                 if (!param_type.has_value()) {
                     return std::nullopt;
                 }
-                parameters.emplace_back(param_type.value(), param_name, is_mutable);
+                parameters.emplace_back(FunctionNode::Parameter{
+                    .type = param_type.value(),
+                    .name = param_name,
+                    .is_mutable = is_mutable,
+                });
                 last_param_begin = tok_it + 2;
             }
             tok_it++;
@@ -228,10 +236,10 @@ std::optional<FunctionNode> Parser::create_function(                            
             const token_slice err_tokens = {arg_start_it, arg_end_it};
             THROW_ERR(ErrFnMainTooManyArgs, ERR_PARSING, file_hash, err_tokens);
             return std::nullopt;
-        } else if (parameters.size() == 1 && std::get<0>(parameters.front())->to_string() != "str[]") {
+        } else if (parameters.size() == 1 && parameters.front().type->to_string() != "str[]") {
             // Wrong main argument type
             const token_slice err_tokens = {arg_start_it, arg_end_it};
-            THROW_ERR(ErrFnMainWrongArgType, ERR_PARSING, file_hash, err_tokens, std::get<0>(parameters.front()));
+            THROW_ERR(ErrFnMainWrongArgType, ERR_PARSING, file_hash, err_tokens, parameters.front().type);
             return std::nullopt;
         }
 
@@ -272,18 +280,18 @@ std::optional<FunctionNode> Parser::create_function(                            
 
         // Add the parameters to the list of variables
         for (const auto &param : parameters) {
-            if (!body_scope.value()->add_variable(std::get<1>(param),
+            if (!body_scope.value()->add_variable(param.name,
                     {
-                        .type = std::get<0>(param),
+                        .type = param.type,
                         .scope_id = body_scope.value()->scope_id,
                         .scope_segment = 0,
-                        .is_mutable = std::get<2>(param),
+                        .is_mutable = param.is_mutable,
                         .is_persistent = false,
                         .is_fn_param = true,
                     }) //
             ) {
                 // Variable already exists in the func definition list
-                THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, std::get<1>(param));
+                THROW_ERR(ErrVarFromRequiresList, ERR_PARSING, file_hash, 0, 0, param.name);
                 return std::nullopt;
             }
         }
@@ -770,7 +778,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
             for (size_t i = 0; i < function->parameters.size(); i++) {
                 const auto &p1 = function->parameters.at(i);
                 const auto &p2 = function_node.value().parameters.at(i);
-                if (!std::get<0>(p1)->equals(std::get<0>(p2))) {
+                if (!p1.type->equals(p2.type)) {
                     all_match = false;
                     break;
                 }

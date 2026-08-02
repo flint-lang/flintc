@@ -15,20 +15,34 @@
 /// @brief Represents function definitions
 class FunctionNode : public DefinitionNode {
   public:
-    explicit FunctionNode(                                                             //
-        const Hash &file_hash,                                                         //
-        const unsigned int line,                                                       //
-        const unsigned int column,                                                     //
-        const unsigned int length,                                                     //
-        const bool is_const,                                                           //
-        const bool is_extern,                                                          //
-        const bool is_core,                                                            //
-        const std::string &name,                                                       //
-        std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> &parameters, //
-        std::vector<std::shared_ptr<Type>> &return_types,                              //
-        std::vector<std::shared_ptr<Type>> &error_types,                               //
-        std::optional<std::shared_ptr<Scope>> &scope,                                  //
-        const std::optional<size_t> &mangle_id                                         //
+    struct Parameter {
+        /// @var `type`
+        /// @brief The type of the function parameter
+        std::shared_ptr<Type> type;
+
+        /// @var `name`
+        /// @brief The name of the function parameter
+        std::string name;
+
+        /// @var `is_mutable`
+        /// @brief Whether the function parameter is mutable
+        bool is_mutable;
+    };
+
+    explicit FunctionNode(                                //
+        const Hash &file_hash,                            //
+        const unsigned int line,                          //
+        const unsigned int column,                        //
+        const unsigned int length,                        //
+        const bool is_const,                              //
+        const bool is_extern,                             //
+        const bool is_core,                               //
+        const std::string &name,                          //
+        std::vector<Parameter> &parameters,               //
+        std::vector<std::shared_ptr<Type>> &return_types, //
+        std::vector<std::shared_ptr<Type>> &error_types,  //
+        std::optional<std::shared_ptr<Scope>> &scope,     //
+        const std::optional<size_t> &mangle_id            //
         ) :
         DefinitionNode(file_hash, line, column, length, {}),
         is_const(is_const),
@@ -232,8 +246,8 @@ class FunctionNode : public DefinitionNode {
     std::string name;
 
     /// @var `parameters`
-    /// @brief Parameter types, names and whether the parameter variable is mutable
-    std::vector<std::tuple<std::shared_ptr<Type>, std::string, bool>> parameters;
+    /// @brief List of all the function parameters
+    std::vector<Parameter> parameters;
 
     /// @var `return_types`
     /// @brief The types of all return values

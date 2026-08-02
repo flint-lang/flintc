@@ -113,8 +113,8 @@ std::optional<FunctionNode *> FileNode::add_function(                           
         }
         bool all_the_same = true;
         for (size_t i = 0; i < function.parameters.size(); i++) {
-            const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
-            const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+            const auto &new_fn_param_ty = function.parameters.at(i).type;
+            const auto &existing_fn_param_ty = fn_def->parameters.at(i).type;
             if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
                 all_the_same = false;
                 break;
@@ -138,8 +138,8 @@ std::optional<FunctionNode *> FileNode::add_function(                           
             }
             bool all_the_same = true;
             for (size_t i = 0; i < function.parameters.size(); i++) {
-                const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
-                const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+                const auto &new_fn_param_ty = function.parameters.at(i).type;
+                const auto &existing_fn_param_ty = fn_def->parameters.at(i).type;
                 if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
                     all_the_same = false;
                     break;
@@ -169,8 +169,8 @@ std::optional<FunctionNode *> FileNode::add_function(                           
             }
             bool all_the_same = true;
             for (size_t i = 0; i < function.parameters.size(); i++) {
-                const auto &new_fn_param_ty = std::get<0>(function.parameters.at(i));
-                const auto &existing_fn_param_ty = std::get<0>(fn_def->parameters.at(i));
+                const auto &new_fn_param_ty = function.parameters.at(i).type;
+                const auto &existing_fn_param_ty = fn_def->parameters.at(i).type;
                 if (!new_fn_param_ty->equals(existing_fn_param_ty)) {
                     all_the_same = false;
                     break;
