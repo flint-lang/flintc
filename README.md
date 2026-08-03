@@ -280,8 +280,8 @@ So, if you see any bad code, that's my code. The same is true for the Wiki too. 
 
 <a href="https://www.star-history.com/?repos=flint-lang%2Fflintc&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&theme=dark&legend=top-left&sealed_token=DnS9fklY1fK9Fyfxj7PGkShQnmY1icgB5NmrbluKEWGRRNdZ47zjOY6F3c94luDcLAqsoWEfNNURonHU92QCCx1M3UzpbyUucjR7arFYfgd0vHkzG-U0Ep7RU177jMqmZmYY5y6ZkDunmM6wKsGVKXl1h3JvYQ4LiTOtJak9881vI7yQyJPZM_QppLHi" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left&sealed_token=DnS9fklY1fK9Fyfxj7PGkShQnmY1icgB5NmrbluKEWGRRNdZ47zjOY6F3c94luDcLAqsoWEfNNURonHU92QCCx1M3UzpbyUucjR7arFYfgd0vHkzG-U0Ep7RU177jMqmZmYY5y6ZkDunmM6wKsGVKXl1h3JvYQ4LiTOtJak9881vI7yQyJPZM_QppLHi" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=flint-lang/flintc&type=date&legend=top-left&sealed_token=DnS9fklY1fK9Fyfxj7PGkShQnmY1icgB5NmrbluKEWGRRNdZ47zjOY6F3c94luDcLAqsoWEfNNURonHU92QCCx1M3UzpbyUucjR7arFYfgd0vHkzG-U0Ep7RU177jMqmZmYY5y6ZkDunmM6wKsGVKXl1h3JvYQ4LiTOtJak9881vI7yQyJPZM_QppLHi" />
  </picture>
 </a>
