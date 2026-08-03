@@ -3,6 +3,8 @@
 #include "profiler.hpp"
 #include "types.hpp"
 
+#include <cstddef>
+
 std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, token_list &source) {
     PROFILE_CUMULATIVE("Linearizer::linearize");
     std::vector<Line> physical_lines;
@@ -236,19 +238,8 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
         line_end = line->tokens.first;
     }
 
-    // Now remove all TOK_IDENT and TOK_EOL tokens which are contained within the logical lines
-    line = logical_lines.begin();
-    while (line != logical_lines.end()) {
-        auto it = line->tokens.first;
-        while (it != line->tokens.second) {
-            if (it->token == TOK_INDENT || it->token == TOK_EOL) {
-                Line::delete_tokens(source, it, 1);
-                continue;
-            }
-            ++it;
-        }
-        ++line;
-    }
+    // Now remove all TOK_INDENT and TOK_EOL tokens which are contained within the logical lines
+    remove_indent_eol_tokens(source, logical_lines);
 
     // Special-case to merge 3 logical lines into one line for c-style for loops
     line = logical_lines.begin();
@@ -266,20 +257,51 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
     //     for i64 i = 0;
     //     i < 3;
     //     i++: print($"i = {i}\n");
-    // is totally valid code, as these three logical lines are merged into one. This means that we need to do the TOK_IDENT and TOK_EOL pass
-    // again after the lines have been merged or otherwise these tokens would stay end up within the line
-    line = logical_lines.begin();
-    while (line != logical_lines.end()) {
-        auto it = line->tokens.first;
-        while (it != line->tokens.second) {
-            if (it->token == TOK_INDENT || it->token == TOK_EOL) {
-                Line::delete_tokens(source, it, 1);
-                continue;
-            }
-            ++it;
-        }
-        ++line;
+    // is totally valid code, as these three logical lines are merged into one. This means that we need to do the deletion of
+    // TOK_INDENT and TOK_EOL again after the lines have been merged or otherwise these tokens would stay end up within the line
+    remove_indent_eol_tokens(source, logical_lines);
+    return logical_lines;
+}
+
+void Linearizer::remove_indent_eol_tokens(token_list &source, std::vector<Line> &lines) {
+    PROFILE_CUMULATIVE("Linearizer::remove_indent_eol_tokens");
+    if (lines.empty() || source.empty()) {
+        return;
     }
 
-    return logical_lines;
+    // Mark every INDENT/EOL token which lies inside of one of the logical lines
+    std::vector<bool> to_delete(source.size(), false);
+    for (const auto &line : lines) {
+        for (auto it = line.tokens.first; it != line.tokens.second; ++it) {
+            if (it->token == TOK_INDENT || it->token == TOK_EOL) {
+                to_delete[static_cast<std::size_t>(it - source.begin())] = true;
+            }
+        }
+    }
+
+    // Compact the source token list in a single pass while recording the old -> new index mapping. For deleted positions the mapping
+    // points at the insertion point of the next surviving token, which yields the correct new boundary for exclusive end iterators
+    // that happen to point at a removed token.
+    std::vector<std::size_t> new_index(source.size() + 1, 0);
+    std::size_t write_idx = 0;
+    for (std::size_t i = 0; i < source.size(); ++i) {
+        new_index[i] = write_idx;
+        if (to_delete[i]) {
+            continue;
+        }
+        if (write_idx != i) {
+            source[write_idx] = std::move(source[i]);
+        }
+        ++write_idx;
+    }
+    new_index[source.size()] = write_idx;
+
+    // Adjust every logical line range to its new position
+    for (auto &line : lines) {
+        line.tokens.first = source.begin() + new_index[static_cast<std::size_t>(line.tokens.first - source.begin())];
+        line.tokens.second = source.begin() + new_index[static_cast<std::size_t>(line.tokens.second - source.begin())];
+    }
+
+    // Drop the moved-from tail. `TokenContext` is not default-constructible, so `resize` cannot be used here.
+    source.erase(source.begin() + static_cast<std::ptrdiff_t>(write_idx), source.end());
 }
