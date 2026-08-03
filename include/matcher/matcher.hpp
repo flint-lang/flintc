@@ -723,6 +723,8 @@ class Matcher {
         }),                          //
         token(TOK_TYPE)              //
     });
+    static const inline PatternPtr mutability_prefix = optional(one_of({token(TOK_MUT), token(TOK_CONST)}));
+    static const inline PatternPtr decl_prefix = optional(one_of({token(TOK_MUT), token(TOK_CONST), token(TOK_PERSISTENT)}));
 
     static const inline PatternPtr balancer_left = one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET), token(TOK_LEFT_BRACE)});
     static const inline PatternPtr balancer_right = one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_BRACE)});
@@ -745,7 +747,7 @@ class Matcher {
     static const inline PatternPtr args = sequence({
         type, token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), type, token(TOK_IDENTIFIER)})) //
     });
-    static const inline PatternPtr param = sequence({optional(one_of({token(TOK_MUT), token(TOK_CONST)})), type, token(TOK_IDENTIFIER)});
+    static const inline PatternPtr param = sequence({mutability_prefix, type, token(TOK_IDENTIFIER)});
     static const inline PatternPtr params = sequence({param, zero_or_more(sequence({token(TOK_COMMA), param}))});
     static const inline PatternPtr no_prim_args = sequence({
         token(TOK_IDENTIFIER), token(TOK_IDENTIFIER),                                            //
@@ -900,9 +902,11 @@ class Matcher {
     static const inline PatternPtr group_declaration_inferred = sequence({
         token(TOK_LEFT_PAREN), until_comma, until_right_paren, token(TOK_COLON_EQUAL) //
     });
-    static const inline PatternPtr declaration_without_initializer = sequence({type, token(TOK_IDENTIFIER), token(TOK_SEMICOLON)});
-    static const inline PatternPtr declaration_explicit = sequence({type, token(TOK_IDENTIFIER), token(TOK_EQUAL)});
-    static const inline PatternPtr declaration_inferred = sequence({token(TOK_IDENTIFIER), token(TOK_COLON_EQUAL)});
+    static const inline PatternPtr declaration_without_initializer = sequence({
+        decl_prefix, type, token(TOK_IDENTIFIER), token(TOK_SEMICOLON) //
+    });
+    static const inline PatternPtr declaration_explicit = sequence({decl_prefix, type, token(TOK_IDENTIFIER), token(TOK_EQUAL)});
+    static const inline PatternPtr declaration_inferred = sequence({decl_prefix, token(TOK_IDENTIFIER), token(TOK_COLON_EQUAL)});
     static const inline PatternPtr assignment = sequence({token(TOK_IDENTIFIER), token(TOK_EQUAL)});
     static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_shorthand_operator});
     static const inline PatternPtr discard_assignment = sequence({token(TOK_UNDERSCORE), token(TOK_EQUAL)});

@@ -42,19 +42,19 @@ class Trie {
         static const inline std::vector<std::pair<Pattern, verify_fn>> matchers = {
             {
                 Pattern::GROUP_DECLARATION_INFERRED,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::group_declaration_inferred); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::group_declaration_inferred); },
             },
             {
                 Pattern::DECLARATION_EXPLICIT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::declaration_explicit); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::declaration_explicit); },
             },
             {
                 Pattern::DECLARATION_INFERRED,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::declaration_inferred); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::declaration_inferred); },
             },
             {
                 Pattern::DECLARATION_WITHOUT_INITIALIZER,
-                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::declaration_without_initializer); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::declaration_without_initializer); },
             },
             {
                 Pattern::DATA_FIELD_ASSIGNMENT,
@@ -74,7 +74,7 @@ class Trie {
             },
             {
                 Pattern::GROUP_ASSIGNMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::group_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::group_assignment); },
             },
             {
                 Pattern::GROUP_ASSIGNMENT_SHORTHAND,
@@ -98,34 +98,34 @@ class Trie {
             },
             {
                 Pattern::ASSIGNMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::assignment); },
             },
             {
                 Pattern::ASSIGNMENT_SHORTHAND,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::assignment_shorthand); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::assignment_shorthand); },
             },
             {
                 Pattern::DISCARD_ASSIGNMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::discard_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::discard_assignment); },
             },
             {
                 Pattern::RETURN_STATEMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::return_statement); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::return_statement); },
             },
             {
                 Pattern::THROW_STATEMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::throw_statement); },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::throw_statement); },
             },
             {
                 Pattern::ALIASED_FUNCTION_CALL,
-                [](const token_slice &tokens) {
-                    return Matcher::tokens_contain(tokens, Matcher::aliased_function_call) //
-                        && Matcher::get_next_match_range(tokens, Matcher::aliased_function_call).value().first == 0;
-                },
+                [](const token_slice &tokens) { return Matcher::tokens_start_with(tokens, Matcher::aliased_function_call); },
             },
             {
                 Pattern::FUNCTION_CALL,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::function_call); },
+                [](const token_slice &tokens) {
+                    return Matcher::tokens_start_with(tokens, Matcher::function_call)  //
+                        || Matcher::tokens_start_with(tokens, Matcher::instance_call); //
+                },
             },
             {
                 Pattern::UNARY_OP_STATEMENT,
@@ -137,11 +137,11 @@ class Trie {
             },
             {
                 Pattern::BREAK_STATEMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::break_statement); },
+                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::break_statement); },
             },
             {
                 Pattern::CONTINUE_STATEMENT,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::continue_statement); },
+                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::continue_statement); },
             },
         };
 
