@@ -4,7 +4,7 @@
 #include "error/error.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
-#include "matcher/trie.hpp"
+#include "matcher/stmt_trie.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
@@ -2714,7 +2714,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     const token_slice &tokens,                                          //
     std::optional<std::unique_ptr<ExpressionNode>> rhs                  //
 ) {
-    const std::optional<Trie::Stmt::Pattern> pattern = Trie::Stmt::match(tokens);
+    const std::optional<StmtTrie::Pattern> pattern = StmtTrie::match(tokens);
     if (!pattern.has_value()) {
         token_list toks = clone_from_slice(tokens);
         UNREACHABLE();
@@ -2722,7 +2722,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
 
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
     switch (pattern.value()) {
-        case Trie::Stmt::Pattern::GROUP_DECLARATION_INFERRED: {
+        case StmtTrie::Pattern::GROUP_DECLARATION_INFERRED: {
             std::optional<GroupDeclarationNode> group_decl = create_group_declaration(scope, scope_segment, tokens, rhs);
             if (!group_decl.has_value()) {
                 return std::nullopt;
@@ -2730,7 +2730,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupDeclarationNode>(std::move(group_decl.value()));
             break;
         }
-        case Trie::Stmt::Pattern::DECLARATION_EXPLICIT: {
+        case StmtTrie::Pattern::DECLARATION_EXPLICIT: {
             std::optional<DeclarationNode> decl = create_declaration(scope, scope_segment, tokens, false, true, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
@@ -2738,7 +2738,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             break;
         }
-        case Trie::Stmt::Pattern::DECLARATION_INFERRED: {
+        case StmtTrie::Pattern::DECLARATION_INFERRED: {
             std::optional<DeclarationNode> decl = create_declaration(scope, scope_segment, tokens, true, true, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
@@ -2746,7 +2746,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             break;
         }
-        case Trie::Stmt::Pattern::DECLARATION_WITHOUT_INITIALIZER: {
+        case StmtTrie::Pattern::DECLARATION_WITHOUT_INITIALIZER: {
             std::optional<DeclarationNode> decl = create_declaration(scope, scope_segment, tokens, false, false, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
@@ -2754,7 +2754,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<DeclarationNode>(std::move(decl.value()));
             break;
         }
-        case Trie::Stmt::Pattern::DATA_FIELD_ASSIGNMENT: {
+        case StmtTrie::Pattern::DATA_FIELD_ASSIGNMENT: {
             std::optional<std::unique_ptr<StatementNode>> assign = create_data_field_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2762,7 +2762,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::move(assign);
             break;
         }
-        case Trie::Stmt::Pattern::DATA_FIELD_ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::DATA_FIELD_ASSIGNMENT_SHORTHAND: {
             std::optional<DataFieldAssignmentNode> assign = create_data_field_assignment_shorthand(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2770,7 +2770,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<DataFieldAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUPED_DATA_ASSIGNMENT: {
+        case StmtTrie::Pattern::GROUPED_DATA_ASSIGNMENT: {
             std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2778,7 +2778,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUPED_DATA_ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::GROUPED_DATA_ASSIGNMENT_SHORTHAND: {
             std::optional<GroupedDataFieldAssignmentNode> assign = create_grouped_data_field_assignment_shorthand(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2786,7 +2786,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupedDataFieldAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUP_ASSIGNMENT: {
+        case StmtTrie::Pattern::GROUP_ASSIGNMENT: {
             std::optional<GroupAssignmentNode> assign = create_group_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2794,7 +2794,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUP_ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::GROUP_ASSIGNMENT_SHORTHAND: {
             std::optional<GroupAssignmentNode> assign = create_group_assignment_shorthand(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2802,7 +2802,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::ARRAY_ASSIGNMENT: {
+        case StmtTrie::Pattern::ARRAY_ASSIGNMENT: {
             std::optional<ArrayAssignmentNode> assign = create_array_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2810,7 +2810,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::ARRAY_ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::ARRAY_ASSIGNMENT_SHORTHAND: {
             std::optional<ArrayAssignmentNode> assign = create_array_assignment_shorthand(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2818,7 +2818,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<ArrayAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUPED_ARRAY_ASSIGNMENT: {
+        case StmtTrie::Pattern::GROUPED_ARRAY_ASSIGNMENT: {
             std::optional<GroupedArrayAssignmentNode> assign = create_grouped_array_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2826,12 +2826,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<GroupedArrayAssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::GROUPED_ARRAY_ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::GROUPED_ARRAY_ASSIGNMENT_SHORTHAND: {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
             break;
         }
-        case Trie::Stmt::Pattern::ASSIGNMENT: {
+        case StmtTrie::Pattern::ASSIGNMENT: {
             std::optional<AssignmentNode> assign = create_assignment(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2839,7 +2839,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::ASSIGNMENT_SHORTHAND: {
+        case StmtTrie::Pattern::ASSIGNMENT_SHORTHAND: {
             std::optional<AssignmentNode> assign = create_assignment_shorthand(scope, tokens, rhs);
             if (!assign.has_value()) {
                 return std::nullopt;
@@ -2847,7 +2847,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<AssignmentNode>(std::move(assign.value()));
             break;
         }
-        case Trie::Stmt::Pattern::DISCARD_ASSIGNMENT: {
+        case StmtTrie::Pattern::DISCARD_ASSIGNMENT: {
             const token_slice rhs_tokens = {tokens.first + 2, tokens.second};
             auto rhs_expr = create_expression(_ctx_, scope, rhs_tokens);
             if (!rhs_expr.has_value()) {
@@ -2856,7 +2856,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<AssignmentNode>(file_hash, tokens, rhs_expr.value()->type, "_", rhs_expr.value());
             break;
         }
-        case Trie::Stmt::Pattern::RETURN_STATEMENT: {
+        case StmtTrie::Pattern::RETURN: {
             std::optional<ReturnNode> return_node = create_return(scope, tokens, std::move(rhs));
             if (!return_node.has_value()) {
                 return std::nullopt;
@@ -2864,7 +2864,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
             break;
         }
-        case Trie::Stmt::Pattern::THROW_STATEMENT: {
+        case StmtTrie::Pattern::THROW: {
             std::optional<ThrowNode> throw_node = create_throw(scope, tokens);
             if (!throw_node.has_value()) {
                 return std::nullopt;
@@ -2872,7 +2872,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<ThrowNode>(std::move(throw_node.value()));
             break;
         }
-        case Trie::Stmt::Pattern::ALIASED_FUNCTION_CALL: {
+        case StmtTrie::Pattern::ALIASED_FUNCTION_CALL: {
             // Only check for an aliased function call if the aliased function call is at the start of this statement (to prevent it being
             // recognized in the expressions of this statement, for example a aliased function call / variant tag initializer / func
             // component call within a call)
@@ -2912,11 +2912,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             }
             break;
         }
-        case Trie::Stmt::Pattern::FUNCTION_CALL: {
+        case StmtTrie::Pattern::FUNCTION_CALL: {
             statement_node = create_call_statement(scope, tokens, std::nullopt);
             break;
         }
-        case Trie::Stmt::Pattern::UNARY_OP_STATEMENT: {
+        case StmtTrie::Pattern::UNARY_OP: {
             std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(scope, tokens);
             if (!unary_op.has_value()) {
                 return std::nullopt;
@@ -2924,11 +2924,11 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
             break;
         }
-        case Trie::Stmt::Pattern::BREAK_STATEMENT: {
+        case StmtTrie::Pattern::BREAK: {
             statement_node = std::make_unique<BreakNode>(file_hash, tokens);
             break;
         }
-        case Trie::Stmt::Pattern::CONTINUE_STATEMENT: {
+        case StmtTrie::Pattern::CONTINUE: {
             statement_node = std::make_unique<ContinueNode>(file_hash, tokens);
             break;
         }
