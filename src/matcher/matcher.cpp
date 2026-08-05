@@ -198,6 +198,9 @@ bool Matcher::tokens_start_with(const token_slice &tokens, const PatternPtr &pat
 
 bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &pattern) {
     PROFILE_CUMULATIVE("Matcher::tokens_end_with");
+    if (tokens.first == tokens.second) {
+        return false;
+    }
     for (auto start = tokens.second - 1; start != tokens.first; --start) {
         auto match = pattern->match({start, tokens.second}, 0);
         if (match.has_value()) {
@@ -209,6 +212,9 @@ bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &patte
 
 bool Matcher::tokens_end_with_continuous(const token_slice &tokens, const PatternPtr &pattern, const PatternPtr &separator) {
     PROFILE_CUMULATIVE("Matcher::tokens_end_with_continuous");
+    if (tokens.first == tokens.second) {
+        return false;
+    }
     for (auto start = tokens.second - 1; start != tokens.first; --start) {
         auto match = pattern->match({start, tokens.second}, 0);
         if (!match.has_value()) {

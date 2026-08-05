@@ -7,8 +7,8 @@
 #include "matcher/balanced_until_matcher.hpp"
 #include "matcher/balanced_valid_until_matcher.hpp"
 #include "matcher/lookahead_matcher.hpp"
+#include "matcher/lookbehind_matcher.hpp"
 #include "matcher/not_matcher.hpp"
-#include "matcher/not_preceded_by_matcher.hpp"
 #include "matcher/repetition_matcher.hpp"
 #include "matcher/sequence_matcher.hpp"
 #include "matcher/token_pattern_matcher.hpp"
@@ -497,8 +497,24 @@ class Matcher {
         return std::make_shared<LookaheadMatcher<true>>(pattern);
     }
 
-    static inline PatternPtr not_preceded_by(Token preceding_token, PatternPtr pattern) {
-        return std::make_shared<NotPrecededByMatcher>(preceding_token, pattern);
+    /// @function `not_preceded_by`
+    /// @brief Returns the pattern to not be preceded by the given pattern
+    ///
+    /// @param `pattern` The pattern that should not preced
+    /// @param `matcher` The pattern that should actually be matched
+    /// @return `PatternPtr` The created pattern
+    static inline PatternPtr not_preceded_by(PatternPtr pattern, PatternPtr matcher) {
+        return std::make_shared<LookbehindMatcher<false>>(pattern, matcher);
+    }
+
+    /// @function `preceded_by`
+    /// @brief Returns the pattern to be preceded by the given pattern
+    ///
+    /// @param `pattern` The pattern that should preced
+    /// @param `matcher` The pattern that should actually be matched
+    /// @return `PatternPtr` The created pattern
+    static inline PatternPtr preceded_by(PatternPtr pattern, PatternPtr matcher) {
+        return std::make_shared<LookbehindMatcher<true>>(pattern, matcher);
     }
 
     /// @function `not_p`
@@ -919,11 +935,11 @@ class Matcher {
     static const inline PatternPtr assignment = sequence({token(TOK_IDENTIFIER), token(TOK_EQUAL)});
     static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_shorthand_operator});
     static const inline PatternPtr discard_assignment = sequence({token(TOK_UNDERSCORE), token(TOK_EQUAL)});
-    static const inline PatternPtr group_assignment = not_preceded_by(TOK_DOT, //
-        sequence({token(TOK_LEFT_PAREN), until_right_paren, token(TOK_EQUAL)}) //
+    static const inline PatternPtr group_assignment = not_preceded_by(token(TOK_DOT), //
+        sequence({token(TOK_LEFT_PAREN), until_right_paren, token(TOK_EQUAL)})        //
     );
-    static const inline PatternPtr group_assignment_shorthand = not_preceded_by(TOK_DOT,    //
-        sequence({token(TOK_LEFT_PAREN), until_right_paren, assignment_shorthand_operator}) //
+    static const inline PatternPtr group_assignment_shorthand = not_preceded_by(token(TOK_DOT), //
+        sequence({token(TOK_LEFT_PAREN), until_right_paren, assignment_shorthand_operator})     //
     );
     static const inline PatternPtr data_field_assignment = sequence({data_access, token(TOK_EQUAL)});
     static const inline PatternPtr data_field_assignment_shorthand = sequence({data_access, assignment_shorthand_operator});
