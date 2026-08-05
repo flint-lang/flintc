@@ -6,7 +6,7 @@
 #include "matcher/balanced_matcher.hpp"
 #include "matcher/balanced_until_matcher.hpp"
 #include "matcher/balanced_valid_until_matcher.hpp"
-#include "matcher/negative_lookahead_matcher.hpp"
+#include "matcher/lookahead_matcher.hpp"
 #include "matcher/not_matcher.hpp"
 #include "matcher/not_preceded_by_matcher.hpp"
 #include "matcher/repetition_matcher.hpp"
@@ -485,7 +485,16 @@ class Matcher {
     /// @param `pattern` The pattern that should not follow
     /// @return `PatternPtr` The created pattern
     static inline PatternPtr not_followed_by(PatternPtr pattern) {
-        return std::make_shared<NegativeLookaheadMatcher>(pattern);
+        return std::make_shared<LookaheadMatcher<false>>(pattern);
+    }
+
+    /// @function `followed_by`
+    /// @brief Returns the pattern to be followed by the given pattern
+    ///
+    /// @param `pattern` The pattern that should follow
+    /// @return `PatternPtr` The created pattern
+    static inline PatternPtr followed_by(PatternPtr pattern) {
+        return std::make_shared<LookaheadMatcher<true>>(pattern);
     }
 
     static inline PatternPtr not_preceded_by(Token preceding_token, PatternPtr pattern) {
