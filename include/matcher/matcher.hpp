@@ -880,10 +880,12 @@ class Matcher {
     });
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});
-    static const inline PatternPtr data_access = sequence({
-        token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
-        not_followed_by(token(TOK_LEFT_PAREN))                                                                //
-    });
+    static const inline PatternPtr data_access = not_preceded_by(one_of({token(TOK_TYPE), token(TOK_ERROR), token(TOK_QUESTION)}),
+        sequence({
+            token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
+            not_followed_by(token(TOK_LEFT_PAREN))                                                                //
+        })                                                                                                        //
+    );
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
         type,
