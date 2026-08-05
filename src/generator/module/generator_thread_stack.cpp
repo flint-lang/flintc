@@ -1,7 +1,5 @@
 #include "generator/generator.hpp"
 
-static const std::string prefix = "flint.ts.";
-
 /*
  * These are all the structures the thread stack itself "provides":
  *     struct thread_stack_t;

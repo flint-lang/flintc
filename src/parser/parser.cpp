@@ -25,6 +25,8 @@
 #include <string>
 #include <utility>
 
+std::vector<Parser> Parser::instances;
+
 void Parser::init_core_modules() {
     for (const auto &[module_name_view, overload_list] : core_module_functions) {
         const std::string module_name(module_name_view);

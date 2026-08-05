@@ -218,7 +218,7 @@ fn buildFLS(
             "src/resolver.cpp",
         },
         .flags = &[_][]const u8{
-            "-std=c++17",                   // Set C++ standard to C++17
+            "-std=c++20",                   // Set C++ standard to C++20
             "-Werror",                      // Treat warnings as errors
             "-Wall",                        // Enable most warnings
             "-Wextra",                      // Enable extra warnings
@@ -327,7 +327,7 @@ fn buildFlintc(
         .root = b.path("src"),
         .files = cpp_files.items,
         .flags = &[_][]const u8{
-            "-std=c++17",                   // Set C++ standard to C++17
+            "-std=c++20",                   // Set C++ standard to C++20
             "-Werror",                      // Treat warnings as errors
             "-Wall",                        // Enable most warnings
             "-Wextra",                      // Enable extra warnings

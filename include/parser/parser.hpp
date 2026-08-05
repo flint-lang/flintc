@@ -321,7 +321,10 @@ class Parser {
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system
-    static inline std::vector<Parser> instances;
+    ///
+    /// @note This is a plain (non-inline) static member because it references the incomplete `Parser` type, which C++20 does not allow
+    /// inside the class body. It is defined out-of-line in `parser.cpp`.
+    static std::vector<Parser> instances;
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list
