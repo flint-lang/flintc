@@ -22,26 +22,52 @@ template <typename P>
 concept EnumClassPattern = std::is_enum_v<P> && //
     !std::is_convertible_v<P, std::underlying_type_t<P>>;
 
+/// @enum `TrieAffinity`
+/// @brief Describes in which direction of a bidirectional trie a pattern prefers to be matched and recorded
+enum class TrieAffinity { FORWARD, BACKWARD };
+
 /// @class `Trie`
 /// @brief This class is an abstraction over the `Matcher` class. It essentially caches high-frequency patterns at runtime and based on
 /// their frequency chooses different patterns based on the first couple of tokens to match. This (hopefully) makes parsing a lot faster
 /// since less time is spent in the matching functions. The matching functions like `Matcher::tokens_contain` are called hundreds of
-/// thousand times and this entire class is an effor to reduce the number of those calls through caching.
+/// thousand times and this entire class is an effort to reduce the number of those calls through caching.
+///
+/// The trie has a single root which holds both a forward and a backward trie, both of which build up dynamically. Every match walks
+/// both directions to their deepest node and the direction which went deeper holds the more specific patterns, so its candidates are
+/// checked first. When a pattern is only found through the cold path, branches are added along the still-unwalked tokens of the
+/// pattern's affinity direction. The root's candidate list is kept in global frequency order and doubles as the cold-path scan order.
 ///
 /// @info The trie is meant to be extended via CRTP: `class MyTrie : public Trie<MyTrie>`. The deriving class has to define:
 /// - a nested `enum class Pattern` holding every pattern it wants to match
-/// - a static `matchers` map from each pattern to its verifying
-/// - a static `init(Node<Pattern> &)` which seeds the root with the trie's pattern range by calling `init_root`, for example
-///     static void init(Trie<MyTrie>::Node<Pattern> &root) {
-///         Trie<MyTrie>::Node<Pattern>::init_root(root, Pattern::FIRST_PATTERN_ENUM, Pattern::LAST_PATTERN_ENUM);
+/// - a static `matchers` map from each pattern to its `PatternInfo` (a verifying function plus its trie affinity)
+/// - a static `init(RootNode<Pattern> &)` which seeds the root with the trie's pattern range by calling `RootNode::init`, for example
+///     static void init(Trie<MyTrie>::RootNode<Pattern> &root) {
+///         Trie<MyTrie>::RootNode<Pattern>::init(root, Pattern::FIRST_PATTERN_ENUM, Pattern::LAST_PATTERN_ENUM);
 ///     }
-template <typename Derived> class Trie {
+template <typename Derived, unsigned int Depth = 3> class Trie {
   public:
+    /// @typedef `verify_fn`
+    /// @brief The signature of a pattern's verifying function
     using verify_fn = std::function<bool(const token_slice &)>;
 
-    /// @var `MAX_BRANCH_DEPTH`
-    /// @brief Absolute cap on how deep a chain of branch nodes may grow below the root
-    static constexpr unsigned int MAX_BRANCH_DEPTH = 3;
+    /// @struct `PatternInfo`
+    /// @brief Bundles the verifying function of a pattern with the routing hint which decides in which side of the trie the pattern is
+    /// added and recorded
+    struct PatternInfo {
+        /// @var `affinity`
+        /// @brief The side of the trie in which the pattern prefers to be matched and recorded
+        TrieAffinity affinity;
+
+        /// @var `verify`
+        /// @brief Verifies whether the given token slice matches this pattern
+        verify_fn verify;
+    };
+
+    /// @typedef `matchers_map`
+    /// @brief The map type used by the deriving class to register its patterns
+    template <typename Pattern>
+        requires EnumClassPattern<Pattern>
+    using matchers_map = std::unordered_map<Pattern, PatternInfo>;
 
     /// @struct `Candidate`
     /// @brief A single candidate of a trie node. Its success-count drives the self-organizing order of the flat candidate list
@@ -60,6 +86,11 @@ template <typename Derived> class Trie {
             pattern(p),
             count(c) {}
     };
+
+    /// Forward-declaration of the node struct
+    template <typename Pattern>
+        requires EnumClassPattern<Pattern>
+    struct RootNode;
 
     /// @struct `Node`
     /// @brief A single node in the trie
@@ -101,215 +132,232 @@ template <typename Derived> class Trie {
         /// approach the number of `match_calls`
         static inline std::atomic<uint64_t> cold_pattern_match_calls = 0;
 
-        /// @function `init_root`
-        /// @brief Initializes the root node to contain every candidate in the inclusive range [`start`, `end`] with a hit count of 0
-        ///
-        /// @param `root` The root node to initialize
-        /// @param `start` The first pattern to seed the root with (inclusive)
-        /// @param `end` The last pattern to seed the root with (inclusive)
-        static void init_root(Node<Pattern> &root, const Pattern start, const Pattern end) {
-            static std::once_flag initialized = {};
-            std::call_once(initialized, [&]() {
-                const std::unique_lock<std::shared_mutex> lock(root.mutex);
-                for (                                      //
-                    size_t i = static_cast<size_t>(start); //
-                    i <= static_cast<size_t>(end);         //
-                    i++                                    //
-                ) {
-                    const Pattern p = static_cast<Pattern>(i);
-                    root.candidates.push_back(std::make_unique<Candidate<Pattern>>(p, 0));
-                }
-            });
-        }
-
-        /// @struct `WalkResult`
-        /// @brief The result of a trie walk: the deepest reachable node and the cursor position at which the walk stopped
-        struct WalkResult {
-            Node<Pattern> *deepest;
-            token_list::iterator cursor;
-        };
-
-        /// @function `walk`
-        /// @brief Follows the branches of the trie based on the leading tokens of the given slice. Stops as soon as a branch is
-        /// missing for the current token or the token list is exhausted.
-        ///
-        /// @param `root` The root node of the trie from wich we start searching
-        /// @param `tokens` The tokens whose leading tokens we use to branch the trie
-        /// @return `WalkResult` The deepest reachable node and the cursor position at which the walk stopped
-        static WalkResult walk(Node<Pattern> &root, const token_slice &tokens) {
-            PROFILE_CUMULATIVE("Trie::walk");
-            Node<Pattern> *node = &root;
-            token_list::iterator cursor = tokens.first;
-            while (cursor != tokens.second) {
-                std::shared_lock<std::shared_mutex> lock(node->mutex);
-                const auto branch = node->branches.find(cursor->token);
-                if (branch == node->branches.end()) {
-                    break;
-                }
-                node = branch->second.get();
-                ++cursor;
-            }
-            return WalkResult{node, cursor};
-        }
-
-        /// @function `find_candidate`
-        /// @brief Finds the candidate with the given pattern in the candidates list of the given node
-        ///
-        /// @param `node` The node in which to look for the candidate
-        /// @param `pattern` The pattern of the candidate which is being searched for
-        /// @return `Candidate<Pattern> *` The candidate with the given pattern, nullptr if it is not present
-        ///
-        /// @note The caller must hold the node's mutex (shared or exclusive) when calling this function
-        static Candidate<Pattern> *find_candidate(Node<Pattern> *const node, const Pattern pattern) {
-            PROFILE_CUMULATIVE("Trie::find_candidate");
-            for (const auto &candidate : node->candidates) {
-                if (candidate->pattern == pattern) {
-                    return candidate.get();
-                }
-            }
-            return nullptr;
-        }
-
         /// @function `insert_candidate`
         /// @brief Inserts a new candidate into the candidates list if that candidate is not present in it yet
         ///
         /// @param `node` The node in which the candidate is inserted into
         /// @param `pattern` The pattern of the candidate which is being inserted
-        /// @return `std::pair<bool Candidate<Pattern> *>` Whether the pattern was already present in the node (true) + the just-inserted
-        /// pattern candidate, or the already-present candidate
-        static std::pair<bool, Candidate<Pattern> *> insert_candidate(Node<Pattern> *const node, const Pattern pattern) {
-            PROFILE_CUMULATIVE("Trie::insert_candidate");
-            Candidate<Pattern> *candidate = Node<Pattern>::find_candidate(node, pattern);
-            if (candidate != nullptr) {
-                return {true, candidate};
+        ///
+        /// @note The caller must hold the node's mutex (shared or exclusive) when calling this function
+        static void insert_candidate(Node<Pattern> *const node, const Pattern pattern) {
+            for (const auto &candidate : node->candidates) {
+                if (candidate->pattern == pattern) {
+                    return;
+                }
             }
             node->candidates.push_back(std::make_unique<Candidate<Pattern>>(pattern, 1));
-            return {false, node->candidates.back().get()};
         }
 
-        /// @function `increment_candidate_in`
-        /// @brief Increements the hit count of a given pattern in the given noode and re-orders the candidates
-        static void increment_candidate_in(Node<Pattern> *const node, const Pattern pattern) {
-            PROFILE_CUMULATIVE("Trie::increment_candidate_in");
-            const std::unique_lock<std::shared_mutex> lock(node->mutex);
-            const auto &candidate = Node<Pattern>::insert_candidate(node, pattern);
-            if (candidate.first) {
-                candidate.second->count.fetch_add(1, std::memory_order_relaxed);
-            }
-            Node<Pattern>::bubble_up(node, candidate.second);
-        }
-
-        /// @function `increment_candidates`
-        /// @brief Increments the hit count of the given pattern in the root and the deepest node at which it was matched, and
-        /// re-orders the candidates of each based on the updated counts. This keeps the candidate lists frequency-ordered, so hits
-        /// land on the first candidate. The root's candidates additionally serve as the globally frequency-ordered full-scan order
-        /// used by cold paths.
+        /// @function `record_hit`
+        /// @brief Records a hit for the given pattern in the given node: increments its count, or inserts it with a count of 1 if it
+        /// is not a candidate yet, and bubbles it towards the front of the candidate list as long as it outranks its predecessor. This
+        /// keeps every node's candidate list frequency-ordered, so the most frequently matched pattern is always tried first.
         ///
-        /// @param `root` The root node of the trie
-        /// @param `node` The deepest node at which the pattern was matched
+        /// @param `node` The node in which the hit is recorded
         /// @param `pattern` The pattern which was matched
-        static void increment_candidates(Node<Pattern> &root, Node<Pattern> *const node, const Pattern pattern) {
-            PROFILE_CUMULATIVE("Trie::increment_candidates");
-            increment_candidate_in(&root, pattern);
-            increment_candidate_in(node, pattern);
-        }
-
-        /// @function `bubble_up`
-        /// @brief Re-orders the candidate vector of the given node if the given candidates match count has surpassed its leading candidate.
-        /// Bubbles up the given candidate as long as it surpasses the match counts of the other candidates.
-        ///
-        /// @param `node` The node in which to potentially reorder the candidates
-        /// @param `candidate` The candidate which may have surpassed the other candidates
-        ///
-        /// @note The caller must hold the node's exclusive mutex when calling this function
-        static void bubble_up(Node<Pattern> *const node, Candidate<Pattern> *const candidate) {
-            PROFILE_CUMULATIVE("Trie::bubble_up");
-            std::size_t index = node->candidates.size();
-            for (std::size_t i = 0; i < node->candidates.size(); ++i) {
-                if (node->candidates[i].get() == candidate) {
-                    index = i;
+        static void record_hit(Node<Pattern> *const node, const Pattern pattern) {
+            const std::unique_lock<std::shared_mutex> lock(node->mutex);
+            std::size_t index = 0;
+            for (; index < node->candidates.size(); ++index) {
+                if (node->candidates[index]->pattern == pattern) {
                     break;
                 }
             }
-            ASSERT(index < node->candidates.size());
-            if (index == 0) {
-                return;
+            if (index == node->candidates.size()) {
+                node->candidates.push_back(std::make_unique<Candidate<Pattern>>(pattern, 1));
+            } else {
+                node->candidates[index]->count.fetch_add(1, std::memory_order_relaxed);
             }
-            const uint64_t count = candidate->count.load(std::memory_order_relaxed);
+            const uint64_t count = node->candidates[index]->count.load(std::memory_order_relaxed);
             while (index > 0 && count > node->candidates[index - 1]->count.load(std::memory_order_relaxed)) {
                 std::swap(node->candidates[index], node->candidates[index - 1]);
                 --index;
             }
         }
 
+        /// @function `check_hot_candidates`
+        /// @brief Tries the candidates at the deepest reachable node of a walk. Since every node stores the hit counts of
+        /// every pattern which has ever been matched at it, the most frequently matched pattern is always tried first.
+        ///
+        /// @param `root` The root node of the trie
+        /// @param `node` The deepest node of the walk whose candidates are checked
+        /// @param `matchers` The map of all pattern matching functions
+        /// @param `tokens` The tokens to find a matching pattern for
+        /// @return `std::optional<Pattern>` The matching pattern, nullopt if none of the node's candidates matched
+        static std::optional<Pattern> check_hot_candidates( //
+            RootNode<Pattern> &root,                        //
+            Node<Pattern> *const node,                      //
+            const matchers_map<Pattern> &matchers,          //
+            const token_slice &tokens                       //
+        ) {
+            if (node == nullptr || node == &root) {
+                return std::nullopt;
+            }
+            std::shared_lock<std::shared_mutex> lock(node->mutex);
+            for (const auto &candidate : node->candidates) {
+                hot_pattern_match_calls.fetch_add(1, std::memory_order_relaxed);
+                if (!matchers.find(candidate->pattern)->second.verify(tokens)) {
+                    continue;
+                }
+                const Pattern hit_pattern = candidate->pattern;
+                lock.unlock();
+                hot_hits.fetch_add(1, std::memory_order_relaxed);
+                record_hit(&root, hit_pattern);
+                record_hit(node, hit_pattern);
+                return hit_pattern;
+            }
+            return std::nullopt;
+        }
+
+        /// @function `scan_cold`
+        /// @brief Cold phase: iterates the root's globally frequency-ordered candidate list and returns the first pattern which
+        /// verifies. Since the root is seeded with every pattern at startup and each hit re-orders the list by frequency, the most
+        /// common pattern is always tried first.
+        ///
+        /// @param `root` The root node of the trie whose candidate list is scanned
+        /// @param `matchers` The map of all pattern matching functions
+        /// @param `tokens` The tokens to find a matching pattern for
+        /// @return `std::optional<Pattern>` The matching pattern, nullopt if none of the candidates matched
+        static std::optional<Pattern> scan_cold(   //
+            Node<Pattern> &root,                   //
+            const matchers_map<Pattern> &matchers, //
+            const token_slice &tokens              //
+        ) {
+            PROFILE_CUMULATIVE("Trie::scan_cold");
+            std::shared_lock<std::shared_mutex> lock(root.mutex);
+            for (const auto &candidate : root.candidates) {
+                cold_pattern_match_calls.fetch_add(1, std::memory_order_relaxed);
+                if (!matchers.at(candidate->pattern).verify(tokens)) {
+                    continue;
+                }
+                return candidate->pattern;
+            }
+            return std::nullopt;
+        }
+
         /// @function `match`
         /// @brief Identifies a matching pattern using the given `matchers` map and returns the pattern which matches the tokens, if a
         /// matching pattern was able to be found.
         ///
-        /// @param `root` The root of the trie to search through
+        /// @param `root` The root node of the trie, holding both the forward and the backward trie
         /// @param `matchers` The map of all pattern matching functions
         /// @param `tokens` The tokens to find a matching pattern for
         /// @return `std::optional<Pattern>` The matching pattern, nullopt if no pattern could be found
-        static std::optional<Pattern> match(                        //
-            Node<Pattern> &root,                                    //
-            const std::unordered_map<Pattern, verify_fn> &matchers, //
-            const token_slice &tokens                               //
+        static std::optional<Pattern> match(       //
+            RootNode<Pattern> &root,               //
+            const matchers_map<Pattern> &matchers, //
+            const token_slice &tokens              //
         ) {
             PROFILE_CUMULATIVE("Trie::match");
             match_calls.fetch_add(1, std::memory_order_relaxed);
-            const WalkResult result = Node<Pattern>::walk(root, tokens);
-            Node<Pattern> *node = result.deepest;
-            const bool at_root = (node == &root);
 
-            // Try the candidates at the deepest reachable node. Since every node stores the hit counts of every pattern which has
-            // ever been matched at it, the most frequently matched pattern is always tried first.
-            if (!at_root) {
-                std::shared_lock<std::shared_mutex> lock(node->mutex);
-                for (const auto &candidate : node->candidates) {
-                    hot_pattern_match_calls.fetch_add(1, std::memory_order_relaxed);
-                    if (!matchers.at(candidate->pattern)(tokens)) {
-                        continue;
-                    }
-                    const Pattern hit_pattern = candidate->pattern;
-                    lock.unlock();
-                    hot_hits.fetch_add(1, std::memory_order_relaxed);
-                    Node<Pattern>::increment_candidates(root, node, hit_pattern);
-                    return hit_pattern;
-                }
-            }
-
-            // Iterate the root's candidate list. Every pattern is seeded there (hit count 0) at startup and the list is globally
-            // frequency-ordered, so it doubles as the full-scan order for non-root misses and as the candidate check for root-stops.
-            std::optional<Pattern> scan_hit = std::nullopt;
-            {
-                std::shared_lock<std::shared_mutex> scan_lock(root.mutex);
-                for (const auto &candidate : root.candidates) {
-                    cold_pattern_match_calls.fetch_add(1, std::memory_order_relaxed);
-                    if (matchers.at(candidate->pattern)(tokens)) {
-                        scan_hit = candidate->pattern;
+            size_t forward_depth = 0;
+            Node<Pattern> *forward_node = nullptr;
+            const auto forward_branch = root.branches.find(tokens.first->token);
+            if (forward_branch != root.branches.end()) {
+                forward_node = forward_branch->second.get();
+                forward_depth++;
+                for (; forward_depth < Depth; forward_depth++) {
+                    const auto &next_tok = tokens.first + forward_depth;
+                    if (next_tok == tokens.second) {
                         break;
                     }
+                    const auto branch = forward_node->branches.find(next_tok->token);
+                    if (branch == forward_node->branches.end()) {
+                        break;
+                    }
+                    forward_node = branch->second.get();
                 }
             }
+            size_t backward_depth = 0;
+            Node<Pattern> *backward_node = nullptr;
+            const auto backward_branch = root.back_branches.find(std::prev(tokens.second)->token);
+            if (backward_branch != root.back_branches.end()) {
+                backward_node = backward_branch->second.get();
+                backward_depth++;
+                for (; backward_depth < Depth; backward_depth++) {
+                    const auto &next_tok = tokens.second - backward_depth;
+                    if (next_tok == tokens.first) {
+                        break;
+                    }
+                    const auto branch = backward_node->branches.find(std::prev(next_tok)->token);
+                    if (branch == backward_node->branches.end()) {
+                        break;
+                    }
+                    backward_node = branch->second.get();
+                }
+            }
+
+            // The direction which went deeper holds the more specific patterns, so its deepest node is checked first. A side which stopped
+            // at the root has no specific patterns to offer and is skipped. If both reached equally far, forward depth is favoured.
+            const bool forward_first = forward_depth >= backward_depth;
+            Node<Pattern> *const first_node = forward_first ? forward_node : backward_node;
+            Node<Pattern> *const second_node = forward_first ? backward_node : forward_node;
+            if (const auto hit = check_hot_candidates(root, first_node, matchers, tokens)) {
+                return hit;
+            }
+            if (const auto hit = check_hot_candidates(root, second_node, matchers, tokens)) {
+                return hit;
+            }
+
+            // Cold phase: iterate the root's candidate list. Every pattern is seeded there (hit count 0) at startup and the list is
+            // globally frequency-ordered, so it doubles as the full-scan order for non-root misses and as the candidate check for
+            // root-stops.
+            const std::optional<Pattern> scan_hit = scan_cold(root, matchers, tokens);
             if (!scan_hit.has_value()) {
                 return std::nullopt;
             }
             const Pattern pattern = scan_hit.value();
-            std::vector<Node<Pattern> *> new_nodes;
-            token_list::iterator branch_cursor = result.cursor;
-            for (unsigned int created = 0; branch_cursor != tokens.second && created < Trie::MAX_BRANCH_DEPTH; ++created, ++branch_cursor) {
-                const std::unique_lock<std::shared_mutex> lock(node->mutex);
-                auto &branch = node->branches[branch_cursor->token];
-                if (!branch) {
-                    branch = std::make_unique<Node<Pattern>>();
+
+            // Build branches along the still-unwalked tokens of the direction matching the pattern's affinity and record the pattern
+            // as a candidate of every node along that path. Patterns with a `FORWARD` affinity walk the leading tokens, `BACKWARD` the
+            // trailing ones. When the walk stopped at the root itself, the build starts from the root.
+            const bool is_forward = matchers.find(pattern)->second.affinity == TrieAffinity::FORWARD;
+            Node<Pattern> *const deepest = is_forward ? forward_node : backward_node;
+            if (is_forward) {
+                // Forward build: extend the forward trie with the leading tokens the walk did not consume. Every node on the path
+                // becomes a candidate for the pattern.
+                token_list::iterator branch_cursor = tokens.first + forward_depth;
+                Node<Pattern> *build_node = forward_node != nullptr ? forward_node : &root;
+                for (unsigned int created = 0; branch_cursor != tokens.second && created < Depth; ++created, ++branch_cursor) {
+                    {
+                        const std::unique_lock<std::shared_mutex> lock(build_node->mutex);
+                        auto &branch = build_node->branches[branch_cursor->token];
+                        if (!branch) {
+                            branch = std::make_unique<Node<Pattern>>();
+                        }
+                        build_node = branch.get();
+                    }
+                    const std::unique_lock<std::shared_mutex> lock(build_node->mutex);
+                    Node<Pattern>::insert_candidate(build_node, pattern);
                 }
-                node = branch.get();
-                new_nodes.push_back(node);
+            } else {
+                // Backward build: extend the backward trie with the trailing tokens the walk did not consume, walking backwards from
+                // the first unconsumed token. Every node on the path becomes a candidate for the pattern.
+                token_list::iterator branch_cursor = tokens.second - backward_depth;
+                Node<Pattern> *build_node = backward_node != nullptr ? backward_node : &root;
+                for (unsigned int created = 0; branch_cursor != tokens.first && created < Depth; ++created) {
+                    --branch_cursor;
+                    {
+                        const std::unique_lock<std::shared_mutex> lock(build_node->mutex);
+                        auto &branch =
+                            (build_node == &root) ? root.back_branches[branch_cursor->token] : build_node->branches[branch_cursor->token];
+                        if (!branch) {
+                            branch = std::make_unique<Node<Pattern>>();
+                        }
+                        build_node = branch.get();
+                    }
+                    const std::unique_lock<std::shared_mutex> lock(build_node->mutex);
+                    Node<Pattern>::insert_candidate(build_node, pattern);
+                }
             }
 
-            for (Node<Pattern> *const new_node : new_nodes) {
-                const std::unique_lock<std::shared_mutex> lock(new_node->mutex);
-                Node<Pattern>::insert_candidate(new_node, pattern);
+            // Record the pattern on the deepest node the walk reached. If the walk consumed the whole slice (a shorter expression,
+            // e.g. a bare variable, sharing trailing tokens with a longer pattern), no branches are built and the pattern would
+            // otherwise never become a candidate again, permanently condemning it to the cold scan.
+            if (deepest != nullptr && deepest != &root) {
+                const std::unique_lock<std::shared_mutex> lock(deepest->mutex);
+                Node<Pattern>::insert_candidate(deepest, pattern);
             }
             return pattern;
         }
@@ -343,14 +391,45 @@ template <typename Derived> class Trie {
         }
     };
 
-    /// @function `root`
-    /// @brief Returns the lazily-initialized root node of the trie for the given pattern type. Calls the derived class's static
-    /// `init(Node<Pattern> &)` exactly once on first access, which is responsible for seeding the root with its pattern range via
-    /// `Node<Pattern>::init_root`.
+    /// @struct `RootNode`
+    /// @brief The type of the root node of the entire trie
     template <typename Pattern>
         requires EnumClassPattern<Pattern>
-    static Node<Pattern> &root() {
-        static Node<Pattern> instance = {};
+    struct RootNode : public Node<Pattern> {
+      public:
+        /// @var `back`
+        /// @brief All the backward branches the root can branch off to
+        std::unordered_map<Token, std::unique_ptr<Node<Pattern>>> back_branches;
+
+        /// @function `init`
+        /// @brief Initializes the given root node to contain every candidate in the inclusive range [`start`, `end`] with a hit count of 0
+        ///
+        /// @note Each root accessor guards its instance with its own `std::once_flag`, so this function is invoked exactly once
+        ///
+        /// @param `root` The root node to initialize
+        /// @param `start` The first pattern to seed the root with (inclusive)
+        /// @param `end` The last pattern to seed the root with (inclusive)
+        static void init(RootNode<Pattern> &root, const Pattern start, const Pattern end) {
+            const std::unique_lock<std::shared_mutex> lock(root.mutex);
+            for (                                      //
+                size_t i = static_cast<size_t>(start); //
+                i <= static_cast<size_t>(end);         //
+                i++                                    //
+            ) {
+                const Pattern p = static_cast<Pattern>(i);
+                root.candidates.push_back(std::make_unique<Candidate<Pattern>>(p, 0));
+            }
+        }
+    };
+
+    /// @function `root`
+    /// @brief Returns the lazily-initialized root node of the trie for the given pattern type. Calls the derived class's static
+    /// `init(RootNode<Pattern> &)` exactly once on first access, which is responsible for seeding the root with its pattern range via
+    /// `RootNode<Pattern>::init`.
+    template <typename Pattern>
+        requires EnumClassPattern<Pattern>
+    static RootNode<Pattern> &root() {
+        static RootNode<Pattern> instance = {};
         static std::once_flag initialized = {};
         std::call_once(initialized, [&]() { Derived::init(instance); });
         return instance;
@@ -360,7 +439,7 @@ template <typename Derived> class Trie {
     /// @brief Matches a given token slice and returns a pattern, if a pattern was able to be found
     ///
     /// @param `tokens` The tokens to search a matching pattern for
-    /// @return `std::optional<Pattern>` The found pattern, nullopt if not pattern was able to be matched
+    /// @return `std::optional<Pattern>` The found pattern, nullopt if no pattern was able to be matched
     static auto match(const token_slice &tokens) {
         using Pattern = typename Derived::Pattern;
         return Node<Pattern>::match(root<Pattern>(), Derived::matchers, tokens);

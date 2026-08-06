@@ -372,12 +372,10 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
 
     // Substitute all types aliases
     for (auto line : lines) {
-        token_list toks = clone_from_slice(line.tokens);
         for (auto it = line.tokens.first; it != line.tokens.second; ++it) {
-            if (it->token != TOK_TYPE) {
-                continue;
+            if (it->token == TOK_TYPE) {
+                substitute_type_aliases(it->type);
             }
-            substitute_type_aliases(it->type);
         }
     }
 }
