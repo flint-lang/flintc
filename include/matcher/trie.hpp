@@ -187,6 +187,18 @@ template <typename Derived> class Trie {
             return {false, node->candidates.back().get()};
         }
 
+        /// @function `increment_candidate_in`
+        /// @brief Increements the hit count of a given pattern in the given noode and re-orders the candidates
+        static void increment_candidate_in(Node<Pattern> *const node, const Pattern pattern) {
+            PROFILE_CUMULATIVE("Trie::increment_candidate_in");
+            const std::unique_lock<std::shared_mutex> lock(node->mutex);
+            const auto &candidate = Node<Pattern>::insert_candidate(node, pattern);
+            if (candidate.first) {
+                candidate.second->count.fetch_add(1, std::memory_order_relaxed);
+            }
+            Node<Pattern>::bubble_up(node, candidate.second);
+        }
+
         /// @function `increment_candidates`
         /// @brief Increments the hit count of the given pattern in the root and the deepest node at which it was matched, and
         /// re-orders the candidates of each based on the updated counts. This keeps the candidate lists frequency-ordered, so hits
@@ -198,23 +210,8 @@ template <typename Derived> class Trie {
         /// @param `pattern` The pattern which was matched
         static void increment_candidates(Node<Pattern> &root, Node<Pattern> *const node, const Pattern pattern) {
             PROFILE_CUMULATIVE("Trie::increment_candidates");
-            {
-                const std::unique_lock<std::shared_mutex> lock(root.mutex);
-                const auto &candidate = Node<Pattern>::insert_candidate(&root, pattern);
-                if (candidate.first) {
-                    candidate.second->count.fetch_add(1, std::memory_order_relaxed);
-                }
-                Node<Pattern>::bubble_up(&root, candidate.second);
-            }
-
-            {
-                const std::unique_lock<std::shared_mutex> lock(node->mutex);
-                const auto &candidate = Node<Pattern>::insert_candidate(node, pattern);
-                if (candidate.first) {
-                    candidate.second->count.fetch_add(1, std::memory_order_relaxed);
-                }
-                Node<Pattern>::bubble_up(node, candidate.second);
-            }
+            increment_candidate_in(&root, pattern);
+            increment_candidate_in(node, pattern);
         }
 
         /// @function `bubble_up`
@@ -320,7 +317,9 @@ template <typename Derived> class Trie {
         /// @function `print_hit_rates`
         /// @brief Prints the trie hit-rate statistics: the number of match calls, the number of matches which were satisfied by a
         /// trie node's candidate list (hot path), and the resulting hit-rate percentage
-        static void print_hit_rates() {
+        ///
+        /// @param `name` The name of the trie type
+        static void print_hit_rates(const std::string &name) {
             if (!DEBUG_MODE) {
                 return;
             }
@@ -333,7 +332,7 @@ template <typename Derived> class Trie {
             const double hot_match_rate = (calls == 0) ? 0.0 : (static_cast<double>(hot_matches)) / static_cast<double>(calls);
             const double total_match_rate = (calls == 0) ? 0.0 : (static_cast<double>(matches)) / static_cast<double>(calls);
             const std::ios::fmtflags flags = std::cout.flags();
-            std::cout << YELLOW << "[Debug Info] Trie performance\n"
+            std::cout << YELLOW << "[Debug Info] " << name << " Trie performance\n"
                       << DEFAULT << "-- Total match calls: " << calls << "\n"
                       << "-- Total hot matches: " << hits << "\n"
                       << "-- Hit rate: " << std::fixed << std::setprecision(2) << hit_rate << "%\n"
@@ -369,9 +368,11 @@ template <typename Derived> class Trie {
 
     /// @function `print_hit_rates`
     /// @brief Prints the trie hit-rate statistics
-    static void print_hit_rates() {
+    ///
+    /// @param `name` The name of the trie type
+    static void print_hit_rates(const std::string &name) {
         using Pattern = typename Derived::Pattern;
-        Node<Pattern>::print_hit_rates();
+        Node<Pattern>::print_hit_rates(name);
     }
 
   public:

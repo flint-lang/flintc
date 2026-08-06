@@ -6,6 +6,7 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "linearizer/linearizer.hpp"
+#include "matcher/expr_trie.hpp"
 #include "matcher/stmt_trie.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -290,7 +291,8 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
                   << "-- Tokens per second parsing speed: " << ((token_count * 1000000) / parse_duration.count()) << " Tok/s\n"
                   << std::endl;
 
-        StmtTrie::print_hit_rates();
+        StmtTrie::print_hit_rates("Statement");
+        ExprTrie::print_hit_rates("Expression");
     }
     return dep_graph;
 }

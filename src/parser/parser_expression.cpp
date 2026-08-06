@@ -3,6 +3,7 @@
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
+#include "matcher/expr_trie.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ap_float.hpp"
 #include "parser/parser.hpp"
@@ -2068,18 +2069,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         remove_surrounding_paren(tokens_mut);
     }
 
-    // Try to parse primary expressions first (literal, variables)
-    size_t token_size = get_slice_size(tokens_mut);
-    if (token_size == 1) {
-        if (Matcher::tokens_match(tokens_mut, Matcher::literal)) {
+    std::optional<ExprTrie::Pattern> pattern = ExprTrie::match(tokens_mut);
+    if (!pattern.has_value()) {
+        pattern = ExprTrie::Pattern::BINARY_OP;
+        ExprTrie::Node<ExprTrie::Pattern>::increment_candidate_in(&ExprTrie::root<ExprTrie::Pattern>(), ExprTrie::Pattern::BINARY_OP);
+    }
+
+    switch (pattern.value()) {
+        case ExprTrie::Pattern::LITERAL: {
             std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Matcher::tokens_match(tokens_mut, Matcher::variable_expr)) {
+        }
+        case ExprTrie::Pattern::VARIABLE:
             return create_variable(scope, tokens_mut);
-        } else if (tokens_mut.first->token == TOK_UNDERSCORE) {
+        case ExprTrie::Pattern::DEFAULT:
             if (!expected_type.has_value()) {
                 // Default node at a place where it's type cannot be inferred. This is fine because when used in initializers, for example,
                 // at the time we parse the initializer argument the type cannot be inferred as we do not know *what* we are initializing
@@ -2087,23 +2093,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("type.flint.default"));
             }
             return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), expected_type.value());
-        } else if (tokens_mut.first->token == TOK_TYPE) {
+        case ExprTrie::Pattern::TYPE:
             return std::make_unique<TypeNode>(file_hash, get_pos_triple(tokens), tokens_mut.first->type);
-        } else if (tokens_mut.first->token == TOK_RANGE) {
+        case ExprTrie::Pattern::RANGE: {
             std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
             if (!range.has_value()) {
                 return std::nullopt;
             }
             return std::move(range.value());
         }
-    } else if (token_size == 2) {
-        if (Matcher::tokens_match(tokens_mut, Matcher::literal_expr)) {
+        case ExprTrie::Pattern::LITERAL_EXPR: {
             std::optional<LiteralNode> lit = create_literal(tokens_mut);
             if (!lit.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<LiteralNode>(std::move(lit.value()));
-        } else if (Matcher::tokens_match(tokens_mut, Matcher::string_interpolation)) {
+        }
+        case ExprTrie::Pattern::STRING_INTERPOLATION: {
             ASSERT(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
             std::optional<std::unique_ptr<ExpressionNode>> interpol = create_string_interpolation( //
                 ctx, scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut           //
@@ -2113,13 +2119,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::move(interpol.value());
         }
-    }
-
-    if (Matcher::tokens_match(tokens_mut, Matcher::aliased_function_call)) {
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().second == token_size) {
-            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
-            // located on the right of the call still
+        case ExprTrie::Pattern::ALIASED_FUNCTION_CALL: {
+            const auto range = Matcher::balanced_range_extraction(                      //
+                tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+            );
+            ASSERT(range.has_value());
+            ASSERT(range.value().second == std::distance(tokens.first, tokens.second));
             if (tokens_mut.first->token == TOK_TYPE) {
                 // It's some form of "alias" on a base type
                 switch (tokens_mut.first->type->get_variation()) {
@@ -2234,71 +2239,59 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::move(call_node.value());
         }
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::function_call) || Matcher::tokens_match(tokens, Matcher::instance_call)) {
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().second == token_size) {
-            // Its only a call, when the paren group of the function is at the very end of the tokens, otherwise there is something
-            // located on the right of the call still
+        case ExprTrie::Pattern::FUNCTION_CALL: {
             auto call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt);
             if (!call_node.has_value()) {
                 return std::nullopt;
             }
             return call_node;
         }
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
-        auto range = Matcher::balanced_range_extraction(tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN));
-        if (range.has_value() && range.value().first == 0 && range.value().second == token_size) {
+        case ExprTrie::Pattern::GROUP: {
             std::optional<GroupExpressionNode> group = create_group_expression(ctx, scope, tokens_mut);
             if (!group.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::type_cast)) {
-        if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
-            if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
-                // It's an array initializer
-                return create_array_initializer(ctx, scope, tokens);
+        case ExprTrie::Pattern::TYPE_CAST: {
+            if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
+                if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
+                    // It's an array initializer
+                    return create_array_initializer(ctx, scope, tokens);
+                }
+                // It's an initializer
+                std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
+                if (!initializer.has_value()) {
+                    return std::nullopt;
+                }
+                return initializer;
+            } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR &&
+                tokens_mut.first->type->to_string() != "bool8") {
+                // It's an explicit initializer of an vector-type
+                std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
+                if (!initializer.has_value()) {
+                    return std::nullopt;
+                }
+                return initializer;
+            } else {
+                // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
+                std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(ctx, scope, tokens_mut);
+                if (!type_cast.has_value()) {
+                    return std::nullopt;
+                }
+                return type_cast;
             }
-            // It's an initializer
-            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
-            if (!initializer.has_value()) {
-                return std::nullopt;
-            }
-            return initializer;
-        } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR && tokens_mut.first->type->to_string() != "bool8") {
-            // It's an explicit initializer of an vector-type
-            std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
-            if (!initializer.has_value()) {
-                return std::nullopt;
-            }
-            return initializer;
-        } else {
-            // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
-            std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(ctx, scope, tokens_mut);
-            if (!type_cast.has_value()) {
-                return std::nullopt;
-            }
-            return type_cast;
         }
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::anonymous_error)) {
-        return create_anonymous_error(ctx, scope, tokens_mut);
-    }
-    if (Matcher::tokens_start_with_continuous(tokens_mut, Matcher::unary_pre_operator, Matcher::expression_separator)   //
-        || Matcher::tokens_end_with_continuous(tokens_mut, Matcher::unary_post_operator, Matcher::expression_separator) //
-    ) {
-        std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(ctx, scope, tokens_mut);
-        if (!unary_op.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::ANONYMOUS_ERROR:
+            return create_anonymous_error(ctx, scope, tokens_mut);
+        case ExprTrie::Pattern::UNARY_OP: {
+            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(ctx, scope, tokens_mut);
+            if (!unary_op.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
         }
-        return std::make_unique<UnaryOpExpression>(std::move(unary_op.value()));
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::type_field_access)) {
-        if (token_size == 3 || (token_size == 4 && std::prev(tokens_mut.second)->token == TOK_INT_VALUE)) {
+        case ExprTrie::Pattern::TYPE_FIELD_ACCESS: {
             ASSERT(tokens_mut.first->token == TOK_TYPE);
             const std::shared_ptr<Type> type = tokens_mut.first->type;
             switch (type->get_variation()) {
@@ -2393,88 +2386,76 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 }
             }
         }
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::function_reference)) {
-        if (token_size == 2 || token_size == 3) {
+        case ExprTrie::Pattern::FUNCTION_REFERENCE: {
             return create_function_reference(tokens_mut);
         }
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_chain, Matcher::expression_separator)) {
-        std::optional<OptionalChainNode> chain = create_optional_chain(ctx, scope, tokens_mut);
-        if (!chain.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::OPTIONAL_CHAIN: {
+            std::optional<OptionalChainNode> chain = create_optional_chain(ctx, scope, tokens_mut);
+            if (!chain.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<OptionalChainNode>(std::move(chain.value()));
         }
-        return std::make_unique<OptionalChainNode>(std::move(chain.value()));
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::data_access, Matcher::expression_separator)) {
-        std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens_mut);
-        if (!data_access.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::DATA_ACCESS: {
+            std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens_mut);
+            if (!data_access.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
-        return std::make_unique<DataAccessNode>(std::move(data_access.value()));
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::grouped_data_access, Matcher::expression_separator)) {
-        return create_grouped_data_access(ctx, scope, tokens_mut);
-    }
-    if (Matcher::tokens_match(tokens_mut, Matcher::array_initializer)) {
-        const bool is_array = tokens_mut.first->token == TOK_TYPE && tokens_mut.first->type->get_variation() == Type::Variation::ARRAY;
-        const bool brackets_follow_type = std::next(tokens_mut.first)->token == TOK_LEFT_BRACKET;
-        if (is_array || brackets_follow_type) {
+        case ExprTrie::Pattern::GROUPED_DATA_ACCESS:
+            return create_grouped_data_access(ctx, scope, tokens_mut);
+        case ExprTrie::Pattern::ARRAY_INITIALIZER:
             return create_array_initializer(ctx, scope, tokens_mut);
+        case ExprTrie::Pattern::ARRAY_ACCESS: {
+            std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
+            if (!access.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<ArrayAccessNode>(std::move(access.value()));
         }
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::array_access, Matcher::expression_separator)) {
-        std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
-        if (!access.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::GROUPED_ARRAY_ACCESS: {
+            std::optional<GroupedArrayAccessNode> access = create_grouped_array_access(ctx, scope, tokens_mut);
+            if (!access.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<GroupedArrayAccessNode>(std::move(access.value()));
         }
-        return std::make_unique<ArrayAccessNode>(std::move(access.value()));
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::grouped_array_access, Matcher::expression_separator)) {
-        std::optional<GroupedArrayAccessNode> access = create_grouped_array_access(ctx, scope, tokens_mut);
-        if (!access.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::OPTIONAL_UNWRAP: {
+            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(ctx, scope, tokens_mut);
+            if (!unwrap.has_value()) {
+                return std::nullopt;
+            }
+            return std::move(unwrap.value());
         }
-        return std::make_unique<GroupedArrayAccessNode>(std::move(access.value()));
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::optional_unwrap, Matcher::expression_separator)) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(ctx, scope, tokens_mut);
-        if (!unwrap.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::VARIANT_EXTRACTION: {
+            std::optional<VariantExtractionNode> extraction = create_variant_extraction(ctx, scope, tokens_mut);
+            if (!extraction.has_value()) {
+                return std::nullopt;
+            }
+            return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
         }
-        return std::move(unwrap.value());
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::variant_extraction, Matcher::expression_separator)) {
-        std::optional<VariantExtractionNode> extraction = create_variant_extraction(ctx, scope, tokens_mut);
-        if (!extraction.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::VARIANT_UNWRAP: {
+            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(ctx, scope, tokens_mut);
+            if (!unwrap.has_value()) {
+                return std::nullopt;
+            }
+            return std::move(unwrap.value());
         }
-        return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
-    }
-    if (Matcher::tokens_end_with_continuous(tokens_mut, Matcher::variant_unwrap, Matcher::expression_separator)) {
-        std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(ctx, scope, tokens_mut);
-        if (!unwrap.has_value()) {
-            return std::nullopt;
+        case ExprTrie::Pattern::RANGE_EXPRESSION: {
+            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
+            if (!range.has_value()) {
+                return std::nullopt;
+            }
+            return std::move(range.value());
         }
-        return std::move(unwrap.value());
-    }
-    const std::vector<uint2> range_expr_matches = Matcher::get_match_ranges_in_range_outside_group( //
-        tokens_mut,                                                                                 //
-        Matcher::range_expression,                                                                  //
-        {0, std::distance(tokens_mut.first, tokens_mut.second)},                                    //
-        Matcher::token(TOK_LEFT_BRACKET),                                                           //
-        Matcher::token(TOK_RIGHT_BRACKET)                                                           //
-    );
-    if (range_expr_matches.size() == 1) {
-        std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
-        if (!range.has_value()) {
-            return std::nullopt;
-        }
-        return std::move(range.value());
+        case ExprTrie::Pattern::BINARY_OP:
+            break;
     }
 
     // Find the highest precedence operator
-    unsigned int smallest_precedence = 100; //
+    ASSERT(pattern.value() == ExprTrie::Pattern::BINARY_OP);
+    unsigned int smallest_precedence = 100;
     size_t pivot_pos = 0;
     Token pivot_token = TOK_EOL;
 
