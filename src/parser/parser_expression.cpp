@@ -2069,11 +2069,45 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         remove_surrounding_paren(tokens_mut);
     }
 
-    std::optional<ExprTrie::Pattern> pattern = ExprTrie::match(tokens_mut);
-    if (!pattern.has_value()) {
-        pattern = ExprTrie::Pattern::BINARY_OP;
-        ExprTrie::Node<ExprTrie::Pattern>::increment_candidate_in(&ExprTrie::root<ExprTrie::Pattern>(), ExprTrie::Pattern::BINARY_OP);
+    const size_t token_size = std::distance(tokens_mut.first, tokens_mut.second);
+    bool is_binary_op = false;
+    if (token_size >= 3) {
+        unsigned int depth = 0;
+        for (auto it = tokens_mut.first; it != tokens_mut.second; ++it) {
+            switch (it->token) {
+                case TOK_LEFT_PAREN:
+                case TOK_LEFT_BRACKET:
+                case TOK_LEFT_BRACE:
+                    ++depth;
+                    break;
+                case TOK_RIGHT_PAREN:
+                case TOK_RIGHT_BRACKET:
+                case TOK_RIGHT_BRACE:
+                    if (depth > 0) {
+                        --depth;
+                    }
+                    break;
+                case TOK_RANGE:
+                    if (depth == 0) {
+                        is_binary_op = false;
+                        // Stop searching further, it's not a binary operator but a range expression instead
+                        it = tokens_mut.second - 1;
+                    }
+                    break;
+                default:
+                    // Skip checking the operator if we already know it's a binop or if we are at depth 0
+                    if (depth == 0 && !is_binary_op && Matcher::token_match(it->token, Matcher::binary_operator)) {
+                        is_binary_op = true;
+                    }
+                    break;
+            }
+        }
     }
+    std::optional<ExprTrie::Pattern> pattern = ExprTrie::Pattern::BINARY_OP;
+    if (!is_binary_op) {
+        pattern = ExprTrie::match(tokens_mut);
+    }
+    ASSERT(pattern.has_value());
 
     switch (pattern.value()) {
         case ExprTrie::Pattern::LITERAL: {
