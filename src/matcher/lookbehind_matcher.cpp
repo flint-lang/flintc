@@ -24,8 +24,7 @@ TokenPatternMatcher::MatchResult LookbehindMatcher<is_positive>::match(const tok
     return std::nullopt;
 }
 
-template <bool is_positive>
-std::string LookbehindMatcher<is_positive>::to_string() const {
+template <bool is_positive> std::string LookbehindMatcher<is_positive>::to_string() const {
     std::stringstream ss;
     ss << "(?<" << (is_positive ? "=" : "!") << pattern->to_string() << ")";
     return ss.str();

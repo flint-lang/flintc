@@ -879,12 +879,13 @@ class Matcher {
         sequence({literal, unary_post_operator})                                 //
     });
     static const inline PatternPtr variable_expr = sequence({token(TOK_IDENTIFIER), not_followed_by(token(TOK_LEFT_PAREN))});
-    static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), token(TOK_DOT), token(TOK_IDENTIFIER)});
-    static const inline PatternPtr data_access = not_preceded_by(one_of({token(TOK_TYPE), token(TOK_ERROR), token(TOK_QUESTION)}),
-        sequence({
-            token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
-            not_followed_by(token(TOK_LEFT_PAREN))                                                                //
-        })                                                                                                        //
+    static const inline PatternPtr field_access = sequence({
+        token(TOK_DOT), one_of({token(TOK_IDENTIFIER), sequence({token(TOK_DOLLAR), token(TOK_INT_VALUE)})}), //
+        not_followed_by(token(TOK_LEFT_PAREN))                                                                //
+    });
+    static const inline PatternPtr type_field_access = sequence({token(TOK_TYPE), field_access});
+    static const inline PatternPtr data_access = not_preceded_by(                      //
+        one_of({token(TOK_TYPE), token(TOK_ERROR), token(TOK_QUESTION)}), field_access //
     );
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
@@ -900,7 +901,7 @@ class Matcher {
     });
     static const inline PatternPtr array_access = sequence({not_p(token(TOK_DOT)), token(TOK_LEFT_BRACKET), until_right_bracket});
     static const inline PatternPtr grouped_array_access = sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket});
-    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({array_access, data_access})});
+    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({array_access, field_access})});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
@@ -943,8 +944,10 @@ class Matcher {
     static const inline PatternPtr group_assignment_shorthand = not_preceded_by(token(TOK_DOT), //
         sequence({token(TOK_LEFT_PAREN), until_right_paren, assignment_shorthand_operator})     //
     );
-    static const inline PatternPtr data_field_assignment = sequence({data_access, token(TOK_EQUAL)});
-    static const inline PatternPtr data_field_assignment_shorthand = sequence({data_access, assignment_shorthand_operator});
+    static const inline PatternPtr data_field_assignment = sequence({one_of({type_field_access, data_access}), token(TOK_EQUAL)});
+    static const inline PatternPtr data_field_assignment_shorthand = sequence({
+        one_of({type_field_access, data_access}), assignment_shorthand_operator //
+    });
     static const inline PatternPtr grouped_data_assignment = sequence({grouped_data_access, token(TOK_EQUAL)});
     static const inline PatternPtr grouped_data_assignment_shorthand = sequence({grouped_data_access, assignment_shorthand_operator});
     static const inline PatternPtr array_assignment = sequence({array_access, token(TOK_EQUAL)});

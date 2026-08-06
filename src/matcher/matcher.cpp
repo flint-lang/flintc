@@ -201,10 +201,10 @@ bool Matcher::tokens_end_with(const token_slice &tokens, const PatternPtr &patte
     if (tokens.first == tokens.second) {
         return false;
     }
-    for (auto start = tokens.second - 1; start != tokens.first; --start) {
-        auto match = pattern->match({start, tokens.second}, 0);
+    for (auto start = tokens.second; start != tokens.first; --start) {
+        auto match = pattern->match({start - 1, tokens.second}, 0);
         if (match.has_value()) {
-            return match.value() == static_cast<size_t>(std::distance(start, tokens.second));
+            return match.value() == static_cast<size_t>(std::distance(start - 1, tokens.second));
         }
     }
     return false;
@@ -215,13 +215,14 @@ bool Matcher::tokens_end_with_continuous(const token_slice &tokens, const Patter
     if (tokens.first == tokens.second) {
         return false;
     }
-    for (auto start = tokens.second - 1; start != tokens.first; --start) {
-        auto match = pattern->match({start, tokens.second}, 0);
+    for (auto it = tokens.second; it != tokens.first; --it) {
+        auto start = it - 1;
+        auto match = pattern->match(tokens, static_cast<size_t>(std::distance(tokens.first, start)));
         if (!match.has_value()) {
             continue;
         }
         // pattern matched; ensure it consumes the whole suffix
-        if (match.value() != static_cast<size_t>(std::distance(start, tokens.second))) {
+        if (match.value() != static_cast<size_t>(std::distance(tokens.first, tokens.second))) {
             continue;
         }
 
