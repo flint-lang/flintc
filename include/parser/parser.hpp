@@ -262,6 +262,14 @@ class Parser {
     /// @function `clear_instances`
     /// @brief Clears all parser instances
     static void clear_instances() {
+        // Clear the open lists of all instances before destroying the instances themselves, so that the Lines they contain
+        // (which reference parser-owned state like tokens) are destroyed before any of that state is destroyed
+        for (auto &instance : instances) {
+            instance.open_functions_list.clear();
+            instance.open_object_list.clear();
+            instance.open_data_list.clear();
+            instance.open_tests_list.clear();
+        }
         instances.clear();
         main_function.store(nullptr, std::memory_order_release);
         TestNode::clear_test_names();

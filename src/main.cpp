@@ -47,6 +47,7 @@ int main(int argc, char *argv[]) {
     Profiler::start_task("ALL");
     const auto &dep_graph = Parser::parse_program(clp.source_file_path, clp.test, clp.parallel);
     if (!dep_graph.has_value()) {
+        Parser::clear_instances();
         Profiler::end_task("ALL");
         FIP::shutdown();
         return 1;
@@ -71,6 +72,7 @@ int main(int argc, char *argv[]) {
     // Generate the whole program
     auto program = Generator::generate_program_ir(clp.test ? "test" : "main", dep_graph.value(), clp.test);
     if (!program.has_value()) {
+        Parser::clear_instances();
         Profiler::end_task("ALL");
         FIP::shutdown();
         return 1;
