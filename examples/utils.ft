@@ -111,7 +111,7 @@ def test_test(str test_dir, str file_name):
 	normalized_path := get_path($"{cwd}/{test_dir}");
 	str test_file = get_path($"{normalized_path}/{file_name}");
 	str out_file = get_path($"{normalized_path}/test");
-	compile_v(none, test_file, str[_]{"--test", "--out", out_file}, 0, "");
+	compile(none, test_file, str[_]{"--test", "--out", out_file}, 0, "");
 	(exit_code, output) := system_command(get_path($"{normalized_path}/test"));
 	if exit_code != 0:
 		print(output);

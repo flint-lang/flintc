@@ -686,10 +686,12 @@ class Matcher {
     });
 
     // --- UNTILS ---
+    static const inline PatternPtr balancer_left = one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET), token(TOK_LEFT_BRACE)});
+    static const inline PatternPtr balancer_right = one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_BRACE)});
     static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
     static const inline PatternPtr until_right_brace = balanced_match_until(token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1);
-    static const inline PatternPtr until_right_bracket = balanced_match_until(     //
-        token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0 //
+    static const inline PatternPtr until_right_bracket = balanced_match_until( //
+        token(TOK_LEFT_BRACKET), token(TOK_RIGHT_BRACKET), std::nullopt, 1     //
     );
     static const inline PatternPtr until_comma = balanced_match_until(                                                              //
         one_of({token(TOK_LEFT_PAREN), token(TOK_LESS)}), token(TOK_COMMA), one_of({token(TOK_RIGHT_PAREN), token(TOK_GREATER)}), 0 //
@@ -749,8 +751,6 @@ class Matcher {
     static const inline PatternPtr mutability_prefix = optional(one_of({token(TOK_MUT), token(TOK_CONST)}));
     static const inline PatternPtr decl_prefix = optional(one_of({token(TOK_MUT), token(TOK_CONST), token(TOK_PERSISTENT)}));
 
-    static const inline PatternPtr balancer_left = one_of({token(TOK_LEFT_PAREN), token(TOK_LEFT_BRACKET), token(TOK_LEFT_BRACE)});
-    static const inline PatternPtr balancer_right = one_of({token(TOK_RIGHT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_BRACE)});
     static const inline PatternPtr assignment_shorthand_operator = one_of({
         token(TOK_PLUS_EQUALS), token(TOK_MINUS_EQUALS), token(TOK_MULT_EQUALS), token(TOK_DIV_EQUALS) //
     });
@@ -889,11 +889,7 @@ class Matcher {
     );
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
-        type,
-        optional(sequence({
-            token(TOK_LEFT_BRACKET),                                                                          //
-            balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_BRACKET), token(TOK_RIGHT_PAREN), 0), //
-        })),                                                                                                  // T[ sizes ]
+        type, optional(sequence({token(TOK_LEFT_BRACKET), until_right_bracket})), // T[ sizes ]
         one_of({
             sequence({token(TOK_LEFT_PAREN), until_right_paren}), // ( initializer )
             sequence({token(TOK_LEFT_BRACE), until_right_brace})  // { initializer, ... }

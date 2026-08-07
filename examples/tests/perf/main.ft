@@ -79,7 +79,7 @@ def main():
 	for (x, _) in 0..X:
 		for (y, _) in 0..Y:
 			if lengths[x] < results[x, y].len:
-				lengths[x] = results[x, y].len
+				lengths[x] = results[x, y].len;
 	
 	// Print the results table
 	for (y, _) in 0..Y:

@@ -12,6 +12,12 @@ use Core.assert
 use "utils.ft"
 
 #test_performance
+test "perf":
+	str path = "tests/perf";
+	str file = "main.ft";
+	test_compiles_in(path, file, none);
+
+#test_performance
 test "fsh":
 	str path = "fsh";
 	str file = "main.ft";

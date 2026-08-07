@@ -2106,8 +2106,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     std::optional<ExprTrie::Pattern> pattern = ExprTrie::Pattern::BINARY_OP;
     if (!is_binary_op) {
         pattern = ExprTrie::match(tokens_mut);
+        if (!pattern.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
     }
-    ASSERT(pattern.has_value());
 
     switch (pattern.value()) {
         case ExprTrie::Pattern::LITERAL: {
