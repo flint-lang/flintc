@@ -253,39 +253,59 @@ template <typename Derived, unsigned int Depth = 3> class Trie {
 
             size_t forward_depth = 0;
             Node<Pattern> *forward_node = nullptr;
-            const auto forward_branch = root.branches.find(tokens.first->token);
-            if (forward_branch != root.branches.end()) {
-                forward_node = forward_branch->second.get();
-                forward_depth++;
-                for (; forward_depth < Depth; forward_depth++) {
-                    const auto &next_tok = tokens.first + forward_depth;
-                    if (next_tok == tokens.second) {
-                        break;
-                    }
-                    const auto branch = forward_node->branches.find(next_tok->token);
-                    if (branch == forward_node->branches.end()) {
-                        break;
-                    }
-                    forward_node = branch->second.get();
+            {
+                const std::shared_lock<std::shared_mutex> lock(root.mutex);
+                const auto forward_branch = root.branches.find(tokens.first->token);
+                if (forward_branch != root.branches.end()) {
+                    forward_node = forward_branch->second.get();
+                    forward_depth++;
                 }
+            }
+            for (; forward_depth < Depth && forward_node != nullptr; forward_depth++) {
+                const auto &next_tok = tokens.first + forward_depth;
+                if (next_tok == tokens.second) {
+                    break;
+                }
+                Node<Pattern> *next_node = nullptr;
+                {
+                    const std::shared_lock<std::shared_mutex> lock(forward_node->mutex);
+                    const auto branch = forward_node->branches.find(next_tok->token);
+                    if (branch != forward_node->branches.end()) {
+                        next_node = branch->second.get();
+                    }
+                }
+                if (next_node == nullptr) {
+                    break;
+                }
+                forward_node = next_node;
             }
             size_t backward_depth = 0;
             Node<Pattern> *backward_node = nullptr;
-            const auto backward_branch = root.back_branches.find(std::prev(tokens.second)->token);
-            if (backward_branch != root.back_branches.end()) {
-                backward_node = backward_branch->second.get();
-                backward_depth++;
-                for (; backward_depth < Depth; backward_depth++) {
-                    const auto &next_tok = tokens.second - backward_depth;
-                    if (next_tok == tokens.first) {
-                        break;
-                    }
-                    const auto branch = backward_node->branches.find(std::prev(next_tok)->token);
-                    if (branch == backward_node->branches.end()) {
-                        break;
-                    }
-                    backward_node = branch->second.get();
+            {
+                const std::shared_lock<std::shared_mutex> lock(root.mutex);
+                const auto backward_branch = root.back_branches.find(std::prev(tokens.second)->token);
+                if (backward_branch != root.back_branches.end()) {
+                    backward_node = backward_branch->second.get();
+                    backward_depth++;
                 }
+            }
+            for (; backward_depth < Depth && backward_node != nullptr; backward_depth++) {
+                const auto &next_tok = tokens.second - backward_depth;
+                if (next_tok == tokens.first) {
+                    break;
+                }
+                Node<Pattern> *next_node = nullptr;
+                {
+                    const std::shared_lock<std::shared_mutex> lock(backward_node->mutex);
+                    const auto branch = backward_node->branches.find(std::prev(next_tok)->token);
+                    if (branch != backward_node->branches.end()) {
+                        next_node = branch->second.get();
+                    }
+                }
+                if (next_node == nullptr) {
+                    break;
+                }
+                backward_node = next_node;
             }
 
             // The direction which went deeper holds the more specific patterns, so its deepest node is checked first. A side which stopped
