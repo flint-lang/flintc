@@ -8,6 +8,7 @@
 #include "linearizer/linearizer.hpp"
 #include "matcher/def_trie.hpp"
 #include "matcher/expr_trie.hpp"
+#include "matcher/scoped_stmt_trie.hpp"
 #include "matcher/stmt_trie.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -293,6 +294,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
                   << std::endl;
 
         DefTrie::print_hit_rates("Definition");
+        ScopedStmtTrie::print_hit_rates("Scoped Statement");
         StmtTrie::print_hit_rates("Statement");
         ExprTrie::print_hit_rates("Expression");
     }

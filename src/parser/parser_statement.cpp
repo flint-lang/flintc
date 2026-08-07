@@ -1,9 +1,10 @@
-#include "error/error_type.hpp"
 #include "parser/parser.hpp"
 
 #include "error/error.hpp"
+#include "error/error_type.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
+#include "matcher/scoped_stmt_trie.hpp"
 #include "matcher/stmt_trie.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/default_node.hpp"
@@ -2975,89 +2976,99 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     }
 
     const token_slice definition = {definition_it->tokens.first, definition_it->tokens.second};
-    if (Matcher::tokens_contain(definition, Matcher::if_statement)         //
-        || Matcher::tokens_contain(definition, Matcher::else_if_statement) //
-        || Matcher::tokens_contain(definition, Matcher::else_statement)    //
-    ) {
-        if (Matcher::tokens_contain(definition, Matcher::token(TOK_ELSE))) {
-            // else or else if at top of if chain
-            THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_hash, definition);
-            return std::nullopt;
-        }
-        std::vector<std::pair<token_slice, std::vector<Line>>> if_chain;
-        if_chain.emplace_back(definition, std::move(scoped_body.value()));
-
-        token_slice next_definition = definition;
-        while (true) {
-            if (line_it == body.end()) {
-                break;
-            }
-            // Check if the line after the if body contains an else token, only if it contains an else statemnt the chain continues
-            next_definition = {line_it->tokens.first, line_it->tokens.second};
-            if (!Matcher::tokens_contain(next_definition, Matcher::token(TOK_ELSE))) {
-                break;
-            }
-            scoped_body = get_scoped_body(line_it);
-            if_chain.emplace_back(next_definition, std::move(scoped_body.value()));
-        }
-
-        std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, scope_segment, if_chain);
-        if (!if_node.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(if_node.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::for_loop)) {
-        std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, scope_segment, definition, scoped_body.value());
-        if (!for_loop.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(for_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
-        std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop( //
-            scope, scope_segment, definition, scoped_body.value()                          //
-        );
-        if (!enh_for_loop.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(enh_for_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::while_loop)) {
-        std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, scope_segment, definition, scoped_body.value());
-        if (!while_loop.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(while_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::do_while_loop)) {
-        const auto &condition_line = line_it->tokens;
-        ++line_it;
-        std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop( //
-            scope, scope_segment, condition_line, scoped_body.value()                     //
-        );
-        if (!do_while_loop.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(do_while_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::catch_statement)) {
-        std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(  //
-            scope, scope_segment, definition, scoped_body.value(), statements //
-        );
-        if (!catch_node.has_value()) {
-            return std::nullopt;
-        }
-        statement_node = std::move(catch_node.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::aliased_function_call)) {
-        ASSERT(definition.first->token == TOK_ALIAS && std::next(definition.first)->token == TOK_DOT);
-        Namespace *alias_namespace = definition.first->alias_namespace;
-        statement_node = create_call_statement(scope, {definition.first + 2, definition.second}, alias_namespace);
-    } else if (Matcher::tokens_contain(definition, Matcher::switch_statement)) {
-        statement_node = create_switch_statement(scope, scope_segment, definition, scoped_body.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::function_call)) {
-        statement_node = create_call_statement(scope, definition, std::nullopt);
-    } else {
+    const std::optional<ScopedStmtTrie::Pattern> pattern = ScopedStmtTrie::match(definition);
+    if (!pattern.has_value()) {
         // Unknown scoped statement
         token_list toks = clone_from_slice(definition);
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
+
+    switch (pattern.value()) {
+        case ScopedStmtTrie::Pattern::IF: {
+            if (Matcher::tokens_contain(definition, Matcher::token(TOK_ELSE))) {
+                // else or else if at top of if chain
+                THROW_ERR(ErrStmtIfChainMissingIf, ERR_PARSING, file_hash, definition);
+                return std::nullopt;
+            }
+            std::vector<std::pair<token_slice, std::vector<Line>>> if_chain;
+            if_chain.emplace_back(definition, std::move(scoped_body.value()));
+
+            token_slice next_definition = definition;
+            while (true) {
+                if (line_it == body.end()) {
+                    break;
+                }
+                // Check if the line after the if body contains an else token, only if it contains an else statemnt the chain continues
+                next_definition = {line_it->tokens.first, line_it->tokens.second};
+                if (!Matcher::tokens_contain(next_definition, Matcher::token(TOK_ELSE))) {
+                    break;
+                }
+                scoped_body = get_scoped_body(line_it);
+                if_chain.emplace_back(next_definition, std::move(scoped_body.value()));
+            }
+
+            std::optional<std::unique_ptr<IfNode>> if_node = create_if(scope, scope_segment, if_chain);
+            if (!if_node.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(if_node.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::FOR: {
+            std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(scope, scope_segment, definition, scoped_body.value());
+            if (!for_loop.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(for_loop.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::ENH_FOR: {
+            std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop( //
+                scope, scope_segment, definition, scoped_body.value()                          //
+            );
+            if (!enh_for_loop.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(enh_for_loop.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::WHILE: {
+            std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(scope, scope_segment, definition, scoped_body.value());
+            if (!while_loop.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(while_loop.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::DO_WHILE: {
+            const auto &condition_line = line_it->tokens;
+            ++line_it;
+            std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop( //
+                scope, scope_segment, condition_line, scoped_body.value()                     //
+            );
+            if (!do_while_loop.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(do_while_loop.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::CATCH: {
+            std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(  //
+                scope, scope_segment, definition, scoped_body.value(), statements //
+            );
+            if (!catch_node.has_value()) {
+                return std::nullopt;
+            }
+            statement_node = std::move(catch_node.value());
+            break;
+        }
+        case ScopedStmtTrie::Pattern::SWITCH: {
+            statement_node = create_switch_statement(scope, scope_segment, definition, scoped_body.value());
+            break;
+        }
+    }
+
     if (statement_node.value()->get_variation() != StatementNode::Variation::IF) {
         // Every scoped statement other than if gets it's end line updated. For if statements we have special-case handling directly in its
         // creation
