@@ -3,10 +3,6 @@
 #ifndef DEBUG_BUILD
 #define FIP_QUIET
 #endif
-#define FIP_MASTER
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wall"
@@ -15,15 +11,13 @@ extern "C" {
 #pragma GCC diagnostic ignored "-Wformat-nonliteral"
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+#define FIP_MASTER
 #include "fip.h"
 #undef ERROR
 #undef OPTIONAL
 #undef OPAQUE
+#undef interface
 #pragma GCC diagnostic pop
-
-#ifdef __cplusplus
-}
-#endif
 
 #include "parser/type/type.hpp"
 

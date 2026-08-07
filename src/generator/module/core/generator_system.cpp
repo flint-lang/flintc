@@ -180,7 +180,7 @@ void Generator::Module::System::generate_system_command_function( //
     builder->CreateRet(result_ret_empty);
 
     builder->SetInsertPoint(nonempty_command_block);
-    llvm::Value *const command_to_use = arg_command;
+    llvm::Value *command_to_use = arg_command;
 #ifdef __WIN32__
     // Replace all slashes in the command with backslashes as a do-while loop. First copy the argument into the new string value and then
     // modify that string inplace

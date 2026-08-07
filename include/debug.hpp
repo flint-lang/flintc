@@ -73,6 +73,7 @@
 #undef ERROR
 #undef OPTIONAL
 #undef OPAQUE
+#undef interface
 #endif
 
 namespace Debug {
