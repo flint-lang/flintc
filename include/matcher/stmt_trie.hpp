@@ -4,8 +4,7 @@
 #include "trie.hpp"
 
 /// @class `StmtTrie`
-/// @brief This class is an implementation of the trie to match all statements. Statements are usually recognizable by their leading
-/// tokens, so the trie walks its branches from the start of the token slice towards its end
+/// @brief This class is an implementation of the trie to match all statements
 class StmtTrie : public Trie<StmtTrie> {
   public:
     /// @enum `Pattern`

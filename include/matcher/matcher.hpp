@@ -792,7 +792,9 @@ class Matcher {
     static const inline PatternPtr use_reference = sequence({
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_DOT), token(TOK_IDENTIFIER)})) //
     });
-    static const inline PatternPtr use_statement = sequence({token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference})});
+    static const inline PatternPtr use_statement = sequence({
+        token(TOK_USE), one_of({token(TOK_STR_VALUE), use_reference}), optional(sequence({token(TOK_AS), token(TOK_IDENTIFIER)})) //
+    });
     static const inline PatternPtr type_alias = sequence({token(TOK_TYPE_KEYWORD), token(TOK_IDENTIFIER), type});
     static const inline PatternPtr extern_function_declaration = sequence({
         token(TOK_EXTERN), token(TOK_DEF), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //

@@ -4,6 +4,7 @@
 #include "error/error_type.hpp"
 #include "lexer/builtins.hpp"
 #include "lexer/token.hpp"
+#include "matcher/def_trie.hpp"
 #include "matcher/matcher.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
@@ -34,120 +35,160 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
         return false;
     }
 
-    if (Matcher::tokens_start_with(definition_tokens, Matcher::token(TOK_ANNOTATION))) {
-        return add_annotation(definition_tokens);
-    }
-    if (Matcher::tokens_start_with(definition_tokens, Matcher::use_statement)) {
-        if (definition_line.indent_lvl > 0) {
-            THROW_ERR(ErrImportNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
-            return false;
-        }
-        std::optional<ImportNode> import_node = create_import(definition_tokens);
-        if (!import_node.has_value()) {
-            return false;
-        }
-        for (const auto &imported_file : imported_files) {
-            if (imported_file->path == import_node.value().path) {
-                THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_hash, &import_node.value());
-                return false;
-            }
-        }
-        // Check if the file exists if it's a file import
-        if (std::holds_alternative<Hash>(import_node.value().path)) {
-            if (!std::filesystem::exists(std::get<Hash>(import_node.value().path).path)) {
-                THROW_ERR(ErrImportNonexistentFile, ERR_PARSING, file_hash, &import_node.value());
-                return false;
-            }
-        }
-        // Check if the given alias is already taken
-        auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
-        if (import_node.value().alias.has_value() && aliased_imports.find(import_node.value().alias.value()) != aliased_imports.end()) {
-            const ImportNode *aliased_import = nullptr;
-            for (const auto &import : file_node_ptr->file_namespace->public_symbols.imports) {
-                if (import->alias.has_value() && import->alias.value() == import_node.value().alias.value()) {
-                    aliased_import = import.get();
-                }
-            }
-            ASSERT(aliased_import != nullptr);
-            THROW_ERR(                                                                                                         //
-                ErrImportDuplicateAlias, ERR_PARSING, file_hash,                                                               //
-                import_node->line, import_node->column, import_node->length, import_node.value().alias.value(), aliased_import //
-            );
-            return false;
-        }
-        if (std::holds_alternative<std::vector<std::string>>(import_node.value().path)) {
-            const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(import_node.value().path);
-            if (import_vec.size() == 2 && import_vec.front() == "Core") {
-                // Check for imported core modules
-                const std::string &module_str = import_vec.back();
-                if (core_module_functions.find(module_str) == core_module_functions.end()) {
-                    const auto &tok = definition_tokens.first + 3;
-                    THROW_ERR(ErrImportUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
-                    return false;
-                }
-            } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
-                if (!FIP::resolve_module_import(&import_node.value())) {
-                    return false;
-                }
-            }
-        }
-        std::optional<ImportNode *> added_import = file_node_ptr->add_import(import_node.value());
-        if (!added_import.has_value()) {
-            return false;
-        }
-        if (added_import.value()->alias.has_value()) {
-            ASSERT(aliased_imports.find(added_import.value()->alias.value()) == aliased_imports.end());
-            // Add a nullopt to them, we actually resolve the imports in the `resolve_all_imports` function when all namespaces are
-            // available
-            aliased_imports[added_import.value()->alias.value()] = nullptr;
-        }
-        if (std::holds_alternative<Hash>(added_import.value()->path) ||                           //
-            (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
-                std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
-        ) {
-            imported_files.emplace_back(added_import.value());
-        }
-        return true;
-    }
-    if (Matcher::tokens_start_with(definition_tokens, Matcher::type_alias)) {
-        ASSERT(definition_tokens.first->token == TOK_TYPE_KEYWORD);
-        ASSERT((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
-        const std::string type_alias((definition_tokens.first + 1)->lexme);
-        auto it = definition_tokens.first + 2;
-        while (it->token != TOK_EOL) {
-            it++;
-        }
-        // Everything from the second to the it token is the type
-        const token_slice type_tokens{definition_tokens.first + 2, it};
-        std::optional<std::shared_ptr<Type>> aliased_type = file_node_ptr->file_namespace->get_type(type_tokens);
-        if (!aliased_type.has_value()) {
-            return false;
-        }
-        std::shared_ptr<Type> type = std::make_shared<AliasType>(type_alias, aliased_type.value());
-        if (!file_node_ptr->file_namespace->add_type(type)) {
-            type = file_node_ptr->file_namespace->get_type_from_str(type->to_string()).value();
-        }
-        return true;
+    const std::optional<DefTrie::Pattern> pattern = DefTrie::match(definition_tokens);
+    if (!pattern.has_value()) {
+        Debug::print_token_context_vector(definition_tokens, file_name);
+        THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
+        return false;
     }
 
-    if (Matcher::tokens_contain(definition_tokens, Matcher::extern_function_declaration)) {
-        std::optional<FunctionNode> function_node = create_extern_function(definition_tokens);
-        if (!function_node.has_value()) {
-            return false;
+    std::vector<Line> body_lines;
+    switch (pattern.value()) {
+        case DefTrie::Pattern::ANNOTATION:
+        case DefTrie::Pattern::USE:
+        case DefTrie::Pattern::TYPE_ALIAS:
+        case DefTrie::Pattern::EXTERN_FUNCTION:
+        case DefTrie::Pattern::OPAQUE:
+            // Do not create a bdoy for these patterns
+            break;
+        case DefTrie::Pattern::FUNCTION:
+        case DefTrie::Pattern::TEST:
+        case DefTrie::Pattern::DATA:
+        case DefTrie::Pattern::FUNC:
+        case DefTrie::Pattern::INTERFACE:
+        case DefTrie::Pattern::OBJECT:
+        case DefTrie::Pattern::ENUM:
+        case DefTrie::Pattern::ERROR:
+        case DefTrie::Pattern::VARIANT: {
+            auto body_it = lines.begin();
+            while (body_it != lines.end()) {
+                if (body_it->indent_lvl <= definition_line.indent_lvl) {
+                    break;
+                }
+                ++body_it;
+            }
+            body_lines = std::vector<Line>(lines.begin(), body_it);
+            lines.erase(lines.begin(), body_it);
+            if (body_lines.empty()) {
+                // TODO: This prints the same error twice which is... not pretty
+                // For example when writing `def main():` and the `print("Hello\n");` in the line below the error first is printed for the
+                // `def main():` line and then again for the `print("Hello\n");` line. We somehow need to print this error only if the
+                // current line we are at is valid at all, e.g. if it *should* have a body. In all other cases we should print a "Hey idk
+                // what the hell that line is" error (for example with the print line at top-level)
+                THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, definition_tokens);
+                return false;
+            }
         }
-        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
-        if (!added_function.has_value()) {
-            return false;
-        }
-        add_open_function({added_function.value(), {}});
-        return true;
     }
-    if (Matcher::tokens_match(definition_tokens, Matcher::opaque_definition)) {
-        const bool is_opaque_keyword = definition_tokens.first->token == TOK_OPAQUE;
-        const bool is_opaque_type = definition_tokens.first->token == TOK_TYPE           //
-            && definition_tokens.first->type->get_variation() == Type::Variation::OPAQUE //
-            && !definition_tokens.first->type->as<OpaqueType>()->name.has_value();
-        if (is_opaque_keyword || is_opaque_type) {
+
+    switch (pattern.value()) {
+        case DefTrie::Pattern::ANNOTATION:
+            return add_annotation(definition_tokens);
+        case DefTrie::Pattern::USE: {
+            if (definition_line.indent_lvl > 0) {
+                THROW_ERR(ErrImportNotAtTopLevel, ERR_PARSING, file_hash, definition_tokens);
+                return false;
+            }
+            std::optional<ImportNode> import_node = create_import(definition_tokens);
+            if (!import_node.has_value()) {
+                return false;
+            }
+            for (const auto &imported_file : imported_files) {
+                if (imported_file->path == import_node.value().path) {
+                    THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_hash, &import_node.value());
+                    return false;
+                }
+            }
+            // Check if the file exists if it's a file import
+            if (std::holds_alternative<Hash>(import_node.value().path)) {
+                if (!std::filesystem::exists(std::get<Hash>(import_node.value().path).path)) {
+                    THROW_ERR(ErrImportNonexistentFile, ERR_PARSING, file_hash, &import_node.value());
+                    return false;
+                }
+            }
+            // Check if the given alias is already taken
+            auto &aliased_imports = file_node_ptr->file_namespace->public_symbols.aliased_imports;
+            if (import_node.value().alias.has_value() && aliased_imports.find(import_node.value().alias.value()) != aliased_imports.end()) {
+                const ImportNode *aliased_import = nullptr;
+                for (const auto &import : file_node_ptr->file_namespace->public_symbols.imports) {
+                    if (import->alias.has_value() && import->alias.value() == import_node.value().alias.value()) {
+                        aliased_import = import.get();
+                    }
+                }
+                ASSERT(aliased_import != nullptr);
+                THROW_ERR(                                                                                                         //
+                    ErrImportDuplicateAlias, ERR_PARSING, file_hash,                                                               //
+                    import_node->line, import_node->column, import_node->length, import_node.value().alias.value(), aliased_import //
+                );
+                return false;
+            }
+            if (std::holds_alternative<std::vector<std::string>>(import_node.value().path)) {
+                const std::vector<std::string> &import_vec = std::get<std::vector<std::string>>(import_node.value().path);
+                if (import_vec.size() == 2 && import_vec.front() == "Core") {
+                    // Check for imported core modules
+                    const std::string &module_str = import_vec.back();
+                    if (core_module_functions.find(module_str) == core_module_functions.end()) {
+                        const auto &tok = definition_tokens.first + 3;
+                        THROW_ERR(ErrImportUnexpectedCoreModule, ERR_PARSING, file_hash, tok->line, tok->column, module_str);
+                        return false;
+                    }
+                } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
+                    if (!FIP::resolve_module_import(&import_node.value())) {
+                        return false;
+                    }
+                }
+            }
+            std::optional<ImportNode *> added_import = file_node_ptr->add_import(import_node.value());
+            if (!added_import.has_value()) {
+                return false;
+            }
+            if (added_import.value()->alias.has_value()) {
+                ASSERT(aliased_imports.find(added_import.value()->alias.value()) == aliased_imports.end());
+                // Add a nullopt to them, we actually resolve the imports in the `resolve_all_imports` function when all namespaces are
+                // available
+                aliased_imports[added_import.value()->alias.value()] = nullptr;
+            }
+            if (std::holds_alternative<Hash>(added_import.value()->path) ||                           //
+                (std::get<std::vector<std::string>>(added_import.value()->path).size() != 2 &&        //
+                    std::get<std::vector<std::string>>(added_import.value()->path).front() != "Core") //
+            ) {
+                imported_files.emplace_back(added_import.value());
+            }
+            break;
+        }
+        case DefTrie::Pattern::TYPE_ALIAS: {
+            ASSERT(definition_tokens.first->token == TOK_TYPE_KEYWORD);
+            ASSERT((definition_tokens.first + 1)->token == TOK_IDENTIFIER);
+            const std::string type_alias((definition_tokens.first + 1)->lexme);
+            auto it = definition_tokens.first + 2;
+            while (it->token != TOK_EOL) {
+                it++;
+            }
+            // Everything from the second to the it token is the type
+            const token_slice type_tokens{definition_tokens.first + 2, it};
+            std::optional<std::shared_ptr<Type>> aliased_type = file_node_ptr->file_namespace->get_type(type_tokens);
+            if (!aliased_type.has_value()) {
+                return false;
+            }
+            std::shared_ptr<Type> type = std::make_shared<AliasType>(type_alias, aliased_type.value());
+            if (!file_node_ptr->file_namespace->add_type(type)) {
+                type = file_node_ptr->file_namespace->get_type_from_str(type->to_string()).value();
+            }
+            break;
+        }
+        case DefTrie::Pattern::EXTERN_FUNCTION: {
+            std::optional<FunctionNode> function_node = create_extern_function(definition_tokens);
+            if (!function_node.has_value()) {
+                return false;
+            }
+            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            add_open_function({added_function.value(), {}});
+            break;
+        }
+        case DefTrie::Pattern::OPAQUE: {
             ASSERT(std::next(definition_tokens.first)->token == TOK_IDENTIFIER);
             const std::string opaque_type_name(std::next(definition_tokens.first)->lexme);
             std::shared_ptr<Type> opaque_type = std::make_shared<OpaqueType>(opaque_type_name, file_node_ptr->file_hash);
@@ -156,114 +197,109 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
-            return true;
+            break;
+        }
+        case DefTrie::Pattern::FUNCTION: {
+            // Dont parse the function body, only its definition
+            std::optional<FunctionNode> function_node = create_function(definition_tokens, {});
+            if (!function_node.has_value()) {
+                return false;
+            }
+            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            add_open_function({added_function.value(), body_lines});
+            break;
+        }
+        case DefTrie::Pattern::TEST: {
+            std::optional<TestNode> test_node = create_test(definition_tokens);
+            if (!test_node.has_value()) {
+                return false;
+            }
+            TestNode *added_test = file_node_ptr->add_test(test_node.value());
+            add_open_test({added_test, body_lines});
+            add_parsed_test(added_test, file_name);
+            break;
+        }
+        case DefTrie::Pattern::DATA: {
+            std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
+            if (!data_node.has_value()) {
+                return false;
+            }
+            std::optional<DataNode *> added_data = file_node_ptr->add_data(data_node.value());
+            if (!added_data.has_value()) {
+                return false;
+            }
+            add_open_data(added_data.value());
+            break;
+        }
+        case DefTrie::Pattern::FUNC: {
+            std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
+            if (!func_node.has_value()) {
+                return false;
+            }
+            std::optional<FuncNode *> added_func = file_node_ptr->add_func(func_node.value());
+            if (!added_func.has_value()) {
+                return false;
+            }
+            break;
+        }
+        case DefTrie::Pattern::INTERFACE: {
+            std::optional<InterfaceNode> interface_node = create_interface(definition_tokens, body_lines);
+            if (!interface_node.has_value()) {
+                return false;
+            }
+            std::optional<InterfaceNode *> added_interface = file_node_ptr->add_interface(interface_node.value());
+            if (!added_interface.has_value()) {
+                return false;
+            }
+            break;
+        }
+        case DefTrie::Pattern::OBJECT: {
+            std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines);
+            if (!object_node.has_value()) {
+                return false;
+            }
+            std::optional<ObjectNode *> added_object = file_node_ptr->add_object(object_node.value());
+            if (!added_object.has_value()) {
+                return false;
+            }
+            add_open_object({added_object.value(), body_lines});
+            break;
+        }
+        case DefTrie::Pattern::ENUM: {
+            std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines);
+            if (!enum_node.has_value()) {
+                return false;
+            }
+            if (!file_node_ptr->add_enum(enum_node.value())) {
+                return false;
+            }
+            break;
+        }
+        case DefTrie::Pattern::ERROR: {
+            std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
+            if (!error_node.has_value()) {
+                return false;
+            }
+            if (!file_node_ptr->add_error(error_node.value())) {
+                return false;
+            }
+            break;
+        }
+        case DefTrie::Pattern::VARIANT: {
+            std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
+            if (!variant_node.has_value()) {
+                return false;
+            }
+            if (!file_node_ptr->add_variant(variant_node.value())) {
+                return false;
+            }
+            break;
         }
     }
 
-    auto body_it = lines.begin();
-    while (body_it != lines.end()) {
-        if (body_it->indent_lvl <= definition_line.indent_lvl) {
-            break;
-        }
-        ++body_it;
-    }
-    const std::vector<Line> body_lines(lines.begin(), body_it);
-    lines.erase(lines.begin(), body_it);
-    if (body_lines.empty()) {
-        // TODO: This prints the same error twice which is... not pretty
-        // For example when writing `def main():` and the `print("Hello\n");` in the line below the error first is printed for the `def
-        // main():` line and then again for the `print("Hello\n");` line. We somehow need to print this error only if the current line we
-        // are at is valid at all, e.g. if it *should* have a body. In all other cases we should print a "Hey idk what the hell that line
-        // is" error (for example with the print line at top-level)
-        THROW_ERR(ErrMissingBody, ERR_PARSING, file_hash, definition_tokens);
-        return false;
-    }
-    if (Matcher::tokens_contain(definition_tokens, Matcher::function_definition)) {
-        // Dont parse the function body, only its definition
-        std::optional<FunctionNode> function_node = create_function(definition_tokens, {});
-        if (!function_node.has_value()) {
-            return false;
-        }
-        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
-        if (!added_function.has_value()) {
-            return false;
-        }
-        add_open_function({added_function.value(), body_lines});
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::test_definition)) {
-        std::optional<TestNode> test_node = create_test(definition_tokens);
-        if (!test_node.has_value()) {
-            return false;
-        }
-        TestNode *added_test = file_node_ptr->add_test(test_node.value());
-        add_open_test({added_test, body_lines});
-        add_parsed_test(added_test, file_name);
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::data_definition)) {
-        std::optional<DataNode> data_node = create_data(definition_tokens, body_lines);
-        if (!data_node.has_value()) {
-            return false;
-        }
-        std::optional<DataNode *> added_data = file_node_ptr->add_data(data_node.value());
-        if (!added_data.has_value()) {
-            return false;
-        }
-        add_open_data(added_data.value());
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::func_definition)) {
-        std::optional<FuncNode> func_node = create_func(definition_tokens, body_lines);
-        if (!func_node.has_value()) {
-            return false;
-        }
-        std::optional<FuncNode *> added_func = file_node_ptr->add_func(func_node.value());
-        if (!added_func.has_value()) {
-            return false;
-        }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::interface_definition)) {
-        std::optional<InterfaceNode> interface_node = create_interface(definition_tokens, body_lines);
-        if (!interface_node.has_value()) {
-            return false;
-        }
-        std::optional<InterfaceNode *> added_interface = file_node_ptr->add_interface(interface_node.value());
-        if (!added_interface.has_value()) {
-            return false;
-        }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::object_definition)) {
-        std::optional<ObjectNode> object_node = create_object(definition_tokens, body_lines);
-        if (!object_node.has_value()) {
-            return false;
-        }
-        std::optional<ObjectNode *> added_object = file_node_ptr->add_object(object_node.value());
-        if (!added_object.has_value()) {
-            return false;
-        }
-        add_open_object({added_object.value(), body_lines});
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::enum_definition)) {
-        std::optional<EnumNode> enum_node = create_enum(definition_tokens, body_lines);
-        if (!enum_node.has_value()) {
-            return false;
-        }
-        if (!file_node_ptr->add_enum(enum_node.value())) {
-            return false;
-        }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::error_definition)) {
-        std::optional<ErrorNode> error_node = create_error(definition_tokens, body_lines);
-        if (!error_node.has_value()) {
-            return false;
-        }
-        if (!file_node_ptr->add_error(error_node.value())) {
-            return false;
-        }
-    } else if (Matcher::tokens_contain(definition_tokens, Matcher::variant_definition)) {
-        std::optional<VariantNode> variant_node = create_variant(definition_tokens, body_lines);
-        if (!variant_node.has_value()) {
-            return false;
-        }
-        if (!file_node_ptr->add_variant(variant_node.value())) {
-            return false;
-        }
-    } else {
-        Debug::print_token_context_vector(definition_tokens, file_name);
-        THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
-        return false;
-    }
     if (!annotation_queue.empty()) {
         DefinitionNode *last_definition = file_node_ptr->file_namespace->public_symbols.definitions.back().get();
         THROW_ERR(                                                                                    //
