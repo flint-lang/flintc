@@ -1,4 +1,5 @@
 **/.fip/generated
+**/.fip/log
 **.obj
 .vscode
 .flintc
