@@ -78,7 +78,6 @@ enum Token {
     TOK_FOR,
     TOK_DO,
     TOK_WHILE,
-    TOK_PARALLEL,
     TOK_IN,
     TOK_BREAK,
     TOK_CONTINUE,

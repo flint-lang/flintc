@@ -3012,8 +3012,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             return std::nullopt;
         }
         statement_node = std::move(for_loop.value());
-    } else if (Matcher::tokens_contain(definition, Matcher::par_for_loop) ||
-        Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
+    } else if (Matcher::tokens_contain(definition, Matcher::enhanced_for_loop)) {
         std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop( //
             scope, scope_segment, definition, scoped_body.value()                          //
         );

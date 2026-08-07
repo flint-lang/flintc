@@ -281,7 +281,6 @@ class Matcher {
         {TOK_FOR, std::make_shared<TokenTypeMatcher>(TOK_FOR)},
         {TOK_DO, std::make_shared<TokenTypeMatcher>(TOK_DO)},
         {TOK_WHILE, std::make_shared<TokenTypeMatcher>(TOK_WHILE)},
-        {TOK_PARALLEL, std::make_shared<TokenTypeMatcher>(TOK_PARALLEL)},
         {TOK_IN, std::make_shared<TokenTypeMatcher>(TOK_IN)},
         {TOK_BREAK, std::make_shared<TokenTypeMatcher>(TOK_BREAK)},
         {TOK_CONTINUE, std::make_shared<TokenTypeMatcher>(TOK_CONTINUE)},
@@ -659,7 +658,6 @@ class Matcher {
     static const inline PatternPtr keyword_looping = one_of({
         token(TOK_FOR),
         token(TOK_WHILE),
-        token(TOK_PARALLEL),
         token(TOK_IN),
         token(TOK_BREAK),
         token(TOK_CONTINUE),
@@ -971,7 +969,6 @@ class Matcher {
         }),                                                             //
         token(TOK_IN), until_colon                                      //
     });
-    static const inline PatternPtr par_for_loop = sequence({token(TOK_PARALLEL), enhanced_for_loop});
     static const inline PatternPtr while_loop = sequence({token(TOK_WHILE), until_colon});
     static const inline PatternPtr do_while_loop = sequence({token(TOK_DO), token(TOK_COLON)});
     static const inline PatternPtr if_statement = sequence({token(TOK_IF), until_colon});
