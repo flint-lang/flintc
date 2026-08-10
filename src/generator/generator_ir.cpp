@@ -438,6 +438,27 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
+#ifdef __WIN32__
+    // On the Windows ABI aggregate types are handled much more simply than on SystemV: a struct (or vector) is passed or returned by value
+    // only if it fits into 1, 2, 4 or 8 bytes, in which case it is coerced to an integer of that exact size. Any other size is passed as a
+    // pointer to a caller-managed copy (arguments) or returned through a hidden sret pointer (returns).
+    if (type_variation == Type::Variation::DATA      //
+        || type_variation == Type::Variation::TUPLE  //
+        || type_variation == Type::Variation::GROUP  //
+        || type_variation == Type::Variation::VECTOR //
+    ) {
+        if (type_variation == Type::Variation::VECTOR && type->to_string() == "bool8") {
+            // The `bool8` type is handled by the normal `get_type` function (it's just an `i8`)
+            return std::nullopt;
+        }
+        llvm::Type *const struct_type = get_type(module, type, false).type;
+        const size_t struct_size = Allocation::get_type_size(module, struct_type);
+        if (struct_size == 1 || struct_size == 2 || struct_size == 4 || struct_size == 8) {
+            return llvm::Type::getIntNTy(context, struct_size * 8);
+        }
+        return PTR_TY;
+    }
+#endif
     if (type_variation == Type::Variation::VECTOR) {
         const auto *vector_type = type->as<VectorType>();
         // Let's first look at how each vector-type behaves, considereing the 16 byte rule as well

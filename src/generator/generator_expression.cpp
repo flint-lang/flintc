@@ -29,7 +29,6 @@
 #include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
-#include <stack>
 #include <string>
 #include <variant>
 
@@ -513,8 +512,12 @@ void Generator::Expression::convert_type_to_ext( //
     GenerationContext &ctx,                      //
     const std::shared_ptr<Type> &type,           //
     llvm::Value *const value,                    //
-    std::vector<llvm::Value *> &args             //
+    std::vector<llvm::Value *> &args,            //
+    size_t &scratchspace_offset                  //
 ) {
+#ifdef __WIN32__
+    // On the Windows ABI aggregate arguments are either coerced into integers or passed as pointers to copies, which
+    // `convert_data_type_to_ext` handles
     switch (type->get_variation()) {
         default:
             // No special handling needed
@@ -523,11 +526,39 @@ void Generator::Expression::convert_type_to_ext( //
         case Type::Variation::TUPLE:
             [[fallthrough]];
         case Type::Variation::GROUP:
-            convert_data_type_to_ext(builder, ctx, type, value, args);
+            [[fallthrough]];
+        case Type::Variation::VECTOR:
+            convert_data_type_to_ext(builder, ctx, type, value, args, scratchspace_offset);
             return;
         case Type::Variation::DATA: {
             llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, value, "loaded_data");
-            convert_data_type_to_ext(builder, ctx, type, data_ptr, args);
+            convert_data_type_to_ext(builder, ctx, type, data_ptr, args, scratchspace_offset);
+            return;
+        }
+        case Type::Variation::PRIMITIVE:
+            if (type->to_string() == "str") {
+                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
+                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+                return;
+            }
+            // No special handling needed
+            args.emplace_back(value);
+            return;
+    }
+#else
+    switch (type->get_variation()) {
+        default:
+            // No special handling needed
+            args.emplace_back(value);
+            return;
+        case Type::Variation::TUPLE:
+            [[fallthrough]];
+        case Type::Variation::GROUP:
+            convert_data_type_to_ext(builder, ctx, type, value, args, scratchspace_offset);
+            return;
+        case Type::Variation::DATA: {
+            llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, value, "loaded_data");
+            convert_data_type_to_ext(builder, ctx, type, data_ptr, args, scratchspace_offset);
             return;
         }
         case Type::Variation::VECTOR: {
@@ -627,8 +658,10 @@ void Generator::Expression::convert_type_to_ext( //
             args.emplace_back(value);
             break;
     }
+#endif
 }
 
+#ifndef __WIN32__
 /// @function `expand_type_with_path`
 /// @brief Recursively expands array types into scalar elements, recording the full GEP path for each.
 ///        Struct fields like `[3 x float]` produce 3 scalar entries, each with a GEP path
@@ -685,14 +718,57 @@ static llvm::Value *create_expanded_gep(                   //
     }
     return builder.CreateGEP(struct_type, ptr, indices);
 }
+#endif
 
 void Generator::Expression::convert_data_type_to_ext( //
     llvm::IRBuilder<> &builder,                       //
     GenerationContext &ctx,                           //
     const std::shared_ptr<Type> &type,                //
     llvm::Value *const value,                         //
-    std::vector<llvm::Value *> &args                  //
+    std::vector<llvm::Value *> &args,                 //
+    size_t &scratchspace_offset                       //
 ) {
+#ifdef __WIN32__
+    // On the Windows ABI, structs of exactly 1, 2, 4 or 8 bytes are coerced into an integer of that size, all other sizes are passed as a
+    // pointer to a copy of the struct
+    llvm::Type *const win_struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+    const size_t win_struct_size = Allocation::get_type_size(ctx.parent->getParent(), win_struct_type);
+    const size_t win_struct_align = Allocation::calculate_type_alignment(win_struct_type);
+    const Type::Variation win_variation = type->get_variation();
+    // Data types, tuples and groups are passed to this function as pointers to their value, vectors are passed as
+    // their actual value
+    const bool value_is_pointer = win_variation == Type::Variation::DATA //
+        || win_variation == Type::Variation::TUPLE                       //
+        || win_variation == Type::Variation::GROUP;
+    if (win_struct_size == 1 || win_struct_size == 2 || win_struct_size == 4 || win_struct_size == 8) {
+        // Coerce the struct into an integer of the same size. For data/tuple/group types `value` already is a pointer to the struct,
+        // vectors are struct/vector values which need to be spilled to memory first
+        llvm::Type *const int_type = llvm::Type::getIntNTy(context, win_struct_size * 8);
+        llvm::Value *cast_value = nullptr;
+        if (value_is_pointer) {
+            cast_value = IR::aligned_load(builder, int_type, value);
+        } else {
+            cast_value = builder.CreateBitCast(value, int_type);
+        }
+        args.emplace_back(cast_value);
+        return;
+    }
+    if (scratchspace_offset % win_struct_align != 0) {
+        scratchspace_offset += win_struct_align - (scratchspace_offset % win_struct_align);
+    }
+    llvm::Value *const arg_ptr = builder.CreateGEP(builder.getInt8Ty(), scratchspace, builder.getInt64(scratchspace_offset), "arg_ptr");
+    scratchspace_offset += win_struct_size;
+    // Structs larger than 8 bytes are passed as a pointer to a copy so the callee cannot modify the caller's value
+    if (value_is_pointer) {
+        builder.CreateCall(c_functions.at(MEMCPY), {arg_ptr, value, builder.getInt64(win_struct_size)});
+        args.emplace_back(arg_ptr);
+        return;
+    }
+    // Vectors are struct/vector values which need to be spilled to memory first
+    builder.CreateStore(value, arg_ptr);
+    args.emplace_back(arg_ptr);
+    return;
+#else
     // get the LLVM struct type and its elements
     llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
@@ -915,6 +991,7 @@ void Generator::Expression::convert_data_type_to_ext( //
     builder.CreateBr(convert_type_to_ext_merge_block);
     builder.SetInsertPoint(convert_type_to_ext_merge_block);
     return;
+#endif
 }
 
 void Generator::Expression::convert_type_from_ext( //
@@ -923,6 +1000,35 @@ void Generator::Expression::convert_type_from_ext( //
     const std::shared_ptr<Type> &type,             //
     llvm::Value *&value                            //
 ) {
+#ifdef __WIN32__
+    switch (type->get_variation()) {
+        default:
+            return;
+        case Type::Variation::TUPLE:
+            [[fallthrough]];
+        case Type::Variation::GROUP:
+            [[fallthrough]];
+        case Type::Variation::DATA:
+            convert_data_type_from_ext(builder, ctx, type, value);
+            return;
+        case Type::Variation::VECTOR: {
+            // On the Windows ABI vectors of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size, everything larger
+            // is returned through an sret pointer handled by `generate_extern_call`
+            llvm::Type *const win_vector_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+            const size_t win_vector_size = Allocation::get_type_size(ctx.parent->getParent(), win_vector_type);
+            if (win_vector_size == 1 || win_vector_size == 2 || win_vector_size == 4 || win_vector_size == 8) {
+                value = builder.CreateBitCast(value, win_vector_type);
+            }
+            return;
+        }
+        case Type::Variation::PRIMITIVE:
+            if (type->to_string() == "str") {
+                llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
+                value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+            }
+            return;
+    }
+#else
     switch (type->get_variation()) {
         default:
             return;
@@ -1049,6 +1155,7 @@ void Generator::Expression::convert_type_from_ext( //
             }
             break;
     }
+#endif
 }
 
 void Generator::Expression::convert_data_type_from_ext( //
@@ -1057,6 +1164,25 @@ void Generator::Expression::convert_data_type_from_ext( //
     const std::shared_ptr<Type> &type,                  //
     llvm::Value *&value                                 //
 ) {
+#ifdef __WIN32__
+    // On the Windows ABI structs of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size,
+    // everything larger is returned through an sret pointer already handled by `generate_extern_call`
+    llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+    const size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
+    if (struct_size != 1 && struct_size != 2 && struct_size != 4 && struct_size != 8) {
+        return;
+    }
+    if (!type->is_dima_managed()) {
+        value = builder.CreateBitCast(value, _struct_type);
+        return;
+    }
+    llvm::Function *const allocate_fn = Module::DIMA::dima_functions.at("allocate");
+    llvm::GlobalValue *const dima_head = Module::DIMA::get_head(type);
+    llvm::Value *const value_ptr = builder.CreateCall(allocate_fn, {dima_head}, "allocated_value");
+    IR::aligned_store(builder, value, value_ptr);
+    value = value_ptr;
+    return;
+#else
     // get the LLVM struct type and its elements
     llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
@@ -1269,6 +1395,7 @@ void Generator::Expression::convert_data_type_from_ext( //
     builder.CreateBr(convert_type_from_ext_merge_block);
     builder.SetInsertPoint(convert_type_from_ext_merge_block);
     return;
+#endif
 }
 
 Generator::group_mapping Generator::Expression::generate_extern_call( //
@@ -1277,19 +1404,22 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     const CallNodeBase *call_node,                                    //
     std::vector<llvm::Value *> &args                                  //
 ) {
-    // Check if return type > 16 bytes, if it is then we need to pass a reference to the allocation of the sret value to the function
     bool needs_sret = false;
     llvm::Value *sret_alloc = nullptr;
     size_t return_size = 0;
+    size_t scratchspace_offset = 0;
     if (call_node->type->to_string() != "void") {
         llvm::Type *const return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
         return_size = Allocation::get_type_size(ctx.parent->getParent(), return_type);
-
-        if (return_size > 16) {
+#ifdef __WIN32__
+        const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+#else
+        const bool return_uses_sret = return_size > 16;
+#endif
+        if (return_uses_sret) {
             needs_sret = true;
-            // Get the pre-allocated sret space
-            const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
-            sret_alloc = ctx.allocations.at(sret_alloca_name);
+            sret_alloc = scratchspace;
+            scratchspace_offset += return_size;
         }
     }
 
@@ -1301,11 +1431,12 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     }
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
-        convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args);
+        convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args, scratchspace_offset);
     }
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
+#ifndef __WIN32__
         // Add byval attributes for > 16 byte input parameters
         for (size_t i = 0; i < call_node->arguments.size(); i++) {
             llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
@@ -1314,6 +1445,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
                 call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
             }
         }
+#endif
         call->setMetadata("comment",
             llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
         return std::vector<llvm::Value *>{};
@@ -1330,7 +1462,8 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         call->addParamAttr(0, llvm::Attribute::get(context, llvm::Attribute::StructRet, return_type));
         call->addParamAttr(0, llvm::Attribute::NoAlias);
 
-        // Add byval attributes for > 16 byte input parameters
+#ifndef __WIN32__
+        // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
         size_t param_idx = 1;
         for (const auto &arg : call_node->arguments) {
             llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).type;
@@ -1340,12 +1473,44 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
             }
             param_idx++;
         }
+#endif
 
         // Result is in sret_alloc, need to copy to heap for the rest of Flint to understand the return value of the function
-        llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
-        llvm::Value *result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(call_node->type)}, "result_ptr");
-        builder.CreateCall(c_functions.at(MEMCPY), {result_ptr, sret_alloc, builder.getInt64(return_size)});
-        return std::vector<llvm::Value *>{result_ptr};
+        if (call_node->type->is_dima_managed()) {
+            llvm::Function *dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
+            llvm::Value *result_ptr = builder.CreateCall(dima_allocate_fn, {Module::DIMA::get_head(call_node->type)}, "result_ptr");
+            builder.CreateCall(c_functions.at(MEMCPY), {result_ptr, sret_alloc, builder.getInt64(return_size)});
+            return std::vector<llvm::Value *>{result_ptr};
+        }
+
+        // The return type is not DIMA-managed (e.g. tuple, group or vector). These types are stored by value and not as
+        // heap pointers, so we load the aggregate directly from the sret scratch space instead of heap-allocating it
+        std::vector<llvm::Value *> return_value;
+        switch (call_node->type->get_variation()) {
+            case Type::Variation::TUPLE:
+                [[fallthrough]];
+            case Type::Variation::GROUP: {
+                // The caller expects the individual elements of the aggregate in the order of the type's members
+                llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
+                std::vector<std::shared_ptr<Type>> elem_types;
+                if (call_node->type->get_variation() == Type::Variation::GROUP) {
+                    elem_types = call_node->type->as<GroupType>()->types;
+                } else {
+                    elem_types = call_node->type->as<TupleType>()->types;
+                }
+                for (size_t i = 0; i < elem_types.size(); i++) {
+                    llvm::Value *elem_ptr = builder.CreateStructGEP(struct_type, sret_alloc, i);
+                    llvm::Value *elem = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), elem_types[i]).type, elem_ptr);
+                    return_value.emplace_back(elem);
+                }
+                return return_value;
+            }
+            default: {
+                // Vectors and any other aggregate types are returned as a single value
+                llvm::Value *loaded_value = IR::aligned_load(builder, return_type, sret_alloc);
+                return std::vector<llvm::Value *>{loaded_value};
+            }
+        }
     }
 
     // There is no sret needed, it's a normal call
@@ -1354,7 +1519,8 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         converted_args,                                                          //
         call_node->function->name + std::to_string(call_node->call_id) + "_call" //
     );
-    // Add byval attributes for > 16 byte input parameters
+#ifndef __WIN32__
+    // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
         size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
@@ -1362,6 +1528,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
             call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
         }
     }
+#endif
     call->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
     std::vector<llvm::Value *> return_value;

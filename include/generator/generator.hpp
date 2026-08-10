@@ -1619,12 +1619,14 @@ class Generator {
         /// @param `type` The type to convert
         /// @param `value` The value to convert
         /// @param `args` The output arguments in which to place the converted value(s)
+        /// @param `scratchspace_offset` The current offset within the scratchspace
         static void convert_type_to_ext(       //
             llvm::IRBuilder<> &builder,        //
             GenerationContext &ctx,            //
             const std::shared_ptr<Type> &type, //
             llvm::Value *const value,          //
-            std::vector<llvm::Value *> &args   //
+            std::vector<llvm::Value *> &args,  //
+            size_t &scratchspace_offset        //
         );
 
         /// @function `convert_data_type_to_ext`
@@ -1635,12 +1637,14 @@ class Generator {
         /// @param `type` The data type to convert
         /// @param `value` The value to convert
         /// @param `args` The output arguments in which to place the converted value(s)
+        /// @param `scratchspace_offset` The current offset within the scratchspace
         static void convert_data_type_to_ext(  //
             llvm::IRBuilder<> &builder,        //
             GenerationContext &ctx,            //
             const std::shared_ptr<Type> &type, //
             llvm::Value *const value,          //
-            std::vector<llvm::Value *> &args   //
+            std::vector<llvm::Value *> &args,  //
+            size_t &scratchspace_offset        //
         );
 
         /// @function `convert_type_from_ext`

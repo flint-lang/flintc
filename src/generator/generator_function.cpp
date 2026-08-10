@@ -29,16 +29,21 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
             }
         }
 
-        // Check if return type is > 16 bytes
+        // Check if the return type needs to be returned through a hidden sret pointer
         llvm::Type *const actual_return_type = IR::get_type(module, ret_type, false).type;
         size_t return_size = Allocation::get_type_size(module, actual_return_type);
-        if (return_size > 16) {
+#ifdef __WIN32__
+        const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+#else
+        const bool return_uses_sret = return_size > 16;
+#endif
+        if (return_uses_sret) {
             // Return type becomes void
             return_types = llvm::Type::getVoidTy(context);
             // First parameter becomes sret pointer
             sret_param_type = PTR_TY;
         } else {
-            // Existing logic for <= 16 bytes
+            // Return type is the coerced extern type of the actual return type
             return_types = IR::get_type(module, ret_type, true).type;
         }
     }
@@ -52,6 +57,11 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
 
     for (const auto &param : function_node->parameters) {
         llvm::Type *const param_type = IR::get_type(module, param.type, true).type;
+#ifdef __WIN32__
+        // On the Windows ABI aggregate types are either coerced into integers or passed as pointers, so they are
+        // never flattened into their individual elements
+        param_types_vec.emplace_back(param_type);
+#else
         if (param_type->isStructTy()) {
             llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
             for (const auto &element_type : struct_type->elements()) {
@@ -60,6 +70,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
         } else {
             param_types_vec.emplace_back(param_type);
         }
+#endif
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
 

@@ -541,7 +541,9 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
         std::filesystem::create_directory(generated_dir);
     }
     const std::filesystem::path generated_file = generated_dir / (module_tag + ".ft");
-    std::ofstream file(generated_file);
+    // Write in binary mode so `\n` is not translated to `\r\n` on Windows, which would break tests comparing the
+    // generated files against `\n`-only strings
+    std::ofstream file(generated_file, std::ios::binary);
     if (!file.is_open()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return false;

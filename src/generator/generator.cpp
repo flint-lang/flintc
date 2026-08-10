@@ -395,6 +395,67 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             max_size = type_size;
         }
     }
+
+    // Extern function calls also use the global scratchspace
+    size_t extern_scratch_size = 0;
+    for (const auto &instance : Parser::instances) {
+        for (const std::unique_ptr<DefinitionNode> &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
+            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                continue;
+            }
+            const auto *const function_node = definition->as<FunctionNode>();
+            if (!function_node->is_extern) {
+                continue;
+            }
+            // The sret return buffer is always placed at the very start of the scratchspace, directly followed by the argument copies
+            size_t offset = 0;
+            if (!function_node->return_types.empty()) {
+                std::shared_ptr<Type> ret_type;
+                if (function_node->return_types.size() > 1) {
+                    ret_type = std::make_shared<TupleType>(function_node->return_types);
+                } else {
+                    ret_type = function_node->return_types.front();
+                }
+                llvm::Type *const return_llvm_type = IR::get_type(module.get(), ret_type, false).type;
+                const size_t return_size = Allocation::get_type_size(module.get(), return_llvm_type);
+#ifdef __WIN32__
+                const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+#else
+                const bool return_uses_sret = return_size > 16;
+#endif
+                if (return_uses_sret) {
+                    offset += return_size;
+                }
+            }
+#ifdef __WIN32__
+            for (const auto &parameter : function_node->parameters) {
+                const Type::Variation variation = parameter.type->get_variation();
+                switch (variation) {
+                    default:
+                        continue;
+                    case Type::Variation::TUPLE:
+                    case Type::Variation::GROUP:
+                    case Type::Variation::VECTOR:
+                    case Type::Variation::DATA:
+                        break;
+                }
+                llvm::Type *const arg_llvm_type = IR::get_type(module.get(), parameter.type, false).type;
+                const size_t arg_size = Allocation::get_type_size(module.get(), arg_llvm_type);
+                if (arg_size == 1 || arg_size == 2 || arg_size == 4 || arg_size == 8) {
+                    continue;
+                }
+                const unsigned int arg_alignment = Allocation::calculate_type_alignment(arg_llvm_type);
+                offset = (offset + arg_alignment - 1) / arg_alignment * arg_alignment;
+                offset += arg_size;
+            }
+#endif
+            if (offset > extern_scratch_size) {
+                extern_scratch_size = offset;
+            }
+        }
+    }
+    max_size = std::max(max_size, extern_scratch_size);
+
     llvm::Type *scratchspace_type = llvm::ArrayType::get(llvm::Type::getInt8Ty(context), max_size);
     llvm::Constant *initializer = llvm::ConstantAggregateZero::get(scratchspace_type);
     scratchspace = new llvm::GlobalVariable(                                                         //

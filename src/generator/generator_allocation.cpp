@@ -382,25 +382,8 @@ bool Generator::Allocation::generate_call_allocations(                    //
         }
     }
 
-    // For extern functions returning structs > 16 bytes, allocate sret scratch space in the function frame
-    if (call_node->function != nullptr && call_node->function->is_extern && call_node->type->to_string() != "void") {
-        llvm::Type *const return_ty = IR::get_type(parent->getParent(), call_node->type, false).type;
-        size_t return_size = Allocation::get_type_size(parent->getParent(), return_ty);
-        if (return_size > 16) {
-            const std::string sret_alloca_name = "flint.sret_" + call_node->type->to_string();
-            auto it = struct_types.begin();
-            while (it != struct_types.end()) {
-                if (it->first == sret_alloca_name) {
-                    break;
-                }
-                ++it;
-            }
-            if (it == struct_types.end()) {
-                struct_types.emplace_back(sret_alloca_name, return_ty);
-            }
-        }
-    }
-
+    // The sret buffer and the buffers for aggregate arguments of extern functions are not allocated on the function frame but are located
+    // inside the global scratchspace, sized by `Generator::generate` for all extern functions
     return true;
 }
 
