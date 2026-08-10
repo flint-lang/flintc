@@ -726,7 +726,7 @@ void Generator::Expression::convert_data_type_to_ext( //
     const std::shared_ptr<Type> &type,                //
     llvm::Value *const value,                         //
     std::vector<llvm::Value *> &args,                 //
-    size_t &scratchspace_offset                       //
+    [[maybe_unused]] size_t &scratchspace_offset      // Unused on SystemV ABI, needed for Windows ABI
 ) {
 #ifdef __WIN32__
     // On the Windows ABI, structs of exactly 1, 2, 4 or 8 bytes are coerced into an integer of that size, all other sizes are passed as a
