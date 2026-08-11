@@ -101,3 +101,8 @@ test "[f]19_extraction_chain.ft":
 	str path = "tests/wiki/intermediates_guide/variants";
 	str file = "19_extraction_chain.ft";
 	test_file_ok($"{path}/{file}", "x = 10\nx2 = 30\n");
+
+test "20_optional_variants.ft":
+	str path = "tests/wiki/intermediates_guide/variants";
+	str file = "20_optional_variants.ft";
+	test_file_ok($"{path}/{file}", "opt!.active_type = 2\nholds f32 value 3.14\n");

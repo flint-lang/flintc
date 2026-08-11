@@ -1,0 +1,17 @@
+use Core.print
+
+variant MyVar:
+	Int(i32), Float(f32), Bool(bool);
+
+def main():
+	MyVar var = MyVar.Float(3.14);
+	MyVar? opt = var;
+
+	print($"opt!.active_type = {i32(opt!.active_type)}\n");
+
+	if opt! == MyVar.Int:
+		print($"holds i32 value {opt!!(MyVar.Int)}\n");
+	else if opt! == MyVar.Float:
+		print($"holds f32 value {opt!!(MyVar.Float)}\n");
+	else if opt! == MyVar.Bool:
+		print($"holds bool value {opt!!(MyVar.Bool)}\n");
