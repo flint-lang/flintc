@@ -1629,6 +1629,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
 
     // Now, extract the names of all accessed fields
     std::vector<std::string> field_names;
+    const auto access_token_begin = access_tokens.first + 1;
     while (access_tokens.first != access_tokens.second) {
         if (access_tokens.first->token == TOK_IDENTIFIER) {
             field_names.emplace_back(access_tokens.first->lexme);
@@ -1698,7 +1699,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             for (size_t i = 0; i < field_names.size(); i++) {
                 size_t field_id = std::stoul(field_names.at(i).substr(1, field_names.at(i).length() - 1));
                 if (field_id >= tuple_type->types.size()) {
-                    const auto it = access_tokens.first + field_id * 2;
+                    const auto it = access_token_begin + i * 2;
                     THROW_ERR(                                                          //
                         ErrExprTupleAccessOOB, ERR_PARSING, file_hash,                  //
                         it->line, it->column, "$" + std::to_string(field_id), base_type //
