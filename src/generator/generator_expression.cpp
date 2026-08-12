@@ -2763,9 +2763,12 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
                     && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
                     && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
-                const bool is_reference = !is_opt_literal //
-                    && elem_type->is_freeable()           //
-                    && elem_type->get_variation() == Type::Variation::OPTIONAL;
+                const bool is_reference = !is_opt_literal                                     //
+                    && elem_type->is_freeable()                                               //
+                    && elem_type->get_variation() == Type::Variation::OPTIONAL                //
+                    && arg_expr->get_variation() != ExpressionNode::Variation::CALL           //
+                    && arg_expr->get_variation() != ExpressionNode::Variation::CALLABLE_CALL  //
+                    && arg_expr->get_variation() != ExpressionNode::Variation::INSTANCE_CALL; //
 
                 auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get(), is_reference);
                 if (!expr_result.has_value()) {

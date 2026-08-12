@@ -1,66 +1,29 @@
+use Core.assert
+use Core.parse
 use Core.print
 
-data Data1:
-	i32 x = 10;
-		i32 y = 20;
-			Data1(x, y);
+data Node:
+	u32 value = 0;
+	Node? left = none;
+	Node? right = none;
+	Node(value, left, right);
 
-data Data2:
-			i32 z = 30;
-		i32 w = 40;
-	Data2(z, w);
+def make_tree(u32 depth) -> Node?:
+	if depth == 0:
+		return none;
+	return Node(depth, make_tree(depth - 1), make_tree(depth - 1));
 
-func Func1 requires(
-	Data1 d1
-):
-	def print():
-		print( $"d1.(x, y) = {d1.(x, y)}\n");
+def check_tree(Node? node) -> u32:
+	u32 result = switch node:
+		none -> 0;
+		n -> n.value + check_tree(n.left) + check_tree(n.right);
+	return result;
 
-func Func2 requires(Data2 d2):
-	def print(
-):
-		print($"d2.(z, w) = {d2.(z, w)}\n");
-
-object Object:
-	func: Func1,
-					Func2;
-	data:
-	Data1 d1,
-	Data2 d2;
-	Object(d1, d2);
-
-	def				print		(		
-		)
-:
-		Func1.print(d1);
-		Func2.print(d2);
-
-def somefunction()
--> i32:
-	return 69;
-
-def otherfunction()
--> i32:
-	return 420;
-
-def main():
-	i32 x = somefunction()
-		+ otherfunction();
-	print($"x = {x}\n");
-
-	if true: print("first1\n"); print("second1\n");
-	if false: print("first2\n"); print("second2\n");
-
-	if true: print("first3\n"); if true: print("second3\n");
-			print("first4\n");
-		print("second4\n");
-
-	for u64 i = 0;
-	i < 3;
-	i++: print($"i = {i}\n");
-
-	o := Object(
-		Data1(20, 10),
-		Data2(40, 30)
-		);
-	o.print();
+def main(str[] args):
+	u32 depth = 12;
+	if args.len > 1:
+		depth = parse_u32(args[1]);
+	
+	Node? root = make_tree(depth);
+	u32 result = check_tree(root);
+	print($"{result}\n");
