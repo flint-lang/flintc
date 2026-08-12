@@ -2092,13 +2092,11 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         ASSERT(!is_inferred);
         ASSERT(declared_type != nullptr);
         if (is_persistent) {
-            // Persistent locals require an initializer
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtMissingInitializerOfPersistent, ERR_PARSING, file_hash, tokens);
             return std::nullopt;
         }
         if (declared_type->is_freeable()) {
-            // Freeable types are not allowed to not have an initializer
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrStmtMissingInitializerOfFreeable, ERR_PARSING, file_hash, tokens);
             return std::nullopt;
         }
 

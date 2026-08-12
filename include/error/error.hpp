@@ -107,6 +107,8 @@
 #include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
 #include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
 #include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
+#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_freeable.hpp"
+#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_persistent.hpp"
 
 #include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"
 
