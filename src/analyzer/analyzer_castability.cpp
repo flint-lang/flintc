@@ -927,6 +927,33 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
                 return true;
             }
             if (expr->get_variation() != ExpressionNode::Variation::GROUP_EXPRESSION) {
+                // If the expression is a group-typed value (e.g. the `.len` property of a multi-dimensional array or a variable
+                // whose type is a group), it can be cast to the vector as long as the widths match and every element type can be
+                // cast to the vector's base type
+                if (expr->type->get_variation() == Type::Variation::GROUP) {
+                    const auto *group_type = expr->type->as<GroupType>();
+                    if (group_type->types.size() != vector_type->width) {
+                        return false;
+                    }
+                    for (size_t i = 0; i < vector_type->width; i++) {
+                        const std::shared_ptr<Type> &elem_type = group_type->types.at(i);
+                        if (vector_type->base_type->equals(elem_type)) {
+                            continue;
+                        }
+                        switch (check_primitive_castability(vector_type->base_type, elem_type, is_implicit).kind) {
+                            case CastDirection::Kind::NOT_CASTABLE:
+                            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+                            case CastDirection::Kind::CAST_LHS_TO_RHS:
+                                return false;
+                            case CastDirection::Kind::SAME_TYPE:
+                            case CastDirection::Kind::CAST_RHS_TO_LHS:
+                            case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                                break;
+                        }
+                    }
+                    expr = std::make_unique<TypeCastNode>(parser.file_hash, expr_pos, target_type, expr);
+                    return true;
+                }
                 // If rhs type is a single value of type 'int' or 'float' then it can be splatted to the lhs type
                 CastDirection::Kind primitive_castability = CastDirection::Kind::SAME_TYPE;
                 if (!vector_type->base_type->equals(expr->type)) {
