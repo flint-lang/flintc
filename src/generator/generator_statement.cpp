@@ -404,7 +404,16 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                 llvm::Value *type_id = builder.getInt32(return_node->return_value.value()->type->get_id());
                 builder.CreateCall(clone_fn, {return_value.value().front(), value_ptr, type_id});
             } else {
-                llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().front(), value_ptr);
+                llvm::Value *ret_val = return_value.value().front();
+                if (return_node->return_value.value()->type->get_variation() == Type::Variation::VARIANT //
+                    && ret_val->getType()->isPointerTy()                                                 //
+                ) {
+                    llvm::StructType *const variant_ty = IR::add_and_or_get_type(               //
+                        ctx.parent->getParent(), return_node->return_value.value()->type, false //
+                    );
+                    ret_val = IR::aligned_load(builder, variant_ty, ret_val, "loaded_ret_variant");
+                }
+                llvm::StoreInst *const value_store = IR::aligned_store(builder, ret_val, value_ptr);
                 value_store->setMetadata("comment",
                     llvm::MDNode::get(context, llvm::MDString::get(context, "Store result in return field")));
             }
@@ -428,7 +437,14 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                     builder.CreateCall(clone_fn, {return_value.value().at(i), value_ptr, builder.getInt32(exprs->at(i)->type->get_id())});
                     continue;
                 }
-                llvm::StoreInst *value_store = IR::aligned_store(builder, return_value.value().at(i), value_ptr);
+                llvm::Value *ret_val = return_value.value().at(i);
+                if (exprs != nullptr && exprs->at(i)->type->get_variation() == Type::Variation::VARIANT //
+                    && ret_val->getType()->isPointerTy()                                                //
+                ) {
+                    llvm::StructType *variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), exprs->at(i)->type, false);
+                    ret_val = IR::aligned_load(builder, variant_ty, ret_val, "loaded_ret_variant");
+                }
+                llvm::StoreInst *const value_store = IR::aligned_store(builder, ret_val, value_ptr);
                 value_store->setMetadata("comment",
                     llvm::MDNode::get(context, llvm::MDString::get(context, "Store result " + std::to_string(i) + " in return field")));
             }
@@ -1849,6 +1865,10 @@ bool Generator::Statement::generate_declaration( //
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the variable
+    if (declaration_node->type->get_variation() == Type::Variation::VARIANT && expression->getType()->isPointerTy()) {
+        llvm::StructType *const variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
+        expression = IR::aligned_load(builder, variant_ty, expression, "loaded_variant");
+    }
     llvm::StoreInst *store = IR::aligned_store(builder, expression, alloca);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store the actual val of '" + declaration_node->name + "'")));
@@ -2067,6 +2087,10 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         }
     }
     // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
+    if (assignment_node->type->get_variation() == Type::Variation::VARIANT && expression->getType()->isPointerTy()) {
+        llvm::StructType *const variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
+        expression = IR::aligned_load(builder, variant_ty, expression, "loaded_variant");
+    }
     llvm::StoreInst *store = IR::aligned_store(builder, expression, lhs);
     store->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
@@ -2245,7 +2269,11 @@ bool Generator::Statement::generate_data_field_assignment( //
         }
     }
 
-    llvm::StoreInst *store = IR::aligned_store(builder, expr_val, field_ptr);
+    if (data_field_assignment->field_type->get_variation() == Type::Variation::VARIANT && expr_val->getType()->isPointerTy()) {
+        llvm::StructType *const variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), data_field_assignment->field_type, false);
+        expr_val = IR::aligned_load(builder, variant_ty, expr_val, "loaded_variant");
+    }
+    llvm::StoreInst *const store = IR::aligned_store(builder, expr_val, field_ptr);
     if (data_field_assignment->field_name.has_value()) {
         store->setMetadata("comment",
             llvm::MDNode::get(context,
