@@ -744,7 +744,7 @@ bool Analyzer::analyze_expression(                            //
                 local_ctx.level = ContextLevel::INTERNAL;
             }
             for (auto &arg : node->arguments) {
-                if (!analyze_expression(ctx, arg.first)) {
+                if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
             }
@@ -767,7 +767,7 @@ bool Analyzer::analyze_expression(                            //
             Context local_ctx = ctx;
             local_ctx.level = ContextLevel::INTERNAL;
             for (auto &arg : node->arguments) {
-                if (!analyze_expression(ctx, arg.first)) {
+                if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
             }
@@ -946,7 +946,7 @@ bool Analyzer::analyze_expression(                            //
                 local_ctx.level = ContextLevel::INTERNAL;
             }
             for (auto &arg : node->arguments) {
-                if (!analyze_expression(ctx, arg.first)) {
+                if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
             }
