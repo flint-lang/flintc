@@ -4212,14 +4212,22 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
 
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).type;
     llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).type;
+    const bool is_err_variant = unwrap->base_expr->type->as<VariantType>()->is_err_variant;
     if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
         // Directly unwrap the value when in unsafe mode, possibly breaking stuff, but it's much faster too
-        llvm::Value *const value_ptr = builder.CreateStructGEP(variant_type, base_expr, 1, "var_value_ptr");
-        llvm::Value *const value_cast_ptr = builder.CreateBitCast(value_ptr, PTR_TY, "value_ptr_unsafe");
-        if (is_reference) {
-            return std::vector<llvm::Value *>{value_cast_ptr};
+        llvm::Value *value_ptr = nullptr;
+        if (is_err_variant) {
+            // Error variants are represented as `type.flint.err`, the whole struct is the payload
+            value_ptr = base_expr;
+        } else {
+            value_ptr = builder.CreateBitCast(                                                                   //
+                builder.CreateStructGEP(variant_type, base_expr, 1, "var_value_ptr"), PTR_TY, "value_ptr_unsafe" //
+            );
         }
-        llvm::Value *const value = IR::aligned_load(builder, element_type, value_cast_ptr, "var_value_unsafe");
+        if (is_reference) {
+            return std::vector<llvm::Value *>{value_ptr};
+        }
+        llvm::Value *const value = IR::aligned_load(builder, element_type, value_ptr, "var_value_unsafe");
         return std::vector<llvm::Value *>{value};
     }
 
@@ -4228,10 +4236,17 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     llvm::BasicBlock *const holds_wrong_type = llvm::BasicBlock::Create(context, "var_upwrap_wrong_type", ctx.parent);
     llvm::BasicBlock *const merge = llvm::BasicBlock::Create(context, "var_unwrap", ctx.parent);
     builder.SetInsertPoint(inserter);
-    const unsigned char id = unwrap->unwrap_id;
-    llvm::Value *const wanted_type = builder.getInt8(id);
+    llvm::Value *wanted_type = nullptr;
     llvm::Value *const current_type_ptr = builder.CreateStructGEP(variant_type, base_expr, 0, "var_type_ptr");
-    llvm::Value *const current_type = IR::aligned_load(builder, builder.getInt8Ty(), current_type_ptr, "var_type");
+    if (is_err_variant) {
+        // The discriminator of an error variant is the full i32 error type id, not an i8 member tag
+        const auto *err_set_type = unwrap->type->as<ErrorSetType>();
+        wanted_type = builder.getInt32(err_set_type->error_node->error_id);
+    } else {
+        const unsigned char id = unwrap->unwrap_id;
+        wanted_type = builder.getInt8(id);
+    }
+    llvm::Value *const current_type = IR::aligned_load(builder, wanted_type->getType(), current_type_ptr, "var_type");
     llvm::Value *const holds_type = builder.CreateICmpEQ(current_type, wanted_type, "holds_type");
     llvm::BranchInst *branch = builder.CreateCondBr(holds_type, merge, holds_wrong_type, IR::generate_weights(100, 1));
     branch->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Check if the variant holds the correct type")));
@@ -4245,8 +4260,13 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
 
     // The merge block, when the variant access is okay
     builder.SetInsertPoint(merge);
-    llvm::Value *const value_raw_ptr = builder.CreateStructGEP(variant_type, base_expr, 1, "value_raw_ptr");
-    llvm::Value *const value_ptr = builder.CreateBitCast(value_raw_ptr, PTR_TY, "value_ptr");
+    llvm::Value *value_ptr = nullptr;
+    if (is_err_variant) {
+        // Error variants store the whole error struct as their payload
+        value_ptr = base_expr;
+    } else {
+        value_ptr = builder.CreateBitCast(builder.CreateStructGEP(variant_type, base_expr, 1, "value_raw_ptr"), PTR_TY, "value_ptr");
+    }
     if (is_reference) {
         return std::vector<llvm::Value *>{value_ptr};
     }
