@@ -43,7 +43,6 @@ bool Generator::Builtin::init_global_variables( //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
     );
     llvm::Value *const ts_flags = IR::aligned_load(*builder, builder->getInt32Ty(), ts_flags_ptr, "ts_flags");
-    allocations.emplace("flint.stack.flags", ts_flags);
     llvm::Value *const is_callable_flag = builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
     llvm::Value *const is_callable = builder->CreateICmpEQ(ts_flags, is_callable_flag, "is_callable");
     allocations.emplace("flint.stack.is_callable", is_callable);

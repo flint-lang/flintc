@@ -106,7 +106,6 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     llvm::Value *ts_stack_ptr = IR::aligned_load(builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
     llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(stack_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr");
     llvm::Value *const ts_flags = IR::aligned_load(builder, builder.getInt32Ty(), ts_flags_ptr, "ts_flags");
-    allocations.emplace("flint.stack.flags", ts_flags);
     llvm::Value *const is_callable_flag = builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
     llvm::Value *const is_callable_ctx = builder.CreateICmpEQ(ts_flags, is_callable_flag, "is_callable_ctx");
     allocations.emplace("flint.stack.is_callable", is_callable_ctx);
@@ -114,6 +113,9 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     allocations.emplace("flint.stack.persistence_flags", next_stack_frame);
     next_stack_frame = builder.CreateSelect(is_callable_ctx, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
     allocations.emplace("flint.stack.next", next_stack_frame);
+
+    // Reset the TS flags to the default (USED)
+    IR::aligned_store(builder, builder.getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_USED), ts_flags_ptr);
 
     // Calculate the remaining stack capacity and store it in the allocations map
     llvm::Value *const stack_data_start = builder.CreateStructGEP(                      //

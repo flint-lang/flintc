@@ -2391,9 +2391,6 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 #endif
     last_err_values = {call, callable_frame};
 
-    // Reset the ts flags to their original value
-    IR::aligned_store(builder, ctx.allocations.at("flint.stack.flags"), ts_flags_ptr);
-
     // Do all the common call cleanup on the arguments of the call
     if (!generate_call_arg_cleanup(                                                           //
             builder, ctx, args, garbage, std::nullopt, callable_frame, fn_type->return_types, //
