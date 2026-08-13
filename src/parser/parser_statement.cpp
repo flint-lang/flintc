@@ -3063,6 +3063,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         }
         case ScopedStmtTrie::Pattern::SWITCH: {
             statement_node = create_switch_statement(scope, scope_segment, definition, scoped_body.value());
+            if (!statement_node.has_value()) {
+                return std::nullopt;
+            }
             break;
         }
     }
