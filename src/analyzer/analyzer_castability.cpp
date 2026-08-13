@@ -37,6 +37,26 @@ bool Analyzer::Castability::resolve_comptime_type_of_expr(  //
     const std::optional<std::shared_ptr<Type>> &target_type //
 ) {
     const std::string &type_str = expr->type->to_string();
+    if ((type_str == "int" || type_str == "float") && target_type.has_value() && target_type.value()->to_string() == "str") {
+        assert(expr->get_variation() == ExpressionNode::Variation::LITERAL);
+        LiteralNode *const literal = expr->as<LiteralNode>();
+        const std::string str_value = type_str == "int"          //
+            ? std::get<LitInt>(literal->value).value.to_string() //
+            : std::get<LitFloat>(literal->value).value.to_string();
+        const unsigned int line = literal->line;
+        const unsigned int column = literal->column;
+        const unsigned int length = literal->length;
+        const ASTNode::PosTriple literal_pos = {line, column, length};
+        LitValue new_value = LitStr{str_value};
+        expr = std::make_unique<LiteralNode>(                                                                            //
+            parser.file_hash, literal_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded //
+        );
+        expr = std::make_unique<TypeCastNode>(parser.file_hash, literal_pos, Type::get_primitive_type("str"), expr);
+        expr->line = line;
+        expr->column = column;
+        expr->length = length;
+        return true;
+    }
     if (type_str == "int") {
         if (target_type.has_value()) {
             expr->type = target_type.value();
