@@ -130,7 +130,7 @@ void Parser::init_core_modules() {
                 }
 
                 const auto &error_types_str = std::get<2>(overload);
-                std::vector<std::shared_ptr<Type>> error_types;
+                std::vector<std::shared_ptr<Type>> error_types{Type::get_primitive_type("anyerror")};
                 for (const auto &error_view : error_types_str) {
                     const std::string error_str(error_view);
                     const std::shared_ptr<Type> error_type = core_namespace->get_type_from_str(error_str).value();
