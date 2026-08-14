@@ -209,7 +209,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::ASSIGNMENT: {
             auto *node = statement.as<AssignmentNode>();
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(ctx, node->expression, node->type)) {
                 return false;
             }
             if (!Analyzer::Castability::check_castability(ctx.parser, node->type, node->expression)) {
@@ -492,7 +492,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             if (!node->return_value.has_value()) {
                 break;
             }
-            if (!analyze_expression(ctx, node->return_value.value())) {
+            if (!analyze_expression(ctx, node->return_value.value(), ctx.return_type)) {
                 return false;
             }
             if (ctx.return_type.has_value()                                                                                   //
@@ -1063,14 +1063,38 @@ bool Analyzer::analyze_expression(                            //
                     }
                 }
             }
-            // Cast all branch expressions to the common type of the switch expression. If the common type is a comptime type
-            // (e.g. `int`), it needs to be resolved to its default concrete type first so that the branch literals can be
-            // retyped as well
+            // Cast all branch expressions to the common type of the switch expression. If the common type is a comptime type (e.g. `int`),
+            // it needs to be resolved to a concrete type first so that the branch literals can be retyped as well. If an expected type was
+            // passed down (e.g. from a return statement or an assignment) and the common type can be implicitly cast to it, the comptime
+            // type adopts that expected type, otherwise it falls back to its default concrete type (i32 / f32)
             const std::string &common_type_str = node->type->to_string();
-            if (common_type_str == "int") {
-                node->type = Type::get_primitive_type("i32");
-            } else if (common_type_str == "float") {
-                node->type = Type::get_primitive_type("f32");
+            if (common_type_str == "int" || common_type_str == "float") {
+                const std::string default_type_str = common_type_str == "int" ? "i32" : "f32";
+                std::string resolved_type_str = default_type_str;
+                if (expected_type.has_value()) {
+                    const std::string &expected_type_str = expected_type.value()->to_string();
+                    if (common_type_str == "int") {
+                        // The `int` comptime type can adopt every concrete primitive integer and float type
+                        const bool is_valid_int_target =  //
+                            expected_type_str == "u8"     //
+                            || expected_type_str == "i8"  //
+                            || expected_type_str == "u16" //
+                            || expected_type_str == "i16" //
+                            || expected_type_str == "u32" //
+                            || expected_type_str == "i32" //
+                            || expected_type_str == "u64" //
+                            || expected_type_str == "i64" //
+                            || expected_type_str == "f32" //
+                            || expected_type_str == "f64";
+                        if (is_valid_int_target) {
+                            resolved_type_str = expected_type_str;
+                        }
+                    } else if (expected_type_str == "f32" || expected_type_str == "f64") {
+                        // The `float` comptime type can only adopt the concrete float types
+                        resolved_type_str = expected_type_str;
+                    }
+                }
+                node->type = Type::get_primitive_type(resolved_type_str);
             }
             for (auto &branch : node->branches) {
                 if (!Analyzer::Castability::check_castability(ctx.parser, node->type, branch.expr)) {
