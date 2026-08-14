@@ -56,15 +56,10 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
         return std::nullopt;
     }
 
-    // Const folding can only be applied if the binary operator is an arithmetic operation
-    if (!Matcher::token_match(operation, Matcher::operational_binop) && !Matcher::token_match(operation, Matcher::boolean_binop)) {
-        return std::nullopt;
-    }
-
     // Add the two literals together
     const auto *lhs_lit = lhs->as<LiteralNode>();
     const auto *rhs_lit = rhs->as<LiteralNode>();
-    std::optional<std::unique_ptr<LiteralNode>> result = add_literals(lhs_lit, operation, rhs_lit);
+    std::optional<std::unique_ptr<LiteralNode>> result = fold_literals(lhs_lit, operation, rhs_lit);
     if (!result.has_value()) {
         return std::nullopt;
     }
@@ -75,12 +70,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
     return result;
 }
 
-std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
-    const LiteralNode *lhs,                                       //
-    const Token operation,                                        //
-    const LiteralNode *rhs                                        //
+std::optional<std::unique_ptr<LiteralNode>> Parser::fold_literals( //
+    const LiteralNode *lhs,                                        //
+    const Token operation,                                         //
+    const LiteralNode *rhs                                         //
 ) {
-    PROFILE_CUMULATIVE("Parser::add_literals");
+    PROFILE_CUMULATIVE("Parser::fold_literals");
     const auto pos_triple = ASTNode::PosTriple{
         .line = lhs->line,
         .column = lhs->column,
@@ -88,8 +83,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
     };
     switch (operation) {
         default:
-            // It should never come here, if it did something went wrong
-            UNREACHABLE();
+            // Unsupported folding operation of literals
             break;
         case TOK_PLUS:
             if (std::holds_alternative<LitInt>(lhs->value)) {
@@ -299,8 +293,104 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::add_literals( //
                 return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
             }
             break;
+        case TOK_EQUAL_EQUAL:
+        case TOK_NOT_EQUAL:
+        case TOK_LESS:
+        case TOK_LESS_EQUAL:
+        case TOK_GREATER:
+        case TOK_GREATER_EQUAL: {
+            // String comparisons (both `str` and `type.flint.str.lit` literals are stored as LitStr)
+            if (std::holds_alternative<LitStr>(lhs->value) && std::holds_alternative<LitStr>(rhs->value)) {
+                const std::string &lhs_str = std::get<LitStr>(lhs->value).value;
+                const std::string &rhs_str = std::get<LitStr>(rhs->value).value;
+                bool result = false;
+                switch (operation) {
+                    case TOK_EQUAL_EQUAL:
+                        result = lhs_str == rhs_str;
+                        break;
+                    case TOK_NOT_EQUAL:
+                        result = lhs_str != rhs_str;
+                        break;
+                    case TOK_LESS:
+                        result = lhs_str < rhs_str;
+                        break;
+                    case TOK_LESS_EQUAL:
+                        result = lhs_str <= rhs_str;
+                        break;
+                    case TOK_GREATER:
+                        result = lhs_str > rhs_str;
+                        break;
+                    case TOK_GREATER_EQUAL:
+                        result = lhs_str >= rhs_str;
+                        break;
+                    default:
+                        UNREACHABLE();
+                }
+                LitValue lit_value = LitBool{.value = result};
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
+            }
+
+            // Boolean equality, only `==` and `!=` are meaningful for booleans
+            if (std::holds_alternative<LitBool>(lhs->value) && std::holds_alternative<LitBool>(rhs->value) &&
+                (operation == TOK_EQUAL_EQUAL || operation == TOK_NOT_EQUAL)) {
+                const bool lhs_bool = std::get<LitBool>(lhs->value).value;
+                const bool rhs_bool = std::get<LitBool>(rhs->value).value;
+                LitValue lit_value = LitBool{.value = operation == TOK_EQUAL_EQUAL ? lhs_bool == rhs_bool : lhs_bool != rhs_bool};
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
+            }
+
+            // Numeric comparisons (int, float and u8, in any combination)
+            const std::optional<APFloat> lhs_float = lit_value_to_apfloat(lhs->value);
+            const std::optional<APFloat> rhs_float = lit_value_to_apfloat(rhs->value);
+            if (lhs_float.has_value() && rhs_float.has_value()) {
+                LitValue lit_value = LitBool{.value = compare_apfloats(operation, lhs_float.value(), rhs_float.value())};
+                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
+            }
+            break;
+        }
     }
     return std::nullopt;
+}
+
+std::optional<APFloat> Parser::lit_value_to_apfloat(const LitValue &value) {
+    PROFILE_CUMULATIVE("Parser::lit_value_to_apfloat");
+    if (std::holds_alternative<LitInt>(value)) {
+        return APFloat(std::get<LitInt>(value).value);
+    }
+    if (std::holds_alternative<LitFloat>(value)) {
+        return std::get<LitFloat>(value).value;
+    }
+    if (std::holds_alternative<LitU8>(value)) {
+        const unsigned int u8_value = static_cast<unsigned int>(static_cast<unsigned char>(std::get<LitU8>(value).value));
+        return APFloat(APInt(std::to_string(u8_value)));
+    }
+    return std::nullopt;
+}
+
+bool Parser::compare_apfloats(const Token operation, const APFloat &lhs_float, const APFloat &rhs_float) {
+    PROFILE_CUMULATIVE("Parser::compare_apfloats");
+    // Compare via the sign of `lhs_float - rhs_float` instead of the digit vectors, so that different spellings of the same value (e.g. `1`
+    // and `1.0`, or `1.5` and `1.50`) compare equal. The sign flag on a zero result is ignored since APFloat's subtraction can produce a
+    // "negative zero" when the operands are equal
+    const APFloat diff = lhs_float - rhs_float;
+    const bool is_zero = diff.digits.size() == 1 && diff.digits[0] == 0;
+    const bool is_less = !is_zero && diff.is_negative;
+    switch (operation) {
+        case TOK_EQUAL_EQUAL:
+            return is_zero;
+        case TOK_NOT_EQUAL:
+            return !is_zero;
+        case TOK_LESS:
+            return is_less;
+        case TOK_LESS_EQUAL:
+            return is_less || is_zero;
+        case TOK_GREATER:
+            return !is_zero && !is_less;
+        case TOK_GREATER_EQUAL:
+            return is_zero || !is_less;
+        default:
+            UNREACHABLE();
+    }
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {

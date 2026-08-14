@@ -939,19 +939,36 @@ class Parser {
         std::unique_ptr<ExpressionNode> &rhs                                   //
     );
 
-    /// @function `add_literals`
-    /// @brief Adds two literal nodes together and returns an the result wrapped in an optional. If the literals could not be added, nullopt
-    /// is returned
+    /// @function `fold_literals`
+    /// @brief Folds two literal nodes together and returns an the result wrapped in an optional. If the literals could not be folded using
+    /// the given operation, nullopt is returned
     ///
     /// @param `lhs` The left hand side literal
     /// @param `operation` The operation to apply
     /// @param `rhs` The right hand side literal
-    /// @return `std::optional<std::unique_ptr<LiteralNode>>` The resulting literal, nullopt if the literals could not be added up
-    static std::optional<std::unique_ptr<LiteralNode>> add_literals( //
-        const LiteralNode *lhs,                                      //
-        const Token operation,                                       //
-        const LiteralNode *rhs                                       //
+    /// @return `std::optional<std::unique_ptr<LiteralNode>>` The resulting literal, nullopt if the literals could not be folded
+    static std::optional<std::unique_ptr<LiteralNode>> fold_literals( //
+        const LiteralNode *lhs,                                       //
+        const Token operation,                                        //
+        const LiteralNode *rhs                                        //
     );
+
+    /// @function `lit_value_to_apfloat`
+    /// @brief Converts any numeric literal value into an APFloat so that mixed int/float/u8 comparisons can be folded
+    ///
+    /// @param `value` The literal value to convert
+    /// @return `std::optional<APFloat>` The APFloat representation of the value, nullopt if the value is not numeric
+    static std::optional<APFloat> lit_value_to_apfloat(const LitValue &value);
+
+    /// @function `compare_apfloats`
+    /// @brief Evaluates a comparison operation between two APFloats. The sign of the difference is used instead of comparing the digit
+    /// vectors directly, so that different spellings of the same value (e.g. `1` and `1.0`, or `1.5` and `1.50`) compare equal
+    ///
+    /// @param `operation` The comparison operation to evaluate
+    /// @param `lhs_float` The left hand side float
+    /// @param `rhs_float` The right hand side float
+    /// @return `bool` The result of the comparison
+    static bool compare_apfloats(const Token operation, const APFloat &lhs_float, const APFloat &rhs_float);
 
     /// @function `create_variable`
     /// @brief Creates a VariableNode from the given tokens
