@@ -485,6 +485,17 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
     // Store the error value in the error field of the current function
     IR::aligned_store(builder, err_value, error_ptr);
 
+    // If the thrown value is not a producer, then the error slot of the current function now shares the message memory with the source
+    // value. Clone the message so that the end-of-scope cleanup can free the error of this function independently of the source value
+    if (!throw_node->throw_value->is_producer()) {
+        llvm::StructType *const err_type = type_map.at("type.flint.err");
+        llvm::Value *const dest_msg_ptr = builder.CreateStructGEP(err_type, error_ptr, 2, "dest_err_msg_ptr");
+        llvm::Value *const src_msg = IR::aligned_load(builder, PTR_TY, dest_msg_ptr, "src_err_msg");
+        const std::shared_ptr<Type> &str_type = Type::get_primitive_type("str");
+        llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+        builder.CreateCall(clone_fn, {src_msg, dest_msg_ptr, builder.getInt32(str_type->get_id())});
+    }
+
     // Clean up the function's scope before throwing an error
     if (!clear_garbage(builder, garbage)) {
         THROW_BASIC_ERR(ERR_GENERATING);

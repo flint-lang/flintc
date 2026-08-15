@@ -111,21 +111,6 @@ std::optional<ThrowNode> Parser::create_throw(std::shared_ptr<Scope> &scope, con
         );
         return std::nullopt;
     }
-    if (expr.value()->get_variation() == ExpressionNode::Variation::VARIABLE) {
-        const auto *var_node = expr.value()->as<VariableNode>();
-        // Add the current scope to the scope list in the variable we throw to determine that the variable is returned, excluding it from
-        // being freed to early
-        std::vector<unsigned int> &ret_scopes = scope->variables.at(var_node->name).return_scope_ids;
-        ret_scopes.emplace_back(scope->scope_id);
-        // Also add all parent scope IDs so the variable is not freed at any ancestor scope level during cleanup
-        std::shared_ptr<Scope> parent = scope->get_parent();
-        while (parent != nullptr) {
-            if (std::find(ret_scopes.begin(), ret_scopes.end(), parent->scope_id) == ret_scopes.end()) {
-                ret_scopes.emplace_back(parent->scope_id);
-            }
-            parent = parent->get_parent();
-        }
-    }
     return ThrowNode(file_hash, tokens, expr.value());
 }
 
