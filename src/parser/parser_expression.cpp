@@ -787,6 +787,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         }
         token_slice expr_slice = {expr_tokens.begin(), expr_tokens.end()};
         collapse_types_in_slice(expr_slice, expr_tokens);
+        // `collapse_types_in_slice` may invalidate the end iterator when deleting tokens
+        expr_slice.second = expr_tokens.end();
         if (expr_tokens.back().token == TOK_EOF) {
             expr_slice.second--;
         }
