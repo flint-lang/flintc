@@ -232,7 +232,6 @@ bool Generator::Statement::generate_body(llvm::IRBuilder<> &builder, GenerationC
         success &= generate_statement(builder, ctx, statement);
     }
     if (!success) {
-        THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
 
@@ -1698,7 +1697,6 @@ bool Generator::Statement::generate_declaration( //
         Expression::garbage_type garbage;
         auto expr_val = Expression::generate_expression(builder, ctx, garbage, 0, declaration_node->initializer.value().get());
         if (!expr_val.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
         ctx.dest = nullptr;

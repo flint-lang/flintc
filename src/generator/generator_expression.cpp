@@ -40,17 +40,22 @@ Generator::group_mapping Generator::Expression::generate_expression( //
     const ExpressionNode *expression_node,                           //
     const bool is_reference                                          //
 ) {
-    std::vector<llvm::Value *> group_map;
     switch (expression_node->get_variation()) {
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             const auto *node = expression_node->as<ArrayAccessNode>();
-            group_map.emplace_back(generate_array_access(builder, ctx, garbage, expr_depth, node, is_reference));
-            return group_map;
+            std::optional<llvm::Value *> access = generate_array_access(builder, ctx, garbage, expr_depth, node, is_reference);
+            if (!access.has_value()) {
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{access.value()};
         }
         case ExpressionNode::Variation::ARRAY_INITIALIZER: {
             const auto *node = expression_node->as<ArrayInitializerNode>();
-            group_map.emplace_back(generate_array_initializer(builder, ctx, garbage, expr_depth, node));
-            return group_map;
+            std::optional<llvm::Value *> initializer = generate_array_initializer(builder, ctx, garbage, expr_depth, node);
+            if (!initializer.has_value()) {
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{initializer.value()};
         }
         case ExpressionNode::Variation::BINARY_OP: {
             const auto *node = expression_node->as<BinaryOpNode>();
@@ -95,8 +100,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
             const auto *node = expression_node->as<InlineArrayInitializerNode>();
-            group_map.emplace_back(generate_inline_array_initializer(builder, ctx, garbage, expr_depth, node));
-            return group_map;
+            std::optional<llvm::Value *> initializer = generate_inline_array_initializer(builder, ctx, garbage, expr_depth, node);
+            if (!initializer.has_value()) {
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{initializer.value()};
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
@@ -120,8 +128,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::STRING_INTERPOLATION: {
             const auto *node = expression_node->as<StringInterpolationNode>();
-            group_map.emplace_back(generate_string_interpolation(builder, ctx, garbage, expr_depth, node));
-            return group_map;
+            std::optional<llvm::Value *> interpolation = generate_string_interpolation(builder, ctx, garbage, expr_depth, node);
+            if (!interpolation.has_value()) {
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{interpolation.value()};
         }
         case ExpressionNode::Variation::SWITCH_EXPRESSION: {
             const auto *node = expression_node->as<SwitchExpression>();
@@ -147,8 +158,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::VARIABLE: {
             const auto *node = expression_node->as<VariableNode>();
-            group_map.emplace_back(generate_variable(builder, ctx, node, is_reference));
-            return group_map;
+            std::optional<llvm::Value *> variable = generate_variable(builder, ctx, node, is_reference);
+            if (!variable.has_value()) {
+                return std::nullopt;
+            }
+            return std::vector<llvm::Value *>{variable.value()};
         }
         case ExpressionNode::Variation::VARIANT_EXTRACTION: {
             const auto *node = expression_node->as<VariantExtractionNode>();
@@ -401,16 +415,16 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     return std::nullopt;
 }
 
-llvm::Value *Generator::Expression::generate_variable( //
-    llvm::IRBuilder<> &builder,                        //
-    GenerationContext &ctx,                            //
-    const VariableNode *variable_node,                 //
-    const bool is_reference                            //
+std::optional<llvm::Value *> Generator::Expression::generate_variable( //
+    llvm::IRBuilder<> &builder,                                        //
+    GenerationContext &ctx,                                            //
+    const VariableNode *variable_node,                                 //
+    const bool is_reference                                            //
 ) {
     if (variable_node == nullptr) {
         // Error: Null Node
         THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
+        return std::nullopt;
     }
 
     // Because every variable, no matter if it's a fn parameter or a local variable, now is stored in the TS, the approach can be unified a
@@ -418,7 +432,7 @@ llvm::Value *Generator::Expression::generate_variable( //
     if (ctx.scope->variables.find(variable_node->name) == ctx.scope->variables.end()) {
         // Error: Undeclared Variable
         THROW_BASIC_ERR(ERR_GENERATING);
-        return nullptr;
+        return std::nullopt;
     }
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
     llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
@@ -445,12 +459,12 @@ llvm::Value *Generator::Expression::generate_variable( //
     return load;
 }
 
-llvm::Value *Generator::Expression::generate_string_interpolation( //
-    llvm::IRBuilder<> &builder,                                    //
-    GenerationContext &ctx,                                        //
-    garbage_type &garbage,                                         //
-    const unsigned int expr_depth,                                 //
-    const StringInterpolationNode *interpol_node                   //
+std::optional<llvm::Value *> Generator::Expression::generate_string_interpolation( //
+    llvm::IRBuilder<> &builder,                                                    //
+    GenerationContext &ctx,                                                        //
+    garbage_type &garbage,                                                         //
+    const unsigned int expr_depth,                                                 //
+    const StringInterpolationNode *interpol_node                                   //
 ) {
     ASSERT(!interpol_node->string_content.empty());
     // The string interpolation works by adding all strings from the most left up to the most right one
@@ -469,7 +483,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
         group_mapping res = generate_expression(builder, ctx, garbage, expr_depth, expr);
         if (!res.has_value()) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         ASSERT(res.value().size() == 1);
         str_value = res.value().front();
@@ -493,8 +507,7 @@ llvm::Value *Generator::Expression::generate_string_interpolation( //
             ASSERT(expr->type->to_string() == "str");
             group_mapping res = generate_expression(builder, ctx, garbage, expr_depth, expr);
             if (!res.has_value()) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return nullptr;
+                return std::nullopt;
             }
             str_value = builder.CreateCall(add_str_str, {str_value, res.value().at(0)});
         }
@@ -3296,24 +3309,23 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     return std::vector<llvm::Value *>{phi};
 }
 
-llvm::Value *Generator::Expression::generate_inline_array_initializer( //
-    llvm::IRBuilder<> &builder,                                        //
-    GenerationContext &ctx,                                            //
-    garbage_type &garbage,                                             //
-    const unsigned int expr_depth,                                     //
-    const InlineArrayInitializerNode *initializer                      //
+std::optional<llvm::Value *> Generator::Expression::generate_inline_array_initializer( //
+    llvm::IRBuilder<> &builder,                                                        //
+    GenerationContext &ctx,                                                            //
+    garbage_type &garbage,                                                             //
+    const unsigned int expr_depth,                                                     //
+    const InlineArrayInitializerNode *initializer                                      //
 ) {
     // Generate all length expressions and store them into arr::idx::N
     std::vector<llvm::Value *> length_expressions;
     for (auto &expr : initializer->length_expressions) {
         group_mapping result = generate_expression(builder, ctx, garbage, expr_depth, expr.get());
         if (!result.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (result.value().size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         llvm::Value *index_i64 = generate_type_cast(builder, ctx, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
@@ -3335,12 +3347,11 @@ llvm::Value *Generator::Expression::generate_inline_array_initializer( //
     for (auto &expr : initializer->initializer_values) {
         group_mapping result = generate_expression(builder, ctx, garbage, expr_depth, expr.get());
         if (!result.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (result.value().size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         llvm::Value *value = result.value().front();
         if (!expr->type->equals(initializer->element_type)) {
@@ -3398,24 +3409,23 @@ llvm::Value *Generator::Expression::generate_inline_array_initializer( //
     return created_array;
 }
 
-llvm::Value *Generator::Expression::generate_array_initializer( //
-    llvm::IRBuilder<> &builder,                                 //
-    GenerationContext &ctx,                                     //
-    garbage_type &garbage,                                      //
-    const unsigned int expr_depth,                              //
-    const ArrayInitializerNode *initializer                     //
+std::optional<llvm::Value *> Generator::Expression::generate_array_initializer( //
+    llvm::IRBuilder<> &builder,                                                 //
+    GenerationContext &ctx,                                                     //
+    garbage_type &garbage,                                                      //
+    const unsigned int expr_depth,                                              //
+    const ArrayInitializerNode *initializer                                     //
 ) {
     // First, generate all initializer expressions
     std::vector<llvm::Value *> length_expressions;
     for (auto &expr : initializer->length_expressions) {
         group_mapping result = generate_expression(builder, ctx, garbage, expr_depth, expr.get());
         if (!result.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (result.value().size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         llvm::Value *index_i64 = generate_type_cast(builder, ctx, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
@@ -3440,18 +3450,17 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         if (initializer->element_type->is_freeable()) {
             // Complex type requires explicit initializer
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         initializer_expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), initializer->element_type);
     } else {
         group_mapping initializer_mapping = generate_expression(builder, ctx, garbage, expr_depth, initializer->initializer_value.get());
         if (!initializer_mapping.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (initializer_mapping.value().size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         initializer_expression = initializer_mapping.value().front();
         std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
@@ -3459,8 +3468,8 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
             initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
         }
     }
-    llvm::Value *type_id = initializer->element_type->is_freeable() //
-        ? builder.getInt32(initializer->element_type->get_id())     //
+    llvm::Value *const type_id = initializer->element_type->is_freeable() //
+        ? builder.getInt32(initializer->element_type->get_id())           //
         : builder.getInt32(0);
     llvm::Value *initializer_ptr = initializer_expression;
     if (!initializer_expression->getType()->isPointerTy()) {
@@ -3468,12 +3477,12 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         initializer_ptr = scratchspace;
     }
 
-    llvm::Function *fill_arr_fn = Module::Array::array_manip_functions.at("fill_arr");
-    llvm::Value *dim_val = builder.getInt64(length_expressions.size());
+    llvm::Function *const fill_arr_fn = Module::Array::array_manip_functions.at("fill_arr");
+    llvm::Value *const dim_val = builder.getInt64(length_expressions.size());
 
     if (ctx.dest != nullptr) {
         // Const array: fill directly into destination memory using fill_arr
-        llvm::CallInst *fill_call = builder.CreateCall(                            //
+        llvm::CallInst *const fill_call = builder.CreateCall(                      //
             fill_arr_fn,                                                           //
             {ctx.dest, dim_val, length_array,                                      //
                 builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
@@ -3482,7 +3491,7 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
         return ctx.dest;
     }
 
-    llvm::CallInst *created_array = builder.CreateCall(        //
+    llvm::CallInst *const created_array = builder.CreateCall(  //
         Module::Array::array_manip_functions.at("create_arr"), //
         {
             dim_val,                                 // dimensionality
@@ -3500,12 +3509,14 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     // Extract the data pointer from the str*: data_start = (char*)(str->value + str->len * sizeof(size_t))
     llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
     llvm::Value *const dim_lengths = builder.CreateStructGEP(str_type, created_array, 1, "arr_dim_lengths");
-    llvm::Value *const loaded_dim =
-        IR::aligned_load(builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim");
-    llvm::Value *const data_start =
-        builder.CreateBitCast(builder.CreateGEP(builder.getInt64Ty(), dim_lengths, loaded_dim, "data_start"), PTR_TY);
+    llvm::Value *const loaded_dim = IR::aligned_load(                                                               //
+        builder, builder.getInt64Ty(), builder.CreateStructGEP(str_type, created_array, 0, "len_ptr"), "loaded_dim" //
+    );
+    llvm::Value *const data_start = builder.CreateBitCast(                                     //
+        builder.CreateGEP(builder.getInt64Ty(), dim_lengths, loaded_dim, "data_start"), PTR_TY //
+    );
 
-    llvm::CallInst *fill_call = builder.CreateCall(                                                              //
+    llvm::CallInst *const fill_call = builder.CreateCall(                                                        //
         fill_arr_fn,                                                                                             //
         {data_start, loaded_dim, dim_lengths, builder.getInt64(element_size_in_bytes), initializer_ptr, type_id} //
     );
@@ -3513,13 +3524,13 @@ llvm::Value *Generator::Expression::generate_array_initializer( //
     return created_array;
 }
 
-llvm::Value *Generator::Expression::generate_array_access( //
-    llvm::IRBuilder<> &builder,                            //
-    GenerationContext &ctx,                                //
-    garbage_type &garbage,                                 //
-    const unsigned int expr_depth,                         //
-    const ArrayAccessNode *access,                         //
-    const bool is_reference                                //
+std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
+    llvm::IRBuilder<> &builder,                                            //
+    GenerationContext &ctx,                                                //
+    garbage_type &garbage,                                                 //
+    const unsigned int expr_depth,                                         //
+    const ArrayAccessNode *access,                                         //
+    const bool is_reference                                                //
 ) {
     std::optional<llvm::Value *> base_expr_value = std::nullopt;
     std::vector<const ExpressionNode *> indexing_exprs;
@@ -3568,24 +3579,27 @@ Generator::group_mapping Generator::Expression::generate_grouped_array_access( /
                 indexing_exprs.emplace_back(expr.get());
                 break;
         }
-        llvm::Value *const result = generate_array_access(                                                              //
+        std::optional<llvm::Value *> result = generate_array_access(                                                    //
             builder, ctx, garbage, expr_depth, std::nullopt, base_type, access->base_expr, indexing_exprs, is_reference //
         );
-        results.emplace_back(result);
+        if (!result.has_value()) {
+            return std::nullopt;
+        }
+        results.emplace_back(result.value());
     }
     return results;
 }
 
-llvm::Value *Generator::Expression::generate_array_access(           //
-    llvm::IRBuilder<> &builder,                                      //
-    GenerationContext &ctx,                                          //
-    garbage_type &garbage,                                           //
-    const unsigned int expr_depth,                                   //
-    std::optional<llvm::Value *> base_expr_value,                    //
-    const std::shared_ptr<Type> result_type,                         //
-    const std::unique_ptr<ExpressionNode> &base_expr,                //
-    const std::vector<const ExpressionNode *> &indexing_expressions, //
-    const bool is_reference                                          //
+std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
+    llvm::IRBuilder<> &builder,                                            //
+    GenerationContext &ctx,                                                //
+    garbage_type &garbage,                                                 //
+    const unsigned int expr_depth,                                         //
+    std::optional<llvm::Value *> base_expr_value,                          //
+    const std::shared_ptr<Type> result_type,                               //
+    const std::unique_ptr<ExpressionNode> &base_expr,                      //
+    const std::vector<const ExpressionNode *> &indexing_expressions,       //
+    const bool is_reference                                                //
 ) {
     const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY //
         || (result_type->to_string() == "str" && base_expr->type->to_string() == "str");
@@ -3594,16 +3608,15 @@ llvm::Value *Generator::Expression::generate_array_access(           //
     for (auto &index_expression : indexing_expressions) {
         group_mapping index = generate_expression(builder, ctx, garbage, expr_depth, index_expression);
         if (!index.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (index.value().size() > 2) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (index_expression->type->get_variation() == Type::Variation::GROUP) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         std::array<llvm::Value *, 2> index_expr;
         std::shared_ptr<Type> from_type = index_expression->type;
@@ -3632,12 +3645,11 @@ llvm::Value *Generator::Expression::generate_array_access(           //
             && base_expr->type->as<ArrayType>()->sizes.has_value();
         group_mapping base_expression = generate_expression(builder, ctx, garbage, expr_depth, base_expr.get(), base_is_static);
         if (!base_expression.has_value()) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (base_expression.value().size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         array_ptr = base_expression.value().front();
     }
@@ -3645,7 +3657,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         // "Array" accesses on strings dont need all the things below, they are much simpler to handle
         if (index_expressions.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         }
         if (is_slice) {
             llvm::Function *get_str_slice_fn = Module::String::string_manip_functions.at("get_str_slice");
@@ -3694,7 +3706,7 @@ llvm::Value *Generator::Expression::generate_array_access(           //
         default:
             // Non-supported type for array access
             THROW_BASIC_ERR(ERR_GENERATING);
-            return nullptr;
+            return std::nullopt;
         case Type::Variation::DATA:
         case Type::Variation::ENUM:
         case Type::Variation::PRIMITIVE:
@@ -4036,10 +4048,13 @@ Generator::group_mapping Generator::Expression::generate_optional_chain( //
         for (const auto &expr : access.indexing_expressions) {
             indexing_exprs.emplace_back(expr.get());
         }
-        llvm::Value *opt_value = generate_array_access(                                                                 //
+        std::optional<llvm::Value *> opt_value = generate_array_access(                                                 //
             builder, ctx, garbage, expr_depth, base_expr_value, base_array_type->type, chain->base_expr, indexing_exprs //
         );
-        result_value = builder.CreateInsertValue(result_value, opt_value, {1}, "filled_result");
+        if (!opt_value.has_value()) {
+            return std::nullopt;
+        }
+        result_value = builder.CreateInsertValue(result_value, opt_value.value(), {1}, "filled_result");
     }
 
     if (!is_toplevel_chain) {

@@ -1586,12 +1586,12 @@ class Generator {
         /// @param `ctx` The context of the expression generation
         /// @param `variable_node` The variable node to generate
         /// @param `is_reference` Whether to return the value or the AllocaInst of the variable
-        /// @return `llvm::Value *` The value containing the result of the variable
-        static llvm::Value *generate_variable( //
-            llvm::IRBuilder<> &builder,        //
-            GenerationContext &ctx,            //
-            const VariableNode *variable_node, //
-            const bool is_reference = false    //
+        /// @return `std::optional<llvm::Value *>` The value containing the result of the variable, nullopt if variable access failed
+        static std::optional<llvm::Value *> generate_variable( //
+            llvm::IRBuilder<> &builder,                        //
+            GenerationContext &ctx,                            //
+            const VariableNode *variable_node,                 //
+            const bool is_reference = false                    //
         );
 
         /// @function `generate_string_interpolation`
@@ -1602,13 +1602,13 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `interpol_node` The string interpolation node to generate
-        /// @retrn `llvm::Value *` The result of the string interpolation expression
-        static llvm::Value *generate_string_interpolation( //
-            llvm::IRBuilder<> &builder,                    //
-            GenerationContext &ctx,                        //
-            garbage_type &garbage,                         //
-            const unsigned int expr_depth,                 //
-            const StringInterpolationNode *interpol_node   //
+        /// @retrn `std::optional<llvm::Value *>` The result of the string interpolation expression, nullopt if string interpolation failed
+        static std::optional<llvm::Value *> generate_string_interpolation( //
+            llvm::IRBuilder<> &builder,                                    //
+            GenerationContext &ctx,                                        //
+            garbage_type &garbage,                                         //
+            const unsigned int expr_depth,                                 //
+            const StringInterpolationNode *interpol_node                   //
         );
 
         /// @function `convert_type_to_ext`
@@ -1992,13 +1992,13 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The inline array initializer to generate
-        /// @return `llvm::Value *` The inline-initialized array
-        static llvm::Value *generate_inline_array_initializer( //
-            llvm::IRBuilder<> &builder,                        //
-            GenerationContext &ctx,                            //
-            garbage_type &garbage,                             //
-            const unsigned int expr_depth,                     //
-            const InlineArrayInitializerNode *initializer      //
+        /// @return `std::optional<llvm::Value *>` The inline-initialized array, nullopt if initialization failed
+        static std::optional<llvm::Value *> generate_inline_array_initializer( //
+            llvm::IRBuilder<> &builder,                                        //
+            GenerationContext &ctx,                                            //
+            garbage_type &garbage,                                             //
+            const unsigned int expr_depth,                                     //
+            const InlineArrayInitializerNode *initializer                      //
         );
 
         /// @function `generate_array_initializer`
@@ -2009,13 +2009,13 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `initializer` The array initializer to generate
-        /// @return `llvm::Value *` The initialized array
-        static llvm::Value *generate_array_initializer( //
-            llvm::IRBuilder<> &builder,                 //
-            GenerationContext &ctx,                     //
-            garbage_type &garbage,                      //
-            const unsigned int expr_depth,              //
-            const ArrayInitializerNode *initializer     //
+        /// @return `std::optional<llvm::Value *>` The initialized array, nullopt if initialization failed
+        static std::optional<llvm::Value *> generate_array_initializer( //
+            llvm::IRBuilder<> &builder,                                 //
+            GenerationContext &ctx,                                     //
+            garbage_type &garbage,                                      //
+            const unsigned int expr_depth,                              //
+            const ArrayInitializerNode *initializer                     //
         );
 
         /// @function `generate_array_access`
@@ -2027,14 +2027,14 @@ class Generator {
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `access` The array access to generate
         /// @param `is_reference` Whether the result of the array access should be a reference
-        /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_access( //
-            llvm::IRBuilder<> &builder,            //
-            GenerationContext &ctx,                //
-            garbage_type &garbage,                 //
-            const unsigned int expr_depth,         //
-            const ArrayAccessNode *access,         //
-            const bool is_reference = false        //
+        /// @return `std::optional<llvm::Value *>` The accessed element, nullopt if the access failed
+        static std::optional<llvm::Value *> generate_array_access( //
+            llvm::IRBuilder<> &builder,                            //
+            GenerationContext &ctx,                                //
+            garbage_type &garbage,                                 //
+            const unsigned int expr_depth,                         //
+            const ArrayAccessNode *access,                         //
+            const bool is_reference = false                        //
         );
 
         /// @function `generate_grouped_array_access`
@@ -2068,8 +2068,8 @@ class Generator {
         /// @param `base_expr` The base expression to generate, if no `base_expr_value` is provided
         /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
         /// @param `is_reference` Whether the result of the array access should be a reference
-        /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_access(                           //
+        /// @return `std::optional<llvm::Value *>` The accessed element, nullopt if access failed
+        static std::optional<llvm::Value *> generate_array_access(           //
             llvm::IRBuilder<> &builder,                                      //
             GenerationContext &ctx,                                          //
             garbage_type &garbage,                                           //
@@ -2092,8 +2092,8 @@ class Generator {
         /// @param `result_type` The result type of the array access (being the `base_type` of the array type itself most of times)
         /// @param `base_expr` The base expression to generate, if no `base_expr_value` is provided
         /// @param `indexing_expressions` The indexing expressions to generate, whose results are the indices of the array access
-        /// @return `llvm::Value *` The accessed element
-        static llvm::Value *generate_array_slice(                                    //
+        /// @return `std::optional<llvm::Value *>` The accessed element, nullopt if access failed
+        static std::optional<llvm::Value *> generate_array_slice(                    //
             llvm::IRBuilder<> &builder,                                              //
             GenerationContext &ctx,                                                  //
             garbage_type &garbage,                                                   //
