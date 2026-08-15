@@ -3448,8 +3448,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_initializer( 
     // because default values would lead to uninitialized memory (e.g., invalid string pointers)
     if (is_default_init) {
         if (initializer->element_type->is_freeable()) {
-            // Complex type requires explicit initializer
-            THROW_BASIC_ERR(ERR_GENERATING);
+            const ASTNode::PosTriple pos{
+                .line = initializer->line,
+                .column = initializer->column,
+                .length = initializer->length,
+            };
+            THROW_ERR(ErrExprArrayComplexNeedsInitializer, ERR_GENERATING, initializer->file_hash, pos);
             return std::nullopt;
         }
         initializer_expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), initializer->element_type);
