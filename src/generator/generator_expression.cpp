@@ -2834,6 +2834,8 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 dima_allocate_fn, {object_head}, "initializer.object." + initializer->type->to_string() //
             );
             llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
+            const auto &constructor_order = initializer->type->as<ObjectType>()->object_node->constructor_order;
+            ASSERT(constructor_order.size() == initializer->args.size());
 
             for (size_t i = 0; i < initializer->args.size(); i++) {
                 const auto &arg = initializer->args.at(i);
@@ -2847,8 +2849,9 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                // Do a GEP in the initialized object to be able to call `flint.clone`
-                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, object_ptr, i, "object_init_" + std::to_string(i));
+                llvm::Value *const dest_ptr = builder.CreateStructGEP( //
+                    struct_type, object_ptr, constructor_order.at(i), "object_init_" + std::to_string(i) //
+                );
                 // Call `flint.clone` to store the data in the object
                 llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
                 llvm::Value *const expr_val = expr_result.value().front();

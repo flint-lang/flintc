@@ -1111,7 +1111,6 @@ bool Parser::create_optional_switch_branches(   //
                     branch_scope, scope_segment, match_expressions, s_branches, e_branches, //
                     line_it, body, tokens, match_range.value(), is_statement)               //
             ) {
-                THROW_BASIC_ERR(ERR_PARSING);
                 return false;
             }
             value_branch_parsed = true;
