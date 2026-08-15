@@ -145,7 +145,7 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::TYPE_CAST: {
             const auto *node = expression_node->as<TypeCastNode>();
-            return generate_type_cast(builder, ctx, garbage, expr_depth, node);
+            return generate_type_cast(builder, ctx, garbage, expr_depth, node, is_reference);
         }
         case ExpressionNode::Variation::TYPE: {
             [[maybe_unused]] const auto *node = expression_node->as<TypeNode>();
@@ -4295,7 +4295,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     GenerationContext &ctx,                                         //
     garbage_type &garbage,                                          //
     const unsigned int expr_depth,                                  //
-    const TypeCastNode *type_cast_node                              //
+    const TypeCastNode *type_cast_node,                             //
+    const bool is_reference                                         //
 ) {
     // If the base expression is a `TypeNode` and the type cast result is a variant the actual "value" of the type cast is dependant on the
     // variant type, this means that this is a special case which needs special handling
@@ -4311,7 +4312,8 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
         return std::vector<llvm::Value *>{builder.getInt8(id.value())};
     }
     // First, generate the expression
-    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get());
+    const bool is_err_set = type_cast_node->type->get_variation() == Type::Variation::ERROR_SET;
+    auto expr_res = generate_expression(builder, ctx, garbage, expr_depth + 1, type_cast_node->expr.get(), is_reference && is_err_set);
     if (!expr_res.has_value()) {
         return std::nullopt;
     }
@@ -4448,6 +4450,9 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
     if (to_type->to_string() == "str" && type_cast_node->expr->type->to_string() == "type.flint.str.lit") {
         ASSERT(expr.size() == 1);
         expr[0] = Module::String::generate_string_declaration(builder, expr[0], type_cast_node->expr.get());
+        return expr;
+    }
+    if (is_reference && is_err_set) {
         return expr;
     }
     // Lastly, check if the expression is castable, and if it is generate the type cast

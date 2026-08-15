@@ -3,6 +3,7 @@
 #include "globals.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/data_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -910,10 +911,16 @@ void Generator::Memory::generate_clone_value( //
             llvm::StructType *const error_type = type_map.at("type.flint.err");
             llvm::Value *const loaded_err = IR::aligned_load(*builder, error_type, src, "loaded_err");
             IR::aligned_store(*builder, loaded_err, dest);
+            if (type->to_string() != "anyerror") {
+                const auto *const error_set_type = type->as<ErrorSetType>();
+                const unsigned int type_id = error_set_type->error_node->error_id;
+                llvm::Value *const dest_type_id_ptr = builder->CreateStructGEP(error_type, dest, 0, "dest_type_id_ptr");
+                IR::aligned_store(*builder, builder->getInt32(type_id), dest_type_id_ptr);
+            }
             llvm::Value *const src_msg_ptr = builder->CreateStructGEP(error_type, src, 2, "src_msg_ptr");
             llvm::Value *const src_msg = IR::aligned_load(*builder, PTR_TY, src_msg_ptr, "src_msg");
-            llvm::Value *const dest_msg_ptr = builder->CreateStructGEP(error_type, src, 2, "dest_msg_ptr");
-            builder->CreateCall(clone_fn, {dest_msg_ptr, src_msg, builder->getInt32(Type::get_primitive_type("str")->get_id())});
+            llvm::Value *const dest_msg_ptr = builder->CreateStructGEP(error_type, dest, 2, "dest_msg_ptr");
+            builder->CreateCall(clone_fn, {src_msg, dest_msg_ptr, builder->getInt32(Type::get_primitive_type("str")->get_id())});
             break;
         }
         case Type::Variation::FUNC: {

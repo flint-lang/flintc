@@ -2234,13 +2234,15 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `type_cast_node` The type cast to generate
+        /// @param `is_reference` Whether the result of the type cast should be a reference
         /// @return `group_mapping` The value(s) containing the result of the type cast
         static group_mapping generate_type_cast( //
             llvm::IRBuilder<> &builder,          //
             GenerationContext &ctx,              //
             garbage_type &garbage,               //
             const unsigned int expr_depth,       //
-            const TypeCastNode *type_cast_node   //
+            const TypeCastNode *type_cast_node,  //
+            const bool is_reference = false      //
         );
 
         /// @function `generate_type_cast`

@@ -1694,8 +1694,11 @@ bool Generator::Statement::generate_declaration( //
         if (is_const_array_init) {
             ctx.dest = alloca;
         }
+        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::ERROR_SET;
         Expression::garbage_type garbage;
-        auto expr_val = Expression::generate_expression(builder, ctx, garbage, 0, declaration_node->initializer.value().get());
+        auto expr_val = Expression::generate_expression(                                        //
+            builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
+        );
         if (!expr_val.has_value()) {
             return false;
         }
@@ -1882,7 +1885,8 @@ bool Generator::Statement::generate_declaration( //
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
     const bool is_discarded = assignment_node->name == "_";
-    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_discarded);
+    const bool is_reference = is_discarded || assignment_node->type->get_variation() == Type::Variation::ERROR_SET;
+    auto expr = Expression::generate_expression(builder, ctx, garbage, 0, assignment_node->expression.get(), is_reference);
     if (!expr.has_value()) {
         THROW_BASIC_ERR(ERR_GENERATING);
         return false;
@@ -2142,7 +2146,6 @@ bool Generator::Statement::generate_data_field_assignment( //
         builder, ctx, garbage, 0, data_field_assignment->expression.get(), is_reference //
     );
     if (!expression.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
     // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
