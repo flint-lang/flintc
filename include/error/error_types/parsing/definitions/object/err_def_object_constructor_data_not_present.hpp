@@ -17,7 +17,7 @@ class ErrDefObjectConstructorDataNotPresent : public BaseError {
     std::string to_string() const override {
         std::ostringstream oss;
         oss << BaseError::to_string() << "├─ This data type is not part of the object\n";
-        oss << "└─ Only data from extended objects or defined in the 'data:' section can be used in the constructor";
+        oss << "└─ Only data defined in the 'data:' section can be used in the constructor";
         return oss.str();
     }
 
