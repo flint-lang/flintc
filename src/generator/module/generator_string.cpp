@@ -1250,11 +1250,51 @@ void Generator::Module::String::generate_string_assignment( //
         // Call the `assign_lit` function
         builder.CreateCall(assign_lit_fn, {lhs, expression, len_val});
     } else {
-        // Get the `assign_str` function
-        llvm::Function *const assign_str_fn = string_manip_functions.at("assign_str");
+        // The rhs is either a freshly created str that we can take ownership of, or a str that is
+        // still owned by another slot (e.g. a variable or an optional unwrap) which we have to copy.
+        const auto variation = expression_node->get_variation();
+        const auto str_type_id = builder.getInt32(Type::get_primitive_type("str")->get_id());
+        const bool is_identity_typecast = variation == ExpressionNode::Variation::TYPE_CAST //
+            && expression_node->as<TypeCastNode>()->expr->type->to_string() == "str";
+        const bool is_str = expression_node->type->to_string() == "str";
+        const bool owns_result = expression_node->is_producer()              //
+            || (is_str && variation == ExpressionNode::Variation::BINARY_OP) //
+            || (is_str && variation == ExpressionNode::Variation::TYPE_CAST && !is_identity_typecast);
 
-        // Call the `assign_str` function
-        builder.CreateCall(assign_str_fn, {lhs, expression});
+        if (owns_result) {
+            llvm::Function *const assign_str_fn = string_manip_functions.at("assign_str");
+            builder.CreateCall(assign_str_fn, {lhs, expression});
+        } else {
+            // The rhs is a borrowed value that stays owned by another slot -> copy it into the lhs slot.
+            // Aliasing the pointer instead would lead to a double free at the end of the scope.
+            llvm::Function *const free_fn = Memory::memory_functions.at("free");
+            llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+            llvm::Value *const old_lhs = IR::aligned_load(builder, PTR_TY, lhs, "old_lhs");
+
+            // If the rhs is the same str we already own there is nothing to do (one could write `s = s;` which is allowed, but would lead
+            // to a use-after free and other problems without this check)
+            llvm::Value *const same_value = builder.CreateICmpEQ(old_lhs, expression, "same_value");
+            llvm::BasicBlock *const do_nothing_block = llvm::BasicBlock::Create(     //
+                context, "string_assign_same", builder.GetInsertBlock()->getParent() //
+            );
+            llvm::BasicBlock *const do_copy_block = llvm::BasicBlock::Create(        //
+                context, "string_assign_copy", builder.GetInsertBlock()->getParent() //
+            );
+            llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(           //
+                context, "string_assign_merge", builder.GetInsertBlock()->getParent() //
+            );
+            builder.CreateCondBr(same_value, do_nothing_block, do_copy_block);
+
+            builder.SetInsertPoint(do_copy_block);
+            builder.CreateCall(free_fn, {old_lhs, str_type_id});
+            builder.CreateCall(clone_fn, {expression, lhs, str_type_id});
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(do_nothing_block);
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
+        }
     }
 }
 
