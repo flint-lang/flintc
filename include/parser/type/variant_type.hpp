@@ -135,15 +135,16 @@ class VariantType : public Type {
                 if (var_it->first.has_value()) {
                     continue;
                 }
-                if (var_it->second == type) {
+                if (var_it->second->equals(type)) {
                     return 1 + std::distance(possible_types.begin(), var_it);
                 }
             }
         } else {
             const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
-            const auto &idx = std::find(possible_types.begin(), possible_types.end(), type);
-            if (idx != possible_types.end()) {
-                return 1 + std::distance(possible_types.begin(), idx);
+            for (auto var_it = possible_types.begin(); var_it != possible_types.end(); ++var_it) {
+                if ((*var_it)->equals(type)) {
+                    return 1 + std::distance(possible_types.begin(), var_it);
+                }
             }
         }
         return std::nullopt;
