@@ -97,11 +97,9 @@ void Generator::Module::Print::generate_print_function( //
             break;
         case PrimitivePrintType::F:
             if (N == 32) {
-                format = "%f";
-                // arg = TypeCast::f32_to_f64(*builder, arg);
-            } else if (N == 64) {
-                format = "%d";
+                arg = TypeCast::f32_to_f64(*builder, arg);
             }
+            format = "%f";
             break;
     }
 
