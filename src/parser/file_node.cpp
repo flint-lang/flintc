@@ -37,7 +37,8 @@ std::optional<DataNode *> FileNode::add_data(DataNode &data) {
     definitions.emplace_back(std::make_unique<DataNode>(std::move(data)));
     DataNode *const added_data = static_cast<DataNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<DataType>(added_data))) {
-        THROW_ERR(ErrDefDataRedefinition, ERR_PARSING, file_hash, added_data->line, added_data->column, added_data->name);
+        DefinitionNode *const original = file_namespace->get_definition_from_name(added_data->name).value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, added_data->line, added_data->column, original, added_data->name);
         return std::nullopt;
     }
     // Add all global variables to the public section of this files namespace
@@ -65,7 +66,8 @@ std::optional<FuncNode *> FileNode::add_func(FuncNode &func) {
     definitions.emplace_back(std::make_unique<FuncNode>(std::move(func)));
     FuncNode *const added_func = static_cast<FuncNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<FuncType>(added_func))) {
-        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_func->line, added_func->column, added_func->name);
+        DefinitionNode *const original = file_namespace->get_definition_from_name(added_func->name).value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, added_func->line, added_func->column, original, added_func->name);
         return std::nullopt;
     }
     return added_func;
@@ -76,7 +78,10 @@ std::optional<InterfaceNode *> FileNode::add_interface(InterfaceNode &interface)
     definitions.emplace_back(std::make_unique<InterfaceNode>(std::move(interface)));
     InterfaceNode *const added_interface = static_cast<InterfaceNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<InterfaceType>(added_interface))) {
-        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_interface->line, added_interface->column, added_interface->name);
+        DefinitionNode *const original = file_namespace->get_definition_from_name(added_interface->name).value();
+        THROW_ERR(                                                                                                                      //
+            ErrDefRedefinition, ERR_PARSING, file_hash, added_interface->line, added_interface->column, original, added_interface->name //
+        );
         return std::nullopt;
     }
     return added_interface;
@@ -87,7 +92,8 @@ std::optional<ObjectNode *> FileNode::add_object(ObjectNode &object) {
     definitions.emplace_back(std::make_unique<ObjectNode>(std::move(object)));
     ObjectNode *added_object = static_cast<ObjectNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<ObjectType>(added_object))) {
-        THROW_ERR(ErrDefFuncRedefinition, ERR_PARSING, file_hash, added_object->line, added_object->column, added_object->name);
+        DefinitionNode *const original = file_namespace->get_definition_from_name(added_object->name).value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, added_object->line, added_object->column, original, added_object->name);
         return std::nullopt;
     }
     return added_object;

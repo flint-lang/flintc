@@ -33,5 +33,5 @@ class ErrFnRedefinition : public BaseError {
 
   private:
     const FunctionNode *original;
-    std::string function_string;
+    const std::string function_string;
 };

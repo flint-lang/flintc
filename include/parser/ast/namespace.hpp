@@ -187,4 +187,11 @@ class Namespace {
         const std::string &fn_name,                                 //
         const std::vector<std::shared_ptr<Type>> &arg_types         //
     ) const;
+
+    /// @function `get_definition_from_name`
+    /// @brief Returns the definition from the given name
+    ///
+    /// @param `name` The name of the definition node to search for
+    /// @return `std::optional<DefinitionNode *>` The found definition, nullopt of not yet present
+    [[nodiscard]] std::optional<DefinitionNode *> get_definition_from_name(const std::string &name) const;
 };

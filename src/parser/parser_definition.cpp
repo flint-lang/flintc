@@ -1,5 +1,4 @@
 #include "error/error_type.hpp"
-#include "error/error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
 #include "matcher/matcher.hpp"
@@ -7,9 +6,9 @@
 
 #include "error/error.hpp"
 #include "parser/type/tuple_type.hpp"
+#include "parser/type/unknown_type.hpp"
 
 #include "fip.hpp"
-#include "parser/type/unknown_type.hpp"
 
 #include <algorithm>
 #include <optional>
@@ -364,6 +363,11 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 break;
         }
     }
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, name);
+        return std::nullopt;
+    }
     for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
         for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
             if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
@@ -518,6 +522,11 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     token_mut.first++;
     ASSERT(token_mut.first->token == TOK_IDENTIFIER);
     const std::string func_name(token_mut.first->lexme);
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(func_name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, func_name);
+        return std::nullopt;
+    }
     token_mut.first++;
     std::vector<FuncNode::RequiredData> required_data;
     if (token_mut.first->token == TOK_REQUIRES) {
@@ -618,6 +627,11 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
     ASSERT(token_mut.first->token == TOK_IDENTIFIER);
     const std::string interface_name(token_mut.first->lexme);
     token_mut.first++;
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(interface_name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, interface_name);
+        return std::nullopt;
+    }
 
     std::vector<FunctionNode *> functions;
     std::vector<Line> body_mut = body;
@@ -668,6 +682,11 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     tok_it++;
     ASSERT(tok_it->token == TOK_IDENTIFIER);
     const std::string object_name(tok_it->lexme);
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(object_name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, object_name);
+        return std::nullopt;
+    }
     tok_it++;
     std::vector<ObjectNode::ImplementedInterface> interfaces;
     if (tok_it->token == TOK_IMPLEMENTS) {
@@ -817,6 +836,11 @@ std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const
             break;
         }
     }
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, name);
+        return std::nullopt;
+    }
 
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
         if (body_it->token == TOK_IDENTIFIER) {
@@ -888,6 +912,11 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
             return std::nullopt;
         }
     }
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, name);
+        return std::nullopt;
+    }
 
     std::vector<std::string> default_messages;
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second; ++body_it) {
@@ -942,6 +971,11 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
     ASSERT((definition.first + 2)->token == TOK_COLON);
     ASSERT((definition.first + 3) == definition.second);
     const std::string name((definition.first + 1)->lexme);
+    if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
+        DefinitionNode *const original = existing.value();
+        THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, name);
+        return std::nullopt;
+    }
 
     std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second;) {

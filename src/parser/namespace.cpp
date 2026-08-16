@@ -8,8 +8,13 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/enum_type.hpp"
+#include "parser/type/error_set_type.hpp"
 #include "parser/type/fn_type.hpp"
+#include "parser/type/func_type.hpp"
 #include "parser/type/group_type.hpp"
+#include "parser/type/interface_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/unknown_type.hpp"
@@ -772,4 +777,36 @@ std::optional<FunctionNode *> Namespace::find_core_function( //
         }
     }
     return std::nullopt;
+}
+
+std::optional<DefinitionNode *> Namespace::get_definition_from_name(const std::string &name) const {
+    const auto existing = get_type_from_str(name);
+    if (!existing.has_value()) {
+        return std::nullopt;
+    }
+    switch (existing.value()->get_variation()) {
+        default:
+            return std::nullopt;
+        case Type::Variation::DATA: {
+            return existing.value()->as<DataType>()->data_node;
+        }
+        case Type::Variation::ENUM: {
+            return existing.value()->as<EnumType>()->enum_node;
+        }
+        case Type::Variation::ERROR_SET: {
+            return existing.value()->as<ErrorSetType>()->error_node;
+        }
+        case Type::Variation::FUNC: {
+            return existing.value()->as<FuncType>()->func_node;
+        }
+        case Type::Variation::INTERFACE: {
+            return existing.value()->as<InterfaceType>()->interface_node;
+        }
+        case Type::Variation::OBJECT: {
+            return existing.value()->as<ObjectType>()->object_node;
+        }
+        case Type::Variation::VARIANT: {
+            return std::get<VariantNode *const>(existing.value()->as<VariantType>()->var_or_list);
+        }
+    }
 }
