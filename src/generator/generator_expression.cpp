@@ -1577,7 +1577,8 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
 
 bool Generator::Expression::is_arg_reference(                    //
     const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
-    const std::shared_ptr<Type> &param_type                      //
+    const std::shared_ptr<Type> &param_type,                     //
+    const GenerationContext &ctx                                 //
 ) {
     const Type::Variation arg_var = arg.first->type->get_variation();
     const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
@@ -1590,6 +1591,13 @@ bool Generator::Expression::is_arg_reference(                    //
         case ExpressionNode::Variation::ARRAY_INITIALIZER:
             is_temporary = true;
             break;
+        case ExpressionNode::Variation::CALL: {
+            const auto *call_expr = arg.first->as<CallNodeExpression>();
+            if (Parser::get_builtin_function(call_expr->function->name, ctx.imported_core_modules).has_value()) {
+                is_temporary = true;
+            }
+            break;
+        }
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             // Check if the array access contains a range expression
             const auto *node = arg.first->as<ArrayAccessNode>();
@@ -1683,7 +1691,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     for (size_t i = 0; i < args.size(); i++) {
         const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
         llvm::Value *arg_value = args[i];
-        if (is_arg_reference(call_node->arguments[i], param_type)) {
+        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
             const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
             llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
@@ -1835,7 +1843,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             if (arg_type->is_reference()) {
                 expr_val = IR::aligned_load(builder, IR::get_type(ctx.parent->getParent(), arg_type).type, expr_val, "loaded_expr_val");
             }
-            llvm::Type *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
+            llvm::Type *const opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), param_type, false);
             llvm::Value *temp_opt = IR::get_default_value_of_type(opt_struct_type);
             temp_opt = builder.CreateInsertValue(temp_opt, builder.getInt8(1), 0);
             temp_opt = builder.CreateInsertValue(temp_opt, expr_val, 1, "temp_opt");
@@ -1843,14 +1851,12 @@ bool Generator::Expression::generate_call_arg_prep(                             
         } else if (is_dima_managed) {
             // Call `dima.retain` to increment the ARC before passing the argument to the function
             // Data is always passed by reference
-            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
             llvm::Value *data_value = expr_val;
-            const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
-            const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-            if (is_reference && !is_initializer && !is_opt_unwrap) {
+            if (is_reference && is_arg_reference(arg, param_type, ctx)) {
                 data_value = IR::aligned_load(builder, PTR_TY, expr_val, "data_value");
             }
-            llvm::CallInst *retain_call = builder.CreateCall(retain_fn, {data_value});
+            llvm::CallInst *const retain_call = builder.CreateCall(retain_fn, {data_value});
             retain_call->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Calling 'retain' before passing data to function")));
         }
@@ -1933,9 +1939,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
         auto data_head = Module::DIMA::get_head(arg.first->type);
         llvm::Value *data_value = args.at(i);
-        const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
-        const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
-        if (!is_initializer && !is_opt_unwrap) {
+        if (is_arg_reference(arguments[i], parameters[i].first, ctx)) {
             data_value = IR::aligned_load(builder, PTR_TY, data_value, "data_value");
         }
         llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, data_value});
@@ -2376,7 +2380,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 
         // Check if the arg is a reference
         llvm::Value *arg_value = args[i];
-        if (is_arg_reference(call_node->arguments[i], param_type)) {
+        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
         // arg_value->dump();
@@ -2521,7 +2525,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             for (size_t i = 0; i < args.size(); i++) {
                 const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
                 llvm::Value *arg_value = args[i];
-                if (is_arg_reference(call_node->arguments[i], param_type)) {
+        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
                     const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
                     llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
                     arg_value = IR::aligned_load(builder, param_ty, arg_value);
@@ -2849,7 +2853,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                llvm::Value *const dest_ptr = builder.CreateStructGEP( //
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(                                   //
                     struct_type, object_ptr, constructor_order.at(i), "object_init_" + std::to_string(i) //
                 );
                 // Call `flint.clone` to store the data in the object

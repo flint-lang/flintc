@@ -1720,7 +1720,8 @@ class Generator {
         /// @return `bool` Whether the given argument should be passed by reference
         static bool is_arg_reference(                                    //
             const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
-            const std::shared_ptr<Type> &param_type                      //
+            const std::shared_ptr<Type> &param_type,                     //
+            const GenerationContext &ctx                                 //
         );
 
         /// @function `generate_call_arg_prep`
