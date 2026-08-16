@@ -179,22 +179,26 @@ bool Analyzer::analyze_scope(const Context &ctx, Scope &scope) {
 }
 
 bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
+    Context local_ctx = ctx;
+    local_ctx.line = statement.line;
+    local_ctx.column = statement.column;
+    local_ctx.length = statement.length;
     switch (statement.get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             auto *node = statement.as<ArrayAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr)) {
+                if (!analyze_expression(local_ctx, index_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (index_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, u64_ty, index_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, u64_ty, index_expr)) {
                     THROW_ERR(                                                                             //
                         ErrExprTypeMismatch, ERR_ANALYZING, index_expr->file_hash,                         //
                         index_expr->line, index_expr->column, index_expr->length, u64_ty, index_expr->type //
@@ -202,17 +206,17 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
                     return false;
                 }
             }
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(local_ctx, node->expression)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::ASSIGNMENT: {
             auto *node = statement.as<AssignmentNode>();
-            if (!analyze_expression(ctx, node->expression, node->type)) {
+            if (!analyze_expression(local_ctx, node->expression, node->type)) {
                 return false;
             }
-            if (!Analyzer::Castability::check_castability(ctx.parser, node->type, node->expression)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, node->expression)) {
                 THROW_ERR(                                                                                   //
                     ErrExprTypeMismatch, ERR_ANALYZING, node->expression->file_hash, node->expression->line, //
                     node->expression->column, node->expression->length, node->type, node->expression->type   //
@@ -226,7 +230,6 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::CALL: {
             auto *node = statement.as<CallNodeStatement>();
             for (auto &arg : node->arguments) {
-                Context local_ctx = ctx;
                 if (node->function->is_extern) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
@@ -240,7 +243,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 auto &arg = node->arguments.at(i);
                 const auto &param_type = node->function->parameters.at(i).type;
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
                         arg.first->column, arg.first->length, param_type, arg.first->type          //
@@ -253,8 +256,6 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::CALLABLE_CALL: {
             auto *node = statement.as<CallableCallNodeStatement>();
             for (auto &arg : node->arguments) {
-                Context local_ctx = ctx;
-                local_ctx.level = ContextLevel::INTERNAL;
                 if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
@@ -263,12 +264,12 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::CATCH: {
             auto *node = statement.as<CatchNode>();
-            if (!analyze_scope(ctx, *node->scope)) {
+            if (!analyze_scope(local_ctx, *node->scope)) {
                 return false;
             }
             // Analyze the call node inside catch
             for (auto &arg : node->call_node->arguments) {
-                if (!analyze_expression(ctx, arg.first)) {
+                if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
             }
@@ -278,13 +279,13 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             break;
         case StatementNode::Variation::DATA_FIELD_ASSIGNMENT: {
             auto *node = statement.as<DataFieldAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(local_ctx, node->expression)) {
                 return false;
             }
-            if (!Analyzer::Castability::check_castability(ctx.parser, node->field_type, node->expression)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, node->field_type, node->expression)) {
                 THROW_ERR(                                                                                       //
                     ErrExprTypeMismatch, ERR_ANALYZING, node->expression->file_hash, node->expression->line,     //
                     node->expression->column, node->expression->length, node->field_type, node->expression->type //
@@ -296,10 +297,10 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::DECLARATION: {
             auto *node = statement.as<DeclarationNode>();
             if (node->initializer.has_value()) {
-                if (!analyze_expression(ctx, node->initializer.value())) {
+                if (!analyze_expression(local_ctx, node->initializer.value())) {
                     return false;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, node->type, node->initializer.value())) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, node->initializer.value())) {
                     THROW_ERR(                                                                                                            //
                         ErrExprTypeMismatch, ERR_ANALYZING, node->initializer.value()->file_hash, node->initializer.value()->line,        //
                         node->initializer.value()->column, node->initializer.value()->length, node->type, node->initializer.value()->type //
@@ -307,57 +308,57 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
                     return false;
                 }
             }
-            if (!analyze_type(ctx, node->type)) {
+            if (!analyze_type(local_ctx, node->type)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::DO_WHILE: {
             auto *node = statement.as<DoWhileNode>();
-            if (!analyze_expression(ctx, node->condition)) {
+            if (!analyze_expression(local_ctx, node->condition)) {
                 return false;
             }
-            if (!analyze_scope(ctx, *node->scope)) {
+            if (!analyze_scope(local_ctx, *node->scope)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::ENHANCED_FOR_LOOP: {
             auto *node = statement.as<EnhForLoopNode>();
-            if (!analyze_expression(ctx, node->iterable)) {
+            if (!analyze_expression(local_ctx, node->iterable)) {
                 return false;
             }
-            if (!analyze_scope(ctx, *node->body)) {
+            if (!analyze_scope(local_ctx, *node->body)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::FOR_LOOP: {
             auto *node = statement.as<ForLoopNode>();
-            if (!analyze_scope(ctx, *node->definition_scope)) {
+            if (!analyze_scope(local_ctx, *node->definition_scope)) {
                 return false;
             }
-            if (!analyze_expression(ctx, node->condition)) {
+            if (!analyze_expression(local_ctx, node->condition)) {
                 return false;
             }
-            if (!analyze_statement(ctx, *node->looparound)) {
+            if (!analyze_statement(local_ctx, *node->looparound)) {
                 return false;
             }
-            if (!analyze_scope(ctx, *node->body)) {
+            if (!analyze_scope(local_ctx, *node->body)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::GROUP_ASSIGNMENT: {
             auto *node = statement.as<GroupAssignmentNode>();
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(local_ctx, node->expression)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::GROUP_DECLARATION: {
             auto *node = statement.as<GroupDeclarationNode>();
-            if (!analyze_expression(ctx, node->initializer)) {
+            if (!analyze_expression(local_ctx, node->initializer)) {
                 return false;
             }
             std::vector<std::shared_ptr<Type>> group_types;
@@ -368,7 +369,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             if (!Type::add_type(group_type)) {
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            if (!Analyzer::Castability::check_castability(ctx.parser, group_type, node->initializer)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, group_type, node->initializer)) {
                 THROW_ERR(                                                                                     //
                     ErrExprTypeMismatch, ERR_ANALYZING, node->initializer->file_hash, node->initializer->line, //
                     node->initializer->column, node->initializer->length, group_type, node->initializer->type  //
@@ -379,7 +380,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT: {
             auto *node = statement.as<GroupedArrayAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
@@ -398,14 +399,14 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
                 }
             }
             for (auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr)) {
+                if (!analyze_expression(local_ctx, index_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (index_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, indexing_ty, index_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, indexing_ty, index_expr)) {
                     THROW_ERR(                                                                       //
                         ErrExprTypeMismatch, ERR_ANALYZING, index_expr->file_hash, index_expr->line, //
                         index_expr->column, index_expr->length, indexing_ty, index_expr->type        //
@@ -413,24 +414,24 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
                     return false;
                 }
             }
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(local_ctx, node->expression)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT: {
             auto *node = statement.as<GroupedDataFieldAssignmentNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
-            if (!analyze_expression(ctx, node->expression)) {
+            if (!analyze_expression(local_ctx, node->expression)) {
                 return false;
             }
             std::shared_ptr<Type> group_type = std::make_shared<GroupType>(node->field_types);
             if (!Type::add_type(group_type)) {
                 group_type = Type::get_type_from_str(group_type->to_string()).value();
             }
-            if (!Analyzer::Castability::check_castability(ctx.parser, group_type, node->expression)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, group_type, node->expression)) {
                 THROW_ERR(                                                                                   //
                     ErrExprTypeMismatch, ERR_ANALYZING, node->expression->file_hash, node->expression->line, //
                     node->expression->column, node->expression->length, group_type, node->expression->type   //
@@ -441,19 +442,19 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::IF: {
             auto *node = statement.as<IfNode>();
-            if (!analyze_expression(ctx, node->condition)) {
+            if (!analyze_expression(local_ctx, node->condition)) {
                 return false;
             }
-            if (!analyze_scope(ctx, *node->then_scope)) {
+            if (!analyze_scope(local_ctx, *node->then_scope)) {
                 return false;
             }
             if (node->else_scope.has_value()) {
                 if (std::holds_alternative<std::shared_ptr<Scope>>(node->else_scope.value())) {
-                    if (!analyze_scope(ctx, *std::get<std::shared_ptr<Scope>>(node->else_scope.value()))) {
+                    if (!analyze_scope(local_ctx, *std::get<std::shared_ptr<Scope>>(node->else_scope.value()))) {
                         return false;
                     }
                 } else {
-                    if (!analyze_statement(ctx, *std::get<std::unique_ptr<IfNode>>(node->else_scope.value()))) {
+                    if (!analyze_statement(local_ctx, *std::get<std::unique_ptr<IfNode>>(node->else_scope.value()))) {
                         return false;
                     }
                 }
@@ -463,7 +464,6 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::INSTANCE_CALL: {
             auto *node = statement.as<InstanceCallNodeStatement>();
             for (auto &arg : node->arguments) {
-                Context local_ctx = ctx;
                 if (node->function->is_extern) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
@@ -477,7 +477,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 const auto &param_type = node->function->parameters.at(i).type;
                 auto &arg = node->arguments.at(i);
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
                         arg.first->column, arg.first->length, param_type, arg.first->type          //
@@ -492,11 +492,11 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             if (!node->return_value.has_value()) {
                 break;
             }
-            if (!analyze_expression(ctx, node->return_value.value(), ctx.return_type)) {
+            if (!analyze_expression(local_ctx, node->return_value.value(), ctx.return_type)) {
                 return false;
             }
-            if (ctx.return_type.has_value()                                                                                   //
-                && !Analyzer::Castability::check_castability(ctx.parser, ctx.return_type.value(), node->return_value.value()) //
+            if (local_ctx.return_type.has_value()                                                                                   //
+                && !Analyzer::Castability::check_castability(local_ctx.parser, ctx.return_type.value(), node->return_value.value()) //
             ) {
                 const auto &ret_val = node->return_value.value();
                 THROW_ERR(                                                                   //
@@ -509,7 +509,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::SWITCH: {
             auto *node = statement.as<SwitchStatement>();
-            if (!analyze_expression(ctx, node->switcher)) {
+            if (!analyze_expression(local_ctx, node->switcher)) {
                 return false;
             }
             // Only primitive switchers have their matches validated and cast, the other switch kinds (enum, optional, variant) use
@@ -517,10 +517,10 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
             const bool is_primitive_switcher = node->switcher->type->get_variation() == Type::Variation::PRIMITIVE;
             for (auto &branch : node->branches) {
                 for (auto &match : branch.matches) {
-                    if (!analyze_expression(ctx, match)) {
+                    if (!analyze_expression(local_ctx, match)) {
                         return false;
                     }
-                    if (is_primitive_switcher && !Analyzer::Castability::check_castability(ctx.parser, node->switcher->type, match)) {
+                    if (is_primitive_switcher && !Analyzer::Castability::check_castability(local_ctx.parser, node->switcher->type, match)) {
                         THROW_ERR(                                                             //
                             ErrExprTypeMismatch, ERR_ANALYZING, match->file_hash, match->line, //
                             match->column, match->length, node->switcher->type, match->type    //
@@ -528,7 +528,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
                         return false;
                     }
                 }
-                if (!analyze_scope(ctx, *branch.body)) {
+                if (!analyze_scope(local_ctx, *branch.body)) {
                     return false;
                 }
             }
@@ -536,24 +536,24 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::THROW: {
             auto *node = statement.as<ThrowNode>();
-            if (!analyze_expression(ctx, node->throw_value)) {
+            if (!analyze_expression(local_ctx, node->throw_value)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::UNARY_OP: {
             auto *node = statement.as<UnaryOpStatement>();
-            if (!analyze_expression(ctx, node->operand)) {
+            if (!analyze_expression(local_ctx, node->operand)) {
                 return false;
             }
             break;
         }
         case StatementNode::Variation::WHILE: {
             auto *node = statement.as<WhileNode>();
-            if (!analyze_expression(ctx, node->condition)) {
+            if (!analyze_expression(local_ctx, node->condition)) {
                 return false;
             }
-            if (!analyze_scope(ctx, *node->scope)) {
+            if (!analyze_scope(local_ctx, *node->scope)) {
                 return false;
             }
             break;
@@ -662,32 +662,30 @@ bool Analyzer::analyze_expression(                            //
     const std::optional<std::shared_ptr<Type>> &expected_type //
 ) {
     // Check if the type is a pointer type and if we are not in a context which allows pointer types
-    {
-        Context local_ctx = ctx;
-        local_ctx.line = expr->line;
-        local_ctx.column = expr->column;
-        local_ctx.length = expr->length;
-        if (!analyze_type(local_ctx, expr->type, true)) {
-            return false;
-        }
+    Context local_ctx = ctx;
+    local_ctx.line = expr->line;
+    local_ctx.column = expr->column;
+    local_ctx.length = expr->length;
+    if (!analyze_type(local_ctx, expr->type, true)) {
+        return false;
     }
 
     switch (expr->get_variation()) {
         case ExpressionNode::Variation::ARRAY_ACCESS: {
             auto *node = expr->as<ArrayAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr)) {
+                if (!analyze_expression(local_ctx, index_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (index_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, u64_ty, index_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, u64_ty, index_expr)) {
                     THROW_ERR(                                                                       //
                         ErrExprTypeMismatch, ERR_ANALYZING, index_expr->file_hash, index_expr->line, //
                         index_expr->column, index_expr->length, u64_ty, index_expr->type             //
@@ -701,14 +699,14 @@ bool Analyzer::analyze_expression(                            //
             auto *node = expr->as<ArrayInitializerNode>();
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &length_expr : node->length_expressions) {
-                if (!analyze_expression(ctx, length_expr)) {
+                if (!analyze_expression(local_ctx, length_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (length_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, u64_ty, length_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, u64_ty, length_expr)) {
                     THROW_ERR(                                                                         //
                         ErrExprTypeMismatch, ERR_ANALYZING, length_expr->file_hash, length_expr->line, //
                         length_expr->column, length_expr->length, u64_ty, length_expr->type            //
@@ -716,11 +714,11 @@ bool Analyzer::analyze_expression(                            //
                     return false;
                 }
             }
-            if (!analyze_expression(ctx, node->initializer_value)) {
+            if (!analyze_expression(local_ctx, node->initializer_value)) {
                 return false;
             }
             const auto *arr_type = node->type->as<ArrayType>();
-            if (!Analyzer::Castability::check_castability(ctx.parser, arr_type->type, node->initializer_value)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, arr_type->type, node->initializer_value)) {
                 THROW_ERR(                                                                                                          //
                     ErrExprTypeMismatch, ERR_ANALYZING, node->initializer_value->file_hash, node->initializer_value->line,          //
                     node->initializer_value->column, node->initializer_value->length, arr_type->type, node->initializer_value->type //
@@ -730,14 +728,13 @@ bool Analyzer::analyze_expression(                            //
             break;
         }
         case ExpressionNode::Variation::BINARY_OP: {
-            if (!analyze_binop(ctx, expr)) {
+            if (!analyze_binop(local_ctx, expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::CALL: {
             auto *node = expr->as<CallNodeExpression>();
-            Context local_ctx = ctx;
             if (node->function->is_extern) {
                 local_ctx.level = ContextLevel::EXTERNAL;
             } else {
@@ -752,7 +749,7 @@ bool Analyzer::analyze_expression(                            //
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 const auto &param_type = node->function->parameters.at(i).type;
                 auto &arg = node->arguments.at(i);
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
                         arg.first->column, arg.first->length, param_type, arg.first->type          //
@@ -764,7 +761,6 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::CALLABLE_CALL: {
             auto *node = expr->as<CallableCallNodeExpression>();
-            Context local_ctx = ctx;
             local_ctx.level = ContextLevel::INTERNAL;
             for (auto &arg : node->arguments) {
                 if (!analyze_expression(local_ctx, arg.first)) {
@@ -775,7 +771,7 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             auto *node = expr->as<DataAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
@@ -785,7 +781,7 @@ bool Analyzer::analyze_expression(                            //
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             auto *node = expr->as<GroupExpressionNode>();
             for (auto &expression : node->expressions) {
-                if (!analyze_expression(ctx, expression)) {
+                if (!analyze_expression(local_ctx, expression)) {
                     return false;
                 }
             }
@@ -795,7 +791,7 @@ bool Analyzer::analyze_expression(                            //
             break;
         case ExpressionNode::Variation::GROUPED_ARRAY_ACCESS: {
             auto *node = expr->as<GroupedArrayAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             // The indexing expressions must all have the type of a group with N values where N is the dimensionality of the accessed array
@@ -815,14 +811,14 @@ bool Analyzer::analyze_expression(                            //
                 }
             }
             for (auto &index_expr : node->indexing_expressions) {
-                if (!analyze_expression(ctx, index_expr)) {
+                if (!analyze_expression(local_ctx, index_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (index_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, indexing_ty, index_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, indexing_ty, index_expr)) {
                     THROW_ERR(                                                                       //
                         ErrExprTypeMismatch, ERR_ANALYZING, index_expr->file_hash, index_expr->line, //
                         index_expr->column, index_expr->length, indexing_ty, index_expr->type        //
@@ -834,7 +830,7 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::GROUPED_DATA_ACCESS: {
             auto *node = expr->as<GroupedDataAccessNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
@@ -842,7 +838,7 @@ bool Analyzer::analyze_expression(                            //
         case ExpressionNode::Variation::INITIALIZER: {
             auto *node = expr->as<InitializerNode>();
             for (auto &arg : node->args) {
-                if (!analyze_expression(ctx, arg)) {
+                if (!analyze_expression(local_ctx, arg)) {
                     return false;
                 }
             }
@@ -857,7 +853,7 @@ bool Analyzer::analyze_expression(                            //
                             continue;
                         }
                         const auto &field_type = fields.at(i).type;
-                        if (!Analyzer::Castability::check_castability(ctx.parser, field_type, node->args[i], false)) {
+                        if (!Analyzer::Castability::check_castability(local_ctx.parser, field_type, node->args[i], false)) {
                             THROW_ERR(                                                                             //
                                 ErrExprTypeMismatch, ERR_ANALYZING, node->args[i]->file_hash, node->args[i]->line, //
                                 node->args[i]->column, node->args[i]->length, field_type, node->args[i]->type      //
@@ -892,7 +888,7 @@ bool Analyzer::analyze_expression(                            //
                     }
                     const std::shared_ptr<Type> base_type = node->type->as<VectorType>()->base_type;
                     for (auto &arg : node->args) {
-                        if (!Analyzer::Castability::check_castability(ctx.parser, base_type, arg, false)) {
+                        if (!Analyzer::Castability::check_castability(local_ctx.parser, base_type, arg, false)) {
                             THROW_ERR(                                                        //
                                 ErrExprCastInvalid, ERR_ANALYZING, arg->file_hash, arg->line, //
                                 arg->column, arg->length, node->type, arg->type               //
@@ -908,14 +904,14 @@ bool Analyzer::analyze_expression(                            //
             auto *node = expr->as<InlineArrayInitializerNode>();
             const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
             for (auto &length_expr : node->length_expressions) {
-                if (!analyze_expression(ctx, length_expr)) {
+                if (!analyze_expression(local_ctx, length_expr)) {
                     return false;
                 }
                 // Range expressions handle their own bound types
                 if (length_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                     continue;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, u64_ty, length_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, u64_ty, length_expr)) {
                     THROW_ERR(                                                                         //
                         ErrExprTypeMismatch, ERR_ANALYZING, length_expr->file_hash, length_expr->line, //
                         length_expr->column, length_expr->length, u64_ty, length_expr->type            //
@@ -924,10 +920,10 @@ bool Analyzer::analyze_expression(                            //
                 }
             }
             for (auto &init_expr : node->initializer_values) {
-                if (!analyze_expression(ctx, init_expr)) {
+                if (!analyze_expression(local_ctx, init_expr)) {
                     return false;
                 }
-                if (!Analyzer::Castability::check_castability(ctx.parser, node->element_type, init_expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, node->element_type, init_expr)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, init_expr->file_hash, init_expr->line, //
                         init_expr->column, init_expr->length, node->element_type, init_expr->type  //
@@ -939,7 +935,6 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             auto *node = expr->as<InstanceCallNodeExpression>();
-            Context local_ctx = ctx;
             if (node->function->is_extern) {
                 local_ctx.level = ContextLevel::EXTERNAL;
             } else {
@@ -954,7 +949,7 @@ bool Analyzer::analyze_expression(                            //
             for (size_t i = 0; i < node->arguments.size(); i++) {
                 auto &arg = node->arguments.at(i);
                 const auto &param_type = node->function->parameters.at(i).type;
-                if (!Analyzer::Castability::check_castability(ctx.parser, param_type, arg.first)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, param_type, arg.first)) {
                     THROW_ERR(                                                                     //
                         ErrExprTypeMismatch, ERR_ANALYZING, arg.first->file_hash, arg.first->line, //
                         arg.first->column, arg.first->length, param_type, arg.first->type          //
@@ -972,10 +967,10 @@ bool Analyzer::analyze_expression(                            //
                 LitError &lit_error = std::get<LitError>(node->value);
                 if (lit_error.message.has_value()) {
                     const std::shared_ptr<Type> str_type = Type::get_primitive_type("str");
-                    if (!analyze_expression(ctx, lit_error.message.value())) {
+                    if (!analyze_expression(local_ctx, lit_error.message.value())) {
                         return false;
                     }
-                    if (!Analyzer::Castability::check_castability(ctx.parser, str_type, lit_error.message.value())) {
+                    if (!Analyzer::Castability::check_castability(local_ctx.parser, str_type, lit_error.message.value())) {
                         THROW_ERR(                                                                //
                             ErrExprTypeMismatch, ERR_ANALYZING, expr->file_hash, expr->line,      //
                             expr->column, expr->length, str_type, lit_error.message.value()->type //
@@ -986,7 +981,7 @@ bool Analyzer::analyze_expression(                            //
             } else if (std::holds_alternative<LitVariant>(node->value)) {
                 LitVariant &lit_variant = std::get<LitVariant>(node->value);
                 if (lit_variant.expr.has_value()) {
-                    if (!analyze_expression(ctx, lit_variant.expr.value())) {
+                    if (!analyze_expression(local_ctx, lit_variant.expr.value())) {
                         return false;
                     }
                 }
@@ -995,24 +990,24 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::OPTIONAL_CHAIN: {
             auto *node = expr->as<OptionalChainNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
             auto *node = expr->as<OptionalUnwrapNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::RANGE_EXPRESSION: {
             auto *node = expr->as<RangeExpressionNode>();
-            if (!analyze_expression(ctx, node->lower_bound)) {
+            if (!analyze_expression(local_ctx, node->lower_bound)) {
                 return false;
             }
-            if (!analyze_expression(ctx, node->upper_bound)) {
+            if (!analyze_expression(local_ctx, node->upper_bound)) {
                 return false;
             }
             break;
@@ -1023,11 +1018,11 @@ bool Analyzer::analyze_expression(                            //
             for (auto &content : node->string_content) {
                 if (std::holds_alternative<std::unique_ptr<ExpressionNode>>(content)) {
                     auto &expression_node = std::get<std::unique_ptr<ExpressionNode>>(content);
-                    if (!analyze_expression(ctx, expression_node)) {
+                    if (!analyze_expression(local_ctx, expression_node)) {
                         return false;
                     }
                     // Cast the expression content to a str type (if it isn't already)
-                    if (!Analyzer::Castability::check_castability(ctx.parser, str_type, expression_node)) {
+                    if (!Analyzer::Castability::check_castability(local_ctx.parser, str_type, expression_node)) {
                         THROW_ERR(                                                                                 //
                             ErrExprTypeMismatch, ERR_ANALYZING, expression_node->file_hash, expression_node->line, //
                             expression_node->column, expression_node->length, str_type, expression_node->type      //
@@ -1040,21 +1035,21 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::SWITCH_EXPRESSION: {
             auto *node = expr->as<SwitchExpression>();
-            if (!analyze_expression(ctx, node->switcher)) {
+            if (!analyze_expression(local_ctx, node->switcher)) {
                 return false;
             }
             // Only primitive switchers have their matches validated and cast, the other switch kinds (enum, optional, variant) use
             // specialized match nodes which must not be touched
             const bool is_primitive_switcher = node->switcher->type->get_variation() == Type::Variation::PRIMITIVE;
             for (auto &branch : node->branches) {
-                if (!analyze_expression(ctx, branch.expr)) {
+                if (!analyze_expression(local_ctx, branch.expr)) {
                     return false;
                 }
                 for (auto &match : branch.matches) {
-                    if (!analyze_expression(ctx, match)) {
+                    if (!analyze_expression(local_ctx, match)) {
                         return false;
                     }
-                    if (is_primitive_switcher && !Analyzer::Castability::check_castability(ctx.parser, node->switcher->type, match)) {
+                    if (is_primitive_switcher && !Analyzer::Castability::check_castability(local_ctx.parser, node->switcher->type, match)) {
                         THROW_ERR(                                                             //
                             ErrExprTypeMismatch, ERR_ANALYZING, match->file_hash, match->line, //
                             match->column, match->length, node->switcher->type, match->type    //
@@ -1097,7 +1092,7 @@ bool Analyzer::analyze_expression(                            //
                 node->type = Type::get_primitive_type(resolved_type_str);
             }
             for (auto &branch : node->branches) {
-                if (!Analyzer::Castability::check_castability(ctx.parser, node->type, branch.expr)) {
+                if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, branch.expr)) {
                     THROW_ERR(                                                                         //
                         ErrExprTypeMismatch, ERR_ANALYZING, branch.expr->file_hash, branch.expr->line, //
                         branch.expr->column, branch.expr->length, node->type, branch.expr->type        //
@@ -1111,7 +1106,7 @@ bool Analyzer::analyze_expression(                            //
             break;
         case ExpressionNode::Variation::TYPE_CAST: {
             auto *node = expr->as<TypeCastNode>();
-            if (!analyze_expression(ctx, node->expr)) {
+            if (!analyze_expression(local_ctx, node->expr)) {
                 return false;
             }
             if (node->expr->type->equals(node->type)) {
@@ -1134,11 +1129,11 @@ bool Analyzer::analyze_expression(                            //
                 return false;
             }
             // If the inner expression is a literal, retype the literal and remove the cast node
-            if (Analyzer::Castability::resolve_comptime_type_of_expr(ctx.parser, node->expr, node->type)) {
+            if (Analyzer::Castability::resolve_comptime_type_of_expr(local_ctx.parser, node->expr, node->type)) {
                 expr = std::move(node->expr);
                 break;
             }
-            if (!Analyzer::Castability::check_castability(ctx.parser, node->type, node->expr, false)) {
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, node->expr, false)) {
                 THROW_ERR(                                                          //
                     ErrExprCastInvalid, ERR_ANALYZING, node->file_hash, node->line, //
                     node->column, node->length, node->type, node->expr->type        //
@@ -1155,7 +1150,7 @@ bool Analyzer::analyze_expression(                            //
             break;
         case ExpressionNode::Variation::UNARY_OP: {
             auto *node = expr->as<UnaryOpExpression>();
-            if (!analyze_expression(ctx, node->operand)) {
+            if (!analyze_expression(local_ctx, node->operand)) {
                 return false;
             }
             break;
@@ -1164,14 +1159,14 @@ bool Analyzer::analyze_expression(                            //
             break;
         case ExpressionNode::Variation::VARIANT_EXTRACTION: {
             auto *node = expr->as<VariantExtractionNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
         }
         case ExpressionNode::Variation::VARIANT_UNWRAP: {
             auto *node = expr->as<VariantUnwrapNode>();
-            if (!analyze_expression(ctx, node->base_expr)) {
+            if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
             break;
@@ -1187,7 +1182,7 @@ bool Analyzer::analyze_expression(                            //
         };
         switch (expected_type.value()->get_variation()) {
             default: {
-                if (!Castability::check_castability(ctx.parser, expected_type.value(), expr, true)) {
+                if (!Castability::check_castability(local_ctx.parser, expected_type.value(), expr, true)) {
                     THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, ctx.parser.file_hash, expr_pos, expected_type.value(), expr->type);
                     return false;
                 }
