@@ -1812,7 +1812,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
     // Now we need to check what the rhs of the optional chain is
     // TODO: Change the 'is_toplevel_chain_node' to something else, to detect whether it actually *is* the top level
     if (iterator->token == TOK_LEFT_BRACKET) {
-        auto array_access_base = create_array_access_base(ctx, scope, tokens);
+        auto array_access_base = create_array_access_base(ctx, scope, tokens, true);
         if (!array_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;

@@ -895,9 +895,12 @@ class Matcher {
             sequence({token(TOK_LEFT_BRACE), until_right_brace})  // { initializer, ... }
         })                                                        //
     });
-    static const inline PatternPtr array_access = sequence({not_p(token(TOK_DOT)), token(TOK_LEFT_BRACKET), until_right_bracket});
-    static const inline PatternPtr grouped_array_access = sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket});
-    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({array_access, field_access})});
+    static const inline PatternPtr raw_array_access = sequence({token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr array_access = not_preceded_by(one_of({token(TOK_DOT), token(TOK_QUESTION)}), raw_array_access);
+    static const inline PatternPtr grouped_array_access = not_preceded_by(token(TOK_QUESTION), //
+        sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket})               //
+    );
+    static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({raw_array_access, field_access})});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
     static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
