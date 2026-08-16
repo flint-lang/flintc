@@ -1540,33 +1540,41 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment( //
     tokens_mut.first++;
     // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
     // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
-    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
-    unsigned int index = 0;
-    for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
-        // The next element has to be either a comma or the right paren
-        if (std::next(it) == tokens_mut.second || (std::next(it)->token != TOK_COMMA && std::next(it)->token != TOK_RIGHT_PAREN)) {
-            THROW_BASIC_ERR(ERR_PARSING);
+    std::vector<std::unique_ptr<ExpressionNode>> assignees;
+    auto expr_start = tokens_mut.first;
+    unsigned int depth = 0;
+    bool is_last = false;
+    for (; tokens_mut.first != tokens_mut.second; ++tokens_mut.first) {
+        if (Matcher::token_match(tokens_mut.first->token, Matcher::balancer_left)) {
+            depth++;
+        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::balancer_right)) {
+            if (depth == 0) {
+                is_last = true;
+            } else {
+                depth--;
+            }
+        }
+        if (!is_last && (tokens_mut.first->token != TOK_COMMA || depth > 0)) {
+            continue;
+        }
+
+        // Everything up until the current `it` is the expression
+        const token_slice expr_tokens{expr_start, tokens_mut.first};
+        expr_start = tokens_mut.first + 1;
+        auto expr = create_expression(_ctx_, scope, expr_tokens);
+        if (!expr.has_value()) {
             return std::nullopt;
         }
-        const std::string it_lexme(it->lexme);
-        // This element is the assignee
-        if (scope->variables.find(it_lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
+        if (expr.value()->is_const) {
+            THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, expr_tokens);
             return std::nullopt;
         }
-        if (!scope->variables.at(it_lexme).is_mutable) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
-            return std::nullopt;
-        }
-        const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
-        assignees.emplace_back(expected_type, it_lexme);
-        index += 2;
-        if (std::next(it)->token == TOK_RIGHT_PAREN) {
+        assignees.emplace_back(std::move(expr.value()));
+        if (is_last) {
+            tokens_mut.first++;
             break;
         }
     }
-    // Erase all the assignment tokens
-    tokens_mut.first += index;
     // Now the first token should be an equals token
     if (tokens_mut.first->token != TOK_EQUAL) {
         THROW_BASIC_ERR(ERR_PARSING);
@@ -1601,35 +1609,41 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     tokens_mut.first++;
     // Extract all assignees, we expect assingees to follow the strict pattern of: \( (\W+,)+ \W \)
     // or if you're super correct with the regex it matches this exact pattern: \(\W*(\w+\W*,\W*)+\w+\W*\)
-    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
-    std::vector<token_list::iterator> assignee_iterators;
-    unsigned int index = 0;
-    for (auto it = tokens_mut.first; it != tokens_mut.second; it += 2) {
-        // The next element has to be either a comma or the right paren
-        if (std::next(it) == tokens_mut.second || (std::next(it)->token != TOK_COMMA && std::next(it)->token != TOK_RIGHT_PAREN)) {
-            THROW_BASIC_ERR(ERR_PARSING);
+    std::vector<std::unique_ptr<ExpressionNode>> assignees;
+    auto expr_start = tokens_mut.first;
+    unsigned int depth = 0;
+    bool is_last = false;
+    for (; tokens_mut.first != tokens_mut.second; ++tokens_mut.first) {
+        if (Matcher::token_match(tokens_mut.first->token, Matcher::balancer_left)) {
+            depth++;
+        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::balancer_right)) {
+            if (depth == 0) {
+                is_last = true;
+            } else {
+                depth--;
+            }
+        }
+        if (!is_last & (tokens_mut.first->token != TOK_COMMA || depth > 0)) {
+            continue;
+        }
+
+        // Everything up until the current `it` is the expression
+        const token_slice expr_tokens{expr_start, tokens_mut.first};
+        expr_start = tokens_mut.first + 1;
+        auto expr = create_expression(_ctx_, scope, expr_tokens);
+        if (!expr.has_value()) {
             return std::nullopt;
         }
-        const std::string it_lexme(it->lexme);
-        // This element is the assignee
-        if (scope->variables.find(it_lexme) == scope->variables.end()) {
-            THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
+        if (expr.value()->is_const) {
+            THROW_ERR(ErrExprMutatingConst, ERR_PARSING, file_hash, expr_tokens);
             return std::nullopt;
         }
-        if (!scope->variables.at(it_lexme).is_mutable) {
-            THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, it->line, it->column, it_lexme);
-            return std::nullopt;
-        }
-        const std::shared_ptr<Type> &expected_type = scope->variables.at(it_lexme).type;
-        assignees.emplace_back(expected_type, it_lexme);
-        assignee_iterators.emplace_back(it);
-        index += 2;
-        if (std::next(it)->token == TOK_RIGHT_PAREN) {
+        assignees.emplace_back(std::move(expr.value()));
+        if (is_last) {
+            tokens_mut.first++;
             break;
         }
     }
-    // Erase all the assignment tokens
-    tokens_mut.first += index;
 
     // Get the operation of the assignment shorthand
     Token operation = TOK_EOF;
@@ -1673,11 +1687,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
     // The expression now is the group of all assignees within a binop with the rhs expr
     std::vector<std::unique_ptr<ExpressionNode>> lhs_expressions;
     for (size_t i = 0; i < assignees.size(); i++) {
-        const auto &[type, name] = assignees.at(i);
-        const auto &it = assignee_iterators.at(i);
-        lhs_expressions.emplace_back(                                                                             //
-            std::make_unique<VariableNode>(file_hash, get_pos_triple(token_slice{it, it + 1}), name, type, false) //
-        );
+        lhs_expressions.emplace_back(assignees.at(i)->clone(scope->scope_id));
     }
     const auto &lhs_pos = get_pos_triple(token_slice{tokens.first, tokens_mut.first - 1});
     std::unique_ptr<ExpressionNode> lhs_expr = std::make_unique<GroupExpressionNode>(file_hash, lhs_pos, lhs_expressions);

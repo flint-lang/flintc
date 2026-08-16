@@ -1437,6 +1437,29 @@ class Generator {
             const DeclarationNode *declaration_node     //
         );
 
+        /// @function `generate_assign_to_lvalue`
+        /// @brief Generates the actual assignment of an rhs value to an lhs value location. This function assumes that the lhs value is the
+        /// pointer-to-the-store-location and that the rhs is the value to store in it
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the assignment generation
+        /// @param `lhs` The storate to assign the rhs value to
+        /// @param `rhs` The value to assign to store in the lhs
+        /// @param `lhs_type` The type of the to-assigned storage
+        /// @param `rhs_expr` The expression of the rhs, may be a 'GroupExpressionNode' in which case the correct expression will be
+        ///                   extracted from the given `idx`
+        /// @param `idx` The index at which to extract the actual rhs type etc from, for scalar assignments this is a nullopt
+        /// @return `bool` Whether the code generation of the assignment to the lvalue was successful
+        [[nodiscard]] static bool generate_assign_to_lvalue( //
+            llvm::IRBuilder<> &builder,                      //
+            GenerationContext &ctx,                          //
+            llvm::Value *const lhs,                          //
+            llvm::Value **const rhs,                         //
+            std::shared_ptr<Type> lhs_type,                  //
+            ExpressionNode *rhs_expr,                        //
+            const std::optional<size_t> &idx = std::nullopt  //
+        );
+
         /// @function `generate_assignment`
         /// @brief Generates the assignment from the given AssignmentNode
         ///

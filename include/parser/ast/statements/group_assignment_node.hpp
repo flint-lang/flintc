@@ -4,7 +4,6 @@
 #include "statement_node.hpp"
 
 #include <memory>
-#include <string>
 #include <utility>
 #include <vector>
 
@@ -12,14 +11,14 @@
 /// @brief Represents Group assignment statements
 class GroupAssignmentNode : public StatementNode {
   public:
-    GroupAssignmentNode(                                                             //
-        const Hash &hash,                                                            //
-        const token_slice &tokens,                                                   //
-        const std::vector<std::pair<std::shared_ptr<Type>, std::string>> &assignees, //
-        std::unique_ptr<ExpressionNode> &expression                                  //
+    GroupAssignmentNode(                                         //
+        const Hash &hash,                                        //
+        const token_slice &tokens,                               //
+        std::vector<std::unique_ptr<ExpressionNode>> &assignees, //
+        std::unique_ptr<ExpressionNode> &expression              //
         ) :
         StatementNode(hash, tokens),
-        assignees(assignees),
+        assignees(std::move(assignees)),
         expression(std::move(expression)) {}
 
     Variation get_variation() const override {
@@ -38,8 +37,8 @@ class GroupAssignmentNode : public StatementNode {
     GroupAssignmentNode &operator=(GroupAssignmentNode &&) = default;
 
     /// @var `assignees`
-    /// @brief The types and names of the variables the expression is assigned to
-    std::vector<std::pair<std::shared_ptr<Type>, std::string>> assignees;
+    /// @brief The assignee expressions to assign the expression result to
+    std::vector<std::unique_ptr<ExpressionNode>> assignees;
 
     /// @var `expression`
     /// @brief The expression of the assignment

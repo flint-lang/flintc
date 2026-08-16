@@ -1893,6 +1893,89 @@ bool Generator::Statement::generate_declaration( //
     return true;
 }
 
+bool Generator::Statement::generate_assign_to_lvalue( //
+    llvm::IRBuilder<> &builder,                       //
+    GenerationContext &ctx,                           //
+    llvm::Value *const lhs,                           //
+    llvm::Value **const rhs,                          //
+    std::shared_ptr<Type> lhs_type,                   //
+    ExpressionNode *rhs_expr,                         //
+    const std::optional<size_t> &idx                  //
+) {
+    bool is_producer = rhs_expr->is_producer();
+    std::shared_ptr<Type> rhs_type = rhs_expr->type;
+    if (idx.has_value()) {
+        ASSERT(rhs_type->get_variation() == Type::Variation::GROUP);
+        rhs_type = rhs_type->as<GroupType>()->types.at(idx.value());
+        if (rhs_expr->get_variation() == ExpressionNode::Variation::GROUP_EXPRESSION) {
+            is_producer = rhs_expr->as<GroupExpressionNode>()->expressions.at(idx.value())->is_producer();
+        }
+    }
+    if (lhs_type->is_freeable() && lhs_type->get_variation() != Type::Variation::OPAQUE) {
+        // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
+        if (lhs_type->get_variation() == Type::Variation::ALIAS) {
+            const auto *alias_type = lhs_type->as<AliasType>();
+            lhs_type = alias_type->type;
+        }
+        const Type::Variation expression_type_variation = rhs_type->get_variation();
+        const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
+        llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
+        if (is_optional && rhs_type->as<OptionalType>()->base_type->is_dima_managed()) {
+            llvm::BasicBlock *current_block = builder.GetInsertBlock();
+            llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
+            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
+
+            builder.SetInsertPoint(current_block);
+            llvm::Value *const has_value_i8 = builder.CreateExtractValue(*rhs, 0, "rhs_has_value_i8");
+            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "rhs_has_value");
+            builder.CreateCondBr(has_value, retain_block, merge_block);
+
+            builder.SetInsertPoint(retain_block);
+            llvm::Value *value = builder.CreateExtractValue(*rhs, 1, "rhs_value");
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder.CreateCall(retain_fn, {value});
+            builder.CreateBr(merge_block);
+
+            builder.SetInsertPoint(merge_block);
+        }
+        // Free the lhs before assigning
+        llvm::Value *lhs_value = lhs;
+        const IR::TypeStorageInfo &var_type_info = IR::get_type(ctx.parent->getParent(), lhs_type);
+        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY && !lhs_type->as<ArrayType>()->sizes.has_value();
+        const bool var_is_str = lhs_type->to_string() == "str";
+        if (var_type_info.is_complex || var_is_array || var_is_str) {
+            llvm::Type *type_to_load = var_type_info.is_complex ? PTR_TY : var_type_info.type;
+            lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
+        }
+        if (lhs_type->is_dima_managed()) {
+            // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
+            // however, which means we first need to load the data pointer from it
+            // llvm::Value *data_ptr = IR::aligned_load(builder, PTR_TY, lhs_value, "data_ptr");
+            auto data_head = Module::DIMA::get_head(lhs_type);
+            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+            builder.CreateCall(release_fn, {data_head, lhs_value});
+        } else {
+            // We need to call the `flint.free` function on the lhs before assigning anything to it
+            llvm::Function *free_fn = Memory::memory_functions.at("free");
+            builder.CreateCall(free_fn, {lhs_value, type_id});
+        }
+        if (!is_producer) {
+            // It's not a producer and thus needs to be cloned when assigning the value
+            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
+            builder.CreateCall(clone_fn, {*rhs, lhs, type_id});
+            return true;
+        }
+    }
+    // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
+    if (lhs_type->get_variation() == Type::Variation::VARIANT && (*rhs)->getType()->isPointerTy()) {
+        llvm::StructType *const variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), lhs_type, false);
+        *rhs = IR::aligned_load(builder, variant_ty, *rhs, "loaded_variant");
+    }
+    llvm::StoreInst *store = IR::aligned_store(builder, *rhs, lhs);
+    store->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in lvalue")));
+    return true;
+}
+
 bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, GenerationContext &ctx, const AssignmentNode *assignment_node) {
     Expression::garbage_type garbage;
     const bool is_discarded = assignment_node->name == "_";
@@ -2043,71 +2126,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
         }
         return true;
     }
-    if (assignment_node->type->is_freeable() && assignment_node->type->get_variation() != Type::Variation::OPAQUE) {
-        // We first need to free whatever was in the variable we assign the new value at before we can assign the new value to it
-        std::shared_ptr<Type> lhs_type = assignment_node->type;
-        if (lhs_type->get_variation() == Type::Variation::ALIAS) {
-            const auto *alias_type = lhs_type->as<AliasType>();
-            lhs_type = alias_type->type;
-        }
-        const Type::Variation expression_type_variation = assignment_node->expression->type->get_variation();
-        const bool is_optional = expression_type_variation == Type::Variation::OPTIONAL;
-        llvm::Value *type_id = builder.getInt32(lhs_type->get_id());
-        if (is_optional && assignment_node->expression->type->as<OptionalType>()->base_type->is_dima_managed()) {
-            llvm::BasicBlock *current_block = builder.GetInsertBlock();
-            llvm::BasicBlock *retain_block = llvm::BasicBlock::Create(context, "opt_retain_rhs", ctx.parent);
-            llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "opt_retain_merge", ctx.parent);
-
-            builder.SetInsertPoint(current_block);
-            llvm::Value *const has_value_i8 = builder.CreateExtractValue(expression, 0, "rhs_has_value_i8");
-            llvm::Value *const has_value = builder.CreateICmpNE(has_value_i8, builder.getInt8(0), "rhs_has_value");
-            builder.CreateCondBr(has_value, retain_block, merge_block);
-
-            builder.SetInsertPoint(retain_block);
-            llvm::Value *value = builder.CreateExtractValue(expression, 1, "rhs_value");
-            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
-            builder.CreateCall(retain_fn, {value});
-            builder.CreateBr(merge_block);
-
-            builder.SetInsertPoint(merge_block);
-        }
-        // Free the lhs before assigning
-        llvm::Value *lhs_value = lhs;
-        const IR::TypeStorageInfo &var_type_info = IR::get_type(ctx.parent->getParent(), lhs_type);
-        const bool var_is_array = lhs_type->get_variation() == Type::Variation::ARRAY && !lhs_type->as<ArrayType>()->sizes.has_value();
-        const bool var_is_str = lhs_type->to_string() == "str";
-        if (var_type_info.is_complex || var_is_array || var_is_str) {
-            llvm::Type *type_to_load = var_type_info.is_complex ? PTR_TY : var_type_info.type;
-            lhs_value = IR::aligned_load(builder, type_to_load, lhs_value, "variable_value");
-        }
-        if (lhs_type->is_dima_managed()) {
-            // We need to call `dima.release` on the lhs expression before assigning anything to it. The lhs is a pointer to the memory,
-            // however, which means we first need to load the data pointer from it
-            // llvm::Value *data_ptr = IR::aligned_load(builder, PTR_TY, lhs_value, "data_ptr");
-            auto data_head = Module::DIMA::get_head(lhs_type);
-            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
-            builder.CreateCall(release_fn, {data_head, lhs_value});
-        } else {
-            // We need to call the `flint.free` function on the lhs before assigning anything to it
-            llvm::Function *free_fn = Memory::memory_functions.at("free");
-            builder.CreateCall(free_fn, {lhs_value, type_id});
-        }
-        if (!assignment_node->expression->is_producer()) {
-            // It's not a producer and thus needs to be cloned when assigning the value
-            llvm::Function *clone_fn = Memory::memory_functions.at("clone");
-            builder.CreateCall(clone_fn, {expression, lhs, type_id});
-            return true;
-        }
-    }
-    // If it's an initializer, not complex or an opt literal we can directly store it in the lhs of the assignment
-    if (assignment_node->type->get_variation() == Type::Variation::VARIANT && expression->getType()->isPointerTy()) {
-        llvm::StructType *const variant_ty = IR::add_and_or_get_type(ctx.parent->getParent(), assignment_node->type, false);
-        expression = IR::aligned_load(builder, variant_ty, expression, "loaded_variant");
-    }
-    llvm::StoreInst *store = IR::aligned_store(builder, expression, lhs);
-    store->setMetadata("comment",
-        llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + assignment_node->name + "'")));
-    return true;
+    return generate_assign_to_lvalue(builder, ctx, lhs, &expression, assignment_node->type, assignment_node->expression.get());
 }
 
 bool Generator::Statement::generate_group_assignment( //
@@ -2116,9 +2135,9 @@ bool Generator::Statement::generate_group_assignment( //
     const GroupAssignmentNode *group_assignment       //
 ) {
     Expression::garbage_type garbage;
-    auto expression = Expression::generate_expression(builder, ctx, garbage, 0, group_assignment->expression.get());
+    ExpressionNode *const rhs_expr = group_assignment->expression.get();
+    auto expression = Expression::generate_expression(builder, ctx, garbage, 0, rhs_expr);
     if (!expression.has_value()) {
-        THROW_BASIC_ERR(ERR_GENERATING);
         return false;
     }
 
@@ -2131,14 +2150,35 @@ bool Generator::Statement::generate_group_assignment( //
         return false;
     }
 
-    unsigned int elem_idx = 0;
-    for (const auto &assign : group_assignment->assignees) {
-        const unsigned int var_decl_scope = ctx.scope->variables.at(assign.second).scope_id;
-        const std::string var_name = "s" + std::to_string(var_decl_scope) + "::" + assign.second;
-        llvm::Value *const alloca = ctx.allocations.at(var_name);
-        llvm::Value *elem_value = expression.value().at(elem_idx);
-        IR::aligned_store(builder, elem_value, alloca);
-        elem_idx++;
+    // Increment all ARCs of DIMA-managed values to prevent potential use-after-free bugs
+    for (size_t i = 0; i < group_assignment->assignees.size(); i++) {
+        const auto &assignee = group_assignment->assignees.at(i);
+        if (assignee->type->is_dima_managed()) {
+            llvm::Function *retain_fn = Module::DIMA::dima_functions.at("retain");
+            builder.CreateCall(retain_fn, {expression.value().at(i)});
+        }
+    }
+
+    for (size_t i = 0; i < group_assignment->assignees.size(); i++) {
+        const auto &assignee = group_assignment->assignees.at(i);
+        auto assign_expr = Expression::generate_expression(builder, ctx, garbage, 0, assignee.get(), true);
+        if (!assign_expr.has_value()) {
+            return false;
+        }
+        llvm::Value *elem_value = expression.value().at(i);
+        if (!generate_assign_to_lvalue(builder, ctx, assign_expr.value().front(), &elem_value, assignee->type, rhs_expr, i)) {
+            return false;
+        }
+    }
+
+    // Decrement all previously incremented ARCs of DIMA-managed values again to keep the ARCs valid
+    for (size_t i = 0; i < group_assignment->assignees.size(); i++) {
+        const auto &assignee = group_assignment->assignees.at(i);
+        if (assignee->type->is_dima_managed()) {
+            llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
+            llvm::Value *head = Module::DIMA::get_head(assignee->type);
+            builder.CreateCall(release_fn, {head, expression.value().at(i)});
+        }
     }
     return true;
 }

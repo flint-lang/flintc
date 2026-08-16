@@ -1187,22 +1187,15 @@ namespace Debug {
 
         void print_group_assignment(unsigned int indent_lvl, TreeBits &bits, const GroupAssignmentNode &assign) {
             Local::print_header(indent_lvl, bits, "Group Assign ");
-            std::cout << "(";
-            for (auto it = assign.assignees.begin(); it != assign.assignees.end(); ++it) {
-                if (it != assign.assignees.begin()) {
-                    std::cout << ", ";
-                }
-                std::cout << it->second;
+            std::cout << "\n";
+
+            TreeBits assignee_bits = bits.child(indent_lvl + 1, false);
+            Local::print_header(indent_lvl + 1, assignee_bits, "Assigned To");
+            std::cout << "\n";
+            for (size_t i = 0; i < assign.assignees.size(); i++) {
+                TreeBits assignee_expr_bits = assignee_bits.child(indent_lvl + 2, i + 1 == assign.assignees.size());
+                print_expression(indent_lvl + 2, assignee_expr_bits, assign.assignees.at(i));
             }
-            std::cout << ") of types (";
-            for (auto it = assign.assignees.begin(); it != assign.assignees.end(); ++it) {
-                if (it != assign.assignees.begin()) {
-                    std::cout << ", ";
-                }
-                std::cout << it->first->to_string();
-            }
-            std::cout << ") to be";
-            std::cout << std::endl;
 
             TreeBits expr_bits = bits.child(indent_lvl + 1, true);
             print_expression(indent_lvl + 1, expr_bits, assign.expression);
