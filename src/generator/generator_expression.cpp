@@ -2525,7 +2525,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             for (size_t i = 0; i < args.size(); i++) {
                 const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
                 llvm::Value *arg_value = args[i];
-        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
+                if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
                     const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
                     llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
                     arg_value = IR::aligned_load(builder, param_ty, arg_value);
@@ -5682,6 +5682,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, true);
                 }
             }
+            if (lhs->getType()->isPointerTy() && rhs->getType()->isPointerTy()) {
+                return builder.CreateICmpEQ(lhs, rhs, "ptr_cmp");
+            }
             break;
         case TOK_NOT_EQUAL:
             if (type_str == "u8" || type_str == "u16" || type_str == "u32" || type_str == "u64") {
@@ -5762,6 +5765,9 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                     // Both sides are "real" variant types
                     return generate_variant_cmp(builder, ctx, lhs, bin_op_node->left, rhs, bin_op_node->right, false);
                 }
+            }
+            if (lhs->getType()->isPointerTy() && rhs->getType()->isPointerTy()) {
+                return builder.CreateICmpNE(lhs, rhs, "ptr_cmp");
             }
             break;
         case TOK_OPT_DEFAULT: {
@@ -5929,13 +5935,25 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "lhs_value");
     llvm::Value *rhs_value = builder.CreateExtractValue(rhs, {1}, "rhs_value");
     const auto *lhs_opt_type = lhs_expr->type->as<OptionalType>();
+    const ASTNode::PosTriple lhs_pos{
+        lhs_expr->line,
+        lhs_expr->column,
+        lhs_expr->length,
+    };
+    const TypeNode lhs_fake(lhs_expr->file_hash, lhs_pos, lhs_opt_type->base_type);
+    const ASTNode::PosTriple rhs_pos{
+        rhs_expr->line,
+        rhs_expr->column,
+        rhs_expr->length,
+    };
+    const TypeNode rhs_fake(rhs_expr->file_hash, rhs_pos, lhs_opt_type->base_type);
     const std::string base_type_str = lhs_opt_type->base_type->to_string();
     const FakeBinaryOpNode bin_op = {
-        eq ? TOK_EQUAL_EQUAL : TOK_NOT_EQUAL, // The operation
-        lhs_expr,                             // unused
-        rhs_expr,                             // unused
-        lhs_expr->type,                       // unused
-        false                                 // unused
+        .operator_token = eq ? TOK_EQUAL_EQUAL : TOK_NOT_EQUAL,
+        .left = &lhs_fake,
+        .right = &rhs_fake,
+        .type = Type::get_primitive_type("bool"),
+        .is_shorthand = false,
     };
     // The result of this call is the result of the comparison of the two element types, so it will be 1 if they are equal
     std::optional<llvm::Value *> result_value = generate_binary_op_scalar(              //
