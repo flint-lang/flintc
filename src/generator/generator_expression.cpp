@@ -3612,8 +3612,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
     const std::vector<const ExpressionNode *> &indexing_expressions,       //
     const bool is_reference                                                //
 ) {
+    std::shared_ptr<Type> base_type = base_expr->type;
+    if (base_type->get_variation() == Type::Variation::OPTIONAL) {
+        base_type = base_type->as<OptionalType>()->base_type;
+    }
     const bool is_slice = result_type->get_variation() == Type::Variation::ARRAY //
-        || (result_type->to_string() == "str" && base_expr->type->to_string() == "str");
+        || (result_type->to_string() == "str" && base_type->to_string() == "str");
     // First, generate the index expressions
     std::vector<std::array<llvm::Value *, 2>> index_expressions;
     for (auto &index_expression : indexing_expressions) {
@@ -3651,9 +3655,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
     if (base_expr_value.has_value()) {
         array_ptr = base_expr_value.value();
     } else {
-        const bool base_is_static =                                    //
-            base_expr->type->get_variation() == Type::Variation::ARRAY //
-            && base_expr->type->as<ArrayType>()->sizes.has_value();
+        const bool base_is_static = base_type->get_variation() == Type::Variation::ARRAY && base_type->as<ArrayType>()->sizes.has_value();
         group_mapping base_expression = generate_expression(builder, ctx, garbage, expr_depth, base_expr.get(), base_is_static);
         if (!base_expression.has_value()) {
             return std::nullopt;
@@ -3664,7 +3666,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
         }
         array_ptr = base_expression.value().front();
     }
-    if (base_expr->type->to_string() == "str") {
+    if (base_type->to_string() == "str") {
         // "Array" accesses on strings dont need all the things below, they are much simpler to handle
         if (index_expressions.size() > 1) {
             THROW_BASIC_ERR(ERR_GENERATING);
@@ -3723,8 +3725,8 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
         case Type::Variation::VECTOR: {
-            ASSERT(base_expr->type->get_variation() == Type::Variation::ARRAY);
-            const ArrayType *base_arr_type = base_expr->type->as<ArrayType>();
+            ASSERT(base_type->get_variation() == Type::Variation::ARRAY);
+            const ArrayType *base_arr_type = base_type->as<ArrayType>();
             llvm::Function *const access_arr_fn = Module::Array::array_manip_functions.at("access_arr");
             llvm::Value *const arr_element_size = builder.getInt64(element_size_in_bytes);
             llvm::Value *arr_dim = nullptr;

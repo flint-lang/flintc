@@ -45,7 +45,7 @@ class OptionalChainNode : public ExpressionNode {
         base_expr(std::move(base_expr)),
         is_toplevel_chain_node(is_toplevel_chain_node),
         operation(std::move(operation)) {
-        if (is_toplevel_chain_node) {
+        if (is_toplevel_chain_node && result_type->get_variation() != Type::Variation::OPTIONAL) {
             this->type = std::make_shared<OptionalType>(result_type);
             Namespace *file_namespace = Resolver::get_namespace_from_hash(file_hash);
             if (!file_namespace->add_type(this->type)) {

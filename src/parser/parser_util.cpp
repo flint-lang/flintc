@@ -1780,9 +1780,19 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     if (!base_expr.has_value()) {
         return std::nullopt;
     }
-    if (base_expr.value()->type->get_variation() != Type::Variation::ARRAY && base_expr.value()->type->to_string() != "str") {
+    auto base_type = base_expr.value()->type;
+    if (has_inbetween_operator) {
+        base_type = base_type->as<OptionalType>()->base_type;
+    }
+    if (base_type->get_variation() != Type::Variation::ARRAY && base_type->to_string() != "str") {
         THROW_ERR(ErrExprArrayAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_expr.value()->type);
         return std::nullopt;
+    }
+    const bool base_is_str = base_type->to_string() == "str";
+    if (base_is_str) {
+        base_type = Type::get_primitive_type("u8");
+    } else {
+        base_type = base_type->as<ArrayType>()->type;
     }
 
     // Now parse the indexing expressions
@@ -1791,17 +1801,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         return std::nullopt;
     }
     if (is_grouped_access) {
-        // If the array access is grouped then every indexing expression needs to be castable to a group of u64 types
-        // Grouped array accesses do not need the below dimensionality-changes and special-case stuff like regular array accesses which
-        // could reduce the dimensionality of the array.
-        std::shared_ptr<Type> base_type;
-        if (base_expr.value()->type->to_string() == "str") {
-            base_type = Type::get_primitive_type("u8");
-        } else {
-            const auto *array_type = base_expr.value()->type->as<ArrayType>();
-            base_type = array_type->type;
-        }
-
         const std::vector<std::shared_ptr<Type>> result_types(indexing_expressions.value().size(), base_type);
         std::shared_ptr<Type> result_type = std::make_shared<GroupType>(result_types);
         if (!Type::add_type(result_type)) {
@@ -1821,16 +1820,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
             dimensionality++;
         }
     }
-    auto base_type = base_expr.value()->type;
-    if (has_inbetween_operator) {
-        base_type = base_type->as<OptionalType>()->base_type;
-    }
-    const bool base_is_str = base_type->to_string() == "str";
-    if (base_is_str) {
-        base_type = Type::get_primitive_type("u8");
-    } else {
-        base_type = base_type->as<ArrayType>()->type;
-    }
     std::shared_ptr<Type> result_type = nullptr;
     if (dimensionality > 0) {
         if (base_is_str) {
@@ -1845,12 +1834,6 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         }
     } else {
         result_type = base_type;
-    }
-    if (has_inbetween_operator) {
-        result_type = std::make_shared<OptionalType>(result_type);
-        if (!file_node_ptr->file_namespace->add_type(result_type)) {
-            result_type = file_node_ptr->file_namespace->get_type_from_str(result_type->to_string()).value();
-        }
     }
     return CreateArrayAccessBaseRet{
         .base_expr = std::move(base_expr.value()),
