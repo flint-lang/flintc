@@ -177,14 +177,15 @@ std::optional<FileNode *> Parser::parse() {
         return std::nullopt;
     }
     source_code_lines = lexer.lines;
-    if (DEBUG_MODE) {
-        std::cout << YELLOW << "[Debug Info] Lexer lines of file '" << file_name << "'" << DEFAULT << std::endl;
+    if (DEBUG_MODE && PRINT_LINES) {
+        std::cout << YELLOW << "[Debug Info] Print lines of file '" << file_name << "'" << DEFAULT << std::endl;
         unsigned int line_idx = 1;
         const size_t last_line_width = std::to_string(source_code_lines.size()).size();
         for (const auto &line : source_code_lines) {
             std::cout << std::left << std::setw(last_line_width) << std::to_string(line_idx) << " | " << std::string(line.second);
             line_idx++;
         }
+        std::cout << std::endl;
     }
     if (PRINT_TOK_STREAM) {
         const token_slice token_slice{file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
@@ -274,7 +275,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     if (PRINT_AST) {
         Debug::AST::print_all_files();
     }
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && PRINT_PERFORMANCE) {
         const unsigned int token_count = Lexer::total_token_count;
         const uint64_t lexing_time_ns = Lexer::total_lexing_time_ns;
         const uint64_t lexing_time_us = lexing_time_ns / 1000;
@@ -1272,7 +1273,7 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         }
         return true;
     }
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && PRINT_TOK_STREAM) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
@@ -1390,7 +1391,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
 
 bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body) {
     PROFILE_SCOPE("Process Open Test '" + test->name + "'");
-    if (DEBUG_MODE) {
+    if (DEBUG_MODE && PRINT_TOK_STREAM) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");

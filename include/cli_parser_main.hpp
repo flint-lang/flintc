@@ -314,6 +314,8 @@ class CLIParserMain : public CLIParserBase {
                 PRINT_CUMULATIVE_PROFILE_RESULTS = true;
             } else if (arg == "--no-token-stream") {
                 PRINT_TOK_STREAM = false;
+            } else if (arg == "--no-lines") {
+                PRINT_LINES = false;
             } else if (arg == "--no-dep-tree") {
                 PRINT_DEP_TREE = false;
             } else if (arg == "--no-ast") {
@@ -322,6 +324,8 @@ class CLIParserMain : public CLIParserBase {
                 PRINT_IR_PROGRAM = false;
             } else if (arg == "--no-profile") {
                 PRINT_PROFILE_RESULTS = false;
+            } else if (arg == "--no-performance") {
+                PRINT_PERFORMANCE = false;
             } else if (arg == "--hard-crash") {
                 HARD_CRASH = true;
             } else if (arg == "--no-generation") {
@@ -427,10 +431,12 @@ class CLIParserMain : public CLIParserBase {
             << "      --profile-cumulative        Enables the cumulative profiling output, by default only the profile tree view is shown\n";
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
         std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
+        std::cout << "      --no-lines                  Disables the debug printing of the input file lines\n";
         std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
         std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";
         std::cout << "      --no-ir                     Disables the debug printing of the generated program IR code\n";
         std::cout << "      --no-profile                Disables the debug printing of the profiling results\n";
+        std::cout << "      --no-performance            Disables the debug printing of the performance measurements\n";
         std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
         std::cout << "      --no-binary                 Disables compilation of the LLVM modules to a final binary, exiting after IR gen\n";
         std::cout << "                                  HINT: Doesnt produce an executable";

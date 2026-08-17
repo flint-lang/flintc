@@ -20,6 +20,8 @@
 
 bool FIP_ENABLED = true;
 bool PRINT_TOK_STREAM = true;
+bool PRINT_LINES = true;
+bool PRINT_PERFORMANCE = true;
 bool PRINT_DEP_TREE = true;
 bool PRINT_AST = true;
 bool PRINT_IR_PROGRAM = true;

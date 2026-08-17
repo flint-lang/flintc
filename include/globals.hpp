@@ -22,6 +22,8 @@ constexpr inline bool DEBUG_MODE = false;
 
 extern bool FIP_ENABLED;
 extern bool PRINT_TOK_STREAM;
+extern bool PRINT_LINES;
+extern bool PRINT_PERFORMANCE;
 extern bool PRINT_DEP_TREE;
 extern bool PRINT_AST;
 extern bool PRINT_IR_PROGRAM;

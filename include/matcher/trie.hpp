@@ -388,7 +388,7 @@ template <typename Derived, unsigned int Depth = 3> class Trie {
         ///
         /// @param `name` The name of the trie type
         static void print_hit_rates(const std::string &name) {
-            if (!DEBUG_MODE) {
+            if (!DEBUG_MODE || !PRINT_PERFORMANCE) {
                 return;
             }
             const uint64_t calls = match_calls.load(std::memory_order_relaxed);
