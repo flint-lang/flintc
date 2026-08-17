@@ -1643,13 +1643,15 @@ class Generator {
         /// @param `value` The value to convert
         /// @param `args` The output arguments in which to place the converted value(s)
         /// @param `scratchspace_offset` The current offset within the scratchspace
+        /// @param `is_reference` Whether the value is a reference, e.g. a pointer to the value rather than the value itself
         static void convert_type_to_ext(       //
             llvm::IRBuilder<> &builder,        //
             GenerationContext &ctx,            //
             const std::shared_ptr<Type> &type, //
             llvm::Value *const value,          //
             std::vector<llvm::Value *> &args,  //
-            size_t &scratchspace_offset        //
+            size_t &scratchspace_offset,       //
+            const bool is_reference            //
         );
 
         /// @function `convert_data_type_to_ext`

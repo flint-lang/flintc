@@ -526,7 +526,8 @@ void Generator::Expression::convert_type_to_ext( //
     const std::shared_ptr<Type> &type,           //
     llvm::Value *const value,                    //
     std::vector<llvm::Value *> &args,            //
-    size_t &scratchspace_offset                  //
+    size_t &scratchspace_offset,                 //
+    const bool is_reference                      //
 ) {
 #ifdef __WIN32__
     // On the Windows ABI aggregate arguments are either coerced into integers or passed as pointers to copies, which
@@ -551,7 +552,8 @@ void Generator::Expression::convert_type_to_ext( //
         case Type::Variation::PRIMITIVE:
             if (type->to_string() == "str") {
                 llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
-                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+                llvm::Value *const str_ptr = is_reference ? IR::aligned_load(builder, PTR_TY, value, "loaded_str") : value;
+                args.emplace_back(builder.CreateStructGEP(str_type, str_ptr, 1, "char_ptr"));
                 return;
             }
             // No special handling needed
@@ -665,7 +667,8 @@ void Generator::Expression::convert_type_to_ext( //
         case Type::Variation::PRIMITIVE:
             if (type->to_string() == "str") {
                 llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
-                args.emplace_back(builder.CreateStructGEP(str_type, value, 1, "char_ptr"));
+                llvm::Value *const str_ptr = is_reference ? IR::aligned_load(builder, PTR_TY, value, "loaded_str") : value;
+                args.emplace_back(builder.CreateStructGEP(str_type, str_ptr, 1, "char_ptr"));
                 return;
             }
             args.emplace_back(value);
@@ -1444,7 +1447,10 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     }
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
-        convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args, scratchspace_offset);
+        const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
+        convert_type_to_ext(                                                                                                    //
+            builder, ctx, arg.first->type, args[i], converted_args, scratchspace_offset, is_arg_reference(arg, param_type, ctx) //
+        );
     }
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
