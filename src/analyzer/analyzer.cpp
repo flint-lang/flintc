@@ -993,6 +993,26 @@ bool Analyzer::analyze_expression(                            //
             if (!analyze_expression(local_ctx, node->base_expr)) {
                 return false;
             }
+            if (std::holds_alternative<ChainArrayAccess>(node->operation)) {
+                ChainArrayAccess &access = std::get<ChainArrayAccess>(node->operation);
+                const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
+                for (auto &index_expr : access.indexing_expressions) {
+                    if (!analyze_expression(local_ctx, index_expr)) {
+                        return false;
+                    }
+                    // Range expressions handle their own bound types
+                    if (index_expr->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
+                        continue;
+                    }
+                    if (!Analyzer::Castability::check_castability(local_ctx.parser, u64_ty, index_expr)) {
+                        THROW_ERR(                                                                       //
+                            ErrExprTypeMismatch, ERR_ANALYZING, index_expr->file_hash, index_expr->line, //
+                            index_expr->column, index_expr->length, u64_ty, index_expr->type             //
+                        );
+                        return false;
+                    }
+                }
+            }
             break;
         }
         case ExpressionNode::Variation::OPTIONAL_UNWRAP: {
