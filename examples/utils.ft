@@ -5,9 +5,9 @@ use Core.print
 /// @brief Default values for the global configuration, needed in the places where the current global
 //         value is temporary changed, so that it resets to the correct value.
 const data DefaultConfig:
-	bool COMPILE_V_STATIC = true;
-	bool COMPILE_V_PARALLEL = true;
-	bool COMPILE_V_FAST = true;
+	bool COMPILE_V_STATIC = false;
+	bool COMPILE_V_PARALLEL = false;
+	bool COMPILE_V_FAST = false;
 
 /// @brief Configuration to control which compilations to execute. Can be changed on a per-test run basis
 //         Everything raylib-related is unable to be compiled statically because raylib is linked dynamically,
@@ -258,9 +258,9 @@ def test_file_fail_in(str path, str file, str expected_output):
 ///        It skips the first `n` lines of the output and only compares the rest of the output.
 ///        @asserts that `n` is at least 1
 ///
+/// @param `n` The number of lines to skip before starting to check the output
 /// @param `path` The path in which to execute the command
 /// @param `file` The file to compile
-/// @param `n` The number of lines to skip before starting to check the output
 /// @param `expected_output` The expected output of the failing compilation
 def test_file_fail_in(u32 n, str path, str file, str expected_output):
 	assert(n >= 1);
@@ -283,8 +283,9 @@ def test_file_fail_in(u32 n, str path, str file, str expected_output):
 ///
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the run program
-def test_file_crash(str file, str expected_output):
+/// @param `expected_exit_code` The expected exit code
+def test_file_crash(str file, str expected_output, i32 expected_exit_code):
 	compile_v(none, file, str[_]{}, 0, "");
 	(exit_code, output) := system_command("./main");
-	assert(exit_code != 0);
+	assert(exit_code == expected_exit_code);
 	assert(output == expected_output);
