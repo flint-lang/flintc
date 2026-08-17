@@ -5421,7 +5421,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             const bool left_is_literal =                                                       //
                 bin_op_node->left->get_variation() == ExpressionNode::Variation::LITERAL       //
                 || (bin_op_node->left->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                       && bin_op_node->right->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL);
+                       && bin_op_node->left->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL);
             if (left_is_literal) {
                 if (garbage.find(expr_depth) == garbage.end()) {
                     std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>> vec{{bin_op_node->left->type, lhs}};

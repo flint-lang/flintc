@@ -1329,22 +1329,34 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
         } else {
             llvm::Function *const add_str_str_fn = string_manip_functions.at("add_str_str");
             llvm::Value *const addition_result = builder.CreateCall(add_str_str_fn, {lhs, rhs}, "add_str_str_res");
-            const bool is_lhs_not_var = lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
-                lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
-            const bool is_rhs_not_var = rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE &&
-                rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
+            // Literal-ish operands are already registered as garbage by the `check_for_string_lit_garbage` lambda of the binary op
+            // generation, registering them again here would lead to double frees down the line
+            const bool lhs_is_string_lit = lhs_expr->get_variation() == ExpressionNode::Variation::LITERAL          //
+                || (lhs_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST                               //
+                       && lhs_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
+                   );
+            const bool rhs_is_string_lit = rhs_expr->get_variation() == ExpressionNode::Variation::LITERAL          //
+                || (rhs_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST                               //
+                       && rhs_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL //
+                   );
+            const bool is_lhs_temp = !lhs_is_string_lit                             //
+                && lhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE //
+                && lhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
+            const bool is_rhs_temp = !rhs_is_string_lit                             //
+                && rhs_expr->get_variation() != ExpressionNode::Variation::VARIABLE //
+                && rhs_expr->get_variation() != ExpressionNode::Variation::STRING_INTERPOLATION;
             if (garbage.count(expr_depth) == 0) {
-                if (is_lhs_not_var) {
+                if (is_lhs_temp) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (is_rhs_not_var) {
+                if (is_rhs_temp) {
                     garbage[expr_depth].emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             } else {
-                if (is_lhs_not_var) {
+                if (is_lhs_temp) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), lhs);
                 }
-                if (is_rhs_not_var) {
+                if (is_rhs_temp) {
                     garbage.at(expr_depth).emplace_back(Type::get_primitive_type("str"), rhs);
                 }
             }
