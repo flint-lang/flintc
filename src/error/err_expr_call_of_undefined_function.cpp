@@ -46,24 +46,35 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
         }
     }
     // Check if the function is part of any Core module, if it is we can suggest using the core module's functions
-    std::vector<std::pair<std::vector<std::shared_ptr<Type>>, std::string>> found_functions;
+    const std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
+    ASSERT(parser.has_value());
+    const auto &imported_core_modules = parser.value()->file_node_ptr->imported_core_modules;
+    struct FoundFunction {
+        std::vector<std::shared_ptr<Type>> args;
+        std::string module_name;
+        std::optional<std::string> alias;
+    };
+    std::vector<FoundFunction> found_functions;
     for (const auto &[module_name, function_list] : core_module_functions) {
         for (const auto &[fn_name, overloads] : function_list) {
-            if (fn_name == function_name) {
-                for (const auto &overload : overloads) {
-                    std::vector<std::shared_ptr<Type>> fn_args;
-                    for (const auto &[arg_type, arg_name] : std::get<0>(overload)) {
-                        fn_args.emplace_back(Type::get_primitive_type(std::string(arg_type)));
-                    }
-                    found_functions.emplace_back(fn_args, module_name);
+            if (fn_name != function_name) {
+                continue;
+            }
+            for (const auto &overload : overloads) {
+                std::vector<std::shared_ptr<Type>> fn_args;
+                for (const auto &[arg_type, arg_name] : std::get<0>(overload)) {
+                    fn_args.emplace_back(Type::get_primitive_type(std::string(arg_type)));
                 }
+                const std::string mod_name(module_name);
+                found_functions.push_back(FoundFunction{
+                    .args = fn_args,
+                    .module_name = mod_name,
+                    .alias = imported_core_modules.at(mod_name)->alias,
+                });
             }
         }
     }
     if (!found_functions.empty()) {
-        const std::optional<const Parser *> parser = Parser::get_instance_from_hash(hash);
-        ASSERT(parser.has_value());
-        const auto &imported_core_modules = parser.value()->file_node_ptr->imported_core_modules;
         oss << "├─ Call of undefined function '" << YELLOW << function_name << "(";
         for (auto arg_it = arg_types.begin(); arg_it != arg_types.end(); ++arg_it) {
             if (arg_it != arg_types.begin()) {
@@ -80,15 +91,19 @@ std::string ErrExprCallOfUndefinedFunction::to_string() const {
             } else {
                 oss << "│   └─ ";
             }
-            oss << CYAN << function_name << "(";
-            for (auto arg_it = fn_it->first.begin(); arg_it != fn_it->first.end(); ++arg_it) {
-                if (arg_it != fn_it->first.begin()) {
+            oss << CYAN;
+            if (fn_it->alias.has_value()) {
+                oss << fn_it->alias.value() << ".";
+            }
+            oss << function_name << "(";
+            for (auto arg_it = fn_it->args.begin(); arg_it != fn_it->args.end(); ++arg_it) {
+                if (arg_it != fn_it->args.begin()) {
                     oss << ", ";
                 }
                 oss << (*arg_it)->to_string();
             }
-            oss << ")" << DEFAULT << " from Core." << YELLOW << fn_it->second << DEFAULT << "\n";
-            module_names.emplace(fn_it->second);
+            oss << ")" << DEFAULT << " from Core." << YELLOW << fn_it->module_name << DEFAULT << "\n";
+            module_names.emplace(fn_it->module_name);
         }
         unsigned int module_count = 0;
         for (const auto &module_name : module_names) {
