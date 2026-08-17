@@ -52,6 +52,13 @@ bool Generator::Builtin::init_global_variables( //
     llvm::Value *const ts_stack_ptr = IR::aligned_load(*builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
     next_stack_frame = builder->CreateSelect(is_callable, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
     allocations.emplace("flint.stack.next", next_stack_frame);
+    llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(                                    //
+        type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
+    );
+    llvm::Value *const ts_capacity = IR::aligned_load(*builder, builder->getInt64Ty(), ts_capacity_ptr, "ts_capacity");
+    const size_t pseudo_frame_size = Allocation::get_type_size(function->getParent(), type_map.at("type.ts.function"));
+    llvm::Value *const remaining = builder->CreateSub(ts_capacity, builder->getInt64(pseudo_frame_size), "flint_stack_remaining");
+    allocations.emplace("flint.stack.remaining", remaining);
 
     GenerationContext ctx{
         .stack_type = nullptr,
