@@ -60,56 +60,7 @@ class FunctionNode : public DefinitionNode {
     }
 
     size_t get_id() const {
-        // Extern functions and core functions do not have id's
-        ASSERT(!is_core && !is_extern);
-        // We first build up a long-ass string for the function, this string is built deterministically
-        std::stringstream ss;
-        ss << file_hash.to_string();
-        ss << "." << name << "(";
-        for (size_t i = 0; i < parameters.size(); i++) {
-            const auto &[param_type, param_name, param_is_mutable] = parameters.at(i);
-            if (i > 0) {
-                ss << ",";
-            }
-            if (param_is_mutable) {
-                ss << "mut ";
-            } else {
-                ss << "const ";
-            }
-            ss << param_type->to_string();
-        }
-        ss << "){";
-        for (size_t i = 0; i < error_types.size(); i++) {
-            if (i > 0) {
-                ss << ",";
-            }
-            ss << error_types.at(i)->to_string();
-        }
-        ss << "}(";
-        for (size_t i = 0; i < return_types.size(); i++) {
-            if (i > 0) {
-                ss << ",";
-            }
-            ss << return_types.at(i)->to_string();
-        }
-        ss << ")";
-        // TODO: implement a way to re-use variable allocations within nested scopes to reduce the frame sizes
-        if (scope.has_value()) {
-            ss << "{";
-            size_t i = 0;
-            for (const auto &[variable_name, variable] : scope.value()->get_all_variables()) {
-                if (variable.is_fn_param || variable.is_pseudo_variable) {
-                    continue;
-                }
-                if (i > 0) {
-                    ss << ",";
-                }
-                ss << variable.type->to_string();
-                i++;
-            }
-            ss << "}";
-        }
-        const std::string hash_str = ss.str();
+        const std::string hash_str = file_hash.to_string() + "." + get_signature_string(0, true);
         static std::unordered_map<std::string, size_t> ids;
         if (ids.find(hash_str) != ids.end()) {
             return ids.at(hash_str);

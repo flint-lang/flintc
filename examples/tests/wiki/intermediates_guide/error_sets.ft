@@ -60,12 +60,12 @@ test "10_context.ft":
 test "11_anonymous_simple.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
 	str file = "11_anonymous_simple.ft";
-	test_file_ok($"{path}/{file}", "error.17591431759785607604.Crash: \"Custom Message\"\n");
+	test_file_ok($"{path}/{file}", "error.17756989193349715908.Crash: \"Custom Message\"\n");
 
 test "12_anonymous_complex.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
 	str file = "12_anonymous_complex.ft";
-	test_file_ok($"{path}/{file}", "error.18152922749114152985.Crash: \"Custom Message\"\nerror.18152922749114152985.CrashOther: \"\"\nerror.18152922749114152985.CrashLast: \"LAST\"\n");
+	test_file_ok($"{path}/{file}", "error.12543703015361850365.Crash: \"Custom Message\"\nerror.12543703015361850365.CrashOther: \"\"\nerror.12543703015361850365.CrashLast: \"LAST\"\n");
 
 test "13_inline_catch.ft":
 	str path = "tests/wiki/intermediates_guide/error_sets";
