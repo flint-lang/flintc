@@ -4241,7 +4241,8 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     }
     llvm::Value *const base_expr = base_expr_maybe.value().front();
 
-    llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), unwrap->type).type;
+    const IR::TypeStorageInfo &element_type_info = IR::get_type(ctx.parent->getParent(), unwrap->type);
+    llvm::Type *const element_type = element_type_info.is_complex ? PTR_TY : element_type_info.type;
     llvm::Type *const variant_type = IR::get_type(ctx.parent->getParent(), unwrap->base_expr->type).type;
     const bool is_err_variant = unwrap->base_expr->type->as<VariantType>()->is_err_variant;
     if (var_unwrap_mode == VariantUnwrapMode::UNSAFE) {
