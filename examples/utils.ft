@@ -282,10 +282,15 @@ def test_file_fail_in(u32 n, str path, str file, str expected_output):
 ///        compiled program to crash
 ///
 /// @param `file` The file to compile
+/// @param `flags` The flags to pass to the compiler
 /// @param `expected_output` The expected output of the run program
 /// @param `expected_exit_code` The expected exit code
-def test_file_crash(str file, str expected_output, i32 expected_exit_code):
-	compile_v(none, file, str[_]{}, 0, "");
+def test_file_crash(str file, str? flags, str expected_output, i32 expected_exit_code):
+	compile(none, file, str[_]{flags ?? ""}, 0, "");
 	(exit_code, output) := system_command("./main");
+	if exit_code != expected_exit_code:
+		print($"exit: {expected_exit_code} but got {exit_code}\n");
 	assert(exit_code == expected_exit_code);
+	if output != expected_output:
+		print($"output: '{expected_output}'\nbut got '{output}'\n");
 	assert(output == expected_output);
