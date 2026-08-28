@@ -204,7 +204,7 @@ test "0140":
 test "0141":
 	str path = "tests/regression/0101-0150";
 	str file = "0141.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0141.ft:3:1\n└─┬┤E0000│\n3 │ extern def foo(i32 x, i32 y) -> i32;\n┌─┴─┘\n├─ No '.fip' directory found\n├─ To be able to interop with extern code you need the FIP set up\n└─ For further information look at 'https://flint-lang.github.io/wiki/v0.4.0-core/beginners_guide/11_interop/2_defining.html'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0141.ft:3:1\n└─┬┤E0000│\n3 │ extern def foo(i32 x, i32 y) -> i32;\n┌─┴─┘\n├─ No '.fip' directory found\n├─ To be able to interop with extern code you need the FIP set up\n└─ For further information look at 'https://flint-lang.github.io/wiki/v0.4.1-core/beginners_guide/9_interop/2_defining.html'\n");
 
 test "0142":
 	str path = "tests/regression/0101-0150";

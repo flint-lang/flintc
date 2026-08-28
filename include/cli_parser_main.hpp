@@ -627,7 +627,7 @@ class CLIParserMain : public CLIParserBase {
     void print_help_opaque() {
         std::cout << "Usage: flintc <file.ft> --opaque <MODE>\n";
         std::cout << "  The opaque mode controls the behaviour when opaque memory is leaked, or at least considered to be\n";
-        std::cout << "  leaked. Please look at " << BaseError::get_wiki_link() << "/beginners_guide/11_interop/7_opaque.html\n";
+        std::cout << "  leaked. Please look at " << BaseError::get_wiki_link() << "/beginners_guide/9_interop/7_opaque.html\n";
         std::cout << "  if you want to know more about the 'opaque' type itself.\n";
         std::cout << "\n";
         std::cout << "  [NOTE]: The opaque behaviour is separate from the compiler optimization mode(s). It does not\n";

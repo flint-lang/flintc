@@ -2,7 +2,7 @@ const std = @import("std");
 
 const FLINTC_VERSION = @import("build.zig.zon").version;
 const DEFAULT_LLVM_VERSION = "llvmorg-21.1.8";
-const FIP_VERSION = "65b4a203b7a1deae26799bf6e315600dc1e45c7a";
+const FIP_VERSION = "v0.4.1";
 
 const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 

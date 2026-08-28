@@ -246,12 +246,12 @@ You need `raylib` installed on your system for this example to compile and run c
 ## Installation
 
 For how to install Flint, follow the instructions of the Wiki:
-https://flint-lang.github.io/wiki/v0.4.0-core/user_guide/setup/1_installation.html
+https://flint-lang.github.io/wiki/v0.4.1-core/user_guide/setup/1_installation.html
 
 ## Building
 
 For how to build Flint from source, follow the instructions of the Wiki:
-https://flint-lang.github.io/wiki/v0.4.0-core/developer_guide/flintc/setup.html
+https://flint-lang.github.io/wiki/v0.4.1-core/developer_guide/flintc/setup.html
 
 ## What's next?
 
@@ -270,7 +270,7 @@ Flint, is a hand-crafted project. I hate AI auto-completion as it just gets in m
 
 - I still often use AI for debugging the generated LLVM IR code of Flint programs. The generator produces a couple thousand lines of IR code and finding the root cause of a bug is way too time-consuming for doing it manually. LLMs are pretty good at finding bugs (even though they are horrible at finding solutions). Often times the bugs are pretty hard to find manually, like a double pointer not loaded or loaded one time too often etc, especially now that the IR is based on opaque pointer types. But once found, most bugs are quite simple to fix (manually).
 - LLMs are occasionally used for indexing tasks. For example when I can remember that i have the capability to do X somewhere but having trouble to find where it is (or more often, to find out how I named the damn thing).
-- In the very early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is as a learning augmentation next to Kaleidoscope. It was a great tool for learning the  LLVM IR code and its syntax and semantics. However, all actual code in the compiler was written by myself as those early AI-assisted parts have long been replaced and refactored with properly (and poorly) engineered solutions.
+- In the very early stages of development I used AI to be able to learn and understand the mammoth the LLVM C++ API is as a learning augmentation next to Kaleidoscope. It was a great tool for learning the LLVM IR code and its syntax and semantics. However, all actual code in the compiler was written by myself as those early AI-assisted parts have long been replaced and refactored with properly (and poorly) engineered solutions.
 
 So, if you see any bad code, that's my code. The same is true for the Wiki too. This is my very first big C++ project, so some parts of it still contain my original code and will look atrocious to some (including myself) because I wasn't the best C++ dev in the early days of Flint, even though I tried hard. I leant a lot along the way of this project and I am glad to have put as much effort and love into Flint as I did.
 
