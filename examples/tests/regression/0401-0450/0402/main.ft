@@ -1,0 +1,10 @@
+use Core.print as p
+
+use Fip.c as c
+
+def main():
+	v1 := c.Vec3(f32[3](0.0), 1);
+	v1.values.[0, 1, 2] = (10, 20, 30);
+	v2 := c.Vec3(f32[3](10.0));
+	c.add(&v1, v2);
+	p.print($"v1.values = {v1.values.[0, 1, 2]}\n");

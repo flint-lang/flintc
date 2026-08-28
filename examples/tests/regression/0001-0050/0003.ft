@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+	bool[] arr = bool[5](false);
+	u64 j = 1;
+	if not arr[j + 1]:
+		print("Hello, World!\n");

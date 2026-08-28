@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    str my_string = "Hello, World!\n";
+    print(my_string);
+    for (index, element) in my_string:
+        print($"{index}: {element}\n");

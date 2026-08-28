@@ -1,0 +1,5 @@
+use Core.print
+
+def sub(i32 x, i32 y) -> i32:
+	print($"{x} - {y} = {x - y}\n");
+	return x - y;

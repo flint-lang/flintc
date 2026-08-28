@@ -1,0 +1,10 @@
+use Core.print
+
+type Color u8x4
+
+const data Globals:
+	Color WHITE = (245, 245, 245, 255);
+
+def main():
+	Color c = Globals.WHITE;
+	print($"c = {c}\n");

@@ -1,0 +1,21 @@
+use Core.print
+
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
+func Func2 requires(Func d):
+	def func1():
+		print("Stuff\n");
+
+func Func requires(Glibber d):
+	def func1():
+		print("Stuff\n");
+
+func Func3 requires(Func d):
+	def func1():
+		print("Stuff\n");
+
+def main():
+	print("Hello, World!\n");

@@ -1,0 +1,8 @@
+use Core.print
+
+def add(i32x3 v1, i32x3 v2) -> i32x3:
+	return v1 + v2;
+
+def main():
+	i32x3 vec3 = add(i32x3(10, 20, 30), i32x3(20, 22, 24));
+	print($"vec3 = {vec3}\n");

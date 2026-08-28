@@ -1,0 +1,8 @@
+use Core.print
+
+interface Func:
+	def function();
+
+def main():
+	print("Hello, World!\n");
+	Func.function();

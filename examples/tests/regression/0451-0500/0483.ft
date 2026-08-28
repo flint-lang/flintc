@@ -1,0 +1,15 @@
+use Core.print
+use Core.read
+use Core.filesystem
+use Core.assert
+
+def add(i32 x, i32 y) -> i32:
+    return x + y;
+
+def main():
+    bool condition = true;
+    while condition:
+        for i := 0; i < add(1, 2); i++:
+            print($"i = {i}\n");
+            if i == 2:
+                condition = false;

@@ -1,0 +1,6 @@
+use Core.print
+use Core.read
+
+def main():
+    str input = read_str();
+    print($"input = '{input}'\n");

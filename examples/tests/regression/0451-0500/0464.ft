@@ -1,0 +1,18 @@
+use Core.print
+
+def main():
+	str var0 = "Wololo";
+	for (i, _) in 0..10:
+		str var1 = "Hi there!\n";
+		if i > 6:
+			// This return statement does not free `var1` nor does it free `var`
+			// It should not free `var` but `var1` should be freed here
+			// So the return statement leads to a leak here
+			return;
+		if i > 5:
+			// This continue here tries to free both `var1` and `var` which leads to a double-free
+			// since `var` was never initialized and holds `0x0` and calling free on a nullpointer
+			// is interpreted as a double-free...
+			continue;
+		str var = "Hello, World!\n";
+		print(var);

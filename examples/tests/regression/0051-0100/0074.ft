@@ -1,0 +1,18 @@
+use Core.print
+use Core.parse
+
+def main():
+    f64 val = parse_f64("1e400") catch err:
+        print("OutOfBounds\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("1e-400") catch err:
+        print("OutOfBounds\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("3.4:8") catch err:
+        print("InvalidCharacter\n");
+    print($"val = {val}\n");
+
+    val = parse_f64("-34892.323");
+    print($"val = {val}\n");

@@ -1,0 +1,13 @@
+use Core.print
+use Core.assert
+
+test "assert(false)":
+    assert(false);
+
+test "assert(true)":
+    assert(true);
+
+def main():
+    str my_string = "Hello, World!\n";
+    print(my_string);
+    print($"[5] = '{my_string[5]}'\n");

@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i64 x = 1;
+    for i64 i = 0; i < 64; i++:
+        x *= i64(2);
+    print($"{x}\n");

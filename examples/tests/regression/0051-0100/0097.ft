@@ -1,0 +1,12 @@
+use Core.print
+
+data SomeData:
+	i32 x;
+	SomeData(x);
+
+func SomeFunc requires(SomeData d):
+	def append(SomeData d):
+		print("");
+
+def main():
+	print("Hello, World!\n");

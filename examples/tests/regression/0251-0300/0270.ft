@@ -1,0 +1,24 @@
+use Core.print
+
+data Data:
+	i32 x;
+	i32 y;
+	i32 z;
+	Data(x, y, z);
+
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+
+object Entity:
+	data: Data;
+	func: Func;
+	Entity(Data);
+
+def somefn(mut Entity e):
+	e.print();
+
+def main():
+	e := Entity(Data(10, 20, 30));
+	e.print();
+	somefn(e);

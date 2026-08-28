@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+	str? opt = str("Something\n");
+	print(opt!);
+	opt = none;
+	opt = str("New Thing!\n");
+	print(opt!);

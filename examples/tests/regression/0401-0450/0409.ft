@@ -1,0 +1,11 @@
+use Core.print
+
+def starts_with(str string, str check) -> bool:
+	if string.length < check.length:
+		return false;
+	return string[..check.length] == check;
+
+def main():
+	str big_str = "Hello there, we are groot";
+	str smol_str = "Hello there";
+	print($"starts_with = {starts_with(big_str, smol_str)}\n");

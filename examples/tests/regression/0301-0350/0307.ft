@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    str x_str = str(5);
+    print(x_str);

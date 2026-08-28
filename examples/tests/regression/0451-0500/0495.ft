@@ -1,0 +1,16 @@
+use Core.print
+
+def counter() -> i32:
+	persistent i32 c = 0;
+	i32 val = c;
+	c++;
+	return val;
+
+def main():
+	fn<() -> i32> c = ::counter;
+	print($"c() = {c()}\n");
+	print($"c() = {c()}\n");
+	print($"c() = {c()}\n");
+
+	print($"counter() = {counter()}\n");
+	print($"counter() = {counter()}\n");

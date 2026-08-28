@@ -1,0 +1,15 @@
+use Core.print
+
+// Using FIP auto-generation works (and compiles):
+// use Fip.c
+
+// But manually defining it does not work somehow:
+opaque NamedOpaque;
+extern def create_named_opaque() -> NamedOpaque;
+extern def free_named_opaque(mut NamedOpaque* value);
+
+def main():
+	print("Hello, World!\n");
+	NamedOpaque o = create_named_opaque();
+	print($"Created new named opaque {o}\n");
+	free_named_opaque(&o);

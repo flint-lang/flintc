@@ -1,0 +1,51 @@
+use Core.print
+
+interface IMovement:
+	def move();
+
+data DPlayer:
+	i32x2 pos;
+	i32x2 dir;
+	DPlayer(pos, dir);
+
+func FPlayer requires(DPlayer d):
+	def move():
+		print($"Player moved from {d.pos} to ");
+		d.pos += d.dir;
+		print($"{d.pos}\n");
+
+object Player:
+	data: DPlayer;
+	func: /*IMovement,*/ FPlayer;
+	//link: IMovement::move -> FPlayer::move;
+	Player(DPlayer);
+
+data DComputer:
+	i32x2 pos;
+	i32x2 dir;
+	i32 speed;
+	DComputer(pos, dir, speed);
+
+func FComputer requires(DComputer d):
+	def move():
+		print($"Computer moved from {d.pos} to ");
+		d.pos += d.dir * d.speed;
+		print($"{d.pos}\n");
+
+object Computer:
+	data: DComputer;
+	func: /*IMovement,*/ FComputer;
+	//link: IMovement::move -> FComputer::move;
+	Computer(DComputer);
+
+//def apply_movement(mut IMovement m):
+//	m.move();
+
+def main():
+	p := Player(DPlayer(i32x2(10, 20), i32x2(3, 2)));
+	p.move();
+	//apply_movement(p);
+
+	c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
+	c.move();
+	//apply_movement(c);

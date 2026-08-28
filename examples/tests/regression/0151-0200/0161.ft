@@ -1,0 +1,21 @@
+use Core.print
+
+def main():
+    for i := 0; i < 10; i++:
+        if i % 2 == 0:
+            print($"{i} is_even\n");
+        if i == 7:
+            break;
+
+    i32[] nums = i32[10](5);
+    for (i, num) in nums:
+        if i == 5:
+            break;
+        print($"{i}: {num}\n");
+
+    i32 idx = 0;
+    while true:
+        print($"idx = {idx}\n");
+        if idx == 5:
+            break;
+        idx++;

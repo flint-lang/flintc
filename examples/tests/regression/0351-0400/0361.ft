@@ -1,0 +1,20 @@
+use Core.print
+
+variant MyVar:
+	Int(i32), Float(f32), bool;
+
+def print_var(MyVar var):
+	if var == MyVar.Int:
+		print($"is i32: {var!(MyVar.Int)}\n");
+	else if var == MyVar.Float:
+		print($"is f32: {var!(MyVar.Float)}\n");
+	else if var == bool:
+		print($"is bool: {var!(bool)}\n");
+
+def main():
+	MyVar var = MyVar.Int(-5);
+	print_var(var);
+	var = MyVar.Float(3.14);
+	print_var(var);
+	var = false;
+	print_var(var);

@@ -1,0 +1,13 @@
+use Core.print
+
+def main():
+	i32[] arr = i32[10](0);
+	for (idx, elem) in arr:
+		elem = i32(idx);
+	i32[] slice = arr[2..8];
+	print($"arr.length = {arr.length}\n");
+	print($"arr[3] = {arr[3]}\n");
+	print("slice = arr[2..8]:\n");
+	print($"slice.length = {slice.length}\n");
+	for (idx, elem) in slice:
+		print($"slice[{idx}] = {elem}\n");

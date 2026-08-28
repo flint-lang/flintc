@@ -1,0 +1,251 @@
+use "../../utils.ft"
+
+test "0451":
+	str path = "tests/regression/0451-0500";
+	str file = "0451.ft";
+	test_file_ok($"{path}/{file}", "All tests passed\n");
+
+test "0452":
+	str path = "tests/regression/0451-0500/0452";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "v3.(x, y, z) = (10, 20, 30)\nHello World!\nadd(10 + 20) = 30\n20 - 10 = 10\nsub(20, 10) = 10\n");
+
+test "0453":
+	str path = "tests/regression/0451-0500";
+	str file = "0453.ft";
+	test_file_ok($"{path}/{file}", "is i32: -5\nnot i32\n");
+
+test "0454":
+	str path = "tests/regression/0451-0500";
+	str file = "0454.ft";
+	test_file_ok($"{path}/{file}", "Is i32: 10\n");
+
+test "0455":
+	str path = "tests/regression/0451-0500/0455";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "max(121, 234) = 234\n");
+
+test "0456":
+	str path = "tests/regression/0451-0500";
+	str file = "0456.ft";
+	test_file_ok($"{path}/{file}", "res = 69\nres = 7\nres = 12\nres = 18\n");
+
+test "0457":
+	str path = "tests/regression/0451-0500";
+	str file = "0457.ft";
+	test_file_ok($"{path}/{file}", "1\n2\n");
+
+test "0458":
+	str path = "tests/regression/0451-0500";
+	str file = "0458.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 20)\nd.(x, y) = (10, 20)\n");
+
+test "0459":
+	str path = "tests/regression/0451-0500";
+	str file = "0459.ft";
+	test_file_ok($"{path}/{file}", "tuple.$0 = 5\nx = 3\n");
+
+test "0460":
+	str path = "tests/regression/0451-0500";
+	str file = "0460.ft";
+	test_file_ok($"{path}/{file}", "sd.x = 2\n");
+
+test "0461":
+	str path = "tests/regression/0451-0500";
+	str file = "0461.ft";
+	test_file_ok($"{path}/{file}", "Executed\nExecuted\nExecuted\nExecuted\n");
+
+test "0462":
+	str path = "tests/regression/0451-0500";
+	str file = "0462.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\n");
+
+test "0463":
+	str path = "tests/regression/0451-0500";
+	str file = "0463.ft";
+	test_file_ok($"{path}/{file}", "Point(x: 5, y: 7, z: 9)\n");
+
+test "0464":
+	str path = "tests/regression/0451-0500";
+	str file = "0464.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n");
+
+test "0465":
+	str path = "tests/regression/0451-0500";
+	str file = "0465.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0451-0500/0465.ft:2:1\n└─┬┤E0000│\n2 │ use Core.assert as c\n┌─┴─┘\n├─ The import alias 'c' is already taken\n└─ First used at: tests/regression/0451-0500/0465.ft:1:1\n");
+
+test "0466":
+	str path = "tests/regression/0451-0500";
+	str file = "0466.ft";
+	test_file_ok($"{path}/{file}", "idx = 0, elem = 0\nidx = 1, elem = 1\nidx = 2, elem = 2\nidx = 3, elem = 3\nidx = 4, elem = 4\n");
+
+test "0467":
+	str path = "tests/regression/0451-0500";
+	str file = "0467.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0468":
+	str path = "tests/regression/0451-0500/0468";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=-lraylib");
+
+test "0469":
+	str path = "tests/regression/0451-0500";
+	str file = "0469.ft";
+	test_file_ok($"{path}/{file}", "$HOME = /home/zweiler1\n$NEW_ENV_VARIABLE = env_value\nEnvironemnt variable 'UNUSED_ENV_VARIABLE' not available: ErrEnv.VarNotFound\n$UNUSED_ENV_VARIABLE = \n");
+
+test "0470":
+	str path = "tests/regression/0451-0500";
+	str file = "0470.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0451-0500/0470.ft:22:12\n└──┬┤E0000│\n17 │ object Entity:\n22 │ »   Entity(Data1, d2);\n┌──┴────────────┘\n├─ This data type was included in the object using the data accessor 'd1'\n└─ Use the data accessor directly in the object constructor\n");
+
+test "0471":
+	str path = "tests/regression/0451-0500";
+	str file = "0471.ft";
+	test_file_ok($"{path}/{file}", "is i32\nis f32\nis bool\n");
+
+test "0472":
+	str path = "tests/regression/0451-0500";
+	str file = "0472.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 3.14)\nd.(x, y) = (10, 3.14)\nc(10) = 20\n");
+
+test "0473":
+	str path = "tests/regression/0451-0500";
+	str file = "0473.ft";
+	test_file_ok($"{path}/{file}", "res = 8\nres = 12\nres = 13\n");
+
+test "0474":
+	str path = "tests/regression/0451-0500";
+	str file = "0474.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nd.(x, y) = (10, 20)\n");
+
+test "0475":
+	str path = "tests/regression/0451-0500";
+	str file = "0475.ft";
+	test_file_ok($"{path}/{file}", "f1: 100\n\nf1: 80\nf2: 3.4\n\nf1: 8\nf2: 3.14\nf3: -30\n");
+
+test "0476":
+	str path = "tests/regression/0451-0500";
+	str file = "0476.ft";
+	test_file_ok($"{path}/{file}", "List (in ms): 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10\n");
+
+test "0477":
+	str path = "tests/regression/0451-0500";
+	str file = "0477.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (35, 25)\n");
+
+test "0478":
+	str path = "tests/regression/0451-0500";
+	str file = "0478.ft";
+	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0451-0500/0478.ft:8:5\n└─┬┤E0000│\n3 │ def main():\n8 │ »   i32[0] a2 = i32[_]{};\n┌─┴─────┘\n└─ Stored fixed arrays cannot be empty\n");
+
+test "0479":
+	str path = "tests/regression/0451-0500";
+	str file = "0479.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0451-0500/0479.ft:15:1\n└──┬┤E0000│\n15 │ object Entity:\n┌──┴─┘\n├─ Redefinition of type: Entity\n└─ First defined at: tests/regression/0451-0500/0479.ft:3:1\n");
+
+test "0480":
+	str path = "tests/regression/0451-0500";
+	str file = "0480.ft";
+	test_file_ok($"{path}/{file}", "val = 10\ny = 20\nx = 10\n(x, y) = (20, 10)\nxm = 10\nx = 69\nn3 = 0\nn3 = 0\n");
+
+test "0481":
+	str path = "tests/regression/0451-0500";
+	str file = "0481.ft";
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
+
+test "0482":
+	str path = "tests/regression/0451-0500";
+	str file = "0482.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0123456789\narr[1] = 0123456789\narr[2] = 0123456789\narr[3] = 0123456789\narr[4] = 0123456789\narr[5] = 012B456789\narr[6] = 0123456789\narr[7] = 0123456789\narr[8] = 0123456789\narr[9] = 0123456789\nelem = B\n");
+
+test "0483":
+	str path = "tests/regression/0451-0500";
+	str file = "0483.ft";
+	test_file_ok($"{path}/{file}", "i = 0\ni = 1\ni = 2\n");
+
+test "0484":
+	str path = "tests/regression/0451-0500";
+	str file = "0484.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (30, 40, 50)\nd.(x, y, z) = (30, 40, 50)\nd.(x, y, z) = (40, 50, 60)\n\nd.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (400, 900, 1600)\n");
+
+test "0485":
+	str path = "tests/regression/0451-0500";
+	str file = "0485.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0486":
+	str path = "tests/regression/0451-0500";
+	str file = "0486.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0451-0500/0486.ft:10:6\n└──┬┤E0000│\n10 │ test \"assert(false)\":\n┌──┴──────┘\n├─ The test 'assert(false)' is already defined in this file\n└─ Each test within a file must have a unique name\n");
+
+test "0487":
+	str path = "tests/regression/0451-0500";
+	str file = "0487.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n[5] = ','\n");
+
+test "0488":
+	str path = "tests/regression/0451-0500";
+	str file = "0488.ft";
+	test_file_ok($"{path}/{file}", "Player moved from (10, 20) to (13, 22)\nComputer moved from (20, 10) to (14, 6)\n");
+
+test "0489":
+	str path = "tests/regression/0451-0500";
+	str file = "0489.ft";
+	test_file_ok($"{path}/{file}", "1\n");
+
+test "0490":
+	str path = "tests/regression/0451-0500";
+	str file = "0490.ft";
+	test_file_ok($"{path}/{file}", "character 'I' is 73\ncharacter 'J' is 74\n");
+
+test "0491":
+	str path = "tests/regression/0451-0500";
+	str file = "0491.ft";
+	test_file_ok($"{path}/{file}", "rect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
+
+test "0492":
+	str path = "tests/regression/0451-0500";
+	str file = "0492.ft";
+	test_file_ok($"{path}/{file}", "v3[0] = 10\nv3[1] = 20\nv3[2] = 30\n");
+
+test "0493":
+	str path = "tests/regression/0451-0500";
+	str file = "0493.ft";
+	test_file_ok($"{path}/{file}", "x = 3\n");
+
+test "0494":
+	str path = "tests/regression/0451-0500";
+	str file = "0494.ft";
+	test_file_ok($"{path}/{file}", "-3\n");
+
+test "0495":
+	str path = "tests/regression/0451-0500";
+	str file = "0495.ft";
+	test_file_ok($"{path}/{file}", "c() = 0\nc() = 1\nc() = 2\ncounter() = 0\ncounter() = 0\n");
+
+test "0496":
+	str path = "tests/regression/0451-0500";
+	str file = "0496.ft";
+	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrSpecial.B1: \"\"\n", 1);
+
+test "0497":
+	str path = "tests/regression/0451-0500";
+	str file = "0497.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis val2\nis val3\nis val3\nis val3\nis val3\nis val3\nis val3\nis val3\nis val3\n");
+
+test "0498":
+	str path = "tests/regression/0451-0500";
+	str file = "0498.ft";
+	test_file_ok($"{path}/{file}", "v1 = (10, 20)\nv2 = (13, 26)\n");
+
+test "0499":
+	str path = "tests/regression/0451-0500";
+	str file = "0499.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0500":
+	str path = "tests/regression/0451-0500";
+	str file = "0500.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis val3\n");

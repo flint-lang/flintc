@@ -1,0 +1,38 @@
+use Core.print
+
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
+interface Interface:
+	def print();
+
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y) = {d.(x, y)}\n");
+
+object E1 implements(Interface):
+	data: Data;
+	func: Func;
+	E1(Data);
+
+object E2 implements(Interface):
+	data: Data;
+	func: Func;
+	E2(Data);
+
+object E3:
+	data: Data;
+	E3(Data);
+
+	def print():
+		print("E3\n");
+
+def main():
+	e1 := E1(Data(10, 20));
+	e1.print();
+	e2 := E2(Data(30, 40));
+	e2.print();
+	e3 := E3(Data(50, 60));
+	e3.print();

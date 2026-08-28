@@ -1,0 +1,8 @@
+use Core.print
+use Core.assert
+
+test "should fail":
+	assert(false);
+
+def main():
+	print("Compile with --test to crate a test binary!\n");

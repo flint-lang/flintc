@@ -1,0 +1,253 @@
+use "../../utils.ft"
+
+test "0351":
+	str path = "tests/regression/0351-0400";
+	str file = "0351.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0352":
+	str path = "tests/regression/0351-0400";
+	str file = "0352.ft";
+	test_file_ok($"{path}/{file}", "3 ** 3 = 27\nsin(0.5236) = 0.500001\n");
+
+test "0353":
+	str path = "tests/regression/0351-0400";
+	str file = "0353.ft";
+	test_compiles($"{path}/{file}");
+
+test "0354":
+	str path = "tests/regression/0351-0400";
+	str file = "0354.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 4\narr[4] = 3\narr[5] = 5\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
+
+test "0355":
+	str path = "tests/regression/0351-0400";
+	str file = "0355.ft";
+	test_file_ok($"{path}/{file}", "in = (1, 2, 3, 4)\n");
+
+test "0356":
+	str path = "tests/regression/0351-0400/0356";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "s1.(x, y, z, w, a) = (10, 20, 30, 40, 50)\ns2.(x, y, z, w, a) = (20, 30, 40, 50, 60)\ns1.(x, y, z, w, a) = (10, 20, 30, 40, 50)\ns2.(x, y, z, w, a) = (20, 30, 40, 50, 60)\nres.(x, y, z, w, a) = (30, 50, 70, 90, 110)\n");
+
+test "0357":
+	str path = "tests/regression/0351-0400/0357";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value points to something\ncon.len = 100\nError: Leaking memory!\n");
+
+test "0358":
+	str path = "tests/regression/0351-0400";
+	str file = "0358.ft";
+	test_file_ok($"{path}/{file}", "test1\ntest\n3.574000\n3.574\n");
+
+test "0359":
+	str path = "tests/regression/0351-0400";
+	str file = "0359.ft";
+	test_file_ok($"{path}/{file}", "somethingyes!\n");
+
+test "0360":
+	str path = "tests/regression/0351-0400";
+	str file = "0360.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
+
+test "0361":
+	str path = "tests/regression/0351-0400";
+	str file = "0361.ft";
+	test_file_ok($"{path}/{file}", "is i32: -5\nis f32: 3.14\nis bool: false\n");
+
+test "0362":
+	str path = "tests/regression/0351-0400";
+	str file = "0362.ft";
+	test_file_ok($"{path}/{file}", "hold the same type\nhold different types\n");
+
+test "0363":
+	str path = "tests/regression/0351-0400";
+	str file = "0363.ft";
+	test_file_ok($"{path}/{file}", "arg = \ncontains value!\narg = hello\n");
+
+test "0364":
+	str path = "tests/regression/0351-0400";
+	str file = "0364.ft";
+	test_file_ok($"{path}/{file}", "unwrapped = 69\nmaybe = none\ntrue\nfalse\n");
+
+test "0365":
+	str path = "tests/regression/0351-0400";
+	str file = "0365.ft";
+	test_file_ok($"{path}/{file}", "op = ADD\n");
+
+test "0366":
+	str path = "tests/regression/0351-0400";
+	str file = "0366.ft";
+	test_file_ok($"{path}/{file}", "0: 'H'\n1: 'e'\n2: 'l'\n3: 'l'\n4: 'o'\n0: ','\n1: ' '\n0: 'W'\n1: 'o'\n2: 'r'\n3: 'l'\n4: 'd'\n5: '!'\n6: '\n'\n");
+
+test "0367":
+	str path = "tests/regression/0351-0400";
+	str file = "0367.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 5\narr[4] = 4\narr[5] = 3\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
+
+test "0368":
+	str path = "tests/regression/0351-0400/0368";
+	str file = "main.ft";
+	Config.compile_v_static = false;
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
+
+test "0369":
+	str path = "tests/regression/0351-0400";
+	str file = "0369.ft";
+	test_file_ok($"{path}/{file}", "Okay works...\nErr is ErrAssert.AssertionFailed\n");
+
+test "0370":
+	str path = "tests/regression/0351-0400";
+	str file = "0370.ft";
+	test_file_ok($"{path}/{file}", "f1: 100\n\nf1: 80\nf2: 3.4\n\nf1: 8\nf2: 3.14\nf3: -30\n");
+
+test "0371":
+	str path = "tests/regression/0351-0400";
+	str file = "0371.ft";
+	test_file_ok($"{path}/{file}", "7\n");
+
+test "0372":
+	str path = "tests/regression/0351-0400";
+	str file = "0372.ft";
+	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0351-0400/0372.ft:11:13\n└──┬┤E0000│\n9  │ def main():\n11 │ »   i32 x = i32(v1);\n┌──┴─────────────┘\n└─ Cannot cast value\n    ├─ From Vec3\n    └─ To   i32\n");
+
+test "0373":
+	str path = "tests/regression/0351-0400";
+	str file = "0373.ft";
+	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ MyError.ERR_2: \"\"\n", 1);
+
+test "0374":
+	str path = "tests/regression/0351-0400";
+	str file = "0374.ft";
+	test_file_ok($"{path}/{file}", "val = 10\ny = 20\nx = 10\n(x, y) = (20, 10)\nn3 = 0\n");
+
+test "0375":
+	str path = "tests/regression/0351-0400";
+	str file = "0375.ft";
+	test_file_ok($"{path}/{file}", "\nline 1\n\nline 3\n\nline 5\n\nline 7\n\nline 9\n");
+
+test "0376":
+	str path = "tests/regression/0351-0400";
+	str file = "0376.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0377":
+	str path = "tests/regression/0351-0400";
+	str file = "0377.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "0378":
+	str path = "tests/regression/0351-0400";
+	str file = "0378.ft";
+	test_file_ok($"{path}/{file}", "c = (245, 245, 245, 255)\nd0.x = 10\nd0.c = (10, 20, 30, 40)\nd0.c2 = (245, 245, 245, 255)\nd1.x = 5\nd1.c = (10, 20, 30, 40)\nd1.c2 = (245, 245, 245, 255)\nd2.x = 10\nd2.c = (40, 30, 20, 10)\nd2.c2 = (245, 245, 245, 255)\n");
+
+test "0379":
+	str path = "tests/regression/0351-0400";
+	str file = "0379.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0351-0400/0379.ft:8:13\n└─┬┤E0000│\n3 │ def main():\n5 │ »   switch opt:\n7 │ »   »   v:\n8 │ »   »   »   v += 3;\n┌─┴─────────────┘\n└─ Variable 'v' is marked as 'const' and cannot be modified!\n");
+
+test "0380":
+	str path = "tests/regression/0351-0400";
+	str file = "0380.ft";
+	test_file_ok($"{path}/{file}", "e = VAL1, id = 0\ne = VAL2, id = 1\ne = VAL3, id = 2\n");
+
+test "0381":
+	str path = "tests/regression/0351-0400";
+	str file = "0381.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis val3\n");
+
+test "0382":
+	str path = "tests/regression/0351-0400";
+	str file = "0382.ft";
+	test_file_ok($"{path}/{file}", "ms\nts.value = ", "\n");
+
+test "0383":
+	str path = "tests/regression/0351-0400";
+	str file = "0383.ft";
+	test_file_ok($"{path}/{file}", "c.len = 0\n");
+
+test "0384":
+	str path = "tests/regression/0351-0400";
+	str file = "0384.ft";
+	test_file_ok($"{path}/{file}", "x = 42\nx = 20\ny = 69\ny = 20\nz = 111\nz = 40\n");
+
+test "0385":
+	str path = "tests/regression/0351-0400/0385";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "max(121, 234) = 234\nz = 121\n");
+
+test "0386":
+	str path = "tests/regression/0351-0400";
+	str file = "0386.ft";
+	test_file_ok($"{path}/{file}", "Hello, World\nz = 2\n0 = 0\n1 = 1\n2 = 2\n3 = 3\n4 = 4\n5 = 5\n6 = 6\n7 = 7\n8 = 8\n9 = 9\nd.(x, y) = (1, 7)\nv1.[1, 2, 3] = (20, 30, 5)\nv2.[1, 2, 3] = (10, 20, 30)\nv3.[(1, 0), (2, 2), (3, 2)] = (20, 7, 40)\ne.d.(x, y) = (12, 13)\n");
+
+test "0387":
+	str path = "tests/regression/0351-0400";
+	str file = "0387.ft";
+	test_file_ok($"{path}/{file}", "delta = 0.01666", "\n");
+
+test "0388":
+	str path = "tests/regression/0351-0400";
+	str file = "0388.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0389":
+	str path = "tests/regression/0351-0400";
+	str file = "0389.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 5\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
+
+test "0390":
+	str path = "tests/regression/0351-0400";
+	str file = "0390.ft";
+	test_file_ok($"{path}/{file}", "result = (93, 6, 52)\n");
+
+test "0391":
+	str path = "tests/regression/0351-0400";
+	str file = "0391.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0351-0400/0391.ft:3:10\n└─┬┤E0000│\n3 │ use Core.wololo\n┌─┴──────────┘\n├─ The Core module 'wololo' does not exist\n└─ Available Core modules are\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n\nParse Error at tests/regression/0351-0400/0391.ft:5:1\n└─┬┤E0000│\n5 │ use \"imported.ft\"\n┌─┴─┘\n└─ Imported file does not exist\n");
+
+test "0392":
+	str path = "tests/regression/0351-0400";
+	str file = "0392.ft";
+	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
+
+test "0393":
+	str path = "tests/regression/0351-0400";
+	str file = "0393.ft";
+	test_file_ok($"{path}/{file}", "unwrapped = 69\nmaybe = none\ntrue\nfalse\nare not equal\nare equal\nare equal\n");
+
+test "0394":
+	str path = "tests/regression/0351-0400";
+	str file = "0394.ft";
+	test_file_ok($"{path}/{file}", "pos = (10, 20)\npos = (13, 25)\n");
+
+test "0395":
+	str path = "tests/regression/0351-0400";
+	str file = "0395.ft";
+	test_file_ok($"{path}/{file}", "first = 7\nsecond = 4.7\nthird = \"yes\"\n");
+
+test "0396":
+	str path = "tests/regression/0351-0400";
+	str file = "0396.ft";
+	test_file_ok($"{path}/{file}", "AB-16\n");
+
+test "0397":
+	str path = "tests/regression/0351-0400";
+	str file = "0397.ft";
+	test_compiles($"{path}/{file}");
+
+test "0398":
+	str path = "tests/regression/0351-0400";
+	str file = "0398.ft";
+	test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3975115176\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nThe given error bubbled up to the main function:\n └─ ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n", 1);
+
+test "0399":
+	str path = "tests/regression/0351-0400";
+	str file = "0399.ft";
+	test_file_ok($"{path}/{file}", "c = (245, 245, 245, 255)\n");
+
+test "0400":
+	str path = "tests/regression/0351-0400";
+	str file = "0400.ft";
+	test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\n");

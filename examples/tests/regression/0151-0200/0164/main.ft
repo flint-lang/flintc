@@ -1,0 +1,8 @@
+use Core.print
+
+use "imported.ft"
+
+def main():
+	b := BaseData(10);
+	bf := BaseFunc::base;
+	bf(b);

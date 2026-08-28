@@ -1,0 +1,14 @@
+use Core.print
+
+data MyData:
+	i32 x;
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
+
+object MyEntity:
+	data: MyData d;
+	MyEntity(d);
+
+def main():
+	e := MyEntity(MyData(10, 20, 30));

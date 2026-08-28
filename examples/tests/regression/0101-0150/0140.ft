@@ -1,0 +1,14 @@
+use Core.print
+
+enum MyEnum:
+	VAL1 = 1,
+	VAL2 = 2,
+	VAL3 = 4;
+
+def main():
+	MyEnum e = MyEnum.VAL1;
+	print($"e = {e}, id = {i32(e)}\n");
+	e = MyEnum.VAL2;
+	print($"e = {e}, id = {i32(e)}\n");
+	e = MyEnum.VAL3;
+	print($"e = {e}, id = {i32(e)}\n");

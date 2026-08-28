@@ -1,0 +1,8 @@
+use Core.print
+
+def somefn(i32 x, i32 y) -> (i32, i32):
+	return (x, y);
+
+def main():
+	(x, y) := somefn(10, 20);
+	print($"(x, y) = ({x}, {y})\n");

@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    str a = str(i64(-7)) + "\n";
+    print(a);

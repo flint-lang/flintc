@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	bool x = not true or not false and not true;
+	print($"x = {x}\n");

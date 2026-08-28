@@ -1,0 +1,9 @@
+use Fip.raylib
+
+use Core.time
+
+def main():
+	InitWindow(800, 600, "test");
+	BeginDrawing();
+	sleep(1, TimeUnit.S);
+	EndDrawing();

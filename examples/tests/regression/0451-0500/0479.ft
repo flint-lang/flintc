@@ -1,0 +1,23 @@
+use Core.print
+
+object Entity:
+	data: Data;
+	Entity(Data);
+
+	def function():
+		print("Nothing\n");
+
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
+object Entity:
+	data: Data;
+	Entity(Data);
+
+	def function():
+		print("Nothing\n");
+
+def main():
+	print("Hello, World!\n");

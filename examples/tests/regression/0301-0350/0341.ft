@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+    i32 x = 10;
+    i32 y = 3;
+    i32 z = x ** y;
+    print($"{x} ** {y} = {z}\n");

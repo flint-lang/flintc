@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	// This should print 'condition is true'
+    print($"condition is {true or false and false}\n");

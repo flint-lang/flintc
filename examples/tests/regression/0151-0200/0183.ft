@@ -1,0 +1,11 @@
+use Core.print
+use Core.assert
+
+def err_div(i32 x, i32 y) -> i32:
+    assert(y != 0);
+    return x / y;
+
+def main():
+    i32 result = err_div(10, 0) catch err:
+        print($"err = {err}\n");
+    print($"result = {result}\n");

@@ -1,0 +1,9 @@
+use Core.print
+
+def print_ranges(mut data<u64, u32>[] ranges):
+	for (i, elem) in ranges:
+		print($"ranges[{i}] = ({elem.$0}, {elem.$0})\n");
+
+def main():
+	data<u64, u32>[] ranges = data<u64, u32>[5](_);
+	print_ranges(ranges);

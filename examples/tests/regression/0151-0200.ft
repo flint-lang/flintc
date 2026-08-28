@@ -1,0 +1,254 @@
+use "../../utils.ft"
+
+test "0151":
+	str path = "tests/regression/0151-0200/0151";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "is VAL1\nis VAL2\nis VAL3\nis VAL4\nis VAL5\n");
+
+test "0152":
+	str path = "tests/regression/0151-0200";
+	str file = "0152.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0152.ft:3:10\n└─┬┤E0000│\n3 │ use Core.something\n┌─┴──────────┘\n├─ The Core module 'something' does not exist\n└─ Available Core modules are\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n");
+
+test "0153":
+	str path = "tests/regression/0151-0200";
+	str file = "0153.ft";
+	test_file_ok($"{path}/{file}", "P\nHello there 0!\nu = 321230\n-10\nHello there 1!\n22366\nHello there 2!\n-5658\nHello there 3!\n");
+
+test "0154":
+	str path = "tests/regression/0151-0200";
+	str file = "0154.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0154.ft:5:13\n└─┬┤E0000│\n3 │ def main():\n5 │ »   i32 x = v3.$3;\n┌─┴─────────────┘\n├─ Field '$3' does not exist on type 'i32x3'\n└─ Available fields are:\n    ├─ i32 $0\n    ├─ i32 x\n    ├─ i32 r\n    ├─ i32 s\n    ├─ i32 i\n    │\n    ├─ i32 $1\n    ├─ i32 y\n    ├─ i32 g\n    ├─ i32 t\n    ├─ i32 j\n    │\n    ├─ i32 $2\n    ├─ i32 z\n    ├─ i32 b\n    ├─ i32 p\n    └─ i32 k\n");
+
+test "0155":
+	str path = "tests/regression/0151-0200";
+	str file = "0155.ft";
+	test_file_ok($"{path}/{file}", "'Heyo '\n'from Flint!'\n'Heyo from Flint!'\n");
+
+test "0156":
+	str path = "tests/regression/0151-0200";
+	str file = "0156.ft";
+	test_file_ok($"{path}/{file}", "t_eq_f = false\nt_neq_f = true\nt_eq_t = true\nt_neq_t = false\nf_eq_f = true\nf_neq_f = false\n");
+
+test "0157":
+	str path = "tests/regression/0151-0200";
+	str file = "0157.ft";
+	test_file_ok($"{path}/{file}", "i = -55\nf = 3.14\ns = Hello There\n");
+
+test "0158":
+	str path = "tests/regression/0151-0200";
+	str file = "0158.ft";
+	test_file_ok($"{path}/{file}", "Compile with --test to crate a test binary!\n");
+
+test "0159":
+	str path = "tests/regression/0151-0200/0159";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\nCheck true\n");
+
+test "0160":
+	str path = "tests/regression/0151-0200";
+	str file = "0160.ft";
+	test_compiles($"{path}/{file}");
+
+test "0161":
+	str path = "tests/regression/0151-0200";
+	str file = "0161.ft";
+	test_file_ok($"{path}/{file}", "0 is_even\n2 is_even\n4 is_even\n6 is_even\n0: 5\n1: 5\n2: 5\n3: 5\n4: 5\nidx = 0\nidx = 1\nidx = 2\nidx = 3\nidx = 4\nidx = 5\n");
+
+test "0162":
+	str path = "tests/regression/0151-0200";
+	str file = "0162.ft";
+	test_file_ok($"{path}/{file}", "manual: ", " ms\n");
+
+test "0163":
+	str path = "tests/regression/0151-0200";
+	str file = "0163.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0164":
+	str path = "tests/regression/0151-0200/0164";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "speed = 10\n");
+
+test "0165":
+	str path = "tests/regression/0151-0200";
+	str file = "0165.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "0166":
+	str path = "tests/regression/0151-0200";
+	str file = "0166.ft";
+	test_compiles($"{path}/{file}");
+
+test "0167":
+	str path = "tests/regression/0151-0200";
+	str file = "0167.ft";
+	test_file_ok($"{path}/{file}", "t.pos.x = 1\n");
+
+test "0168":
+	str path = "tests/regression/0151-0200";
+	str file = "0168.ft";
+	test_file_ok($"{path}/{file}", "VAL1 is VAL1 or VAL2\n");
+
+test "0169":
+	str path = "tests/regression/0151-0200";
+	str file = "0169.ft";
+	test_file_ok($"{path}/{file}", "4 = 4\n");
+
+test "0170":
+	str path = "tests/regression/0151-0200";
+	str file = "0170.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0171":
+	str path = "tests/regression/0151-0200";
+	str file = "0171.ft";
+	test_file_ok($"{path}/{file}", "Player moved from (10, 20) to (13, 22)\nPlayer moved by (3, 3) from (13, 22) to (16, 25)\nComputer moved from (20, 10) to (14, 6)\nComputer moved by (3, 3) from (14, 6) to (17, 9)\n");
+
+test "0172":
+	str path = "tests/regression/0151-0200";
+	str file = "0172.ft";
+	test_file_ok($"{path}/{file}", "x = false\n");
+
+test "0173":
+	str path = "tests/regression/0151-0200";
+	str file = "0173.ft";
+	test_file_ok($"{path}/{file}", "max(121, 234) = 234\n");
+
+test "0174":
+	str path = "tests/regression/0151-0200";
+	str file = "0174.ft";
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20)\n");
+
+test "0175":
+	str path = "tests/regression/0151-0200";
+	str file = "0175.ft";
+	test_file_ok($"{path}/{file}", "27 ** 0.333333 = 3\nsin(0.5236) = 0.500001\n");
+
+test "0176":
+	str path = "tests/regression/0151-0200";
+	str file = "0176.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0176.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: tests/regression/0151-0200/0176.ft:20:1\n");
+
+test "0177":
+	str path = "tests/regression/0151-0200";
+	str file = "0177.ft";
+	test_file_ok($"{path}/{file}", "value = 60\nvalue = 30\nres = 30\nres = 0\n");
+
+test "0178":
+	str path = "tests/regression/0151-0200";
+	str file = "0178.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0178.ft:22:16\n└──┬┤E0000│\n17 │ object Entity:\n22 │ »   Entity(d1, d1, d2);\n┌──┴────────────────┘\n└─ Object constructor contains accessor 'd1' twice\n");
+
+test "0179":
+	str path = "tests/regression/0151-0200";
+	str file = "0179.ft";
+	test_file_ok($"{path}/{file}", "ms\nts.value = 100\n");
+
+// TODO: Make proper error message
+test "0180":
+	str path = "tests/regression/0151-0200";
+	str file = "0180.ft";
+	test_file_fail($"{path}/{file}", "Custom Error: 2\n");
+
+test "0181":
+	str path = "tests/regression/0151-0200/0181";
+	str file = "main.ft";
+	Config.compile_v_static = false;
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
+
+test "0182":
+	str path = "tests/regression/0151-0200";
+	str file = "0182.ft";
+	test_file_ok($"{path}/{file}", "1000\n");
+
+test "0183":
+	str path = "tests/regression/0151-0200";
+	str file = "0183.ft";
+	test_file_ok($"{path}/{file}", "err = ErrAssert.AssertionFailed\nresult = 0\n");
+
+test "0184":
+	str path = "tests/regression/0151-0200/0184";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "is VAL1\nis VAL2\nis VAL3\nis VAL4\nis VAL5\n");
+
+test "0185":
+	str path = "tests/regression/0151-0200";
+	str file = "0185.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 'Hi There'\narr[1] = 'Hi'\narr[2] = 'Hi'\narr[3] = 'Hi there 2'\narr[4] = 'Hi'\narr[5] = 'Hi'\narr[6] = 'Hi'\narr[7] = 'Hi'\narr[8] = 'Hi'\n");
+
+test "0186":
+	str path = "tests/regression/0151-0200";
+	str file = "0186.ft";
+	test_file_ok($"{path}/{file}", "67\nx = 67\nc_str = C\n");
+
+test "0187":
+	str path = "tests/regression/0151-0200";
+	str file = "0187.ft";
+	test_file_ok($"{path}/{file}", "10 + 20 = 30\nx = 30\n");
+
+test "0188":
+	str path = "tests/regression/0151-0200";
+	str file = "0188.ft";
+	test_file_ok($"{path}/{file}", "else\n");
+
+test "0189":
+	str path = "tests/regression/0151-0200";
+	str file = "0189.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 5\narr[4] = 4\narr[5] = 3\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\nlHelo, World!\n");
+
+test "0190":
+	str path = "tests/regression/0151-0200";
+	str file = "0190.ft";
+	test_file_ok($"{path}/{file}", "AB[2]\n");
+
+test "0191":
+	str path = "tests/regression/0151-0200";
+	str file = "0191.ft";
+	test_file_ok($"{path}/{file}", "Is ErrArithmetic\nIs NullDivision\nres = 0\n");
+
+test "0192":
+	str path = "tests/regression/0151-0200";
+	str file = "0192.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0192.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
+
+test "0193":
+	str path = "tests/regression/0151-0200";
+	str file = "0193.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n[5] = ','\n");
+
+test "0194":
+	str path = "tests/regression/0151-0200";
+	str file = "0194.ft";
+	test_file_ok($"{path}/{file}", "Player moved from (10, 20) to (13, 22)\nPlayer moved by (3, 3) from (13, 22) to (16, 25)\nComputer moved from (20, 10) to (14, 6)\nComputer moved by (3, 3) from (14, 6) to (17, 9)\n");
+
+test "0195":
+	str path = "tests/regression/0151-0200";
+	str file = "0195.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0196":
+	str path = "tests/regression/0151-0200";
+	str file = "0196.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (20, 30)\nd.(x, y) = (30, 40)\nd.(x, y) = (40, 50)\n");
+
+test "0197":
+	str path = "tests/regression/0151-0200";
+	str file = "0197.ft";
+	test_file_ok($"{path}/{file}", "4 is_even\n6 is_even\n2: 5\n3: 5\n4: 5\nidx = 1\nidx = 3\nidx = 4\nidx = 5\n");
+
+test "0198":
+	str path = "tests/regression/0151-0200/0198";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Hello, World!\nCreating new named opaque\nCreated new named opaque 0x", "\n");
+
+test "0199":
+	str path = "tests/regression/0151-0200";
+	str file = "0199.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0199.ft:16:21\n└──┬┤E0000│\n16 │ func Func3 requires(Func d):\n┌──┴─────────────────────┘\n└─ Only data types are allowed to be required by func components\n");
+
+test "0200":
+	str path = "tests/regression/0151-0200";
+	str file = "0200.ft";
+	test_file_ok($"{path}/{file}", "");

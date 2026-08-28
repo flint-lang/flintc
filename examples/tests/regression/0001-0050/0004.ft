@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    i32x2 x2 = (1, 2);
+    (x, y) := x2;
+    print($"x = {x}, y = {y}\n");

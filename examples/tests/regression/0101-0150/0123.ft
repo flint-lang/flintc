@@ -1,0 +1,9 @@
+use Core.print
+
+enum MyEnum:
+	VAL1, VAL2, VAL3;
+
+def main():
+	MyEnum e = MyEnum.VAL1;
+	print("Hello, World!\n");
+	print($"e = MyEnum.{e}\n");

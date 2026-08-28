@@ -1,0 +1,17 @@
+use Core.print
+
+def print_var(variant<i32, f32, bool> var):
+	if var == i32:
+		print("is i32\n");
+	else if var == f32:
+		print("is f32\n");
+	else if var == bool:
+		print("is bool\n");
+
+def main():
+	variant<i32, f32, bool> var = i32(-5);
+	print_var(var);
+	var = f32(3.14);
+	print_var(var);
+	var = false;
+	print_var(var);

@@ -1,0 +1,12 @@
+use Core.assert
+
+def sum_until(mut u32 n) -> u32:
+    u32 sum = 0;
+    n--; // Skip the highest numer, we only count until, not including with
+    while n > 0:
+        sum = sum + n;
+        n--;
+    return sum;
+
+def main():
+    assert(sum_until(u32(20)) == 190);

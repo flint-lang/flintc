@@ -1,0 +1,12 @@
+use Core.print
+use Core.time
+
+def main():
+	TimeUnit tu = TimeUnit.MS;
+	switch tu:
+		NS: print("ns\n");
+		US: print("µs\n");
+		MS: print("ms\n");
+		S:  print("s\n");
+	TimeStamp ts = now();
+	print($"ts.value = {ts.value}\n");

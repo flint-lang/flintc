@@ -1,0 +1,7 @@
+use Core.assert
+
+test "succeeds":
+    assert(true);
+
+test "fails":
+    assert(false);

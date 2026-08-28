@@ -1,0 +1,17 @@
+use Core.assert
+use Core.print
+
+test "test":
+	for (i, _) in 0..10:
+		if i % 2 == 0:
+			print("\n");
+		else:
+			print($"line {i}\n");
+	assert(false);
+
+def main():
+	for (i, _) in 0..10:
+		if i % 2 == 0:
+			print("\n");
+		else:
+			print($"line {i}\n");

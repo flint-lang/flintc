@@ -1,0 +1,8 @@
+use Core.print
+use Core.assert as a
+
+def main():
+    print("Okay works...\n");
+    a.assert(true);
+    a.assert(false) catch err:
+        print($"Err is {err!(a.ErrAssert)}\n");

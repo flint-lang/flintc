@@ -1,0 +1,40 @@
+use Core.print
+
+data Position:
+	i32 x;
+	i32 y;
+	Position(x, y);
+
+data MyData:
+	Position pos;
+	f32x2 speed;
+	MyData(pos, speed);
+
+def move(mut MyData d):
+	d.pos.(x, y) = d.pos.(x, y) + (i32(d.speed.x), i32(d.speed.y));
+
+def str_param(str param):
+	print(param);
+
+def main():
+	pos := Position(10, 20);
+	d := MyData(pos, f32x2(3, 5));
+	MyData d2 = d;
+	Position? p = none;
+	p = d2.pos;
+	print($"p = ({p!.x}, {p!.y})\n");
+	print($"pos = ({pos.x}, {pos.y})\n");
+	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
+	print("moving...\n");
+	move(d);
+	print($"p = ({p!.x}, {p!.y})\n");
+	print($"pos = ({pos.x}, {pos.y})\n");
+	print($"d.pos = ({d.pos.x}, {d.pos.y})\n");
+
+	str? flags = str("Hi there\n");
+	print(flags!);
+
+	str param = "Double Free?\n";
+	str_param(param);
+
+    data<i32, f32, str> tuple = (3, 2.2, "hello!");

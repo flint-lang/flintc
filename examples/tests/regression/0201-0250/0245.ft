@@ -1,0 +1,16 @@
+use Core.print
+use Core.time
+
+def slow_calculation() -> i32:
+    i32 sum = 0;
+    for i := 0; i < 1_000_000; i++:
+        sum += 1;
+    return sum;
+
+def main():
+    TimeStamp start = now();
+    i32 result = slow_calculation();
+    TimeStamp end = now();
+
+    Duration elapsed = duration(start, end);
+    print($"Calculation took {elapsed.value} ns\n");

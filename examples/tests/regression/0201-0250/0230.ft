@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+	data<bool, i32> maybe = (false, 0);
+	(d, i) := maybe;
+	print($"d = {d}\n");
+	print($"i = {i}\n");

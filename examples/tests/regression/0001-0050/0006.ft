@@ -1,0 +1,31 @@
+use Core.print
+
+data MyData:
+	i32 x;
+	i32 y;
+	i32 z;
+	MyData(x, y, z);
+
+func MyFunc requires(MyData d):
+	def move_by(i32 diff):
+		d.(x, y, z) += (diff, diff, diff);
+
+object MyEntity:
+	data: MyData d;
+	func: MyFunc;
+	MyEntity(d);
+
+	def print():
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+		self.other_fn();
+		print($"d.(x, y, z) = ({d.x}, {d.y}, {d.z})\n");
+	
+	def other_fn():
+		self.move_by(10);
+
+def main():
+	d := MyData(10, 20, 30);
+	e := MyEntity(d);
+	e.print();
+	//fn<mut MyEntity> p = MyEntity::print;
+	//MyEntity.print(e);

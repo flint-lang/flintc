@@ -1,0 +1,251 @@
+use "../../utils.ft"
+
+test "0301":
+	str path = "tests/regression/0301-0350";
+	str file = "0301.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0301.ft:27:23\n└──┬┤E0000│\n22 │ object Entity:\n27 │ »   Entity(d1, Data2, Data2);\n┌──┴───────────────────────┘\n└─ Object constructor contains data type 'Data2' twice\n");
+
+test "0302":
+	str path = "tests/regression/0301-0350";
+	str file = "0302.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0303":
+	str path = "tests/regression/0301-0350";
+	str file = "0303.ft";
+	test_file_fail($"{path}/{file}", "Generation Error at tests/regression/0301-0350/0303.ft:4:18\n└─┬┤E0000│\n3 │ def main():\n4 │ »   str[] args = str[3](_);\n┌─┴──────────────────┘\n└─ Array initializer for complex values needs explicit initializer value, default value is not sufficient\n");
+
+test "0304":
+	str path = "tests/regression/0301-0350";
+	str file = "0304.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0305":
+	str path = "tests/regression/0301-0350";
+	str file = "0305.ft";
+	test_file_ok($"{path}/{file}", "int3.x = 5\n");
+
+test "0306":
+	str path = "tests/regression/0301-0350";
+	str file = "0306.ft";
+	test_file_ok($"{path}/{file}", "c = (245, 245, 245, 255)\nd.x = 10\nd.c = (10, 20, 30, 40)\nd.c2 = (245, 245, 245, 255)\nd2.x = 10\nd2.c = (10, 20, 30, 40)\nd2.c2 = (245, 245, 245, 255)\n");
+
+test "0307":
+	str path = "tests/regression/0301-0350";
+	str file = "0307.ft";
+	test_file_ok($"{path}/{file}", "5");
+
+test "0308":
+	str path = "tests/regression/0301-0350";
+	str file = "0308.ft";
+	test_file_ok($"{path}/{file}", "tuple = (10, 20.299999, \"Hi, There\")\nvec = (10, 20, 30)\nlengths_dyn = (10, 15)\nlengths_fixed = (12, 13)\n");
+
+test "0309":
+	str path = "tests/regression/0301-0350";
+	str file = "0309.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 10\narr[1] = 20\narr[2] = 30\narr[3] = 40\n");
+
+test "0310":
+	str path = "tests/regression/0301-0350";
+	str file = "0310.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\n");
+
+test "0311":
+	str path = "tests/regression/0301-0350";
+	str file = "0311.ft";
+	test_file_ok($"{path}/{file}", "x = 3.14\n");
+
+test "0312":
+	str path = "tests/regression/0301-0350";
+	str file = "0312.ft";
+	test_file_ok($"{path}/{file}", "d = {-10, 3.4, 100, \"wololo\"}\n");
+
+test "0313":
+	str path = "tests/regression/0301-0350";
+	str file = "0313.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0313.ft:10:26\n└──┬┤E0000│\n3  │ def main():\n10 │ »   print($\"somevalue = {somevalue}\\n\");\n┌──┴──────────────────────────┘\n└─ Use of undeclared variable 'somevalue'\n");
+
+test "0314":
+	str path = "tests/regression/0301-0350";
+	str file = "0314.ft";
+	test_file_ok($"{path}/{file}", "hello\n");
+
+test "0315":
+	str path = "tests/regression/0301-0350";
+	str file = "0315.ft";
+	test_file_ok($"{path}/{file}", "ErrArithmetic.ZeroDivision: \"\"\nerr.(type_id, value_id) = 3179803860, 0\nErrArithmetic.ZeroDivision: \"\"\nerr.(type_id, value_id) = 3179803860, 0\nErrAssert.AssertionFailed: \"The assertion has failed\"\nerr.(type_id, value_id) = 2951970640, 0\nsimple_error passed\ncomplex_error passed\n");
+
+test "0316":
+	str path = "tests/regression/0301-0350";
+	str file = "0316.ft";
+	test_file_ok($"{path}/{file}", "I = 10\nJ = 10\narr[0, 0] = 0\narr[1, 0] = 0\narr[2, 0] = 0\narr[3, 0] = 0\narr[4, 0] = 0\narr[5, 0] = 0\narr[6, 0] = 0\narr[7, 0] = 0\narr[8, 0] = 0\narr[9, 0] = 0\narr[0, 1] = 0\narr[1, 1] = 1\narr[2, 1] = 2\narr[3, 1] = 3\narr[4, 1] = 4\narr[5, 1] = 5\narr[6, 1] = 6\narr[7, 1] = 7\narr[8, 1] = 8\narr[9, 1] = 9\narr[0, 2] = 0\narr[1, 2] = 2\narr[2, 2] = 4\narr[3, 2] = 6\narr[4, 2] = 8\narr[5, 2] = 10\narr[6, 2] = 12\narr[7, 2] = 14\narr[8, 2] = 16\narr[9, 2] = 18\narr[0, 3] = 0\narr[1, 3] = 3\narr[2, 3] = 6\narr[3, 3] = 9\narr[4, 3] = 12\narr[5, 3] = 15\narr[6, 3] = 18\narr[7, 3] = 21\narr[8, 3] = 24\narr[9, 3] = 27\narr[0, 4] = 0\narr[1, 4] = 4\narr[2, 4] = 8\narr[3, 4] = 12\narr[4, 4] = 16\narr[5, 4] = 20\narr[6, 4] = 24\narr[7, 4] = 28\narr[8, 4] = 32\narr[9, 4] = 36\narr[0, 5] = 0\narr[1, 5] = 5\narr[2, 5] = 10\narr[3, 5] = 15\narr[4, 5] = 20\narr[5, 5] = 25\narr[6, 5] = 30\narr[7, 5] = 35\narr[8, 5] = 40\narr[9, 5] = 45\narr[0, 6] = 0\narr[1, 6] = 6\narr[2, 6] = 12\narr[3, 6] = 18\narr[4, 6] = 24\narr[5, 6] = 30\narr[6, 6] = 36\narr[7, 6] = 42\narr[8, 6] = 48\narr[9, 6] = 54\narr[0, 7] = 0\narr[1, 7] = 7\narr[2, 7] = 14\narr[3, 7] = 21\narr[4, 7] = 28\narr[5, 7] = 35\narr[6, 7] = 42\narr[7, 7] = 49\narr[8, 7] = 56\narr[9, 7] = 63\narr[0, 8] = 0\narr[1, 8] = 8\narr[2, 8] = 16\narr[3, 8] = 24\narr[4, 8] = 32\narr[5, 8] = 40\narr[6, 8] = 48\narr[7, 8] = 56\narr[8, 8] = 64\narr[9, 8] = 72\narr[0, 9] = 0\narr[1, 9] = 9\narr[2, 9] = 18\narr[3, 9] = 27\narr[4, 9] = 36\narr[5, 9] = 45\narr[6, 9] = 54\narr[7, 9] = 63\narr[8, 9] = 72\narr[9, 9] = 81\n");
+
+test "0317":
+	str path = "tests/regression/0301-0350";
+	str file = "0317.ft";
+	test_file_ok($"{path}/{file}", "list.head!.duration.value = 10000000000\nlist.head!.next!.duration.value = 10000000000\n");
+
+test "0318":
+	str path = "tests/regression/0301-0350/0318";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Hello, World!\nCreating new named opaque\nCreated new named opaque 0x", "\n");
+
+test "0319":
+	str path = "tests/regression/0301-0350";
+	str file = "0319.ft";
+	test_file_ok($"{path}/{file}", "slice.len = 2\nslice[i] = 0\nslice[i] = 5\n");
+
+test "0320":
+	str path = "tests/regression/0301-0350";
+	str file = "0320.ft";
+	test_file_ok($"{path}/{file}", "err = Crash.Friendly\nerr = Crash.Harshly\n");
+
+test "0321":
+	str path = "tests/regression/0301-0350";
+	str file = "0321.ft";
+	test_file_ok($"{path}/{file}", "67\nx = 67\nc_str = C\n");
+
+test "0322":
+	str path = "tests/regression/0301-0350";
+	str file = "0322.ft";
+	test_file_ok($"{path}/{file}", "pos: (100, 100), size: (100, 100), dir: (3.3, 2.2)\npos: (133, 144), size: (100, 100), dir: (3.3, 2.2)\n");
+
+test "0323":
+	str path = "tests/regression/0301-0350";
+	str file = "0323.ft";
+	test_file_ok($"{path}/{file}", "Correct!\n");
+
+test "0324":
+	str path = "tests/regression/0301-0350";
+	str file = "0324.ft";
+	test_file_ok($"{path}/{file}", "µs\nduration = ", "\n");
+
+test "0325":
+	str path = "tests/regression/0301-0350";
+	str file = "0325.ft";
+	test_file_ok($"{path}/{file}", "o ther\n");
+
+test "0326":
+	str path = "tests/regression/0301-0350";
+	str file = "0326.ft";
+	test_compiles($"{path}/{file}");
+
+test "0327":
+	str path = "tests/regression/0301-0350";
+	str file = "0327.ft";
+	test_file_ok($"{path}/{file}", "25687\n");
+
+test "0328":
+	str path = "tests/regression/0301-0350";
+	str file = "0328.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0328.ft:27:20\n└──┬┤E0000│\n22 │ object Entity:\n27 │ »   Entity(d1, d2, Data3);\n┌──┴────────────────────┘\n├─ This data type is not part of the object\n└─ Only data defined in the 'data:' section can be used in the constructor\n");
+
+test "0329":
+	str path = "tests/regression/0301-0350";
+	str file = "0329.ft";
+	test_file_ok($"{path}/{file}", "arr2[0] = 0\narr2[1] = 1\narr2[2] = 2\n");
+
+test "0330":
+	str path = "tests/regression/0301-0350";
+	str file = "0330.ft";
+	test_file_ok($"{path}/{file}", "OOB ranged string access: len=16, upper_bound=18\n'Heyo from Flint!'\n'from Flint!'\n'Heyo from Flint!'\n");
+
+test "0331":
+	str path = "tests/regression/0301-0350";
+	str file = "0331.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0332":
+	str path = "tests/regression/0301-0350";
+	str file = "0332.ft";
+	test_file_ok($"{path}/{file}", "t.pos.x = 1\nt.pos.x = 4.2\n");
+
+test "0333":
+	str path = "tests/regression/0301-0350";
+	str file = "0333.ft";
+	test_file_ok($"{path}/{file}", "z = 0\nz = 5\nz = 10\nz = 15\nz = 20\n");
+
+test "0334":
+	str path = "tests/regression/0301-0350";
+	str file = "0334.ft";
+	test_file_ok($"{path}/{file}", "arr.length = 10\nslice.length = 6\n");
+
+test "0335":
+	str path = "tests/regression/0301-0350";
+	str file = "0335.ft";
+	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n(x, y, z) = (6, 7, 8)\n");
+
+test "0336":
+	str path = "tests/regression/0301-0350";
+	str file = "0336.ft";
+	test_file_ok($"{path}/{file}", "fail = false\nfail = true\nErrAssert = ErrAssert.AssertionFailed\n");
+
+test "0337":
+	str path = "tests/regression/0301-0350";
+	str file = "0337.ft";
+	test_file_ok($"{path}/{file}", "value = 60\n");
+
+test "0338":
+	str path = "tests/regression/0301-0350";
+	str file = "0338.ft";
+	test_file_ok($"{path}/{file}", "ix2 = (1, 2)\nfx3 = (2.2, 3.3, 4.4)\n");
+
+test "0339":
+	str path = "tests/regression/0301-0350";
+	str file = "0339.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0339.ft:3:1\n└─┬┤E0000│\n3 │ object E2:\n┌─┴─┘\n├─ Object type does not operate on any data\n└─ Use direct functions when there is no state to operate on\n");
+
+test "0340":
+	str path = "tests/regression/0301-0350";
+	str file = "0340.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0341":
+	str path = "tests/regression/0301-0350";
+	str file = "0341.ft";
+	test_file_ok($"{path}/{file}", "10 ** 3 = 1000\n");
+
+test "0342":
+	str path = "tests/regression/0301-0350";
+	str file = "0342.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0342.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+
+test "0343":
+	str path = "tests/regression/0301-0350";
+	str file = "0343.ft";
+	test_file_ok($"{path}/{file}", "c.value = null\nc.len = 0\n");
+
+test "0344":
+	str path = "tests/regression/0301-0350";
+	str file = "0344.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\n\nd.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (400, 900, 1600)\n");
+
+test "0345":
+	str path = "tests/regression/0301-0350/0345";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "allocation of 100 bytes successful\n");
+
+test "0346":
+	str path = "tests/regression/0301-0350";
+	str file = "0346.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\n\nd.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (400, 900, 1600)\n");
+
+test "0347":
+	str path = "tests/regression/0301-0350";
+	str file = "0347.ft";
+	test_file_ok($"{path}/{file}", "test1\ntest\n3.574000\n3.574\n");
+
+test "0348":
+	str path = "tests/regression/0301-0350";
+	str file = "0348.ft";
+	test_file_ok($"{path}/{file}", "my_string = 'soMeThing useful'\n");
+
+test "0349":
+	str path = "tests/regression/0301-0350";
+	str file = "0349.ft";
+	test_file_ok($"{path}/{file}", "capture = \"line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\n\"\nline_count: 10\nlines[0] | line 0\nlines[1] | line 1\nlines[2] | line 2\nlines[3] | line 3\nlines[4] | line 4\nlines[5] | line 5\nlines[6] | line 6\nlines[7] | line 7\nlines[8] | line 8\nlines[9] | line 9\n");
+
+test "0350":
+	str path = "tests/regression/0301-0350";
+	str file = "0350.ft";
+	test_file_ok($"{path}/{file}", "");

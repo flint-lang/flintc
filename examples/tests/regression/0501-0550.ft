@@ -1,0 +1,112 @@
+use "../../utils.ft"
+
+test "0501":
+	str path = "tests/regression/0501-0550";
+	str file = "0501.ft";
+	test_file_ok($"{path}/{file}", "Compile with the '--test' flag!\n");
+
+test "0502":
+	str path = "tests/regression/0501-0550";
+	str file = "0502.ft";
+	test_compiles($"{path}/{file}");
+
+test "0503":
+	str path = "tests/regression/0501-0550";
+	str file = "0503.ft";
+	test_file_ok($"{path}/{file}", "z = 1\n");
+
+test "0504":
+	str path = "tests/regression/0501-0550/0504";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "x = 15\n");
+
+// TODO:Should print a warning eventually
+test "0505":
+	str path = "tests/regression/0501-0550";
+	str file = "0505.ft";
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\nfun2\n");
+
+test "0506":
+	str path = "tests/regression/0501-0550";
+	str file = "0506.ft";
+	test_file_ok($"{path}/{file}", "is Crash\nType ID: 2848253534\nValue ID: 2\nCrash Message: Hehe custom message: true\n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");
+
+test "0507":
+	str path = "tests/regression/0501-0550";
+	str file = "0507.ft";
+	test_file_ok($"{path}/{file}", "arr2.len = 0\n");
+
+test "0508":
+	str path = "tests/regression/0501-0550";
+	str file = "0508.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0508.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
+
+test "0509":
+	str path = "tests/regression/0501-0550";
+	str file = "0509.ft";
+	test_file_ok($"{path}/{file}", "lo fr\n");
+
+test "0510":
+	str path = "tests/regression/0501-0550";
+	str file = "0510.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0510.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   print(\"Hello, World!\\n\");\n┌─┴─────┘\n├─ Call of undefined function 'print(str)'\n├─ Possible functions you could mean:\n│   ├─ p.print(u8) from Core.print\n│   ├─ p.print(i8) from Core.print\n│   ├─ p.print(u16) from Core.print\n│   ├─ p.print(i16) from Core.print\n│   ├─ p.print(u32) from Core.print\n│   ├─ p.print(i32) from Core.print\n│   ├─ p.print(u64) from Core.print\n│   ├─ p.print(i64) from Core.print\n│   ├─ p.print(f32) from Core.print\n│   ├─ p.print(f64) from Core.print\n│   ├─ p.print(str) from Core.print\n│   ├─ p.print(type.flint.str.lit) from Core.print\n│   └─ p.print(bool) from Core.print\n└─ You need to cast the argument to one of the supported types\n");
+
+test "0511":
+	str path = "tests/regression/0501-0550";
+	str file = "0511.ft";
+	test_test(path, file);
+
+test "0512":
+	str path = "tests/regression/0501-0550";
+	str file = "0512.ft";
+	test_file_ok($"{path}/{file}", "Globals.c = 5\nGlobals.c2 = 10\nGlobals.c = 15\nGlobals.s = Hi, there\nGlobals.s = Woof\n");
+
+test "0513":
+	str path = "tests/regression/0501-0550";
+	str file = "0513.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 20)\nd.(x, y) = (30, 40)\nE3\n");
+
+test "0514":
+	str path = "tests/regression/0501-0550";
+	str file = "0514.ft";
+	test_file_crash($"{path}/{file}", none, "test1\ntest\n3.574000\n3.574	false\n1\nThe given error bubbled up to the main function:\n └─ error.17598394064103171847.SomeError: \"\"\n", 1);
+	
+test "0515":
+	str path = "tests/regression/0501-0550";
+	str file = "0515.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0516":
+	str path = "tests/regression/0501-0550";
+	str file = "0516.ft";
+	test_file_ok($"{path}/{file}", "x = 5 + {12}\n");
+
+test "0517":
+	str path = "tests/regression/0501-0550";
+	str file = "0517.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0517.ft:4:44\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<data<i32, f32>, str> something = ((1, 3.3), \"str\");\n┌─┴────────────────────────────────────────────┘\n└─ Nested groups are not allowed\n");
+
+test "0518":
+	str path = "tests/regression/0501-0550";
+	str file = "0518.ft";
+	test_file_ok($"{path}/{file}", "TAG: Hi there\nHello\n");
+
+test "0519":
+	str path = "tests/regression/0501-0550";
+	str file = "0519.ft";
+	test_file_ok($"{path}/{file}", "is bool: false\n");
+
+test "0520":
+	str path = "tests/regression/0501-0550";
+	str file = "0520.ft";
+	test_file_ok($"{path}/{file}", "is_val3\nsd.e1 is VAL1\ncd.se is VAL2\nokay that works...\ncd.sd != sd ... good!\n");
+
+test "0521":
+	str path = "tests/regression/0501-0550";
+	str file = "0521.ft";
+	test_file_ok($"{path}/{file}", "Content of file 'nonexistent':\nFile 'nonexistent' could not be found\nfile_content: ''\n");
+
+test "0522":
+	str path = "tests/regression/0501-0550/0522";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\nthis is a string literal\n");

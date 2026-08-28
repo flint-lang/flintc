@@ -1,0 +1,14 @@
+use Core.print
+
+data Data1:
+	i32 x;
+	i32 y;
+	Data1(x, y);
+
+object Entity:
+	data: Data1 d1;
+	Entity(d1);
+
+def main():
+	e := Entity(Data1(10, 20), Data2(30, 40));
+	e.print();

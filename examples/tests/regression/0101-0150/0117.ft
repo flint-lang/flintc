@@ -1,0 +1,12 @@
+use Core.print
+
+def print_strings(str[] strings):
+    for u32 i = 0; i < strings.length; i++:
+        print($"strings[{i}] = {strings[i]}\n");
+
+def main():
+    str[] args = str[3]("");
+    args[0] = "wololo";
+    args[1] = "something else";
+    args[2] = "hello there!";
+    print_strings(args);

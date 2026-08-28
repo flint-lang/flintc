@@ -1,0 +1,7 @@
+use Core.print
+use Core.filesystem as fs
+
+def main():
+    if not fs.file_exists("nonexistent.ft"):
+        print("File 'nonexistent.ft' does not exst!\n");
+        return;

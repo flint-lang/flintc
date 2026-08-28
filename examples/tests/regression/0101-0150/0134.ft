@@ -1,0 +1,16 @@
+use Core.print
+
+data Data:
+	i32 x = 0;
+	i32 y = 0;
+	Data(x, y);
+
+def main():
+	Data[] arr = Data[10](Data(_));
+
+	arr[1] = Data(10, 20);
+	i32 x1 = arr[1].x;
+	print($"x1 = {x1}\n");
+
+	for (i, elem) in arr:
+		print($"arr[{i}] = Data(.x = {elem.x}, .y = {elem.y})\n");

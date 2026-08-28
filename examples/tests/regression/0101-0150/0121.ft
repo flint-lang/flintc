@@ -1,0 +1,7 @@
+use Core.print
+
+const data Globals:
+	float pi = 3.141592653589793238462643383279;
+
+def main():
+	print($"pi = {Globals.pi}\n");

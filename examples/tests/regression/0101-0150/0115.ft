@@ -1,0 +1,19 @@
+use Core.print
+
+data Data1:
+	i32 x;
+	i32 y;
+	Data1(x, y);
+
+func Func requires(Data1 d):
+	def fun():
+		print("fun\n");
+
+object Entity:
+	data: Func d1;
+	func: Func;
+	Entity(d1);
+
+def main():
+	e := Entity(Data1(10, 20));
+	e.fun();

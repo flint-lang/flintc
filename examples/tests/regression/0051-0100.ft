@@ -1,0 +1,251 @@
+use "../../utils.ft"
+
+test "0051":
+	str path = "tests/regression/0051-0100";
+	str file = "0051.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0051.ft:3:9\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = 8;\n┌─┴─────────┘\n└─ Variable 'x' already exists\n");
+
+test "0052":
+	str path = "tests/regression/0051-0100";
+	str file = "0052.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (40, 20)\ns = Hi, There\n");
+
+test "0053":
+	str path = "tests/regression/0051-0100";
+	str file = "0053.ft";
+	test_file_ok($"{path}/{file}", "first = 3\nsecond = 2.2\nthird = hello!\nsd.(x, y, m) = (3, 2.2, \"hello!\")\n");
+
+test "0054":
+	str path = "tests/regression/0051-0100";
+	str file = "0054.ft";
+	test_file_ok($"{path}/{file}", "msg = HeElo\n");
+
+test "0055":
+	str path = "tests/regression/0051-0100";
+	str file = "0055.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 10\narr[1] = 11\narr[2] = 12\narr[3] = 13\narr[4] = 14\narr[5] = 15\narr[6] = 16\narr[7] = 17\narr[8] = 18\narr[9] = 19\n");
+
+test "0056":
+	str path = "tests/regression/0051-0100";
+	str file = "0056.ft";
+	test_file_ok($"{path}/{file}", "6\n1, 2\n");
+
+test "0057":
+	str path = "tests/regression/0051-0100";
+	str file = "0057.ft";
+	test_file_ok($"{path}/{file}", "something\nyes!\n");
+
+test "0058":
+	str path = "tests/regression/0051-0100";
+	str file = "0058.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0059":
+	str path = "tests/regression/0051-0100";
+	str file = "0059.ft";
+	test_file_ok($"{path}/{file}", "x = 489\nfirst\nsecond\ni = 0\ni = 1\ni = 2\n");
+
+test "0060":
+	str path = "tests/regression/0051-0100";
+	str file = "0060.ft";
+	test_file_ok($"{path}/{file}", "Compile with --test to crate a test binary!\n");
+
+test "0061":
+	str path = "tests/regression/0051-0100";
+	str file = "0061.ft";
+	test_file_ok($"{path}/{file}", "is something else: 0\nis 1, 2 or 3: 1\nis 1, 2 or 3: 2\nis 1, 2 or 3: 3\nis something else: 4\n");
+
+test "0062":
+	str path = "tests/regression/0051-0100";
+	str file = "0062.ft";
+	test_file_ok($"{path}/{file}", "result = (356, 8, 192)\n");
+
+test "0063":
+	str path = "tests/regression/0051-0100";
+	str file = "0063.ft";
+	test_file_ok($"{path}/{file}", "Hello there!\n");
+
+test "0064":
+	str path = "tests/regression/0051-0100";
+	str file = "0064.ft";
+	test_file_ok($"{path}/{file}", "Sleeping for 200ms...\nSleeping done!\n");
+
+test "0065":
+	str path = "tests/regression/0051-0100";
+	str file = "0065.ft";
+	test_file_ok($"{path}/{file}", "c = (245, 245, 245, 255)\n");
+
+test "0066":
+	str path = "tests/regression/0051-0100";
+	str file = "0066.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n0: H\n1: e\n2: l\n3: l\n4: o\n5: ,\n6:  \n7: W\n8: o\n9: r\n10: l\n11: d\n12: !\n13: \n\n");
+
+test "0067":
+	str path = "tests/regression/0051-0100/0067";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "c.value = null\nc.len = 0\nc.value points to something\nc.len = 100\n");
+
+test "0068":
+	str path = "tests/regression/0051-0100";
+	str file = "0068.ft";
+	test_file_ok($"{path}/{file}", "AB\n");
+
+test "0069":
+	str path = "tests/regression/0051-0100";
+	str file = "0069.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 10\narr[1] = 20\narr[2] = 30\narr[3] = 40\n");
+
+test "0070":
+	str path = "tests/regression/0051-0100";
+	str file = "0070.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0070.ft:5:22\n└─┬┤E0000│\n3 │ def main():\n5 │ »   (x, y) := d.($1, $3);\n┌─┴──────────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
+
+test "0071":
+	str path = "tests/regression/0051-0100";
+	str file = "0071.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0071.ft:1:1\n└─┬┤E0000│\n1 │ use Core.assert\n┌─┴─┘\n└─ No main function found in the project\n");
+
+test "0072":
+	str path = "tests/regression/0051-0100";
+	str file = "0072.ft";
+	test_file_ok($"{path}/{file}", "i64 mult overflow caught\ni64 mult overflow caught\n9223372036854775807\n");
+
+test "0073":
+	str path = "tests/regression/0051-0100";
+	str file = "0073.ft";
+	test_file_ok($"{path}/{file}", "unwrapped = 69\nmaybe = none\ntrue\nfalse\nare not equal\nare equal\nare equal\n");
+
+test "0074":
+	str path = "tests/regression/0051-0100";
+	str file = "0074.ft";
+	test_file_ok($"{path}/{file}", "OutOfBounds\nval = 0.000000000000000e+\nOutOfBounds\nval = 0.000000000000000e+\nInvalidCharacter\nval = 0.000000000000000e+\nval = -34892.322999999996682\n");
+
+test "0075":
+	str path = "tests/regression/0051-0100/0075";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "v1.values[0] = 60\nv1.values[1] = 40\nv1.values[2] = 70\n");
+
+test "0076":
+	str path = "tests/regression/0051-0100";
+	str file = "0076.ft";
+	test_file_ok($"{path}/{file}", "Drawing circle at [pos=(11, 2), r=5]\nDrawing rectangle at [pos=(10, 20), width=4, height=5\nDrawing circle at [pos=(3, 5), r=10]\nDrawing rectangle at [pos=(0, 0), width=4, height=2\n\nshapes[0].area() = 78\nshapes[1].area() = 20\nshapes[2].area() = 314\nshapes[3].area() = 8\nsum of areas = 420\n");
+
+test "0077":
+	str path = "tests/regression/0051-0100/0077";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Hello, World!\nCreating new named opaque\nCreated new named opaque ", "\n");
+
+test "0078":
+	str path = "tests/regression/0051-0100";
+	str file = "0078.ft";
+	test_file_ok($"{path}/{file}", "opt!.active_type = 2\nholds f32 value 3.14\n");
+
+test "0079":
+	str path = "tests/regression/0051-0100";
+	str file = "0079.ft";
+	test_file_ok($"{path}/{file}", "Drawing circle at [pos=(11, 2), r=5]\nDrawing rectangle at [pos=(10, 20), width=4, height=5\nDrawing circle at [pos=(3, 5), r=10]\nDrawing rectangle at [pos=(0, 0), width=4, height=2\n\nshapes[0].area() = 78\nshapes[1].area() = 20\nshapes[2].area() = 314\nshapes[3].area() = 8\nsum of areas = 420\n");
+
+test "0080":
+	str path = "tests/regression/0051-0100";
+	str file = "0080.ft";
+	test_file_ok($"{path}/{file}", "bin_ops[0] = +\nbin_ops[1] = -\nbin_ops[2] = *\nbin_ops[3] = /\ncontains_one_of...\nchars.length = 4\nchars[0] = +\nchars[1] = -\nchars[2] = *\nchars[3] = /\ninput[0] = 2\nchars[0] = +\nchars[1] = -\nchars[2] = *\nchars[3] = /\ninput[1] = 2\nchars[0] = +\nchars[1] = -\nchars[2] = *\nchars[3] = /\ninput[2] =  \nchars[0] = +\nchars[1] = -\nchars[2] = *\nchars[3] = /\ninput[3] = +\nchars[0] = +\nRHS contains more bin ops!\n");
+
+test "0081":
+	str path = "tests/regression/0051-0100";
+	str file = "0081.ft";
+	test_file_ok($"{path}/{file}", "arr[0, 0] = 8\n");
+
+test "0082":
+	str path = "tests/regression/0051-0100/0082";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\n");
+
+test "0083":
+	str path = "tests/regression/0051-0100";
+	str file = "0083.ft";
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
+
+test "0084":
+	str path = "tests/regression/0051-0100";
+	str file = "0084.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0084.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+
+test "0085":
+	str path = "tests/regression/0051-0100";
+	str file = "0085.ft";
+	test_file_ok($"{path}/{file}", "dir = Direction.LEFT\n");
+
+test "0086":
+	str path = "tests/regression/0051-0100";
+	str file = "0086.ft";
+	test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nThe given error bubbled up to the main function:\n └─ ErrArithmetic.ErrZeroDivision: \"Tried to divide 10 by 0!\"\n", 1);
+
+test "0087":
+	str path = "tests/regression/0051-0100";
+	str file = "0087.ft";
+	test_file_ok($"{path}/{file}", "v = Hi there\nv = 10\n");
+
+test "0088":
+	str path = "tests/regression/0051-0100";
+	str file = "0088.ft";
+	test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\n");
+
+test "0089":
+	str path = "tests/regression/0051-0100";
+	str file = "0089.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (25, 15)\n");
+
+test "0090":
+	str path = "tests/regression/0051-0100";
+	str file = "0090.ft";
+	test_file_ok($"{path}/{file}", "v = (10, 20)\nvm = (10, 20)\nv = (10, 20)\nvm = (12, 23)\n");
+
+test "0091":
+	str path = "tests/regression/0051-0100/0091";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "ranges[0] = (0, 0)\nranges[1] = (0, 0)\nranges[2] = (10, 20)\nranges[3] = (0, 0)\nranges[4] = (0, 0)\nv3.(x, y, z) = (10, 20, 30)\nthird = (10, 20)\n");
+
+test "0092":
+	str path = "tests/regression/0051-0100";
+	str file = "0092.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0093":
+	str path = "tests/regression/0051-0100";
+	str file = "0093.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0093.ft:8:1\n└─┬┤E0000│\n8 │ object Entity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
+
+test "0094":
+	str path = "tests/regression/0051-0100";
+	str file = "0094.ft";
+	test_file_ok($"{path}/{file}", "result = 5\nresult = 8\n");
+
+test "0095":
+	str path = "tests/regression/0051-0100";
+	str file = "0095.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 3.14)\nd.(x, y) = (10, 3.14)\nc(10) = 100\n");
+
+test "0096":
+	str path = "tests/regression/0051-0100";
+	str file = "0096.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis not val1\nis something else\nis B\nis a H\nis something else\nis something else\nis something else\nis something else\nis a comma\nis something else\nis something else\nis something else\nis something else\nis something else\nis something else\nis something else\n");
+
+test "0097":
+	str path = "tests/regression/0051-0100";
+	str file = "0097.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0097.ft:8:16\n└─┬┤E0000│\n7 │ func SomeFunc requires(SomeData d):\n8 │ »   def append(SomeData d):\n┌─┴────────────────┘\n└─ Function parameter shadows data required by func component\n");
+
+test "0098":
+	str path = "tests/regression/0051-0100/0098";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "d = (10, 20, 30)\nd.x = 10\n");
+
+test "0099":
+	str path = "tests/regression/0051-0100";
+	str file = "0099.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 20)\n");
+
+test "0100":
+	str path = "tests/regression/0051-0100/0100";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");

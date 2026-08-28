@@ -1,0 +1,9 @@
+use Core.print
+use Core.assert
+
+def main():
+    i32 result = 10;
+    assert(result != 5) catch err:
+        print("This code should be unreachable\n");
+    assert(result == 5) catch err:
+        print("You have not entered 5!\n");

@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+    i32[,] arr = i32[10, 10](5);
+    arr[0, 0] = 8;
+    (I, J) := arr.length;
+    print($"I = {I}\n");
+    print($"J = {J}\n");
+    for u32 j = 0; j < J; j++:
+        for u32 i = 0; i < I; i++:
+            arr[i, j] = i32(i * j);
+            print($"arr[{i}, {j}] = {arr[i, j]}\n");

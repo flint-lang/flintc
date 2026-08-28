@@ -1,0 +1,10 @@
+use Core.print
+
+enum Direction:
+	LEFT, RIGHT, UP, DOWN;
+
+def main():
+	Direction dir = Direction.LEFT;
+	print($"dir = Direction.{dir}\n");
+
+

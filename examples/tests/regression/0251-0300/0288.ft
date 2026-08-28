@@ -1,0 +1,20 @@
+use Core.print
+use Core.system
+
+error MyError:
+	e1;
+
+def main():
+	start_capture();
+	print("Hello 1\n");
+	print("Hello 2\n");
+	print("Hello 3\n");
+	print("Hello 4\n");
+	str[] lines = end_capture_lines();
+
+	for (i, line) in lines:
+		print($"lines[{i}] = {line}\n");
+		if false:
+			return;
+		if false:
+			throw MyError.e1;

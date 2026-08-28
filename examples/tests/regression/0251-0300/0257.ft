@@ -1,0 +1,31 @@
+use Core.print
+
+def print_data(Data d):
+	print($"d.(x, y) = {d.(x, y)}\n");
+
+data Data:
+	i32 x;
+	i32 y;
+	Data(x, y);
+
+object Entity1:
+	data: Data d;
+	Entity1(d);
+
+	def print():
+		print($"d.(x, y) = {d.(x, y)}\n");
+
+object Entity2:
+	data: Data;
+	Entity2(Data);
+
+	def print():
+		print_data(e.d);
+
+def print(Entity2 e):
+	print_data(e.d);
+
+def main():
+	e := Entity2(Data(10, 20));
+	e.print();
+	print(e);

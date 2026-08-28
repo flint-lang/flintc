@@ -1,0 +1,252 @@
+use "../../utils.ft"
+
+test "0251":
+	str path = "tests/regression/0251-0300/0251";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\n");
+
+test "0252":
+	str path = "tests/regression/0251-0300";
+	str file = "0252.ft";
+	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"tests/regression/0251-0300/0252.ft\"):\nLINE_5:			print(\"File 'tests/regression/0251-0300/0252.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"tests/regression/0251-0300/0252.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		fs.write_file(\"/tmp/logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_11:		print(\"Written file 'logfile'\\n\");\nWritten file 'logfile'\n");
+
+test "0253":
+	str path = "tests/regression/0251-0300";
+	str file = "0253.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0254":
+	str path = "tests/regression/0251-0300";
+	str file = "0254.ft";
+	test_file_ok($"{path}/{file}", "int3 = (8, 8, 8)\n");
+	
+test "0255":
+	str path = "tests/regression/0251-0300";
+	str file = "0255.ft";
+	test_file_ok($"{path}/{file}", "I = 10\nJ = 10\nmat[0, 0] = 1\nmat[0, 1] = 2\nmat[0, 2] = 3\nmat[0, 3] = 4\nmat[0, 4] = 5\nmat[0, 5] = 6\nmat[0, 6] = 7\nmat[0, 7] = 8\nmat[0, 8] = 9\nmat[0, 9] = 10\nmat[1, 0] = 2\nmat[1, 1] = 4\nmat[1, 2] = 6\nmat[1, 3] = 8\nmat[1, 4] = 10\nmat[1, 5] = 12\nmat[1, 6] = 14\nmat[1, 7] = 16\nmat[1, 8] = 18\nmat[1, 9] = 20\nmat[2, 0] = 3\nmat[2, 1] = 6\nmat[2, 2] = 9\nmat[2, 3] = 12\nmat[2, 4] = 15\nmat[2, 5] = 18\nmat[2, 6] = 21\nmat[2, 7] = 24\nmat[2, 8] = 27\nmat[2, 9] = 30\nmat[3, 0] = 4\nmat[3, 1] = 8\nmat[3, 2] = 12\nmat[3, 3] = 16\nmat[3, 4] = 20\nmat[3, 5] = 24\nmat[3, 6] = 28\nmat[3, 7] = 32\nmat[3, 8] = 36\nmat[3, 9] = 40\nmat[4, 0] = 5\nmat[4, 1] = 10\nmat[4, 2] = 15\nmat[4, 3] = 20\nmat[4, 4] = 25\nmat[4, 5] = 30\nmat[4, 6] = 35\nmat[4, 7] = 40\nmat[4, 8] = 45\nmat[4, 9] = 50\nmat[5, 0] = 6\nmat[5, 1] = 12\nmat[5, 2] = 18\nmat[5, 3] = 24\nmat[5, 4] = 30\nmat[5, 5] = 36\nmat[5, 6] = 42\nmat[5, 7] = 48\nmat[5, 8] = 54\nmat[5, 9] = 60\nmat[6, 0] = 7\nmat[6, 1] = 14\nmat[6, 2] = 21\nmat[6, 3] = 28\nmat[6, 4] = 35\nmat[6, 5] = 42\nmat[6, 6] = 49\nmat[6, 7] = 56\nmat[6, 8] = 63\nmat[6, 9] = 70\nmat[7, 0] = 8\nmat[7, 1] = 16\nmat[7, 2] = 24\nmat[7, 3] = 32\nmat[7, 4] = 40\nmat[7, 5] = 48\nmat[7, 6] = 56\nmat[7, 7] = 64\nmat[7, 8] = 72\nmat[7, 9] = 80\nmat[8, 0] = 9\nmat[8, 1] = 18\nmat[8, 2] = 27\nmat[8, 3] = 36\nmat[8, 4] = 45\nmat[8, 5] = 54\nmat[8, 6] = 63\nmat[8, 7] = 72\nmat[8, 8] = 81\nmat[8, 9] = 90\nmat[9, 0] = 10\nmat[9, 1] = 20\nmat[9, 2] = 30\nmat[9, 3] = 40\nmat[9, 4] = 50\nmat[9, 5] = 60\nmat[9, 6] = 70\nmat[9, 7] = 80\nmat[9, 8] = 90\nmat[9, 9] = 100\nmat.length = (10, 10)\nafter slice\nmat[3, 5] = 24\nslice = mat[3, 2..8]:\nslice.length = 6\nslice[0] = 12\nslice[1] = 16\nslice[2] = 20\nslice[3] = 24\nslice[4] = 28\nslice[5] = 32\n");
+
+test "0256":
+	str path = "tests/regression/0251-0300";
+	str file = "0256.ft";
+	test_file_ok($"{path}/{file}", "6\n");
+
+test "0257":
+	str path = "tests/regression/0251-0300";
+	str file = "0257.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0257.ft:26:16\n└──┬┤E0000│\n25 │ def print(Entity2 e):\n26 │ »   print_data(e.d);\n┌──┴────────────────┘\n└─ Direct field accesses are not allowed on objects\n");
+
+test "0258":
+	str path = "tests/regression/0251-0300";
+	str file = "0258.ft";
+	test_file_ok($"{path}/{file}", "res = 8\nt = (3.4, 2)\nres = 13\n");
+
+test "0259":
+	str path = "tests/regression/0251-0300";
+	str file = "0259.ft";
+	test_file_ok($"{path}/{file}", "get_values() = (69, 240)\n");
+
+test "0260":
+	str path = "tests/regression/0251-0300";
+	str file = "0260.ft";
+	test_file_ok($"{path}/{file}", "p = (10, 20)\npos = (10, 20)\nd.pos = (10, 20)\nmoving...\np = (10, 20)\npos = (10, 20)\nd.pos = (13, 25)\nHi there\n");
+
+test "0261":
+	str path = "tests/regression/0251-0300";
+	str file = "0261.ft";
+	test_file_ok($"{path}/{file}", "(x, y) = (11, 21)\n");
+
+test "0262":
+	str path = "tests/regression/0251-0300";
+	str file = "0262.ft";
+	test_file_ok($"{path}/{file}", "u32 add overflow caught\n");
+
+test "0263":
+	str path = "tests/regression/0251-0300";
+	str file = "0263.ft";
+	test_file_ok($"{path}/{file}", "args.length = 3\nargs[0] = wololo\nargs[1] = something else\nargs[2] = hello there!\n");
+
+test "0264":
+	str path = "tests/regression/0251-0300";
+	str file = "0264.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0265":
+	str path = "tests/regression/0251-0300";
+	str file = "0265.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0265.ft:9:16\n└─┬┤E0000│\n9 │ error MyError3(MyError1, MyError2):\n┌─┴────────────────┘\n└─ Error sets can only extend from a single other error set\n");
+
+test "0266":
+	str path = "tests/regression/0251-0300/0266";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\n");
+
+test "0267":
+	str path = "tests/regression/0251-0300";
+	str file = "0267.ft";
+	test_file_ok($"{path}/{file}", "grey = (100, 120, 140, 255)\n27 ** 0.333333 = 3\nsin(0.5236) = 0.500001\n");
+
+test "0268":
+	str path = "tests/regression/0251-0300";
+	str file = "0268.ft";
+	test_file_ok($"{path}/{file}", "0\n1\n2\n0\n1\n2\n");
+
+test "0269":
+	str path = "tests/regression/0251-0300";
+	str file = "0269.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0269.ft:5:11\n└─┬┤E0000│\n3 │ def main():\n5 │ »   print($\"{hello}\");\n┌─┴───────────┘\n├─ It is not allowed to interpolate a single expression using $\"{hello}\"\n└─ Use str(hello) instead!\n");
+
+test "0270":
+	str path = "tests/regression/0251-0300";
+	str file = "0270.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (10, 20, 30)\n");
+
+// TODO: Update once the ExactAPFloat system is implement
+test "0271":
+	str path = "tests/regression/0251-0300";
+	str file = "0271.ft";
+	test_file_ok($"{path}/{file}", "((1.0 / 3.0) + (1.0 / 3.0) + (1.0 / 3.0)) == 1.0 ? false\n");
+
+test "0272":
+	str path = "tests/regression/0251-0300";
+	str file = "0272.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0272.ft:19:1\n└──┬┤E0000│\n19 │ object Entity:\n┌──┴─┘\n└─ Object type is missing data 'DScale' required by func component 'FMove'\n");
+
+test "0273":
+	str path = "tests/regression/0251-0300";
+	str file = "0273.ft";
+	test_file_ok($"{path}/{file}", "Drawing triangle (0, 0)->(4, 0)->(0, 3)\nDrawing triangle (0, 0)->(4, 0)->(0, 3)\nDrawing triangle (0, 0)->(4, 0)->(0, 3)\nDrawing triangle (0, 0)->(4, 0)->(0, 3)\n");
+
+test "0274":
+	str path = "tests/regression/0251-0300";
+	str file = "0274.ft";
+	test_compiles($"{path}/{file}");
+
+test "0275":
+	str path = "tests/regression/0251-0300";
+	str file = "0275.ft";
+	test_compiles($"{path}/{file}");
+
+test "0276":
+	str path = "tests/regression/0251-0300";
+	str file = "0276.ft";
+	test_file_ok($"{path}/{file}", "thing(0) = 0\nthing(1) = 1\nthing(2) = 2\nthing(3) = 4\nthing(4) = 8\nthing(5) = 16\nthing(6) = 32\n");
+
+test "0277":
+	str path = "tests/regression/0251-0300";
+	str file = "0277.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0277.ft:6:13\n└─┬┤E0000│\n3 │ def main():\n6 │ »   i32 y = x.z;\n┌─┴─────────────┘\n└─ Field accesses are not allowed on type 'i32'\n");
+
+test "0278":
+	str path = "tests/regression/0251-0300";
+	str file = "0278.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0279":
+	str path = "tests/regression/0251-0300";
+	str file = "0279.ft";
+	test_file_ok($"{path}/{file}", "applying '10' to accumulator results in: 10\napplying '9' to accumulator results in: 1\napplying '8' to accumulator results in: 8\napplying '7' to accumulator results in: 1\nresult = 1\n");
+
+test "0280":
+	str path = "tests/regression/0251-0300";
+	str file = "0280.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nHello, World 2!\n");
+
+test "0281":
+	str path = "tests/regression/0251-0300";
+	str file = "0281.ft";
+	test_file_ok($"{path}/{file}", "cwd = ", "/flintc/examples\n");
+
+test "0282":
+	str path = "tests/regression/0251-0300/0282";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "x = 15\n");
+
+test "0283":
+	str path = "tests/regression/0251-0300";
+	str file = "0283.ft";
+	test_file_ok($"{path}/{file}", "The string with element unpacking...\n0: H\n1: e\n2: l\n3: l\n4: o\n5: ,\n6:  \n7: W\n8: o\n9: r\n10: l\n11: d\n12: !\n13: \n\nThe string with iterator tuple...\n0: H\n1: e\n2: l\n3: l\n4: o\n5: ,\n6:  \n7: W\n8: o\n9: r\n10: l\n11: d\n12: !\n13: \n\nThe arr with element unpacking...\n0: 69\n1: 69\n2: 69\n3: 69\n4: 69\nThe arr with iterator tuple...\n0: 69\n1: 69\n2: 69\n3: 69\n4: 69\n");
+
+test "0284":
+	str path = "tests/regression/0251-0300";
+	str file = "0284.ft";
+	test_compiles($"{path}/{file}");
+
+test "0285":
+	str path = "tests/regression/0251-0300";
+	str file = "0285.ft";
+	test_file_ok($"{path}/{file}", "holds i32 value of -5\nholds f32 value of 3.4\nholds u64 value of 55\n");
+
+test "0286":
+	str path = "tests/regression/0251-0300";
+	str file = "0286.ft";
+	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\nn.v1.(x, y) = (10, 20)\nn.v2.(x, y) = (30, 40)\n");
+
+test "0287":
+	str path = "tests/regression/0251-0300";
+	str file = "0287.ft";
+	test_file_ok($"{path}/{file}", "i = -55\nf = 3.14\ns = Hello There\n");
+
+test "0288":
+	str path = "tests/regression/0251-0300";
+	str file = "0288.ft";
+	test_file_ok($"{path}/{file}", "lines[0] = Hello 1\nlines[1] = Hello 2\nlines[2] = Hello 3\nlines[3] = Hello 4\n");
+
+test "0289":
+	str path = "tests/regression/0251-0300";
+	str file = "0289.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = -5\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\nOut Of Bounds access occured: Arr Len: 10, Index: 10\narr[10] = 9\n\narr2[0] = 7\narr2[1] = 5\narr2[2] = 5\narr2[3] = 5\narr2[4] = 5\narr2[5] = 5\narr2[6] = 5\narr2[7] = 5\narr2[8] = 5\narr2[9] = 5\n\narr3[0] = 8\narr3[1] = -4\narr3[2] = -4\narr3[3] = -4\narr3[4] = -4\narr3[5] = -4\narr3[6] = -4\narr3[7] = -4\narr3[8] = -4\narr3[9] = -4\n\narr4[0] = 4\narr4[1] = 10\narr4[2] = 10\narr4[3] = 10\narr4[4] = 10\narr4[5] = 10\narr4[6] = 10\narr4[7] = 10\narr4[8] = 10\narr4[9] = 10\n");
+
+test "0290":
+	str path = "tests/regression/0251-0300";
+	str file = "0290.ft";
+	test_file_ok($"{path}/{file}", "pretty_print? false\n");
+
+test "0291":
+	str path = "tests/regression/0251-0300";
+	str file = "0291.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0291.ft:5:1\n└─┬┤E0000│\n5 │ #test_should_fail\n┌─┴─┘\n└─ Defined annotation 'test_should_fail' twice\n");
+
+test "0292":
+	str path = "tests/regression/0251-0300";
+	str file = "0292.ft";
+	test_file_ok($"{path}/{file}", "Compile with --test to crate a test binary!\n");
+
+test "0293":
+	str path = "tests/regression/0251-0300";
+	str file = "0293.ft";
+	test_file_ok($"{path}/{file}", "maybe.$0 = false\nmaybe.$1 = 0\n");
+
+test "0294":
+	str path = "tests/regression/0251-0300";
+	str file = "0294.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0295":
+	str path = "tests/regression/0251-0300/0295";
+	str file = "main.ft";
+	test_file_fail_in(1, path, file, "Parse Error at main.ft:5:1\n└─┬┤E0000│\n5 │ extern def add(mut i32 x, mut i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
+
+test "0296":
+	str path = "tests/regression/0251-0300/0296";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "ranges[0] = (0, 0)\nranges[1] = (0, 0)\nranges[2] = (10, 20)\nranges[3] = (0, 0)\nranges[4] = (0, 0)\nv3.(x, y, z) = (10, 20, 30)\n");
+
+test "0297":
+	str path = "tests/regression/0251-0300/0297";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Parse Error at main.ft:22:18\n└──┬┤E0000│\n17 │ def main():\n22 │ »   print($\"z = {k}\\n\");\n┌──┴──────────────────┘\n└─ Use of undeclared variable 'k'\n");
+
+test "0298":
+	str path = "tests/regression/0251-0300/0298";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "c.value = null\nc.len = 0\nc.value = ", "c.len = 100\n");
+
+test "0299":
+	str path = "tests/regression/0251-0300/0299";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "b = 10\nd.x = 0\nspeed = 10\nspeed = 10\nb = 10\nme.get_x() = 0\n");
+
+test "0300":
+	str path = "tests/regression/0251-0300";
+	str file = "0300.ft";
+	test_file_ok($"{path}/{file}", "container.(a, b, c) = (-10, 22.5, 889)\ncontainer.(a, b, c) = (-7, 25.9, 892)\ncontainer.(a, b, c) = (-49, 186.479996, 6244)\ncontainer.(a, b, c) = (-71, 164.37999, 6222)\ncontainer.(a, b, c) = (-11, 23.823187, 1037)\n");

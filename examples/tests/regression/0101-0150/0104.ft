@@ -1,0 +1,6 @@
+def add(i32 x, i32 y) -> i32:
+	return x + y;
+
+def main():
+	for (i, _) in 0..10_000_000:
+		add(10, i32(i));

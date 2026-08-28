@@ -1,0 +1,9 @@
+use Core.print
+
+use "imported.ft" as i
+
+def main():
+	d := i.MyData(10, 20, 30);
+	i.MyFunc.print(d);
+	x := i.MyFunc.get_x(d);
+	print($"d.x = {x}\n");

@@ -1,0 +1,26 @@
+use Core.print
+
+error Base:
+	Err1, Err2;
+
+error Crash(Base):
+	Friendly, Harshly;
+
+def fail(bool friend) {Crash}:
+	if friend:
+		throw Crash.Friendly;
+	else:
+		throw Crash.Harshly;
+
+def main():
+	fail(true) catch:
+		Crash(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+
+	fail(false) catch:
+		Crash(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");

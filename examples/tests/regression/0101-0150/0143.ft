@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    u8 c = 'C';
+    print(c);
+    print("\n");

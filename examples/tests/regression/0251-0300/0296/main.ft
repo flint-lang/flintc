@@ -1,0 +1,16 @@
+use Core.print
+
+use "imported.ft" as im
+
+type Range u64x2
+
+def print_ranges(Range[] ranges):
+	for (i, range) in ranges:
+		print($"ranges[{i}] = ({range.x}, {range.y})\n");
+
+def main():
+	Range[] ranges = Range[5](_);
+	ranges[2] = (10, 20);
+	print_ranges(ranges);
+	im.Vec3 v3 = (10, 20, 30);
+	print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");

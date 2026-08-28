@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    str a = "a";
+    str b = "b";
+    print($"a == b : {a == b}\n");

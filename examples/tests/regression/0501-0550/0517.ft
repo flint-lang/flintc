@@ -1,0 +1,4 @@
+use Core.print
+
+def main():
+    data<data<i32, f32>, str> something = ((1, 3.3), "str");

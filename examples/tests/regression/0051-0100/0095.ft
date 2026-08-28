@@ -1,0 +1,23 @@
+use Core.print
+
+data Data:
+	i32 x;
+	f32 y;
+	Data(x, y);
+
+func Func requires(Data d):
+	def print():
+		print($"d.(x, y) = ({d.x}, {d.y})\n");
+
+def regular_callable(i32 x) -> i32:
+	return x ** 2;
+
+def main():
+	d := Data(10, 3.14);
+	Func.print(d);
+
+	fn<mut Data> print_fn = Func::print;
+	print_fn(d);
+
+	fn<i32 -> i32> c = ::regular_callable;
+	print($"c(10) = {c(10)}\n");

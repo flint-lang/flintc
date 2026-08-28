@@ -1,0 +1,14 @@
+use Core.assert
+use Core.print
+
+def main():
+    i64 x = 1;
+    for i64 i = 0; i < 64; i++:
+        x *= i64(2);
+    print($"{x}\n");
+
+test "overflow-protection":
+    i64 x = 1;
+    for i64 i = 0; i < 64; i++:
+        x *= i64(2);
+    assert(str(x) == "9223372036854775807");

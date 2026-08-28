@@ -1,0 +1,15 @@
+use Core.print
+
+def thing(u64 input) -> u64:
+	return switch input:
+		0 -> 0;
+		1 -> 1;
+		2 -> 2;
+		3 -> 4;
+		4 -> 8;
+		5 -> 16;
+		else -> 32;
+
+def main():
+	for (i, _) in 0..7:
+		print($"thing({i}) = {thing(i)}\n");

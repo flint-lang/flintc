@@ -1,0 +1,252 @@
+use "../../utils.ft"
+
+// TODO: FAIL
+test "0101":
+	str path = "tests/regression/0101-0150";
+	str file = "0101.ft";
+	test_file_crash($"{path}/{file}", none, "unwrapped = 69\nBad optional access occurred\n", 134);
+
+test "0102":
+	str path = "tests/regression/0101-0150";
+	str file = "0102.ft";
+	test_file_ok($"{path}/{file}", "hello\n");
+
+test "0103":
+	str path = "tests/regression/0101-0150";
+	str file = "0103.ft";
+	test_file_ok($"{path}/{file}", "i.(x, y) = (10, 20)\no.i.x = 5\no: { i: { x: 4, y: 6.5 }, c: 33 }\n");
+
+test "0104":
+	str path = "tests/regression/0101-0150";
+	str file = "0104.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0105":
+	str path = "tests/regression/0101-0150";
+	str file = "0105.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0105.ft:4:16\n└─┬┤E0000│\n3 │ def main():\n4 │ »   i32x3 v3 = i32x3(10, 20);\n┌─┴────────────────┘\n└─ Expected '3' values inside vector-type cast but got '2' values instead\n");
+
+test "0106":
+	str path = "tests/regression/0101-0150";
+	str file = "0106.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0106.ft:4:9\n└─┬┤E0000│\n1 │ data SomeData:\n4 │ »   i32 x;\n┌─┴─────────┘\n└─ Duplicate data field 'x'\n");
+
+test "0107":
+	str path = "tests/regression/0101-0150";
+	str file = "0107.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0108":
+	str path = "tests/regression/0101-0150";
+	str file = "0108.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0108.ft:3:11\n└─┬┤E0000│\n3 │ def main():\n┌─┴───────────┘\n└─ Expected a body after the :\n\nParse Error at tests/regression/0101-0150/0108.ft:4:1\n└─┬┤E0000│\n4 │ print(\"This is not indented correctly.\\n\");\n┌─┴─┘\n└─ The definition could not be parsed\n");
+
+test "0109":
+	str path = "tests/regression/0101-0150";
+	str file = "0109.ft";
+	test_file_ok($"{path}/{file}", "differ\nare equal\n");
+
+test "0110":
+	str path = "tests/regression/0101-0150";
+	str file = "0110.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0110.ft:16:15\n└──┬┤E0000│\n13 │ object Entity:\n14 │ »   data:\n16 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+
+test "0111":
+	str path = "tests/regression/0101-0150";
+	str file = "0111.ft";
+	test_file_ok($"{path}/{file}", "Something\nNew Thing!\n");
+
+test "0112":
+	str path = "tests/regression/0101-0150";
+	str file = "0112.ft";
+	test_file_ok($"{path}/{file}", "arg = none\narg = hello\narg = none\narg = temp\n");
+
+test "0113":
+	str path = "tests/regression/0101-0150";
+	str file = "0113.ft";
+	test_file_ok($"{path}/{file}", "is VAL3 or VAL4\nres = 0\nstring = VAL3\nc = 3\n");
+
+test "0114":
+	str path = "tests/regression/0101-0150";
+	str file = "0114.ft";
+	test_file_ok($"{path}/{file}", "c() = 0\nc() = 1\n");
+
+test "0115":
+	str path = "tests/regression/0101-0150";
+	str file = "0115.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0115.ft:13:11\n└──┬┤E0000│\n12 │ object Entity:\n13 │ »   data: Func d1;\n┌──┴───────────┘\n└─ Type mismatch. Expected data type for object-provided data\n");
+
+test "0116":
+	str path = "tests/regression/0101-0150";
+	str file = "0116.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis not val1\nis something else\n");
+
+test "0117":
+	str path = "tests/regression/0101-0150";
+	str file = "0117.ft";
+	test_file_ok($"{path}/{file}", "strings[0] = wololo\nstrings[1] = something else\nstrings[2] = hello there!\n");
+
+test "0118":
+	str path = "tests/regression/0101-0150";
+	str file = "0118.ft";
+	test_file_ok($"{path}/{file}", "condition is true\n");
+
+test "0119":
+	str path = "tests/regression/0101-0150";
+	str file = "0119.ft";
+	test_file_ok($"{path}/{file}", "i32(MyEnum.VAL1) = 0\ni32(MyEnum.VAL2) = 1\ni32(MyEnum.VAL3) = 2\ni32(MyEnum.VAL4) = 4\ni32(MyEnum.VAL5) = 8\n");
+
+test "0120":
+	str path = "tests/regression/0101-0150";
+	str file = "0120.ft";
+	test_file_ok($"{path}/{file}", "3\n");
+
+test "0121":
+	str path = "tests/regression/0101-0150";
+	str file = "0121.ft";
+	test_file_ok($"{path}/{file}", "pi = 3.141592653589793238462643383279\n");
+
+test "0122":
+	str path = "tests/regression/0101-0150";
+	str file = "0122.ft";
+	test_file_ok($"{path}/{file}", "capture = \"iteration 0\niteration 1\niteration 2\niteration 3\niteration 4\niteration 5\niteration 6\niteration 7\niteration 8\niteration 9\n\"\n");
+
+test "0123":
+	str path = "tests/regression/0101-0150";
+	str file = "0123.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\ne = MyEnum.VAL1\n");
+
+test "0124":
+	str path = "tests/regression/0101-0150";
+	str file = "0124.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0125":
+	str path = "tests/regression/0101-0150";
+	str file = "0125.ft";
+	test_file_ok($"{path}/{file}", "vec3 = (10, 20, 30)\nvec3 = (40, 80, 120)\n");
+
+test "0126":
+	str path = "tests/regression/0101-0150";
+	str file = "0126.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 'Hi There'\narr[1] = 'Hi'\narr[2] = 'Hi'\narr[3] = 'Hi there 2'\narr[4] = 'Hi'\narr[5] = 'Hi'\narr[6] = 'Hi'\narr[7] = 'Hi'\narr[8] = 'Hi'\nHi There");
+
+test "0127":
+	str path = "tests/regression/0101-0150";
+	str file = "0127.ft";
+	test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\nErrAssert id = ErrAssert.AssertionFailed\nvalue = Hello There\nval = Hello There, Too\nvalue = Hello There, Too\nexit_code = 127\noutput = ", "\n");
+
+test "0128":
+	str path = "tests/regression/0101-0150";
+	str file = "0128.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0128.ft:4:1\n└─┬┤E0000│\n4 │ #test_wololo\n┌─┴─┘\n├─ Unknown annotation 'test_wololo'\n└─ Known annotations are:\n    ├─ #test_should_fail\n    ├─ #test_output_never\n    ├─ #test_performance\n    └─ #test_output_always\n");
+
+test "0129":
+	str path = "tests/regression/0101-0150";
+	str file = "0129.ft";
+	test_file_ok($"{path}/{file}", "pos = (10, 20)\nd.pos = (10, 20)\nmoving...\npos = (10, 20)\nd.pos = (13, 25)\n");
+
+test "0130":
+	str path = "tests/regression/0101-0150";
+	str file = "0130.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nx = 10\nerr = ErrAssert.AssertionFailed\nx = 10\nerr = ErrAssert.AssertionFailed\nx = 0\n");
+
+test "0131":
+	str path = "tests/regression/0101-0150";
+	str file = "0131.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0132":
+	str path = "tests/regression/0101-0150";
+	str file = "0132.ft";
+	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"tests/regression/0101-0150/0132.ft\"):\nLINE_5:			print(\"File 'tests/regression/0101-0150/0132.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"tests/regression/0101-0150/0132.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		bool logfile_exists = fs.file_exists(\"logfile\");\nLINE_11:		print($\"lgofile does exist? {logfile_exists}\\n\");\nLINE_12:		fs.write_file(\"logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_13:		fs.append_file(\"logfile\", \"newlineadded\\n\");\nLINE_14:		print(\"Written file 'logfile'\\n\");\nLINE_15:		bool logfile_is_file = fs.is_file(\"logfile\");\nLINE_16:		print($\"logfile is file? {logfile_is_file}\\n\");\nlgofile does exist? true\nWritten file 'logfile'\nlogfile is file? true\n");
+
+test "0133":
+	str path = "tests/regression/0101-0150";
+	str file = "0133.ft";
+	test_file_ok($"{path}/{file}", "7\n");
+
+test "0134":
+	str path = "tests/regression/0101-0150";
+	str file = "0134.ft";
+	test_file_ok($"{path}/{file}", "x1 = 10\narr[0] = Data(.x = 0, .y = 0)\narr[1] = Data(.x = 10, .y = 20)\narr[2] = Data(.x = 0, .y = 0)\narr[3] = Data(.x = 0, .y = 0)\narr[4] = Data(.x = 0, .y = 0)\narr[5] = Data(.x = 0, .y = 0)\narr[6] = Data(.x = 0, .y = 0)\narr[7] = Data(.x = 0, .y = 0)\narr[8] = Data(.x = 0, .y = 0)\narr[9] = Data(.x = 0, .y = 0)\n");
+
+test "0135":
+	str path = "tests/regression/0101-0150";
+	str file = "0135.ft";
+	test_file_ok($"{path}/{file}", "6, 11, 16, 21\n");
+
+test "0136":
+	str path = "tests/regression/0101-0150/0136";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "Hello from C!\nadd(1, 8) = 9\n");
+
+test "0137":
+	str path = "tests/regression/0101-0150";
+	str file = "0137.ft";
+	test_file_ok($"{path}/{file}", "Executed State 1\nExecuted State 2\nExecuted State 3\nExecuted State 1\nExecuted State 2\nExecuted State 3\n");
+
+test "0138":
+	str path = "tests/regression/0101-0150";
+	str file = "0138.ft";
+	test_file_ok($"{path}/{file}", "num = 0\nnum = 1\nnum = 2\nnum = 3\nnum = 4\n");
+
+test "0139":
+	str path = "tests/regression/0101-0150/0139";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "v2.x = 1.1\n");
+
+test "0140":
+	str path = "tests/regression/0101-0150";
+	str file = "0140.ft";
+	test_file_ok($"{path}/{file}", "e = VAL1, id = 1\ne = VAL2, id = 2\ne = VAL3, id = 4\n");
+
+test "0141":
+	str path = "tests/regression/0101-0150";
+	str file = "0141.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0141.ft:3:1\n└─┬┤E0000│\n3 │ extern def foo(i32 x, i32 y) -> i32;\n┌─┴─┘\n├─ No '.fip' directory found\n├─ To be able to interop with extern code you need the FIP set up\n└─ For further information look at 'https://flint-lang.github.io/wiki/v0.4.0-core/beginners_guide/11_interop/2_defining.html'\n");
+
+test "0142":
+	str path = "tests/regression/0101-0150";
+	str file = "0142.ft";
+	test_file_ok($"{path}/{file}", "has_value = true\nequals = true\nmaybe = 17\n");
+
+test "0143":
+	str path = "tests/regression/0101-0150";
+	str file = "0143.ft";
+	test_file_ok($"{path}/{file}", "67\n");
+
+test "0144":
+	str path = "tests/regression/0101-0150";
+	str file = "0144.ft";
+	test_file_ok($"{path}/{file}", "err happened\nerr happened\n");
+
+test "0145":
+	str path = "tests/regression/0101-0150";
+	str file = "0145.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n[5] = ','\n");
+
+test "0146":
+	str path = "tests/regression/0101-0150";
+	str file = "0146.ft";
+	test_file_ok($"{path}/{file}", "Drawing triangle (0, 0)->(4, 0)->(0, 3)\nDrawing quad (0, 0):(4, 0) (5, 3):(1, 4)\nDrawing triangle (1, 1)->(5, 2)->(2, 4)\nDrawing quad (0, 0):(4, 2) (2, 1):(4, 4)\n");
+
+test "0147":
+	str path = "tests/regression/0101-0150";
+	str file = "0147.ft";
+	test_compiles($"{path}/{file}");
+
+test "0148":
+	str path = "tests/regression/0101-0150";
+	str file = "0148.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis val1\nis val2\nis val2\nis val3 or val4\nis val3 or val4\nis val3 or val4\nis val3 or val4\n");
+
+test "0149":
+	str path = "tests/regression/0101-0150";
+	str file = "0149.ft";
+	test_file_ok($"{path}/{file}", "Calculation took 1.", " s\n");
+
+test "0150":
+	str path = "tests/regression/0101-0150";
+	str file = "0150.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0150.ft:1:1\n└─┬┤E0000│\n1 │ use Core.print\n┌─┴─┘\n└─ No main function found in the project\n");

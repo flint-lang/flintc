@@ -1,0 +1,12 @@
+use Core.print
+
+enum NiceEnum:
+    Val1, Val2, Val3;
+
+def main():
+    NiceEnum e = NiceEnum.Val1;
+    print($"e = {e}\n");
+    e = NiceEnum.Val2;
+    print($"e = {e}\n");
+    e = NiceEnum.Val3;
+    print($"e = {e}\n");

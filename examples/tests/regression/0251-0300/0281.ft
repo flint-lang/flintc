@@ -1,0 +1,6 @@
+use Core.print
+use Core.system
+
+def main():
+    str cwd = get_cwd();
+    print($"cwd = {cwd}\n");

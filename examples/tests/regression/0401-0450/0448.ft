@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+    str a = "something";
+    a += "\n";
+    print(a);
+    i32 x = 5 ** 4;
+    print(x);
+    print("\n");
+    f32 y = 16.0 ** 0.5;
+    print(y);
+    print("\n");

@@ -1,0 +1,13 @@
+use Core.print
+
+error MyError1:
+	e1;
+
+error MyError2:
+	e2;
+
+error MyError3(MyError1, MyError2):
+	e3;
+
+def main():
+	print("Hello there\n");

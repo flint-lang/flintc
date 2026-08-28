@@ -1,0 +1,254 @@
+use "../../utils.ft"
+
+test "0001":
+	str path = "tests/regression/0001-0050";
+	str file = "0001.ft";
+	test_file_ok($"{path}/{file}", "u_2 = (10, 20)\nu_3 = (10, 20, 30)\nu_4 = (10, 20, 30, 40)\nu_8 = (10, 20, 30, 40, 50, 60, 70, 80)\nu6_2 = (10, 20)\nu6_3 = (10, 20, 30)\nu6_4 = (10, 20, 30, 40)\n");
+
+test "0002":
+	str path = "tests/regression/0001-0050";
+	str file = "0002.ft";
+	test_file_ok($"{path}/{file}", "var_1 = -5\nvar_2 = 6\nstored var_1\nstored var_2\nvar_1 = (10, 20, 30)\nvar_2 = (-5, -10, -15)\n");
+
+test "0003":
+	str path = "tests/regression/0001-0050";
+	str file = "0003.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0004":
+	str path = "tests/regression/0001-0050";
+	str file = "0004.ft";
+	test_file_ok($"{path}/{file}", "x = 1, y = 2\n");
+
+test "0005":
+	str path = "tests/regression/0001-0050";
+	str file = "0005.ft";
+	test_file_ok($"{path}/{file}", "type_id = 3116457699\nvalue_id = 2\nmessage = Special Error 1\n\ntype_id = 3116457699\nvalue_id = 3\nmessage = Overwritten message: true\n");
+
+test "0006":
+	str path = "tests/regression/0001-0050";
+	str file = "0006.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\n");
+
+test "0007":
+	str path = "tests/regression/0001-0050";
+	str file = "0007.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0001-0050/0007.ft:8:1\n└─┬┤E0000│\n8 │ def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:\n┌─┴─┘\n├─ Redefinition of function: add_vectors(f32x3, f32x3)\n└─ First defined at: tests/regression/0001-0050/0007.ft:4:1\n\nParse Error at tests/regression/0001-0050/0007.ft:12:1\n└──┬┤E0000│\n12 │ def foo(i32 x, i32 y) -> i32:\n┌──┴─┘\n├─ Redefinition of function: foo(i32, i32)\n└─ First defined at: tests/regression/0001-0050/0007.ft:5:1\n\nParse Error at tests/regression/0001-0050/0007.ft:15:1\n└──┬┤E0000│\n15 │ def bar() -> i32:\n┌──┴─┘\n├─ Redefinition of function: bar()\n└─ First defined at: tests/regression/0001-0050/0007.ft:6:1\n");
+
+test "0008":
+	str path = "tests/regression/0001-0050";
+	str file = "0008.ft";
+	test_file_ok($"{path}/{file}", "e = Val1\ne = Val2\ne = Val3\n");
+
+test "0009":
+	str path = "tests/regression/0001-0050";
+	str file = "0009.ft";
+	test_file_ok($"{path}/{file}", "z = 30\n");
+
+test "0010":
+	str path = "tests/regression/0001-0050";
+	str file = "0010.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "0011":
+	str path = "tests/regression/0001-0050";
+	str file = "0011.ft";
+	test_file_ok($"{path}/{file}", "is_val3\n");
+
+test "0012":
+	str path = "tests/regression/0001-0050";
+	str file = "0012.ft";
+	test_file_ok($"{path}/{file}", "d.pos = (20, 30)\n");
+
+test "0013":
+	str path = "tests/regression/0001-0050";
+	str file = "0013.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
+
+// TODO: FAILS
+test "0014":
+	str path = "tests/regression/0001-0050";
+	str file = "0014.ft";
+	test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", 134);
+
+test "0015":
+	str path = "tests/regression/0001-0050";
+	str file = "0015.ft";
+	test_file_ok($"{path}/{file}", "int3 = (4, 4, 4)\n");
+
+test "0016":
+	str path = "tests/regression/0001-0050";
+	str file = "0016.ft";
+	test_file_ok($"{path}/{file}", "result = (178, 4, 96)\n");
+
+test "0017":
+	str path = "tests/regression/0001-0050";
+	str file = "0017.ft";
+	test_file_ok($"{path}/{file}", "67\nx = 67\nc_str = C\nc_str < 100 ? true\n");
+
+test "0018":
+	str path = "tests/regression/0001-0050";
+	str file = "0018.ft";
+	test_file_ok($"{path}/{file}", "b = 10\nd.x = 0\nspeed = 10\nspeed = 10\nb = 10\nme.get_x() = 0\n");
+
+test "0019":
+	str path = "tests/regression/0001-0050";
+	str file = "0019.ft";
+	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\n");
+
+test "0020":
+	str path = "tests/regression/0001-0050";
+	str file = "0020.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0021":
+	str path = "tests/regression/0001-0050";
+	str file = "0021.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0001-0050/0021.ft:46:5\n└──┬┤E0000│\n45 │ def main():\n46 │ »   Func f;\n┌──┴─────┘\n└─ Freeable typed variable declaration is missing an initializer\n");
+
+test "0022":
+	str path = "tests/regression/0001-0050";
+	str file = "0022.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = -5\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n\narr2[0] = 7\narr2[1] = 5\narr2[2] = 5\narr2[3] = 5\narr2[4] = 5\narr2[5] = 5\narr2[6] = 5\narr2[7] = 5\narr2[8] = 5\narr2[9] = 5\n\narr3[0] = 8\narr3[1] = -4\narr3[2] = -4\narr3[3] = -4\narr3[4] = -4\narr3[5] = -4\narr3[6] = -4\narr3[7] = -4\narr3[8] = -4\narr3[9] = -4\n\narr4[0] = 4\narr4[1] = 10\narr4[2] = 10\narr4[3] = 10\narr4[4] = 10\narr4[5] = 10\narr4[6] = 10\narr4[7] = 10\narr4[8] = 10\narr4[9] = 10\n\narr5[0] = 4.1\narr5[1] = 3.3\narr5[2] = 3.3\narr5[3] = 3.3\narr5[4] = 3.3\narr5[5] = 3.3\narr5[6] = 3.3\narr5[7] = 3.3\narr5[8] = 3.3\narr5[9] = 3.3\n\narr6[0] = 6.325\narr6[1] = 2.456\narr6[2] = 2.456\narr6[3] = 2.456\narr6[4] = 2.456\narr6[5] = 2.456\narr6[6] = 2.456\narr6[7] = 2.456\narr6[8] = 2.456\narr6[9] = 2.456\n");
+
+test "0023":
+	str path = "tests/regression/0001-0050";
+	str file = "0023.ft";
+	test_file_ok($"{path}/{file}", "flags = 00000000\nflags = 01010100\nchar = T\nthird = true, fourth = false, sixth = false\n");
+
+test "0024":
+	str path = "tests/regression/0001-0050";
+	str file = "0024.ft";
+	test_file_ok($"{path}/{file}", "Calculation took ", " ms\n");
+
+test "0025":
+	str path = "tests/regression/0001-0050";
+	str file = "0025.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0026":
+	str path = "tests/regression/0001-0050";
+	str file = "0026.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\nspeed = 10\nspeed = 10\nd = (1, 2, 3)\nme.get_x() = 1\n");
+
+test "0027":
+	str path = "tests/regression/0001-0050";
+	str file = "0027.ft";
+	test_file_ok($"{path}/{file}", "something\n");
+
+test "0028":
+	str path = "tests/regression/0001-0050";
+	str file = "0028.ft";
+	test_file_ok($"{path}/{file}", "i == -5\nf == none\n");
+
+test "0029":
+	str path = "tests/regression/0001-0050";
+	str file = "0029.ft";
+	test_file_ok($"{path}/{file}", "t.pos.x = 1\n");
+
+test "0030":
+	str path = "tests/regression/0001-0050";
+	str file = "0030.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0001-0050/0030.ft:6:5\n└─┬┤E0000│\n3 │ def main():\n6 │ »   v3.call();\n┌─┴─────┘\n└─ Instance calls are only allowed on variables of type 'object' or 'func'\n");
+
+test "0031":
+	str path = "tests/regression/0001-0050/0031";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "v3.(x, y, z) = (10, 20, 30)\n");
+
+test "0032":
+	str path = "tests/regression/0001-0050";
+	str file = "0032.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0123456789\narr[1] = 0123456789\narr[2] = 0123456789\narr[3] = 0123456789\narr[4] = 0123456789\narr[5] = 012B456789\narr[6] = 0123456789\narr[7] = 0123456789\narr[8] = 0123456789\narr[9] = 0123456789\n");
+
+test "0033":
+	str path = "tests/regression/0001-0050";
+	str file = "0033.ft";
+	test_file_ok($"{path}/{file}", "unwrapped = 69\nmaybe = none\ntrue\nfalse\nare not equal\nare equal\nare equal\nare equal\n");
+
+test "0034":
+	str path = "tests/regression/0001-0050";
+	str file = "0034.ft";
+	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		str[] lines = fs.read_lines(\"tests/regression/0001-0050/0034.ft\");\nLINE_5:		for u64 i = 0; i < lines.length; i++:\nLINE_6:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\n");
+
+test "0035":
+	str path = "tests/regression/0001-0050";
+	str file = "0035.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nx = 20\nx = 10\nx = 30\n");
+
+test "0036":
+	str path = "tests/regression/0001-0050";
+	str file = "0036.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0037":
+	str path = "tests/regression/0001-0050";
+	str file = "0037.ft";
+	test_file_ok($"{path}/{file}", "third = 'r' at idx 114\n");
+
+test "0038":
+	str path = "tests/regression/0001-0050";
+	str file = "0038.ft";
+	test_file_ok($"{path}/{file}", "8178\n");
+
+test "0039":
+	str path = "tests/regression/0001-0050";
+	str file = "0039.ft";
+	test_file_ok($"{path}/{file}", "ranges[0] = (0, 0)\nranges[1] = (0, 0)\nranges[2] = (0, 0)\nranges[3] = (0, 0)\nranges[4] = (0, 0)\n");
+
+test "0040":
+	str path = "tests/regression/0001-0050";
+	str file = "0040.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "0041":
+	str path = "tests/regression/0001-0050";
+	str file = "0041.ft";
+	test_file_ok($"{path}/{file}", "capture = \"line 0\nline 1\nline 2\nline 3\nline 4\nline 5\nline 6\nline 7\nline 8\nline 9\n\"\nline_count: 10\nlines[0] | line 0\nlines[1] | line 1\nlines[2] | line 2\nlines[3] | line 3\nlines[4] | line 4\nlines[5] | line 5\nlines[6] | line 6\nlines[7] | line 7\nlines[8] | line 8\nlines[9] | line 9\n");
+
+test "0042":
+	str path = "tests/regression/0001-0050";
+	str file = "0042.ft";
+	test_file_ok($"{path}/{file}", "is i32: false\n");
+
+test "0043":
+	str path = "tests/regression/0001-0050";
+	str file = "0043.ft";
+	test_file_ok($"{path}/{file}", "x = 5 + 12\n");
+
+test "0044":
+	str path = "tests/regression/0001-0050";
+	str file = "0044.ft";
+	test_file_ok($"{path}/{file}", "is Crash\nis anyerror\n");
+
+// TODO: FAILS
+// TODO: Regressed
+test "0045":
+	str path = "tests/regression/0001-0050";
+	str file = "0045.ft";
+	test_file_ok($"{path}/{file}", "v = hello there\nv2.(x, y, z) = (-10, 20.9, 33)\n");
+
+test "0046":
+	str path = "tests/regression/0001-0050";
+	str file = "0046.ft";
+	test_file_ok($"{path}/{file}", "a == b : false\n");
+
+test "0047":
+	str path = "tests/regression/0001-0050";
+	str file = "0047.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 5\narr[4] = 4\narr[5] = 3\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
+
+test "0048":
+	str path = "tests/regression/0001-0050";
+	str file = "0048.ft";
+	test_file_ok($"{path}/{file}", "Here is the first line\nAll counting lines below will repeat in the single line...\nThe third line is atmost important!\n[s[u0\n[u1\n[u2\n[u3\n[u4\n[u5\n[u6\n[u7\n[u8\n[u9\n");
+
+test "0049":
+	str path = "tests/regression/0001-0050";
+	str file = "0049.ft";
+	test_file_ok($"{path}/{file}", "µs\nduration = ", "\n");
+
+test "0050":
+	str path = "tests/regression/0001-0050";
+	str file = "0050.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");

@@ -1,0 +1,4 @@
+use Core.print
+
+def main():
+    data<i32, f32> tuple = (1, 2.2);

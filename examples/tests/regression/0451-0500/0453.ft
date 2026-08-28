@@ -1,0 +1,19 @@
+use Core.print
+
+variant MyVar:
+	Int(i32), Float(f32), bool;
+
+def main():
+	MyVar var = MyVar.Int(-5);
+	i32? maybe = var?(MyVar.Int);
+	if maybe == none:
+		print("not i32\n");
+	else:
+		print($"is i32: {maybe!}\n");
+
+	var = false;
+	maybe = var?(MyVar.Int);
+	if maybe == none:
+		print("not i32\n");
+	else:
+		print($"is i32: {maybe!}\n");

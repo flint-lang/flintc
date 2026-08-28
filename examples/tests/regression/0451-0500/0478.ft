@@ -1,0 +1,8 @@
+use Core.print
+
+def main():
+	// This is okay
+	i32[] a1 = i32[_]{};
+
+	// This is not
+	i32[0] a2 = i32[_]{};

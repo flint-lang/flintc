@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+	str[,] arr = str[3, 3]("Hi");
+	arr[0, 0] = "Hi There";
+	arr[0, 1] = "Hi there 2";
+	for (i, elem) in arr:
+		print($"arr[{i}] = '{elem}'\n");
+
+	//u32[,] arr2 = u32[10, 10](30);
+	//for (i, elem) in arr2:
+	//	print($"arr2[{i}] = '{elem}'\n");

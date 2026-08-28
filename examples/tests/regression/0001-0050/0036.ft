@@ -1,0 +1,14 @@
+use Core.print
+
+def greet():
+	print("Hello, World!\n");
+
+def get_10() -> i32:
+	return 10;
+
+def main():
+	fn<() -> void> g = ::greet;
+	g();
+
+	//fn<() -> i32> g10 = ::get_10;
+	//print($"g10() = {g10()}\n");

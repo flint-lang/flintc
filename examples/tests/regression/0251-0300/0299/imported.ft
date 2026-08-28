@@ -1,0 +1,16 @@
+use Core.print
+
+use "imported_2.ft"
+
+data BaseData:
+	i32 speed;
+	BaseData(speed);
+
+func BaseFunc requires(BaseData d):
+	def base():
+		print($"speed = {d.speed}\n");
+
+object BaseEntity:
+	data: BaseData;
+	func: BaseFunc;
+	BaseEntity(BaseData);

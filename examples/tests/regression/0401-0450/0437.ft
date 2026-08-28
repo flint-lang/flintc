@@ -1,0 +1,7 @@
+use Core.print
+use Core.system
+
+def main():
+    (exit_code, output) := system_command("echo Hello, World!");
+    print($"exit_code = {exit_code}\n");
+    print($"output = {output}\n");

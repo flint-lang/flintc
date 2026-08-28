@@ -1,0 +1,7 @@
+use Core.print
+
+def get_values() -> (i32, i32):
+	return (69, 240);
+
+def main():
+	print($"get_values() = {get_values()}\n");

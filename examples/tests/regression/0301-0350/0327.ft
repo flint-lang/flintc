@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    str a = str(u64(25687)) + "\n";
+    print(a);

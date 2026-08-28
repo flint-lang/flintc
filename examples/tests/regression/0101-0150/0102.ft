@@ -1,0 +1,8 @@
+use Core.print
+
+def double_free(str input):
+    print($"{input}\n");
+
+def main():
+    str string = "hello";
+    double_free(string);

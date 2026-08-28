@@ -1,0 +1,11 @@
+use Core.print
+
+def main():
+    i32 age = 16;
+
+    if age >= 65:
+        print("You qualify for senior discounts.\n");
+    else if age >= 18:
+        print("You can vote but no senior discounts yet!\n");
+    else:
+        print("You are too young to vote.\n");

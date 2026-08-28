@@ -1,0 +1,12 @@
+use Core.print
+
+error ErrBlah:
+	Blah;
+
+def will_throw() {ErrBlah}:
+	throw ErrBlah.Blah("Wahu");
+
+def main():
+	will_throw() catch:
+		ErrBlah(b):  print("is blah\n");
+		anyerror(a): print("is anyerror\n");

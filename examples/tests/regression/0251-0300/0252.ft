@@ -1,0 +1,12 @@
+use Core.print
+use Core.filesystem as fs
+
+def main():
+	if not fs.file_exists("tests/regression/0251-0300/0252.ft"):
+		print("File 'tests/regression/0251-0300/0252.ft' does not exst!\n");
+		return;
+	str[] lines = fs.read_lines("tests/regression/0251-0300/0252.ft");
+	for u64 i = 0; i < lines.length; i++:
+		print($"LINE_{i}:\t{lines[i]}\n");
+	fs.write_file("/tmp/logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
+	print("Written file 'logfile'\n");

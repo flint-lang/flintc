@@ -1,0 +1,13 @@
+use Core.print
+
+variant Var:
+	i32, f32, bool;
+
+def main():
+	Var my_var = i32(5);
+	my_var = f32(3.4);
+	my_var = false;
+	switch my_var:
+		i32(i): print($"is i32: {i}\n");
+		f32(f): print($"is i32: {f}\n");
+		bool(b): print($"is i32: {b}\n");

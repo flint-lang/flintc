@@ -1,0 +1,251 @@
+use "../../utils.ft"
+
+test "0401":
+	str path = "tests/regression/0401-0450";
+	str file = "0401.ft";
+	test_file_ok($"{path}/{file}", "elem is 0\nelem is 2\nelem is 4\nelem is 6\nelem is 8\nIteration 0\nIteration 1\nIteration 2\nIteration 3\nIteration 4\n");
+
+test "0402":
+	str path = "tests/regression/0401-0450/0402";
+	str file = "main.ft";
+	test_file_fail_in(path, file, "Parse Error at main.ft:6:11\n└─┬┤E0000│\n5 │ def main():\n6 │ »   v1 := c.Vec3(f32[3](0.0), 1);\n┌─┴───────────┘\n└─ Expected 1 argument for initializer but got 2\n");
+
+test "0403":
+	str path = "tests/regression/0401-0450";
+	str file = "0403.ft";
+	test_file_ok($"{path}/{file}", "Player moved from (10, 20) to (13, 22)\nComputer moved from (20, 10) to (14, 6)\n");
+
+test "0404":
+	str path = "tests/regression/0401-0450/0404";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "max(121, 234) = 234\nx = 121\nerr = ErrAssert.AssertionFailed\n");
+
+test "0405":
+	str path = "tests/regression/0401-0450";
+	str file = "0405.ft";
+	test_file_ok($"{path}/{file}", "condition = true\nclarified = false\n");
+
+test "0406":
+	str path = "tests/regression/0401-0450";
+	str file = "0406.ft";
+	test_file_ok($"{path}/{file}", "The value of pi is approximately 3.14\n2 + 2 equals 4\n");
+
+test "0407":
+	str path = "tests/regression/0401-0450";
+	str file = "0407.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0407.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
+
+test "0408":
+	str path = "tests/regression/0401-0450";
+	str file = "0408.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0408.ft:19:15\n└──┬┤E0000│\n13 │ def main():\n18 │ »   if true:\n19 │ »   »   print(rectt);\n┌──┴───────────────┘\n└─ Use of undeclared variable 'rectt'\n");
+
+test "0409":
+	str path = "tests/regression/0401-0450";
+	str file = "0409.ft";
+	test_file_ok($"{path}/{file}", "starts_with = true\n");
+
+test "0410":
+	str path = "tests/regression/0401-0450";
+	str file = "0410.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0410.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+
+test "0411":
+	str path = "tests/regression/0401-0450";
+	str file = "0411.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0411.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: tests/regression/0401-0450/0411.ft:20:1\n");
+
+test "0412":
+	str path = "tests/regression/0401-0450";
+	str file = "0412.ft";
+	test_file_ok($"{path}/{file}", "arr = '          '\n");
+
+test "0413":
+	str path = "tests/regression/0401-0450";
+	str file = "0413.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0413.ft:18:1\n└──┬┤E0000│\n18 │ object Player implements(IMove):\n┌──┴─┘\n└─ Virtual function 'IMove.move' not implemented in object\n");
+
+test "0414":
+	str path = "tests/regression/0401-0450";
+	str file = "0414.ft";
+	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"tests/regression/0401-0450/0414.ft\"):\nLINE_5:			print(\"File 'tests/regression/0401-0450/0414.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"tests/regression/0401-0450/0414.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_\{i}:\\t\{lines[i]}\\n\");\n");
+
+test "0415":
+	str path = "tests/regression/0401-0450";
+	str file = "0415.ft";
+	test_file_ok($"{path}/{file}", "x = 489\nfirst1\nsecond1\nfirst3\nsecond3\nfirst4\nsecond4\ni = 0\ni = 1\ni = 2\nd1.(x, y) = (20, 10)\nd2.(z, w) = (40, 30)\n");
+
+test "0416":
+	str path = "tests/regression/0401-0450";
+	str file = "0416.ft";
+	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
+
+test "0417":
+	str path = "tests/regression/0401-0450/0417";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nmd3.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\nx = 11\n");
+
+test "0418":
+	str path = "tests/regression/0401-0450";
+	str file = "0418.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
+
+test "0419":
+	str path = "tests/regression/0401-0450";
+	str file = "0419.ft";
+	test_file_ok($"{path}/{file}", "i32 mult overflow caught\ni32 mult overflow caught\ni32 mult overflow caught\ni32 mult overflow caught\ni32 mult overflow caught\nz_i32 = 2147483647\n\nu32 mult overflow caught\nu32 mult overflow caught\nu32 mult overflow caught\nu32 mult overflow caught\nu32 mult overflow caught\nz_u32 = 4294967295\n\ni64 mult overflow caught\ni64 mult overflow caught\ni64 mult overflow caught\ni64 mult overflow caught\nz_i64 = 9223372036854775807\n\nu64 mult overflow caught\nu64 mult overflow caught\nu64 mult overflow caught\nu64 mult overflow caught\nz_u64 = 18446744073709551615\n\n");
+
+test "0420":
+	str path = "tests/regression/0401-0450";
+	str file = "0420.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0421":
+	str path = "tests/regression/0401-0450";
+	str file = "0421.ft";
+	test_file_ok($"{path}/{file}", "Compile with the '--test' flag!\n");
+
+test "0422":
+	str path = "tests/regression/0401-0450";
+	str file = "0422.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\n");
+
+test "0423":
+	str path = "tests/regression/0401-0450";
+	str file = "0423.ft";
+	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0401-0450/0423.ft:8:25\n└─┬┤E0000│\n5 │ def main():\n7 │ »   i32 result = read_i32() catch err:\n8 │ »   »   print($\"Err is {err}\\n\");\n┌─┴─────────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: str\n    └─ But got:  variant<anyerror, ErrRead>\n");
+
+test "0424":
+	str path = "tests/regression/0401-0450";
+	str file = "0424.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0424.ft:7:18\n└─┬┤E0000│\n6 │ def main():\n7 │ »   Var my_var = 5;\n┌─┴──────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: Var\n    └─ But got:  int\n");
+
+test "0425":
+	str path = "tests/regression/0401-0450";
+	str file = "0425.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0425.ft:4:14\n└─┬┤E0000│\n3 │ def main():\n4 │ »   bool x = not;\n┌─┴──────────────┘\n└─ Unary operator is missng an expression to operate on\n");
+
+test "0426":
+	str path = "tests/regression/0401-0450";
+	str file = "0426.ft";
+	test_file_ok($"{path}/{file}", "Index 0, Value 0\nIndex 1, Value 2\nIndex 2, Value 4\nIndex 3, Value 6\nIndex 4, Value 8\n");
+
+test "0427":
+	str path = "tests/regression/0401-0450";
+	str file = "0427.ft";
+	test_file_ok($"{path}/{file}", "You have not entered 5!\n");
+
+test "0428":
+	str path = "tests/regression/0401-0450";
+	str file = "0428.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
+
+test "0429":
+	str path = "tests/regression/0401-0450";
+	str file = "0429.ft";
+	test_file_ok($"{path}/{file}", "is blah\n");
+
+test "0430":
+	str path = "tests/regression/0401-0450";
+	str file = "0430.ft";
+	test_file_ok($"{path}/{file}", "is Crash\nType ID: 2967945806\nValue ID: 2\nCrash Message: \n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");
+
+test "0431":
+	str path = "tests/regression/0401-0450";
+	str file = "0431.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0432":
+	str path = "tests/regression/0401-0450";
+	str file = "0432.ft";
+	test_file_crash($"{path}/{file}", none, "Returning 10...\n", 10);
+
+test "0433":
+	str path = "tests/regression/0401-0450";
+	str file = "0433.ft";
+	test_file_ok($"{path}/{file}", "is i32: -5\nis f32: 3.14\nis bool: false\n");
+
+test "0434":
+	str path = "tests/regression/0401-0450";
+	str file = "0434.ft";
+	test_file_ok($"{path}/{file}", "arg = \ncontains value!\narg = hello\ncontains value!\narg = temp\n");
+
+test "0435":
+	str path = "tests/regression/0401-0450";
+	str file = "0435.ft";
+	test_file_ok($"{path}/{file}", "ref.x = 10\n");
+
+test "0436":
+	str path = "tests/regression/0401-0450";
+	str file = "0436.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0436.ft:9:1\n└─┬┤E0000│\n9 │ object MyEntity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
+
+test "0437":
+	str path = "tests/regression/0401-0450";
+	str file = "0437.ft";
+	test_file_ok($"{path}/{file}", "exit_code = 0\noutput = Hello, World!\n\n");
+
+test "0438":
+	str path = "tests/regression/0401-0450";
+	str file = "0438.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nd.(x, y, z) = (10, 20, 30)\n");
+
+test "0439":
+	str path = "tests/regression/0401-0450";
+	str file = "0439.ft";
+	test_file_ok($"{path}/{file}", "p = (10, 20)\npos = (10, 20)\nd.pos = (10, 20)\nmoving...\np = (10, 20)\npos = (10, 20)\nd.pos = (13, 25)\nHi there\nDouble Free?\n");
+
+test "0440":
+	str path = "tests/regression/0401-0450";
+	str file = "0440.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0440.ft:30:31\n└──┬┤E0000│\n29 │ object MyEntity:\n30 │ »   data: BaseData d1, MyData d1;\n┌──┴───────────────────────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+
+test "0441":
+	str path = "tests/regression/0401-0450";
+	str file = "0441.ft";
+	test_file_ok($"{path}/{file}", "i64 mult overflow caught\ni64 mult overflow caught\n9223372036854775807\n");
+
+test "0442":
+	str path = "tests/regression/0401-0450";
+	str file = "0442.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0442.ft:17:1\n└──┬┤E0000│\n17 │ object E:\n┌──┴─┘\n└─ Missing constructor in object type definition\n");
+
+test "0443":
+	str path = "tests/regression/0401-0450";
+	str file = "0443.ft";
+	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
+
+test "0444":
+	str path = "tests/regression/0401-0450";
+	str file = "0444.ft";
+	test_file_ok($"{path}/{file}", "arr.length = 10\narr[3] = 3\nslice = arr[2..8]:\nslice.length = 6\nslice[0] = 2\nslice[1] = 3\nslice[2] = 4\nslice[3] = 5\nslice[4] = 6\nslice[5] = 7\n");
+
+test "0445":
+	str path = "tests/regression/0401-0450";
+	str file = "0445.ft";
+	test_file_ok($"{path}/{file}", "result = (178, 4, 96)\n");
+
+test "0446":
+	str path = "tests/regression/0401-0450";
+	str file = "0446.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0446.ft:3:1\n└─┬┤E0000│\n3 │ use \"nonexistent.ft\"\n┌─┴─┘\n└─ Imported file does not exist\n");
+
+test "0447":
+	str path = "tests/regression/0401-0450";
+	str file = "0447.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0447.ft:8:33\n└─┬┤E0000│\n8 │ func MyFunc requires(MyData d1, MyData d2):\n┌─┴─────────────────────────────────┘\n├─ Requiring the same type twice: MyData\n└─ Each required data type needs to be unique\n");
+
+test "0448":
+	str path = "tests/regression/0401-0450";
+	str file = "0448.ft";
+	test_file_ok($"{path}/{file}", "something\n625\n4.000000\n");
+
+test "0449":
+	str path = "tests/regression/0401-0450/0449";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\n");
+
+test "0450":
+	str path = "tests/regression/0401-0450";
+	str file = "0450.ft";
+	test_file_ok($"{path}/{file}", "is Crash\nType ID: 3712843366\nValue ID: 2\nCrash Message: I'm a friendly crash!\n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");

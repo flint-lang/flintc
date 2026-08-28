@@ -1,0 +1,10 @@
+use Core.print
+
+def main():
+    str my_string = "something useful";
+    for (idx, elem) in my_string:
+        if idx == 2 or idx == 4:
+            // The difference between upcase and lowercase is 32
+            elem -= u8(32);
+
+    print($"my_string = '{my_string}'\n");

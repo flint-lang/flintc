@@ -1,0 +1,5 @@
+enum SomeEnum:
+    VAL1, VAL2, VAL3;
+
+def main():
+    SomeEnum e1 = SomeEnum.VAL1;

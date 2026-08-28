@@ -1,0 +1,11 @@
+use Core.print
+
+object E2:
+	data;
+	E2();
+
+	def f2():
+		print("f2\n");
+
+def main():
+	print("Hello, World!\n");

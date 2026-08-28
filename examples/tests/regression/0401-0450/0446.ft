@@ -1,0 +1,6 @@
+use Core.print
+
+use "nonexistent.ft"
+
+def main():
+	print("Wahoo\n");

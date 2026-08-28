@@ -1,0 +1,10 @@
+use Core.print
+use Core.filesystem as fs
+
+def main():
+	if not fs.file_exists("tests/regression/0401-0450/0414.ft"):
+		print("File 'tests/regression/0401-0450/0414.ft' does not exst!\n");
+		return;
+	str[] lines = fs.read_lines("tests/regression/0401-0450/0414.ft");
+	for u64 i = 0; i < lines.length; i++:
+		print($"LINE_{i}:\t{lines[i]}\n");

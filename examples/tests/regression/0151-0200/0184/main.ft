@@ -1,0 +1,18 @@
+use Core.print
+use Core.assert
+
+enum MyEnum:
+	VAL1 = 0,
+	VAL2,
+	VAL3,
+	VAL4 = 4,
+	VAL5 = 8;
+
+extern def print_enum(MyEnum e);
+
+def main():
+	print_enum(MyEnum.VAL1);
+	print_enum(MyEnum.VAL2);
+	print_enum(MyEnum.VAL3);
+	print_enum(MyEnum.VAL4);
+	print_enum(MyEnum.VAL5);

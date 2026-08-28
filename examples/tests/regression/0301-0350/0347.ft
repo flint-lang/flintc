@@ -1,0 +1,11 @@
+use Core.print
+
+def main():
+    f64 val = 2.353;
+    print("test1\n");
+    val = val + 1.221;
+    print("test\n");
+    print(val);
+    print("\n");
+    str a = str(f32(val)) + "\n";
+    print(a);

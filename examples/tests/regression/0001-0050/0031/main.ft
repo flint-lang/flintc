@@ -1,0 +1,10 @@
+use Core.print
+
+use "imported.ft"
+
+def add(mut Vec3 v1, Vec3 v2):
+	v1.(x, y, z) += v2.(x, y, z);
+
+def main():
+	Vec3 v3 = Vec3(10, 20, 30);
+	print($"v3.(x, y, z) = ({v3.x}, {v3.y}, {v3.z})\n");

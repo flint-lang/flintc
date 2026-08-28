@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+	u64 start = 5;
+	u64 end = 10;
+	for (i, elem) in start..end:
+		print($"{i}: {elem}\n");

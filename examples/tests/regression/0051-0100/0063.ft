@@ -1,0 +1,8 @@
+use Core.print
+
+def _function():
+    print("Hello there!\n");
+
+def main():
+    i32 __flint_identifier = 3;
+    _function();

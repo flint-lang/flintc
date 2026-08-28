@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	u8[] arr = u8[10](' ');
+	print($"arr = '{str(arr)}'\n");

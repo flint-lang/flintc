@@ -1,0 +1,21 @@
+use Core.print
+
+data Inner:
+	i32 x;
+	f32 y;
+	Inner(x, y);
+
+data Outer:
+	Inner i;
+	u64 c;
+	Outer(i, c);
+
+def main():
+	Inner i = Inner(10, 20);
+	Outer o = Outer(i, 33);
+	// Grouped stacked assignments do not work yet, assignments in general are still more restricted
+	print($"i.(x, y) = ({i.x}, {i.y})\n");
+	o.i.x = 5;
+	print($"o.i.x = {o.i.x}\n");
+	o.i.(x, y) = (4, 6.5);
+	print($"o: \{ i: \{ x: {o.i.x}, y: {o.i.y} \}, c: {o.c} \}\n");

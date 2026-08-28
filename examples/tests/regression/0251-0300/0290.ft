@@ -1,0 +1,5 @@
+use Core.print
+
+def main(str[] args):
+	const bool pretty_print = args.len > 1 and args[1] == "--pretty";
+	print($"pretty_print? {pretty_print}\n");

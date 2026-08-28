@@ -1,0 +1,7 @@
+data Node:
+    i32 value;
+    Node next;
+    Node(value, next);
+
+def main():
+	return;

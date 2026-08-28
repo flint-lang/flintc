@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+    str a = str(u32(7)) + "\n";
+    print(a);

@@ -1,0 +1,7 @@
+use Core.print
+
+def get_string() -> str?:
+	return "Hi, there";
+
+def main():
+	_ = get_string();

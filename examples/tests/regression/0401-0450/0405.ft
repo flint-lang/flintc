@@ -1,0 +1,10 @@
+use Core.print
+
+def main():
+    // Evaluates to 'true' ('and' happens first)
+    bool condition = true or false and false;
+    print($"condition = {condition}\n");
+
+    // Evaluates to 'false' ('and' happens second)
+    bool clarified = (true or false) and false;
+    print($"clarified = {clarified}\n");

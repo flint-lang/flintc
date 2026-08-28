@@ -1,0 +1,31 @@
+use Core.print
+
+enum MyEnum:
+	VAL1, VAL2, VAL3, VAL4;
+
+def main():
+	MyEnum me = MyEnum.VAL3;
+
+	switch me:
+		else: print("is VAL3 or VAL4\n");
+		VAL1: print("is VAL1\n");
+		VAL2: print("is VAL2\n");
+
+	i32 res = switch me:
+		else -> 0;
+		VAL1 -> 1;
+		VAL2 -> 2;
+	print($"res = {res}\n");
+
+	str string = switch me:
+		VAL1 -> str("VAL1");
+		VAL2 -> str("VAL2");
+		VAL3 -> str("VAL3");
+		VAL4 -> str("VAL4");
+	print($"string = {string}\n");
+	
+	u8 c = switch me:
+		else -> 'C';
+		VAL3 -> '3';
+		VAL4 -> '4';
+	print($"c = {c}\n");

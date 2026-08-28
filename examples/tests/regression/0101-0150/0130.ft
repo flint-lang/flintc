@@ -1,0 +1,35 @@
+use Core.assert
+use Core.print
+
+def assert_not_0(i32 x) -> i32 {ErrAssert}:
+	assert(x != 0);
+	return x;
+
+def greet():
+	print("Hello, World!\n");
+
+def main():
+	fn<> g = ::greet;
+	g();
+
+	fn<i32 -> i32 {ErrAssert}> c = ::assert_not_0;
+	i32 x = c(10) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");
+
+	x = c(0) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");
+
+	x = assert_not_0(0) catch:
+		ErrAssert(e):
+			print($"err = {e}\n");
+		anyerror(e):
+			print($"err = {e}\n");
+	print($"x = {x}\n");

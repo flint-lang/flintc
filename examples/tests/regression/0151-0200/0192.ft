@@ -1,0 +1,14 @@
+use Core.print
+
+data Point:
+    i32 x;
+    i32 y;
+    Point(x, y);
+
+def increment_by(Point p, i32 value):
+    p.(x, y) += (value, value);
+
+def main():
+    Point p = Point(3, 4);
+    increment_by(p, 3);
+    print($"Point(x: {p.x}, y: {p.y})\n");

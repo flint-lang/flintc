@@ -1,0 +1,15 @@
+use Core.print
+
+def main():
+	i32[] arr = i32[10](0);
+	for (i, elem) in arr:
+		elem = i32(i);
+
+	arr.[3, 5] = arr.[5, 3];
+
+	for (i, elem) in arr:
+		print($"arr[{i}] = {elem}\n");
+
+	str string = "Hello, World!\n";
+	string.[0, 2, 1] = string.[2, 1, 0];
+	print(string);

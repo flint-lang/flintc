@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+    str a = "A";
+    a += "B";
+    print($"{a}\n");

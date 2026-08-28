@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	for (idx, elem) in 0..5:
+		print($"idx = {idx}, elem = {elem}\n");

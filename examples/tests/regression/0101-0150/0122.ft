@@ -1,0 +1,9 @@
+use Core.print
+use Core.system
+
+def main():
+	start_capture();
+	for (i, _) in 0..10:
+		print($"iteration {i}\n");
+	str capture = end_capture();
+	print($"capture = \"{capture}\"\n");

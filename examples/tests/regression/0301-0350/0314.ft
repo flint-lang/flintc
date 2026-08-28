@@ -1,0 +1,17 @@
+use Core.system
+use Core.assert
+use Core.print
+
+def run(str? expected) -> str?:
+	(ec, output) := system_command("echo hello");
+	if expected == none:
+		return output;
+	assert(output == "hello\n");
+	return none;
+
+def main():
+	str? result = run(none);
+	if result == none:
+		print("none\n");
+	else:
+		print(result!);

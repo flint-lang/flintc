@@ -1,0 +1,7 @@
+use Core.print
+use Core.filesystem as fs
+
+def main():
+	str[] lines = fs.read_lines("tests/regression/0001-0050/0034.ft");
+	for u64 i = 0; i < lines.length; i++:
+		print($"LINE_{i}:\t{lines[i]}\n");

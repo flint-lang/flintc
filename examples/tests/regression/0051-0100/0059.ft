@@ -1,0 +1,19 @@
+use Core.print
+
+def somefunction() -> i32:
+	return 69;
+
+def otherfunction() -> i32:
+	return 420;
+
+def main():
+	i32 x = somefunction()
+		+ otherfunction();
+	print($"x = {x}\n");
+
+	if true: print("first\n"); print("second\n");
+	if false: print("first\n"); print("second\n");
+
+	for u64 i = 0;
+	i < 3;
+	i++: print($"i = {i}\n");

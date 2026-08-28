@@ -1,0 +1,11 @@
+use Core.print
+
+def print_i(i32 i):
+	if i == (2, 3, 4):
+		print($"{i} is 2, 3 or 4\n");
+	else:
+		print($"{i} is not 2, 3 or 4\n");
+
+def main():
+	for i32 i = 0; i < 6; i++:
+		print_i(i);

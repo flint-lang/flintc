@@ -1,0 +1,13 @@
+use Core.print
+
+data Vector2i:
+    i32 x;
+    i32 y;
+    Vector2i(x, y);
+
+def main():
+    Vector2i vec2i = Vector2i(1, 2);
+    vec2i.x = 6;
+    vec2i.y = vec2i.x;
+    print(vec2i.y);
+    print("\n");

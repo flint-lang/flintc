@@ -1,0 +1,7 @@
+use Core.print
+
+
+def main():
+	print("Hello, World!\n"); /* This is a multi-line
+	* Commeneeeet
+	comment afterwards */	print("Hello, World 2!\n");

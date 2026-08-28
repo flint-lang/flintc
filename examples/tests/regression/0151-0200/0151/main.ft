@@ -1,0 +1,8 @@
+use Fip.c
+
+def main():
+	print_enum(MyEnum.VAL1);
+	print_enum(MyEnum.VAL2);
+	print_enum(MyEnum.VAL3);
+	print_enum(MyEnum.VAL4);
+	print_enum(MyEnum.VAL5);

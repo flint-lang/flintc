@@ -1,0 +1,9 @@
+use Core.print
+
+def main():
+    if false and true:
+        print("Wrong!\n");
+    else if false or true:
+        print("Correct!\n");
+    else:
+        print("Wrong Again!\n");

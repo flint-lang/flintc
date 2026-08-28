@@ -1,0 +1,259 @@
+use "../../utils.ft"
+
+test "0201":
+	str path = "tests/regression/0201-0250";
+	str file = "0201.ft";
+	test_file_ok($"{path}/{file}", "ix2 = (1, 2)\nfx3 = (2.2, 3.3, 4.4)\n");
+
+test "0202":
+	str path = "tests/regression/0201-0250";
+	str file = "0202.ft";
+	test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\n");
+
+test "0203":
+	str path = "tests/regression/0201-0250";
+	str file = "0203.ft";
+	test_file_ok($"{path}/{file}", "error.11914560078733081580.Crash: \"Custom Message\"\nerror.11914560078733081580.CrashOther: \"\"\nerror.11914560078733081580.CrashLast: \"LAST\"\n");
+
+test "0204":
+	str path = "tests/regression/0201-0250";
+	str file = "0204.ft";
+	test_file_ok($"{path}/{file}", "res = 10\n");
+
+test "0205":
+	str path = "tests/regression/0201-0250";
+	str file = "0205.ft";
+	test_file_ok($"{path}/{file}", "0 is not 2, 3 or 4\n1 is not 2, 3 or 4\n2 is 2, 3 or 4\n3 is 2, 3 or 4\n4 is 2, 3 or 4\n5 is not 2, 3 or 4\n\nMyEnum.VAL1 != MyEnum.(VAL2, VAL3, VAL4)\nMyEnum.VAL2 == MyEnum.(VAL2, VAL3, VAL4)\nMyEnum.VAL3 == MyEnum.(VAL2, VAL3, VAL4)\nMyEnum.VAL4 == MyEnum.(VAL2, VAL3, VAL4)\nMyEnum.VAL5 != MyEnum.(VAL2, VAL3, VAL4)\n");
+
+test "0206":
+	str path = "tests/regression/0201-0250";
+	str file = "0206.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0206.ft:8:31\n└─┬┤E0000│\n6 │ def main():\n8 │ »   if e == Enum.(VAL1, VAL2, VAL4):\n┌─┴───────────────────────────────┘\n└─ Enum tag 'VAL4' not present in type 'Enum'\n");
+
+test "0207":
+	str path = "tests/regression/0201-0250";
+	str file = "0207.ft";
+	test_file_ok($"{path}/{file}", "val = 10\n");
+
+test "0208":
+	str path = "tests/regression/0201-0250";
+	str file = "0208.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0209":
+	str path = "tests/regression/0201-0250";
+	str file = "0209.ft";
+	test_file_ok($"{path}/{file}", "is val1\nis val3\nis something else\n");
+
+test "0210":
+	str path = "tests/regression/0201-0250";
+	str file = "0210.ft";
+	test_file_ok($"{path}/{file}", "y is \"there\"\nadding 30 and 40\n");
+
+test "0211":
+	str path = "tests/regression/0201-0250";
+	str file = "0211.ft";
+	test_file_ok($"{path}/{file}", "result = (89, 2, 48)\n");
+
+test "0212":
+	str path = "tests/regression/0201-0250";
+	str file = "0212.ft";
+	test_file_ok($"{path}/{file}", "vec3 = (30, 42, 54)\n");
+
+#test_should_fail
+test "[win]0213":
+	// TODO: Windows-specific test
+	str path = "tests/regression/0201-0250";
+	str file = "0213.ft";
+	test_file_ok($"{path}/{file}", "x = 1, y = 2\n");
+
+test "0214":
+	str path = "tests/regression/0201-0250";
+	str file = "0214.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0214.ft:13:11\n└──┬┤E0000│\n12 │ def main():\n13 │ »   v1 := Vec3(_, _, _);\n┌──┴───────────┘\n├─ Field 'y' cannot be default-initialized\n└─ If you want to default-initialize 'y' then you need to edit the field declaration in the data type\n");
+
+test "0215":
+	str path = "tests/regression/0201-0250";
+	str file = "0215.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0215.ft:11:10\n└──┬┤E0000│\n8  │ def main():\n11 │ »   x := s.lenge;\n┌──┴──────────┘\n├─ Field 'lenge' does not exist on type 'str'\n└─ Available fields are:\n    ├─ u64 length\n    └─ u64 len\n");
+
+test "0216":
+	str path = "tests/regression/0201-0250";
+	str file = "0216.ft";
+	test_file_ok($"{path}/{file}", "tuple = (10, 20.299999, \"Hi, There\")\nvec = (10, 20, 30)\nlengths_dyn = (10, 15)\n");
+
+test "0217":
+	str path = "tests/regression/0201-0250";
+	str file = "0217.ft";
+	test_file_ok($"{path}/{file}", "input.len = 6\n");
+
+test "0218":
+	str path = "tests/regression/0201-0250";
+	str file = "0218.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (30, 40, 50)\n\nd.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\nd.(x, y, z) = (400, 900, 1600)\n");
+
+test "0219":
+	str path = "tests/regression/0201-0250";
+	str file = "0219.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0219.ft:21:10\n└──┬┤E0000│\n19 │ def main():\n21 │ »   e := Entity(10);\n┌──┴──────────┘\n└─ Type mismatch of expression\n    ├─ Expected: Vec3\n    └─ But got:  int\n");
+
+test "0220":
+	str path = "tests/regression/0201-0250";
+	str file = "0220.ft";
+	test_file_ok($"{path}/{file}", "assigning d2.pos to p...\np = (10, 20)\npos = (10, 20)\nd.pos = (10, 20)\nmoving...\np = (10, 20)\npos = (10, 20)\nd.pos = (13, 25)\n");
+
+test "0221":
+	str path = "tests/regression/0201-0250";
+	str file = "0221.ft";
+	test_file_ok($"{path}/{file}", "6\n1, 2\n2, 1\n");
+
+test "0222":
+	str path = "tests/regression/0201-0250";
+	str file = "0222.ft";
+	test_file_ok($"{path}/{file}", "i is 0\ni is 1\ni is 2\ni is 3\ni is 4\ni is 5\ni is 6\ni is 7\ni is 8\ni is 9\n");
+
+test "0223":
+	str path = "tests/regression/0201-0250";
+	str file = "0223.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0224":
+	str path = "tests/regression/0201-0250";
+	str file = "0224.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (10, 20)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (10, 20, 30)\n");
+
+test "0225":
+	str path = "tests/regression/0201-0250";
+	str file = "0225.ft";
+	test_file_ok($"{path}/{file}", "has no value\n");
+
+test "0226":
+	str path = "tests/regression/0201-0250";
+	str file = "0226.ft";
+	test_file_ok($"{path}/{file}", "-7\n");
+
+test "0227":
+	str path = "tests/regression/0201-0250";
+	str file = "0227.ft";
+	test_file_ok($"{path}/{file}", "d[0] = Data(.x = 0, .y = 1, .z = 2\nd[1] = Data(.x = 0, .y = 1, .z = 2\nd[2] = Data(.x = 0, .y = 1, .z = 2\nd[3] = Data(.x = 0, .y = 1, .z = 2\nd[4] = Data(.x = 0, .y = 1, .z = 2\n");
+
+test "0228":
+	str path = "tests/regression/0201-0250/0228";
+	str file = "main.ft";
+	test_compiles_in(path, file, "--flags=-lraylib");
+
+test "0229":
+	str path = "tests/regression/0201-0250";
+	str file = "0229.ft";
+	test_file_ok($"{path}/{file}", "p = (10, 20)\npos = (10, 20)\nd.pos = (10, 20)\nmoving...\np = (10, 20)\npos = (10, 20)\nd.pos = (13, 25)\nHi there\nDouble Free?\n");
+
+test "0230":
+	str path = "tests/regression/0201-0250";
+	str file = "0230.ft";
+	test_file_ok($"{path}/{file}", "d = false\ni = 0\n");
+
+// TODO: str_append only works on variables at the moment
+test "0231":
+	str path = "tests/regression/0201-0250";
+	str file = "0231.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0232":
+	str path = "tests/regression/0201-0250";
+	str file = "0232.ft";
+	test_file_ok($"{path}/{file}", "4 = 4\n");
+
+test "0233":
+	str path = "tests/regression/0201-0250";
+	str file = "0233.ft";
+	test_file_ok($"{path}/{file}", "Hello, World!\nx = 20\nx = 10\nx = 30\n");
+
+test "0234":
+	str path = "tests/regression/0201-0250";
+	str file = "0234.ft";
+	test_file_ok($"{path}/{file}", "e1.(x, y) = (10, 20)\ne1.(x, y) = (15, 25)\ne2.(x, y, z) = (10, 20, 30)\ne2.(x, y, z) = (15, 25, 30)\n");
+
+test "0235":
+	str path = "tests/regression/0201-0250";
+	str file = "0235.ft";
+	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (7, 4.7, \"yes\")\n");
+
+test "0236":
+	str path = "tests/regression/0201-0250";
+	str file = "0236.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 5\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
+
+test "0237":
+	str path = "tests/regression/0201-0250";
+	str file = "0237.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0237.ft:22:16\n└──┬┤E0000│\n17 │ object Entity:\n22 │ »   Entity(d1, Func, d2);\n┌──┴────────────────┘\n└─ Object constructor is only allowed to contain data typed values\n");
+
+// TODO: Should 'int' only be castable to integer types, not floating point types?
+// This would solve this ambiguity problem, as then
+// - `add(10, 20)` would reference the `add(i32, i32) -> i32` function
+// - `add(10.0, 20.0)` would reference the `add(f32, f32) -> f32` function
+// It is uncertain whether this would be considered the correct behaviour, though.
+test "0238":
+	str path = "tests/regression/0201-0250";
+	str file = "0238.ft";
+	test_file_ok($"{path}/{file}", "");
+
+test "0239":
+	str path = "tests/regression/0201-0250";
+	str file = "0239.ft";
+	test_file_ok($"{path}/{file}", "is Crash\nType ID: 3352688797\nValue ID: 0\nCrash Message: Base Error 1\n\nis Crash\nType ID: 3352688797\nValue ID: 1\nCrash Message: Value is 1\n\nis Crash\nType ID: 3352688797\nValue ID: 2\nCrash Message: Hehe custom message: 2\n\nis Crash\nType ID: 3352688797\nValue ID: 3\nCrash Message: I'm gonna kill your program!\n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");
+
+test "0240":
+	str path = "tests/regression/0201-0250";
+	str file = "0240.ft";
+	test_file_ok($"{path}/{file}", "0 is not 2, 3 or 4\n1 is not 2, 3 or 4\n2 is 2, 3 or 4\n3 is 2, 3 or 4\n4 is 2, 3 or 4\n5 is not 2, 3 or 4\n");
+
+test "0241":
+	str path = "tests/regression/0201-0250";
+	str file = "0241.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0241.ft:20:15\n└──┬┤E0000│\n17 │ object Entity:\n18 │ »   data:\n20 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+
+test "0242":
+	str path = "tests/regression/0201-0250";
+	str file = "0242.ft";
+	test_file_ok($"{path}/{file}", "File 'nonexistent.ft' does not exst!\n");
+
+test "0243":
+	str path = "tests/regression/0201-0250";
+	str file = "0243.ft";
+	test_file_ok($"{path}/{file}", "helloworld");
+
+test "0244":
+	str path = "tests/regression/0201-0250";
+	str file = "0244.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = -10\narr[1] = -10\narr[2] = -10\narr[3] = -10\narr[4] = -10\narr[5] = -10\narr[6] = -10\narr[7] = -10\narr[8] = -10\narr[9] = -10\n");
+
+test "0245":
+	str path = "tests/regression/0201-0250";
+	str file = "0245.ft";
+	test_file_ok($"{path}/{file}", "Calculation took ", "ns\n");
+
+test "0246":
+	str path = "tests/regression/0201-0250";
+	str file = "0246.ft";
+	test_file_ok($"{path}/{file}", "You are too young to vote.\n");
+
+test "0247":
+	str path = "tests/regression/0201-0250";
+	str file = "0247.ft";
+	test_file_ok($"{path}/{file}", "0: 5\n1: 6\n2: 7\n3: 8\n4: 9\n");
+
+test "0248":
+	str path = "tests/regression/0201-0250";
+	str file = "0248.ft";
+	test_file_ok($"{path}/{file}", "v.values[0] = 0.000000e+\nv.values[1] = 1\nv.values[2] = 4\nv.values[3] = 9\n");
+
+test "0249":
+	str path = "tests/regression/0201-0250";
+	str file = "0249.ft";
+	test_file_ok($"{path}/{file}", "arr[0] = 5\narr[1] = -10\narr[2] = -10\narr[3] = -10\narr[4] = -10\narr[5] = -10\narr[6] = -10\narr[7] = -10\narr[8] = -10\narr[9] = -10\n");
+
+test "0250":
+	str path = "tests/regression/0201-0250";
+	str file = "0250.ft";
+	test_file_ok($"{path}/{file}", "file 'tests/regression/0201-0250/0250.ft':\nuse Core.print\nuse Core.filesystem\n\ndef main():\n	print(\"file 'tests/regression/0201-0250/0250.ft':\\n\");\n	str file_content = read_file(\"tests/regression/0201-0250/0250.ft\");\n	print(file_content);\n");

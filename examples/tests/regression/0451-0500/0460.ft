@@ -1,0 +1,14 @@
+use Core.print
+
+def inc_x(mut SomeData sd):
+    sd.x = sd.x + 1;
+
+data SomeData:
+    i32 x;
+    i32 y;
+    SomeData(x, y);
+
+def main():
+    SomeData sd = SomeData(1, 2);
+    inc_x(sd);
+    print($"sd.x = {sd.x}\n");

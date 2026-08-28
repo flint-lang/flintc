@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+	str hello = "Hello from Flint!\n";
+	str slice = hello[3..8];
+	print($"{slice}\n");

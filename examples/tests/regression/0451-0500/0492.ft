@@ -1,0 +1,7 @@
+use Core.print
+
+def main():
+	i32[3] v3 = i32[3](0);
+	v3.[0, 1, 2] = (10, 20, 30);
+	for (i, elem) in v3:
+		print($"v3[{i}] = {elem}\n");

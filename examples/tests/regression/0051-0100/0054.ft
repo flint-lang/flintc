@@ -1,0 +1,6 @@
+use Core.print
+
+def main():
+	str msg = "Hello";
+	msg[2] = 'E';
+	print($"msg = {msg}\n");

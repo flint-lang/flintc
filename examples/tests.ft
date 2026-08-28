@@ -3,6 +3,7 @@ use Core.print
 use "aoc/2025/test.ft"
 use "tests/wiki.ft"
 use "tests/spec.ft"
+use "tests/regression.ft"
 
 def main():
 	print("Please compile this test using the --test flag!\n");

@@ -1,0 +1,7 @@
+use Core.print
+use Core.assert
+
+def main():
+    i32x3 int3 = 4;
+    assert(int3 == (4, 4, 4));
+    print($"int3 = ({int3.x}, {int3.y}, {int3.z})\n");

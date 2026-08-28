@@ -1,0 +1,5 @@
+use Core.print
+
+def main(str[] args):
+    for u32 i = 0; i < args.length; i++:
+        print($"args[{i}] = {args[i]}\n");

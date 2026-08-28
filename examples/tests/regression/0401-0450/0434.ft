@@ -1,0 +1,17 @@
+use Core.print
+
+def opt_print(str? arg):
+	str parg = "";
+	if arg != none:
+		print("contains value!\n");
+		parg = arg!;
+	print($"arg = {parg}\n");
+
+def main():
+	str? arg = none;
+	opt_print(arg);
+
+	arg = "hello";
+	opt_print(arg);
+
+	opt_print("temp");

@@ -1,0 +1,25 @@
+use Core.assert
+use Core.print
+
+error Base:
+	Err1, Err2;
+
+error Crash(Base):
+	Friendly, Harshly;
+
+def fail(bool friend) {Crash}:
+	if friend:
+		throw Crash.Friendly;
+	else:
+		assert(false);
+
+def main():
+	fail(true) catch err:
+		switch err:
+			Crash(c): print("is Crash\n");
+			anyerror(a): print("is anyerror\n");
+
+	fail(false) catch err:
+		switch err:
+			Crash(c): print("is Crash\n");
+			anyerror(a): print("is anyerror\n");

@@ -1,0 +1,7 @@
+use Core.print as p
+
+def main():
+    i32x2 ix2 = (1, 2);
+    p.print($"ix2 = {ix2}\n");
+    f32x3 fx3 = (2.2, 3.3, 4.4);
+    p.print($"fx3 = {fx3}\n");
