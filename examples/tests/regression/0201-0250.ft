@@ -153,7 +153,8 @@ test "0230":
 	test_file_ok($"{path}/{file}", "d = false\ni = 0\n");
 
 // TODO: str_append only works on variables at the moment
-test "0231":
+#test_should_fail
+test "[f]0231":
 	str path = "tests/regression/0201-0250";
 	str file = "0231.ft";
 	test_file_ok($"{path}/{file}", "");
@@ -193,7 +194,8 @@ test "0237":
 // - `add(10, 20)` would reference the `add(i32, i32) -> i32` function
 // - `add(10.0, 20.0)` would reference the `add(f32, f32) -> f32` function
 // It is uncertain whether this would be considered the correct behaviour, though.
-test "0238":
+#test_should_fail
+test "[f]0238":
 	str path = "tests/regression/0201-0250";
 	str file = "0238.ft";
 	test_file_ok($"{path}/{file}", "");

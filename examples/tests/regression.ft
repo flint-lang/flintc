@@ -12,7 +12,7 @@ test "regression/0101-0150":
 test "regression/0151-0200":
 	test_test("tests/regression", "0151-0200.ft");
 
-test "regression/0201-0250":
+test "[t]regression/0201-0250":
 	test_test("tests/regression", "0201-0250.ft");
 
 test "regression/0251-0300":
