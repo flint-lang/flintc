@@ -81,6 +81,7 @@ void Generator::Module::ThreadStack::generate_capacity_check( //
     builder.SetInsertPoint(overflow_block);
     llvm::Value *msg = IR::generate_const_string(function->getParent(), "Stack overflow detected\n");
     builder.CreateCall(c_functions.at(PRINTF), {msg});
+    builder.CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();
 

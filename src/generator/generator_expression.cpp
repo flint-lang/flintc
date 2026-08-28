@@ -4158,6 +4158,7 @@ Generator::group_mapping Generator::Expression::generate_optional_unwrap( //
     builder.SetInsertPoint(has_no_value);
     llvm::Value *err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad optional access occurred\n");
     builder.CreateCall(c_functions.at(PRINTF), {err_msg});
+    builder.CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();
 
@@ -4287,6 +4288,7 @@ Generator::group_mapping Generator::Expression::generate_variant_unwrap( //
     builder.SetInsertPoint(holds_wrong_type);
     llvm::Value *const err_msg = IR::generate_const_string(ctx.parent->getParent(), "Bad variant unwrap occurred\n");
     builder.CreateCall(c_functions.at(PRINTF), {err_msg});
+    builder.CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder.CreateCall(c_functions.at(ABORT), {});
     builder.CreateUnreachable();
 

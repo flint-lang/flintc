@@ -77,6 +77,7 @@ void Generator::Module::String::generate_access_str_at_function( //
             builder->CreateCall(c_functions.at(PRINTF), {format_str, string_len, arg_idx});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(c_functions.at(ABORT));
             builder->CreateUnreachable();
         } else {
@@ -175,6 +176,7 @@ void Generator::Module::String::generate_assign_str_at_function( //
             builder->CreateCall(c_functions.at(PRINTF), {format_str, string_len, arg_idx});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(c_functions.at(ABORT));
             builder->CreateUnreachable();
         } else {
@@ -1021,6 +1023,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
     llvm::Function *const abort_fn = c_functions.at(ABORT);
     llvm::Function *const create_str_fn = string_manip_functions.at("create_str");
 
@@ -1096,6 +1099,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
             builder->CreateCall(printf_fn, {msg, src_len, real_to});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(abort_fn);
             builder->CreateUnreachable();
         } else {
@@ -1135,6 +1139,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
             builder->CreateCall(printf_fn, {msg});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(abort_fn);
             builder->CreateUnreachable();
         } else {
@@ -1150,6 +1155,7 @@ void Generator::Module::String::generate_get_str_slice_function( //
                     );
                     builder->CreateCall(printf_fn, {msg});
                 }
+                builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(abort_fn);
                 builder->CreateUnreachable();
 

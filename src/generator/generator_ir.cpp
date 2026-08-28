@@ -405,6 +405,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
         builder.SetInsertPoint(default_block);
         llvm::Value *dispatch_err_msg = IR::generate_const_string(module, "Error: Unknown function ID in dispatch: %lu\n");
         builder.CreateCall(c_functions.at(PRINTF), {dispatch_err_msg, arg_fn_id});
+        builder.CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
         builder.CreateCall(c_functions.at(ABORT), {});
         builder.CreateUnreachable();
 

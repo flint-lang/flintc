@@ -589,6 +589,7 @@ void Generator::Module::Array::generate_access_arr_function( //
                 break;
             }
             case ArrayOutOfBoundsMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -700,6 +701,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
     llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
     llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
     llvm::Function *const abort_fn = c_functions.at(ABORT);
     llvm::Function *const create_arr_fn = array_manip_functions.at("create_arr");
     llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
@@ -794,6 +796,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
             builder->CreateCall(printf_fn, {msg, src_len, real_to});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(abort_fn);
             builder->CreateUnreachable();
         } else {
@@ -837,6 +840,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
             builder->CreateCall(printf_fn, {msg});
         }
         if (oob_mode == ArrayOutOfBoundsMode::CRASH) {
+            builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
             builder->CreateCall(abort_fn);
             builder->CreateUnreachable();
         } else {
@@ -852,6 +856,7 @@ void Generator::Module::Array::generate_get_arr_slice_1d_function( //
                     );
                     builder->CreateCall(printf_fn, {msg});
                 }
+                builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(abort_fn);
                 builder->CreateUnreachable();
 
@@ -1089,6 +1094,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
     llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
     llvm::Function *const free_fn = c_functions.at(FREE);
     llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
     llvm::Function *const abort_fn = c_functions.at(ABORT);
     llvm::Function *const create_arr_fn = array_manip_functions.at("create_arr");
     llvm::Function *const get_arr_slice_1d_fn = array_manip_functions.at("get_arr_slice_1d");
@@ -1225,6 +1231,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
         builder->SetInsertPoint(b4);
         llvm::Value *const oob_msg = IR::generate_const_string(module, "OOB ranged array access: len=%lu, upper_bound=%lu\n");
         builder->CreateCall(printf_fn, {oob_msg, src_dim_lengths_i, to});
+        builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
         builder->CreateCall(abort_fn);
         builder->CreateUnreachable();
 
@@ -1242,6 +1249,7 @@ void Generator::Module::Array::generate_get_arr_slice_function( //
 
         builder->SetInsertPoint(b8);
         builder->CreateCall(printf_fn, {oob_msg, src_dim_lengths_i, to});
+        builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
         builder->CreateCall(abort_fn);
         builder->CreateUnreachable();
 

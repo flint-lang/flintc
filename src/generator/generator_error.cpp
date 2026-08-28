@@ -60,6 +60,7 @@ void Generator::Error::generate_get_err_type_str_function(llvm::IRBuilder<> *bui
     builder->SetInsertPoint(default_block);
     llvm::Value *unknown_err_msg = IR::generate_const_string(module, "Unknown error type hash: %u\n");
     builder->CreateCall(c_functions.at(PRINTF), {unknown_err_msg, arg_err_type});
+    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(c_functions.at(ABORT), {});
     builder->CreateUnreachable();
 }
@@ -163,6 +164,7 @@ void Generator::Error::generate_get_err_val_str_function(llvm::IRBuilder<> *buil
         builder->SetInsertPoint(default_value_block);
         llvm::Value *unknown_err_msg = IR::generate_const_string(module, "Unknown error value '%u' on error id '%u'\n");
         builder->CreateCall(c_functions.at(PRINTF), {unknown_err_msg, arg_err_val, arg_err_type});
+        builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
         builder->CreateCall(c_functions.at(ABORT), {});
         builder->CreateUnreachable();
     }
@@ -171,6 +173,7 @@ void Generator::Error::generate_get_err_val_str_function(llvm::IRBuilder<> *buil
     builder->SetInsertPoint(default_block);
     llvm::Value *unknown_err_msg = IR::generate_const_string(module, "Unknown error type hash: %u\n");
     builder->CreateCall(c_functions.at(PRINTF), {unknown_err_msg, arg_err_type});
+    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(c_functions.at(ABORT), {});
     builder->CreateUnreachable();
 }

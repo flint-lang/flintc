@@ -462,6 +462,7 @@ void Generator::Module::Arithmetic::generate_int_safe_add( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -558,6 +559,7 @@ void Generator::Module::Arithmetic::generate_int_safe_sub( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -766,6 +768,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
                     break;
                 }
                 case ArithmeticOverflowMode::CRASH:
+                    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                     builder->CreateCall(c_functions.at(ABORT));
                     builder->CreateUnreachable();
                     break;
@@ -788,6 +791,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul( //
                     break;
                 }
                 case ArithmeticOverflowMode::CRASH:
+                    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                     builder->CreateCall(c_functions.at(ABORT));
                     builder->CreateUnreachable();
                     break;
@@ -868,6 +872,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -897,6 +902,7 @@ void Generator::Module::Arithmetic::generate_int_safe_mul_small( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -979,6 +985,7 @@ void Generator::Module::Arithmetic::generate_int_safe_div( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1099,6 +1106,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_add( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1170,6 +1178,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_sub( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1251,6 +1260,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_mul( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1322,6 +1332,7 @@ void Generator::Module::Arithmetic::generate_uint_safe_div( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1451,6 +1462,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1580,6 +1592,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1699,6 +1712,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1807,6 +1821,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1893,6 +1908,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_add( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -1976,6 +1992,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_sub( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -2070,6 +2087,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_mul( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;
@@ -2158,6 +2176,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_div( //
                 break;
             }
             case ArithmeticOverflowMode::CRASH:
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
                 builder->CreateCall(c_functions.at(ABORT));
                 builder->CreateUnreachable();
                 break;

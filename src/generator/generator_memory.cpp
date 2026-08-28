@@ -257,6 +257,7 @@ void Generator::Memory::generate_clone_callable_function( //
     builder->SetInsertPoint(default_block);
     llvm::Value *const err_msg = IR::generate_const_string(module, "Unknown fn_id for 'flint.clone.callable': %lu\n");
     builder->CreateCall(c_functions.at(PRINTF), {err_msg, fn_id});
+    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(c_functions.at(ABORT), {});
     builder->CreateUnreachable();
 }
@@ -458,8 +459,6 @@ void Generator::Memory::generate_free_value( //
         }
         case Type::Variation::OPAQUE: {
             ASSERT(opaque_leak_mode != OpaqueLeakMode::SILENT);
-            llvm::Function *const abort_fn = c_functions.at(ABORT);
-            llvm::Function *const printf_fn = c_functions.at(PRINTF);
             llvm::Value *const nullpointer = llvm::ConstantPointerNull::get(PTR_TY);
 
             // We simply check if the opaque value is null, and if it is not then we throw an error and abort
@@ -473,9 +472,10 @@ void Generator::Memory::generate_free_value( //
 
             builder->SetInsertPoint(opaque_leaks_block);
             llvm::Value *const leak_msg = IR::generate_const_string(module, "Error: Leaking memory!\n");
-            builder->CreateCall(printf_fn, {leak_msg});
+            builder->CreateCall(c_functions.at(PRINTF), {leak_msg});
             if (opaque_leak_mode == OpaqueLeakMode::CRASH) {
-                builder->CreateCall(abort_fn, {});
+                builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
+                builder->CreateCall(c_functions.at(ABORT), {});
                 builder->CreateUnreachable();
             } else {
                 ASSERT(opaque_leak_mode == OpaqueLeakMode::PRINT);
@@ -697,6 +697,7 @@ void Generator::Memory::generate_free_function( //
     builder->SetInsertPoint(default_block);
     llvm::Value *const unknown_err_msg = IR::generate_const_string(module, "Unknown type id for 'flint.free': %u\n");
     builder->CreateCall(c_functions.at(PRINTF), {unknown_err_msg, arg_type_id});
+    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(c_functions.at(ABORT), {});
     builder->CreateUnreachable();
 }
@@ -1190,6 +1191,7 @@ void Generator::Memory::generate_clone_function( //
     builder->SetInsertPoint(default_block);
     llvm::Value *const unknown_err_msg = IR::generate_const_string(module, "Unknown type id for 'flint.clone': %u\n");
     builder->CreateCall(c_functions.at(PRINTF), {unknown_err_msg, arg_type_id});
+    builder->CreateCall(c_functions.at(FFLUSH), {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(c_functions.at(ABORT), {});
     builder->CreateUnreachable();
 }

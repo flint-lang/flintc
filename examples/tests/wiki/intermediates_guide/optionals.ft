@@ -24,10 +24,7 @@ test "2_unwrap_err.ft":
 	print($"output='{output}'\n");
 	print($"exit_code={exit_code}\n");
 	assert(exit_code == (134 /*Linux*/, -1073740791 /*Windows*/));
-	// assert(output == "maybe = 10\nBad optional access occurred\n");
-	// TODO: The output here is wrong, the `system_command` call does have an
-	// empty output if the executed subprogram crashes, i do not know yet why
-	assert(output == "");
+	assert(output == "maybe = 10\nBad optional access occurred\n");
 
 test "3_compare.ft":
 	str path = "tests/wiki/intermediates_guide/optionals";

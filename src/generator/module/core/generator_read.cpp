@@ -258,6 +258,7 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const printf_fn = c_functions.at(PRINTF);
+    llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
     llvm::Function *const abort_fn = c_functions.at(ABORT);
     llvm::Function *const realloc_fn = c_functions.at(REALLOC);
     llvm::Function *const memmove_fn = c_functions.at(MEMMOVE);
@@ -301,8 +302,9 @@ void Generator::Module::Read::generate_read_str_function(llvm::IRBuilder<> *buil
     // is mostly informational
     llvm::Value *const format_str = IR::generate_const_string(module, "Got a NULL from flint.getline function call\n");
     builder->CreateCall(printf_fn, {format_str});
+    builder->CreateCall(fflush_fn, {llvm::ConstantPointerNull::get(PTR_TY)});
     builder->CreateCall(abort_fn, {});
-    builder->CreateUnreachable(); // This block never returns
+    builder->CreateUnreachable();
 
     // Continue with normal execution
     builder->SetInsertPoint(continue_block);
