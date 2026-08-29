@@ -478,13 +478,17 @@ bool FIP::resolve_function(FunctionNode *function) {
 
 bool FIP::resolve_module_import(ImportNode *import) {
     PROFILE_CUMULATIVE("FIP::resolve_module_import");
-    if (!FIP_ENABLED) {
-        return false;
-    }
     ASSERT(!std::holds_alternative<Hash>(import->path));
     const std::vector<std::string> &import_path = std::get<std::vector<std::string>>(import->path);
     ASSERT(import_path.size() == 2);
     const std::string module_tag = import_path.back();
+    const std::filesystem::path module_file_path = get_fip_path().value() / "generated" / (module_tag + ".ft");
+    const Hash module_hash(module_file_path);
+    if (!FIP_ENABLED) {
+        // Auto-generation is considered to be "ok" if the file already exists
+        import->path = module_hash;
+        return std::filesystem::exists(module_file_path);
+    }
     PROFILE_SCOPE("FIP resolve import 'Fip." + module_tag + "'");
     // FIP communicates via a single stdin/stdout channel, so all operations must be serialized.
     std::lock_guard<std::mutex> lock(mutex);
@@ -497,9 +501,6 @@ bool FIP::resolve_module_import(ImportNode *import) {
             return false;
         }
     }
-    // Generate the hash from the module file path and set the path of the import node accordingly
-    const std::filesystem::path module_file_path = get_fip_path().value() / "generated" / (module_tag + ".ft");
-    const Hash module_hash(module_file_path);
     import->path = module_hash;
     // Get the signature list from the tag request
     fip_msg_t msg{};
