@@ -45,6 +45,10 @@ class DefinitionNode : public ASTNode {
         return false;
     }
 
+    virtual std::unordered_set<AnnotationKind> get_possible_annotations() const {
+        return {};
+    }
+
     /// @enum `Variation`
     /// @brief A enum describing which definition variations exist
     enum class Variation {

@@ -1,6 +1,5 @@
 use "../../utils.ft"
 
-// TODO: FAIL
 test "0101":
 	str path = "tests/regression/0101-0150";
 	str file = "0101.ft";
@@ -139,7 +138,7 @@ test "0127":
 test "0128":
 	str path = "tests/regression/0101-0150";
 	str file = "0128.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0128.ft:4:1\n└─┬┤E0000│\n4 │ #test_wololo\n┌─┴─┘\n├─ Unknown annotation 'test_wololo'\n└─ Known annotations are:\n    ├─ #test_should_fail\n    ├─ #test_output_never\n    ├─ #test_performance\n    └─ #test_output_always\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0128.ft:4:1\n└─┬┤E0000│\n4 │ #test_wololo\n┌─┴─┘\n├─ Unknown annotation 'test_wololo'\n└─ Known annotations are:\n    ├─ #fip_disable\n    ├─ #test_output_always\n    ├─ #test_output_never\n    ├─ #test_performance\n    └─ #test_should_fail\n");
 
 test "0129":
 	str path = "tests/regression/0101-0150";

@@ -138,10 +138,10 @@ void Parser::init_core_modules() {
                 }
 
                 std::optional<std::shared_ptr<Scope>> scope = std::nullopt;
-                std::unique_ptr<DefinitionNode> function = std::make_unique<FunctionNode>( //
-                    core_namespace->namespace_hash, 0, 0, 0,                               //
-                    false, false, true, function_name,                                     //
-                    parameters, return_types, error_types, scope, std::nullopt             //
+                std::unique_ptr<DefinitionNode> function = std::make_unique<FunctionNode>(  //
+                    core_namespace->namespace_hash, 0, 0, 0, std::vector<AnnotationNode>{}, //
+                    false, false, true, function_name,                                      //
+                    parameters, return_types, error_types, scope, std::nullopt              //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(function));
             }

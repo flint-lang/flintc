@@ -312,7 +312,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         name = required_data.value().first + "." + name;
     }
     return FunctionNode(                                                                         //
-        file_hash, line, column, length,                                                         //
+        file_hash, line, column, length, {},                                                     //
         is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
     );
 }
@@ -325,6 +325,7 @@ std::optional<FunctionNode> Parser::create_extern_function(const token_slice &de
     if (!fn.has_value()) {
         return std::nullopt;
     }
+    fn->annotations = AnnotationNode::extract_consumable(annotation_queue, FunctionNode::consumable_extern_annotations);
     // Correctly set the line and column of the function definition
     fn.value().line = definition.first->line;
     fn.value().column = definition.first->column;
@@ -1140,7 +1141,7 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    auto annotations = AnnotationNode::extract_consumable(annotation_queue, TestNode::consumable_annotations);
+    const auto annotations = AnnotationNode::extract_consumable(annotation_queue, TestNode::consumable_annotations);
     return TestNode(file_hash, line, column, length, annotations, test_name, body_scope);
 }
 

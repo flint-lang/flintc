@@ -29,13 +29,17 @@ class TestNode : public DefinitionNode {
         scope(std::move(scope)) {}
 
     /// @var `consumable_annotations`
-    /// @brief The annotations consumable by this statement node
+    /// @brief The annotations consumable by this definition node
     static const inline std::unordered_set<AnnotationKind> consumable_annotations = {
         AnnotationKind::TEST_OUTPUT_ALWAYS,
         AnnotationKind::TEST_OUTPUT_NEVER,
         AnnotationKind::TEST_PERFORMANCE,
         AnnotationKind::TEST_SHOULD_FAIL,
     };
+
+    std::unordered_set<AnnotationKind> get_possible_annotations() const override {
+        return consumable_annotations;
+    }
 
     Variation get_variation() const override {
         return Variation::TEST;

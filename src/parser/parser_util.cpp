@@ -302,10 +302,11 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
 
     if (!annotation_queue.empty()) {
         DefinitionNode *last_definition = file_node_ptr->file_namespace->public_symbols.definitions.back().get();
-        THROW_ERR(                                                                                    //
-            ErrAnnoLeftover, ERR_PARSING, file_hash,                                                  //
-            last_definition->line, last_definition->column, last_definition->length, annotation_queue //
+        THROW_ERR(                                                                                   //
+            ErrAnnoLeftover, ERR_PARSING, file_hash, last_definition->line, last_definition->column, //
+            last_definition->length, annotation_queue, last_definition->get_possible_annotations()   //
         );
+        annotation_queue.clear();
         return false;
     }
     return true;

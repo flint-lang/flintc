@@ -34,6 +34,7 @@ class FunctionNode : public DefinitionNode {
         const unsigned int line,                          //
         const unsigned int column,                        //
         const unsigned int length,                        //
+        const std::vector<AnnotationNode> &annotations,   //
         const bool is_const,                              //
         const bool is_extern,                             //
         const bool is_core,                               //
@@ -44,7 +45,7 @@ class FunctionNode : public DefinitionNode {
         std::optional<std::shared_ptr<Scope>> &scope,     //
         const std::optional<size_t> &mangle_id            //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, annotations),
         is_const(is_const),
         is_extern(is_extern),
         is_core(is_core),
@@ -54,6 +55,20 @@ class FunctionNode : public DefinitionNode {
         error_types(std::move(error_types)),
         scope(std::move(scope)),
         mangle_id(mangle_id) {}
+
+    /// @var `consumable_extern_annotations`
+    /// @brief The annotations consumable by this definition node if the function is extern
+    static const inline std::unordered_set<AnnotationKind> consumable_extern_annotations = {
+        AnnotationKind::FIP_DISABLE,
+    };
+
+    std::unordered_set<AnnotationKind> get_possible_annotations() const override {
+        if (is_extern) {
+            return consumable_extern_annotations;
+        } else {
+            return {};
+        }
+    }
 
     Variation get_variation() const override {
         return Variation::FUNCTION;

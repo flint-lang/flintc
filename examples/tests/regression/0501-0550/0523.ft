@@ -1,0 +1,13 @@
+use Core.print
+
+#fip_disable
+extern def malloc(mut u64 n) -> opaque;
+
+#fip_disable
+extern def free(mut opaque ptr);
+
+def main():
+	opaque ptr = malloc(100);
+	print($"ptr = {ptr}\n");
+	free(ptr);
+	ptr = null;

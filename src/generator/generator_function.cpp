@@ -271,6 +271,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         test_node->line,                 //
         test_node->column,               //
         test_node->length,               //
+        {},                              //
         false,                           //
         false,                           //
         false,                           //

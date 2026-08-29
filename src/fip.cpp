@@ -387,6 +387,9 @@ bool FIP::resolve_function(FunctionNode *function) {
     if (!FIP_ENABLED) {
         return true;
     }
+    if (function->contains_annotation(AnnotationKind::FIP_DISABLE)) {
+        return true;
+    }
     // FIP communicates via a single stdin/stdout channel, so all operations must be serialized.
     // This single lock replaces both the old init_mutex (init race) and resolve_mutex (message interleaving).
     std::lock_guard<std::mutex> lock(mutex);

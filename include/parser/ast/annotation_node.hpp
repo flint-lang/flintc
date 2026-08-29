@@ -1,11 +1,14 @@
 #pragma once
 
 #include "ast_node.hpp"
+
+#include <map>
 #include <unordered_set>
 
 /// @enum `AnnotationKind`
 /// @brief An enum of all possible annotation kinds there are
 enum class AnnotationKind {
+    FIP_DISABLE,        // #fip_disable usable on extern `FunctionNode`s
     TEST_OUTPUT_ALWAYS, // #test_output_always usable on `TestNode`s
     TEST_OUTPUT_NEVER,  // #test_output_never usable on `TestNode`s
     TEST_PERFORMANCE,   // #test_performance usable on `TestNode`s
@@ -14,7 +17,8 @@ enum class AnnotationKind {
 
 /// @var `annotation_map`
 /// @brief A map mapping strings to the correnct annotaiton kind enum
-static const inline std::unordered_map<std::string_view, AnnotationKind> annotation_map = {
+static const inline std::map<std::string_view, AnnotationKind> annotation_map = {
+    {"fip_disable", AnnotationKind::FIP_DISABLE},
     {"test_output_always", AnnotationKind::TEST_OUTPUT_ALWAYS},
     {"test_output_never", AnnotationKind::TEST_OUTPUT_NEVER},
     {"test_performance", AnnotationKind::TEST_PERFORMANCE},
@@ -23,7 +27,8 @@ static const inline std::unordered_map<std::string_view, AnnotationKind> annotat
 
 /// @var `annotation_map_rev`
 /// @brief The reverse of the `annotation_map`, mapping the annotation kind enums to the strings views
-static const inline std::unordered_map<AnnotationKind, std::string_view> annotation_map_rev = {
+static const inline std::map<AnnotationKind, std::string_view> annotation_map_rev = {
+    {AnnotationKind::FIP_DISABLE, "fip_disable"},
     {AnnotationKind::TEST_OUTPUT_ALWAYS, "test_output_always"},
     {AnnotationKind::TEST_OUTPUT_NEVER, "test_output_never"},
     {AnnotationKind::TEST_PERFORMANCE, "test_performance"},
