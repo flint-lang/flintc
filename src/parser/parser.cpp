@@ -187,7 +187,7 @@ std::optional<FileNode *> Parser::parse() {
         }
         std::cout << std::endl;
     }
-    if (PRINT_TOK_STREAM) {
+    if (PRINT_TOKENS) {
         const token_slice token_slice{file_node_ptr->tokens.begin(), file_node_ptr->tokens.end()};
         Debug::print_token_context_vector(token_slice, file_name);
     }
@@ -243,7 +243,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     if (!Parser::resolve_all_unknown_types()) {
         return std::nullopt;
     }
-    if (PRINT_DEP_TREE) {
+    if (PRINT_DEPS) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }
     bool parsed_successful = Parser::parse_all_open_data_modules(parse_parallel);
@@ -1273,9 +1273,9 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         }
         return true;
     }
-    if (DEBUG_MODE && PRINT_TOK_STREAM) {
+    if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
-        std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
+        std::cout << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
     }
     // Inject shared data globals into the function scope
@@ -1391,9 +1391,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
 
 bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body) {
     PROFILE_SCOPE("Process Open Test '" + test->name + "'");
-    if (DEBUG_MODE && PRINT_TOK_STREAM) {
+    if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
-        std::cout << "\n" << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
+        std::cout << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
     }
     // Inject shared data globals into the test scope

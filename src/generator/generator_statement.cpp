@@ -196,7 +196,7 @@ bool Generator::Statement::clear_garbage(                                       
     if (garbage.empty()) {
         return true;
     }
-    if (DEBUG_MODE) {
+    if (PRINT_GARBAGE) {
         std::cout << YELLOW << "[Debug Info] Garbage information:\n" << DEFAULT;
     }
     for (auto &[key, value] : garbage) {
@@ -204,11 +204,11 @@ bool Generator::Statement::clear_garbage(                                       
             // Skip garbage at a higher depth than the requested depth
             continue;
         }
-        if (DEBUG_MODE) {
+        if (PRINT_GARBAGE) {
             std::cout << "-- Level " << key << " garbage:\n";
         }
         for (auto [type, llvm_val] : value) {
-            if (DEBUG_MODE) {
+            if (PRINT_GARBAGE) {
                 std::cout << "  -- Type '" << type->to_string() << "' val addr: " << llvm_val << "\n";
             }
             ASSERT(type->is_freeable());
@@ -219,7 +219,7 @@ bool Generator::Statement::clear_garbage(                                       
                     llvm::MDString ::get(context, "Clear garbage of type '" + type->to_string() + "', depth " + std::to_string(key))));
         }
     }
-    if (DEBUG_MODE) {
+    if (PRINT_GARBAGE) {
         std::cout << std::endl;
     }
     garbage.clear();

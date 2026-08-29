@@ -347,7 +347,7 @@ bool Linker::link_windows(                               //
     for (const auto &flag : flags) {
         args.push_back(flag.c_str());
     }
-    if (DEBUG_MODE) {
+    if (PRINT_LINK) {
         std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static" : "Dynamic") << " Windows linking with arguments:" << DEFAULT
                   << std::endl;
         for (const auto &arg : args) {
@@ -469,8 +469,9 @@ bool Linker::link_linux(                                 //
     if (!arguments.has_value()) {
         return false;
     }
-    if (DEBUG_MODE) {
-        std::cout << "-- " << (is_static ? "Static (musl) " : "Dynamic ") << "ELF linking with arguments:" << std::endl;
+    if (PRINT_LINK) {
+        std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static (musl) " : "Dynamic ") << "ELF linking with arguments:" << DEFAULT
+                  << std::endl;
         for (const auto &arg : arguments.value()) {
             std::cout << "  " << arg << "\n";
         }

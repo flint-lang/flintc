@@ -119,8 +119,9 @@ bool Generator::Module::generate_module(     //
     }
     // Print the module, if requested
     if (DEBUG_MODE && (BUILTIN_LIBS_TO_PRINT & static_cast<unsigned int>(lib_to_build))) {
-        std::cout << YELLOW << "[Debug Info] Generated module '" << module_name << "':\n"
-                  << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+        std::cout << YELLOW << "[Debug Info] Generated module '" << module_name << "'" << DEFAULT << "\n"
+                  << resolve_ir_comments(get_module_ir_string(module.get())) << "\n"
+                  << std::endl;
     }
     // Save the generated module at the module_path
     bool compilation_successful = compile_module(module.get(), cache_path / module_name);

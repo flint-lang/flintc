@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
     if (DEBUG_MODE && NO_GENERATION) {
         FIP::shutdown();
         Profiler::end_task("ALL");
-        if (PRINT_PROFILE_RESULTS) {
+        if (PRINT_PROFILE) {
             Profiler::print_results(Profiler::TimeUnit::MICS);
         }
         if (PRINT_CUMULATIVE_PROFILE_RESULTS) {
@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
     Resolver::clear();
     FIP::shutdown();
     Profiler::end_task("ALL");
-    if (PRINT_PROFILE_RESULTS) {
+    if (DEBUG_MODE && PRINT_PROFILE) {
         Profiler::print_results(Profiler::TimeUnit::MICS);
     }
     if (PRINT_CUMULATIVE_PROFILE_RESULTS) {

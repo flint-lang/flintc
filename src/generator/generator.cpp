@@ -112,7 +112,7 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
             break;
     }
 
-    if (DEBUG_MODE) {
+    if (PRINT_TARGET) {
         std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
     }
     module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
@@ -254,9 +254,10 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O2);
         MPM.run(*module, MAM);
 
-        if (DEBUG_MODE && PRINT_IR_PROGRAM_OPTIMIZED) {
-            std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program AFTER optimizations\n"
-                      << DEFAULT << resolve_ir_comments(get_module_ir_string(module)) << std::endl;
+        if (PRINT_IR_OPTIMIZED) {
+            std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program AFTER optimizations" << DEFAULT
+                      << resolve_ir_comments(get_module_ir_string(module)) << "\n"
+                      << std::endl;
         }
     }
 
@@ -282,7 +283,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     delete target_machine.value();
     Profiler::end_task("Generate machine code");
 
-    if (DEBUG_MODE) {
+    if (PRINT_CODEGEN) {
         std::cout << YELLOW << "[Debug Info] Code generation status" << DEFAULT << std::endl;
         std::cout << "-- Machine code generated: " << obj_file << "\n" << std::endl;
     }
@@ -483,7 +484,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     }
     Module::ThreadStack::generate_types();
 
-    if (PRINT_FILE_IR) {
+    if (PRINT_IR_FILE) {
         std::cout << " -------- MAIN -------- \n"
                   << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
                   << std::endl;
@@ -597,7 +598,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             // Store that this file is now finished with its generation
             Resolver::file_generation_finished(shared_tip->file_hash);
 
-            if (PRINT_FILE_IR) {
+            if (PRINT_IR_FILE) {
                 std::cout << " -------- " << module->getName().str() << " -------- \n"
                           << resolve_ir_comments(get_module_ir_string(module.get())) << "\n ---------------- \n"
                           << std::endl;
@@ -662,9 +663,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     }
 
     // Print the module if requested
-    if (DEBUG_MODE && PRINT_IR_PROGRAM) {
-        std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program\n"
-                  << DEFAULT << resolve_ir_comments(get_module_ir_string(module.get())) << std::endl;
+    if (PRINT_IR) {
+        std::cout << YELLOW << "[Debug Info] Generated IR code of the whole program" << DEFAULT
+                  << resolve_ir_comments(get_module_ir_string(module.get())) << "\n"
+                  << std::endl;
     }
     return module;
 }

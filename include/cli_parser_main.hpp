@@ -26,8 +26,7 @@ class CLIParserMain : public CLIParserBase {
         // Iterate through all command-line arguments
         std::filesystem::path cwd_path = std::filesystem::current_path();
         if (args.empty()) {
-            print_err("No arguments were given!");
-            return 1;
+            return print_err("No arguments were given!");
         }
         for (size_t i = 0; i < args.size(); ++i) {
             const std::string &arg = args[i];
@@ -67,8 +66,7 @@ class CLIParserMain : public CLIParserBase {
                             } else if (optimize_str == "fast") {
                                 OPTIMIZE_MODE = OptimizeMode::FAST;
                             } else {
-                                print_err("Unknown Mode: " + optimize_str);
-                                return 1;
+                                return print_err("Unknown Mode: " + optimize_str);
                             }
                             i++;
                             break;
@@ -108,8 +106,7 @@ class CLIParserMain : public CLIParserBase {
                             } else if (target_str == "windows") {
                                 COMPILATION_TARGET = Target::WINDOWS;
                             } else {
-                                print_err("Unknown Target: " + target_str);
-                                return 1;
+                                return print_err("Unknown Target: " + target_str);
                             }
                             i++;
                         }
@@ -152,8 +149,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (optimize_str == "fast") {
                     OPTIMIZE_MODE = OptimizeMode::FAST;
                 } else {
-                    print_err("Unknown Mode: " + optimize_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + optimize_str);
                 }
                 i++;
             } else if (arg == "--version") {
@@ -174,8 +170,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (target_str == "windows") {
                     COMPILATION_TARGET = Target::WINDOWS;
                 } else {
-                    print_err("Unknown Target: " + target_str);
-                    return 1;
+                    return print_err("Unknown Target: " + target_str);
                 }
                 i++;
             } else if (arg == "--arithmetic") {
@@ -196,8 +191,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (arithmetic_str == "unsafe") {
                     overflow_mode = ArithmeticOverflowMode::UNSAFE;
                 } else {
-                    print_err("Unknown Mode: " + arithmetic_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + arithmetic_str);
                 }
                 i++;
             } else if (arg == "--array") {
@@ -218,8 +212,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (array_str == "unsafe") {
                     oob_mode = ArrayOutOfBoundsMode::UNSAFE;
                 } else {
-                    print_err("Unknown Mode: " + array_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + array_str);
                 }
                 i++;
             } else if (arg == "--opaque") {
@@ -238,8 +231,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (opaque_str == "crash") {
                     opaque_leak_mode = OpaqueLeakMode::CRASH;
                 } else {
-                    print_err("Unknown Mode: " + opaque_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + opaque_str);
                 }
                 i++;
             } else if (arg == "--optional") {
@@ -256,8 +248,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (optional_str == "unsafe") {
                     opt_unwrap_mode = OptionalUnwrapMode::UNSAFE;
                 } else {
-                    print_err("Unknown Mode: " + optional_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + optional_str);
                 }
                 i++;
             } else if (arg == "--variant") {
@@ -274,8 +265,7 @@ class CLIParserMain : public CLIParserBase {
                 } else if (variant_str == "unsafe") {
                     var_unwrap_mode = VariantUnwrapMode::UNSAFE;
                 } else {
-                    print_err("Unknown Mode: " + variant_str);
-                    return 1;
+                    return print_err("Unknown Mode: " + variant_str);
                 }
                 i++;
             } else if (arg.size() > 8 && arg.substr(0, 8) == "--flags=") {
@@ -312,58 +302,21 @@ class CLIParserMain : public CLIParserBase {
 #ifdef DEBUG_BUILD
             } else if (arg == "--profile-cumulative") {
                 PRINT_CUMULATIVE_PROFILE_RESULTS = true;
-            } else if (arg == "--no-token-stream") {
-                PRINT_TOK_STREAM = false;
-            } else if (arg == "--no-lines") {
-                PRINT_LINES = false;
-            } else if (arg == "--no-dep-tree") {
-                PRINT_DEP_TREE = false;
-            } else if (arg == "--no-ast") {
-                PRINT_AST = false;
-            } else if (arg == "--no-ir") {
-                PRINT_IR_PROGRAM = false;
-            } else if (arg == "--no-profile") {
-                PRINT_PROFILE_RESULTS = false;
-            } else if (arg == "--no-performance") {
-                PRINT_PERFORMANCE = false;
             } else if (arg == "--hard-crash") {
                 HARD_CRASH = true;
             } else if (arg == "--no-generation") {
                 NO_GENERATION = true;
             } else if (arg == "--no-binary") {
                 NO_BINARY = true;
-            } else if (arg == "--print-optimized-ir") {
-                PRINT_IR_PROGRAM_OPTIMIZED = true;
-            } else if (arg == "--print-file-ir") {
-                PRINT_FILE_IR = true;
-            } else if (arg == "--print-ir-arithmetic") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
-            } else if (arg == "--print-ir-array") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
-            } else if (arg == "--print-ir-print") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
-            } else if (arg == "--print-ir-read") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::READ);
-            } else if (arg == "--print-ir-str") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
-            } else if (arg == "--print-ir-cast") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
-            } else if (arg == "--print-ir-assert") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
-            } else if (arg == "--print-ir-filesystem") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM);
-            } else if (arg == "--print-ir-env") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ENV);
-            } else if (arg == "--print-ir-system") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::SYSTEM);
-            } else if (arg == "--print-ir-math") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::MATH);
-            } else if (arg == "--print-ir-parse") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PARSE);
-            } else if (arg == "--print-ir-time") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::TIME);
-            } else if (arg == "--print-ir-dima") {
-                BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::DIMA);
+            } else if (arg.size() > 8 && arg.substr(0, 8) == "--print=") {
+                const std::string list = arg.substr(8, arg.size() - 8);
+                std::stringstream ss(list);
+                std::string item;
+                while (std::getline(ss, item, ',')) {
+                    if (!enable_print_item(item)) {
+                        return print_err("Unknown --print item: '" + item + "' (use '--print=help' to list of available items)");
+                    }
+                }
 #endif
             } else {
                 if (source_file_path.empty()) {
@@ -376,13 +329,11 @@ class CLIParserMain : public CLIParserBase {
                     // File doesn't exist or isn't readable, so it could be a different arg
                     source_file_path.clear();
                 }
-                print_err("Unknown argument: " + arg);
-                return 1;
+                return print_err("Unknown argument: " + arg);
             }
         }
         if (source_file_path.empty() && !print_version) {
-            print_err("There is no file to compile!");
-            return 1;
+            return print_err("There is no file to compile!");
         }
         return 0;
     }
@@ -424,40 +375,134 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --print-libbuiltins-path    Prints the path to the directory where the libbuiltins.a file is saved at\n";
         std::cout << "      --no-colors                 Disables colored console output\n";
         std::cout << "      --no-fip                    Disables the Flint Interop Protocol entirely\n";
-        std::cout << "                                  HINT: Extern declarations are assumed to be present and no longer chcecked\n";
+        std::cout << "                                  HINT: Extern declarations are assumed to be present and no longer chcecked";
 #ifdef DEBUG_BUILD
-        std::cout << YELLOW << "\nDebug Options" << DEFAULT << ":\n";
+        std::cout << YELLOW << "\n\nDebug Options" << DEFAULT << ":\n";
+        std::cout
+            << "      --print=<LIST>              Enables the given debug outputs             (use '--print=help' for more information)\n";
         std::cout
             << "      --profile-cumulative        Enables the cumulative profiling output, by default only the profile tree view is shown\n";
         std::cout << "      --hard-crash                Enables the option to hard crash the program in the case of a thrown error\n";
-        std::cout << "      --no-token-stream           Disables the debug printing of the lexed Token stream\n";
-        std::cout << "      --no-lines                  Disables the debug printing of the input file lines\n";
-        std::cout << "      --no-dep-tree               Disables the debug printing of the dependency tree\n";
-        std::cout << "      --no-ast                    Disables the debug printing of the parsed AST tree\n";
-        std::cout << "      --no-ir                     Disables the debug printing of the generated program IR code\n";
-        std::cout << "      --no-profile                Disables the debug printing of the profiling results\n";
-        std::cout << "      --no-performance            Disables the debug printing of the performance measurements\n";
         std::cout << "      --no-generation             Disables code generation entirely, the program exits after the parsing phase\n";
         std::cout << "      --no-binary                 Disables compilation of the LLVM modules to a final binary, exiting after IR gen\n";
         std::cout << "                                  HINT: Doesnt produce an executable";
-        std::cout << std::endl;
-        std::cout << YELLOW << "\nIR printing Options" << DEFAULT << ":\n";
-        std::cout << "      --print-optimized-ir        Prints the LLVM IR code after the optimization pass has completed\n";
-        std::cout << "      --print-file-ir             Enables printing of the IR code for every file which was parsed\n";
-        std::cout << "      --print-ir-arithmetic       Enables printing of the IR code for the arithmetic.o library\n";
-        std::cout << "                                  HINT: The arithmetic IR is not printed if '--arithmetic-unsafe' is used\n";
-        std::cout << "      --print-ir-assert           Enables printing of the IR code for the assert.o library\n";
-        std::cout << "      --print-ir-array            Enables printing of the IR code for the array.o library\n";
-        std::cout << "      --print-ir-cast             Enables printing of the IR code for the cast.o library\n";
-        std::cout << "      --print-ir-env              Enables printing of the IR code for the env.o library\n";
-        std::cout << "      --print-ir-filesystem       Enables printing of the IR code for the fs.o library\n";
-        std::cout << "      --print-ir-print            Enables printing of the IR code for the print.o library\n";
-        std::cout << "      --print-ir-read             Enables printing of the IR code for the read.o library\n";
-        std::cout << "      --print-ir-str              Enables printing of the IR code for the str.o library\n";
-        std::cout << "      --print-ir-system           Enables printing of the IR code for the system.o library\n";
-        std::cout << "      --print-ir-math             Enables printing of the IR code for the math.o library";
-        std::cout << std::endl;
 #endif
+        std::cout << std::endl;
+    }
+
+    bool enable_print_item(const std::string &item) {
+        if (item == "help") {
+            print_help_print();
+            std::exit(0);
+        } else if (item == "lines") {
+            PRINT_LINES = true;
+        } else if (item == "tokens") {
+            PRINT_TOKENS = true;
+        } else if (item == "deps") {
+            PRINT_DEPS = true;
+        } else if (item == "body-tokens") {
+            PRINT_BODY_TOKENS = true;
+        } else if (item == "ast") {
+            PRINT_AST = true;
+        } else if (item == "perf") {
+            PRINT_PERFORMANCE = true;
+        } else if (item == "profile") {
+            PRINT_PROFILE = true;
+        } else if (item == "target") {
+            PRINT_TARGET = true;
+        } else if (item == "link") {
+            PRINT_LINK = true;
+        } else if (item == "types") {
+            PRINT_TYPES = true;
+        } else if (item == "garbage") {
+            PRINT_GARBAGE = true;
+        } else if (item == "codegen") {
+            PRINT_CODEGEN = true;
+        } else if (item == "ir") {
+            PRINT_IR = true;
+        } else if (item == "ir-optimized") {
+            PRINT_IR_OPTIMIZED = true;
+        } else if (item == "ir-file") {
+            PRINT_IR_FILE = true;
+        } else if (item == "ir-arithmetic") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARITHMETIC);
+        } else if (item == "ir-array") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ARRAY);
+        } else if (item == "ir-print") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
+        } else if (item == "ir-read") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::READ);
+        } else if (item == "ir-str") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::STR);
+        } else if (item == "ir-cast") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::CAST);
+        } else if (item == "ir-assert") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ASSERT);
+        } else if (item == "ir-filesystem") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::FILESYSTEM);
+        } else if (item == "ir-env") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::ENV);
+        } else if (item == "ir-system") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::SYSTEM);
+        } else if (item == "ir-math") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::MATH);
+        } else if (item == "ir-parse") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::PARSE);
+        } else if (item == "ir-time") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::TIME);
+        } else if (item == "ir-dima") {
+            BUILTIN_LIBS_TO_PRINT |= static_cast<unsigned int>(BuiltinLibrary::DIMA);
+        } else {
+            return false;
+        }
+        return true;
+    }
+
+    void print_help_print() {
+        std::cout << "Usage: flintc <file.ft> --print=<ITEM>[,<ITEM>]*\n";
+        std::cout << "\n";
+        std::cout << "  The compiler is silent by default. By passing a comma-separated list of items to the '--print' flag you\n";
+        std::cout << "  can opt into the individual debug outputs that you are interested in, to inspect the compilation process.\n";
+        std::cout << "\n";
+        std::cout << "Available Print Items:\n";
+        std::cout << "  help            Prints this message\n";
+        std::cout << "  lines           Prints the source lines of the parsed input file(s)\n";
+        std::cout << "  tokens          Prints the lexed token stream of the input file(s)\n";
+        std::cout << "  deps            Prints the dependency tree\n";
+        std::cout << "  body-tokens     Prints the refined body tokens of each open function/test\n";
+        std::cout << "  ast             Prints the parsed AST tree of each file\n";
+        std::cout << "  perf            Prints the lexer/parser/trie performance measurements\n";
+        std::cout << "  profile         Prints the profiler tree results\n";
+        std::cout << "  target          Prints the target triple information\n";
+        std::cout << "  link            Prints the linker arguments\n";
+        std::cout << "  types           Prints each type as it is added to the type map\n";
+        std::cout << "  garbage         Prints the garbage information\n";
+        std::cout << "  codegen         Prints the code generation status\n";
+        std::cout << "  ir              Prints the LLVM IR code of the whole program\n";
+        std::cout << "  ir-optimized    Prints the LLVM IR code after the optimization pass has completed\n";
+        std::cout << "                  HINT: Only prints the optimized IR code if the '--optimize' mode is not 'debug'\n";
+        std::cout << "  ir-file         Prints the LLVM IR code for every file which was parsed\n";
+        std::cout << "  ir-arithmetic   Prints the LLVM IR code of the builtin library 'arithmetic'\n";
+        std::cout << "  ir-array        Prints the LLVM IR code of the builtin library 'array'\n";
+        std::cout << "  ir-print        Prints the LLVM IR code of the builtin library 'print'\n";
+        std::cout << "  ir-read         Prints the LLVM IR code of the builtin library 'read'\n";
+        std::cout << "  ir-str          Prints the LLVM IR code of the builtin library 'str'\n";
+        std::cout << "  ir-cast         Prints the LLVM IR code of the builtin library 'cast'\n";
+        std::cout << "  ir-assert       Prints the LLVM IR code of the builtin library 'assert'\n";
+        std::cout << "  ir-filesystem   Prints the LLVM IR code of the builtin library 'filesystem'\n";
+        std::cout << "  ir-env          Prints the LLVM IR code of the builtin library 'env'\n";
+        std::cout << "  ir-system       Prints the LLVM IR code of the builtin library 'system'\n";
+        std::cout << "  ir-math         Prints the LLVM IR code of the builtin library 'math'\n";
+        std::cout << "  ir-parse        Prints the LLVM IR code of the builtin library 'parse'\n";
+        std::cout << "  ir-time         Prints the LLVM IR code of the builtin library 'time'\n";
+        std::cout << "  ir-dima         Prints the LLVM IR code of the builtin library 'dima'\n";
+        std::cout << "                  HINT: Printing a builtin library also forces it to be re-generated\n";
+        std::cout << "\n";
+        std::cout << "Examples:\n";
+        std::cout << "  flintc-debug main.ft --print=ast\n";
+        std::cout << "  flintc-debug main.ft --print=lines,tokens,ast\n";
+        std::cout << "  flintc-debug main.ft --print=ir,profile\n";
+        std::flush(std::cout);
     }
 
     void print_help_optimize() {

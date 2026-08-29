@@ -37,7 +37,9 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
 
     const std::optional<DefTrie::Pattern> pattern = DefTrie::match(definition_tokens);
     if (!pattern.has_value()) {
-        Debug::print_token_context_vector(definition_tokens, file_name);
+        if (PRINT_TOKENS) {
+            Debug::print_token_context_vector(definition_tokens, file_name);
+        }
         THROW_ERR(ErrUnexpectedDefinition, ERR_PARSING, file_hash, definition_tokens);
         return false;
     }

@@ -19,16 +19,22 @@
 #include "persistent_thread_pool.hpp"
 
 bool FIP_ENABLED = true;
-bool PRINT_TOK_STREAM = true;
-bool PRINT_LINES = true;
-bool PRINT_PERFORMANCE = true;
-bool PRINT_DEP_TREE = true;
-bool PRINT_AST = true;
-bool PRINT_IR_PROGRAM = true;
-bool PRINT_IR_PROGRAM_OPTIMIZED = false;
-bool PRINT_PROFILE_RESULTS = true;
+bool PRINT_LINES = false;
+bool PRINT_TOKENS = false;
+bool PRINT_DEPS = false;
+bool PRINT_BODY_TOKENS = false;
+bool PRINT_AST = false;
+bool PRINT_PERFORMANCE = false;
+bool PRINT_PROFILE = false;
+bool PRINT_TARGET = false;
+bool PRINT_LINK = false;
+bool PRINT_TYPES = false;
+bool PRINT_GARBAGE = false;
+bool PRINT_CODEGEN = false;
+bool PRINT_IR = false;
+bool PRINT_IR_OPTIMIZED = false;
+bool PRINT_IR_FILE = false;
 bool PRINT_CUMULATIVE_PROFILE_RESULTS = false;
-bool PRINT_FILE_IR = false;
 bool HARD_CRASH = false;
 bool NO_BINARY = false;
 bool NO_GENERATION = false;
@@ -94,11 +100,6 @@ namespace Debug {
         if (!DEBUG_MODE) {
             return;
         }
-#ifdef DEBUG_BUILD
-        if (!PRINT_TOK_STREAM) {
-            return;
-        }
-#endif
         std::cout << YELLOW << "[Debug Info] Printing token vector of file '" << file_name << "'" << DEFAULT << std::endl;
         std::stringstream type_stream;
         for (auto tc = tokens.first; tc != tokens.second; ++tc) {
@@ -121,6 +122,7 @@ namespace Debug {
             type_stream.str(std::string());
             type_stream.clear();
         }
+        std::cout << std::endl;
     }
 
     /// create_n_str
