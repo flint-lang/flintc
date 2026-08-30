@@ -15,6 +15,18 @@
 /// @brief Represents function definitions
 class FunctionNode : public DefinitionNode {
   public:
+    enum class Visibility {
+        /// @brief The function is defined regulary as a plain old regular function internal to Flint
+        INTERN,
+        /// @brief The function was defined using the 'extern' keyword and thus comes somewhere from a FIP IM
+        EXTERN,
+        /// @brief The function was defined using the 'export' keyword and will have a second wrapper function generated as the exported
+        /// signature to make it callable from languages outside of Flint
+        EXPORT,
+        /// @brief The function comes from a Core module and thus does not obey the rules of the TS
+        CORE,
+    };
+
     struct Parameter {
         /// @var `type`
         /// @brief The type of the function parameter
@@ -36,8 +48,7 @@ class FunctionNode : public DefinitionNode {
         const unsigned int length,                        //
         const std::vector<AnnotationNode> &annotations,   //
         const bool is_const,                              //
-        const bool is_extern,                             //
-        const bool is_core,                               //
+        const Visibility visibility,                      //
         const std::string &name,                          //
         std::vector<Parameter> &parameters,               //
         std::vector<std::shared_ptr<Type>> &return_types, //
@@ -47,8 +58,7 @@ class FunctionNode : public DefinitionNode {
         ) :
         DefinitionNode(file_hash, line, column, length, annotations),
         is_const(is_const),
-        is_extern(is_extern),
-        is_core(is_core),
+        visibility(visibility),
         name(name),
         parameters(std::move(parameters)),
         return_types(std::move(return_types)),
@@ -63,7 +73,7 @@ class FunctionNode : public DefinitionNode {
     };
 
     std::unordered_set<AnnotationKind> get_possible_annotations() const override {
-        if (is_extern) {
+        if (visibility == Visibility::EXTERN) {
             return consumable_extern_annotations;
         } else {
             return {};
@@ -199,13 +209,9 @@ class FunctionNode : public DefinitionNode {
     /// @brief Determines whether the function is const, e.g. it cannot access data outise of its arguments
     bool is_const;
 
-    /// @var `is_extern`
-    /// @brief Whether the function is defined externally in FIP
-    bool is_extern;
-
-    /// @var `is_core`
-    /// @brief Whether the function originated from a Core module
-    bool is_core;
+    /// @var `visibility`
+    /// @brief The visibility of the function
+    Visibility visibility;
 
     /// @var `name`
     /// @brief The name of the function

@@ -161,7 +161,7 @@ void Generator::IR::generate_forward_declarations(llvm::Module *module, const Fi
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                ASSERT(!function_node->is_extern);
+                ASSERT(function_node->visibility != FunctionNode::Visibility::EXTERN);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             module->getOrInsertFunction(function_name, function_type);
@@ -312,7 +312,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                 builder.SetInsertPoint(branches.at(function_node).second);
                 std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
                 if (function_node->mangle_id.has_value()) {
-                    ASSERT(!function_node->is_extern);
+                    ASSERT(function_node->visibility != FunctionNode::Visibility::EXTERN);
                     function_name += "." + std::to_string(function_node->mangle_id.value());
                 }
                 llvm::Function *const function = module->getFunction(function_name);
@@ -371,7 +371,7 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
             builder.SetInsertPoint(branches.at(function_node).second);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                ASSERT(!function_node->is_extern);
+                ASSERT(function_node->visibility != FunctionNode::Visibility::EXTERN);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             llvm::Function *const function = module->getFunction(function_name);

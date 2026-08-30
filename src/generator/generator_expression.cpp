@@ -1661,7 +1661,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
             std::get<0>(builtin_function.value()), //
             std::get<1>(builtin_function.value())  //
         );
-    } else if (call_node->function->is_extern) {
+    } else if (call_node->function->visibility == FunctionNode::Visibility::EXTERN) {
         return generate_extern_call(builder, ctx, call_node, args);
     } else {
         // Get the function definition from any module

@@ -469,7 +469,7 @@ bool FIP::resolve_function(FunctionNode *function) {
         }
     }
 
-    function->is_extern = true;
+    function->visibility = FunctionNode::Visibility::EXTERN;
     function->error_types.clear();
     fake_fn.name = function->name;
     resolved_functions.push_back(fake_fn);

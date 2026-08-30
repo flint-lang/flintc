@@ -1032,7 +1032,7 @@ std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_re
         return std::nullopt;
     }
     const FunctionNode *referenced_function = potential_functions.front();
-    if (referenced_function->is_extern) {
+    if (referenced_function->visibility == FunctionNode::Visibility::EXTERN) {
         // It is not allowed to reference extern functions
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

@@ -411,7 +411,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 continue;
             }
             const auto *const function_node = definition->as<FunctionNode>();
-            if (!function_node->is_extern) {
+            if (function_node->visibility != FunctionNode::Visibility::EXTERN) {
                 continue;
             }
             // The sret return buffer is always placed at the very start of the scratchspace, directly followed by the argument copies
@@ -759,11 +759,11 @@ bool Generator::generate_file_ir(             //
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
-                ASSERT(!function_node->is_extern);
+                ASSERT(function_node->visibility != FunctionNode::Visibility::EXTERN);
                 function_name += "." + std::to_string(function_node->mangle_id.value());
             }
             module->getOrInsertFunction(function_name, function_type);
-            if (function_node->is_extern) {
+            if (function_node->visibility == FunctionNode::Visibility::EXTERN) {
                 if (extern_functions.find(function_node->name) != extern_functions.end()) {
                     // The extern definition is only allowed to be written once in the project
                     THROW_ERR(ErrExternDuplicateFunction, ERR_GENERATING, function_node, extern_functions.at(function_node->name));

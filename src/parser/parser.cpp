@@ -140,7 +140,7 @@ void Parser::init_core_modules() {
                 std::optional<std::shared_ptr<Scope>> scope = std::nullopt;
                 std::unique_ptr<DefinitionNode> function = std::make_unique<FunctionNode>(  //
                     core_namespace->namespace_hash, 0, 0, 0, std::vector<AnnotationNode>{}, //
-                    false, false, true, function_name,                                      //
+                    false, FunctionNode::Visibility::CORE, function_name,                   //
                     parameters, return_types, error_types, scope, std::nullopt              //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(function));
@@ -456,7 +456,7 @@ bool Parser::resolve_all_unknown_types() {
                 }
                 case DefinitionNode::Variation::FUNCTION: {
                     auto *function_node = definition->as<FunctionNode>();
-                    if (!function_node->is_extern) {
+                    if (function_node->visibility != FunctionNode::Visibility::EXTERN) {
                         break;
                     }
                     // Resolve all argument and return type aliases
@@ -519,7 +519,7 @@ bool Parser::resolve_all_unknown_types() {
                 }
             }
             // Don't check local variables since extern functions don't have a body
-            if (function->is_extern) {
+            if (function->visibility == FunctionNode::Visibility::EXTERN) {
                 continue;
             }
             // The parameters are added to the list of variables to the functions scope, so we need to change the types there too
@@ -584,7 +584,7 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
                 continue;
             }
             const auto *function_node = definition->as<FunctionNode>();
-            if (function_node->is_extern) {
+            if (function_node->visibility == FunctionNode::Visibility::EXTERN) {
                 // We do not collect extern functions, they are not TS-managed but are direct calls instead
                 continue;
             }
@@ -1262,7 +1262,7 @@ bool Parser::parse_all_open_objects(const bool parse_parallel) {
 
 bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body) {
     PROFILE_SCOPE("Process Open Function '" + function->name + "'");
-    if (function->is_extern) {
+    if (function->visibility == FunctionNode::Visibility::EXTERN) {
         // Check whether the FIP provides the searched for function in any of it's modules. We only print the error that the function
         // was unable to be resolved if the FIP is active, if the FIP is not active then the problem is not that the problem has not
         // been found but that FIP has not been able to be started / initialized properly
@@ -1320,7 +1320,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
     // Go through all open functions and refine their body lines before the loop
     Profiler::start_task("Refine function body lines");
     for (auto &[parser, function, body] : open_functions) {
-        if (function->is_extern) {
+        if (function->visibility == FunctionNode::Visibility::EXTERN) {
             continue;
         }
         parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
@@ -1330,7 +1330,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
     // Go through all open functions and call all values for the anonymous error set of that function
     Profiler::start_task("Create all anonymous error sets");
     for (const auto &[parser, function, body] : open_functions) {
-        if (function->is_extern) {
+        if (function->visibility == FunctionNode::Visibility::EXTERN) {
             continue;
         }
         if (!function->scope.has_value()) {

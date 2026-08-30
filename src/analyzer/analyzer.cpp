@@ -107,10 +107,24 @@ bool Analyzer::analyze_definition(const Context &ctx, std::unique_ptr<Definition
         case DefinitionNode::Variation::FUNCTION: {
             auto *node = definition->as<FunctionNode>();
             Context local_ctx = ctx;
-            local_ctx.level = node->is_extern ? ContextLevel::EXTERNAL : ContextLevel::INTERNAL;
-            if (node->is_extern) {
-                // 7 characters for 'extern '
-                local_ctx.column += 7;
+            if (node->is_const) {
+                // 6 characters for 'const '
+                local_ctx.column += 6;
+            }
+            switch (node->visibility) {
+                default:
+                    local_ctx.level = ContextLevel::INTERNAL;
+                    break;
+                case FunctionNode::Visibility::EXTERN:
+                    local_ctx.level = ContextLevel::EXTERNAL;
+                    // 7 characters for 'extern '
+                    local_ctx.column += 7;
+                    break;
+                case FunctionNode::Visibility::EXPORT:
+                    local_ctx.level = ContextLevel::INTERNAL;
+                    // 7 characters for 'export '
+                    local_ctx.column += 7;
+                    break;
             }
             // 4 characters for 'def ' + name + 1 character for '('
             local_ctx.column += node->name.length() + 5;
@@ -230,7 +244,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::CALL: {
             auto *node = statement.as<CallNodeStatement>();
             for (auto &arg : node->arguments) {
-                if (node->function->is_extern) {
+                if (node->function->visibility == FunctionNode::Visibility::EXTERN) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
                     local_ctx.level = ContextLevel::INTERNAL;
@@ -464,7 +478,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         case StatementNode::Variation::INSTANCE_CALL: {
             auto *node = statement.as<InstanceCallNodeStatement>();
             for (auto &arg : node->arguments) {
-                if (node->function->is_extern) {
+                if (node->function->visibility == FunctionNode::Visibility::EXTERN) {
                     local_ctx.level = ContextLevel::EXTERNAL;
                 } else {
                     local_ctx.level = ContextLevel::INTERNAL;
@@ -735,7 +749,7 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::CALL: {
             auto *node = expr->as<CallNodeExpression>();
-            if (node->function->is_extern) {
+            if (node->function->visibility == FunctionNode::Visibility::EXTERN) {
                 local_ctx.level = ContextLevel::EXTERNAL;
             } else {
                 local_ctx.level = ContextLevel::INTERNAL;
@@ -935,7 +949,7 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             auto *node = expr->as<InstanceCallNodeExpression>();
-            if (node->function->is_extern) {
+            if (node->function->visibility == FunctionNode::Visibility::EXTERN) {
                 local_ctx.level = ContextLevel::EXTERNAL;
             } else {
                 local_ctx.level = ContextLevel::INTERNAL;

@@ -7,7 +7,7 @@
 llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *module, const FunctionNode *function_node) {
     llvm::Type *return_types = nullptr;
     llvm::Type *sret_param_type = nullptr;
-    const bool is_extern = function_node->is_extern;
+    const bool is_extern = function_node->visibility == FunctionNode::Visibility::EXTERN;
     if (!is_extern) {
         return llvm::FunctionType::get(     //
             llvm::Type::getInt1Ty(context), //
@@ -84,7 +84,7 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
 }
 
 bool Generator::Function::generate_function_setup(llvm::Module *module, const FunctionNode *function_node) {
-    if (function_node->is_extern) {
+    if (function_node->visibility == FunctionNode::Visibility::EXTERN) {
         // Do nothing as the "declaration" of the extern function actually already happened inside the forward-declaration of the module
         return true;
     }
@@ -98,7 +98,7 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     } else {
         std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
         if (function_node->mangle_id.has_value()) {
-            ASSERT(!function_node->is_extern);
+            ASSERT(function_node->visibility != FunctionNode::Visibility::EXTERN);
             function_name += "." + std::to_string(function_node->mangle_id.value());
         }
         function = module->getFunction(function_name);
@@ -171,7 +171,7 @@ bool Generator::Function::generate_function_body(                               
     FunctionNode *function_node,                                                    //
     const std::unordered_map<std::string, ImportNode *const> &imported_core_modules //
 ) {
-    if (function_node->is_extern) {
+    if (function_node->visibility == FunctionNode::Visibility::EXTERN) {
         // Do nothing as the "declaration" of the extern function actually already happened inside the forward-declaration of the module
         return true;
     }
@@ -266,21 +266,20 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     std::vector<std::shared_ptr<Type>> fake_fn_error_types;
     const std::optional<size_t> fake_fn_mangle_id;
     std::optional<std::shared_ptr<Scope>> fake_fn_scope = std::make_optional(test_node->scope);
-    FunctionNode fake_fn = FunctionNode( //
-        test_node->file_hash,            //
-        test_node->line,                 //
-        test_node->column,               //
-        test_node->length,               //
-        {},                              //
-        false,                           //
-        false,                           //
-        false,                           //
-        test_name,                       //
-        fake_fn_parameters,              //
-        fake_fn_return_types,            //
-        fake_fn_error_types,             //
-        fake_fn_scope,                   //
-        fake_fn_mangle_id                //
+    FunctionNode fake_fn = FunctionNode(  //
+        test_node->file_hash,             //
+        test_node->line,                  //
+        test_node->column,                //
+        test_node->length,                //
+        {},                               //
+        false,                            //
+        FunctionNode::Visibility::INTERN, //
+        test_name,                        //
+        fake_fn_parameters,               //
+        fake_fn_return_types,             //
+        fake_fn_error_types,              //
+        fake_fn_scope,                    //
+        fake_fn_mangle_id                 //
     );
     std::unordered_map<std::string, llvm::Value *const> allocations;
     // Inject all global variables into the allocations map
@@ -329,11 +328,11 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     const CallNodeBase *call_node                                                              //
 ) {
     std::string function_name = call_node->function->name;
-    if (!call_node->function->is_extern) {
+    if (call_node->function->visibility != FunctionNode::Visibility::EXTERN) {
         function_name = call_node->function->file_hash.to_string() + "." + function_name;
     }
     if (call_node->function->mangle_id.has_value()) {
-        ASSERT(!call_node->function->is_extern);
+        ASSERT(call_node->function->visibility != FunctionNode::Visibility::EXTERN);
         function_name += "." + std::to_string(call_node->function->mangle_id.value());
     }
     llvm::Function *func_decl = parent->getParent()->getFunction(function_name);
@@ -349,7 +348,7 @@ std::pair<std::optional<llvm::Function *>, bool> Generator::Function::get_functi
     }
 
     if (call_node->function->mangle_id.has_value()) {
-        ASSERT(!call_node->function->is_extern);
+        ASSERT(call_node->function->visibility != FunctionNode::Visibility::EXTERN);
         // Function has mangle id, for example a function call from another module
         // Externally defined functions are not mangled, this is why we do not need mangling at all for them
         func_decl = main_module[0]->getFunction(function_name);

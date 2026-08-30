@@ -135,7 +135,7 @@ std::vector<const FunctionNode *> Namespace::get_functions_with_name( //
                 if (fn->name != fn_name) {
                     continue;
                 }
-                if (fn->is_core && exclude_core) {
+                if (fn->visibility == FunctionNode::Visibility::CORE && exclude_core) {
                     continue;
                 }
                 found_functions.emplace_back(fn);

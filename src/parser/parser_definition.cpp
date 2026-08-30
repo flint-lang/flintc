@@ -24,6 +24,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     std::vector<std::shared_ptr<Type>> return_types;
     bool is_const = false;
     bool is_extern = false;
+    bool is_export = false;
 
     auto tok_it = definition.first;
     // Parse everything before the parameters
@@ -35,11 +36,19 @@ std::optional<FunctionNode> Parser::create_function(                            
         if (tok_it->token == TOK_EXTERN) {
             is_extern = true;
         }
+        if (tok_it->token == TOK_EXPORT) {
+            is_export = true;
+        }
         if (tok_it->token == TOK_DEF) {
             name = std::next(tok_it)->lexme;
             def_missing = false;
         }
         tok_it++;
+    }
+    if (is_extern && is_export) {
+        // A function cannot be extern and export at the same time
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
     if (def_missing) {
         THROW_ERR(ErrFnDefMissing, ERR_PARSING, file_hash, definition);
@@ -311,9 +320,15 @@ std::optional<FunctionNode> Parser::create_function(                            
         // If there is required data then this function is defined inside a func component, the name needs to be changed accordingly
         name = required_data.value().first + "." + name;
     }
-    return FunctionNode(                                                                         //
-        file_hash, line, column, length, {},                                                     //
-        is_const, is_extern, false, name, parameters, return_types, error_types, body_scope, mid //
+    FunctionNode::Visibility visibility = FunctionNode::Visibility::INTERN;
+    if (is_extern) {
+        visibility = FunctionNode::Visibility::EXTERN;
+    } else if (is_export) {
+        visibility = FunctionNode::Visibility::EXPORT;
+    }
+    return FunctionNode(                                                                   //
+        file_hash, line, column, length, {},                                               //
+        is_const, visibility, name, parameters, return_types, error_types, body_scope, mid //
     );
 }
 

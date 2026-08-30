@@ -1690,8 +1690,18 @@ namespace Debug {
             if (function.is_const) {
                 std::cout << "const ";
             }
-            if (function.is_extern) {
-                std::cout << "extern ";
+            switch (function.visibility) {
+                case FunctionNode::Visibility::INTERN:
+                    break;
+                case FunctionNode::Visibility::EXTERN:
+                    std::cout << "extern ";
+                    break;
+                case FunctionNode::Visibility::EXPORT:
+                    std::cout << "export ";
+                    break;
+                case FunctionNode::Visibility::CORE:
+                    UNREACHABLE();
+                    break;
             }
             std::cout << function.name;
             std::cout << "(";
