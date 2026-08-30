@@ -211,6 +211,19 @@ bool Generator::Builtin::generate_builtin_main( //
 
     // Do not emit the builtin main function if building a library
     if (libname.has_value()) {
+        llvm::FunctionType *const lib_init_fn_ty = llvm::FunctionType::get(builder->getInt1Ty(), {}, false);
+        llvm::Function *const lib_init_fn = llvm::Function::Create( //
+            lib_init_fn_ty,                                         //
+            llvm::Function::WeakODRLinkage,                         //
+            "flint.init." + libname.value(),                        //
+            module                                                  //
+        );
+        llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", lib_init_fn);
+        builder->SetInsertPoint(entry_block);
+        builder->CreateCall(ts_init_fn, {});
+        builder->CreateCall(dima_init_fn, {});
+        llvm::Value *const result = builder->CreateCall(globals_init_fn, {});
+        builder->CreateRet(result);
         return true;
     }
 
