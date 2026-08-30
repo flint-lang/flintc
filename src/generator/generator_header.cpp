@@ -221,7 +221,7 @@ static void header_emit_functions(const std::string &lib, std::ofstream &out, co
             }
             first = false;
             const std::string type_str = header_c_type(lib, param.type, param.is_mutable).value();
-            out << type_str;
+            out << (param.is_mutable ? "" : "const ") << type_str;
             if (type_str.at(type_str.size() - 1) != '*') {
                 out << " ";
             }
