@@ -184,11 +184,11 @@ bool Generator::Builtin::generate_builtin_main( //
     }
 
     llvm::FunctionType *const globals_init_fn_ty = llvm::FunctionType::get(builder->getInt1Ty(), {}, false);
-    llvm::Function *const globals_init_fn = llvm::Function::Create(                       //
-        globals_init_fn_ty,                                                               //
-        llvm::Function::WeakODRLinkage,                                                   //
-        "flint.globals." + (libname.has_value() ? (libname.value() + ".") : "") + "init", //
-        module                                                                            //
+    llvm::Function *const globals_init_fn = llvm::Function::Create(                  //
+        globals_init_fn_ty,                                                          //
+        llvm::Function::WeakODRLinkage,                                              //
+        "flint.globals.init" + (libname.has_value() ? ("." + libname.value()) : ""), //
+        module                                                                       //
     );
     {
         llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", globals_init_fn);
