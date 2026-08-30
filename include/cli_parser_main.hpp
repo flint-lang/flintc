@@ -278,8 +278,9 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--rebuild-core") {
                 BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
             } else if (arg == "--print-libbuiltins-path") {
-                std::cout << Generator::get_flintc_cache_path().string() << std::endl;
-                return 1;
+                std::cout << Generator::get_flintc_cache_path().string();
+                std::flush(std::cout);
+                std::exit(0);
             } else if (arg == "--no-colors") {
                 RED = "";
                 GREEN = "";
