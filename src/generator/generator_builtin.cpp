@@ -1,7 +1,7 @@
 #include "generator/generator.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/parser.hpp"
-#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
 
 #include <filesystem>
 
@@ -69,7 +69,6 @@ bool Generator::Builtin::init_global_variables( //
         .imported_core_modules = {},
         .short_circuit_block = std::nullopt,
         .dest = nullptr,
-        .is_global = true,
     };
     for (const auto &file : Parser::instances) {
         const Namespace *ns = file.file_node_ptr->file_namespace.get();
@@ -118,7 +117,103 @@ bool Generator::Builtin::init_global_variables( //
     return true;
 }
 
-bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module) {
+bool Generator::Builtin::generate_builtin_main( //
+    llvm::IRBuilder<> *builder,                 //
+    llvm::Module *module,                       //
+    const std::optional<std::string> &libname   //
+) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmismatched-new-delete"
+    llvm::GlobalVariable *const ts_global = new llvm::GlobalVariable( //
+        *module, PTR_TY, false, llvm::GlobalValue::WeakODRLinkage,    //
+        llvm::ConstantPointerNull::get(PTR_TY), "flint.ts.global"     // l
+    );
+#pragma GCC diagnostic pop
+
+    llvm::Function *const dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
+    if (libname.has_value()) {
+        dima_init_heads_fn->setName(dima_init_heads_fn->getName() + "." + libname.value());
+    }
+
+    llvm::FunctionType *const ts_init_fn_ty = llvm::FunctionType::get(builder->getVoidTy(), {}, false);
+    llvm::Function *const ts_init_fn = llvm::Function::Create( //
+        ts_init_fn_ty,                                         //
+        llvm::Function::WeakODRLinkage,                        //
+        "flint.ts.init",                                       //
+        module                                                 //
+    );
+    {
+        llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", ts_init_fn);
+        llvm::BasicBlock *const init_block = llvm::BasicBlock::Create(context, "init", ts_init_fn);
+        llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", ts_init_fn);
+
+        builder->SetInsertPoint(entry_block);
+        llvm::Value *const ts_ptr_maybe = IR::aligned_load(*builder, PTR_TY, ts_global, "ts_ptr_maybe");
+        llvm::Value *const ts_initialized = builder->CreateICmpNE(ts_ptr_maybe, llvm::ConstantPointerNull::get(PTR_TY), "is_initialized");
+        builder->CreateCondBr(ts_initialized, ret_block, init_block);
+
+        builder->SetInsertPoint(init_block);
+        llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+        const size_t ts_stack_size = Allocation::get_type_size(module, ts_ty);
+        llvm::Value *const ts_stack_size_v = builder->getInt64(ts_stack_size + Module::ThreadStack::TS_DATA_SIZE);
+        llvm::Value *const ts_ptr = builder->CreateCall(c_functions.at(MALLOC), {ts_stack_size_v}, "ts_ptr");
+        IR::aligned_store(*builder, ts_ptr, ts_global);
+        llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(             //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
+        );
+        IR::aligned_store(*builder, builder->getInt64(Module::ThreadStack::TS_DATA_SIZE), ts_capacity_ptr);
+        llvm::Value *const ts_thread_id_ptr = builder->CreateStructGEP(              //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::THREAD_ID, "ts_thread_id_ptr" //
+        );
+        IR::aligned_store(*builder, builder->getInt32(0), ts_thread_id_ptr);
+        llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+        );
+        IR::aligned_store(*builder, builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_USED), ts_flags_ptr);
+        llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+        );
+        llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(              //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+        );
+        IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+        builder->CreateBr(ret_block);
+
+        builder->SetInsertPoint(ret_block);
+        builder->CreateRetVoid();
+    }
+
+    llvm::FunctionType *const globals_init_fn_ty = llvm::FunctionType::get(builder->getInt1Ty(), {}, false);
+    llvm::Function *const globals_init_fn = llvm::Function::Create(                       //
+        globals_init_fn_ty,                                                               //
+        llvm::Function::WeakODRLinkage,                                                   //
+        "flint.globals." + (libname.has_value() ? (libname.value() + ".") : "") + "init", //
+        module                                                                            //
+    );
+    {
+        llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", globals_init_fn);
+        builder->SetInsertPoint(entry_block);
+
+        builder->CreateCall(ts_init_fn, {});
+        builder->CreateCall(dima_init_heads_fn, {});
+
+        // Initialize all global variables by evaluating the rhs expressions of all global variables
+        llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+        llvm::Value *const ts_ptr = IR::aligned_load(*builder, PTR_TY, ts_global);
+        llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+        );
+        if (!init_global_variables(globals_init_fn, builder, ts_stack_data_ptr, ts_ptr)) {
+            return false;
+        }
+        builder->CreateRet(builder->getInt1(false));
+    }
+
+    // Do not emit the builtin main function if building a library
+    if (libname.has_value()) {
+        return true;
+    }
+
     // Create the FunctionNode of the main function
     // (in order to forward-declare the user defined main function inside the absolute main module)
     std::vector<FunctionNode::Parameter> parameters;
@@ -137,7 +232,7 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     );
 
     // Get the custom user-defined main function
-    llvm::Function *custom_main_function = module->getFunction(function_node.name);
+    llvm::Function *const custom_main_function = module->getFunction(function_node.name);
     ASSERT(custom_main_function != nullptr);
     llvm::FunctionType *main_type = nullptr;
     if (main_function_has_args) {
@@ -153,19 +248,15 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
             false                            // no varargs
         );
     }
-    llvm::Function *main_function = llvm::Function::Create( //
-        main_type,                                          //
-        llvm::Function::ExternalLinkage,                    //
-        "main",                                             //
-        module                                              //
+    llvm::Function *const main_function = llvm::Function::Create( //
+        main_type,                                                //
+        llvm::Function::ExternalLinkage,                          //
+        "main",                                                   //
+        module                                                    //
     );
 
     // Create the functions entry block
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        context,                                              //
-        "entry",                                              //
-        main_function                                         //
-    );
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", main_function);
     builder->SetInsertPoint(entry_block);
 
 #ifdef __WIN32__
@@ -184,33 +275,10 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
 #endif
 
     // Init DIMA
-    llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
     builder->CreateCall(dima_init_heads_fn, {});
 
     // Init the TS variable
-    llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
-    const size_t ts_stack_size = Allocation::get_type_size(module, ts_ty);
-    llvm::Value *const ts_stack_size_v = builder->getInt64(ts_stack_size + Module::ThreadStack::TS_DATA_SIZE);
-    llvm::Value *const ts_ptr = builder->CreateCall(c_functions.at(MALLOC), {ts_stack_size_v}, "ts_ptr");
-    llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(             //
-        ts_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
-    );
-    IR::aligned_store(*builder, builder->getInt64(Module::ThreadStack::TS_DATA_SIZE), ts_capacity_ptr);
-    llvm::Value *const ts_thread_id_ptr = builder->CreateStructGEP(              //
-        ts_ty, ts_ptr, Module::ThreadStack::STACK::THREAD_ID, "ts_thread_id_ptr" //
-    );
-    IR::aligned_store(*builder, builder->getInt32(0), ts_thread_id_ptr);
-    llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
-        ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
-    );
-    IR::aligned_store(*builder, builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_USED), ts_flags_ptr);
-    llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
-        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
-    );
-    llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(              //
-        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
-    );
-    IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+    builder->CreateCall(ts_init_fn, {});
 
     // Store the default-value of the main function in the TS data section
     const size_t main_fn_id = Parser::main_function.load()->get_id();
@@ -219,59 +287,60 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");
 
     // Insert the pointer to the thread stack in the main function's frame
+    llvm::Value *const ts_ptr = builder->CreateLoad(PTR_TY, ts_global, "ts_ptr");
     main_frame = builder->CreateInsertValue(main_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
 
     // If the user-defined main function has args, we first put those args into an array of strings
     if (main_function_has_args) {
-        llvm::Argument *argc = main_function->args().begin();
+        llvm::Argument *const argc = main_function->args().begin();
         argc->setName("argc");
-        llvm::Argument *argv = main_function->args().begin() + 1;
+        llvm::Argument *const argv = main_function->args().begin() + 1;
         argv->setName("argv");
         // Now get the string type
         llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
         const llvm::DataLayout &data_layout = module->getDataLayout();
         const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
-        llvm::Value *arr_len = builder->CreateAdd(                                                      //
+        llvm::Value *const arr_len = builder->CreateAdd(                                                //
             builder->getInt64(str_size),                                                                //
             builder->CreateMul(builder->CreateSExt(argc, builder->getInt64Ty()), builder->getInt64(8)), //
             "arr_len"                                                                                   //
         );
-        llvm::Value *arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
+        llvm::Value *const arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
         // Store 1 in the dimensionality of the array
-        llvm::Value *dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
+        llvm::Value *const dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
         IR::aligned_store(*builder, builder->getInt64(1), dim_ptr);
         // Store the argc in the value field of the array
-        llvm::Value *len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
+        llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
         IR::aligned_store(*builder, builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
 
         // Create the arg_i running variable for the loop
-        llvm::AllocaInst *arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
+        llvm::AllocaInst *const arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
         IR::aligned_store(*builder, builder->getInt32(0), arg_i);
 
-        llvm::BasicBlock *current_block = builder->GetInsertBlock();
-        llvm::BasicBlock *arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", main_function);
-        llvm::BasicBlock *arg_save_loop_body_block = llvm::BasicBlock::Create(context, "arg_save_loop_body", main_function);
-        llvm::BasicBlock *arg_save_loop_exit_block = llvm::BasicBlock::Create(context, "arg_save_loop_exit", main_function);
+        llvm::BasicBlock *const current_block = builder->GetInsertBlock();
+        llvm::BasicBlock *const arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", main_function);
+        llvm::BasicBlock *const arg_save_loop_body_block = llvm::BasicBlock::Create(context, "arg_save_loop_body", main_function);
+        llvm::BasicBlock *const arg_save_loop_exit_block = llvm::BasicBlock::Create(context, "arg_save_loop_exit", main_function);
         builder->SetInsertPoint(current_block);
         builder->CreateBr(arg_save_loop_cond_block);
 
         builder->SetInsertPoint(arg_save_loop_cond_block);
-        llvm::Value *arg_i_val = IR::aligned_load(*builder, builder->getInt32Ty(), arg_i, "arg_i_val");
+        llvm::Value *const arg_i_val = IR::aligned_load(*builder, builder->getInt32Ty(), arg_i, "arg_i_val");
         builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
 
         builder->SetInsertPoint(arg_save_loop_body_block);
-        llvm::Value *argv_element_ptr = builder->CreateGEP(          //
+        llvm::Value *const argv_element_ptr = builder->CreateGEP(    //
             PTR_TY,                                                  //
             argv,                                                    //
             {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
             "argv_element_ptr"                                       //
         );
-        llvm::Value *argv_element = IR::aligned_load(*builder, PTR_TY, argv_element_ptr, "argv_element");
-        llvm::Value *arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
-        llvm::Value *created_str = builder->CreateCall(                                                     //
+        llvm::Value *const argv_element = IR::aligned_load(*builder, PTR_TY, argv_element_ptr, "argv_element");
+        llvm::Value *const arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
+        llvm::Value *const created_str = builder->CreateCall(                                               //
             Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
         );
-        llvm::Value *arg_ptr = builder->CreateGEP(                                            //
+        llvm::Value *const arg_ptr = builder->CreateGEP(                                      //
             PTR_TY, len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
         );
         IR::aligned_store(*builder, created_str, arg_ptr);
@@ -288,16 +357,28 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
         }
     }
 
-    // Initialize all global variables by evaluating the rhs expressions of all global variables
-    if (!init_global_variables(main_function, builder, ts_stack_data_ptr, ts_ptr)) {
-        return false;
-    }
+    llvm::BasicBlock *current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *const globals_init_failed_block = llvm::BasicBlock::Create(context, "globals_init_failed", main_function);
+    llvm::BasicBlock *const globals_init_ok_block = llvm::BasicBlock::Create(context, "globals_init_ok", main_function);
+
+    builder->SetInsertPoint(current_block);
+    llvm::Value *const globals_init_failed = builder->CreateCall(globals_init_fn, {});
+    builder->CreateCondBr(globals_init_failed, globals_init_failed_block, globals_init_ok_block);
+
+    builder->SetInsertPoint(globals_init_failed_block);
+    builder->CreateCall(c_functions.at(EXIT), {builder->getInt32(1)});
+    builder->CreateUnreachable();
 
     // Store the main frame in the ts data section as the first function frame
+    builder->SetInsertPoint(globals_init_ok_block);
+    llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+    llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+    );
     IR::aligned_store(*builder, main_frame, ts_stack_data_ptr);
 
     // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
-    llvm::CallInst *main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
+    llvm::CallInst *const main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
     if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
 #ifndef __WIN32__
         main_call->addParamAttr(0, llvm::Attribute::InReg);
@@ -307,13 +388,13 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     }
     llvm::Value *main_exit_code = builder->getInt32(0);
     if (main_function_has_ret) {
-        llvm::Value *main_exit_code_ptr = builder->CreateStructGEP(main_frame_type, ts_stack_data_ptr, 1, "main_exit_code_ptr");
+        llvm::Value *const main_exit_code_ptr = builder->CreateStructGEP(main_frame_type, ts_stack_data_ptr, 1, "main_exit_code_ptr");
         main_exit_code = IR::aligned_load(*builder, builder->getInt32Ty(), main_exit_code_ptr, "main_exit_code");
     }
 
-    llvm::BasicBlock *current_block = builder->GetInsertBlock();
-    llvm::BasicBlock *catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "main_merge", main_function);
+    current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *const catch_block = llvm::BasicBlock::Create(context, "main_catch", main_function);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "main_merge", main_function);
     builder->SetInsertPoint(current_block);
 
     // Check if the main function returned an error and branch accordingly
@@ -325,18 +406,20 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     // Generate the body of the catch block
     builder->SetInsertPoint(catch_block);
     llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
-    llvm::Value *err_val_ptr = builder->CreateStructGEP(ts_fn_ty, ts_stack_data_ptr, Module::ThreadStack::FUNCTION::ERR, "err_val_ptr");
-    llvm::Value *err_val = IR::aligned_load(*builder, type_map.at("type.flint.err"), err_val_ptr, "err_val");
-    llvm::Value *type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
-    llvm::Value *value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
-    llvm::Value *message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
-    llvm::Function *get_err_type_str_fn = Error::error_functions.at("get_err_type_str");
-    llvm::Function *get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
-    llvm::Value *err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
-    llvm::Value *err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
+    llvm::Value *const err_val_ptr = builder->CreateStructGEP(                         //
+        ts_fn_ty, ts_stack_data_ptr, Module::ThreadStack::FUNCTION::ERR, "err_val_ptr" //
+    );
+    llvm::Value *const err_val = IR::aligned_load(*builder, type_map.at("type.flint.err"), err_val_ptr, "err_val");
+    llvm::Value *const type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
+    llvm::Value *const value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
+    llvm::Value *const message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
+    llvm::Function *const get_err_type_str_fn = Error::error_functions.at("get_err_type_str");
+    llvm::Function *const get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
+    llvm::Value *const err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
+    llvm::Value *const err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-    llvm::Value *message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
-    llvm::Value *message_begin_ptr = IR::generate_const_string(                         //
+    llvm::Value *const message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
+    llvm::Value *const message_begin_ptr = IR::generate_const_string(                   //
         module, "The given error bubbled up to the main function:\n └─ %s.%s: \"%s\"\n" //
     );
     builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, err_type_str, err_val_str, message});
@@ -345,7 +428,7 @@ bool Generator::Builtin::generate_builtin_main(llvm::IRBuilder<> *builder, llvm:
     builder->CreateBr(merge_block);
 
     builder->SetInsertPoint(merge_block);
-    llvm::PHINode *exit_value = builder->CreatePHI(builder->getInt32Ty(), 2, "exit_value");
+    llvm::PHINode *const exit_value = builder->CreatePHI(builder->getInt32Ty(), 2, "exit_value");
     exit_value->addIncoming(main_exit_code, current_block);
     exit_value->addIncoming(builder->getInt32(1), catch_block);
     builder->CreateCall(c_functions.at(EXIT), {exit_value});

@@ -20,6 +20,8 @@ main.pdb
 main.obj
 main
 main.o
+mylib.o
+mylib.obj
 test
 test.o
 logfile

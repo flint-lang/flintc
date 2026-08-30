@@ -211,7 +211,8 @@ std::optional<FileNode *> Parser::parse() {
 std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     const std::filesystem::path &path,                         //
     const bool is_test,                                        //
-    const bool parse_parallel                                  //
+    const bool parse_parallel,                                 //
+    const std::optional<std::string> &libname                  //
 ) {
     Profiler::start_task("Parser::parse_program", true);
     Type::init_types();
@@ -232,7 +233,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
         std::cerr << RED << "Error" << DEFAULT << ": Failed to create dependency graph" << std::endl;
         return std::nullopt;
     }
-    if (Parser::main_function.load() == nullptr && !is_test) {
+    if (Parser::main_function.load() == nullptr && !is_test && !libname.has_value()) {
         // No main function found
         THROW_ERR(ErrDefNoMainFunction, ERR_PARSING, Hash(path));
         return std::nullopt;

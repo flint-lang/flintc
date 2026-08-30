@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     main_file_path = clp.source_file_path;
 
     Profiler::start_task("ALL");
-    const auto &dep_graph = Parser::parse_program(clp.source_file_path, clp.test, clp.parallel);
+    const auto &dep_graph = Parser::parse_program(clp.source_file_path, clp.test, clp.parallel, clp.libname);
     if (!dep_graph.has_value()) {
         Parser::clear_instances();
         Profiler::end_task("ALL");
@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
     FIP::send_compile_request();
 
     // Generate the whole program
-    auto program = Generator::generate_program_ir(clp.test ? "test" : "main", dep_graph.value(), clp.test);
+    auto program = Generator::generate_program_ir(clp.test ? "test" : "main", dep_graph.value(), clp.test, clp.libname);
     if (!program.has_value()) {
         Parser::clear_instances();
         Profiler::end_task("ALL");
@@ -89,7 +89,9 @@ int main(int argc, char *argv[]) {
         }
     } else {
         // Compile the program and output the binary
-        if (!NO_BINARY && !Generator::compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static)) {
+        if (!NO_BINARY                                                                                                              //
+            && !Generator::compile_program(clp.out_file_path, program.value().get(), clp.compile_flags, clp.is_static, clp.libname) //
+        ) {
             Resolver::clear();
             FIP::shutdown();
             Profiler::end_task("ALL");

@@ -145,14 +145,19 @@ bool Generator::compile_program(              //
     const std::filesystem::path &binary_file, //
     llvm::Module *module,                     //
     const std::vector<std::string> &flags,    //
-    const bool is_static                      //
+    const bool is_static,                     //
+    const std::optional<std::string> &libname //
 ) {
     PROFILE_SCOPE("Compile program " + module->getName().str());
 
     // Direct linking with LDD
-    if (!Generator::compile_module(module, binary_file)) {
-        llvm::errs() << "Compilation of program '" << binary_file.string() << "' failed\n";
+    const std::filesystem::path object_file_path = libname.has_value() ? std::filesystem::path(libname.value()) : binary_file;
+    if (!Generator::compile_module(module, object_file_path)) {
+        llvm::errs() << "Compilation of program '" << object_file_path.string() << "' failed\n";
         return false;
+    }
+    if (libname.has_value()) {
+        return true;
     }
 
     std::string obj_file = binary_file.string();
@@ -336,7 +341,8 @@ bool Generator::verify_module(const llvm::Module *module) {
 std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     const std::string &program_name,                                         //
     const std::shared_ptr<DepNode> &dep_graph,                               //
-    const bool is_test                                                       //
+    const bool is_test,                                                      //
+    const std::optional<std::string> &libname                                //
 ) {
     PTR_TY = llvm::PointerType::get(context, 0);
     Profiler::start_task("Generate builtin libraries");
@@ -514,7 +520,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Generate all the `setup` blocks for all functions, and generate all the TS frame types for all funcitons before moving on to generate
     // the actual file IR
     for (const FunctionNode *function_node : Parser::get_all_functions()) {
-        if (is_test && function_node->name == "_main") {
+        if ((is_test || libname.has_value()) && function_node->name == "_main") {
             continue;
         }
         if (!function_node->scope.has_value()) {
@@ -591,7 +597,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
             // Generate the IR code from the given FileNode
             Namespace *file_namespace = Resolver::get_namespace_from_hash(shared_tip->file_hash);
             FileNode *file = file_namespace->file_node;
-            if (!generate_file_ir(module.get(), *file, is_test)) {
+            if (!generate_file_ir(module.get(), *file, is_test, libname)) {
                 return std::nullopt;
             }
 
@@ -637,14 +643,14 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     } else {
         // Ensure that the user has defined a main function, called `_main`. This function is *not* mangled
         llvm::Function *main_function = module->getFunction("_main");
-        if (main_function == nullptr) {
+        if (main_function == nullptr && !libname.has_value()) {
             // No main function defined
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
 
         // Generate main function in the main module
-        if (!Builtin::generate_builtin_main(builder.get(), module.get())) {
+        if (!Builtin::generate_builtin_main(builder.get(), module.get(), libname)) {
             return std::nullopt;
         }
     }
@@ -671,7 +677,12 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     return module;
 }
 
-bool Generator::generate_file_ir(llvm::Module *module, FileNode &file, const bool is_test) {
+bool Generator::generate_file_ir(             //
+    llvm::Module *module,                     //
+    FileNode &file,                           //
+    const bool is_test,                       //
+    const std::optional<std::string> &libname //
+) {
     PROFILE_SCOPE("Generate IR for '" + file.file_name + "'");
 
     for (auto &imported_core_module : file.imported_core_modules) {
@@ -785,7 +796,7 @@ bool Generator::generate_file_ir(llvm::Module *module, FileNode &file, const boo
                 break;
             case DefinitionNode::Variation::FUNCTION: {
                 auto *function_node = node->as<FunctionNode>();
-                if (is_test && function_node->name == "_main") {
+                if ((is_test || libname.has_value()) && function_node->name == "_main") {
                     continue;
                 }
                 if (!Function::generate_function_body(function_node, file.imported_core_modules)) {

@@ -2685,13 +2685,7 @@ void Generator::Expression::generate_rethrow( //
             type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
         );
         IR::aligned_store(builder, err_val, error_ptr);
-        if (ctx.is_global) {
-            // For now just return 1 when a call in a global initializer scope failed
-            // TODO: Add proper error printing etc like it exists when calling the main function
-            builder.CreateRet(builder.getInt32(1));
-        } else {
-            builder.CreateRet(builder.getInt1(true));
-        }
+        builder.CreateRet(builder.getInt1(true));
     }
 
     // Add branch to the merge block from the catch block if it does not contain a terminator (return or throw)

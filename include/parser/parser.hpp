@@ -107,11 +107,13 @@ class Parser {
     /// @param `file` The "main" file to parse all included files from to form a finished program
     /// @param `is_test` Whether the program is a test program
     /// @param `parse_parallel` Whether to parse the files in parallel
+    /// @param `libname` The name of the library we want to produce, nullopt if we do not produce a library
     /// @return `std::optional<std::shared_ptr<DepNode>>` The pointer to the main file dependency, nullopt if parsing failed
     static std::optional<std::shared_ptr<DepNode>> parse_program( //
         const std::filesystem::path &file,                        //
         const bool is_test,                                       //
-        const bool parse_parallel                                 //
+        const bool parse_parallel,                                //
+        const std::optional<std::string> &libname                 //
     );
 
     /// @function `parse`

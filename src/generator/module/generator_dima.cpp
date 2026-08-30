@@ -129,8 +129,8 @@ void Generator::Module::DIMA::generate_dima_functions( //
     generate_types();
     if (!is_core_generation) {
         generate_heads(module);
+        generate_init_heads_function(builder, module, only_declarations);
     }
-    generate_init_heads_function(builder, module, is_core_generation || only_declarations);
 
     generate_get_block_capacity_function(builder, module, !is_core_generation || only_declarations);
     generate_create_block_function(builder, module, !is_core_generation || only_declarations);
@@ -204,25 +204,25 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     llvm::Module *module,                                   //
     const bool only_declarations                            //
 ) {
-    llvm::Function *malloc_fn = c_functions.at(MALLOC);
-    llvm::Function *memset_fn = c_functions.at(MEMSET);
+    llvm::Function *const malloc_fn = c_functions.at(MALLOC);
+    llvm::Function *const memset_fn = c_functions.at(MEMSET);
 
-    llvm::FunctionType *init_heads_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
-    llvm::Function *init_heads_fn = llvm::Function::Create( //
-        init_heads_type,                                    //
-        llvm::Function::ExternalLinkage,                    //
-        prefix + "init_heads",                              //
-        module                                              //
+    llvm::FunctionType *const init_heads_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
+    llvm::Function *const init_heads_fn = llvm::Function::Create( //
+        init_heads_type,                                          //
+        llvm::Function::WeakODRLinkage,                           //
+        prefix + "init_heads",                                    //
+        module                                                    //
     );
     dima_functions["init_heads"] = init_heads_fn;
     if (only_declarations) {
         return;
     }
 
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", init_heads_fn);
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge");
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", init_heads_fn);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge");
 
-    llvm::StructType *head_type = type_map.at("type.dima.head");
+    llvm::StructType *const head_type = type_map.at("type.dima.head");
     const size_t head_size = Allocation::get_type_size(module, head_type);
     llvm::BasicBlock *last_block = entry_block;
 
@@ -234,36 +234,50 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         if (data_node->is_const || data_node->is_shared) {
             continue;
         }
-        const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
+
         const std::string block_name = "init_data_" + data_node->name;
-        llvm::StructType *data_struct_type = IR::add_and_or_get_type(module, data_type, false);
+        llvm::StructType *const data_struct_type = IR::add_and_or_get_type(module, data_type, false);
         const size_t data_type_size = Allocation::get_type_size(module, data_struct_type);
-        llvm::BasicBlock *data_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+        llvm::BasicBlock *const data_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+
+        const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
+        llvm::GlobalVariable *const head_variable = dima_heads.at(heads_key);
         builder->SetInsertPoint(last_block);
-        builder->CreateBr(data_block);
+        if (last_block == entry_block) {
+            llvm::Value *const head_ptr_maybe = IR::aligned_load(*builder, PTR_TY, head_variable);
+            llvm::Value *const head_initialized = builder->CreateICmpNE(                   //
+                head_ptr_maybe, llvm::ConstantPointerNull::get(PTR_TY), "head_initialized" //
+            );
+            builder->CreateCondBr(head_initialized, merge_block, data_block);
+        } else {
+            builder->CreateBr(data_block);
+        }
 
         // Allocate enough memory for the head, the default value for now is just zero-allocated which means that the whole default head
         // structure can simply be zero-initialized and still be correct
         builder->SetInsertPoint(data_block);
-        llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + data_node->name);
+        llvm::Value *const allocated_head = builder->CreateCall(                           //
+            malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + data_node->name //
+        );
         // Store the type id in the head
-        llvm::Value *type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
+        llvm::Value *const type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
         IR::aligned_store(*builder, builder->getInt32(data_type->get_id()), type_id_ptr);
         // Store the type size in the head
-        llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
+        llvm::Value *const type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
         // Initialize the block count to 0
-        llvm::Value *block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
+        llvm::Value *const block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
         IR::aligned_store(*builder, builder->getInt64(0), block_count_ptr);
         // Allocate enough memory for the default value and set it to 0 for now
         // TODO: Once data has default values we need to set the fields of the data here too
-        llvm::Value *default_value = builder->CreateCall(                                      //
+        llvm::Value *const default_value = builder->CreateCall(                                //
             malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + data_node->name //
         );
         builder->CreateCall(memset_fn, {default_value, builder->getInt32(0), builder->getInt64(data_type_size)});
-        llvm::Value *default_value_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_DEFAULT_VALUE, "default_value_ptr");
+        llvm::Value *const default_value_ptr = builder->CreateStructGEP(       //
+            head_type, allocated_head, HEAD_DEFAULT_VALUE, "default_value_ptr" //
+        );
         IR::aligned_store(*builder, default_value, default_value_ptr);
-        llvm::GlobalVariable *const head_variable = dima_heads.at(heads_key);
         IR::aligned_store(*builder, allocated_head, head_variable);
         last_block = data_block;
     }
@@ -275,31 +289,33 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         const std::string block_name = "init_object_" + object->name;
         const Parser *object_parser_instance = Parser::get_instance_from_hash(object->file_hash).value();
         const auto &object_type_ptr = object_parser_instance->file_node_ptr->file_namespace->get_type_from_str(object->name);
-        llvm::StructType *object_struct_type = IR::add_and_or_get_type(module, object_type_ptr.value(), false);
+        llvm::StructType *const object_struct_type = IR::add_and_or_get_type(module, object_type_ptr.value(), false);
         const size_t data_type_size = Allocation::get_type_size(module, object_struct_type);
-        llvm::BasicBlock *object_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+        llvm::BasicBlock *const object_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
         builder->SetInsertPoint(last_block);
         builder->CreateBr(object_block);
 
         // Allocate enough memory for the head, the default value for now is just zero-allocated which means that the whole default head
         // structure can simply be zero-initialized and still be correct
         builder->SetInsertPoint(object_block);
-        llvm::Value *allocated_head = builder->CreateCall(malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + object->name);
+        llvm::Value *const allocated_head = builder->CreateCall(                        //
+            malloc_fn, {builder->getInt64(head_size)}, "allocated_head_" + object->name //
+        );
         // Store the type id in the head
-        llvm::Value *type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
+        llvm::Value *const type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
         IR::aligned_store(*builder, builder->getInt32(object_type_ptr.value()->get_id()), type_id_ptr);
         // Store the type size in the head
-        llvm::Value *type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
+        llvm::Value *const type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);
         // Initialize the block count to 0
-        llvm::Value *block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
+        llvm::Value *const block_count_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_BLOCK_COUNT, "block_count_ptr");
         IR::aligned_store(*builder, builder->getInt64(0), block_count_ptr);
         // Allocate enough memory for the default value and set it to 0
-        llvm::Value *default_value = builder->CreateCall(                                   //
+        llvm::Value *const default_value = builder->CreateCall(                             //
             malloc_fn, {builder->getInt64(data_type_size)}, "default_value_" + object->name //
         );
         builder->CreateCall(memset_fn, {default_value, builder->getInt32(0), builder->getInt64(data_type_size)});
-        llvm::Value *default_value_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_DEFAULT_VALUE, "default_value_ptr");
+        llvm::Value *const default_value_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_DEFAULT_VALUE, "default_value_ptr");
         IR::aligned_store(*builder, default_value, default_value_ptr);
         llvm::GlobalVariable *const head_variable = dima_heads.at(heads_key);
         IR::aligned_store(*builder, allocated_head, head_variable);

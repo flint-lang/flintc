@@ -268,6 +268,12 @@ class CLIParserMain : public CLIParserBase {
                     return print_err("Unknown Mode: " + variant_str);
                 }
                 i++;
+            } else if (arg == "--lib") {
+                if (!n_args_follow(i + 1, "<libname>", arg)) {
+                    return 1;
+                }
+                libname = args.at(i + 1);
+                i++;
             } else if (arg.size() > 8 && arg.substr(0, 8) == "--flags=") {
                 const std::string flags = arg.substr(8, arg.size() - 8);
                 std::stringstream ss(flags);
@@ -336,10 +342,17 @@ class CLIParserMain : public CLIParserBase {
         if (source_file_path.empty() && !print_version) {
             return print_err("There is no file to compile!");
         }
+        if (libname.has_value() && test) {
+            return print_err("The '--test' flag is invalid when creating libraries!");
+        }
+        if (libname.has_value() && out_file_path != "main") {
+            return print_err("The '--out' flag is invalid when creating libraries!");
+        }
         return 0;
     }
 
     std::filesystem::path source_file_path = "";
+    std::optional<std::string> libname = std::nullopt;
     std::filesystem::path out_file_path = "main";
     std::filesystem::path ir_file_path = "";
     std::vector<std::string> compile_flags;
@@ -368,6 +381,7 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "      --opaque     <MODE>         Selecting the mode for opaque behaviour     (use --help for more information)\n";
         std::cout << "      --optional   <MODE>         Selecting the mode for optional behaviour   (use --help for more information)\n";
         std::cout << "      --variant    <MODE>         Selecting the mode for variant behaviour    (use --help for more information)\n";
+        std::cout << "      --lib        <name>         Whether to build the given program as a library\n";
         std::cout << "      --emit-ir    <file>         Whether to emit the compiled IR code to a file\n";
         std::cout << "                                  HINT: The compiler will not create an executable with this flag set\n";
         std::cout << "      --flags=\"[FLAGS]*\"          The flags to pass to the linker (lld)\n";

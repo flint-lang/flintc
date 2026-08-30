@@ -99,12 +99,14 @@ class Generator {
     /// @param `module` The program to compile
     /// @param `flags` The flags which will be forwarded to the linker
     /// @param `is_static` Whether the program is statically linked
+    /// @param `libname` The name of the library we want to produce, nullopt if we do not produce a library
     /// @return `bool` Whether compilation of the program was successful
     static bool compile_program(                  //
         const std::filesystem::path &binary_file, //
         llvm::Module *module,                     //
         const std::vector<std::string> &flags,    //
-        const bool is_static                      //
+        const bool is_static,                     //
+        const std::optional<std::string> &libname //
     );
 
     /// @function `compile_module`
@@ -128,6 +130,7 @@ class Generator {
     /// @param `program_name` The name the program (the module) will have
     /// @param `dep_graph` The root DepNode of the dependency graph
     /// @param `is_test` Whether the program is built in test mode
+    /// @param `libname` The name of the library we want to produce, nullopt if we do not produce a library
     /// @return `std::optional<std::unique_ptr<llvm::Module>>` A pointer containing the generated program module, nullopt if anything failed
     ///
     /// @attention Do not forget to call `Resolver::clear()` before the module returned from this function goes out of scope! You would get
@@ -135,7 +138,8 @@ class Generator {
     static std::optional<std::unique_ptr<llvm::Module>> generate_program_ir( //
         const std::string &program_name,                                     //
         const std::shared_ptr<DepNode> &dep_graph,                           //
-        const bool is_test                                                   //
+        const bool is_test,                                                  //
+        const std::optional<std::string> &libname                            //
     );
 
     /// @function `generate_file_ir`
@@ -144,8 +148,14 @@ class Generator {
     /// @param `module` The module in which to emit the file IR code in
     /// @param `file` The file node to generate
     /// @param `is_test` Whether the program is built in test mode
+    /// @param `libname` The name of the library we want to produce, nullopt if we do not produce a library
     /// @return `bool` Whether the file IR was generated correctly
-    static bool generate_file_ir(llvm::Module *module, FileNode &file, const bool is_test);
+    static bool generate_file_ir(                 //
+        llvm::Module *module,                     //
+        FileNode &file,                           //
+        const bool is_test,                       //
+        const std::optional<std::string> &libname //
+    );
 
     /// @function `get_module_ir_string`
     /// @brief Generates the IR code of the given Module and returns it as a string
@@ -262,10 +272,6 @@ class Generator {
         /// @var `dest`
         /// @brief Optional destination pointer for expressions that write directly (e.g. fixed array initializers)
         llvm::Value *dest = nullptr;
-
-        /// @var `is_global`
-        /// @brief Whether the context is generating global variable initialization code (inside C main, not a Flint function)
-        bool is_global = false;
     };
 
     /// @var `type_map`
@@ -667,8 +673,13 @@ class Generator {
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the main function definition will be generated in
+        /// @param `libname` The name of the library we want to produce, nullopt if we do not produce a library
         /// @return `bool` Whether generating the builtin main function was successful (it fails when global initializers fail)
-        [[nodiscard]] static bool generate_builtin_main(llvm::IRBuilder<> *builder, llvm::Module *module);
+        [[nodiscard]] static bool generate_builtin_main( //
+            llvm::IRBuilder<> *builder,                  //
+            llvm::Module *module,                        //
+            const std::optional<std::string> &libname    //
+        );
 
         /// @function `generate_c_functions`
         /// @brief Generates all references to the external c functions
