@@ -117,6 +117,13 @@ class Generator {
     /// @return `bool` Whether compilation was successful
     static bool compile_module(llvm::Module *module, const std::filesystem::path &module_path);
 
+    /// @function `generate_header`
+    /// @brief Generates a C header file (`.h`) for all `export`ed functions when creating a "Flint library" using the `--lib` flag.
+    ///
+    /// @param `libname` The name of the library, the header is written to `<libname>.h`
+    /// @return `bool` Whether the header was generated successfully
+    static bool generate_header(const std::filesystem::path &libname);
+
     /// @function `verify_module`
     /// @brief Verifies a given module
     ///

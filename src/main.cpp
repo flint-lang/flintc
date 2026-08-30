@@ -53,6 +53,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Generate the C header for the exported functions of a library
+    if (clp.libname.has_value() && !Generator::generate_header(std::filesystem::path(clp.libname.value()))) {
+        Parser::clear_instances();
+        Profiler::end_task("ALL");
+        FIP::shutdown();
+        return 1;
+    }
+
     // Skip generation if requested
     if (DEBUG_MODE && NO_GENERATION) {
         FIP::shutdown();

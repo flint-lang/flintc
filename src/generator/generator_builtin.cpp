@@ -186,7 +186,7 @@ bool Generator::Builtin::generate_builtin_main( //
     llvm::FunctionType *const globals_init_fn_ty = llvm::FunctionType::get(builder->getInt1Ty(), {}, false);
     llvm::Function *const globals_init_fn = llvm::Function::Create(                  //
         globals_init_fn_ty,                                                          //
-        llvm::Function::WeakODRLinkage,                                              //
+        llvm::Function::InternalLinkage,                                             //
         "flint.globals.init" + (libname.has_value() ? ("." + libname.value()) : ""), //
         module                                                                       //
     );
@@ -214,7 +214,7 @@ bool Generator::Builtin::generate_builtin_main( //
         llvm::FunctionType *const lib_init_fn_ty = llvm::FunctionType::get(builder->getInt1Ty(), {}, false);
         llvm::Function *const lib_init_fn = llvm::Function::Create( //
             lib_init_fn_ty,                                         //
-            llvm::Function::WeakODRLinkage,                         //
+            llvm::Function::ExternalLinkage,                        //
             "flint.init." + libname.value(),                        //
             module                                                  //
         );
