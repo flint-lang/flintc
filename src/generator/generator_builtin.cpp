@@ -130,9 +130,9 @@ bool Generator::Builtin::generate_builtin_main( //
     );
 #pragma GCC diagnostic pop
 
-    llvm::Function *const dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
+    llvm::Function *const dima_init_fn = Module::DIMA::dima_functions.at("init");
     if (libname.has_value()) {
-        dima_init_heads_fn->setName(dima_init_heads_fn->getName() + "." + libname.value());
+        dima_init_fn->setName(dima_init_fn->getName() + "." + libname.value());
     }
 
     llvm::FunctionType *const ts_init_fn_ty = llvm::FunctionType::get(builder->getVoidTy(), {}, false);
@@ -195,7 +195,7 @@ bool Generator::Builtin::generate_builtin_main( //
         builder->SetInsertPoint(entry_block);
 
         builder->CreateCall(ts_init_fn, {});
-        builder->CreateCall(dima_init_heads_fn, {});
+        builder->CreateCall(dima_init_fn, {});
 
         // Initialize all global variables by evaluating the rhs expressions of all global variables
         llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
@@ -275,7 +275,7 @@ bool Generator::Builtin::generate_builtin_main( //
 #endif
 
     // Init DIMA
-    builder->CreateCall(dima_init_heads_fn, {});
+    builder->CreateCall(dima_init_fn, {});
 
     // Init the TS variable
     builder->CreateCall(ts_init_fn, {});
@@ -1657,8 +1657,8 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     }
 
     // Init DIMA
-    llvm::Function *dima_init_heads_fn = Module::DIMA::dima_functions.at("init_heads");
-    builder->CreateCall(dima_init_heads_fn, {});
+    llvm::Function *dima_init_fn = Module::DIMA::dima_functions.at("init");
+    builder->CreateCall(dima_init_fn, {});
 
     // Init the TS variable
     llvm::StructType *const ts_ty = type_map.at("type.ts.stack");

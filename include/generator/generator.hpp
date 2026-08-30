@@ -3570,7 +3570,7 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_dima_functions` function is called
             static inline std::unordered_map<std::string_view, llvm::Function *> dima_functions = {
                 {"get_block_capacity", nullptr},
-                {"init_heads", nullptr},
+                {"init", nullptr},
                 {"create_block", nullptr},
                 {"allocate_in_block", nullptr},
                 {"allocate", nullptr},
@@ -3622,16 +3622,16 @@ class Generator {
             /// @brief Generates all the slot, block and head types of all data types of all files
             static void generate_types();
 
-            /// @function `generate_init_heads_function`
-            /// @brief Generates the `init_heads` function to initialize all dima heads at program startup
+            /// @function `generate_init_function`
+            /// @brief Generates the `init` function to initialize all dima heads at program startup
             ///
             /// @param `builder` The LLVM IRBuilder
-            /// @param `module` The LLVM Module the `init_heads` function will be generated in
-            /// @param `only_declarations` Whether to actually generate the `init_heads` function or to only generate it's declaration
-            static void generate_init_heads_function( //
-                llvm::IRBuilder<> *builder,           //
-                llvm::Module *module,                 //
-                const bool only_declarations = true   //
+            /// @param `module` The LLVM Module the `init` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the `init` function or to only generate it's declaration
+            static void generate_init_function(     //
+                llvm::IRBuilder<> *builder,         //
+                llvm::Module *module,               //
+                const bool only_declarations = true //
             );
 
             /// @function `generate_get_block_capacity_function`

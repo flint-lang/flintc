@@ -129,7 +129,7 @@ void Generator::Module::DIMA::generate_dima_functions( //
     generate_types();
     if (!is_core_generation) {
         generate_heads(module);
-        generate_init_heads_function(builder, module, only_declarations);
+        generate_init_function(builder, module, only_declarations);
     }
 
     generate_get_block_capacity_function(builder, module, !is_core_generation || only_declarations);
@@ -199,27 +199,27 @@ void Generator::Module::DIMA::generate_types() {
     }
 }
 
-void Generator::Module::DIMA::generate_init_heads_function( //
-    llvm::IRBuilder<> *builder,                             //
-    llvm::Module *module,                                   //
-    const bool only_declarations                            //
+void Generator::Module::DIMA::generate_init_function( //
+    llvm::IRBuilder<> *builder,                       //
+    llvm::Module *module,                             //
+    const bool only_declarations                      //
 ) {
     llvm::Function *const malloc_fn = c_functions.at(MALLOC);
     llvm::Function *const memset_fn = c_functions.at(MEMSET);
 
-    llvm::FunctionType *const init_heads_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
-    llvm::Function *const init_heads_fn = llvm::Function::Create( //
-        init_heads_type,                                          //
-        llvm::Function::WeakODRLinkage,                           //
-        prefix + "init_heads",                                    //
-        module                                                    //
+    llvm::FunctionType *const init_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {}, false);
+    llvm::Function *const init_fn = llvm::Function::Create( //
+        init_type,                                          //
+        llvm::Function::WeakODRLinkage,                     //
+        prefix + "init",                                    //
+        module                                              //
     );
-    dima_functions["init_heads"] = init_heads_fn;
+    dima_functions["init"] = init_fn;
     if (only_declarations) {
         return;
     }
 
-    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", init_heads_fn);
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", init_fn);
     llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge");
 
     llvm::StructType *const head_type = type_map.at("type.dima.head");
@@ -238,7 +238,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         const std::string block_name = "init_data_" + data_node->name;
         llvm::StructType *const data_struct_type = IR::add_and_or_get_type(module, data_type, false);
         const size_t data_type_size = Allocation::get_type_size(module, data_struct_type);
-        llvm::BasicBlock *const data_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+        llvm::BasicBlock *const data_block = llvm::BasicBlock::Create(context, block_name, init_fn);
 
         const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
         llvm::GlobalVariable *const head_variable = dima_heads.at(heads_key);
@@ -291,7 +291,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
         const auto &object_type_ptr = object_parser_instance->file_node_ptr->file_namespace->get_type_from_str(object->name);
         llvm::StructType *const object_struct_type = IR::add_and_or_get_type(module, object_type_ptr.value(), false);
         const size_t data_type_size = Allocation::get_type_size(module, object_struct_type);
-        llvm::BasicBlock *const object_block = llvm::BasicBlock::Create(context, block_name, init_heads_fn);
+        llvm::BasicBlock *const object_block = llvm::BasicBlock::Create(context, block_name, init_fn);
         builder->SetInsertPoint(last_block);
         builder->CreateBr(object_block);
 
@@ -323,7 +323,7 @@ void Generator::Module::DIMA::generate_init_heads_function( //
     }
     builder->CreateBr(merge_block);
 
-    merge_block->insertInto(init_heads_fn);
+    merge_block->insertInto(init_fn);
     builder->SetInsertPoint(merge_block);
     builder->CreateRetVoid();
 }

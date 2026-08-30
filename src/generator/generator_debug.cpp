@@ -342,7 +342,7 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
         0, nullptr, type->get_type_string() + ".dima_head"                                                                       //
     );
     // The func struct stores &global_var in its dima_head field (offset 16).
-    // The global var *contains* the actual dima_head address (e.g. after init_heads).
+    // The global var *contains* the actual dima_head address (e.g. after init).
     // To reach type_id = *(*(func+16) + 8), we chain two references:
     //   outer ref → wrapper struct at &global_var → inner ref → dima type at dima_head_addr
     llvm::DIDerivedType *const inner_ref = DIB->createReferenceType(                 //
@@ -624,7 +624,7 @@ llvm::DIType *Generator::Debug::create_debug_type_interface(llvm::Module *const 
         0, nullptr, type->get_type_string() + ".dima_head"                                                                              //
     );
     // The interface struct stores &global_var in its dima_head field (offset 16).
-    // The global var *contains* the actual dima_head address (e.g. after init_heads).
+    // The global var *contains* the actual dima_head address (e.g. after init).
     // To reach type_id = *(*(interface+16) + 8), we chain two references:
     //   outer ref → wrapper struct at &global_var → inner ref → dima type at dima_head_addr
     llvm::DIDerivedType *const inner_ref = DIB->createReferenceType(                 //
