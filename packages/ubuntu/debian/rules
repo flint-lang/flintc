@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# No compilation – we ship prebuilt static binaries
+override_dh_auto_configure:
+override_dh_auto_build:
+override_dh_auto_test:
+
+# Make sure the binaries stay executable
+override_dh_fixperms:
+	dh_fixperms
+	chmod 755 debian/flintc/usr/bin/flintc
+	chmod 755 debian/flintc/usr/bin/fls

@@ -1,0 +1,19 @@
+Source: flintc
+Section: devel
+Priority: optional
+Maintainer: Marc Zweiler <marc.zweiler@outlook.at>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/flint-lang/flintc
+Vcs-Git: https://github.com/flint-lang/flintc.git
+Vcs-Browser: https://github.com/flint-lang/flintc
+
+Package: flintc
+Architecture: amd64
+Depends: ${misc:Depends}
+Description: Flint programming language compiler and language server
+ Flint is a high-level, transparent programming language with
+ composition-first design and automatic memory management (DIMA).
+ .
+ This package provides the Flint compiler (flintc) and the
+ language server (fls) as prebuilt static binaries.

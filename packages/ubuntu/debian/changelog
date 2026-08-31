@@ -1,0 +1,6 @@
+flintc (0.4.1-1) noble; urgency=medium
+
+  * Initial Ubuntu package.
+  * Ship prebuilt static binaries of flintc and fls.
+
+ -- Marc Zweiler <marc.zweiler@outlook.at>  Mon, 31 Aug 2026 13:00:00 +0200
