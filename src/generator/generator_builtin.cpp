@@ -222,8 +222,8 @@ bool Generator::Builtin::generate_builtin_main( //
         builder->SetInsertPoint(entry_block);
         builder->CreateCall(ts_init_fn, {});
         builder->CreateCall(dima_init_fn, {});
-        llvm::Value *const result = builder->CreateCall(globals_init_fn, {});
-        builder->CreateRet(result);
+        llvm::Value *const init_result = builder->CreateNot(builder->CreateCall(globals_init_fn, {}), "init_result");
+        builder->CreateRet(init_result);
         return true;
     }
 

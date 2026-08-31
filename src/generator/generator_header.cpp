@@ -281,7 +281,7 @@ bool Generator::generate_header(const std::filesystem::path &libname) {
     const std::string lib = libname.string();
     header_emit_types(lib, header, ctx);
 
-    header << "/// @brief Returns 'true' on failure and 'false' if everything was OK\n";
+    header << "/// @brief Returns 'false' on failure and 'true' if everything was OK\n";
     header << "extern bool " << lib << "_init(void) asm(\"flint.init." << lib << "\");\n\n";
     // TODO: Add a deinit function some time in the future
     // header << "extern void " << lib << "_deinit(void) asm(\"flint.deinit." << lib << "\");\n\n";
