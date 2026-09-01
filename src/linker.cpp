@@ -89,6 +89,7 @@ if (Test-Path $installer) {
 
 LLD_HAS_DRIVER(coff)
 LLD_HAS_DRIVER(elf)
+LLD_HAS_DRIVER(mingw)
 
 bool Linker::link(                                       //
     const std::vector<std::filesystem::path> &obj_files, ///
@@ -107,8 +108,11 @@ bool Linker::link(                                       //
         case Target::LINUX:
             return link_linux(obj_files, output_file, flags, is_static);
             break;
-        case Target::WINDOWS:
-            return link_windows(obj_files, output_file, flags, is_static);
+        case Target::WINDOWS_MSVC:
+            return link_windows_msvc(obj_files, output_file, flags, is_static);
+            break;
+        case Target::WINDOWS_GNU:
+            return link_windows_gnu(obj_files, output_file, flags, is_static);
             break;
     }
     UNREACHABLE();
@@ -144,8 +148,11 @@ bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj
         case Target::LINUX:
             file_ending = ".a";
             break;
-        case Target::WINDOWS:
+        case Target::WINDOWS_MSVC:
             file_ending = ".lib";
+            break;
+        case Target::WINDOWS_GNU:
+            file_ending = ".a";
             break;
     }
     llvm::Error err = llvm::writeArchive(output_file.string() + file_ending, newMembers,
@@ -258,10 +265,10 @@ std::string Linker::get_lib_env_win() {
     return lib_env_str;
 }
 
-std::optional<std::vector<std::string>> Linker::get_windows_args( //
-    const std::vector<std::filesystem::path> &obj_files,          //
-    const std::filesystem::path &output_file,                     //
-    const bool is_static                                          //
+std::optional<std::vector<std::string>> Linker::get_windows_msvc_args( //
+    const std::vector<std::filesystem::path> &obj_files,               //
+    const std::filesystem::path &output_file,                          //
+    const bool is_static                                               //
 ) {
     std::vector<std::string> args;
     std::string output_exe = output_file.string() + ".exe";
@@ -314,7 +321,7 @@ std::optional<std::vector<std::string>> Linker::get_windows_args( //
     return args;
 }
 
-bool Linker::link_windows(                               //
+bool Linker::link_windows_msvc(                          //
     const std::vector<std::filesystem::path> &obj_files, //
     const std::filesystem::path &output_file,            //
     const std::vector<std::string> &flags,               //
@@ -336,7 +343,7 @@ bool Linker::link_windows(                               //
 #endif
 
     // Get the arguments with which to call the linker
-    std::optional<std::vector<std::string>> arguments = get_windows_args(obj_files, output_file, is_static);
+    std::optional<std::vector<std::string>> arguments = get_windows_msvc_args(obj_files, output_file, is_static);
     if (!arguments.has_value()) {
         return false;
     }
@@ -489,4 +496,125 @@ bool Linker::link_linux(                                 //
     }
 
     return lld::elf::link(args, llvm::outs(), llvm::errs(), false, false);
+}
+
+std::optional<std::vector<std::string>> Linker::get_windows_gnu_args( //
+    const std::vector<std::filesystem::path> &obj_files,              //
+    const std::filesystem::path &output_file,                         //
+    const bool is_static                                              //
+) {
+    std::vector<std::string> args;
+    args.push_back("ld.lld");
+
+    // MinGW driver target machine (PE COFF, x86_64)
+    args.push_back("-m");
+    args.push_back("i386pep");
+    args.push_back("-o");
+    args.push_back(output_file.string() + ".exe");
+
+    // Probe for an installed MinGW sysroot (similar to how musl is discovered on Linux). The mingw-w64 runtime lives under a triple
+    // directory, e.g. '/usr/x86_64-w64-mingw32/lib'
+    const std::string triple = "x86_64-w64-mingw32";
+    const std::filesystem::path lib_dir = std::filesystem::path("/usr") / triple / "lib";
+    if (lib_dir.empty()) {
+        std::cerr << "Error: Could not find an installed MinGW toolchain." << std::endl;
+        return std::nullopt;
+    }
+    if (!std::filesystem::exists(lib_dir / "crt2.o")) {
+        std::cerr << "Error: Could not find file 'crt2.o' in '" << lib_dir.string() << "'" << std::endl;
+        return std::nullopt;
+    }
+    if (!std::filesystem::exists(lib_dir / "libmingw32.a")) {
+        std::cerr << "Error: Could not find file 'libmingw32.a' in '" << lib_dir.string() << "'" << std::endl;
+        return std::nullopt;
+    }
+
+    // Locate the versioned GCC support directory (contains libgcc.a, crtbegin.o, crtend.o).
+    const std::filesystem::path gcc_base = std::filesystem::path("/usr") / "lib" / "gcc" / triple;
+    std::filesystem::path gcc_dir;
+    std::error_code ec;
+    if (std::filesystem::exists(gcc_base)) {
+        for (const auto &entry : std::filesystem::directory_iterator(gcc_base, ec)) {
+            if (entry.is_directory() && std::filesystem::exists(entry.path() / "libgcc.a")) {
+                // Pick the highest version directory if several are present.
+                if (gcc_dir.empty() || entry.path().filename().string() > gcc_dir.filename().string()) {
+                    gcc_dir = entry.path();
+                }
+            }
+        }
+    }
+    if (gcc_dir.empty()) {
+        std::cerr << "Error: Could not find the GCC support directory ('libgcc.a') for the MinGW toolchain in '" << gcc_base.string()
+                  << "'." << std::endl;
+        return std::nullopt;
+    }
+
+    args.push_back("-L" + gcc_dir.string());
+    args.push_back("-L" + lib_dir.string());
+    args.push_back((lib_dir / "crt2.o").string());
+    args.push_back((gcc_dir / "crtbegin.o").string());
+    for (const auto &obj_file : obj_files) {
+        args.push_back(obj_file.string());
+    }
+
+    // Link against the builtins library from the flintc cache
+    args.push_back("-L" + Generator::get_flintc_cache_path().string());
+    args.push_back("-lbuiltins");
+    if (is_static) {
+        args.push_back("-static");
+    } else {
+        args.push_back("-Bdynamic");
+    }
+
+    args.push_back("-lmingw32");
+    args.push_back("-lgcc");
+    args.push_back("-lgcc_eh");
+    args.push_back("-lmoldname");
+    args.push_back("-lmingwex");
+    args.push_back("-lmsvcrt");
+    args.push_back("-lkernel32");
+    // Statically link winpthread so the produced executable doesn't depend on the 'libwinpthread-1.dll' shared library at runtime.
+    args.push_back("-Bstatic");
+    args.push_back("-lpthread");
+    args.push_back("-Bdynamic");
+    args.push_back("-ladvapi32");
+    args.push_back("-lshell32");
+    args.push_back("-luser32");
+    args.push_back("-lkernel32");
+
+    args.push_back((gcc_dir / "crtend.o").string());
+    return args;
+}
+
+bool Linker::link_windows_gnu(                           //
+    const std::vector<std::filesystem::path> &obj_files, //
+    const std::filesystem::path &output_file,            //
+    const std::vector<std::string> &flags,               //
+    const bool is_static                                 //
+) {
+    // Get the arguments for linking
+    std::optional<std::vector<std::string>> arguments = get_windows_gnu_args(obj_files, output_file, is_static);
+    if (!arguments.has_value()) {
+        return false;
+    }
+    if (PRINT_LINK) {
+        std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static " : "Dynamic ") << "MinGW linking with arguments:" << DEFAULT
+                  << std::endl;
+        for (const auto &arg : arguments.value()) {
+            std::cout << "  " << arg << "\n";
+        }
+        for (const auto &flag : flags) {
+            std::cout << "  " << flag << "\n";
+        }
+        std::cout << std::endl;
+    }
+    std::vector<const char *> args;
+    for (const auto &arg : arguments.value()) {
+        args.push_back(arg.c_str());
+    }
+    for (const auto &flag : flags) {
+        args.push_back(flag.c_str());
+    }
+
+    return lld::mingw::link(args, llvm::outs(), llvm::errs(), false, false);
 }

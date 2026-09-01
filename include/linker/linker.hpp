@@ -44,29 +44,29 @@ class Linker {
     /// @return `std::string` The content of the 'LIB' environment variable
     static std::string get_lib_env_win();
 
-    /// @function `get_windows_args`
-    /// @brief Get all the windows args to call lld with
+    /// @function `get_windows_msvc_args`
+    /// @brief Get all the windows-msvc args to call lld with
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `std::optional<std::vector<std::string>>` The list of all arguments with which lld will be called, nullopt if something
     /// failed
-    static std::optional<std::vector<std::string>> get_windows_args( //
-        const std::vector<std::filesystem::path> &obj_files,         //
-        const std::filesystem::path &output_file,                    //
-        const bool is_static                                         //
+    static std::optional<std::vector<std::string>> get_windows_msvc_args( //
+        const std::vector<std::filesystem::path> &obj_files,              //
+        const std::filesystem::path &output_file,                         //
+        const bool is_static                                              //
     );
 
-    /// @function `link_windows`
-    /// @brief Links the built program for windows and outputs an .exe file
+    /// @function `link_windows_msvc`
+    /// @brief Links the built program for windows-msvc and outputs an .exe file
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `flags` The flags with which to link the .obj file to the executable
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
-    static bool link_windows(                                //
+    static bool link_windows_msvc(                           //
         const std::vector<std::filesystem::path> &obj_files, //
         const std::filesystem::path &output_file,            //
         const std::vector<std::string> &flags,               //
@@ -95,6 +95,35 @@ class Linker {
     /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
     static bool link_linux(                                  //
+        const std::vector<std::filesystem::path> &obj_files, //
+        const std::filesystem::path &output_file,            //
+        const std::vector<std::string> &flags,               //
+        const bool is_static                                 //
+    );
+
+    /// @function `get_windows_gnu_args`
+    /// @brief Get all the mingw args to call lld with
+    ///
+    /// @param `obj_files` The paths to the object files to link together to the executable
+    /// @param `output_file` The output file of the link
+    /// @param `is_static` Whether the output file should be linked as static
+    /// @return `std::optional<std::vector<std::string>>` The list of all arguments with which lld will be called, nullopt if something
+    /// failed
+    static std::optional<std::vector<std::string>> get_windows_gnu_args( //
+        const std::vector<std::filesystem::path> &obj_files,             //
+        const std::filesystem::path &output_file,                        //
+        const bool is_static                                             //
+    );
+
+    /// @function `link_windows_gnu`
+    /// @brief Links the built program for windows-gnu using MinGW and outputs an .exe file
+    ///
+    /// @param `obj_files` The paths to the object files to link together to the executable
+    /// @param `output_file` The output file of the link
+    /// @param `flags` The flags with which to link the .obj file to the executable
+    /// @param `is_static` Whether the output file should be linked as static
+    /// @return `bool` Whether linking the executable was succesful
+    static bool link_windows_gnu(                            //
         const std::vector<std::filesystem::path> &obj_files, //
         const std::filesystem::path &output_file,            //
         const std::vector<std::string> &flags,               //

@@ -68,7 +68,8 @@ extern OptimizeMode OPTIMIZE_MODE;
 enum class Target {
     NATIVE,
     LINUX,
-    WINDOWS,
+    WINDOWS_MSVC,
+    WINDOWS_GNU,
 };
 extern Target COMPILATION_TARGET;
 

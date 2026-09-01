@@ -103,8 +103,13 @@ class CLIParserMain : public CLIParserBase {
                                 COMPILATION_TARGET = Target::NATIVE;
                             } else if (target_str == "linux") {
                                 COMPILATION_TARGET = Target::LINUX;
-                            } else if (target_str == "windows") {
-                                COMPILATION_TARGET = Target::WINDOWS;
+#ifdef __WIN32__
+                            } else if (target_str == "windows-msvc") {
+                                COMPILATION_TARGET = Target::WINDOWS_MSVC;
+#else
+                            } else if (target_str == "windows-gnu") {
+                                COMPILATION_TARGET = Target::WINDOWS_GNU;
+#endif
                             } else {
                                 return print_err("Unknown Target: " + target_str);
                             }
@@ -167,8 +172,13 @@ class CLIParserMain : public CLIParserBase {
                     COMPILATION_TARGET = Target::NATIVE;
                 } else if (target_str == "linux") {
                     COMPILATION_TARGET = Target::LINUX;
-                } else if (target_str == "windows") {
-                    COMPILATION_TARGET = Target::WINDOWS;
+#ifdef __WIN32__
+                } else if (target_str == "windows-msvc") {
+                    COMPILATION_TARGET = Target::WINDOWS_MSVC;
+#else
+                } else if (target_str == "windows-gnu") {
+                    COMPILATION_TARGET = Target::WINDOWS_GNU;
+#endif
                 } else {
                     return print_err("Unknown Target: " + target_str);
                 }
@@ -547,9 +557,13 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc <file.ft> --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
-        std::cout << "  native      [Default] The native target triple of the platform the compiler is executed on\n";
-        std::cout << "  linux       Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
-        std::cout << "  windows     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";
+        std::cout << "  native          [Default] The native target triple of the platform the compiler is executed on\n";
+        std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+#ifdef __WIN32__
+        std::cout << "  windows-msvc    Targetting Windows (target triple 'x86_64-pc-windows-msvc')\n";
+#else
+        std::cout << "  windows-gnu     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";
+#endif
         std::flush(std::cout);
     }
 

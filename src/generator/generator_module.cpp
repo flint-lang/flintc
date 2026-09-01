@@ -208,7 +208,9 @@ bool Generator::Module::generate_modules() {
         case Target::LINUX:
             file_ending = ".o";
             break;
-        case Target::WINDOWS:
+        case Target::WINDOWS_MSVC:
+            [[fallthrough]];
+        case Target::WINDOWS_GNU:
             file_ending = ".obj";
             break;
     }

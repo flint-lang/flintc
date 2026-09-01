@@ -363,6 +363,7 @@ fn buildFlintc(
     if (target.result.os.tag == .windows) {
         exe.root_module.linkSystemLibrary("ole32", .{});
     }
+    exe.root_module.linkSystemLibrary("lldMinGW", .{});
     exe.root_module.linkSystemLibrary("lldCOFF", .{});
     exe.root_module.linkSystemLibrary("lldELF", .{});
     exe.root_module.linkSystemLibrary("lldCommon", .{});
@@ -493,6 +494,7 @@ fn buildLLVM(
         "lldCommon",
         "lldELF",
         "lldCOFF",
+        "lldMinGW",
         "install-llvm-libraries",
     };
     const build_llvm = b.addSystemCommand(&[_][]const u8{

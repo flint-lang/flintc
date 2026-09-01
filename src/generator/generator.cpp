@@ -104,7 +104,10 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
             target_triple = llvm::sys::getDefaultTargetTriple();
 #endif
             break;
-        case Target::WINDOWS:
+        case Target::WINDOWS_MSVC:
+            target_triple = "x86_64-pc-windows-msvc";
+            break;
+        case Target::WINDOWS_GNU:
             target_triple = "x86_64-pc-windows-gnu";
             break;
         case Target::LINUX:
@@ -173,7 +176,9 @@ bool Generator::compile_program(              //
         case Target::LINUX:
             file_ending = ".o";
             break;
-        case Target::WINDOWS:
+        case Target::WINDOWS_MSVC:
+            [[fallthrough]];
+        case Target::WINDOWS_GNU:
             file_ending = ".obj";
             break;
     }
@@ -233,7 +238,9 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
         case Target::LINUX:
             obj_file += ".o";
             break;
-        case Target::WINDOWS:
+        case Target::WINDOWS_MSVC:
+            [[fallthrough]];
+        case Target::WINDOWS_GNU:
             obj_file += ".obj";
             break;
     }
