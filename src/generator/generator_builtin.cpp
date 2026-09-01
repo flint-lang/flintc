@@ -1,4 +1,5 @@
 #include "generator/generator.hpp"
+#include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/parser.hpp"
 #include "llvm/IR/Constants.h"
@@ -272,20 +273,19 @@ bool Generator::Builtin::generate_builtin_main( //
     llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", main_function);
     builder->SetInsertPoint(entry_block);
 
-#ifdef __WIN32__
-    // Setting the console output to UTF-8 that the tree characters render correctly
-    // SetConsoleOutputCP(CP_UTF8);
-    // CP_UTF8 has the value of 65001 stored in it
-    llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
-        {llvm::Type::getInt32Ty(context)},                                 // UINT
-        false                                                              // No vaargs
-    );
-    llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
-        SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
-    );
-    builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(65001)});
-#endif
+    if (is_target_windows()) {
+        // Setting the console output to UTF-8 that the tree characters render correctly
+        static constexpr unsigned int cp_utf8 = 65001;
+        llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
+            {llvm::Type::getInt32Ty(context)},                                 // UINT
+            false                                                              // No vaargs
+        );
+        llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
+            SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
+        );
+        builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(cp_utf8)});
+    }
 
     // Init DIMA
     builder->CreateCall(dima_init_fn, {});
@@ -392,12 +392,10 @@ bool Generator::Builtin::generate_builtin_main( //
 
     // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
     llvm::CallInst *const main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         main_call->addParamAttr(0, llvm::Attribute::InReg);
         main_call->setCallingConv(llvm::CallingConv::Tail);
         main_call->setTailCall();
-#endif
     }
     llvm::Value *main_exit_code = builder->getInt32(0);
     if (main_function_has_ret) {
@@ -798,22 +796,22 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *getenv_fn = llvm::Function::Create(getenv_type, llvm::Function::ExternalLinkage, "getenv", module);
         c_functions[GETENV] = getenv_fn;
     }
-#ifndef __WIN32__
-    // setenv
-    {
-        llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
-            llvm::Type::getInt32Ty(context),                       // return i32
-            {
-                PTR_TY,                         // char* name
-                PTR_TY,                         // char* value
-                llvm::Type::getInt32Ty(context) // i32 replace
-            },                                  //
-            false                               // No vaarg
-        );
-        llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
-        c_functions[SETENV] = setenv_fn;
+    if (!is_target_windows()) {
+        // setenv
+        {
+            llvm::FunctionType *setenv_type = llvm::FunctionType::get( //
+                llvm::Type::getInt32Ty(context),                       // return i32
+                {
+                    PTR_TY,                         // char* name
+                    PTR_TY,                         // char* value
+                    llvm::Type::getInt32Ty(context) // i32 replace
+                },                                  //
+                false                               // No vaarg
+            );
+            llvm::Function *setenv_fn = llvm::Function::Create(setenv_type, llvm::Function::ExternalLinkage, "setenv", module);
+            c_functions[SETENV] = setenv_fn;
+        }
     }
-#endif
     // popen
     {
         llvm::FunctionType *popen_type = llvm::FunctionType::get( //
@@ -824,13 +822,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },          //
             false       // No vaarg
         );
-        llvm::Function *popen_fn = llvm::Function::Create(popen_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_popen",
-#else
-            "popen",
-#endif
-            module);
+        llvm::Function *popen_fn = llvm::Function::Create(                                                //
+            popen_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_popen" : "popen", module //
+        );
         c_functions[POPEN] = popen_fn;
     }
     // pclose
@@ -840,13 +834,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             {PTR_TY},                                              // FILE* stream
             false                                                  // No vaarg
         );
-        llvm::Function *pclose_fn = llvm::Function::Create(pclose_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_pclose",
-#else
-            "pclose",
-#endif
-            module);
+        llvm::Function *pclose_fn = llvm::Function::Create(                                                  //
+            pclose_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_pclose" : "pclose", module //
+        );
         c_functions[PCLOSE] = pclose_fn;
     }
     // getcwd
@@ -859,13 +849,9 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },
             false // No vaarg
         );
-        llvm::Function *getcwd_fn = llvm::Function::Create(getcwd_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_getcwd",
-#else
-            "getcwd",
-#endif
-            module);
+        llvm::Function *getcwd_fn = llvm::Function::Create(                                                  //
+            getcwd_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_getcwd" : "getcwd", module //
+        );
         c_functions[GETCWD] = getcwd_fn;
     }
     // sin
@@ -1025,13 +1011,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },                                   //
             false                                // No vaarg
         );
-        llvm::Function *dup_fn = llvm::Function::Create(dup_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_dup",
-#else
-            "dup",
-#endif
-            module //
+        llvm::Function *dup_fn = llvm::Function::Create(                                            //
+            dup_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_dup" : "dup", module //
         );
         c_functions[DUP] = dup_fn;
     }
@@ -1045,13 +1026,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },                                   //
             false                                // No vaarg
         );
-        llvm::Function *dup2_fn = llvm::Function::Create(dup2_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_dup2",
-#else
-            "dup2",
-#endif
-            module //
+        llvm::Function *dup2_fn = llvm::Function::Create(                                              //
+            dup2_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_dup2" : "dup2", module //
         );
         c_functions[DUP2] = dup2_fn;
     }
@@ -1064,13 +1040,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },          //
             false       // No vaarg
         );
-        llvm::Function *fileno_fn = llvm::Function::Create(fileno_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_fileno",
-#else
-            "fileno",
-#endif
-            module //
+        llvm::Function *fileno_fn = llvm::Function::Create(                                                  //
+            fileno_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_fileno" : "fileno", module //
         );
         c_functions[FILENO] = fileno_fn;
     }
@@ -1083,13 +1054,8 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
             },                                   //
             false                                // No vaarg
         );
-        llvm::Function *close_fn = llvm::Function::Create(close_type, llvm::Function::ExternalLinkage,
-#ifdef __WIN32__
-            "_close",
-#else
-            "close",
-#endif
-            module //
+        llvm::Function *close_fn = llvm::Function::Create(                                                //
+            close_type, llvm::Function::ExternalLinkage, is_target_windows() ? "_close" : "close", module //
         );
         c_functions[CLOSE] = close_fn;
     }
@@ -1124,11 +1090,11 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[FGETS] = module->getFunction("fgets");
     c_functions[FWRITE] = module->getFunction("fwrite");
     c_functions[GETENV] = module->getFunction("getenv");
-#ifndef __WIN32__
-    c_functions[SETENV] = module->getFunction("setenv");
-#endif
-    c_functions[POPEN] = module->getFunction("popen");
-    c_functions[PCLOSE] = module->getFunction("pclose");
+    if (!is_target_windows()) {
+        c_functions[SETENV] = module->getFunction("setenv");
+    }
+    c_functions[POPEN] = module->getFunction(is_target_windows() ? "_popen" : "popen");
+    c_functions[PCLOSE] = module->getFunction(is_target_windows() ? "_pclose" : "pclose");
     c_functions[SIN] = module->getFunction("sin");
     c_functions[SINF] = module->getFunction("sinf");
     c_functions[COS] = module->getFunction("cos");
@@ -1143,15 +1109,9 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[FABS] = module->getFunction("fabs");
     c_functions[FFLUSH] = module->getFunction("fflush");
     c_functions[TMPFILE] = module->getFunction("tmpfile");
-#ifdef __WIN32__
-    c_functions[DUP] = module->getFunction("_dup");
-    c_functions[DUP2] = module->getFunction("_dup2");
-    c_functions[FILENO] = module->getFunction("_fileno");
-#else
-    c_functions[DUP] = module->getFunction("dup");
-    c_functions[DUP2] = module->getFunction("dup2");
-    c_functions[FILENO] = module->getFunction("fileno");
-#endif
+    c_functions[DUP] = module->getFunction(is_target_windows() ? "_dup" : "dup");
+    c_functions[DUP2] = module->getFunction(is_target_windows() ? "_dup2" : "dup2");
+    c_functions[FILENO] = module->getFunction(is_target_windows() ? "_fileno" : "fileno");
     c_functions[CLOSE] = module->getFunction("close");
     for (auto &c_function : c_functions) {
         if (c_function.second == nullptr) {
@@ -1454,10 +1414,8 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     );
     llvm::FunctionCallee test_fn(test_function_type, arg_test_fn_ptr);
     llvm::CallInst *test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         test_fail->addParamAttr(0, llvm::Attribute::InReg);
-#endif
     }
     builder->CreateCondBr(arg_is_perf_test, perf_test_end_block, perf_test_end_merge_block);
 
@@ -1647,18 +1605,19 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     );
     builder->SetInsertPoint(entry_block);
 
-#ifdef __WIN32__
-    // Setting the console output to UTF-8 that the tree characters render correctly
-    llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
-        {llvm::Type::getInt32Ty(context)},                                 // UINT
-        false                                                              // No vaargs
-    );
-    llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
-        SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
-    );
-    builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(65001)});
-#endif
+    if (is_target_windows()) {
+        // Setting the console output to UTF-8 that the tree characters render correctly
+        static constexpr unsigned int cp_utf8 = 65001;
+        llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
+            {llvm::Type::getInt32Ty(context)},                                 // UINT
+            false                                                              // No vaargs
+        );
+        llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
+            SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
+        );
+        builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(cp_utf8)});
+    }
 
     // Handle the case that there are no tests to run
     if (tests.empty()) {

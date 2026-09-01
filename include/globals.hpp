@@ -73,6 +73,24 @@ enum class Target {
 };
 extern Target COMPILATION_TARGET;
 
+inline bool is_target_windows() {
+    switch (COMPILATION_TARGET) {
+        case Target::WINDOWS_MSVC:
+            [[fallthrough]];
+        case Target::WINDOWS_GNU:
+            return true;
+        case Target::LINUX:
+            return false;
+        case Target::NATIVE:
+#ifdef __WIN32__
+            return true;
+#else
+            return false;
+#endif
+    }
+    return false;
+}
+
 enum class ArithmeticOverflowMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
 extern ArithmeticOverflowMode overflow_mode;
 

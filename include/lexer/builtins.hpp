@@ -417,9 +417,7 @@ enum CFunction {
     FGETS,
     FWRITE,
     GETENV,
-#ifndef __WIN32__
     SETENV,
-#endif
     POPEN,
     PCLOSE,
     GETCWD,

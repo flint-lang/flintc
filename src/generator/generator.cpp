@@ -379,11 +379,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         Debug::DCU = nullptr;
         Debug::debug_files.clear();
 
-#ifdef __WIN32__
-        // Tell LLVM to emit CodeView (not DWARF) on Windows, preventing the
-        // dual emission of both CodeView and DWARF sections in the object file
-        module->addModuleFlag(llvm::Module::Override, "CodeView", 1);
-#endif
+        if (is_target_windows()) {
+            // Tell LLVM to emit CodeView (not DWARF) on Windows, preventing the
+            // dual emission of both CodeView and DWARF sections in the object file
+            module->addModuleFlag(llvm::Module::Override, "CodeView", 1);
+        }
 
         // Pre-populate debug file entries for all imported core modules
         for (const auto &parser : Parser::instances) {
@@ -436,37 +436,36 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
                 }
                 llvm::Type *const return_llvm_type = IR::get_type(module.get(), ret_type, false).type;
                 const size_t return_size = Allocation::get_type_size(module.get(), return_llvm_type);
-#ifdef __WIN32__
-                const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
-#else
-                const bool return_uses_sret = return_size > 16;
-#endif
+                bool return_uses_sret = return_size > 16;
+                if (is_target_windows()) {
+                    return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+                }
                 if (return_uses_sret) {
                     offset += return_size;
                 }
             }
-#ifdef __WIN32__
-            for (const auto &parameter : function_node->parameters) {
-                const Type::Variation variation = parameter.type->get_variation();
-                switch (variation) {
-                    default:
+            if (is_target_windows()) {
+                for (const auto &parameter : function_node->parameters) {
+                    const Type::Variation variation = parameter.type->get_variation();
+                    switch (variation) {
+                        default:
+                            continue;
+                        case Type::Variation::TUPLE:
+                        case Type::Variation::GROUP:
+                        case Type::Variation::VECTOR:
+                        case Type::Variation::DATA:
+                            break;
+                    }
+                    llvm::Type *const arg_llvm_type = IR::get_type(module.get(), parameter.type, false).type;
+                    const size_t arg_size = Allocation::get_type_size(module.get(), arg_llvm_type);
+                    if (arg_size == 1 || arg_size == 2 || arg_size == 4 || arg_size == 8) {
                         continue;
-                    case Type::Variation::TUPLE:
-                    case Type::Variation::GROUP:
-                    case Type::Variation::VECTOR:
-                    case Type::Variation::DATA:
-                        break;
+                    }
+                    const unsigned int arg_alignment = Allocation::calculate_type_alignment(arg_llvm_type);
+                    offset = (offset + arg_alignment - 1) / arg_alignment * arg_alignment;
+                    offset += arg_size;
                 }
-                llvm::Type *const arg_llvm_type = IR::get_type(module.get(), parameter.type, false).type;
-                const size_t arg_size = Allocation::get_type_size(module.get(), arg_llvm_type);
-                if (arg_size == 1 || arg_size == 2 || arg_size == 4 || arg_size == 8) {
-                    continue;
-                }
-                const unsigned int arg_alignment = Allocation::calculate_type_alignment(arg_llvm_type);
-                offset = (offset + arg_alignment - 1) / arg_alignment * arg_alignment;
-                offset += arg_size;
             }
-#endif
             if (offset > extern_scratch_size) {
                 extern_scratch_size = offset;
             }

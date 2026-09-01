@@ -1,5 +1,6 @@
 #include "error/error.hpp"
 #include "generator/generator.hpp"
+#include "globals.hpp"
 
 #include <llvm/BinaryFormat/Dwarf.h>
 #include <llvm/IR/DebugInfoMetadata.h>
@@ -32,11 +33,10 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
         // Check if the return type needs to be returned through a hidden sret pointer
         llvm::Type *const actual_return_type = IR::get_type(module, ret_type, false).type;
         size_t return_size = Allocation::get_type_size(module, actual_return_type);
-#ifdef __WIN32__
-        const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
-#else
-        const bool return_uses_sret = return_size > 16;
-#endif
+        bool return_uses_sret = return_size > 16;
+        if (is_target_windows()) {
+            return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+        }
         if (return_uses_sret) {
             // Return type becomes void
             return_types = llvm::Type::getVoidTy(context);
@@ -57,20 +57,20 @@ llvm::FunctionType *Generator::Function::generate_function_type(llvm::Module *mo
 
     for (const auto &param : function_node->parameters) {
         llvm::Type *const param_type = IR::get_type(module, param.type, true).type;
-#ifdef __WIN32__
-        // On the Windows ABI aggregate types are either coerced into integers or passed as pointers, so they are
-        // never flattened into their individual elements
-        param_types_vec.emplace_back(param_type);
-#else
-        if (param_type->isStructTy()) {
-            llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
-            for (const auto &element_type : struct_type->elements()) {
-                param_types_vec.emplace_back(element_type);
-            }
-        } else {
+        if (is_target_windows()) {
+            // On the Windows ABI aggregate types are either coerced into integers or passed as pointers, so they are
+            // never flattened into their individual elements
             param_types_vec.emplace_back(param_type);
+        } else {
+            if (param_type->isStructTy()) {
+                llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
+                for (const auto &element_type : struct_type->elements()) {
+                    param_types_vec.emplace_back(element_type);
+                }
+            } else {
+                param_types_vec.emplace_back(param_type);
+            }
         }
-#endif
     }
     llvm::ArrayRef<llvm::Type *> param_types(param_types_vec);
 
@@ -107,11 +107,9 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
             return false;
         }
     }
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         // Add 'tailcc' to every user-defined function
         function->setCallingConv(llvm::CallingConv::Tail);
-#endif
     }
 
     if (!function_node->scope.has_value()) {
@@ -122,10 +120,8 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
     ASSERT(function->arg_size() == 1);
     llvm::Argument *const stack_arg = function->args().begin();
     stack_arg->setName("stack");
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         stack_arg->addAttr(llvm::Attribute::InReg);
-#endif
     }
 
     // Create the functions setup block
@@ -243,10 +239,8 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
     llvm::Argument *const stack_arg = test_function->args().begin();
     stack_arg->setName("stack");
 
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+    if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         stack_arg->addAttr(llvm::Attribute::InReg);
-#endif
     }
     if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
         Debug::create_function_debug_info(test_function, test_node->name, test_node);

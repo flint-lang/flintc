@@ -2,6 +2,7 @@
 #include "error/error_type.hpp"
 #include "generator/generator.hpp"
 
+#include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
@@ -194,11 +195,9 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
 
         llvm::Argument *const arg_stack = dispatch_fn->args().begin();
         arg_stack->setName("stack");
-        if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-#ifndef __WIN32__
+        if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
             arg_stack->addAttr(llvm::Attribute::InReg);
             dispatch_fn->setCallingConv(llvm::CallingConv::Tail);
-#endif
         }
 
         llvm::Argument *const arg_object = dispatch_fn->args().begin() + 1;
@@ -344,13 +343,13 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
 
                 // Now that the required data is stored in the function frame, we can call the targetted function
                 llvm::CallInst *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
-#ifndef __WIN32__
-                call_err->addParamAttr(0, llvm::Attribute::InReg);
-                if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-                    call_err->setCallingConv(llvm::CallingConv::Tail);
-                    call_err->setTailCall();
+                if (!is_target_windows()) {
+                    call_err->addParamAttr(0, llvm::Attribute::InReg);
+                    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                        call_err->setCallingConv(llvm::CallingConv::Tail);
+                        call_err->setTailCall();
+                    }
                 }
-#endif
 
                 // Store back the data values of the function frame to the object if the local data has been overwritten
                 for (const auto &[object_data, fn_frame_data] : data_ptr_pairs) {
@@ -387,13 +386,13 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
 
             // Now that the object is stored in the function frame, we can call the function
             llvm::CallInst *const call_err = builder.CreateCall(function, {arg_stack}, "call_err");
-#ifndef __WIN32__
-            call_err->addParamAttr(0, llvm::Attribute::InReg);
-            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-                call_err->setCallingConv(llvm::CallingConv::Tail);
-                call_err->setTailCall();
+            if (!is_target_windows()) {
+                call_err->addParamAttr(0, llvm::Attribute::InReg);
+                if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                    call_err->setCallingConv(llvm::CallingConv::Tail);
+                    call_err->setTailCall();
+                }
             }
-#endif
 
             // We return "garbage" in the case of error, nullpointer if no error happened. This return value of the dispatch function
             // should *never* be read when calling the dispatch function in execute mode
@@ -439,14 +438,15 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
     const std::shared_ptr<Type> &type                       //
 ) {
     const auto type_variation = type->get_variation();
-#ifdef __WIN32__
     // On the Windows ABI aggregate types are handled much more simply than on SystemV: a struct (or vector) is passed or returned by value
     // only if it fits into 1, 2, 4 or 8 bytes, in which case it is coerced to an integer of that exact size. Any other size is passed as a
     // pointer to a caller-managed copy (arguments) or returned through a hidden sret pointer (returns).
-    if (type_variation == Type::Variation::DATA      //
-        || type_variation == Type::Variation::TUPLE  //
-        || type_variation == Type::Variation::GROUP  //
-        || type_variation == Type::Variation::VECTOR //
+    if (is_target_windows() &&
+        (type_variation == Type::Variation::DATA         //
+            || type_variation == Type::Variation::TUPLE  //
+            || type_variation == Type::Variation::GROUP  //
+            || type_variation == Type::Variation::VECTOR //
+            )                                            //
     ) {
         if (type_variation == Type::Variation::VECTOR && type->to_string() == "bool8") {
             // The `bool8` type is handled by the normal `get_type` function (it's just an `i8`)
@@ -459,7 +459,6 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
         }
         return PTR_TY;
     }
-#endif
     if (type_variation == Type::Variation::VECTOR) {
         const auto *vector_type = type->as<VectorType>();
         // Let's first look at how each vector-type behaves, considereing the 16 byte rule as well
@@ -1192,10 +1191,9 @@ bool Generator::IR::generate_enum_value_strings(                         //
     );
 #pragma GCC diagnostic pop
 
-    // Optional Windows compatibility settings
-#ifdef __WIN32__
-    global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
-#endif
+    if (is_target_windows()) {
+        global_string_array->setDLLStorageClass(llvm::GlobalValue::DefaultStorageClass);
+    }
     enum_name_arrays_map[key] = global_string_array;
     return true;
 }

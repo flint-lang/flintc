@@ -5,9 +5,9 @@ static const std::string prefix = hash.to_string() + ".env.";
 
 void Generator::Module::Env::generate_env_functions(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     generate_get_env_function(builder, module, only_declarations);
-#ifdef __WIN32__
-    generate_setenv_function(builder, module, only_declarations);
-#endif
+    if (is_target_windows()) {
+        generate_setenv_function(builder, module, only_declarations);
+    }
     generate_set_env_function(builder, module, only_declarations);
 }
 
@@ -102,7 +102,6 @@ void Generator::Module::Env::generate_get_env_function(llvm::IRBuilder<> *builde
     builder->CreateRet(ret_success_val);
 }
 
-#ifdef __WIN32__
 void Generator::Module::Env::generate_setenv_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
     // int setenv(const char *env_var, const char *content, const bool overwrite) {
@@ -186,7 +185,6 @@ void Generator::Module::Env::generate_setenv_function(llvm::IRBuilder<> *builder
     llvm::Value *const _putenv_s_result = builder->CreateCall(_putenv_s_fn, {arg_env_var, arg_content}, "_putenv_s_result");
     builder->CreateRet(_putenv_s_result);
 }
-#endif
 
 void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
     // THE C IMPLEMENTATION:
@@ -208,11 +206,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     return true;
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-#ifdef __WIN32__
-    llvm::Function *const setenv_fn = env_functions.at("setenv");
-#else
-    llvm::Function *const setenv_fn = c_functions.at(SETENV);
-#endif
+    llvm::Function *const setenv_fn = is_target_windows() ? env_functions.at("setenv") : c_functions.at(SETENV);
     llvm::Function *const strlen_fn = c_functions.at(STRLEN);
 
     const unsigned int ErrEnv = hash.get_type_id_from_str("ErrEnv");

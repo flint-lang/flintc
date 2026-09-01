@@ -336,11 +336,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     }
 
     // Check which object files exist. If any does not exist, it needs to be rebuilt
-#ifdef __WIN32__
-    const std::string file_ending = ".obj";
-#else
-    const std::string file_ending = ".o";
-#endif
+    const std::string file_ending = is_target_windows() ? ".obj" : ".o";
     if (!std::filesystem::exists(cache_path / ("print" + file_ending))) {
         needed_rebuilds |= static_cast<unsigned int>(BuiltinLibrary::PRINT);
     }

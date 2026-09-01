@@ -6,11 +6,7 @@ static const Hash hash(std::string("parse"));
 static const std::string prefix = hash.to_string() + ".parse.";
 
 static llvm::Value *get_errno_ptr(llvm::IRBuilder<> *builder, llvm::Module *module) {
-#ifdef __WIN32__
-    const std::string_view errno_fn_name = "_errno";
-#else
-    const std::string_view errno_fn_name = "__errno_location";
-#endif
+    const std::string_view errno_fn_name = is_target_windows() ? "_errno" : "__errno_location";
     llvm::FunctionType *const errno_fn_type = llvm::FunctionType::get(Generator::PTR_TY, {}, false);
     llvm::Function *errno_fn = module->getFunction(errno_fn_name);
     if (errno_fn == nullptr) {

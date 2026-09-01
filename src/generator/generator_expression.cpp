@@ -529,38 +529,39 @@ void Generator::Expression::convert_type_to_ext( //
     size_t &scratchspace_offset,                 //
     const bool is_reference                      //
 ) {
-#ifdef __WIN32__
-    // On the Windows ABI aggregate arguments are either coerced into integers or passed as pointers to copies, which
-    // `convert_data_type_to_ext` handles
-    switch (type->get_variation()) {
-        default:
-            // No special handling needed
-            args.emplace_back(value);
-            return;
-        case Type::Variation::TUPLE:
-            [[fallthrough]];
-        case Type::Variation::GROUP:
-            [[fallthrough]];
-        case Type::Variation::VECTOR:
-            convert_data_type_to_ext(builder, ctx, type, value, args, scratchspace_offset);
-            return;
-        case Type::Variation::DATA: {
-            llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, value, "loaded_data");
-            convert_data_type_to_ext(builder, ctx, type, data_ptr, args, scratchspace_offset);
-            return;
-        }
-        case Type::Variation::PRIMITIVE:
-            if (type->to_string() == "str") {
-                llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
-                llvm::Value *const str_ptr = is_reference ? IR::aligned_load(builder, PTR_TY, value, "loaded_str") : value;
-                args.emplace_back(builder.CreateStructGEP(str_type, str_ptr, 1, "char_ptr"));
+    if (is_target_windows()) {
+        // On the Windows ABI aggregate arguments are either coerced into integers or passed as pointers to copies, which
+        // `convert_data_type_to_ext` handles
+        switch (type->get_variation()) {
+            default:
+                // No special handling needed
+                args.emplace_back(value);
+                return;
+            case Type::Variation::TUPLE:
+                [[fallthrough]];
+            case Type::Variation::GROUP:
+                [[fallthrough]];
+            case Type::Variation::VECTOR:
+                convert_data_type_to_ext(builder, ctx, type, value, args, scratchspace_offset);
+                return;
+            case Type::Variation::DATA: {
+                llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, value, "loaded_data");
+                convert_data_type_to_ext(builder, ctx, type, data_ptr, args, scratchspace_offset);
                 return;
             }
-            // No special handling needed
-            args.emplace_back(value);
-            return;
+            case Type::Variation::PRIMITIVE:
+                if (type->to_string() == "str") {
+                    llvm::Type *const str_type = IR::get_type(ctx.parent->getParent(), Type::get_primitive_type("type.flint.str")).type;
+                    llvm::Value *const str_ptr = is_reference ? IR::aligned_load(builder, PTR_TY, value, "loaded_str") : value;
+                    args.emplace_back(builder.CreateStructGEP(str_type, str_ptr, 1, "char_ptr"));
+                    return;
+                }
+                // No special handling needed
+                args.emplace_back(value);
+                return;
+        }
+        return;
     }
-#else
     switch (type->get_variation()) {
         default:
             // No special handling needed
@@ -674,10 +675,8 @@ void Generator::Expression::convert_type_to_ext( //
             args.emplace_back(value);
             break;
     }
-#endif
 }
 
-#ifndef __WIN32__
 /// @function `expand_type_with_path`
 /// @brief Recursively expands array types into scalar elements, recording the full GEP path for each.
 ///        Struct fields like `[3 x float]` produce 3 scalar entries, each with a GEP path
@@ -689,6 +688,8 @@ void Generator::Expression::convert_type_to_ext( //
 ///               current struct field index.
 /// @param `elem_types` Output: flat list of scalar element types.
 /// @param `elem_gep_path` Output: `elem_gep_path[i]` is the complete GEP index list for `elem_types[i]`, usable directly with `CreateGEP`.
+///
+/// @note This function is windows-specific and should only be called when the compilation target is windows
 static void expand_type_with_path(                  //
     llvm::Type *const t,                            //
     std::vector<size_t> path,                       //
@@ -720,6 +721,8 @@ static void expand_type_with_path(                  //
 /// @param `elem_gep_path` The mapping built by `expand_type_with_path`.
 /// @param `idx` Index into `elem_gep_path` (the expanded element index).
 /// @return `llvm::Value *` Pointer to the scalar element at the expanded index.
+///
+/// @note This function is windows-specific and should only be called when the compilation target is windows
 static llvm::Value *create_expanded_gep(                   //
     llvm::IRBuilder<> &builder,                            //
     llvm::Type *struct_type,                               //
@@ -734,7 +737,6 @@ static llvm::Value *create_expanded_gep(                   //
     }
     return builder.CreateGEP(struct_type, ptr, indices);
 }
-#endif
 
 void Generator::Expression::convert_data_type_to_ext( //
     llvm::IRBuilder<> &builder,                       //
@@ -742,49 +744,49 @@ void Generator::Expression::convert_data_type_to_ext( //
     const std::shared_ptr<Type> &type,                //
     llvm::Value *const value,                         //
     std::vector<llvm::Value *> &args,                 //
-    [[maybe_unused]] size_t &scratchspace_offset      // Unused on SystemV ABI, needed for Windows ABI
+    size_t &scratchspace_offset                       // Unused on SystemV ABI, needed for Windows ABI
 ) {
-#ifdef __WIN32__
-    // On the Windows ABI, structs of exactly 1, 2, 4 or 8 bytes are coerced into an integer of that size, all other sizes are passed as a
-    // pointer to a copy of the struct
-    llvm::Type *const win_struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
-    const size_t win_struct_size = Allocation::get_type_size(ctx.parent->getParent(), win_struct_type);
-    const size_t win_struct_align = Allocation::calculate_type_alignment(win_struct_type);
-    const Type::Variation win_variation = type->get_variation();
-    // Data types, tuples and groups are passed to this function as pointers to their value, vectors are passed as
-    // their actual value
-    const bool value_is_pointer = win_variation == Type::Variation::DATA //
-        || win_variation == Type::Variation::TUPLE                       //
-        || win_variation == Type::Variation::GROUP;
-    if (win_struct_size == 1 || win_struct_size == 2 || win_struct_size == 4 || win_struct_size == 8) {
-        // Coerce the struct into an integer of the same size. For data/tuple/group types `value` already is a pointer to the struct,
-        // vectors are struct/vector values which need to be spilled to memory first
-        llvm::Type *const int_type = llvm::Type::getIntNTy(context, win_struct_size * 8);
-        llvm::Value *cast_value = nullptr;
-        if (value_is_pointer) {
-            cast_value = IR::aligned_load(builder, int_type, value);
-        } else {
-            cast_value = builder.CreateBitCast(value, int_type);
+    if (is_target_windows()) {
+        // On the Windows ABI, structs of exactly 1, 2, 4 or 8 bytes are coerced into an integer of that size, all other sizes are passed as
+        // a pointer to a copy of the struct
+        llvm::Type *const win_struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+        const size_t win_struct_size = Allocation::get_type_size(ctx.parent->getParent(), win_struct_type);
+        const size_t win_struct_align = Allocation::calculate_type_alignment(win_struct_type);
+        const Type::Variation win_variation = type->get_variation();
+        // Data types, tuples and groups are passed to this function as pointers to their value, vectors are passed as
+        // their actual value
+        const bool value_is_pointer = win_variation == Type::Variation::DATA //
+            || win_variation == Type::Variation::TUPLE                       //
+            || win_variation == Type::Variation::GROUP;
+        if (win_struct_size == 1 || win_struct_size == 2 || win_struct_size == 4 || win_struct_size == 8) {
+            // Coerce the struct into an integer of the same size. For data/tuple/group types `value` already is a pointer to the struct,
+            // vectors are struct/vector values which need to be spilled to memory first
+            llvm::Type *const int_type = llvm::Type::getIntNTy(context, win_struct_size * 8);
+            llvm::Value *cast_value = nullptr;
+            if (value_is_pointer) {
+                cast_value = IR::aligned_load(builder, int_type, value);
+            } else {
+                cast_value = builder.CreateBitCast(value, int_type);
+            }
+            args.emplace_back(cast_value);
+            return;
         }
-        args.emplace_back(cast_value);
-        return;
-    }
-    if (scratchspace_offset % win_struct_align != 0) {
-        scratchspace_offset += win_struct_align - (scratchspace_offset % win_struct_align);
-    }
-    llvm::Value *const arg_ptr = builder.CreateGEP(builder.getInt8Ty(), scratchspace, builder.getInt64(scratchspace_offset), "arg_ptr");
-    scratchspace_offset += win_struct_size;
-    // Structs larger than 8 bytes are passed as a pointer to a copy so the callee cannot modify the caller's value
-    if (value_is_pointer) {
-        builder.CreateCall(c_functions.at(MEMCPY), {arg_ptr, value, builder.getInt64(win_struct_size)});
+        if (scratchspace_offset % win_struct_align != 0) {
+            scratchspace_offset += win_struct_align - (scratchspace_offset % win_struct_align);
+        }
+        llvm::Value *const arg_ptr = builder.CreateGEP(builder.getInt8Ty(), scratchspace, builder.getInt64(scratchspace_offset), "arg_ptr");
+        scratchspace_offset += win_struct_size;
+        // Structs larger than 8 bytes are passed as a pointer to a copy so the callee cannot modify the caller's value
+        if (value_is_pointer) {
+            builder.CreateCall(c_functions.at(MEMCPY), {arg_ptr, value, builder.getInt64(win_struct_size)});
+            args.emplace_back(arg_ptr);
+            return;
+        }
+        // Vectors are struct/vector values which need to be spilled to memory first
+        builder.CreateStore(value, arg_ptr);
         args.emplace_back(arg_ptr);
         return;
     }
-    // Vectors are struct/vector values which need to be spilled to memory first
-    builder.CreateStore(value, arg_ptr);
-    args.emplace_back(arg_ptr);
-    return;
-#else
     // get the LLVM struct type and its elements
     llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
@@ -1006,8 +1008,6 @@ void Generator::Expression::convert_data_type_to_ext( //
     ASSERT(elem_idx == elem_types.size());
     builder.CreateBr(convert_type_to_ext_merge_block);
     builder.SetInsertPoint(convert_type_to_ext_merge_block);
-    return;
-#endif
 }
 
 void Generator::Expression::convert_type_from_ext( //
@@ -1016,35 +1016,36 @@ void Generator::Expression::convert_type_from_ext( //
     const std::shared_ptr<Type> &type,             //
     llvm::Value *&value                            //
 ) {
-#ifdef __WIN32__
-    switch (type->get_variation()) {
-        default:
-            return;
-        case Type::Variation::TUPLE:
-            [[fallthrough]];
-        case Type::Variation::GROUP:
-            [[fallthrough]];
-        case Type::Variation::DATA:
-            convert_data_type_from_ext(builder, ctx, type, value);
-            return;
-        case Type::Variation::VECTOR: {
-            // On the Windows ABI vectors of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size, everything larger
-            // is returned through an sret pointer handled by `generate_extern_call`
-            llvm::Type *const win_vector_type = IR::get_type(ctx.parent->getParent(), type, false).type;
-            const size_t win_vector_size = Allocation::get_type_size(ctx.parent->getParent(), win_vector_type);
-            if (win_vector_size == 1 || win_vector_size == 2 || win_vector_size == 4 || win_vector_size == 8) {
-                value = builder.CreateBitCast(value, win_vector_type);
+    if (is_target_windows()) {
+        switch (type->get_variation()) {
+            default:
+                return;
+            case Type::Variation::TUPLE:
+                [[fallthrough]];
+            case Type::Variation::GROUP:
+                [[fallthrough]];
+            case Type::Variation::DATA:
+                convert_data_type_from_ext(builder, ctx, type, value);
+                return;
+            case Type::Variation::VECTOR: {
+                // On the Windows ABI vectors of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size, everything
+                // larger is returned through an sret pointer handled by `generate_extern_call`
+                llvm::Type *const win_vector_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+                const size_t win_vector_size = Allocation::get_type_size(ctx.parent->getParent(), win_vector_type);
+                if (win_vector_size == 1 || win_vector_size == 2 || win_vector_size == 4 || win_vector_size == 8) {
+                    value = builder.CreateBitCast(value, win_vector_type);
+                }
+                return;
             }
-            return;
+            case Type::Variation::PRIMITIVE:
+                if (type->to_string() == "str") {
+                    llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
+                    value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
+                }
+                return;
         }
-        case Type::Variation::PRIMITIVE:
-            if (type->to_string() == "str") {
-                llvm::Value *str_len = builder.CreateCall(c_functions.at(STRLEN), value, "str_len");
-                value = builder.CreateCall(Module::String::string_manip_functions.at("init_str"), {value, str_len}, "str");
-            }
-            return;
+        return;
     }
-#else
     switch (type->get_variation()) {
         default:
             return;
@@ -1171,7 +1172,6 @@ void Generator::Expression::convert_type_from_ext( //
             }
             break;
     }
-#endif
 }
 
 void Generator::Expression::convert_data_type_from_ext( //
@@ -1180,25 +1180,25 @@ void Generator::Expression::convert_data_type_from_ext( //
     const std::shared_ptr<Type> &type,                  //
     llvm::Value *&value                                 //
 ) {
-#ifdef __WIN32__
-    // On the Windows ABI structs of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size,
-    // everything larger is returned through an sret pointer already handled by `generate_extern_call`
-    llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
-    const size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
-    if (struct_size != 1 && struct_size != 2 && struct_size != 4 && struct_size != 8) {
+    if (is_target_windows()) {
+        // On the Windows ABI structs of exactly 1, 2, 4 or 8 bytes are returned coerced into an integer of that size,
+        // everything larger is returned through an sret pointer already handled by `generate_extern_call`
+        llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
+        const size_t struct_size = Allocation::get_type_size(ctx.parent->getParent(), _struct_type);
+        if (struct_size != 1 && struct_size != 2 && struct_size != 4 && struct_size != 8) {
+            return;
+        }
+        if (!type->is_dima_managed()) {
+            value = builder.CreateBitCast(value, _struct_type);
+            return;
+        }
+        llvm::Function *const allocate_fn = Module::DIMA::dima_functions.at("allocate");
+        llvm::GlobalValue *const dima_head = Module::DIMA::get_head(type);
+        llvm::Value *const value_ptr = builder.CreateCall(allocate_fn, {dima_head}, "allocated_value");
+        IR::aligned_store(builder, value, value_ptr);
+        value = value_ptr;
         return;
     }
-    if (!type->is_dima_managed()) {
-        value = builder.CreateBitCast(value, _struct_type);
-        return;
-    }
-    llvm::Function *const allocate_fn = Module::DIMA::dima_functions.at("allocate");
-    llvm::GlobalValue *const dima_head = Module::DIMA::get_head(type);
-    llvm::Value *const value_ptr = builder.CreateCall(allocate_fn, {dima_head}, "allocated_value");
-    IR::aligned_store(builder, value, value_ptr);
-    value = value_ptr;
-    return;
-#else
     // get the LLVM struct type and its elements
     llvm::Type *const _struct_type = IR::get_type(ctx.parent->getParent(), type, false).type;
     ASSERT(_struct_type->isStructTy());
@@ -1410,8 +1410,6 @@ void Generator::Expression::convert_data_type_from_ext( //
     value = result_ptr;
     builder.CreateBr(convert_type_from_ext_merge_block);
     builder.SetInsertPoint(convert_type_from_ext_merge_block);
-    return;
-#endif
 }
 
 Generator::group_mapping Generator::Expression::generate_extern_call( //
@@ -1427,11 +1425,10 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     if (call_node->type->to_string() != "void") {
         llvm::Type *const return_type = IR::get_type(ctx.parent->getParent(), call_node->type, false).type;
         return_size = Allocation::get_type_size(ctx.parent->getParent(), return_type);
-#ifdef __WIN32__
-        const bool return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
-#else
-        const bool return_uses_sret = return_size > 16;
-#endif
+        bool return_uses_sret = return_size > 16;
+        if (is_target_windows()) {
+            return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+        }
         if (return_uses_sret) {
             needs_sret = true;
             sret_alloc = scratchspace;
@@ -1455,16 +1452,16 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
         llvm::CallInst *call = builder.CreateCall(result.first.value(), converted_args);
-#ifndef __WIN32__
-        // Add byval attributes for > 16 byte input parameters
-        for (size_t i = 0; i < call_node->arguments.size(); i++) {
-            llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
-            size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
-            if (arg_size > 16) {
-                call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+        if (!is_target_windows()) {
+            // Add byval attributes for > 16 byte input parameters
+            for (size_t i = 0; i < call_node->arguments.size(); i++) {
+                llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
+                size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+                if (arg_size > 16) {
+                    call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+                }
             }
         }
-#endif
         call->setMetadata("comment",
             llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
         return std::vector<llvm::Value *>{};
@@ -1481,18 +1478,18 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         call->addParamAttr(0, llvm::Attribute::get(context, llvm::Attribute::StructRet, return_type));
         call->addParamAttr(0, llvm::Attribute::NoAlias);
 
-#ifndef __WIN32__
-        // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
-        size_t param_idx = 1;
-        for (const auto &arg : call_node->arguments) {
-            llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).type;
-            size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
-            if (arg_size > 16) {
-                call->addParamAttr(param_idx, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+        if (!is_target_windows()) {
+            // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
+            size_t param_idx = 1;
+            for (const auto &arg : call_node->arguments) {
+                llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), arg.first->type, false).type;
+                size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+                if (arg_size > 16) {
+                    call->addParamAttr(param_idx, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+                }
+                param_idx++;
             }
-            param_idx++;
         }
-#endif
 
         // Result is in sret_alloc, need to copy to heap for the rest of Flint to understand the return value of the function
         if (call_node->type->is_dima_managed()) {
@@ -1538,16 +1535,16 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
         converted_args,                                                          //
         call_node->function->name + std::to_string(call_node->call_id) + "_call" //
     );
-#ifndef __WIN32__
-    // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
-    for (size_t i = 0; i < call_node->arguments.size(); i++) {
-        llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
-        size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
-        if (arg_size > 16) {
-            call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+    if (is_target_windows()) {
+        // Add byval attributes for > 16 byte input parameters (on Windows aggregates are passed as plain pointers)
+        for (size_t i = 0; i < call_node->arguments.size(); i++) {
+            llvm::Type *const arg_type = IR::get_type(ctx.parent->getParent(), call_node->arguments[i].first->type, false).type;
+            size_t arg_size = Allocation::get_type_size(ctx.parent->getParent(), arg_type);
+            if (arg_size > 16) {
+                call->addParamAttr(i, llvm::Attribute::get(context, llvm::Attribute::ByVal, arg_type));
+            }
         }
     }
-#endif
     call->setMetadata("comment",
         llvm::MDNode::get(context, llvm::MDString::get(context, "Call to extern function '" + call_node->function->name + "'")));
     std::vector<llvm::Value *> return_value;
@@ -1717,14 +1714,14 @@ Generator::group_mapping Generator::Expression::generate_call( //
         function_name + std::to_string(call_node->call_id) + "_call" //
     );
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + function_name + "'")));
-#ifndef __WIN32__
-    call->addParamAttr(0, llvm::Attribute::InReg);
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-        // Add the 'tailcc' to every user-defined call
-        call->setCallingConv(llvm::CallingConv::Tail);
-        call->setTailCall();
+    if (!is_target_windows()) {
+        call->addParamAttr(0, llvm::Attribute::InReg);
+        if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+            // Add the 'tailcc' to every user-defined call
+            call->setCallingConv(llvm::CallingConv::Tail);
+            call->setTailCall();
+        }
     }
-#endif
     last_err_values = {call, next_stack_frame};
 
     // Do all the common call cleanup on the arguments of the call
@@ -2404,14 +2401,14 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     const llvm::FunctionCallee fn_to_call = llvm::FunctionCallee(ctx.parent->getFunctionType(), fn_ptr);
     llvm::CallInst *const call = builder.CreateCall(fn_to_call, {callable_frame}, fn_name + std::to_string(call_node->call_id) + "_call");
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + fn_name + "'")));
-#ifndef __WIN32__
-    call->addParamAttr(0, llvm::Attribute::InReg);
-    if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-        // Add the 'tailcc' to every user-defined call, including callable calls as well, let's see how LLVM reacts to it...
-        call->setCallingConv(llvm::CallingConv::Tail);
-        call->setTailCall();
+    if (!is_target_windows()) {
+        call->addParamAttr(0, llvm::Attribute::InReg);
+        if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+            // Add the 'tailcc' to every user-defined call, including callable calls as well, let's see how LLVM reacts to it...
+            call->setCallingConv(llvm::CallingConv::Tail);
+            call->setTailCall();
+        }
     }
-#endif
     last_err_values = {call, callable_frame};
 
     // Do all the common call cleanup on the arguments of the call
@@ -2509,14 +2506,14 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             llvm::CallInst *const setup_call = builder.CreateCall(                                     //
                 dispatch_fn, {next_stack_frame, object_ptr, fn_id, builder.getInt1(true)}, "arg_start" //
             );
-#ifndef __WIN32__
-            setup_call->addParamAttr(0, llvm::Attribute::InReg);
-            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-                // Add the 'tailcc' to every user-defined call
-                setup_call->setCallingConv(llvm::CallingConv::Tail);
-                setup_call->setTailCall();
+            if (!is_target_windows()) {
+                setup_call->addParamAttr(0, llvm::Attribute::InReg);
+                if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                    // Add the 'tailcc' to every user-defined call
+                    setup_call->setCallingConv(llvm::CallingConv::Tail);
+                    setup_call->setTailCall();
+                }
             }
-#endif
 
             // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
             llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
@@ -2548,14 +2545,14 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             );
             call->setMetadata("comment",
                 llvm::MDNode::get(context, llvm::MDString::get(context, "Call of dispatch function '" + call_node->function->name + "'")));
-#ifndef __WIN32__
-            call->addParamAttr(0, llvm::Attribute::InReg);
-            if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
-                // Add the 'tailcc' to every user-defined call
-                call->setCallingConv(llvm::CallingConv::Tail);
-                call->setTailCall();
+            if (!is_target_windows()) {
+                call->addParamAttr(0, llvm::Attribute::InReg);
+                if (OPTIMIZE_MODE != OptimizeMode::DEBUG) {
+                    // Add the 'tailcc' to every user-defined call
+                    call->setCallingConv(llvm::CallingConv::Tail);
+                    call->setTailCall();
+                }
             }
-#endif
             llvm::Value *const call_is_err = builder.CreateICmpNE(call, llvm::ConstantPointerNull::get(PTR_TY), "call_is_err");
             last_err_values = {call_is_err, next_stack_frame};
 

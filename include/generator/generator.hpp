@@ -220,9 +220,7 @@ class Generator {
         {CFunction::FGETS, nullptr},
         {CFunction::FWRITE, nullptr},
         {CFunction::GETENV, nullptr},
-#ifndef __WIN32__
         {CFunction::SETENV, nullptr},
-#endif
         {CFunction::POPEN, nullptr},
         {CFunction::PCLOSE, nullptr},
         {CFunction::SIN, nullptr},
@@ -3736,9 +3734,7 @@ class Generator {
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string_view, llvm::Function *> env_functions = {
                 {"get_env", nullptr},
-#ifdef __WIN32__
                 {"setenv", nullptr},
-#endif
                 {"set_env", nullptr},
             };
 
@@ -3758,7 +3754,6 @@ class Generator {
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_get_env_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
 
-#ifdef __WIN32__
             /// @function `generate_setenv_function`
             /// @brief Helper function specifically for Windows because the 'setenv' function does not exist on Windows (with it's third
             /// flag to disable overwriting already existent environment variables)
@@ -3767,7 +3762,6 @@ class Generator {
             /// @param `module` The LLVM Module the 'get_env' function definition will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
             static void generate_setenv_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations = true);
-#endif
 
             /// @function `generate_set_env_function`
             /// @brief Helper function to generate the builtin 'set_env' function

@@ -57,78 +57,80 @@ void Generator::Module::Time::generate_types(llvm::Module *module) {
 }
 
 void Generator::Module::Time::generate_platform_functions(llvm::Module *module) {
-#ifdef __WIN32__
-    // Windows-specific functions
+    if (is_target_windows()) {
+        // Windows-specific functions
 
-    // QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount)
-    llvm::StructType *const large_integer_type = llvm::StructType::create(context, {llvm::Type::getInt64Ty(context)}, "LARGE_INTEGER");
-    time_data_types["LARGE_INTEGER"] = large_integer_type;
-    llvm::FunctionType *const QueryPerformanceCounter_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                                              // returns BOOL (i32)
-        {PTR_TY},                                                                     // LARGE_INTEGER*
-        false                                                                         // No vaargs
-    );
-    llvm::Function *const QueryPerformanceCounter_fn = llvm::Function::Create(                           //
-        QueryPerformanceCounter_type, llvm::Function::ExternalLinkage, "QueryPerformanceCounter", module //
-    );
-    time_platform_functions["QueryPerformanceCounter"] = QueryPerformanceCounter_fn;
+        // QueryPerformanceCounter(LARGE_INTEGER* lpPerformanceCount)
+        llvm::StructType *const large_integer_type = llvm::StructType::create(context, {llvm::Type::getInt64Ty(context)}, "LARGE_INTEGER");
+        time_data_types["LARGE_INTEGER"] = large_integer_type;
+        llvm::FunctionType *const QueryPerformanceCounter_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                              // returns BOOL (i32)
+            {PTR_TY},                                                                     // LARGE_INTEGER*
+            false                                                                         // No vaargs
+        );
+        llvm::Function *const QueryPerformanceCounter_fn = llvm::Function::Create(                           //
+            QueryPerformanceCounter_type, llvm::Function::ExternalLinkage, "QueryPerformanceCounter", module //
+        );
+        time_platform_functions["QueryPerformanceCounter"] = QueryPerformanceCounter_fn;
 
-    // QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency)
-    llvm::FunctionType *const QueryPerformanceFrequency_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context), {PTR_TY}, false                                //
-    );
-    llvm::Function *const QueryPerformanceFrequency_fn = llvm::Function::Create(                             //
-        QueryPerformanceFrequency_type, llvm::Function::ExternalLinkage, "QueryPerformanceFrequency", module //
-    );
-    time_platform_functions["QueryPerformanceFrequency"] = QueryPerformanceFrequency_fn;
-#else
-    // Linux/POSIX functions
+        // QueryPerformanceFrequency(LARGE_INTEGER* lpFrequency)
+        llvm::FunctionType *const QueryPerformanceFrequency_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context), {PTR_TY}, false                                //
+        );
+        llvm::Function *const QueryPerformanceFrequency_fn = llvm::Function::Create(                             //
+            QueryPerformanceFrequency_type, llvm::Function::ExternalLinkage, "QueryPerformanceFrequency", module //
+        );
+        time_platform_functions["QueryPerformanceFrequency"] = QueryPerformanceFrequency_fn;
+    } else {
+        // Linux/POSIX functions
 
-    // struct timespec { time_t tv_sec; long tv_nsec; }
-    llvm::StructType *const timespec_type = llvm::StructType::create( //
-        context,
-        {
-            llvm::Type::getInt64Ty(context), // tv_sec
-            llvm::Type::getInt64Ty(context)  // tv_nsec
-        },
-        "c.struct.timespec" //
-    );
-    time_data_types["c.struct.timespec"] = timespec_type;
+        // struct timespec { time_t tv_sec; long tv_nsec; }
+        llvm::StructType *const timespec_type = llvm::StructType::create( //
+            context,
+            {
+                llvm::Type::getInt64Ty(context), // tv_sec
+                llvm::Type::getInt64Ty(context)  // tv_nsec
+            },
+            "c.struct.timespec" //
+        );
+        time_data_types["c.struct.timespec"] = timespec_type;
 
-    // clock_gettime(clockid_t clock_id, struct timespec* tp)
-    llvm::FunctionType *const clock_gettime_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                                    // returns i32
-        {
-            llvm::Type::getInt32Ty(context), // i32 clock_id
-            PTR_TY                           // timespec* tp
-        },
-        false // No vaargs
-    );
-    llvm::Function *const clock_gettime_fn = llvm::Function::Create(                 //
-        clock_gettime_type, llvm::Function::ExternalLinkage, "clock_gettime", module //
-    );
-    time_platform_functions["clock_gettime"] = clock_gettime_fn;
+        // clock_gettime(clockid_t clock_id, struct timespec* tp)
+        llvm::FunctionType *const clock_gettime_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                    // returns i32
+            {
+                llvm::Type::getInt32Ty(context), // i32 clock_id
+                PTR_TY                           // timespec* tp
+            },
+            false // No vaargs
+        );
+        llvm::Function *const clock_gettime_fn = llvm::Function::Create(                 //
+            clock_gettime_type, llvm::Function::ExternalLinkage, "clock_gettime", module //
+        );
+        time_platform_functions["clock_gettime"] = clock_gettime_fn;
 
-    // nanosleep(const struct timespec* req, struct timespec* rem)
-    llvm::FunctionType *const nanosleep_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                                // returns i32
-        {
-            PTR_TY, // requested_time
-            PTR_TY  // remaining
-        },
-        false // No vaargs
-    );
-    llvm::Function *const nanosleep_fn = llvm::Function::Create(nanosleep_type, llvm::Function::ExternalLinkage, "nanosleep", module);
-    time_platform_functions["nanosleep"] = nanosleep_fn;
-#endif
+        // nanosleep(const struct timespec* req, struct timespec* rem)
+        llvm::FunctionType *const nanosleep_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                // returns i32
+            {
+                PTR_TY, // requested_time
+                PTR_TY  // remaining
+            },
+            false // No vaargs
+        );
+        llvm::Function *const nanosleep_fn = llvm::Function::Create(nanosleep_type, llvm::Function::ExternalLinkage, "nanosleep", module);
+        time_platform_functions["nanosleep"] = nanosleep_fn;
+    }
 }
 
 void Generator::Module::Time::generate_time_init_function( //
-    [[maybe_unused]] llvm::IRBuilder<> *builder,           //
-    [[maybe_unused]] llvm::Module *module,                 //
-    [[maybe_unused]] const bool only_declarations          //
+    llvm::IRBuilder<> *builder,                            //
+    llvm::Module *module,                                  //
+    const bool only_declarations                           //
 ) {
-#ifdef __WIN32__
+    if (!is_target_windows()) {
+        return;
+    }
     // Create time_init function
     llvm::FunctionType *const init_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), false);
     llvm::Function *const init_fn = llvm::Function::Create( //
@@ -181,7 +183,6 @@ void Generator::Module::Time::generate_time_init_function( //
 
     builder->SetInsertPoint(exit_block);
     builder->CreateRetVoid();
-#endif
 }
 
 void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations) {
@@ -226,58 +227,59 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", now_fn);
     builder->SetInsertPoint(entry_block);
 
-#ifdef __WIN32__
-    // Windows implementation
+    // Compute the stamp value depending on the target platform
+    llvm::Value *stamp_value = nullptr;
 
-    // Call time_init()
-    llvm::Function *const init_fn = time_platform_functions.at("init_time");
-    builder->CreateCall(init_fn, {});
+    if (is_target_windows()) {
+        // Windows implementation
 
-    // Create LARGE_INTEGER counter on stack
-    llvm::StructType *const large_integer_type = time_data_types.at("LARGE_INTEGER");
-    llvm::Value *counter_ptr = builder->CreateAlloca(large_integer_type, nullptr, "counter_ptr");
+        // Call time_init()
+        llvm::Function *const init_fn = time_platform_functions.at("init_time");
+        builder->CreateCall(init_fn, {});
 
-    // Call QueryPerformanceCounter(&counter)
-    llvm::Function *const qpc_fn = time_platform_functions.at("QueryPerformanceCounter");
-    builder->CreateCall(qpc_fn, {counter_ptr});
+        // Create LARGE_INTEGER counter on stack
+        llvm::StructType *const large_integer_type = time_data_types.at("LARGE_INTEGER");
+        llvm::Value *counter_ptr = builder->CreateAlloca(large_integer_type, nullptr, "counter_ptr");
 
-    // Load counter value (counter.QuadPart)
-    llvm::Value *const counter_field_ptr = builder->CreateStructGEP(large_integer_type, counter_ptr, 0, "counter_field_ptr");
-    llvm::Value *const counter_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), counter_field_ptr, "counter_value");
+        // Call QueryPerformanceCounter(&counter)
+        llvm::Function *const qpc_fn = time_platform_functions.at("QueryPerformanceCounter");
+        builder->CreateCall(qpc_fn, {counter_ptr});
 
-    // Load frequency from global
-    llvm::GlobalVariable *const freq_global = module->getNamedGlobal(prefix + "global.frequency");
-    llvm::Value *const freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_global, "freq_value");
+        // Load counter value (counter.QuadPart)
+        llvm::Value *const counter_field_ptr = builder->CreateStructGEP(large_integer_type, counter_ptr, 0, "counter_field_ptr");
+        llvm::Value *const counter_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), counter_field_ptr, "counter_value");
 
-    // Calculate: (counter * 1000000000ULL) / frequency
-    llvm::Value *const counter_ns = builder->CreateMul(counter_value, builder->getInt64(1'000'000'000ULL), "counter_ns");
-    llvm::Value *const stamp_value = builder->CreateUDiv(counter_ns, freq_value, "stamp_value");
+        // Load frequency from global
+        llvm::GlobalVariable *const freq_global = module->getNamedGlobal(prefix + "global.frequency");
+        llvm::Value *const freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_global, "freq_value");
 
-#else
-    // Linux/POSIX implementation
+        // Calculate: (counter * 1000000000ULL) / frequency
+        llvm::Value *const counter_ns = builder->CreateMul(counter_value, builder->getInt64(1'000'000'000ULL), "counter_ns");
+        stamp_value = builder->CreateUDiv(counter_ns, freq_value, "stamp_value");
+    } else {
+        // Linux/POSIX implementation
 
-    // Create struct timespec on stack
-    llvm::StructType *const timespec_type = time_data_types.at("c.struct.timespec");
-    llvm::Value *const ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
+        // Create struct timespec on stack
+        llvm::StructType *const timespec_type = time_data_types.at("c.struct.timespec");
+        llvm::Value *const ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
 
-    // Call clock_gettime(CLOCK_MONOTONIC, &ts)
-    // CLOCK_MONOTONIC = 1
-    llvm::Function *const clock_gettime_fn = time_platform_functions.at("clock_gettime");
-    builder->CreateCall(clock_gettime_fn, {builder->getInt32(1), ts_ptr});
+        // Call clock_gettime(CLOCK_MONOTONIC, &ts)
+        // CLOCK_MONOTONIC = 1
+        llvm::Function *const clock_gettime_fn = time_platform_functions.at("clock_gettime");
+        builder->CreateCall(clock_gettime_fn, {builder->getInt32(1), ts_ptr});
 
-    // Load ts.tv_sec
-    llvm::Value *const tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
-    llvm::Value *const tv_sec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_sec_ptr, "tv_sec");
+        // Load ts.tv_sec
+        llvm::Value *const tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
+        llvm::Value *const tv_sec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_sec_ptr, "tv_sec");
 
-    // Load ts.tv_nsec
-    llvm::Value *const tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
-    llvm::Value *const tv_nsec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_nsec_ptr, "tv_nsec");
+        // Load ts.tv_nsec
+        llvm::Value *const tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
+        llvm::Value *const tv_nsec = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), tv_nsec_ptr, "tv_nsec");
 
-    // Calculate: tv_sec * 1000000000ULL + tv_nsec
-    llvm::Value *const tv_sec_ns = builder->CreateMul(tv_sec, builder->getInt64(1000000000ULL), "tv_sec_ns");
-    llvm::Value *const stamp_value = builder->CreateAdd(tv_sec_ns, tv_nsec, "stamp_value");
-
-#endif
+        // Calculate: tv_sec * 1000000000ULL + tv_nsec
+        llvm::Value *const tv_sec_ns = builder->CreateMul(tv_sec, builder->getInt64(1000000000ULL), "tv_sec_ns");
+        stamp_value = builder->CreateAdd(tv_sec_ns, tv_nsec, "stamp_value");
+    }
 
     // Allocate TimeStamp using dima.allocate(dima.head.TimeStamp)
     auto *const timestamp_head = time_dima_heads.at("TimeStamp");
@@ -434,55 +436,55 @@ void Generator::Module::Time::generate_sleep_duration_function( //
     llvm::Value *const d_value_ptr = builder->CreateStructGEP(duration_type, arg_d, 0, "d_value_ptr");
     llvm::Value *const d_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), d_value_ptr, "d_value");
 
-#ifdef __WIN32__
-    // Windows implementation using Sleep(ms)
+    if (is_target_windows()) {
+        // Windows implementation using Sleep(ms)
 
-    // Convert nanoseconds to milliseconds: ms = d->value / 1000000ULL
-    llvm::Value *const ms = builder->CreateUDiv(d_value, builder->getInt64(1000000ULL), "ms");
+        // Convert nanoseconds to milliseconds: ms = d->value / 1000000ULL
+        llvm::Value *const ms = builder->CreateUDiv(d_value, builder->getInt64(1000000ULL), "ms");
 
-    // Check if ms == 0 && d->value > 0
-    llvm::Value *const ms_is_zero = builder->CreateICmpEQ(ms, builder->getInt64(0), "ms_is_zero");
-    llvm::Value *const d_value_gt_zero = builder->CreateICmpUGT(d_value, builder->getInt64(0), "d_value_gt_zero");
-    llvm::Value *const needs_min_sleep = builder->CreateAnd(ms_is_zero, d_value_gt_zero, "needs_min_sleep");
+        // Check if ms == 0 && d->value > 0
+        llvm::Value *const ms_is_zero = builder->CreateICmpEQ(ms, builder->getInt64(0), "ms_is_zero");
+        llvm::Value *const d_value_gt_zero = builder->CreateICmpUGT(d_value, builder->getInt64(0), "d_value_gt_zero");
+        llvm::Value *const needs_min_sleep = builder->CreateAnd(ms_is_zero, d_value_gt_zero, "needs_min_sleep");
 
-    // If true, set ms = 1 (minimum 1ms on Windows)
-    llvm::Value *const final_ms = builder->CreateSelect(needs_min_sleep, builder->getInt64(1), ms, "final_ms");
+        // If true, set ms = 1 (minimum 1ms on Windows)
+        llvm::Value *const final_ms = builder->CreateSelect(needs_min_sleep, builder->getInt64(1), ms, "final_ms");
 
-    // Truncate to i32 for Sleep(DWORD)
-    llvm::Value *const ms_i32 = builder->CreateTrunc(final_ms, llvm::Type::getInt32Ty(context), "ms_i32");
+        // Truncate to i32 for Sleep(DWORD)
+        llvm::Value *const ms_i32 = builder->CreateTrunc(final_ms, llvm::Type::getInt32Ty(context), "ms_i32");
 
-    // Declare/get Sleep function
-    llvm::FunctionType *const sleep_type = llvm::FunctionType::get( //
-        llvm::Type::getVoidTy(context),                             // void return
-        {llvm::Type::getInt32Ty(context)},                          // DWORD dwMilliseconds
-        false                                                       // No vaargs
-    );
-    llvm::Function *const sleep_fn = llvm::cast<llvm::Function>(module->getOrInsertFunction("Sleep", sleep_type).getCallee());
+        // Declare/get Sleep function
+        llvm::FunctionType *const sleep_type = llvm::FunctionType::get( //
+            llvm::Type::getVoidTy(context),                             // void return
+            {llvm::Type::getInt32Ty(context)},                          // DWORD dwMilliseconds
+            false                                                       // No vaargs
+        );
+        llvm::Function *const sleep_fn = llvm::cast<llvm::Function>(module->getOrInsertFunction("Sleep", sleep_type).getCallee());
 
-    // Call Sleep(ms)
-    builder->CreateCall(sleep_fn, {ms_i32});
-#else
-    // Linux/POSIX implementation using nanosleep
+        // Call Sleep(ms)
+        builder->CreateCall(sleep_fn, {ms_i32});
+    } else {
+        // Linux/POSIX implementation using nanosleep
 
-    llvm::StructType *const timespec_type = time_data_types.at("c.struct.timespec");
-    llvm::Function *const nanosleep_fn = time_platform_functions.at("nanosleep");
+        llvm::StructType *const timespec_type = time_data_types.at("c.struct.timespec");
+        llvm::Function *const nanosleep_fn = time_platform_functions.at("nanosleep");
 
-    // Create struct timespec on stack
-    llvm::Value *const ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
+        // Create struct timespec on stack
+        llvm::Value *const ts_ptr = builder->CreateAlloca(timespec_type, nullptr, "ts_ptr");
 
-    // ts.tv_sec = d->value / 1000000000ULL
-    llvm::Value *const tv_sec = builder->CreateUDiv(d_value, builder->getInt64(1000000000ULL), "tv_sec");
-    llvm::Value *const tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
-    IR::aligned_store(*builder, tv_sec, tv_sec_ptr);
+        // ts.tv_sec = d->value / 1000000000ULL
+        llvm::Value *const tv_sec = builder->CreateUDiv(d_value, builder->getInt64(1000000000ULL), "tv_sec");
+        llvm::Value *const tv_sec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 0, "tv_sec_ptr");
+        IR::aligned_store(*builder, tv_sec, tv_sec_ptr);
 
-    // ts.tv_nsec = d->value % 1000000000ULL
-    llvm::Value *const tv_nsec = builder->CreateURem(d_value, builder->getInt64(1000000000ULL), "tv_nsec");
-    llvm::Value *const tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
-    IR::aligned_store(*builder, tv_nsec, tv_nsec_ptr);
+        // ts.tv_nsec = d->value % 1000000000ULL
+        llvm::Value *const tv_nsec = builder->CreateURem(d_value, builder->getInt64(1000000000ULL), "tv_nsec");
+        llvm::Value *const tv_nsec_ptr = builder->CreateStructGEP(timespec_type, ts_ptr, 1, "tv_nsec_ptr");
+        IR::aligned_store(*builder, tv_nsec, tv_nsec_ptr);
 
-    // Call nanosleep(&ts, NULL)
-    builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(PTR_TY)});
-#endif
+        // Call nanosleep(&ts, NULL)
+        builder->CreateCall(nanosleep_fn, {ts_ptr, llvm::ConstantPointerNull::get(PTR_TY)});
+    }
     builder->CreateRetVoid();
 }
 

@@ -99,23 +99,24 @@ void Generator::Module::Read::generate_getline_function(llvm::IRBuilder<> *build
     llvm::Value *const buf_init = builder->CreateBitCast(buf_malloc, PTR_TY, "buf");
     IR::aligned_store(*builder, buf_init, buf_ptr_alloca);
 
-#ifdef __WIN32__
-    // Windows: call the UCRT helper __acrt_iob_func() to get the FILE' array, then index element 0 to get stdin
-    // Declare or look up __acrt_iob_func
-    llvm::Type *const iobuf_ty = PTR_TY;
-    llvm::FunctionCallee ac_rt_iob = module->getOrInsertFunction("__acrt_iob_func", llvm::FunctionType::get(iobuf_ty, {}, false));
-    // call it
-    llvm::Value *const io_array = builder->CreateCall(ac_rt_iob, {}, "io_array");
-    // GEP [0] to pick stdin
-    llvm::Value *const zero = builder->getInt32(0);
-    llvm::Value *const stdin_ptr = builder->CreateInBoundsGEP(iobuf_ty, io_array, {zero}, "stdin_ptr");
-    // Load the actual FILE*
-    llvm::Value *const stdin_val = IR::aligned_load(*builder, PTR_TY, stdin_ptr, "stdin");
-#else
-    // Get file* stdin - needs to access global stdin
-    llvm::Value *const stdin_ptr = module->getOrInsertGlobal("stdin", PTR_TY);
-    llvm::Value *const stdin_val = IR::aligned_load(*builder, PTR_TY, stdin_ptr, "stdin");
-#endif
+    llvm::Value *stdin_val = nullptr;
+    if (is_target_windows()) {
+        // Windows: call the UCRT helper __acrt_iob_func() to get the FILE* array, then index element 0 to get stdin
+        // Declare or look up __acrt_iob_func
+        llvm::Type *const iobuf_ty = PTR_TY;
+        llvm::FunctionCallee ac_rt_iob = module->getOrInsertFunction("__acrt_iob_func", llvm::FunctionType::get(iobuf_ty, {}, false));
+        // call it
+        llvm::Value *const io_array = builder->CreateCall(ac_rt_iob, {}, "io_array");
+        // GEP [0] to pick stdin
+        llvm::Value *const zero = builder->getInt32(0);
+        llvm::Value *const stdin_ptr = builder->CreateInBoundsGEP(iobuf_ty, io_array, {zero}, "stdin_ptr");
+        // Load the actual FILE*
+        stdin_val = IR::aligned_load(*builder, PTR_TY, stdin_ptr, "stdin");
+    } else {
+        // Get file* stdin - needs to access global stdin
+        llvm::Value *const stdin_ptr = module->getOrInsertGlobal("stdin", PTR_TY);
+        stdin_val = IR::aligned_load(*builder, PTR_TY, stdin_ptr, "stdin");
+    }
 
     // Branch to the loop entry
     builder->CreateBr(loop_entry);
