@@ -67,7 +67,7 @@
 #include <unordered_map>
 #include <vector>
 
-#ifdef __WIN32__
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #undef ERROR

@@ -10,9 +10,9 @@
 
 #include <iostream>
 
-// #define __WIN32__
+// #define _WIN32
 
-#ifdef __WIN32__
+#ifdef _WIN32
 #include "cli_parser_base.hpp"
 #include "colors.hpp"
 #include "profiler.hpp"
@@ -165,14 +165,14 @@ bool Linker::link(                                       //
 ) {
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             return link_windows_msvc(obj_files, output_file, flags, is_static);
 #else
             return is_static ? link_linux_musl(obj_files, output_file, flags) : link_linux_gnu(obj_files, output_file, flags);
 #endif
             break;
         case Target::LINUX:
-#ifdef __WIN32__
+#ifdef _WIN32
             return link_linux_musl(obj_files, output_file, flags);
 #else
             return is_static ? link_linux_musl(obj_files, output_file, flags) : link_linux_gnu(obj_files, output_file, flags);
@@ -209,7 +209,7 @@ bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj
     std::string file_ending = "";
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             file_ending = ".lib";
 #else
             file_ending = ".a";
@@ -255,7 +255,7 @@ bool Linker::fetch_crt_libs() {
         crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "vcruntime.lib");
     }
     if (!crt_libs_present) {
-#ifdef __WIN32__
+#ifdef _WIN32
         // One or more lib is missing, call the bash script
         if (DEBUG_MODE) {
             std::cout << YELLOW << "[Debug Info] " << "One or more crt libraries are missing" << DEFAULT << std::endl;
@@ -288,7 +288,7 @@ bool Linker::fetch_crt_libs() {
 }
 
 bool Linker::fetch_musl_libs() {
-#ifdef __WIN32__
+#ifdef _WIN32
     // Check if the musl libs exist in the cache path. We need the musl libc archive, the crate startup objects and the GCC support
     // libraries to link against when cross-compiling to Linux.
     std::filesystem::path musl_path = Generator::get_flintc_cache_path() / "musl";
@@ -440,7 +440,7 @@ bool Linker::link_windows_msvc(                          //
     const std::vector<std::string> &flags,               //
     const bool is_static                                 //
 ) {
-#ifdef __WIN32__
+#ifdef _WIN32
     // Get the 'LIB' environment variable
     std::string lib_env_str = get_lib_env_win();
 
@@ -480,7 +480,7 @@ bool Linker::link_windows_msvc(                          //
     }
     bool result = lld::coff::link(args, llvm::outs(), llvm::errs(), false, false);
 
-#ifdef __WIN32__
+#ifdef _WIN32
     // Set the 'LIB' environemnt variable back to what it was originally
     if (DEBUG_MODE) {
         std::cout << YELLOW << "[Debug Info] Putting the original content of the 'LIB' environment variable back into it: " << DEFAULT
@@ -566,7 +566,7 @@ std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
     std::vector<std::string> args;
     args.push_back("ld.lld");
 
-#ifdef __WIN32__
+#ifdef _WIN32
     // Cross-compiling to Linux from Windows: glibc is not available, so we
     // statically link against the previously fetched musl libc.
     if (!fetch_musl_libs()) {
@@ -632,7 +632,7 @@ std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
 
     // Use musl libc.a directly by path (not with -l flag)
     args.push_back(std::string(musl_libc_path));
-#endif // not __WIN32__
+#endif
 
     // Output file
     args.push_back("-o");

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
     if (result != 0) {
         return result;
     }
-#ifdef __WIN32__
+#ifdef _WIN32
     // Setting the console output to UTF-8 that the tree characters render correctly
     SetConsoleOutputCP(CP_UTF8);
 #endif
@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
             std::cout << "\n"
                       << YELLOW << "[Debug Info] Running the executable '" << clp.out_file_path.string() << "'" << DEFAULT << std::endl;
         }
-#ifdef __WIN32__
+#ifdef _WIN32
         const std::string system_command(std::string(".\\" + clp.out_file_path.string() + ".exe"));
 #else
         const std::string system_command(std::string("./" + clp.out_file_path.string()));

@@ -103,7 +103,7 @@ class CLIParserMain : public CLIParserBase {
                                 COMPILATION_TARGET = Target::NATIVE;
                             } else if (target_str == "linux") {
                                 COMPILATION_TARGET = Target::LINUX;
-#ifdef __WIN32__
+#ifdef _WIN32
                             } else if (target_str == "windows-msvc") {
                                 COMPILATION_TARGET = Target::WINDOWS_MSVC;
 #else
@@ -172,7 +172,7 @@ class CLIParserMain : public CLIParserBase {
                     COMPILATION_TARGET = Target::NATIVE;
                 } else if (target_str == "linux") {
                     COMPILATION_TARGET = Target::LINUX;
-#ifdef __WIN32__
+#ifdef _WIN32
                 } else if (target_str == "windows-msvc") {
                     COMPILATION_TARGET = Target::WINDOWS_MSVC;
 #else
@@ -558,12 +558,12 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "\n";
         std::cout << "Available Targets:\n";
         std::cout << "  native          [Default] The native target triple of the platform the compiler is executed on\n";
-#ifdef __WIN32__
+#ifdef _WIN32
         std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-musl', statically linked via musl)\n";
 #else
         std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
 #endif
-#ifdef __WIN32__
+#ifdef _WIN32
         std::cout << "  windows-msvc    Targetting Windows (target triple 'x86_64-pc-windows-msvc')\n";
 #else
         std::cout << "  windows-gnu     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";

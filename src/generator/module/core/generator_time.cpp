@@ -190,7 +190,7 @@ void Generator::Module::Time::generate_now_function(llvm::IRBuilder<> *builder, 
     // TimeStamp* now() {
     //     TimeStamp* stamp = (TimeStamp *)malloc(sizeof(TimeStamp));
     //
-    // #ifdef __WIN32__
+    // #ifdef _WIN32
     //     __time_init();
     //     LARGE_INTEGER counter;
     //     QueryPerformanceCounter(&counter);
@@ -391,7 +391,7 @@ void Generator::Module::Time::generate_sleep_duration_function( //
 ) {
     // THE C IMPLEMENTATION:
     // void sleep_duration(Duration *d) {
-    // #ifdef __WIN32__
+    // #ifdef _WIN32
     //     // Windows Sleep takes milliseconds
     //     uint64_t ms = d->value / 1000000ULL;
     //     if (ms == 0 && d->value > 0) {

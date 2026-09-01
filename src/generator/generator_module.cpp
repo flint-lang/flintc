@@ -199,7 +199,7 @@ bool Generator::Module::generate_modules() {
     std::string file_ending = "";
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             file_ending = ".obj";
 #else
             file_ending = ".o";

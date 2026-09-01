@@ -82,7 +82,7 @@ inline bool is_target_windows() {
         case Target::LINUX:
             return false;
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             return true;
 #else
             return false;

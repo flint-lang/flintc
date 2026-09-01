@@ -52,7 +52,7 @@
 #include <variant>
 
 std::filesystem::path Generator::get_flintc_cache_path() {
-#ifdef __WIN32__
+#ifdef _WIN32
     const char *local_appdata = std::getenv("LOCALAPPDATA");
     if (local_appdata == nullptr) {
         return std::filesystem::path();
@@ -98,7 +98,7 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
     std::string target_triple = "";
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             target_triple = "x86_64-pc-windows-msvc";
 #else
             target_triple = llvm::sys::getDefaultTargetTriple();
@@ -111,7 +111,7 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
             target_triple = "x86_64-pc-windows-gnu";
             break;
         case Target::LINUX:
-#ifdef __WIN32__
+#ifdef _WIN32
             target_triple = "x86_64-pc-linux-musl";
 #else
             target_triple = "x86_64-pc-linux-gnu";
@@ -171,7 +171,7 @@ bool Generator::compile_program(              //
     std::string file_ending = "";
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             file_ending = ".obj";
 #else
             file_ending = ".o";
@@ -233,7 +233,7 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     std::string obj_file = module_path.string();
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
-#ifdef __WIN32__
+#ifdef _WIN32
             obj_file += ".obj";
 #else
             obj_file += ".o";

@@ -327,7 +327,7 @@ void Generator::Module::System::generate_get_cwd_function(llvm::IRBuilder<> *bui
     // str *get_cwd() {
     //     // Maximum path length (PATH_MAX is POSIX, MAX_PATH is Windows)
     //     char buffer[PATH_MAX];
-    // #ifdef __WIN32__
+    // #ifdef _WIN32
     //     if (_getcwd(buffer, sizeof(buffer)) == NULL) {
     // #else
     //     if (getcwd(buffer, sizeof(buffer)) == NULL) {

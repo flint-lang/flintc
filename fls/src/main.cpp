@@ -26,7 +26,7 @@ void print_help() {
 }
 
 void print_version() {
-#ifdef __WIN32__
+#ifdef _WIN32
     // Setting the console output to UTF-8 that the tree characters render correctly
     SetConsoleOutputCP(CP_UTF8);
 #endif

@@ -65,7 +65,7 @@ std::optional<std::filesystem::path> get_full_path_of_module(const std::string &
     }
 
     const std::string path_str(path_env);
-#ifdef __WIN32__
+#ifdef _WIN32
     const std::vector<std::string> dirs = split_path(path_str, ';');
 #else
     const std::vector<std::string> dirs = split_path(path_str, ':');
@@ -76,7 +76,7 @@ std::optional<std::filesystem::path> get_full_path_of_module(const std::string &
         full_path = full_path / command;
 
         // On Windows, append .exe if not already present
-#ifdef __WIN32__
+#ifdef _WIN32
         if (command.substr(command.size() - 4) != ".exe") {
             full_path += ".exe";
         }
@@ -141,7 +141,7 @@ bool FIP::init(                //
             needs_shutdown = false;
             for (uint8_t i = 0; i < config_file.enabled_count; i++) {
                 std::string module = std::string(config_file.enabled_modules[i]);
-#ifdef __WIN32__
+#ifdef _WIN32
                 module += ".exe";
 #endif
                 if (!get_full_path_of_module(module).has_value()) {
@@ -218,14 +218,14 @@ void FIP::shutdown() {
     fip_free_msg(&message);
     message.type = FIP_MSG_KILL;
     message.u.kill.reason = FIP_KILL_FINISH;
-#ifndef __WIN32__
+#ifndef _WIN32
     auto sleep_100ms = timespec{.tv_sec = 0, .tv_nsec = 100000000};
     nanosleep(&sleep_100ms, NULL);
 #endif
     fip_master_broadcast_message(buffer, &message);
 
     // Clean up
-#ifndef __WIN32__
+#ifndef _WIN32
     nanosleep(&sleep_100ms, NULL);
 #endif
     fip_master_cleanup();
