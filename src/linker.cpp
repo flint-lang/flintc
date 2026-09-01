@@ -10,6 +10,14 @@
 
 #include <iostream>
 
+static std::filesystem::path get_crt_path() {
+    std::filesystem::path cache_path = Generator::get_flintc_cache_path();
+    if (COMPILATION_TARGET != Target::NATIVE) {
+        cache_path = cache_path.parent_path();
+    }
+    return cache_path / "crt";
+}
+
 // #define _WIN32
 
 #ifdef _WIN32
@@ -240,9 +248,8 @@ bool Linker::create_static_library(const std::vector<std::filesystem::path> &obj
 }
 
 bool Linker::fetch_crt_libs() {
-    std::filesystem::path cache_path = Generator::get_flintc_cache_path();
     // Check if the crt path exists in the cache path, and if it exists whether all the libraries we need are present in it
-    std::filesystem::path crt_path = cache_path / "crt";
+    std::filesystem::path crt_path = get_crt_path();
     bool crt_libs_present = std::filesystem::exists(crt_path);
     if (crt_libs_present) {
         crt_libs_present = crt_libs_present && std::filesystem::exists(crt_path / "kernel32.lib");
@@ -402,7 +409,7 @@ std::optional<std::vector<std::string>> Linker::get_windows_msvc_args( //
     std::filesystem::path cache_path = Generator::get_flintc_cache_path();
 
     // Fetch the crt libs
-    std::filesystem::path crt_path = cache_path / "crt";
+    std::filesystem::path crt_path = get_crt_path();
     if (!fetch_crt_libs()) {
         return std::nullopt;
     }
