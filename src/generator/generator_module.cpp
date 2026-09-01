@@ -284,6 +284,11 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
                     return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
                 }
                 continue;
+            } else if (json_string->name == "target") {
+                if (json_string->value != target_name()) {
+                    return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
+                }
+                continue;
             } else {
                 // Unknown bare string field in the metadata.json file
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -385,6 +390,8 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
 void Generator::Module::save_metadata_json_file(int arithmetic_mode, int array_mode, int optimize_mode) {
     std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH);
 
+    std::unique_ptr<JsonObject> target_object = std::make_unique<JsonString>("target", target_name());
+
     std::unique_ptr<JsonObject> mode_object = std::make_unique<JsonNumber>("mode", arithmetic_mode);
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
     arithmetic_group_content.emplace_back(std::move(mode_object));
@@ -399,6 +406,7 @@ void Generator::Module::save_metadata_json_file(int arithmetic_mode, int array_m
 
     std::vector<std::unique_ptr<JsonObject>> main_object_content;
     main_object_content.emplace_back(std::move(commit_hash_object));
+    main_object_content.emplace_back(std::move(target_object));
     main_object_content.emplace_back(std::move(optimize_mode_object));
     main_object_content.emplace_back(std::move(arithmetic_group));
     main_object_content.emplace_back(std::move(array_group));

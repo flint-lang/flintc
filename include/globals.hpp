@@ -1,5 +1,7 @@
 #pragma once
 
+#include "assert.hpp"
+
 #include <filesystem>
 
 #ifdef DEBUG_BUILD
@@ -88,7 +90,21 @@ inline bool is_target_windows() {
             return false;
 #endif
     }
-    return false;
+    UNREACHABLE();
+}
+
+inline const char *target_name() {
+    switch (COMPILATION_TARGET) {
+        case Target::NATIVE:
+            return "native";
+        case Target::LINUX:
+            return "linux";
+        case Target::WINDOWS_MSVC:
+            return "windows-msvc";
+        case Target::WINDOWS_GNU:
+            return "windows-gnu";
+    }
+    UNREACHABLE();
 }
 
 enum class ArithmeticOverflowMode : unsigned int { PRINT = 0, SILENT = 1, CRASH = 2, UNSAFE = 3 };
