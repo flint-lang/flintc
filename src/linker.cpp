@@ -85,6 +85,72 @@ if (Test-Path $installer) {
     Write-Host "'vs_BuildTools.exe' has been removed."
 }
 )DELIM";
+
+static const char *fetch_musl_bat_content = R"(@echo off
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_musl.ps1" %*
+)";
+
+static const char *fetch_musl_ps1_content = R"DELIM(Param([string]$Destination = "")
+if ($Destination -eq "") {
+    Write-Host "Error: No destination directory was given."
+    exit 1
+}
+
+$MuslArchive = Join-Path $Destination 'x86_64-linux-musl-cross.tgz'
+$MuslUrl      = 'https://more.musl.cc/x86_64-linux-musl/x86_64-linux-musl-cross.tgz'
+$ExpectedSha  = '40ff5f88e28cfbf45264c75cc2d140170d7e508c87d21e05d2932417565ba3b4b9c9d24587d321c126cee74213198206ecd6687c185d1f4a1d632cb6112527fb'
+
+New-Item -ItemType Directory -Path $Destination -Force | Out-Null
+
+# 1) Download the archive if it is not present yet
+if (-Not (Test-Path $MuslArchive)) {
+    Write-Host "Downloading the musl sysroot..."
+    Invoke-WebRequest -Uri $MuslUrl -OutFile $MuslArchive
+}
+
+# 2) Verify the integrity of the archive
+$Hash = (Get-FileHash -Algorithm SHA512 -Path $MuslArchive).Hash.ToLower()
+if ($Hash -ne $ExpectedSha) {
+    Write-Host "Error: SHA512 mismatch for '$MuslArchive'."
+    Remove-Item $MuslArchive -Force -ErrorAction SilentlyContinue
+    exit 1
+}
+
+# 3) Extract the files we need out of the tarball
+$TarRoot = 'x86_64-linux-musl-cross';
+$Files = @(
+    @{ From = "$TarRoot/x86_64-linux-musl/lib/libc.a";             To = 'libc.a' },
+    @{ From = "$TarRoot/x86_64-linux-musl/lib/crt1.o";             To = 'crt1.o' },
+    @{ From = "$TarRoot/x86_64-linux-musl/lib/crti.o";             To = 'crti.o' },
+    @{ From = "$TarRoot/x86_64-linux-musl/lib/crtn.o";             To = 'crtn.o' },
+    @{ From = "$TarRoot/lib/gcc/x86_64-linux-musl/11.2.1/libgcc.a";    To = 'gcc/libgcc.a' },
+    @{ From = "$TarRoot/lib/gcc/x86_64-linux-musl/11.2.1/libgcc_eh.a"; To = 'gcc/libgcc_eh.a' }
+)
+
+foreach ($File in $Files) {
+    $Target = Join-Path $Destination $File.To
+    $Dir = Split-Path $Target -Parent
+    New-Item -ItemType Directory -Path $Dir -Force | Out-Null
+
+    # Extract the single file (with its full path) into a scratch dir, then move
+    # it to its final flat location. This keeps binary integrity intact on
+    # Windows PowerShell (out-file pipelines can corrupt binary data).
+    $Scratch = Join-Path $Destination '.scratch'
+    New-Item -ItemType Directory -Path $Scratch -Force | Out-Null
+    Remove-Item (Join-Path $Scratch $TarRoot) -Recurse -Force -ErrorAction SilentlyContinue
+    tar -xzf $MuslArchive -C $Scratch $File.From
+    if (-Not (Test-Path (Join-Path $Scratch $File.From))) {
+        Write-Host "Error: Failed to extract '$($File.From)'."
+        exit 1
+    }
+    Copy-Item (Join-Path $Scratch $File.From) -Destination $Target -Force
+    Remove-Item (Join-Path $Scratch $TarRoot) -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# 4) Remove the archive again
+Remove-Item $MuslArchive -Force -ErrorAction SilentlyContinue
+Write-Host "musl libc has been placed in $Destination"
+)DELIM";
 #endif
 
 LLD_HAS_DRIVER(coff)
@@ -100,13 +166,17 @@ bool Linker::link(                                       //
     switch (COMPILATION_TARGET) {
         case Target::NATIVE:
 #ifdef __WIN32__
-            return link_windows(obj_files, output_file, flags, is_static);
+            return link_windows_msvc(obj_files, output_file, flags, is_static);
 #else
-            return link_linux(obj_files, output_file, flags, is_static);
+            return is_static ? link_linux_musl(obj_files, output_file, flags) : link_linux_gnu(obj_files, output_file, flags);
 #endif
             break;
         case Target::LINUX:
-            return link_linux(obj_files, output_file, flags, is_static);
+#ifdef __WIN32__
+            return link_linux_musl(obj_files, output_file, flags);
+#else
+            return is_static ? link_linux_musl(obj_files, output_file, flags) : link_linux_gnu(obj_files, output_file, flags);
+#endif
             break;
         case Target::WINDOWS_MSVC:
             return link_windows_msvc(obj_files, output_file, flags, is_static);
@@ -214,6 +284,49 @@ bool Linker::fetch_crt_libs() {
         // One or more libs are missing, re-fetch them and put them into the crt path
 #endif
     }
+    return true;
+}
+
+bool Linker::fetch_musl_libs() {
+#ifdef __WIN32__
+    // Check if the musl libs exist in the cache path. We need the musl libc archive, the crate startup objects and the GCC support
+    // libraries to link against when cross-compiling to Linux.
+    std::filesystem::path musl_path = Generator::get_flintc_cache_path() / "musl";
+    bool musl_libs_present = std::filesystem::exists(musl_path) && std::filesystem::exists(musl_path / "libc.a");
+    musl_libs_present = musl_libs_present && std::filesystem::exists(musl_path / "crt1.o");
+    musl_libs_present = musl_libs_present && std::filesystem::exists(musl_path / "crti.o");
+    musl_libs_present = musl_libs_present && std::filesystem::exists(musl_path / "crtn.o");
+    musl_libs_present = musl_libs_present && std::filesystem::exists(musl_path / "gcc" / "libgcc.a");
+    musl_libs_present = musl_libs_present && std::filesystem::exists(musl_path / "gcc" / "libgcc_eh.a");
+    if (musl_libs_present) {
+        return true;
+    }
+    if (DEBUG_MODE) {
+        std::cout << YELLOW << "[Debug Info] " << "One or more musl libraries are missing" << DEFAULT << std::endl;
+    }
+    Profiler::start_task("Fetching musl libraries");
+    std::filesystem::create_directories(musl_path);
+    std::filesystem::path bat_file = musl_path / "fetch_musl.bat";
+    if (!std::filesystem::exists(bat_file)) {
+        std::ofstream ofs(bat_file, std::ios::binary);
+        ofs << fetch_musl_bat_content;
+    }
+    std::filesystem::path ps1_file = musl_path / "fetch_musl.ps1";
+    if (!std::filesystem::exists(ps1_file)) {
+        std::ofstream ofs(ps1_file, std::ios::binary);
+        ofs << fetch_musl_ps1_content;
+    }
+    // Pass the destination directory to the script so it can place the libs into the (cross-compile) cache directory.
+    const std::string destination = "\"" + musl_path.string() + "\"";
+    const auto [res, output] = CLIParserBase::get_command_output(bat_file.string() + " " + destination);
+    Profiler::end_task("Fetching musl libraries");
+    if (res != 0) {
+        std::cout << RED << "Error: " << DEFAULT << "Fetching the required musl libraries failed! Command output:\n" << output << std::endl;
+        return false;
+    }
+#else
+    // On Linux the musl libraries are discovered from the system directly, so there is nothing to fetch.
+#endif
     return true;
 }
 
@@ -383,81 +496,31 @@ bool Linker::link_windows_msvc(                          //
     return result;
 }
 
-std::optional<std::vector<std::string>> Linker::get_linux_args( //
-    const std::vector<std::filesystem::path> &obj_files,        //
-    const std::filesystem::path &output_file,                   //
-    const bool is_static                                        //
+std::optional<std::vector<std::string>> Linker::get_linux_gnu_args( //
+    const std::vector<std::filesystem::path> &obj_files,            //
+    const std::filesystem::path &output_file                        //
 ) {
     std::vector<std::string> args;
     args.push_back("ld.lld");
 
-    if (is_static) {
-        // For static builds with musl
-        args.push_back("-static");
-        args.push_back("-L" + Generator::get_flintc_cache_path().string());
-        args.push_back("-lbuiltins");
-
-        // Find musl libc.a - check multiple possible locations
-        std::vector<std::string> possible_musl_paths = {
-            "/usr/lib/musl/lib/libc.a",          // Arch Linux
-            "/usr/lib/x86_64-linux-musl/libc.a", // Debian/Ubuntu
-            "/lib/x86_64-linux-musl/libc.a",     // Another possible location
-        };
-
-        std::string_view musl_libc_path;
-        for (const auto &path : possible_musl_paths) {
-            if (std::filesystem::exists(path)) {
-                musl_libc_path = path;
-                break;
-            }
-        }
-
-        if (musl_libc_path.empty()) {
-            std::cerr << "Error: Could not find musl libc.a. Please install musl-dev or equivalent." << std::endl;
-            return std::nullopt;
-        }
-        if (DEBUG_MODE) {
-            std::cout << "-- Using musl libc from: " << musl_libc_path << "\n" << std::endl;
-        }
-
-        // Find musl's crt1.o (startup file)
-        std::string musl_dir = std::filesystem::path(musl_libc_path).parent_path().string();
-        std::string musl_crt1 = musl_dir + "/crt1.o";
-
-        if (std::filesystem::exists(musl_crt1)) {
-            args.push_back(musl_crt1);
-        } else {
-            // Fall back to system crt1.o
-            args.push_back("/usr/lib/crt1.o");
-        }
-
-        // Add object files
-        for (const auto &obj_file : obj_files) {
-            args.push_back(obj_file.string());
-        }
-
-        // Use musl libc.a directly by path (not with -l flag)
-        args.push_back(std::string(musl_libc_path));
-    } else {
-        // For dynamic builds, use regular glibc
-        args.push_back("--allow-multiple-definition");
-        args.push_back("--gc-sections"); // Prevent removal of unused sections
-        args.push_back("--no-relax");    // Disable relocation relaxation
-        args.push_back("-g");
-        for (const auto &obj_file : obj_files) {
-            args.push_back(obj_file.string());
-        }
-        args.push_back("-L" + Generator::get_flintc_cache_path().string());
-        args.push_back("-lbuiltins");
-        args.push_back("-L/usr/lib");
-        args.push_back("-L/usr/lib/x86_64-linux-gnu");
-        args.push_back("-lc");
-        args.push_back("-lm");
-        args.push_back("-l:crt1.o");
-        args.push_back("-l:crti.o");
-        args.push_back("-l:crtn.o");
-        args.push_back("--dynamic-linker=/lib64/ld-linux-x86-64.so.2");
+    // Dynamic builds with regular glibc
+    args.push_back("--allow-multiple-definition");
+    args.push_back("--gc-sections"); // Prevent removal of unused sections
+    args.push_back("--no-relax");    // Disable relocation relaxation
+    args.push_back("-g");
+    for (const auto &obj_file : obj_files) {
+        args.push_back(obj_file.string());
     }
+    args.push_back("-L" + Generator::get_flintc_cache_path().string());
+    args.push_back("-lbuiltins");
+    args.push_back("-L/usr/lib");
+    args.push_back("-L/usr/lib/x86_64-linux-gnu");
+    args.push_back("-lc");
+    args.push_back("-lm");
+    args.push_back("-l:crt1.o");
+    args.push_back("-l:crti.o");
+    args.push_back("-l:crtn.o");
+    args.push_back("--dynamic-linker=/lib64/ld-linux-x86-64.so.2");
 
     // Output file
     args.push_back("-o");
@@ -465,20 +528,130 @@ std::optional<std::vector<std::string>> Linker::get_linux_args( //
     return args;
 }
 
-bool Linker::link_linux(                                 //
+bool Linker::link_linux_gnu(                             //
     const std::vector<std::filesystem::path> &obj_files, //
     const std::filesystem::path &output_file,            //
-    const std::vector<std::string> &flags,               //
-    const bool is_static                                 //
+    const std::vector<std::string> &flags                //
 ) {
     // Get the arguments for linking
-    std::optional<std::vector<std::string>> arguments = get_linux_args(obj_files, output_file, is_static);
+    std::optional<std::vector<std::string>> arguments = get_linux_gnu_args(obj_files, output_file);
     if (!arguments.has_value()) {
         return false;
     }
     if (PRINT_LINK) {
-        std::cout << YELLOW << "[Debug Info] " << (is_static ? "Static (musl) " : "Dynamic ") << "ELF linking with arguments:" << DEFAULT
-                  << std::endl;
+        std::cout << YELLOW << "[Debug Info] " << "Dynamic (glibc) ELF linking with arguments:" << DEFAULT << std::endl;
+        for (const auto &arg : arguments.value()) {
+            std::cout << "  " << arg << "\n";
+        }
+        for (const auto &flag : flags) {
+            std::cout << "  " << flag << "\n";
+        }
+        std::cout << std::endl;
+    }
+    std::vector<const char *> args;
+    for (const auto &arg : arguments.value()) {
+        args.push_back(arg.c_str());
+    }
+    for (const auto &flag : flags) {
+        args.push_back(flag.c_str());
+    }
+
+    return lld::elf::link(args, llvm::outs(), llvm::errs(), false, false);
+}
+
+std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
+    const std::vector<std::filesystem::path> &obj_files,             //
+    const std::filesystem::path &output_file                         //
+) {
+    std::vector<std::string> args;
+    args.push_back("ld.lld");
+
+#ifdef __WIN32__
+    // Cross-compiling to Linux from Windows: glibc is not available, so we
+    // statically link against the previously fetched musl libc.
+    if (!fetch_musl_libs()) {
+        return std::nullopt;
+    }
+    std::filesystem::path musl_path = Generator::get_flintc_cache_path() / "musl";
+
+    args.push_back("-static");
+    args.push_back((musl_path / "crt1.o").string());
+    for (const auto &obj_file : obj_files) {
+        args.push_back(obj_file.string());
+    }
+    args.push_back("-L" + Generator::get_flintc_cache_path().string());
+    args.push_back("-lbuiltins");
+    // Use the musl libc.a directly by path (not with -l flag)
+    args.push_back((musl_path / "libc.a").string());
+    args.push_back("-L" + (musl_path / "gcc").string());
+    args.push_back("-lgcc");
+#else
+    // For static builds with musl
+    args.push_back("-static");
+    args.push_back("-L" + Generator::get_flintc_cache_path().string());
+    args.push_back("-lbuiltins");
+
+    // Find musl libc.a - check multiple possible locations
+    std::vector<std::string> possible_musl_paths = {
+        "/usr/lib/musl/lib/libc.a",          // Arch Linux
+        "/usr/lib/x86_64-linux-musl/libc.a", // Debian/Ubuntu
+        "/lib/x86_64-linux-musl/libc.a",     // Another possible location
+    };
+
+    std::string_view musl_libc_path;
+    for (const auto &path : possible_musl_paths) {
+        if (std::filesystem::exists(path)) {
+            musl_libc_path = path;
+            break;
+        }
+    }
+
+    if (musl_libc_path.empty()) {
+        std::cerr << "Error: Could not find musl libc.a. Please install musl-dev or equivalent." << std::endl;
+        return std::nullopt;
+    }
+    if (DEBUG_MODE) {
+        std::cout << "-- Using musl libc from: " << musl_libc_path << "\n" << std::endl;
+    }
+
+    // Find musl's crt1.o (startup file)
+    std::string musl_dir = std::filesystem::path(musl_libc_path).parent_path().string();
+    std::string musl_crt1 = musl_dir + "/crt1.o";
+
+    if (std::filesystem::exists(musl_crt1)) {
+        args.push_back(musl_crt1);
+    } else {
+        // Fall back to system crt1.o
+        args.push_back("/usr/lib/crt1.o");
+    }
+
+    // Add object files
+    for (const auto &obj_file : obj_files) {
+        args.push_back(obj_file.string());
+    }
+
+    // Use musl libc.a directly by path (not with -l flag)
+    args.push_back(std::string(musl_libc_path));
+#endif // not __WIN32__
+
+    // Output file
+    args.push_back("-o");
+    args.push_back(output_file.string());
+    return args;
+}
+
+bool Linker::link_linux_musl(                            //
+    const std::vector<std::filesystem::path> &obj_files, //
+    const std::filesystem::path &output_file,            //
+    const std::vector<std::string> &flags                //
+) {
+    // Get the arguments for linking
+    std::optional<std::vector<std::string>> arguments = get_linux_musl_args(obj_files, output_file);
+    if (!arguments.has_value()) {
+        return false;
+    }
+    if (PRINT_LINK) {
+        std::cout << YELLOW << "[Debug Info] " << "Static (musl) ELF linking with arguments:" << DEFAULT << std::endl;
         for (const auto &arg : arguments.value()) {
             std::cout << "  " << arg << "\n";
         }

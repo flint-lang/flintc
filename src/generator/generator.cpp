@@ -111,7 +111,11 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
             target_triple = "x86_64-pc-windows-gnu";
             break;
         case Target::LINUX:
+#ifdef __WIN32__
+            target_triple = "x86_64-pc-linux-musl";
+#else
             target_triple = "x86_64-pc-linux-gnu";
+#endif
             break;
     }
 

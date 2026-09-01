@@ -558,7 +558,11 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "\n";
         std::cout << "Available Targets:\n";
         std::cout << "  native          [Default] The native target triple of the platform the compiler is executed on\n";
+#ifdef __WIN32__
+        std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-musl', statically linked via musl)\n";
+#else
         std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+#endif
 #ifdef __WIN32__
         std::cout << "  windows-msvc    Targetting Windows (target triple 'x86_64-pc-windows-msvc')\n";
 #else

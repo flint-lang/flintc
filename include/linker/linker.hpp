@@ -38,6 +38,10 @@ class Linker {
     /// @brief Fetches the needed crt libs for windows
     static bool fetch_crt_libs();
 
+    /// @function `fetch_musl_libs`
+    /// @brief Fetches the needed musl libc libraries for cross-compiling to Linux from Windows
+    static bool fetch_musl_libs();
+
     /// @function `get_lib_env_win`
     /// @brief Get the content of the 'LIB' environment variable on Windows
     ///
@@ -73,32 +77,52 @@ class Linker {
         const bool is_static                                 //
     );
 
-    /// @function `get_linux_args`
-    /// @brief Get all the linux args to call lld with
+    /// @function `get_linux_gnu_args`
+    /// @brief Get all the linux (glibc) args to call lld with
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
-    /// @param `is_static` Whether the output file should be linked as static
     /// @return `std::vector<std::string>` The list of all arguments with which lld will be called
-    static std::optional<std::vector<std::string>> get_linux_args( //
-        const std::vector<std::filesystem::path> &obj_files,       //
-        const std::filesystem::path &output_file,                  //
-        const bool is_static                                       //
+    static std::optional<std::vector<std::string>> get_linux_gnu_args( //
+        const std::vector<std::filesystem::path> &obj_files,           //
+        const std::filesystem::path &output_file                       //
     );
 
-    /// @function `link_linux`
-    /// @brief Links the built program for linux and outputs a binary file
+    /// @function `link_linux_gnu`
+    /// @brief Links the built program for linux (glibc) and outputs a binary file
     ///
     /// @param `obj_files` The paths to the object files to link together to the executable
     /// @param `output_file` The output file of the link
     /// @param `flags` The flags with which to link the .o file to the executable
-    /// @param `is_static` Whether the output file should be linked as static
     /// @return `bool` Whether linking the executable was succesful
-    static bool link_linux(                                  //
+    static bool link_linux_gnu(                              //
         const std::vector<std::filesystem::path> &obj_files, //
         const std::filesystem::path &output_file,            //
-        const std::vector<std::string> &flags,               //
-        const bool is_static                                 //
+        const std::vector<std::string> &flags                //
+    );
+
+    /// @function `get_linux_musl_args`
+    /// @brief Get all the linux (musl) args to call lld with
+    ///
+    /// @param `obj_files` The paths to the object files to link together to the executable
+    /// @param `output_file` The output file of the link
+    /// @return `std::vector<std::string>` The list of all arguments with which lld will be called
+    static std::optional<std::vector<std::string>> get_linux_musl_args( //
+        const std::vector<std::filesystem::path> &obj_files,            //
+        const std::filesystem::path &output_file                        //
+    );
+
+    /// @function `link_linux_musl`
+    /// @brief Links the built program for linux (musl) and outputs a binary file
+    ///
+    /// @param `obj_files` The paths to the object files to link together to the executable
+    /// @param `output_file` The output file of the link
+    /// @param `flags` The flags with which to link the .o file to the executable
+    /// @return `bool` Whether linking the executable was succesful
+    static bool link_linux_musl(                             //
+        const std::vector<std::filesystem::path> &obj_files, //
+        const std::filesystem::path &output_file,            //
+        const std::vector<std::string> &flags                //
     );
 
     /// @function `get_windows_gnu_args`
