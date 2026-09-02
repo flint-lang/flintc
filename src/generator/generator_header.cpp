@@ -35,11 +35,10 @@ static std::string c_identifier(const std::string &name) {
     return result;
 }
 
-static std::optional<std::string> header_c_type(const std::string &lib, const std::shared_ptr<Type> &type, bool is_mutable) {
+static std::optional<std::string> header_c_type(const std::string &lib, const std::shared_ptr<Type> &type) {
     switch (type->get_variation()) {
         case Type::Variation::DATA: {
-            const std::string name = lib + "_" + c_identifier(type->as<DataType>()->data_node->name);
-            return is_mutable ? name + " *" : name;
+            return lib + "_" + c_identifier(type->as<DataType>()->data_node->name) + " *";
         }
         case Type::Variation::ENUM:
             return c_identifier(type->as<EnumType>()->enum_node->name);
@@ -88,7 +87,7 @@ static std::optional<std::string> header_c_type(const std::string &lib, const st
         }
         case Type::Variation::OPTIONAL: {
             const auto *opt = type->as<OptionalType>();
-            return "FLINT_OPT(" + header_c_type(lib, opt->base_type, is_mutable).value() + ")";
+            return "FLINT_OPT(" + header_c_type(lib, opt->base_type).value() + ")";
         }
         case Type::Variation::VECTOR:
             return type->to_string();
@@ -141,7 +140,7 @@ static bool header_collect_type(HeaderCollect &ctx, const std::shared_ptr<Type> 
             return true;
         }
         case Type::Variation::PRIMITIVE:
-            return header_c_type("", type, false).has_value();
+            return header_c_type("", type).has_value();
         case Type::Variation::VECTOR: {
             const auto *vector_type = type->as<VectorType>();
             const std::string key = vector_type->to_string();
@@ -161,7 +160,7 @@ static bool header_collect_type(HeaderCollect &ctx, const std::shared_ptr<Type> 
 
 static void header_emit_types(const std::string &lib, std::ofstream &out, const HeaderCollect &ctx) {
     for (const auto *vec : ctx.vector_order) {
-        const std::string base = header_c_type(lib, vec->base_type, false).value();
+        const std::string base = header_c_type(lib, vec->base_type).value();
         out << "#ifndef FLINT_" << vec->to_string() << "\n";
         out << "#define FLINT_" << vec->to_string() << "\n";
         out << "typedef struct " << vec->to_string() << " { ";
@@ -198,7 +197,7 @@ static void header_emit_types(const std::string &lib, std::ofstream &out, const 
         const std::string name = c_identifier(data->data_node->name);
         out << "typedef struct " << lib << "_" << name << " {\n";
         for (const auto &field : data->data_node->fields) {
-            out << "    " << header_c_type(lib, field.type, true).value() << " " << c_identifier(field.name) << ";\n";
+            out << "    " << header_c_type(lib, field.type).value() << " " << c_identifier(field.name) << ";\n";
         }
         out << "} " << lib << "_" << name << ";\n\n";
     }
@@ -212,12 +211,12 @@ static void header_emit_functions(const std::string &lib, std::ofstream &out, co
             const std::string ret_struct = lib + "_" + c_identifier(fn->name) + "_ret";
             out << "typedef struct " << ret_struct << " {\n";
             for (size_t i = 0; i < fn->return_types.size(); i++) {
-                out << "    " << header_c_type(lib, fn->return_types.at(i), false).value() << " ret_" << i << ";\n";
+                out << "    " << header_c_type(lib, fn->return_types.at(i)).value() << " ret_" << i << ";\n";
             }
             out << "} " << ret_struct << ";\n";
             out << ret_struct;
         } else {
-            out << header_c_type(lib, fn->return_types.front(), false).value();
+            out << header_c_type(lib, fn->return_types.front()).value();
         }
 
         out << " " << lib << "_" << c_identifier(fn->name) << "(";
@@ -227,7 +226,7 @@ static void header_emit_functions(const std::string &lib, std::ofstream &out, co
                 out << ", ";
             }
             first = false;
-            const std::string type_str = header_c_type(lib, param.type, param.is_mutable).value();
+            const std::string type_str = header_c_type(lib, param.type).value();
             out << (param.is_mutable ? "" : "const ") << type_str;
             if (type_str.at(type_str.size() - 1) != '*') {
                 out << " ";

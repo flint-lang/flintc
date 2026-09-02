@@ -704,14 +704,12 @@ class Generator {
         /// @param `module` The LLVM Module the reconstructed vector will be generated in
         /// @param `builder` The LLVM IRBuilder
         /// @param `type` The type of the parameter to convert
-        /// @param `is_mutable` Whether the parameter is mutable (needed for by-val / by-ptr differentiation for 'data' for example)
         /// @param `ext_pieces` he external pieces representing the C-ABI version of the Flint parameters
         /// @return `llvm::Value *` The converted parameter, now as a Flint-compatible value
         [[nodiscard]] static llvm::Value *convert_extern_arg_to_internal( //
             llvm::Module *module,                                         //
             llvm::IRBuilder<> *builder,                                   //
             const std::shared_ptr<Type> &type,                            //
-            const bool is_mutable,                                        //
             std::vector<llvm::Value *> &ext_pieces                        //
         );
 

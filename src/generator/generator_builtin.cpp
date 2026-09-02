@@ -213,7 +213,6 @@ llvm::Value *Generator::Builtin::convert_extern_arg_to_internal( //
     llvm::Module *module,                                        //
     llvm::IRBuilder<> *builder,                                  //
     const std::shared_ptr<Type> &type,                           //
-    const bool is_mutable,                                       //
     std::vector<llvm::Value *> &ext_pieces                       //
 ) {
     if (type->get_variation() == Type::Variation::VECTOR) {
@@ -256,31 +255,11 @@ llvm::Value *Generator::Builtin::convert_extern_arg_to_internal( //
         return pop_external_piece(ext_pieces);
     }
     if (type->get_variation() == Type::Variation::DATA) {
-        if (is_mutable) {
-            // Mutable data parameters are passed by pointer (matching the C header); the frame field is a pointer to the
-            // struct, so the incoming pointer is stored directly.
-            return pop_external_piece(ext_pieces);
-        }
-        // Immutable data types are complex: the frame stores a pointer to the struct. For > 16 bytes the extern form is
-        // already a pointer that can be stored directly; for <= 16 bytes the extern form is a packed integer or
-        // small struct whose memory layout matches the internal struct, so we malloc a buffer and store it there.
-        const size_t data_size = Allocation::get_type_size(module, internal_info.type);
-        if (data_size > 16 || (extern_info.type != nullptr && extern_info.type->isPointerTy())) {
-            return pop_external_piece(ext_pieces);
-        }
-        llvm::Value *extern_agg = nullptr;
-        if (extern_info.type == nullptr || !extern_info.type->isStructTy()) {
-            extern_agg = pop_external_piece(ext_pieces);
-        } else {
-            llvm::Value *agg = llvm::UndefValue::get(extern_info.type);
-            for (unsigned int i = 0; i < extern_info.type->getStructNumElements(); i++) {
-                agg = builder->CreateInsertValue(agg, pop_external_piece(ext_pieces), i);
-            }
-            extern_agg = agg;
-        }
-        llvm::Value *result_ptr = builder->CreateCall(c_functions.at(CFunction::MALLOC), {builder->getInt64(data_size)}, "data_ptr");
-        builder->CreateStore(extern_agg, result_ptr);
-        return result_ptr;
+        llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+        llvm::Value *const src = pop_external_piece(ext_pieces);
+        llvm::Value *const clone_slot = builder->CreateAlloca(PTR_TY, nullptr, "data_clone_slot");
+        builder->CreateCall(clone_fn, {src, clone_slot, builder->getInt32(type->get_id())});
+        return IR::aligned_load(*builder, PTR_TY, clone_slot, "data_clone");
     }
     if (extern_info.type != nullptr && extern_info.type->isPointerTy()) {
         // External form is a plain pointer which is also the internal (heap) pointer, so it can be stored directly
@@ -390,7 +369,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
         wrapper_param_types.emplace_back(wrapper_sret_ty);
     }
     for (const auto &param : fn->parameters) {
-        if (param.is_mutable && param.type->get_variation() == Type::Variation::DATA) {
+        if (param.type->get_variation() == Type::Variation::DATA) {
             wrapper_param_types.emplace_back(PTR_TY);
             continue;
         }
@@ -503,7 +482,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
     }
     for (size_t i = 0; i < fn->parameters.size(); i++) {
         const auto &param = fn->parameters.at(i);
-        llvm::Value *const internal_arg = convert_extern_arg_to_internal(module, builder, param.type, param.is_mutable, ext_args);
+        llvm::Value *const internal_arg = convert_extern_arg_to_internal(module, builder, param.type, ext_args);
         if (internal_arg == nullptr) {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return false;
