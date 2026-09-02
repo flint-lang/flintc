@@ -673,6 +673,81 @@ class Generator {
             llvm::Value *ts_stack_data_ptr               //
         );
 
+        /// @function `pop_external_piece`
+        /// @brief Flint-internal types may be represented as multiple values for the C ABI, all C ABI parameters are a list of values and
+        ///        we "consume" a bunch of these values to reconstruct a Flint-intenal value from them. This function just returns the first
+        ///        element of the vector and erases it from it.
+        ///
+        /// @param `ext_pieces` The external value pieces put into a list
+        /// @return `llvm::Value *` The first value popped from the list
+        [[nodiscard]] static llvm::Value *pop_external_piece(std::vector<llvm::Value *> &ext_pieces);
+
+        /// @function `reconstruct_internal_vector`
+        /// @brief Helper function to reconstruct a vector value from the external pieces
+        ///
+        /// @param `module` The LLVM Module the reconstructed vector will be generated in
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `vector_type_to_rebuild` The type of the vector to rebuild from the first N `ext_pieces`
+        /// @param `ext_pieces` The external value pieces representing the C-ABI version of the Flint parameters
+        /// @return `llvm::Value *` The reconstructed Flint vector value
+        [[nodiscard]] static llvm::Value *reconstruct_internal_vector( //
+            llvm::Module *module,                                      //
+            llvm::IRBuilder<> *builder,                                //
+            const std::shared_ptr<Type> &vector_type_to_rebuild,       //
+            std::vector<llvm::Value *> &ext_pieces                     //
+        );
+
+        /// @function `convert_extern_arg_to_internal`
+        /// @brief Helper function to convert extern arguments in the C-ABI for `export` wraper functions to their internal
+        ///        Flint-representation to be usable by Flint
+        ///
+        /// @param `module` The LLVM Module the reconstructed vector will be generated in
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `type` The type of the parameter to convert
+        /// @param `is_mutable` Whether the parameter is mutable (needed for by-val / by-ptr differentiation for 'data' for example)
+        /// @param `ext_pieces` he external pieces representing the C-ABI version of the Flint parameters
+        /// @return `llvm::Value *` The converted parameter, now as a Flint-compatible value
+        [[nodiscard]] static llvm::Value *convert_extern_arg_to_internal( //
+            llvm::Module *module,                                         //
+            llvm::IRBuilder<> *builder,                                   //
+            const std::shared_ptr<Type> &type,                            //
+            const bool is_mutable,                                        //
+            std::vector<llvm::Value *> &ext_pieces                        //
+        );
+
+        /// @function `build_vector_extern_return`
+        /// @brief Builds the extern C-ABI return representation of a vector from its internal `<N x T>` value. This is the inverse of
+        ///        `Expression::convert_type_from_ext` for vector returns: small vectors are returned as a single packed integer or `<2 x
+        ///        T>`, larger ones as a struct of 8-byte chunks.
+        ///
+        /// @param `module` The LLVM Module the reconstructed vector will be generated in
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `internal_vec` The internal vector value which needs to be converted to the extern value
+        /// @param `vector_type_to_build` The type of the vector to convert
+        /// @return `llvm::Value *` The newly created built vector which is compatible with the C ABI
+        [[nodiscard]] static llvm::Value *build_vector_extern_return( //
+            llvm::Module *module,                                     //
+            llvm::IRBuilder<> *builder,                               //
+            llvm::Value *const internal_vec,                          //
+            const std::shared_ptr<Type> &vector_type_to_build         //
+        );
+
+        /// @function `generate_exported_function_wrapper`
+        /// @brief Generates a C-ABI wrapper function for an `export`ed Flint function. The wrapper loads the current thread stack from
+        ///        the `flint.ts.global` global, sets up the callee's TS frame, converts the incoming C arguments into the frame, calls
+        ///        the internal Flint function and returns the converted result through the C ABI. The wrapper is emitted under the
+        ///        `<hash>.<name>.export` symbol.
+        ///
+        /// @param `module` The LLVM Module the wrapper function will be generated in
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `fn` The exported function to generate a wrapper for
+        /// @return `bool` Whether generating the wrapper function was successful
+        [[nodiscard]] static bool generate_exported_function_wrapper( //
+            llvm::Module *module,                                     //
+            llvm::IRBuilder<> *builder,                               //
+            const FunctionNode *fn                                    //
+        );
+
         /// @function `generate_builtin_main`
         /// @brief Generates the builtin main function which calls the user defined main function
         ///

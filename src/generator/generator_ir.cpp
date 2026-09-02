@@ -726,6 +726,9 @@ std::optional<llvm::Type *> Generator::IR::get_extern_type( //
             if (elem_types.front()->isFloatingPointTy() && elem_types.at(1)->isFloatingPointTy()) {
                 return llvm::VectorType::get(elem_types.front(), 2, false);
             }
+            // Two integer elements (or a mix) that both fit into the single 8-byte chunk, e.g. `{ i32, i32 } -> i64`.
+            // `convert_data_type_to_ext` packs them into a single 8-byte integer, so the extern type must match.
+            return llvm::Type::getInt64Ty(context);
         }
     }
     // Because we only need to fill two 8-byte containers we can have an array here again

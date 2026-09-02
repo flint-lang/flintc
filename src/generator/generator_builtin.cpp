@@ -2,7 +2,13 @@
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/parser.hpp"
-#include "llvm/IR/Constants.h"
+#include "parser/type/group_type.hpp"
+#include "parser/type/type.hpp"
+#include "parser/type/vector_type.hpp"
+
+#include <llvm/IR/Constants.h>
+#include <llvm/IR/DerivedTypes.h>
+#include <llvm/IR/Instructions.h>
 
 #include <filesystem>
 
@@ -118,6 +124,577 @@ bool Generator::Builtin::init_global_variables( //
     return true;
 }
 
+llvm::Value *Generator::Builtin::pop_external_piece(std::vector<llvm::Value *> &ext_pieces) {
+    ASSERT(!ext_pieces.empty());
+    llvm::Value *const piece = ext_pieces.front();
+    ext_pieces.begin() = ext_pieces.erase(ext_pieces.begin());
+    return piece;
+}
+
+llvm::Value *Generator::Builtin::reconstruct_internal_vector( //
+    llvm::Module *module,                                     //
+    llvm::IRBuilder<> *builder,                               //
+    const std::shared_ptr<Type> &vector_type_to_rebuild,      //
+    std::vector<llvm::Value *> &ext_pieces                    //
+) {
+    const auto *vector_type = vector_type_to_rebuild->as<VectorType>();
+    llvm::Type *const element_type = IR::get_type(module, vector_type->base_type).type;
+    llvm::VectorType *target_vector_type = llvm::VectorType::get(element_type, vector_type->width, false);
+    llvm::VectorType *vec2_i32 = llvm::VectorType::get(builder->getInt32Ty(), 2, false);
+    const std::string base_type_str = vector_type->base_type->to_string();
+    if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
+        llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+        for (size_t i = 0; i < vector_type->width; i++) {
+            result_vec = builder->CreateInsertElement(result_vec, pop_external_piece(ext_pieces), builder->getInt64(i));
+        }
+        return result_vec;
+    }
+    if (vector_type->width == 2) {
+        llvm::Value *piece = pop_external_piece(ext_pieces);
+        if (base_type_str == "u8" || base_type_str == "i8" || base_type_str == "u16" || base_type_str == "i16" || base_type_str == "u32" ||
+            base_type_str == "i32") {
+            return builder->CreateBitCast(piece, (base_type_str == "u32" || base_type_str == "i32") ? vec2_i32 : target_vector_type);
+        }
+        // f32x2 is passed as `<2 x float>` already
+        return piece;
+    }
+    if (vector_type->width == 3) {
+        if (base_type_str == "u8" || base_type_str == "i8" || base_type_str == "u16" || base_type_str == "i16") {
+            return builder->CreateBitCast(pop_external_piece(ext_pieces), target_vector_type);
+        }
+        llvm::Value *vec2_part = pop_external_piece(ext_pieces);
+        llvm::Value *scalar_part = pop_external_piece(ext_pieces);
+        if (base_type_str == "u32" || base_type_str == "i32") {
+            vec2_part = builder->CreateBitCast(vec2_part, vec2_i32);
+        }
+        llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+        result_vec =
+            builder->CreateInsertElement(result_vec, builder->CreateExtractElement(vec2_part, builder->getInt64(0)), builder->getInt64(0));
+        result_vec =
+            builder->CreateInsertElement(result_vec, builder->CreateExtractElement(vec2_part, builder->getInt64(1)), builder->getInt64(1));
+        result_vec = builder->CreateInsertElement(result_vec, scalar_part, builder->getInt64(2));
+        return result_vec;
+    }
+    // width >= 4
+    if (base_type_str == "u8" || base_type_str == "i8") {
+        return builder->CreateBitCast(pop_external_piece(ext_pieces), target_vector_type);
+    } else if (base_type_str == "u16" || base_type_str == "i16") {
+        if (vector_type->width == 4) {
+            return builder->CreateBitCast(pop_external_piece(ext_pieces), target_vector_type);
+        } else if (vector_type->width == 8) {
+            llvm::Value *lhs_i64 = pop_external_piece(ext_pieces);
+            llvm::Value *rhs_i64 = pop_external_piece(ext_pieces);
+            llvm::VectorType *vec4_i16 = llvm::VectorType::get(element_type, 4, false);
+            llvm::Value *result = llvm::UndefValue::get(target_vector_type);
+            result =
+                builder->CreateInsertVector(target_vector_type, result, builder->CreateBitCast(lhs_i64, vec4_i16), builder->getInt64(0));
+            result =
+                builder->CreateInsertVector(target_vector_type, result, builder->CreateBitCast(rhs_i64, vec4_i16), builder->getInt64(4));
+            return result;
+        }
+        UNREACHABLE();
+    } else {
+        // f32 / u32 / i32 for width >= 4: emitted as width/2 chunks of `<2 x T>` (or `i64` for u32/i32)
+        llvm::Value *result_vec = llvm::UndefValue::get(target_vector_type);
+        size_t element_index = 0;
+        for (size_t chunk = 0; chunk < vector_type->width / 2; chunk++) {
+            llvm::Value *chunk_vec = pop_external_piece(ext_pieces);
+            if (base_type_str == "u32" || base_type_str == "i32") {
+                chunk_vec = builder->CreateBitCast(chunk_vec, vec2_i32);
+            }
+            result_vec = builder->CreateInsertVector(target_vector_type, result_vec, chunk_vec, builder->getInt64(element_index));
+            element_index += 2;
+        }
+        return result_vec;
+    }
+}
+
+llvm::Value *Generator::Builtin::convert_extern_arg_to_internal( //
+    llvm::Module *module,                                        //
+    llvm::IRBuilder<> *builder,                                  //
+    const std::shared_ptr<Type> &type,                           //
+    const bool is_mutable,                                       //
+    std::vector<llvm::Value *> &ext_pieces                       //
+) {
+    if (type->get_variation() == Type::Variation::VECTOR) {
+        return reconstruct_internal_vector(module, builder, type, ext_pieces);
+    }
+    if (type->to_string() == "str") {
+        // The extern ABI passes a `char *` whereas the frame stores the full string struct pointer. Weld the incoming C string
+        // into a Flint `str`: `init_str(char_ptr, strlen(char_ptr))` returns the heap `str *` we store in the (pointer-typed) frame
+        // field.
+        llvm::Value *const char_ptr = pop_external_piece(ext_pieces);
+        llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
+        llvm::Function *const strlen_fn = c_functions.at(STRLEN);
+        llvm::Value *const str_len = builder->CreateCall(strlen_fn, {char_ptr}, "str_len");
+        return builder->CreateCall(init_str_fn, {char_ptr, str_len}, "str_arg");
+    }
+    const IR::TypeStorageInfo extern_info = IR::get_type(module, type, true);
+    const IR::TypeStorageInfo internal_info = IR::get_type(module, type, false);
+    if (type->get_variation() == Type::Variation::OPTIONAL) {
+        // Optionals are stored as `{ i8 (has_value), X }` where X is the base type or a pointer to it; the frame field holds this
+        // struct by value. Rebuild it from the external pieces produced by the C ABI (see the signature-building code above):
+        // an <= 8-byte optional arrives as one packed 8-byte register, a larger one as `(i8, payload)`.
+        const IR::TypeStorageInfo opt_info = IR::get_type(module, type, false);
+        const size_t opt_size = Allocation::get_type_size(module, opt_info.type);
+        if (opt_size <= 8) {
+            // Repack the single 8-byte register into the `{ i8, X }` struct by reinterpreting the register bytes, which share the same byte
+            // layout as the (naturally laid out) struct.
+            llvm::AllocaInst *const slot = builder->CreateAlloca(opt_info.type, nullptr, "opt_pack");
+            llvm::Value *const cast_reg = builder->CreateBitCast(slot, PTR_TY);
+            builder->CreateStore(pop_external_piece(ext_pieces), cast_reg);
+            return IR::aligned_load(*builder, opt_info.type, slot, "opt_rebuilt");
+        }
+        // 16-byte optional: two external pieces `(i8, payload)`.
+        llvm::Value *agg = llvm::UndefValue::get(opt_info.type);
+        agg = builder->CreateInsertValue(agg, builder->CreateZExt(pop_external_piece(ext_pieces), llvm::Type::getInt8Ty(context)), 0);
+        agg = builder->CreateInsertValue(agg, pop_external_piece(ext_pieces), 1);
+        return agg;
+    }
+    if (extern_info.type == internal_info.type && !extern_info.is_complex && !internal_info.is_complex) {
+        // scalar fallthrough: the single external value is already the internal value
+        return pop_external_piece(ext_pieces);
+    }
+    if (type->get_variation() == Type::Variation::DATA) {
+        if (is_mutable) {
+            // Mutable data parameters are passed by pointer (matching the C header); the frame field is a pointer to the
+            // struct, so the incoming pointer is stored directly.
+            return pop_external_piece(ext_pieces);
+        }
+        // Immutable data types are complex: the frame stores a pointer to the struct. For > 16 bytes the extern form is
+        // already a pointer that can be stored directly; for <= 16 bytes the extern form is a packed integer or
+        // small struct whose memory layout matches the internal struct, so we malloc a buffer and store it there.
+        const size_t data_size = Allocation::get_type_size(module, internal_info.type);
+        if (data_size > 16 || (extern_info.type != nullptr && extern_info.type->isPointerTy())) {
+            return pop_external_piece(ext_pieces);
+        }
+        llvm::Value *extern_agg = nullptr;
+        if (extern_info.type == nullptr || !extern_info.type->isStructTy()) {
+            extern_agg = pop_external_piece(ext_pieces);
+        } else {
+            llvm::Value *agg = llvm::UndefValue::get(extern_info.type);
+            for (unsigned int i = 0; i < extern_info.type->getStructNumElements(); i++) {
+                agg = builder->CreateInsertValue(agg, pop_external_piece(ext_pieces), i);
+            }
+            extern_agg = agg;
+        }
+        llvm::Value *result_ptr = builder->CreateCall(c_functions.at(CFunction::MALLOC), {builder->getInt64(data_size)}, "data_ptr");
+        builder->CreateStore(extern_agg, result_ptr);
+        return result_ptr;
+    }
+    if (extern_info.type != nullptr && extern_info.type->isPointerTy()) {
+        // External form is a plain pointer which is also the internal (heap) pointer, so it can be stored directly
+        return pop_external_piece(ext_pieces);
+    }
+    // Packed aggregates of <= 16 bytes (small tuple/group) and optionals need unpacking that is not supported yet
+    return nullptr;
+}
+
+llvm::Value *Generator::Builtin::build_vector_extern_return( //
+    llvm::Module *module,                                    //
+    llvm::IRBuilder<> *builder,                              //
+    llvm::Value *const internal_vec,                         //
+    const std::shared_ptr<Type> &vector_type_to_build        //
+) {
+    const auto *vector_type = vector_type_to_build->as<VectorType>();
+    llvm::Type *const extern_ty = IR::get_type(module, vector_type_to_build, true).type;
+    const std::string base_type_str = vector_type->base_type->to_string();
+    if (!extern_ty->isStructTy()) {
+        // Single external piece (small packed integers, `<2 x f32>`, `bool8`)
+        if (base_type_str == "u8" || base_type_str == "i8" || base_type_str == "u16" || base_type_str == "i16" || base_type_str == "u32" ||
+            base_type_str == "i32") {
+            return builder->CreateBitCast(internal_vec, extern_ty);
+        }
+        // f32x2 is already the `<2 x f32>` extern representation
+        return internal_vec;
+    }
+    llvm::Value *agg = llvm::UndefValue::get(extern_ty);
+    const size_t elem_count = vector_type->width;
+    if (base_type_str == "f64" || base_type_str == "u64" || base_type_str == "i64") {
+        // width == 2 (larger widths are sret): `{ T, T }`
+        for (size_t i = 0; i < elem_count; i++) {
+            agg = builder->CreateInsertValue(agg, builder->CreateExtractElement(internal_vec, builder->getInt64(i)), i);
+        }
+        return agg;
+    }
+    if (base_type_str == "u16" || base_type_str == "i16") {
+        // width == 8: `{ i64, i64 }`, each i64 holding 4 elements
+        llvm::Value *const left = builder->CreateShuffleVector(internal_vec, {0, 1, 2, 3});
+        llvm::Value *const right = builder->CreateShuffleVector(internal_vec, {4, 5, 6, 7});
+        agg = builder->CreateInsertValue(agg, builder->CreateBitCast(left, builder->getInt64Ty()), 0);
+        agg = builder->CreateInsertValue(agg, builder->CreateBitCast(right, builder->getInt64Ty()), 1);
+        return agg;
+    }
+    // f32 / u32 / i32
+    const bool is_i32 = base_type_str == "u32" || base_type_str == "i32";
+    const size_t chunk_count = extern_ty->getStructNumElements();
+    size_t element_index = 0;
+    for (size_t chunk = 0; chunk < chunk_count; chunk++) {
+        const bool last_of_three = (elem_count == 3 && chunk == chunk_count - 1);
+        if (last_of_three) {
+            // `{ <2 x T>, T }` / `{ i64, i32 }`: the last field is the third element
+            llvm::Value *const scalar = builder->CreateExtractElement(internal_vec, builder->getInt64(2));
+            agg = builder->CreateInsertValue(agg, scalar, chunk);
+            break;
+        }
+        llvm::Value *const pair = builder->CreateShuffleVector(                                  //
+            internal_vec, {static_cast<int>(element_index), static_cast<int>(element_index) + 1} //
+        );
+        llvm::Value *const field_val = is_i32 ? builder->CreateBitCast(pair, builder->getInt64Ty()) : pair;
+        agg = builder->CreateInsertValue(agg, field_val, chunk);
+        element_index += 2;
+    }
+    return agg;
+}
+
+bool Generator::Builtin::generate_exported_function_wrapper( //
+    llvm::Module *module,                                    //
+    llvm::IRBuilder<> *builder,                              //
+    const FunctionNode *fn                                   //
+) {
+    llvm::Type *wrapper_ret_ty = nullptr;
+    llvm::Type *wrapper_sret_ty = nullptr;
+    if (fn->return_types.empty()) {
+        wrapper_ret_ty = llvm::Type::getVoidTy(context);
+    } else {
+        std::shared_ptr<Type> ret_type = fn->return_types.front();
+        if (fn->return_types.size() > 1) {
+            ret_type = std::make_shared<GroupType>(fn->return_types);
+        }
+        llvm::Type *const actual_return_type = IR::get_type(module, ret_type, false).type;
+        const size_t return_size = Allocation::get_type_size(module, actual_return_type);
+        bool return_uses_sret = return_size > 16;
+        if (is_target_windows()) {
+            return_uses_sret = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+        }
+        if (return_uses_sret) {
+            wrapper_ret_ty = llvm::Type::getVoidTy(context);
+            wrapper_sret_ty = PTR_TY;
+        } else {
+            wrapper_ret_ty = IR::get_type(module, ret_type, true).type;
+            if (ret_type->to_string() == "str") {
+                // A `str` is passed to/from C as a `char *` (matching the C header).
+                wrapper_ret_ty = PTR_TY;
+            } else if (ret_type->get_variation() == Type::Variation::OPTIONAL) {
+                // An <= 8-byte optional is packed into a single 8-byte register, so the wrapper returns an i64 rather than the
+                // `{ i8, X }` struct (which LLVM would not classify the way the `FLINT_OPT(T)` C struct is passed).
+                const IR::TypeStorageInfo opt_info = IR::get_type(module, ret_type, false);
+                if (Allocation::get_type_size(module, opt_info.type) <= 8) {
+                    wrapper_ret_ty = llvm::Type::getInt64Ty(context);
+                }
+            }
+        }
+    }
+    std::vector<llvm::Type *> wrapper_param_types;
+    if (wrapper_sret_ty != nullptr) {
+        wrapper_param_types.emplace_back(wrapper_sret_ty);
+    }
+    for (const auto &param : fn->parameters) {
+        if (param.is_mutable && param.type->get_variation() == Type::Variation::DATA) {
+            wrapper_param_types.emplace_back(PTR_TY);
+            continue;
+        }
+        llvm::Type *const param_type = IR::get_type(module, param.type, true).type;
+        if (param.type->to_string() == "str") {
+            wrapper_param_types.emplace_back(PTR_TY);
+            continue;
+        }
+        if (param.type->get_variation() == Type::Variation::OPTIONAL) {
+            // Optional parameters are stored as a `{ i8 (has_value), X }` struct. The C ABI passes this aggregate per the SysV rules: an <=
+            // 8-byte optional (`bool` + a 1/2/4-byte payload) is coerced into a single register, while a larger optional (`bool` + a 64-bit
+            // payload) is split into two registers (`i8`, payload). We mirror that here so the wrapper signature matches the `FLINT_OPT(T)`
+            // struct the C header declares.
+            const IR::TypeStorageInfo opt_info = IR::get_type(module, param.type, false);
+            const size_t opt_size = Allocation::get_type_size(module, opt_info.type);
+            if (opt_size <= 8) {
+                wrapper_param_types.emplace_back(llvm::Type::getInt64Ty(context));
+            } else {
+                wrapper_param_types.emplace_back(llvm::Type::getInt8Ty(context));
+                wrapper_param_types.emplace_back(opt_info.type->getStructElementType(1));
+            }
+            continue;
+        }
+        if (is_target_windows()) {
+            wrapper_param_types.emplace_back(param_type);
+        } else {
+            if (param_type->isStructTy()) {
+                llvm::StructType *struct_type = llvm::cast<llvm::StructType>(param_type);
+                for (const auto &element_type : struct_type->elements()) {
+                    wrapper_param_types.emplace_back(element_type);
+                }
+            } else {
+                wrapper_param_types.emplace_back(param_type);
+            }
+        }
+    }
+    llvm::ArrayRef<llvm::Type *> wrapper_param_types_ref(wrapper_param_types);
+    llvm::FunctionType *const c_abi_type = llvm::FunctionType::get(wrapper_ret_ty, wrapper_param_types_ref, false);
+
+    // Determine whether the wrapper returns through a hidden sret pointer (mirrors `Function::generate_function_type`).
+    bool has_sret_return = !fn->return_types.empty();
+    if (has_sret_return) {
+        std::shared_ptr<Type> ret_type = fn->return_types.front();
+        if (fn->return_types.size() > 1) {
+            ret_type = std::make_shared<GroupType>(fn->return_types);
+        }
+        llvm::Type *const actual_return_type = IR::get_type(module, ret_type, false).type;
+        const size_t return_size = Allocation::get_type_size(module, actual_return_type);
+        if (is_target_windows()) {
+            has_sret_return = return_size != 1 && return_size != 2 && return_size != 4 && return_size != 8;
+        } else {
+            has_sret_return = return_size > 16;
+        }
+    }
+
+    const std::string wrapper_name = fn->file_hash.to_string() + "." + fn->name + ".export";
+    llvm::Function *const wrapper = llvm::Function::Create(c_abi_type, llvm::Function::ExternalLinkage, wrapper_name, module);
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", wrapper);
+    builder->SetInsertPoint(entry_block);
+
+    // Load the current TS pointer from the global variable
+    llvm::GlobalVariable *const ts_global = module->getGlobalVariable("flint.ts.global");
+    ASSERT(ts_global != nullptr);
+    llvm::Value *const ts_ptr = builder->CreateLoad(PTR_TY, ts_global, "ts_ptr");
+
+    // Replicate the thread-stack allocation bookkeeping (mirrors `init_global_variables` / `generate_builtin_main`)
+    llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
+    llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+    llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
+    );
+    llvm::Value *next_stack_frame = builder->CreateGEP(ts_fn_ty, ts_stack_data_ptr, builder->getInt32(1), "wrapper_next_frame");
+    llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(          //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
+    );
+    llvm::Value *const ts_flags = IR::aligned_load(*builder, builder->getInt32Ty(), ts_flags_ptr, "ts_flags");
+    llvm::Value *const is_callable = builder->CreateICmpEQ(                                            //
+        ts_flags, builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE), "is_callable" //
+    );
+    llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
+    );
+    llvm::Value *const ts_stack_ptr = IR::aligned_load(*builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
+    next_stack_frame = builder->CreateSelect(is_callable, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
+    llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(             //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
+    );
+    llvm::Value *const ts_capacity = IR::aligned_load(*builder, builder->getInt64Ty(), ts_capacity_ptr, "ts_capacity");
+    const size_t pseudo_frame_size = Allocation::get_type_size(module, ts_fn_ty);
+    llvm::Value *const remaining = builder->CreateSub(ts_capacity, builder->getInt64(pseudo_frame_size), "flint_stack_remaining");
+
+    // The callee's TS frame
+    const size_t called_fn_id = fn->get_id();
+    llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
+    Module::ThreadStack::generate_capacity_check(*builder, wrapper, remaining, called_fn_type);
+
+    // Load the default frame of the to-be-called function and store the TS pointer in it
+    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
+    llvm::Value *fn_frame = IR::aligned_load(*builder, called_fn_type, called_fn_default, fn->name + "_default_frame");
+    fn_frame = builder->CreateInsertValue(fn_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
+
+    // Convert the C ABI arguments into their internal representation and insert them into the frame. Return values occupy the TS frame
+    // fields `1..ret_count`, so the first parameter starts at field `ret_count + 1`. When the wrapper returns through an sret pointer its
+    // first C argument is that hidden return pointer and must be skipped.
+    const size_t fn_ret_count = fn->return_types.size();
+    std::vector<llvm::Value *> ext_args;
+    for (unsigned int k = (has_sret_return ? 1u : 0u); k < c_abi_type->getNumParams(); k++) {
+        ext_args.emplace_back(wrapper->getArg(k));
+    }
+    for (size_t i = 0; i < fn->parameters.size(); i++) {
+        const auto &param = fn->parameters.at(i);
+        llvm::Value *const internal_arg = convert_extern_arg_to_internal(module, builder, param.type, param.is_mutable, ext_args);
+        if (internal_arg == nullptr) {
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return false;
+        }
+        fn_frame = builder->CreateInsertValue(                                                         //
+            fn_frame, internal_arg, i + fn_ret_count + 1, fn->name + "_frame_arg_" + std::to_string(i) //
+        );
+    }
+    ASSERT(ext_args.empty());
+    IR::aligned_store(*builder, fn_frame, next_stack_frame);
+
+    // Call the internal Flint function (<hash>.<name>) with the stack frame pointer
+    std::string internal_name = fn->file_hash.to_string() + "." + fn->name;
+    if (fn->mangle_id.has_value()) {
+        internal_name += "." + std::to_string(fn->mangle_id.value());
+    }
+    llvm::Function *const internal_fn = module->getFunction(internal_name);
+    ASSERT(internal_fn != nullptr);
+    llvm::CallInst *const call = builder->CreateCall(internal_fn, {next_stack_frame}, fn->name + "_call");
+    if (!is_target_windows()) {
+        call->addParamAttr(0, llvm::Attribute::InReg);
+    }
+
+    // Convert the internal return value(s) stored in the frame back to the C ABI representation. Single-return functions are handled for
+    // scalar, vector, sret (large aggregates) and data/str-pointer (heap) return types. Multi-return functions are only supported when
+    // every returned value is a plain scalar whose external and internal representations coincide and the extern group is a struct with
+    // exactly one element per return value.
+    llvm::Value *extern_ret = nullptr; // non-sret return value (or single sret destination pointer)
+    bool uses_sret = false;
+    if (!fn->return_types.empty()) {
+        uses_sret = has_sret_return;
+
+        auto is_simple_scalar = [&](const std::shared_ptr<Type> &t) -> bool {
+            const IR::TypeStorageInfo ext = IR::get_type(module, t, true);
+            const IR::TypeStorageInfo in = IR::get_type(module, t, false);
+            return t->to_string() != "str" && !ext.is_complex && !in.is_complex && ext.type == in.type;
+        };
+
+        if (uses_sret) {
+            // Single return stored through a hidden sret pointer: our internal value is stored into the caller-provided buffer.
+            if (fn->return_types.size() != 1) {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
+            const std::shared_ptr<Type> &sret_type = fn->return_types.front();
+            const IR::TypeStorageInfo sret_info = IR::get_type(module, sret_type, false);
+            llvm::Value *const ret_ptr = builder->CreateStructGEP(called_fn_type, next_stack_frame, 1, "ret_0_ptr");
+            llvm::Value *const sret_buffer = wrapper->getArg(0);
+            if (sret_info.is_complex) {
+                // Complex (e.g. large data) returns are stored as a heap pointer in the frame; copy the pointed-to struct into the
+                // caller-provided sret buffer.
+                llvm::Value *const data_ptr = IR::aligned_load(*builder, PTR_TY, ret_ptr, "ret_0_data_ptr");
+                llvm::Value *const cast_buffer = builder->CreateBitCast(sret_buffer, PTR_TY, "sret_cast");
+                const llvm::Align type_align = module->getDataLayout().getABITypeAlign(sret_info.type);
+                builder->CreateMemCpy(                                                                                                  //
+                    cast_buffer, type_align, data_ptr, type_align, builder->getInt64(Allocation::get_type_size(module, sret_info.type)) //
+                );
+            } else {
+                llvm::Value *const internal_ret = IR::aligned_load(*builder, sret_info.type, ret_ptr, "ret_0_val");
+                llvm::Value *const cast_buffer = builder->CreateBitCast(sret_buffer, PTR_TY, "sret_cast");
+                IR::aligned_store(*builder, internal_ret, cast_buffer);
+            }
+            extern_ret = nullptr;
+        } else if (fn->return_types.size() == 1) {
+            const std::shared_ptr<Type> &ret_type = fn->return_types.front();
+            const IR::TypeStorageInfo ret_info = IR::get_type(module, ret_type, false);
+            const IR::TypeStorageInfo ret_extern = IR::get_type(module, ret_type, true);
+            llvm::Value *const ret_ptr = builder->CreateStructGEP(called_fn_type, next_stack_frame, 1, "ret_0_ptr");
+            if (ret_type->get_variation() == Type::Variation::VECTOR) {
+                // Build the extern return aggregate (or single value) from the internal vector
+                llvm::Value *const internal_ret = IR::aligned_load(*builder, ret_info.type, ret_ptr, "ret_0_val");
+                extern_ret = build_vector_extern_return(module, builder, internal_ret, ret_type);
+            } else if (ret_type->get_variation() == Type::Variation::DATA) {
+                // Complex (pointer) return: load the pointed-to struct and pack it into the extern form (<= 16 bytes, since larger ones are
+                // returned through sret). The extern form is either a single packed integer or a small struct of 8-byte chunks which we
+                // build from the struct fields.
+                llvm::Value *const data_ptr = IR::aligned_load(*builder, PTR_TY, ret_ptr, "ret_0_data_ptr");
+                if (ret_extern.type == nullptr || !ret_extern.type->isStructTy()) {
+                    // Single packed integer extern (e.g. `i64` for `{ i32, i32 }`): the packed integer uses the same byte layout as the
+                    // internal struct, so we can reload it directly from the pointed-to memory.
+                    extern_ret = IR::aligned_load(*builder, ret_extern.type, data_ptr, "ret_0_data_packed");
+                } else {
+                    llvm::Value *agg = llvm::UndefValue::get(ret_extern.type);
+                    const unsigned int n_fields = ret_extern.type->getStructNumElements();
+                    for (unsigned int i = 0; i < n_fields; i++) {
+                        llvm::Value *field_ptr = builder->CreateStructGEP(ret_info.type, data_ptr, i, "ret_data_field_ptr");
+                        llvm::Value *field = IR::aligned_load(*builder, ret_info.type->getStructElementType(i), field_ptr);
+                        if (ret_extern.type->getStructElementType(i)->getPrimitiveSizeInBits() >
+                            ret_info.type->getStructElementType(i)->getPrimitiveSizeInBits()) {
+                            field = builder->CreateZExt(field, ret_extern.type->getStructElementType(i));
+                        }
+                        agg = builder->CreateInsertValue(agg, field, i);
+                    }
+                    extern_ret = agg;
+                }
+            } else if (ret_type->to_string() == "str") {
+                // The internal function stored a heap `str *` (pointer to the `{ len, value[] }` struct) in the pointer-typed frame field.
+                // Copy its character payload into a freshly malloc'd `char *` for the C caller, then free the internal string struct so
+                // ownership is fully transferred.
+                llvm::Value *const str_ptr = IR::aligned_load(*builder, PTR_TY, ret_ptr, "ret_0_str_ptr");
+                llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+                const llvm::Align type_align = module->getDataLayout().getABITypeAlign(llvm::Type::getInt8Ty(context));
+                llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, str_ptr, 0, "str_len_ptr");
+                llvm::Value *const str_len = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), len_ptr, "str_len");
+                llvm::Value *const src_chars = builder->CreateStructGEP(str_type, str_ptr, 1, "str_chars");
+                llvm::Value *const malloc_size = builder->CreateAdd(str_len, builder->getInt64(1), "malloc_size");
+                llvm::Value *const dst = builder->CreateCall(c_functions.at(CFunction::MALLOC), {malloc_size}, "ret_str");
+                builder->CreateMemCpy(dst, type_align, src_chars, type_align, str_len);
+                llvm::Value *const term_ptr = builder->CreateGEP(llvm::Type::getInt8Ty(context), dst, {str_len}, "ret_str_term");
+                builder->CreateStore(builder->getInt8(0), term_ptr);
+                builder->CreateCall(c_functions.at(CFunction::FREE), {str_ptr});
+                extern_ret = dst;
+            } else if (ret_type->get_variation() == Type::Variation::OPTIONAL) {
+                // An optional return is the internal `{ i8, X }` struct. An <= 8-byte optional is packed into a single 8-byte register
+                // (reinterpreting the naturally laid out struct bytes, which share the byte layout of the `FLINT_OPT(T)` C struct).
+                const size_t ret_size = Allocation::get_type_size(module, ret_info.type);
+                llvm::Value *const internal_ret = IR::aligned_load(*builder, ret_info.type, ret_ptr, "ret_0_val");
+                if (ret_size <= 8) {
+                    const std::string slot_name = fn->file_hash.to_string() + "_ret_opt_pack";
+                    llvm::AllocaInst *const slot = builder->CreateAlloca(ret_info.type, nullptr, slot_name);
+                    builder->CreateStore(internal_ret, slot);
+                    extern_ret = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), slot, "ret_0_opt_packed");
+                } else {
+                    // Larger optionals (64-bit or pointer payloads) are left on the direct aggregate path.
+                    extern_ret = internal_ret;
+                }
+            } else if (is_simple_scalar(ret_type)) {
+                llvm::Value *const internal_ret = IR::aligned_load(*builder, ret_info.type, ret_ptr, "ret_0_val");
+                extern_ret = internal_ret;
+            } else if (ret_extern.type != nullptr && ret_extern.type->isPointerTy()) {
+                // Heap-pointer return (e.g. data > 16 bytes): extern is the same pointer as internal
+                llvm::Value *const internal_ret = IR::aligned_load(*builder, PTR_TY, ret_ptr, "ret_0_val");
+                extern_ret = internal_ret;
+            } else {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
+        } else {
+            // Multi-return: only supported when all returns are simple scalars and the extern group is a matching struct
+            std::shared_ptr<Type> group_type = std::make_shared<GroupType>(fn->return_types);
+            const IR::TypeStorageInfo group_extern = IR::get_type(module, group_type, true);
+            for (const auto &ret_type : fn->return_types) {
+                if (!is_simple_scalar(ret_type)) {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return false;
+                }
+            }
+            if (group_extern.type == nullptr || !group_extern.type->isStructTy() ||
+                group_extern.type->getStructNumElements() != fn->return_types.size()) {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
+            llvm::Value *group_agg = llvm::UndefValue::get(group_extern.type);
+            for (size_t i = 0; i < fn->return_types.size(); i++) {
+                llvm::Value *const ret_ptr = builder->CreateStructGEP(called_fn_type, next_stack_frame, i + 1, "ret_ptr");
+                llvm::Value *const ret_val_i32 = IR::aligned_load(*builder, called_fn_type->getElementType(i + 1), ret_ptr, "ret_val");
+                llvm::Value *const ret_val = builder->CreateZExt(ret_val_i32, builder->getInt64Ty());
+                group_agg = builder->CreateInsertValue(group_agg, ret_val, i);
+            }
+            extern_ret = group_agg;
+        }
+    }
+
+    // Handle the (deferred) error case: return zeroed values / void when the internal function signals an error
+    llvm::BasicBlock *const ok_block = llvm::BasicBlock::Create(context, "ok", wrapper);
+    llvm::BasicBlock *const err_block = llvm::BasicBlock::Create(context, "err", wrapper);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", wrapper);
+    builder->CreateCondBr(call, err_block, ok_block);
+
+    builder->SetInsertPoint(ok_block);
+    builder->CreateBr(merge_block);
+
+    builder->SetInsertPoint(err_block);
+    builder->CreateBr(merge_block);
+
+    builder->SetInsertPoint(merge_block);
+    if (uses_sret) {
+        // The return value was already written into the caller-provided buffer before the branch; on error it stays zeroed/undefined
+        builder->CreateRetVoid();
+    } else if (extern_ret != nullptr) {
+        llvm::PHINode *const ret_phi = builder->CreatePHI(extern_ret->getType(), 2, fn->name + "_wrapper_ret");
+        ret_phi->addIncoming(extern_ret, ok_block);
+        ret_phi->addIncoming(llvm::Constant::getNullValue(extern_ret->getType()), err_block);
+        builder->CreateRet(ret_phi);
+    } else {
+        builder->CreateRetVoid();
+    }
+
+    return true;
+}
+
 bool Generator::Builtin::generate_builtin_main( //
     llvm::IRBuilder<> *builder,                 //
     llvm::Module *module,                       //
@@ -225,6 +802,23 @@ bool Generator::Builtin::generate_builtin_main( //
         builder->CreateCall(dima_init_fn, {});
         llvm::Value *const init_result = builder->CreateNot(builder->CreateCall(globals_init_fn, {}), "init_result");
         builder->CreateRet(init_result);
+
+        // Generate a C-ABI wrapper for every exported function
+        for (const auto &instance : Parser::instances) {
+            const Namespace *ns = instance.file_node_ptr->file_namespace.get();
+            for (const auto &def : ns->public_symbols.definitions) {
+                if (def->get_variation() != DefinitionNode::Variation::FUNCTION) {
+                    continue;
+                }
+                const auto *fn = def->as<FunctionNode>();
+                if (fn->visibility != FunctionNode::Visibility::EXPORT) {
+                    continue;
+                }
+                if (!generate_exported_function_wrapper(module, builder, fn)) {
+                    return false;
+                }
+            }
+        }
         return true;
     }
 
@@ -450,10 +1044,10 @@ bool Generator::Builtin::generate_builtin_main( //
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
     // printf
     {
-        llvm::FunctionType *printf_type = llvm::FunctionType::get(        //
-            llvm::Type::getInt32Ty(context),                              // Return type: int
-            llvm::PointerType::getUnqual(llvm::Type::getInt8Ty(context)), // Takes char*
-            true                                                          // Variadic arguments
+        llvm::FunctionType *printf_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                       // Return type: int
+            llvm::PointerType::getUnqual(context),                 // Takes char*
+            true                                                   // Variadic arguments
         );
         llvm::Function *printf_func = llvm::Function::Create( //
             printf_type,                                      //
