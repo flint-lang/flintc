@@ -137,7 +137,7 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
         ? llvm::CodeGenOptLevel::None                                               //
         : llvm::CodeGenOptLevel::Default;
     llvm::TargetMachine *const target_machine = target->createTargetMachine( //
-        target_triple, llvm::sys::getHostCPUName(), "", opt,                 //
+        llvm::Triple(target_triple), llvm::sys::getHostCPUName(), "", opt,   //
         llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel            //
     );
 

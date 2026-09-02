@@ -6135,7 +6135,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
             }
             // Create the intrinsic declaration for vector_reduce_and
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             // Call the intrinsic to reduce the vector to a single boolean
@@ -6151,7 +6151,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 cmp_result = builder.CreateICmpUGT(lhs, rhs, "vec_gt");
             }
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_gt");
@@ -6166,7 +6166,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 cmp_result = builder.CreateICmpULE(lhs, rhs, "vec_le");
             }
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_le");
@@ -6181,7 +6181,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 cmp_result = builder.CreateICmpUGE(lhs, rhs, "vec_ge");
             }
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_ge");
@@ -6194,7 +6194,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 cmp_result = builder.CreateICmpEQ(lhs, rhs, "vec_eq");
             }
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_eq");
@@ -6207,7 +6207,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_vector( /
                 cmp_result = builder.CreateICmpNE(lhs, rhs, "vec_ne");
             }
             llvm::Type *cmp_type = cmp_result->getType();
-            llvm::Function *reduce_and_fn = llvm::Intrinsic::getDeclaration(                          //
+            llvm::Function *reduce_and_fn = llvm::Intrinsic::getOrInsertDeclaration(                  //
                 builder.GetInsertBlock()->getModule(), llvm::Intrinsic::vector_reduce_and, {cmp_type} //
             );
             return builder.CreateCall(reduce_and_fn, {cmp_result}, "reduce_ne");

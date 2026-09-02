@@ -1429,7 +1429,9 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
         // Convert vector of booleans to a single boolean using a reduction
         // First, we'll create the intrinsic declaration for vector_reduce_or
         llvm::Type *overflow_vec_type = overflow_happened_vec->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type}      //
+        );
 
         // Now call the intrinsic to get a single boolean value
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow_happened_vec}, "any_overflow");
@@ -1443,8 +1445,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_add( //
 
         // Determine if the overflow is positive or negative
         // For vectors, just check if any positive overflow happened
-        llvm::Function *reduce_or_fn_pos = llvm::Intrinsic::getDeclaration(      //
-            module, llvm::Intrinsic::vector_reduce_or, {pos_overflow->getType()} //
+        llvm::Function *reduce_or_fn_pos = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {pos_overflow->getType()}    //
         );
         llvm::Value *any_pos_overflow = builder->CreateCall(reduce_or_fn_pos, {pos_overflow}, "any_pos_overflow");
 
@@ -1559,7 +1561,9 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
         // Convert vector of booleans to a single boolean using a reduction
         // First, we'll create the intrinsic declaration for vector_reduce_or
         llvm::Type *overflow_vec_type = overflow_happened_vec->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type}      //
+        );
 
         // Now call the intrinsic to get a single boolean value
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow_happened_vec}, "any_overflow");
@@ -1573,8 +1577,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_sub( //
 
         // Determine if the overflow is positive or negative
         // For vectors, just check if any positive overflow happened
-        llvm::Function *reduce_or_fn_pos = llvm::Intrinsic::getDeclaration(      //
-            module, llvm::Intrinsic::vector_reduce_or, {pos_overflow->getType()} //
+        llvm::Function *reduce_or_fn_pos = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {pos_overflow->getType()}    //
         );
         llvm::Value *any_pos_overflow = builder->CreateCall(reduce_or_fn_pos, {pos_overflow}, "any_pos_overflow");
 
@@ -1681,7 +1685,9 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
         // Check if any overflow occurred in any element
         // Convert vector of booleans to a single boolean using a reduction
         llvm::Type *wrong_sign_vec_type = wrong_sign->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {wrong_sign_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {wrong_sign_vec_type}    //
+        );
         llvm::Value *any_wrong_sign = builder->CreateCall(reduce_or_fn, {wrong_sign}, "any_wrong_sign");
 
         // Change branch prediction, as no overflow is much more likely to happen than an overflow
@@ -1693,8 +1699,8 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_mul( //
 
         // Determine if we should display overflow or underflow message
         // Check if any element has use_max set (which indicates positive overflow)
-        llvm::Function *reduce_or_fn_max = llvm::Intrinsic::getDeclaration( //
-            module, llvm::Intrinsic::vector_reduce_or, {use_max->getType()} //
+        llvm::Function *reduce_or_fn_max = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {use_max->getType()}         //
         );
         llvm::Value *any_use_max = builder->CreateCall(reduce_or_fn_max, {use_max}, "any_use_max");
 
@@ -1791,7 +1797,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
     } else {
         // Check if any error occurred in any element
         llvm::Type *error_vec_type = error_happened_vec->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {error_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration(module, llvm::Intrinsic::vector_reduce_or, {error_vec_type});
         llvm::Value *any_error = builder->CreateCall(reduce_or_fn, {error_happened_vec}, "any_error");
 
         // Change branch prediction, as errors are much less likely to happen
@@ -1804,7 +1810,7 @@ void Generator::Module::Arithmetic::generate_int_vector_safe_div( //
         // Determine if we should display division by zero or overflow message
         // Check if any element has division by zero
         llvm::Function *reduce_or_fn_zero =
-            llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {div_by_zero->getType()});
+            llvm::Intrinsic::getOrInsertDeclaration(module, llvm::Intrinsic::vector_reduce_or, {div_by_zero->getType()});
         llvm::Value *any_div_by_zero = builder->CreateCall(reduce_or_fn_zero, {div_by_zero}, "any_div_by_zero");
 
         llvm::Value *message = builder->CreateSelect(any_div_by_zero, div_zero_message, overflow_message);
@@ -1889,7 +1895,9 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_add( //
     } else {
         // Convert vector of booleans to a single boolean using a reduction
         llvm::Type *overflow_vec_type = overflow->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type}      //
+        );
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow}, "any_overflow");
 
         builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
@@ -1973,7 +1981,9 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_sub( //
     } else {
         // Convert vector of booleans to a single boolean using a reduction
         llvm::Type *underflow_vec_type = underflow->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {underflow_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {underflow_vec_type}     //
+        );
         llvm::Value *any_underflow = builder->CreateCall(reduce_or_fn, {underflow}, "any_underflow");
 
         builder->CreateCondBr(any_underflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
@@ -2068,7 +2078,9 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_mul( //
     } else {
         // Check if any overflow occurred in any element
         llvm::Type *overflow_vec_type = overflow->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration( //
+            module, llvm::Intrinsic::vector_reduce_or, {overflow_vec_type}      //
+        );
         llvm::Value *any_overflow = builder->CreateCall(reduce_or_fn, {overflow}, "any_overflow");
 
         builder->CreateCondBr(any_overflow, overflow_block, no_overflow_block, IR::generate_weights(1, 100));
@@ -2157,7 +2169,7 @@ void Generator::Module::Arithmetic::generate_uint_vector_safe_div( //
     } else {
         // Check if any error occurred in any element
         llvm::Type *error_vec_type = div_by_zero->getType();
-        llvm::Function *reduce_or_fn = llvm::Intrinsic::getDeclaration(module, llvm::Intrinsic::vector_reduce_or, {error_vec_type});
+        llvm::Function *reduce_or_fn = llvm::Intrinsic::getOrInsertDeclaration(module, llvm::Intrinsic::vector_reduce_or, {error_vec_type});
         llvm::Value *any_error = builder->CreateCall(reduce_or_fn, {div_by_zero}, "any_error");
 
         builder->CreateCondBr(any_error, error_block, no_error_block, IR::generate_weights(1, 100));

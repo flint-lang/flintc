@@ -1,10 +1,9 @@
 const std = @import("std");
 
-const FLINTC_VERSION = @import("build.zig.zon").version;
-const DEFAULT_LLVM_VERSION = "llvmorg-21.1.8";
-const FIP_VERSION = "v0.4.1";
+const flint_parser = @import("build_flint-parser.zig");
 
-const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
+pub const FLINTC_VERSION = @import("build.zig.zon").version;
+const DEFAULT_LLVM_VERSION = "llvmorg-21.1.8";
 
 pub fn build(b: *std.Build) !void {
     const OSTag = enum { linux, windows };
@@ -15,6 +14,9 @@ pub fn build(b: *std.Build) !void {
 
     const host_target = b.resolveTargetQuery(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    const only_build_flint_parser = b.option(bool, "only-build-flint-parser", "Build only the flintc-parser library") orelse
+        false;
 
     const external_llvm_dir = b.option([]const u8, "llvm-dir", "Path to external LLVM installation.");
     const external_llvm_prebuilt: bool = b.option(bool, "llvm-prebuilt", "Whether to use the 'llvm-dir' as a prebuilt llvm version, which skips building llvm.") orelse false;
@@ -45,6 +47,33 @@ pub fn build(b: *std.Build) !void {
         };
 
     const target = targets(b)[@intFromEnum(target_option)];
+
+    const flint_parser_lib = try flint_parser.build_flint_parser_lib(b, target, optimize);
+
+    if (only_build_flint_parser) {
+        flint_parser_lib.installHeadersDirectory(b.path("include/analyzer"), "analyzer", .{ .include_extensions = &.{".hpp"} });
+        flint_parser_lib.installHeadersDirectory(b.path("include/error"), "error", .{ .include_extensions = &.{".hpp"} });
+        flint_parser_lib.installHeadersDirectory(b.path("include/lexer"), "lexer", .{ .include_extensions = &.{".hpp"} });
+        flint_parser_lib.installHeadersDirectory(b.path("include/matcher"), "matcher", .{ .include_extensions = &.{".hpp"} });
+        flint_parser_lib.installHeadersDirectory(b.path("include/parser"), "parser", .{ .include_extensions = &.{".hpp"} });
+        flint_parser_lib.installHeadersDirectory(b.path("include/resolver"), "resolver", .{ .include_extensions = &.{".hpp"} });
+
+        flint_parser_lib.installHeader(b.path("include/colors.hpp"), "colors.hpp");
+        flint_parser_lib.installHeader(b.path("include/debug.hpp"), "debug.hpp");
+        flint_parser_lib.installHeader(b.path("include/fip.hpp"), "fip.hpp");
+        flint_parser_lib.installHeader(b.path("include/globals.hpp"), "globals.hpp");
+        flint_parser_lib.installHeader(b.path("include/persistent_thread_pool.hpp"), "persistent_thread_pool.hpp");
+        flint_parser_lib.installHeader(b.path("include/profiler.hpp"), "profiler.hpp");
+        flint_parser_lib.installHeader(b.path("include/single_executor_guard.hpp"), "single_executor_guard.hpp");
+        flint_parser_lib.installHeader(b.path("include/types.hpp"), "types.hpp");
+
+        flint_parser_lib.installHeader(b.path("vendor/sources/fip/fip.h"), "fip.h");
+        flint_parser_lib.installHeader(b.path("vendor/sources/fip/toml/tomlc17.h"), "toml/tomlc17.h");
+
+        b.installArtifact(flint_parser_lib);
+
+        return;
+    }
 
     const commit_hash: []const u8 = blk: {
         const hash = if (external_hash) |hash| hash else std.mem.trim(
@@ -92,11 +121,11 @@ pub fn build(b: *std.Build) !void {
     const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
-    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date, external_fip_dir);
+    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date, external_fip_dir, flint_parser_lib);
     fls_exe.step.dependOn(&flintc_exe.step);
     const fls_exe_install = b.addInstallArtifact(fls_exe, .{});
     b.getInstallStep().dependOn(&fls_exe_install.step);
@@ -107,19 +136,19 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
-        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir);
+        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir, flint_parser_lib);
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
-        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir);
+        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, flint_parser_lib);
         fls_exe_release.step.dependOn(&flintc_exe_release.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
         last_target_step = &fls_exe_release.step;
@@ -150,6 +179,7 @@ fn buildFLS(
     commit_hash: []const u8,
     build_date: []const u8,
     external_fip_dir: ?[]const u8,
+    flint_parser_lib: *std.Build.Step.Compile,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "fls-debug" else "fls",
@@ -194,61 +224,15 @@ fn buildFLS(
             "fls/src/completion_data.cpp",
             "fls/src/completion.cpp",
 
-            // Sources from the main project
-            "src/error/base_error.cpp",
-            "src/error/err_expr_call_of_undefined_function.cpp",
-            "src/parser/error_node.cpp",
-            "src/parser/file_node.cpp",
-            "src/parser/namespace.cpp",
-            "src/parser/parser.cpp",
-            "src/parser/parser_definition.cpp",
-            "src/parser/parser_expression.cpp",
-            "src/parser/parser_statement.cpp",
-            "src/parser/parser_util.cpp",
-            "src/parser/scope.cpp",
-            "src/parser/type.cpp",
-            "src/analyzer/analyzer.cpp",
-            "src/analyzer/analyzer_castability.cpp",
-            "src/debug.cpp",
+            // fip.cpp is not part of the parser library
             "src/fip.cpp",
-            "src/lexer.cpp",
-            "src/linearizer.cpp",
-            "src/matcher/matcher.cpp",
-            "src/matcher/lookbehind_matcher.cpp",
-            "src/profiler.cpp",
-            "src/resolver.cpp",
         },
-        .flags = &[_][]const u8{
-            "-std=c++20",                   // Set C++ standard to C++20
-            "-Werror",                      // Treat warnings as errors
-            "-Wall",                        // Enable most warnings
-            "-Wextra",                      // Enable extra warnings
-            "-Wshadow",                     // Warn about shadow variables
-            "-Wcast-align",                 // Warn about pointer casts that increase alignment requirement
-            "-Wcast-qual",                  // Warn about casts that remove const qualifier
-            "-Wunused",                     // Warn about unused variables
-            "-Wold-style-cast",             // Warn about C-style casts
-            "-Wdouble-promotion",           // Warn about float being implicitly promoted to double
-            "-Wformat=2",                   // Warn about printf/scanf/strftime/strfmon format string issue
-            "-Wundef",                      // Warn if an undefined identifier is evaluated in an #if
-            "-Wpointer-arith",              // Warn about sizeof(void) and add/sub with void*
-            "-Wunreachable-code",           // Warn about unreachable code
-            "-Wno-deprecated-declarations", // Ignore deprecation warnings
-            "-Wno-deprecated",              // Ignore general deprecation warnings
-            "-fno-omit-frame-pointer",      // Prevent omitting frame pointer for debugging and stack unwinding
-            "-funwind-tables",              // Generate unwind tables for stack unwinding
-            "-ffunction-sections",          // Place each function in its own section
-            "-fdata-sections",              // Place each data object in its own section
-            "-fstandalone-debug",           // Emit standalone debug information
-            "-Wdeprecated-declarations",    // Warn about deprecated declarations
-        },
+        .flags = flint_parser.compile_flags,
     });
     // zig fmt: on
 
-    // Add toml C src file for FIP
-    exe.root_module.addCSourceFile(.{
-        .file = .{ .cwd_relative = b.fmt("{s}/toml/tomlc17.c", .{fip_dir}) },
-    });
+    // Link the flint parser library
+    exe.root_module.linkLibrary(flint_parser_lib);
 
     exe.step.dependOn(previous_step);
 
@@ -266,6 +250,7 @@ fn buildFlintc(
     external_json_mini_dir: ?[]const u8,
     external_llvm_dir: ?[]const u8,
     external_skip_llvm_config: bool,
+    flint_parser_lib: *std.Build.Step.Compile,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "flintc-debug" else "flintc",
@@ -317,7 +302,12 @@ fn buildFlintc(
     var walker = try src_dir.walk(b.allocator);
     defer walker.deinit();
     while (try walker.next(b.graph.io)) |entry| {
-        if (entry.kind == .file and std.mem.endsWith(u8, entry.basename, ".cpp")) {
+        if (entry.kind == .file and std.mem.endsWith(u8, entry.basename, ".cpp") and
+            (std.mem.containsAtLeast(u8, entry.path, 1, "generator") or
+                std.mem.eql(u8, entry.basename, "main.cpp") or
+                std.mem.eql(u8, entry.basename, "linker.cpp") or
+                std.mem.eql(u8, entry.basename, "fip.cpp")))
+        {
             try cpp_files.append(b.allocator, try b.allocator.dupe(u8, entry.path));
         }
     }
@@ -327,39 +317,12 @@ fn buildFlintc(
     exe.root_module.addCSourceFiles(.{
         .root = b.path("src"),
         .files = cpp_files.items,
-        .flags = &[_][]const u8{
-            "-std=c++20",                   // Set C++ standard to C++20
-            "-Werror",                      // Treat warnings as errors
-            "-Wall",                        // Enable most warnings
-            "-Wextra",                      // Enable extra warnings
-            "-Wshadow",                     // Warn about shadow variables
-            "-Wcast-align",                 // Warn about pointer casts that increase alignment requirement
-            "-Wcast-qual",                  // Warn about casts that remove const qualifier
-            "-Wunused",                     // Warn about unused variables
-            "-Wold-style-cast",             // Warn about C-style casts
-            "-Wdouble-promotion",           // Warn about float being implicitly promoted to double
-            "-Wformat=2",                   // Warn about printf/scanf/strftime/strfmon format string issue
-            "-Wundef",                      // Warn if an undefined identifier is evaluated in an #if
-            "-Wpointer-arith",              // Warn about sizeof(void) and add/sub with void*
-            "-Wunreachable-code",           // Warn about unreachable code
-            "-Wno-deprecated-declarations", // Ignore deprecation warnings
-            "-Wno-deprecated",              // Ignore general deprecation warnings
-            "-fno-omit-frame-pointer",      // Prevent omitting frame pointer for debugging and stack unwinding
-            "-funwind-tables",              // Generate unwind tables for stack unwinding
-            "-ffunction-sections",          // Place each function in its own section
-            "-fdata-sections",              // Place each data object in its own section
-            "-fstandalone-debug",           // Emit standalone debug information
-            // "-Wdeprecated-declarations", // Warn about deprecated declarations
-        },
+        .flags = flint_parser.compile_flags,
     });
     // zig fmt: on
 
-    // Add toml C src file for FIP
-    exe.root_module.addCSourceFile(.{
-        .file = .{ .cwd_relative = b.fmt("{s}/toml/tomlc17.c", .{fip_dir}) },
-    });
-
     // Library linking
+    exe.root_module.linkLibrary(flint_parser_lib);
     if (target.result.os.tag == .windows) {
         exe.root_module.linkSystemLibrary("ole32", .{});
     }
@@ -602,7 +565,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         pull_fip_cmd.step.dependOn(&checkout_fip_cmd.step);
 
         // 7. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_VERSION });
+        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.FIP_VERSION });
         checkout_fip_hash_cmd.setName("checkout_fip_hash");
         checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
         checkout_fip_hash_cmd.step.dependOn(&pull_fip_cmd.step);
@@ -621,7 +584,7 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         fetch_fip_complete_step.step.dependOn(previous_step);
 
         // 4. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_VERSION });
+        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.FIP_VERSION });
         checkout_fip_hash_cmd.setName("checkout_fip_hash");
         checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
         checkout_fip_hash_cmd.step.dependOn(&fetch_fip_complete_step.step);
@@ -664,7 +627,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
         pull_json_mini_step.step.dependOn(&checkout_json_mini_cmd.step);
 
         // 7. Checkout json-mini hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", JSON_MINI_HASH });
+        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.JSON_MINI_HASH });
         checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
         checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
         checkout_json_mini_hash_cmd.step.dependOn(&pull_json_mini_step.step);
@@ -682,7 +645,7 @@ fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
         clone_json_mini_step.setName("clone_json_mini");
 
         // 4. Checkout fip hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", JSON_MINI_HASH });
+        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.JSON_MINI_HASH });
         checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
         checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
         checkout_json_mini_hash_cmd.step.dependOn(&clone_json_mini_step.step);
@@ -867,14 +830,14 @@ fn linkWithLLVM(
 }
 
 /// Create a no-op Run step that meets the return type requirements
-fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
+pub fn makeEmptyStep(b: *std.Build) !*std.Build.Step.Run {
     const run_step = b.addSystemCommand(&[_][]const u8{ "zig", "version" });
     run_step.setName("make_empty_step");
     _ = run_step.captureStdOut(.{});
     return run_step;
 }
 
-fn hasInternetConnection(b: *std.Build) bool {
+pub fn hasInternetConnection(b: *std.Build) bool {
     const hostname: std.Io.net.HostName = .{ .bytes = "google.com" };
     const conn: std.Io.net.Stream = hostname.connect(
         b.graph.io,

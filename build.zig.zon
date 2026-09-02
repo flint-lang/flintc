@@ -7,6 +7,7 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
+        "build_flint-parser.zig",
         "src",
     },
 }
