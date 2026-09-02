@@ -22,7 +22,6 @@ main
 main.o
 mylib.o
 mylib.obj
-mylib.h
 test
 test.o
 logfile

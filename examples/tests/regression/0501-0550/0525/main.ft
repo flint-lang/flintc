@@ -1,0 +1,33 @@
+use Core.print
+
+data MyData:
+	i32 x;
+	i32 y;
+	MyData? next;
+	MyData(x, y, next);
+
+func MyFunc requires(MyData d1):
+	const export def print():
+		print(str(d1.(x, y)));
+		if d1.next != none:
+			print(" -> ");
+			MyFunc.print(d1.next!);
+			return;
+		print("\n");
+
+	export def print_mut():
+		print(str(d1.(x, y)));
+		if d1.next != none:
+			print(" -> ");
+			MyFunc.print_mut(d1.next!);
+			return;
+		print("\n");
+
+export def add(i32 x, i32 y) -> i32:
+	return x + y;
+
+export def add_vec(f32x3 v1, f32x3 v2) -> f32x3:
+	return v1 + v2;
+
+export def add_str(str s1, str s2) -> str:
+	return s1 + s2;

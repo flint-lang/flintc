@@ -1,5 +1,9 @@
 use "../../utils.ft"
 
+use Core.assert
+use Core.filesystem
+use Core.system
+
 test "0501":
 	str path = "tests/regression/0501-0550";
 	str file = "0501.ft";
@@ -120,3 +124,21 @@ test "0524":
 	str path = "tests/regression/0501-0550";
 	str file = "0524.ft";
 	test_file_ok($"{path}/{file}", "add(10, 20) = 30\n");
+
+test "0525":
+	str path = "tests/regression/0501-0550/0525";
+	str file = "main.ft";
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{path}");
+	compile_v($"cd {normalized_path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	const str header_file_path = $"{normalized_path}/mylib.h";
+	assert(file_exists(header_file_path));
+	assert(file_exists($"{normalized_path}/mylib.o"));
+	const str header_file = read_file(header_file_path);
+	assert(header_file == "#pragma once\n\n#include <stdbool.h>\n#include <stdint.h>\n\n#ifndef FLINT_OPT\n#define FLINT_OPT(T) struct { bool has_value; T value; }\n#endif\n\n#ifndef FLINT_f32x3\n#define FLINT_f32x3\ntypedef struct f32x3 { float v0; float v1; float v2; } f32x3;\n#endif\n\ntypedef struct mylib_MyData mylib_MyData;\n\ntypedef struct mylib_MyData {\n    int32_t x;\n    int32_t y;\n    FLINT_OPT(mylib_MyData *) next;\n} mylib_MyData;\n\n/// @brief Returns 'false' on failure and 'true' if everything was OK\nextern bool mylib_init(void) asm(\"flint.init.mylib\");\n\nvoid mylib_MyFunc_print(const mylib_MyData *d1) asm(\"Z5OgXomk.MyFunc.print.export\");\nvoid mylib_MyFunc_print_mut(mylib_MyData *d1) asm(\"Z5OgXomk.MyFunc.print_mut.export\");\nint32_t mylib_add(const int32_t x, const int32_t y) asm(\"Z5OgXomk.add.export\");\nf32x3 mylib_add_vec(const f32x3 v1, const f32x3 v2) asm(\"Z5OgXomk.add_vec.export\");\nchar * mylib_add_str(const char *s1, const char *s2) asm(\"Z5OgXomk.add_str.export\");\n");
+	(exit_code, output) := system_command($"cd {normalized_path} && clang test.c -o main mylib.o -L$(flintc --print-libbuiltins-path) -lbuiltins");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command($"cd {normalized_path} && ./main");
+	assert(exit_code == 0);
+	assert(output == "result = 30\nvec_result = (7.800000, 10.000000, 12.200001)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\ns = String 1 plus String 2\n");
