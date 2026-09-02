@@ -188,6 +188,13 @@ static void header_emit_types(const std::string &lib, std::ofstream &out, const 
     }
 
     for (const auto *data : ctx.data_order) {
+        const std::string name = lib + "_" + c_identifier(data->data_node->name);
+        out << "typedef struct " << name << " " << name << ";\n";
+    }
+    if (!ctx.data_order.empty() || !ctx.enum_order.empty()) {
+        out << "\n";
+    }
+    for (const auto *data : ctx.data_order) {
         const std::string name = c_identifier(data->data_node->name);
         out << "typedef struct " << lib << "_" << name << " {\n";
         for (const auto &field : data->data_node->fields) {
