@@ -136,19 +136,22 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
+        const flint_parser_lib_debug = try flint_parser.build_flint_parser_lib(b, t, .Debug);
+        const flint_parser_lib_release = try flint_parser.build_flint_parser_lib(b, t, .ReleaseSmall);
+
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
-        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir, flint_parser_lib);
+        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir, flint_parser_lib_debug);
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_release);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
-        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, flint_parser_lib);
+        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, flint_parser_lib_release);
         fls_exe_release.step.dependOn(&flintc_exe_release.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
         last_target_step = &fls_exe_release.step;
@@ -213,7 +216,6 @@ fn buildFLS(
     exe.root_module.addIncludePath(b.path("include"));
     exe.root_module.addIncludePath(b.path("fls/include"));
 
-    // zig fmt: off
     // Add C++ src files
     exe.root_module.addCSourceFiles(.{
         .files = &[_][]const u8{
@@ -229,7 +231,6 @@ fn buildFLS(
         },
         .flags = flint_parser.compile_flags,
     });
-    // zig fmt: on
 
     // Link the flint parser library
     exe.root_module.linkLibrary(flint_parser_lib);
@@ -312,14 +313,12 @@ fn buildFlintc(
         }
     }
 
-    // zig fmt: off
     // Add C++ src files
     exe.root_module.addCSourceFiles(.{
         .root = b.path("src"),
         .files = cpp_files.items,
         .flags = flint_parser.compile_flags,
     });
-    // zig fmt: on
 
     // Library linking
     exe.root_module.linkLibrary(flint_parser_lib);
