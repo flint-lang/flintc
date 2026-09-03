@@ -3,7 +3,7 @@ const std = @import("std");
 const flint_parser = @import("build_flint-parser.zig");
 
 pub const FLINTC_VERSION = @import("build.zig.zon").version;
-const DEFAULT_LLVM_VERSION = "llvmorg-21.1.8";
+const DEFAULT_LLVM_VERSION = "llvmorg-22.1.8";
 
 pub fn build(b: *std.Build) !void {
     const OSTag = enum { linux, windows };

@@ -125,7 +125,7 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
     module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
 
     std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(target_triple, error);
+    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(llvm::Triple(target_triple), error);
     if (!target) {
         llvm::errs() << "Error: " << error << "\n";
         return std::nullopt;
