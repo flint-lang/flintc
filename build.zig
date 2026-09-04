@@ -25,10 +25,9 @@ pub fn build(b: *std.Build) !void {
     }
     const external_skip_llvm_config = b.option(bool, "skip-llvm-config", "Wehther to skip llvm-config being executed.") orelse false;
     const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
-    const external_json_mini_dir = b.option([]const u8, "json-mini-dir", "Path to external json-mini installation. Skips fetching json-mini.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
 
-    if (external_llvm_dir == null or external_json_mini_dir == null or external_fip_dir == null) {
+    if (external_llvm_dir == null or external_fip_dir == null) {
         // Git is only needed when at least one source is not provided externally and thus needs to be fetched
         _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
     }
@@ -99,14 +98,8 @@ pub fn build(b: *std.Build) !void {
     };
     std.debug.print("-- Build Date is {s}\n", .{build_date});
 
-    // Update Json Mini
-    const update_json_mini = if (external_json_mini_dir) |_| try makeEmptyStep(b) else try updateJsonMini(b);
     // Update FIP
-    const update_fip = if (external_fip_dir) |_| blk: {
-        const step = try makeEmptyStep(b);
-        step.step.dependOn(&update_json_mini.step);
-        break :blk step;
-    } else try updateFip(b, &update_json_mini.step);
+    const update_fip = if (external_fip_dir) |_| try makeEmptyStep(b) else try updateFip(b);
 
     // Update LLVM if no external LLVM is passed
     var last_step = update_fip;
@@ -121,7 +114,7 @@ pub fn build(b: *std.Build) !void {
     const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
@@ -139,7 +132,7 @@ pub fn build(b: *std.Build) !void {
         const flint_parser_lib_debug = try flint_parser.build_flint_parser_lib(b, t, .Debug);
         const flint_parser_lib_release = try flint_parser.build_flint_parser_lib(b, t, .ReleaseSmall);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
@@ -147,7 +140,7 @@ pub fn build(b: *std.Build) !void {
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, external_json_mini_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_release);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_release);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
@@ -248,7 +241,6 @@ fn buildFlintc(
     commit_hash: []const u8,
     build_date: []const u8,
     external_fip_dir: ?[]const u8,
-    external_json_mini_dir: ?[]const u8,
     external_llvm_dir: ?[]const u8,
     external_skip_llvm_config: bool,
     flint_parser_lib: *std.Build.Step.Compile,
@@ -283,12 +275,10 @@ fn buildFlintc(
         else => return error.TargetNeedsToBeLinuxOrWindows,
     };
     const fip_dir = if (external_fip_dir) |dir| dir else "vendor/sources/fip";
-    const json_mini_dir = if (external_json_mini_dir) |dir| dir else "vendor/sources/json-mini";
 
     // Add Include paths
     exe.root_module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{llvm_dir}) });
     exe.root_module.addIncludePath(.{ .cwd_relative = fip_dir });
-    exe.root_module.addIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{json_mini_dir}) });
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 
@@ -529,7 +519,7 @@ fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []con
     }
 }
 
-fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run {
+fn updateFip(b: *std.Build) !*std.Build.Step.Run {
     // 1. Check if fip exists in vendor directory
     std.debug.print("-- Updating the 'fip' repository\n", .{});
     if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/fip", .{})) |_| {
@@ -543,7 +533,6 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         const reset_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_fip_cmd.setName("reset_fip");
         reset_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-        reset_fip_cmd.step.dependOn(previous_step);
 
         // 4. Fetch fip
         const fetch_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
@@ -580,7 +569,6 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         // 3. Clone fip
         const fetch_fip_complete_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/flint-lang/fip.git", "vendor/sources/fip" });
         fetch_fip_complete_step.setName("fetch_fip_complete");
-        fetch_fip_complete_step.step.dependOn(previous_step);
 
         // 4. Checkout fip hash
         const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.FIP_VERSION });
@@ -589,67 +577,6 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         checkout_fip_hash_cmd.step.dependOn(&fetch_fip_complete_step.step);
 
         return checkout_fip_hash_cmd;
-    }
-}
-
-fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
-    // 1. Check if json-mini exists in vendor directory
-    std.debug.print("-- Updating the 'json-mini' repository\n", .{});
-    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/json-mini", .{})) |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, skipping updating 'json-mini'...\n", .{});
-            return makeEmptyStep(b);
-        }
-
-        // 3. Reset hard
-        const reset_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
-        reset_json_mini_cmd.setName("reset_json_mini");
-        reset_json_mini_cmd.setCwd(b.path("vendor/sources/json-mini"));
-
-        // 4. Fetch json-mini
-        const fetch_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
-        fetch_json_mini_step.setName("fetch_json_mini");
-        fetch_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
-        fetch_json_mini_step.step.dependOn(&reset_json_mini_cmd.step);
-
-        // 5. Checkout json-mini main
-        const checkout_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", "main" });
-        checkout_json_mini_cmd.setName("checkout_json_mini");
-        checkout_json_mini_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_cmd.step.dependOn(&fetch_json_mini_step.step);
-
-        // 6. Pull json-mini
-        const pull_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "pull", "-fq" });
-        pull_json_mini_step.setName("pull_json_mini");
-        pull_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
-        pull_json_mini_step.step.dependOn(&checkout_json_mini_cmd.step);
-
-        // 7. Checkout json-mini hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.JSON_MINI_HASH });
-        checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
-        checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_hash_cmd.step.dependOn(&pull_json_mini_step.step);
-
-        return checkout_json_mini_hash_cmd;
-    } else |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, unable to clone dependency 'json-mini'...\n", .{});
-            return error.NoInternetConnection;
-        }
-
-        // 3. Clone json-mini
-        const clone_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/flint-lang/json-mini.git", "vendor/sources/json-mini" });
-        clone_json_mini_step.setName("clone_json_mini");
-
-        // 4. Checkout fip hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.JSON_MINI_HASH });
-        checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
-        checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_hash_cmd.step.dependOn(&clone_json_mini_step.step);
-
-        return checkout_json_mini_hash_cmd;
     }
 }
 

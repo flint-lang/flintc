@@ -2,7 +2,6 @@ const std = @import("std");
 
 const FLINTC_VERSION = @import("build.zig").FLINTC_VERSION;
 pub const FIP_VERSION = "v0.4.1";
-pub const JSON_MINI_HASH = "a32d6e8319d90f5fa75f1651f30798c71464e4c6";
 
 const hasInternetConnection = @import("build.zig").hasInternetConnection;
 const makeEmptyStep = @import("build.zig").makeEmptyStep;
@@ -38,8 +37,7 @@ pub fn build_flint_parser_lib(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) !*std.Build.Step.Compile {
-    const update_json_mini = try updateJsonMini(b);
-    const update_fip = try updateFip(b, &update_json_mini.step);
+    const update_fip = try updateFip(b);
 
     const lib = b.addLibrary(.{
         .name = "flint-parser",
@@ -66,7 +64,6 @@ pub fn build_flint_parser_lib(
 
     // Add Include paths
     lib.root_module.addIncludePath(b.path("vendor/sources/fip"));
-    lib.root_module.addIncludePath(b.path("vendor/sources/json-mini/include"));
     lib.root_module.addIncludePath(b.path("include"));
 
     // Collect C++ files
@@ -107,75 +104,11 @@ pub fn build_flint_parser_lib(
     return lib;
 }
 
-fn updateJsonMini(b: *std.Build) !*std.Build.Step.Run {
-    // 1. Check if json-mini exists in vendor directory
-    std.debug.print("-- Updating the 'json-mini' repository\n", .{});
-    const cwd = b.path(".");
-    const cwd_path = try b.path(".").getPath4(b, null);
-    if (cwd_path.openDir(b.graph.io, "vendor/sources/json-mini", .{})) |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, skipping updating 'json-mini'...\n", .{});
-            return makeEmptyStep(b);
-        }
-
-        // 3. Reset hard
-        const reset_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
-        reset_json_mini_cmd.setName("reset_json_mini");
-        reset_json_mini_cmd.setCwd(b.path("vendor/sources/json-mini"));
-
-        // 4. Fetch json-mini
-        const fetch_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
-        fetch_json_mini_step.setName("fetch_json_mini");
-        fetch_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
-        fetch_json_mini_step.step.dependOn(&reset_json_mini_cmd.step);
-
-        // 5. Checkout json-mini main
-        const checkout_json_mini_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", "main" });
-        checkout_json_mini_cmd.setName("checkout_json_mini");
-        checkout_json_mini_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_cmd.step.dependOn(&fetch_json_mini_step.step);
-
-        // 6. Pull json-mini
-        const pull_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "pull", "-fq" });
-        pull_json_mini_step.setName("pull_json_mini");
-        pull_json_mini_step.setCwd(b.path("vendor/sources/json-mini"));
-        pull_json_mini_step.step.dependOn(&checkout_json_mini_cmd.step);
-
-        // 7. Checkout json-mini hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", JSON_MINI_HASH });
-        checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
-        checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_hash_cmd.step.dependOn(&pull_json_mini_step.step);
-
-        return checkout_json_mini_hash_cmd;
-    } else |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, unable to clone dependency 'json-mini'...\n", .{});
-            return error.NoInternetConnection;
-        }
-
-        // 3. Clone json-mini
-        const clone_json_mini_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/flint-lang/json-mini.git", "vendor/sources/json-mini" });
-        clone_json_mini_step.setName("clone_json_mini");
-        clone_json_mini_step.setCwd(cwd);
-
-        // 4. Checkout fip hash
-        const checkout_json_mini_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", JSON_MINI_HASH });
-        checkout_json_mini_hash_cmd.setName("checkout_json_mini_hash");
-        checkout_json_mini_hash_cmd.setCwd(b.path("vendor/sources/json-mini"));
-        checkout_json_mini_hash_cmd.step.dependOn(&clone_json_mini_step.step);
-
-        return checkout_json_mini_hash_cmd;
-    }
-}
-
-fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run {
+fn updateFip(b: *std.Build) !*std.Build.Step.Run {
     // 1. Check if fip exists in vendor directory
     std.debug.print("-- Updating the 'fip' repository\n", .{});
     const cwd = b.path(".");
-    const cwd_path = try b.path(".").getPath4(b, previous_step);
+    const cwd_path = try b.path(".").getPath4(b, null);
     if (cwd_path.openDir(b.graph.io, "vendor/sources/fip", .{})) |_| {
         // 2. Check for internet connection
         if (!hasInternetConnection(b)) {
@@ -187,7 +120,6 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         const reset_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_fip_cmd.setName("reset_fip");
         reset_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-        reset_fip_cmd.step.dependOn(previous_step);
 
         // 4. Fetch fip
         const fetch_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
@@ -225,7 +157,6 @@ fn updateFip(b: *std.Build, previous_step: *std.Build.Step) !*std.Build.Step.Run
         const fetch_fip_complete_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/flint-lang/fip.git", "vendor/sources/fip" });
         fetch_fip_complete_step.setName("fetch_fip_complete");
         fetch_fip_complete_step.setCwd(cwd);
-        fetch_fip_complete_step.step.dependOn(previous_step);
 
         // 4. Checkout fip hash
         const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", FIP_VERSION });
