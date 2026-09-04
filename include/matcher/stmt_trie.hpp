@@ -78,28 +78,32 @@ class StmtTrie : public Trie<StmtTrie> {
             Pattern::DATA_FIELD_ASSIGNMENT,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::data_field_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::data_field_assignment); },
             },
         },
         {
             Pattern::DATA_FIELD_ASSIGNMENT_SHORTHAND,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::data_field_assignment_shorthand); },
+                [](const token_slice &tokens) {
+                    return Matcher::tokens_contain_at_top_level(tokens, Matcher::data_field_assignment_shorthand);
+                },
             },
         },
         {
             Pattern::GROUPED_DATA_ASSIGNMENT,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::grouped_data_assignment); },
             },
         },
         {
             Pattern::GROUPED_DATA_ASSIGNMENT_SHORTHAND,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::grouped_data_assignment_shorthand); },
+                [](const token_slice &tokens) {
+                    return Matcher::tokens_contain_at_top_level(tokens, Matcher::grouped_data_assignment_shorthand);
+                },
             },
         },
         {
@@ -113,35 +117,37 @@ class StmtTrie : public Trie<StmtTrie> {
             Pattern::GROUP_ASSIGNMENT_SHORTHAND,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::group_assignment_shorthand); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::group_assignment_shorthand); },
             },
         },
         {
             Pattern::ARRAY_ASSIGNMENT,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::array_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::array_assignment); },
             },
         },
         {
             Pattern::ARRAY_ASSIGNMENT_SHORTHAND,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::array_assignment_shorthand); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::array_assignment_shorthand); },
             },
         },
         {
             Pattern::GROUPED_ARRAY_ASSIGNMENT,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::grouped_array_assignment); },
+                [](const token_slice &tokens) { return Matcher::tokens_contain_at_top_level(tokens, Matcher::grouped_array_assignment); },
             },
         },
         {
             Pattern::GROUPED_ARRAY_ASSIGNMENT_SHORTHAND,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_contain(tokens, Matcher::grouped_array_assignment_shorthand); },
+                [](const token_slice &tokens) {
+                    return Matcher::tokens_contain_at_top_level(tokens, Matcher::grouped_array_assignment_shorthand);
+                },
             },
         },
         {

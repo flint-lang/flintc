@@ -1,0 +1,30 @@
+use Core.print
+
+data Data1:
+	i32 x;
+	i32 y;
+
+data Data2:
+	i32 z;
+	i32 w;
+
+object Object:
+	data: Data1 d1, Data2 d2;
+	
+	def print():
+		print($"(x, y, z, w) = ({d1.x}, {d1.y}, {d2.z}, {d2.w})\n");
+
+def main():
+	d1 := Data1{
+		.y = 10,
+		.x = 20,
+		};
+	d2 := Data2{.z = 30, .w = 40};
+	o := Object{
+		.d1 = d1,
+		.d2 = d2,
+		};
+	o.print();
+
+	f32x4 v4 = f32x4{.x = 1, .y = 2, .w = 4, .z = 3,};
+	print($"v4 = {v4}\n");

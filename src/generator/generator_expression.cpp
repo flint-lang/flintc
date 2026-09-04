@@ -2758,30 +2758,37 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
             );
             llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
 
-            for (unsigned int i = 0; i < initializer->args.size(); i++) {
-                const auto &arg_expr = initializer->args.at(i);
-                const std::shared_ptr<Type> &elem_type = arg_expr->type;
-                const bool is_fixed_arr_init =                                                //
-                    arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_INITIALIZER //
-                    && elem_type->get_variation() == Type::Variation::ARRAY                   //
+            const DataNode *data_node = initializer->type->as<DataType>()->data_node;
+            for (const auto &field : initializer->fields) {
+                size_t i = 0;
+                for (; i < data_node->fields.size(); i++) {
+                    if (field.name == data_node->fields.at(i).name) {
+                        break;
+                    }
+                }
+                ASSERT(i < data_node->fields.size());
+                const std::shared_ptr<Type> &elem_type = field.value->type;
+                const bool is_fixed_arr_init =                                                   //
+                    field.value->get_variation() == ExpressionNode::Variation::ARRAY_INITIALIZER //
+                    && elem_type->get_variation() == Type::Variation::ARRAY                      //
                     && elem_type->as<ArrayType>()->sizes.has_value();
                 if (is_fixed_arr_init) {
                     llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
                     ctx.dest = builder.CreatePointerCast(field_ptr, PTR_TY);
                 }
 
-                const bool is_opt_literal =                                              //
-                    arg_expr->type->get_variation() == Type::Variation::OPTIONAL         //
-                    && arg_expr->get_variation() == ExpressionNode::Variation::TYPE_CAST //
-                    && arg_expr->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
-                const bool is_reference = !is_opt_literal                                     //
-                    && elem_type->is_freeable()                                               //
-                    && elem_type->get_variation() == Type::Variation::OPTIONAL                //
-                    && arg_expr->get_variation() != ExpressionNode::Variation::CALL           //
-                    && arg_expr->get_variation() != ExpressionNode::Variation::CALLABLE_CALL  //
-                    && arg_expr->get_variation() != ExpressionNode::Variation::INSTANCE_CALL; //
+                const bool is_opt_literal =                                                 //
+                    field.value->type->get_variation() == Type::Variation::OPTIONAL         //
+                    && field.value->get_variation() == ExpressionNode::Variation::TYPE_CAST //
+                    && field.value->as<TypeCastNode>()->expr->get_variation() == ExpressionNode::Variation::LITERAL;
+                const bool is_reference = !is_opt_literal                                        //
+                    && elem_type->is_freeable()                                                  //
+                    && elem_type->get_variation() == Type::Variation::OPTIONAL                   //
+                    && field.value->get_variation() != ExpressionNode::Variation::CALL           //
+                    && field.value->get_variation() != ExpressionNode::Variation::CALLABLE_CALL  //
+                    && field.value->get_variation() != ExpressionNode::Variation::INSTANCE_CALL; //
 
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg_expr.get(), is_reference);
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, field.value.get(), is_reference);
                 if (!expr_result.has_value()) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
@@ -2801,10 +2808,10 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 llvm::Value *expr_val = expr_result.value().front();
                 llvm::Value *field_ptr = builder.CreateStructGEP(struct_type, data_ptr, i, "field_ptr_" + std::to_string(i));
 
-                const bool is_initializer = arg_expr->get_variation() == ExpressionNode::Variation::INITIALIZER;
+                const bool is_initializer = field.value->get_variation() == ExpressionNode::Variation::INITIALIZER;
                 bool is_slice = false;
-                if (arg_expr->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS) {
-                    const auto *arg_arr_access = arg_expr->as<ArrayAccessNode>();
+                if (field.value->get_variation() == ExpressionNode::Variation::ARRAY_ACCESS) {
+                    const auto *arg_arr_access = field.value->as<ArrayAccessNode>();
                     for (const auto &index : arg_arr_access->indexing_expressions) {
                         if (index->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
                             is_slice = true;
@@ -2812,8 +2819,8 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                         }
                     }
                 }
-                const bool is_opaque = arg_expr->type->get_variation() == Type::Variation::OPAQUE;
-                const bool is_call = arg_expr->get_variation() == ExpressionNode::Variation::CALL;
+                const bool is_opaque = field.value->type->get_variation() == Type::Variation::OPAQUE;
+                const bool is_call = field.value->get_variation() == ExpressionNode::Variation::CALL;
                 // Check if the element is freeable. If it is then we need to clone it before storing it in the field. We also assign it
                 // directly if it's an initalizer in itself, because then it has not been stored anywhere yet
                 if (!elem_type->is_freeable() || is_initializer || is_opt_literal || is_slice || is_opaque || is_call) {
@@ -2835,14 +2842,18 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 dima_allocate_fn, {object_head}, "initializer.object." + initializer->type->to_string() //
             );
             llvm::Type *const struct_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
-            const auto &constructor_order = initializer->type->as<ObjectType>()->object_node->constructor_order;
-            ASSERT(constructor_order.size() == initializer->args.size());
 
-            for (size_t i = 0; i < initializer->args.size(); i++) {
-                const auto &arg = initializer->args.at(i);
-                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
+            const ObjectNode *object_node = initializer->type->as<ObjectType>()->object_node;
+            for (const auto &field : initializer->fields) {
+                size_t i = 0;
+                for (; i < object_node->data_components.size(); i++) {
+                    if (field.name == object_node->data_components.at(i).second) {
+                        break;
+                    }
+                }
+                ASSERT(i < object_node->data_components.size());
+                auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, field.value.get());
                 if (!expr_result.has_value()) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
                 // For initializers, we need pure single-value types
@@ -2850,34 +2861,21 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
-                llvm::Value *const dest_ptr = builder.CreateStructGEP(                                   //
-                    struct_type, object_ptr, constructor_order.at(i), "object_init_" + std::to_string(i) //
-                );
+                llvm::Value *const dest_ptr = builder.CreateStructGEP(struct_type, object_ptr, i, "object_init_" + std::to_string(i));
                 // Call `flint.clone` to store the data in the object
                 llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
                 llvm::Value *const expr_val = expr_result.value().front();
-                builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(arg->type->get_id())});
+                builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(field.value->type->get_id())});
             }
             return std::vector<llvm::Value *>{object_ptr};
         }
         case Type::Variation::VECTOR: {
             // Create an "empty" vector of the vector-type
             llvm::Type *const vector_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
-            if (initializer->args.size() == 1) {
-                const auto &arg = initializer->args[0];
-                ASSERT(arg->type->get_variation() == Type::Variation::VECTOR);
-                const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, arg.get());
-                if (!expr_result.has_value()) {
-                    return std::nullopt;
-                }
-                llvm::Value *const result = generate_type_cast(builder, ctx, expr_result.value().front(), arg->type, initializer->type);
-                return std::vector<llvm::Value *>{result};
-            }
             llvm::Value *initialized_value = IR::get_default_value_of_type(vector_type);
-            for (unsigned int i = 0; i < initializer->args.size(); i++) {
-                const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, initializer->args.at(i).get());
+            for (const auto &field : initializer->fields) {
+                const auto expr_result = generate_expression(builder, ctx, garbage, expr_depth + 1, field.value.get());
                 if (!expr_result.has_value()) {
-                    THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
                 // For initializers, we need pure single-value types
@@ -2885,8 +2883,10 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return std::nullopt;
                 }
+                ASSERT(field.name.size() == 2);
+                const size_t i = field.name[1] - '0';
                 llvm::Value *expr_val = expr_result.value().front();
-                initialized_value = builder.CreateInsertElement(initialized_value, expr_val, i, "mutt_init_elem_" + std::to_string(i));
+                initialized_value = builder.CreateInsertElement(initialized_value, expr_val, i, "vec_init_elem_" + std::to_string(i));
             }
             return std::vector<llvm::Value *>{initialized_value};
         }
@@ -4526,8 +4526,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
         for (size_t i = 0; i < func_node->required_data.size(); i++) {
             const DataNode *data_node = func_node->required_data.at(i).type->as<DataType>()->data_node;
             size_t idx = 0;
-            for (; idx < object_node->data_modules.size(); idx++) {
-                const DataNode *data_ptr = object_node->data_modules.at(idx).first;
+            for (; idx < object_node->data_components.size(); idx++) {
+                const DataNode *data_ptr = object_node->data_components.at(idx).first;
                 if (data_ptr == data_node) {
                     break;
                 }

@@ -22,6 +22,7 @@ class ExprTrie : public Trie<ExprTrie, 4> {
         ALIASED_FUNCTION_CALL,
         FUNCTION_CALL,
         GROUP,
+        INITIALIZER,
         TYPE_CAST,
         ANONYMOUS_ERROR,
         UNARY_OP,
@@ -172,10 +173,34 @@ class ExprTrie : public Trie<ExprTrie, 4> {
             },
         },
         {
+            Pattern::INITIALIZER,
+            {
+                TrieAffinity::FORWARD,
+                [](const token_slice &tokens) {
+                    const size_t token_size = std::distance(tokens.first, tokens.second);
+                    if (token_size < 3) {
+                        return false;
+                    }
+                    return Matcher::tokens_match(tokens, Matcher::initializer);
+                },
+            },
+        },
+        {
             Pattern::TYPE_CAST,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::type_cast); },
+                [](const token_slice &tokens) {
+                    const size_t token_size = std::distance(tokens.first, tokens.second);
+                    if (token_size < 3) {
+                        return false;
+                    }
+                    if (!Matcher::tokens_match(tokens, Matcher::type_cast)) {
+                        return false;
+                    }
+                    ASSERT(tokens.first->token == TOK_TYPE);
+                    const Type::Variation variation = tokens.first->type->get_variation();
+                    return variation == Type::Variation::PRIMITIVE || variation == Type::Variation::VECTOR;
+                },
             },
         },
         {

@@ -56,7 +56,6 @@
 #include "parser/type/variant_type.hpp"
 #include "parser/type/vector_type.hpp"
 #include "profiler.hpp"
-#include "resolver/resolver.hpp"
 
 bool Analyzer::analyze_file(Parser &parser) {
     PROFILE_SCOPE("analyze '" + parser.file_name + "'");
@@ -851,8 +850,8 @@ bool Analyzer::analyze_expression(                            //
         }
         case ExpressionNode::Variation::INITIALIZER: {
             auto *node = expr->as<InitializerNode>();
-            for (auto &arg : node->args) {
-                if (!analyze_expression(local_ctx, arg)) {
+            for (auto &field : node->fields) {
+                if (!analyze_expression(local_ctx, field.value)) {
                     return false;
                 }
             }
@@ -861,51 +860,51 @@ bool Analyzer::analyze_expression(                            //
                     break;
                 case Type::Variation::DATA: {
                     // Every argument needs to be castable to the type of the corresponding field
-                    const auto &fields = node->type->as<DataType>()->data_node->fields;
-                    for (size_t i = 0; i < node->args.size(); i++) {
-                        if (node->args[i]->get_variation() == ExpressionNode::Variation::DEFAULT) {
-                            continue;
-                        }
-                        const auto &field_type = fields.at(i).type;
-                        if (!Analyzer::Castability::check_castability(local_ctx.parser, field_type, node->args[i], false)) {
-                            THROW_ERR(                                                                             //
-                                ErrExprTypeMismatch, ERR_ANALYZING, node->args[i]->file_hash, node->args[i]->line, //
-                                node->args[i]->column, node->args[i]->length, field_type, node->args[i]->type      //
-                            );
-                            return false;
+                    const auto &data_fields = node->type->as<DataType>()->data_node->fields;
+                    for (const auto &data_field : data_fields) {
+                        for (auto &[field_name, field_value] : node->fields) {
+                            if (field_name != data_field.name) {
+                                continue;
+                            }
+                            if (!Analyzer::Castability::check_castability(local_ctx.parser, data_field.type, field_value, false)) {
+                                THROW_ERR(                                                                         //
+                                    ErrExprTypeMismatch, ERR_ANALYZING, field_value->file_hash, field_value->line, //
+                                    field_value->column, field_value->length, data_field.type, field_value->type   //
+                                );
+                                return false;
+                            }
                         }
                     }
                     break;
                 }
                 case Type::Variation::OBJECT: {
                     // Every argument needs to equal the type of the corresponding data module
-                    const auto *object_type = node->type->as<ObjectType>();
-                    const auto &constructor_order = object_type->object_node->constructor_order;
-                    for (size_t i = 0; i < node->args.size(); i++) {
-                        if (node->args[i]->get_variation() == ExpressionNode::Variation::DEFAULT) {
-                            continue;
-                        }
-                        const DataNode *data_node = object_type->object_node->data_modules.at(constructor_order.at(i)).first;
-                        const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                        const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
-                        if (!node->args[i]->type->equals(data_type)) {
-                            THROW_ERR(ErrExprTypeMismatch, ERR_ANALYZING, node->args[i]->file_hash, node->args[i]->line,
-                                node->args[i]->column, node->args[i]->length, data_type, node->args[i]->type);
-                            return false;
+                    const ObjectNode *object_node = node->type->as<ObjectType>()->object_node;
+                    for (const auto &[data_component, accessor] : object_node->data_components) {
+                        const auto data_type =
+                            local_ctx.parser.file_node_ptr->file_namespace->get_type_from_str(data_component->name).value();
+                        for (auto &[field_name, field_value] : node->fields) {
+                            if (field_name != accessor) {
+                                continue;
+                            }
+                            if (!Analyzer::Castability::check_castability(local_ctx.parser, data_type, field_value, false)) {
+                                THROW_ERR(                                                                        //
+                                    ErrExprCastInvalid, ERR_ANALYZING, field_value->file_hash, field_value->line, //
+                                    field_value->column, field_value->length, data_type, field_value->type        //
+                                );
+                                return false;
+                            }
                         }
                     }
                     break;
                 }
                 case Type::Variation::VECTOR: {
-                    if (node->args.size() == 1) {
-                        break;
-                    }
                     const std::shared_ptr<Type> base_type = node->type->as<VectorType>()->base_type;
-                    for (auto &arg : node->args) {
-                        if (!Analyzer::Castability::check_castability(local_ctx.parser, base_type, arg, false)) {
-                            THROW_ERR(                                                        //
-                                ErrExprCastInvalid, ERR_ANALYZING, arg->file_hash, arg->line, //
-                                arg->column, arg->length, node->type, arg->type               //
+                    for (auto &[field_name, field_value] : node->fields) {
+                        if (!Analyzer::Castability::check_castability(local_ctx.parser, base_type, field_value, false)) {
+                            THROW_ERR(                                                                        //
+                                ErrExprCastInvalid, ERR_ANALYZING, field_value->file_hash, field_value->line, //
+                                field_value->column, field_value->length, node->type, field_value->type       //
                             );
                             return false;
                         }

@@ -150,7 +150,7 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
-    bool parsed_successful = Parser::parse_all_open_data_modules(parse_parallel);
+    bool parsed_successful = Parser::parse_all_open_data_components(parse_parallel);
     if (!parsed_successful) {
         parser_cleanup();
         return std::nullopt;
@@ -967,9 +967,9 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_expr( //
         }
         case ExpressionNode::Variation::INITIALIZER: {
             const auto *node = expr->as<InitializerNode>();
-            for (const auto &arg : node->args) {
-                if (arg->contains_pos(line, col)) {
-                    return find_node_in_expr(arg.get(), scope, line, col);
+            for (const auto &field : node->fields) {
+                if (field.value->contains_pos(line, col)) {
+                    return find_node_in_expr(field.value.get(), scope, line, col);
                 }
             }
             return node->type;
@@ -1639,14 +1639,7 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
             const auto *object_type = type->as<ObjectType>();
             const auto *node = object_type->object_node;
             ss << "**object** **`" << node->name << "`**\n```\n";
-            ss << node->name << "(";
-            for (size_t i = 0; i < node->constructor_order.size(); i++) {
-                if (i > 0) {
-                    ss << ", ";
-                }
-                ss << node->data_modules.at(node->constructor_order.at(i)).first->name;
-            }
-            ss << ")\n\n";
+            ss << node->name << "\n\n";
 
             for (auto it = node->interfaces.begin(); it != node->interfaces.end(); ++it) {
                 if (it == node->interfaces.begin()) {
@@ -1661,12 +1654,12 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                 }
             }
 
-            for (size_t i = 0; i < node->data_modules.size(); i++) {
+            for (size_t i = 0; i < node->data_components.size(); i++) {
                 if (i == 0) {
                     ss << "```\n";
                     ss << "Data modules:\n```\n";
                 }
-                ss << "\t" << node->data_modules.at(i).first->name << "\n";
+                ss << "\t" << node->data_components.at(i).first->name << " " << node->data_components.at(i).second << "\n";
             }
 
             for (size_t i = 0; i < node->func_components.size(); i++) {

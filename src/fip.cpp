@@ -659,19 +659,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                     }
                     fip_free_type(&d->value_types[j]);
                 }
-                file << "\t" << d->name << "(";
-                for (size_t j = 0; j < d->value_count; j++) {
-                    if (j > 0) {
-                        file << ", ";
-                    }
-                    if (keywords.find(d->value_names[j]) != keywords.end()) {
-                        file << "_" << d->value_names[j];
-                    } else {
-                        file << d->value_names[j];
-                    }
-                    free(d->value_names[j]);
-                }
-                file << ");\n\n";
+                file << "\n\n";
                 free(d->value_types);
                 free(d->value_names);
                 generated_types[d->name] = Type::Variation::DATA;

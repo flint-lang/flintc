@@ -168,11 +168,11 @@ llvm::DIType *Generator::Debug::create_debug_type_object(llvm::Module *const mod
     const uint64_t struct_size_bits = Allocation::get_type_size(module, llvm_struct) * 8;
     const uint32_t struct_align_bits = Allocation::calculate_type_alignment(llvm_struct) * 8;
 
-    const auto &data_modules = object_node->data_modules;
+    const auto &data_components = object_node->data_components;
     const size_t PTR_SIZE = module->getDataLayout().getPointerSizeInBits();
     std::vector<llvm::Metadata *> member_types;
-    for (size_t i = 0; i < data_modules.size(); ++i) {
-        const auto &[data_node, accessor_name] = data_modules.at(i);
+    for (size_t i = 0; i < data_components.size(); ++i) {
+        const auto &[data_node, accessor_name] = data_components.at(i);
         const auto data_type = Resolver::get_namespace_from_hash(data_node->file_hash)->get_type_from_str(data_node->name).value();
         llvm::DIType *const data_debug_type = get_or_create_debug_type(module, data_type);
 

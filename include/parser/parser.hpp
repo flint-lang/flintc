@@ -192,20 +192,20 @@ class Parser {
     /// @return `std::vector<std::shared_ptr<Type>>` A list of all non-freeable types of all files
     static std::vector<std::shared_ptr<Type>> get_all_nonfreeable_types();
 
-    /// @function `parse_open_data_module`
+    /// @function `parse_open_data_component`
     /// @brief Parses a single open data module body
     ///
     /// @param `parser` The parser instance in which the data module is defined in
     /// @param `data` The data module definition to parse
     /// @return `bool` Whether the data module was able to be parsed
-    static bool parse_open_data_module(Parser &parser, DataNode *data);
+    static bool parse_open_data_component(Parser &parser, DataNode *data);
 
-    /// @function `parse_all_open_data_modules`
+    /// @function `parse_all_open_data_components`
     /// @brief Parses all still open data module "bodies"
     ///
     /// @param `parse_parallel` Whether to parse the open data modules in parallel
     /// @return `bool` Whether all data modules were able to be parsed
-    static bool parse_all_open_data_modules(const bool parse_parallel);
+    static bool parse_all_open_data_components(const bool parse_parallel);
 
     /// @function `parse_open_object`
     /// @brief Parses a single open object body
@@ -699,25 +699,21 @@ class Parser {
     /// @param `type_to_resolve` The type to resolve
     void substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve);
 
-    /// @struct `CreateCallOrInitializerBaseRet`
-    /// @brief The return type of the `create_call_or_initializer_base` function. It's return type got very complex and that's why this
+    /// @struct `CreateCallBaseRet`
+    /// @brief The return type of the `create_call_base` function. It's return type got very complex and that's why this
     /// struct was needed, to make it just much easier to use the returned value instead of a big ass tuple
-    struct CreateCallOrInitializerBaseRet {
+    struct CreateCallBaseRet {
         /// @var `args`
-        /// @brief The arguments with which the initializer or call are "called" + whether the argument is expected to be a reference
+        /// @brief The arguments with which the call is called + whether the argument is expected to be a reference
         std::vector<std::pair<std::unique_ptr<ExpressionNode>, bool>> args;
 
         /// @var `type`
         /// @brief The call's return type or the intializer's type
         std::shared_ptr<Type> type;
 
-        /// @var `is_initializer`
-        /// @brief Whether it's an initializer or a call
-        bool is_initializer;
-
         /// @var `function`
-        /// @brief A pointer to the function the call targets. If it's an initializer then this value is a nullptr
-        FunctionNode *function{nullptr};
+        /// @brief A pointer to the function the call targets
+        FunctionNode *function;
 
         /// @var `instance_variable`
         /// @brief The instance variable expression the call is done at, if any (`object_variable.call()` for example)
@@ -728,8 +724,8 @@ class Parser {
         std::optional<std::string> callable;
     };
 
-    /// @function `create_call_or_initializer_base`
-    /// @brief Creates the base node for all calls or initializers
+    /// @function `create_call_base`
+    /// @brief Creates the base node for all calls
     ///
     /// @details This function is part of the `Util` class, as both call statements as well as call expressions use this function
     ///
@@ -741,12 +737,12 @@ class Parser {
     /// @param `is_typed_call` Whether the call is targetting a func component's or objects function like `<FuncType>.<call>` or
     /// `<ObjectType>.<call>`
     /// @return `...` The return values are stored in a dedicated struct for this function. For more information look there
-    std::optional<CreateCallOrInitializerBaseRet> create_call_or_initializer_base( //
-        const Context &ctx,                                                        //
-        std::shared_ptr<Scope> &scope,                                             //
-        const token_slice &tokens,                                                 //
-        const Namespace *call_namespace,                                           //
-        const bool is_typed_call = false                                           //
+    std::optional<CreateCallBaseRet> create_call_base( //
+        const Context &ctx,                            //
+        std::shared_ptr<Scope> &scope,                 //
+        const token_slice &tokens,                     //
+        const Namespace *call_namespace,               //
+        const bool is_typed_call = false               //
     );
 
     /// @struct `CreateUnaryOpBaseRet`
@@ -822,11 +818,11 @@ class Parser {
     /// @param `tokens` The tokens in which the vector-type field access happens
     /// @param `type` The vector-type the field access is based on (asserts it to be of type 'VectorType')
     /// @param `field_name` The field name of the access
-    /// @return `std::optional<std::tuple<std::string, unsigned int>>` A tuple of the "new" access name and the access id, nullopt if failed
-    std::optional<std::tuple<std::string, unsigned int>> create_vector_type_access( //
-        const token_slice &tokens,                                                  //
-        const std::shared_ptr<Type> vector_type,                                    //
-        const std::string &field_name                                               //
+    /// @return `std::optional<std::pair<std::string, unsigned int>>` A pair of the "new" access name and the access id, nullopt if failed
+    std::optional<std::pair<std::string, unsigned int>> create_vector_type_access( //
+        const token_slice &tokens,                                                 //
+        const std::shared_ptr<Type> vector_type,                                   //
+        const std::string &field_name                                              //
     );
 
     /// @struct `CreateGroupedAccessBaseRet`

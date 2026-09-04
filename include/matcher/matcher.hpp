@@ -119,6 +119,15 @@ class Matcher {
     /// @return `bool` Whether the given token matches the given pattern
     static bool token_match(const Token token, const PatternPtr &pattern);
 
+    /// @function `tokens_contain_at_top_level`
+    /// @brief Checks whether a given pattern is present inside the given tokens *at the top-level*, meaning that the pattern is not present
+    /// within a nested sub-expression of the tokens
+    ///
+    /// @param `tokens` The tokens to check
+    /// @param `pattern` The pattern to search for
+    /// @return `bool` Whether the given token list contains the given pattern at the top-level
+    static bool tokens_contain_at_top_level(const token_slice &tokens, const PatternPtr &pattern);
+
     /// @function `tokens_contain_in_range`
     /// @brief Checks if a given vector of tokens contains a given pattern within a given range
     ///
@@ -709,7 +718,7 @@ class Matcher {
         token(TOK_U8), token(TOK_I8), token(TOK_U16), token(TOK_I16), token(TOK_U32), token(TOK_I32), token(TOK_U64), token(TOK_I64), //
         token(TOK_F32), token(TOK_F64), token(TOK_FLINT), token(TOK_STR), token(TOK_BOOL), token(TOK_OPAQUE)                          //
     });
-    static const inline PatternPtr type_prim_mult = one_of({
+    static const inline PatternPtr type_prim_vec = one_of({
         token(TOK_BOOL8),                                                       //
         token(TOK_U8X2), token(TOK_U8X3), token(TOK_U8X4), token(TOK_U8X8),     //
         token(TOK_I8X2), token(TOK_I8X3), token(TOK_I8X4), token(TOK_I8X8),     //
@@ -726,7 +735,7 @@ class Matcher {
         token(TOK_STR_VALUE), token(TOK_INT_VALUE), token(TOK_FLOAT_VALUE), token(TOK_CHAR_VALUE), token(TOK_TRUE), token(TOK_FALSE),
         token(TOK_NONE), token(TOK_NULL) //
     });
-    static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_mult});
+    static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_vec});
     static const inline PatternPtr type = one_of({
         sequence({
             one_of({
@@ -839,20 +848,22 @@ class Matcher {
         optional(sequence({token(TOK_IMPLEMENTS), token(TOK_LEFT_PAREN), identifier_list, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
     static const inline PatternPtr object_body_data = sequence({
-        token(TOK_DATA), token(TOK_COLON), zero_or_more(anytoken), token(TOK_IDENTIFIER),       //
-        zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})), token(TOK_SEMICOLON) //
+        token(TOK_DATA), token(TOK_COLON), one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)}), token(TOK_IDENTIFIER), //
+        zero_or_more(                                                                                               //
+            sequence({token(TOK_COMMA), one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)}), token(TOK_IDENTIFIER)})   //
+            ),
+        token(TOK_SEMICOLON) //
     });
     static const inline PatternPtr object_body_func = sequence({
-        token(TOK_FUNC), token(TOK_COLON), zero_or_more(anytoken), token(TOK_IDENTIFIER),       //
-        zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})), token(TOK_SEMICOLON) //
-    });
-    static const inline PatternPtr object_body_constructor = sequence({
-        token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN),                                                                   //
-        optional(sequence({token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)}))})), //
-        token(TOK_RIGHT_PAREN), token(TOK_SEMICOLON)                                                                    //
+        token(TOK_FUNC), token(TOK_COLON), one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)}),                               //
+        zero_or_more(sequence({token(TOK_COMMA), one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)})})), token(TOK_SEMICOLON) //
     });
     static const inline PatternPtr object_body = sequence({
-        optional(object_body_data), zero_or_more(anytoken), optional(object_body_func), zero_or_more(anytoken), object_body_constructor //
+        one_of({
+            sequence({object_body_data, optional(object_body_func)}),
+            sequence({optional(object_body_func), object_body_data}),
+        }),
+        zero_or_more(anytoken) //
     });
 
     // --- EXPRESSIONS ---
@@ -869,7 +880,10 @@ class Matcher {
     static const inline PatternPtr function_reference = sequence({
         optional(one_of({token(TOK_TYPE), token(TOK_IDENTIFIER)})), token(TOK_REFERENCE), token(TOK_IDENTIFIER) //
     });
-    static const inline PatternPtr type_cast = sequence({one_of({type_prim, token(TOK_TYPE)}), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr initializer = sequence({
+        one_of({token(TOK_TYPE), type_prim_vec}), token(TOK_LEFT_BRACE), until_right_brace //
+    });
+    static const inline PatternPtr type_cast = sequence({token(TOK_TYPE), token(TOK_LEFT_PAREN), until_right_paren});
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });

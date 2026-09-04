@@ -26,6 +26,7 @@
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
@@ -35,7 +36,9 @@
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
+#include "parser/type/primitive_type.hpp"
 #include "parser/type/variant_type.hpp"
+#include "parser/type/vector_type.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -421,13 +424,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                 const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
                 const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
                 size_t idx = 0;
-                for (const auto &[data_node, accessor] : object_node->data_modules) {
+                for (const auto &[data_node, accessor] : object_node->data_components) {
                     if (data_node == required_data_node) {
                         break;
                     }
                     idx++;
                 }
-                if (idx == object_node->data_modules.size()) {
+                if (idx == object_node->data_components.size()) {
                     // The data node is not present in the object type
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -912,16 +915,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     PROFILE_CUMULATIVE("Parser::create_call_expression");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
+    std::optional<CreateCallBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, alias.value(), is_func_component_call);
+        ret = create_call_base(ctx, scope, tokens_mut, alias.value(), is_func_component_call);
     } else {
-        ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_component_call);
+        ret = create_call_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_component_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
     }
-    ASSERT(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
         ASSERT(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
@@ -1048,16 +1050,220 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     PROFILE_CUMULATIVE("Parser::create_initializer");
     token_slice tokens_mut = tokens;
     remove_surrounding_paren(tokens_mut);
-    auto ret = create_call_or_initializer_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get());
-    if (!ret.has_value()) {
-        return std::nullopt;
+    const auto type_token = tokens_mut.first;
+    tokens_mut.first++;
+    ASSERT(type_token->token == TOK_TYPE);
+    if (type_token->type->get_variation() == Type::Variation::ALIAS) {
+        type_token->type = type_token->type->as<AliasType>()->type;
     }
-    ASSERT(ret->is_initializer);
-    std::vector<std::unique_ptr<ExpressionNode>> args;
-    for (auto &arg : ret->args) {
-        args.emplace_back(std::move(arg.first));
+    // Parse all initializer fields
+    ASSERT(tokens_mut.first->token == TOK_LEFT_BRACE);
+    tokens_mut.first++;
+    ASSERT(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACE);
+    tokens_mut.second--;
+    std::vector<InitializerNode::Field> fields;
+    while (tokens_mut.first != tokens_mut.second) {
+        const uint2 &range = {0, std::distance(tokens_mut.first, tokens_mut.second)};
+        const std::vector<uint2> &match_ranges = Matcher::get_match_ranges_in_range_outside_group(        //
+            tokens_mut, Matcher::token(TOK_COMMA), range, Matcher::balancer_left, Matcher::balancer_right //
+        );
+        const uint2 arg_range = {0, match_ranges.empty() ? range.second : match_ranges.front().first};
+        if (arg_range.second < 4) {
+            // Not enough tokens as initializer field, expected at least `<DOT><IDENT><EQ><VALUE>`
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(arg_range.first == 0);
+        token_slice arg_tokens = {tokens_mut.first, tokens_mut.first + arg_range.second};
+        if (arg_tokens.first->token != TOK_DOT) {
+            THROW_ERR(                                                                                            //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
+                std::vector<Token>{TOK_DOT}, arg_tokens.first->token                                              //
+            );
+            return std::nullopt;
+        }
+        arg_tokens.first++;
+        if (arg_tokens.first->token != TOK_IDENTIFIER) {
+            THROW_ERR(                                                                                            //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
+                std::vector<Token>{TOK_IDENTIFIER}, arg_tokens.first->token                                       //
+            );
+            return std::nullopt;
+        }
+        std::string field_name(arg_tokens.first->lexme);
+        std::optional<std::shared_ptr<Type>> field_type = std::nullopt;
+        // Check for duplicate fields
+        for (const auto &field : fields) {
+            if (field.name == field_name) {
+                THROW_ERR(                                                                            //
+                    ErrExprInitializerDuplicateField, ERR_PARSING, file_hash, arg_tokens.first->line, //
+                    arg_tokens.first->column, field_name                                              //
+                );
+                return std::nullopt;
+            }
+        }
+        // Check if the given type contains the given field, and get the type of that field
+        switch (type_token->type->get_variation()) {
+            default: {
+                [[maybe_unused]] const Type::Variation variation = tokens_mut.first->type->get_variation();
+                [[maybe_unused]] const std::string type_str = tokens_mut.first->type->to_string();
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            case Type::Variation::DATA: {
+                const DataNode *data_node = type_token->type->as<DataType>()->data_node;
+                bool field_found = false;
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
+                for (const auto &field : data_node->fields) {
+                    possible_fields.emplace_back(field.name, field.type);
+                    if (field.name == field_name) {
+                        field_found = true;
+                        field_type = field.type;
+                        break;
+                    }
+                }
+                if (!field_found) {
+                    THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, arg_tokens, field_name, type_token->type, possible_fields);
+                    return std::nullopt;
+                }
+                break;
+            }
+            case Type::Variation::OBJECT: {
+                const ObjectNode *object_node = type_token->type->as<ObjectType>()->object_node;
+                bool field_found = false;
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
+                for (const auto &[data_node, field_accessor] : object_node->data_components) {
+                    if (field_accessor == field_name) {
+                        field_found = true;
+                        field_type = file_node_ptr->file_namespace->get_type_from_str(data_node->name).value();
+                        break;
+                    }
+                }
+                if (!field_found) {
+                    THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, arg_tokens, field_name, type_token->type, possible_fields);
+                    return std::nullopt;
+                }
+                break;
+            }
+            case Type::Variation::VECTOR: {
+                const auto *vector_type = type_token->type->as<VectorType>();
+                const auto &access = create_vector_type_access(                                       //
+                    token_slice{arg_tokens.first, arg_tokens.first + 1}, type_token->type, field_name //
+                );
+                if (!access.has_value()) {
+                    return std::nullopt;
+                }
+                field_type = vector_type->base_type;
+                field_name = access.value().first;
+                break;
+            }
+        }
+
+        arg_tokens.first++;
+        if (arg_tokens.first->token != TOK_EQUAL) {
+            THROW_ERR(                                                                                            //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
+                std::vector<Token>{TOK_EQUAL}, arg_tokens.first->token                                            //
+            );
+            return std::nullopt;
+        }
+        arg_tokens.first++;
+
+        std::optional<std::unique_ptr<ExpressionNode>> field_value = create_expression(ctx, scope, arg_tokens, field_type);
+        if (!field_value.has_value()) {
+            return std::nullopt;
+        }
+        fields.emplace_back(InitializerNode::Field{.name = field_name, .value = std::move(field_value.value())});
+        tokens_mut.first = arg_tokens.second;
+        if (tokens_mut.first->token == TOK_COMMA) {
+            tokens_mut.first++;
+        }
     }
-    return std::make_unique<InitializerNode>(file_hash, get_pos_triple(tokens), ret->type, args);
+
+    // Check for missing fields and fill them in
+    switch (type_token->type->get_variation()) {
+        default: {
+            [[maybe_unused]] const Type::Variation variation = tokens_mut.first->type->get_variation();
+            [[maybe_unused]] const std::string type_str = tokens_mut.first->type->to_string();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
+        case Type::Variation::DATA: {
+            const DataNode *data_node = type_token->type->as<DataType>()->data_node;
+            if (data_node->fields.size() == fields.size()) {
+                break;
+            }
+            for (const auto &data_field : data_node->fields) {
+                bool contains_field = false;
+                for (const auto &field : fields) {
+                    if (field.name == data_field.name) {
+                        contains_field = true;
+                        break;
+                    }
+                }
+                if (contains_field) {
+                    continue;
+                }
+                // Field not yet present, we need to check if it is default-constructible
+                // TODO: Add `is_default_constructible()` virtual function to the `Type` class
+                UNREACHABLE();
+            }
+            break;
+        }
+        case Type::Variation::OBJECT: {
+            const ObjectNode *object_node = type_token->type->as<ObjectType>()->object_node;
+            if (object_node->data_components.size() == fields.size()) {
+                break;
+            }
+            for (const auto &[data_type, data_accessor] : object_node->data_components) {
+                bool contains_field = false;
+                for (const auto &field : fields) {
+                    if (field.name == data_accessor) {
+                        contains_field = true;
+                        break;
+                    }
+                }
+                if (contains_field) {
+                    continue;
+                }
+                // Field not yet present, we need to check if it is default-constructible
+                // TODO: Add `is_default_constructible()` virtual function to the `Type` class
+                UNREACHABLE();
+            }
+            break;
+        }
+        case Type::Variation::VECTOR: {
+            const auto *vector_type = type_token->type->as<VectorType>();
+            const unsigned int width = vector_type->width;
+            for (size_t i = 0; i < width; i++) {
+                const std::string new_field_name = "$" + std::to_string(i);
+                bool is_present = false;
+                for (const auto &field : fields) {
+                    if (field.name == new_field_name) {
+                        is_present = true;
+                        break;
+                    }
+                }
+                if (is_present) {
+                    continue;
+                }
+                // Field not present, add it through a 0 literal
+                PrimitiveType *base_primitive = vector_type->base_type->as<PrimitiveType>();
+                LitValue lit;
+                if (base_primitive->type_name[0] == 'f') {
+                    lit = LitFloat{.value = APFloat("0")};
+                } else {
+                    lit = LitInt{.value = APInt("0")};
+                }
+                std::unique_ptr<ExpressionNode> literal_expr = std::make_unique<LiteralNode>( //
+                    file_hash, get_pos_triple(tokens), lit, vector_type->base_type, false     //
+                );
+                fields.emplace_back(InitializerNode::Field{.name = new_field_name, .value = std::move(literal_expr)});
+            }
+            break;
+        }
+    }
+    return std::make_unique<InitializerNode>(file_hash, get_pos_triple(tokens), type_token->type, fields);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
@@ -2382,33 +2588,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             }
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
+        case ExprTrie::Pattern::INITIALIZER: {
+            return create_initializer(ctx, scope, tokens_mut);
+        }
         case ExprTrie::Pattern::TYPE_CAST: {
             if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
                 if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
                     // It's an array initializer
                     return create_array_initializer(ctx, scope, tokens);
                 }
-                // It's an initializer
-                std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
-                if (!initializer.has_value()) {
-                    return std::nullopt;
-                }
-                return initializer;
             } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR &&
                 tokens_mut.first->type->to_string() != "bool8") {
                 // It's an explicit initializer of an vector-type
-                std::optional<std::unique_ptr<ExpressionNode>> initializer = create_initializer(ctx, scope, tokens_mut);
-                if (!initializer.has_value()) {
-                    return std::nullopt;
-                }
-                return initializer;
+                return create_initializer(ctx, scope, tokens_mut);
             } else {
                 // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
-                std::optional<std::unique_ptr<ExpressionNode>> type_cast = create_type_cast(ctx, scope, tokens_mut);
-                if (!type_cast.has_value()) {
-                    return std::nullopt;
-                }
-                return type_cast;
+                return create_type_cast(ctx, scope, tokens_mut);
             }
         }
         case ExprTrie::Pattern::ANONYMOUS_ERROR:

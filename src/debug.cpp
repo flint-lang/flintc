@@ -571,10 +571,13 @@ namespace Debug {
             std::cout << initializer.type->to_string() << std::endl;
 
             indent_lvl++;
-            for (auto expr = initializer.args.begin(); expr != initializer.args.end(); ++expr) {
-                bool is_last = std::next(expr) == initializer.args.end();
-                TreeBits child_bits = bits.child(indent_lvl, is_last);
-                print_expression(indent_lvl, child_bits, *expr);
+            for (auto field = initializer.fields.begin(); field != initializer.fields.end(); ++field) {
+                bool is_last = std::next(field) == initializer.fields.end();
+                TreeBits name_bits = bits.child(indent_lvl, is_last);
+                Local::print_header(indent_lvl, name_bits, field->name + " ");
+                std::cout << std::endl;
+                TreeBits expr_bits = name_bits.child(indent_lvl + 1, true);
+                print_expression(indent_lvl, expr_bits, field->value);
             }
         }
 
@@ -1555,19 +1558,7 @@ namespace Debug {
         //     Prints the content of the generated ObjectNode
         void print_object(unsigned int indent_lvl, TreeBits &bits, const ObjectNode &object) {
             Local::print_header(indent_lvl, bits, "Object ");
-            std::cout << object.name << "(";
-            for (size_t i = 0; i < object.constructor_order.size(); i++) {
-                if (i > 0) {
-                    std::cout << ", ";
-                }
-                const auto &[data_type, accessor] = object.data_modules.at(object.constructor_order.at(i));
-                if (accessor.has_value()) {
-                    std::cout << accessor.value();
-                } else {
-                    std::cout << data_type->name;
-                }
-            }
-            std::cout << ")\n";
+            std::cout << object.name << std::endl;
 
             if (!object.interfaces.empty()) {
                 TreeBits interface_bits = bits.child(indent_lvl + 1, false);
@@ -1585,13 +1576,11 @@ namespace Debug {
             TreeBits data_bits = bits.child(indent_lvl + 1, false);
             Local::print_header(indent_lvl + 1, data_bits, "Data ");
             std::cout << "\n";
-            for (size_t i = 0; i < object.data_modules.size(); i++) {
-                TreeBits data_module_bits = data_bits.child(indent_lvl + 2, i + 1 == object.data_modules.size());
-                const auto &pair = object.data_modules.at(i);
-                Local::print_header(indent_lvl + 2, data_module_bits, pair.first->name + " ");
-                if (pair.second.has_value()) {
-                    std::cout << pair.second.value();
-                }
+            for (size_t i = 0; i < object.data_components.size(); i++) {
+                TreeBits data_component_bits = data_bits.child(indent_lvl + 2, i + 1 == object.data_components.size());
+                const auto &pair = object.data_components.at(i);
+                Local::print_header(indent_lvl + 2, data_component_bits, pair.first->name + " ");
+                std::cout << pair.second;
                 std::cout << "\n";
             }
 

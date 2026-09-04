@@ -513,14 +513,14 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
     }
 }
 
-std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_initializer_base( //
-    const Context &ctx,                                                                        //
-    std::shared_ptr<Scope> &scope,                                                             //
-    const token_slice &tokens,                                                                 //
-    const Namespace *call_namespace,                                                           //
-    const bool is_typed_call                                                                   //
+std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
+    const Context &ctx,                                            //
+    std::shared_ptr<Scope> &scope,                                 //
+    const token_slice &tokens,                                     //
+    const Namespace *call_namespace,                               //
+    const bool is_typed_call                                       //
 ) {
-    PROFILE_CUMULATIVE("Parser::create_call_or_initializer_base");
+    PROFILE_CUMULATIVE("Parser::create_call_base");
     using types = std::vector<std::shared_ptr<Type>>;
     ASSERT(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
@@ -597,126 +597,6 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
             argument_types.emplace_back(arg->type->as<AliasType>()->type);
         } else {
             argument_types.emplace_back(arg->type);
-        }
-    }
-
-    // Check if it's an initializer
-    const auto &name_token = is_typed_call ? tokens.first + 2 : tokens.first;
-    if (name_token->token == TOK_TYPE) {
-        if (name_token->type->get_variation() == Type::Variation::ALIAS) {
-            name_token->type = name_token->type->as<AliasType>()->type;
-        }
-        switch (tokens.first->type->get_variation()) {
-            default: {
-                [[maybe_unused]] const Type::Variation variation = name_token->type->get_variation();
-                [[maybe_unused]] const std::string type_str = name_token->type->to_string();
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return std::nullopt;
-            }
-            case Type::Variation::DATA: {
-                const DataNode *data_node = name_token->type->as<DataType>()->data_node;
-                auto &fields = data_node->fields;
-                // Now check if the initializer arguments are equal to the expected initializer fields
-                if (fields.size() != arguments.size()) {
-                    // If the last argument is a default node then *all* remaining fields will be default-constructed
-                    if (                                                                     //
-                        arguments.size() > fields.size()                                     //
-                        || arguments.empty()                                                 //
-                        || arguments.back().first->type->to_string() != "type.flint.default" //
-                    ) {
-                        THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, fields.size(), arguments.size());
-                        return std::nullopt;
-                    }
-                    // It's a single default-initializer at the end of the initializer list, so we fill all remaining initializers with the
-                    // default initializer
-                    ASSERT(arguments.size() >= 1);
-                    ASSERT(arguments.back().first->type->to_string() == "type.flint.default");
-                    for (size_t i = arguments.size(); i < fields.size(); i++) {
-                        arguments.emplace_back(arguments.at(i - 1).first->clone(scope->scope_id), false);
-                    }
-                }
-                for (size_t i = 0; i < arguments.size(); i++) {
-                    std::shared_ptr<Type> arg_type = arguments[i].first->type;
-                    if (arg_type->to_string() == "type.flint.default") {
-                        // We need to insert the default-value of the nth argument of the data type at the place of the arguments before
-                        // continuing
-                        if (!data_node->fields.at(i).initializer.has_value()) {
-                            THROW_ERR(ErrExprDataInitializerMissingDefaultValue, ERR_PARSING, file_hash, tokens, fields.at(i).name);
-                            return std::nullopt;
-                        }
-                        arguments[i].first.reset();
-                        arguments[i].first = data_node->fields.at(i).initializer.value()->clone(scope->scope_id);
-                        arg_type = arguments[i].first->type;
-                    }
-                }
-                return CreateCallOrInitializerBaseRet{
-                    .args = std::move(arguments),
-                    .type = name_token->type,
-                    .is_initializer = true,
-                    .function = nullptr,
-                    .instance_variable = std::nullopt,
-                    .callable = std::nullopt,
-                };
-            }
-            case Type::Variation::OBJECT: {
-                const auto *object_type = name_token->type->as<ObjectType>();
-                auto &data_modules = object_type->object_node->data_modules;
-                const auto &constructor_order = object_type->object_node->constructor_order;
-                // Check if all initializer arguments are equal to the expected data module types
-                if (arguments.size() != data_modules.size()) {
-                    THROW_ERR(ErrExprInitializerWrongArgCount, ERR_PARSING, file_hash, tokens, data_modules.size(), arguments.size());
-                    return std::nullopt;
-                }
-                for (size_t i = 0; i < arguments.size(); i++) {
-                    const std::shared_ptr<Type> &arg_type = arguments.at(i).first->type;
-                    const DataNode *data_node = data_modules.at(constructor_order.at(i)).first;
-                    const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                    const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
-                    if (!arg_type->equals(data_type)) {
-                        THROW_ERR(ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), data_type, arg_type);
-                        return std::nullopt;
-                    }
-                }
-                return CreateCallOrInitializerBaseRet{
-                    .args = std::move(arguments),
-                    .type = name_token->type,
-                    .is_initializer = true,
-                    .function = nullptr,
-                    .instance_variable = std::nullopt,
-                    .callable = std::nullopt,
-                };
-            }
-            case Type::Variation::VECTOR: {
-                const auto *vector_type = name_token->type->as<VectorType>();
-                const unsigned int width = vector_type->width;
-                if (arguments.size() == 1) {
-                    // The "argument" needs to be a compatible vector-type
-                    if (arguments[0].first->type->get_variation() != Type::Variation::VECTOR) {
-                        const auto &arg = arguments[0].first;
-                        THROW_ERR(                                                           //
-                            ErrExprCastInvalid, ERR_PARSING, file_hash,                      //
-                            arg->line, arg->column, arg->length, name_token->type, arg->type //
-                        );
-                        return std::nullopt;
-                    }
-                    ASSERT(primitive_casting_table.find(name_token->type->to_string()) != primitive_casting_table.end());
-                    [[maybe_unused]] const auto &to_types = primitive_casting_table.at(name_token->type->to_string());
-                    ASSERT(std::find(to_types.begin(), to_types.end(), arguments[0].first->type->to_string()) != to_types.end());
-                } else {
-                    if (arguments.size() != width) {
-                        THROW_ERR(ErrExprCastVectorLengthMismatch, ERR_PARSING, file_hash, tokens, width, arguments.size());
-                        return std::nullopt;
-                    }
-                }
-                return CreateCallOrInitializerBaseRet{
-                    .args = std::move(arguments),
-                    .type = name_token->type,
-                    .is_initializer = true,
-                    .function = nullptr,
-                    .instance_variable = std::nullopt,
-                    .callable = std::nullopt,
-                };
-            }
         }
     }
 
@@ -894,10 +774,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
                 }
             }
-            return CreateCallOrInitializerBaseRet{
+            return CreateCallBaseRet{
                 .args = std::move(arguments),
                 .type = return_type,
-                .is_initializer = false,
                 .function = nullptr,
                 .instance_variable = std::nullopt,
                 .callable = potential_callables.front().first,
@@ -971,7 +850,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     const DataNode *required_data_node = required_data_type->as<DataType>()->data_node;
                     size_t idx = 0;
-                    for (const auto &[data_node, accessor] : object_node->data_modules) {
+                    for (const auto &[data_node, accessor] : object_node->data_components) {
                         if (data_node == required_data_node) {
                             break;
                         }
@@ -979,7 +858,7 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
                     }
                     // Since this is an instance-call and the function thus comes from a func-module, the object is guaranteed to contain
                     // the required data here, if not something would have gone horribly wrong earlier in the object parsing stage.
-                    ASSERT(idx != object_node->data_modules.size());
+                    ASSERT(idx != object_node->data_components.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         file_hash,                                                              //
                         get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
@@ -1097,10 +976,9 @@ std::optional<Parser::CreateCallOrInitializerBaseRet> Parser::create_call_or_ini
     } else {
         return_type = return_types.front();
     }
-    return CreateCallOrInitializerBaseRet{
+    return CreateCallBaseRet{
         .args = std::move(arguments),
         .type = return_type,
-        .is_initializer = false,
         .function = function,
         .instance_variable = std::move(instance_variable),
         .callable = std::nullopt,
@@ -1301,12 +1179,14 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             const std::shared_ptr<Type> captured_object_type = captured_object_it->second;
             ASSERT(captured_object_type->get_variation() == Type::Variation::OBJECT);
             const ObjectNode *parent_object = captured_object_type->as<ObjectType>()->object_node;
-            for (const auto &[data_node, accessor] : parent_object->data_modules) {
-                if (!accessor.has_value() || accessor.value() != field_name) {
+            std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
+            for (const auto &[data_node, accessor] : parent_object->data_components) {
+                possible_fields.emplace_back(accessor, file_node_ptr->file_namespace->get_type_from_str(data_node->name).value());
+                if (accessor != field_name) {
                     continue;
                 }
-                for (size_t i = 0; i < object_node->data_modules.size(); i++) {
-                    const auto &child_data_node = object_node->data_modules.at(i).first;
+                for (size_t i = 0; i < object_node->data_components.size(); i++) {
+                    const auto &child_data_node = object_node->data_components.at(i).first;
                     if (child_data_node != data_node) {
                         continue;
                     }
@@ -1320,11 +1200,9 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                         .field_type = data_type.value(),
                     };
                 }
-                __builtin_unreachable();
+                UNREACHABLE();
             }
-            // TODO: This should be a nested parent (like e.e.d) and I think we would need to iterate the parent objects parents for
-            // this...
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, captured_object_type, possible_fields);
             return std::nullopt;
         }
         case Type::Variation::PRIMITIVE:
@@ -1402,19 +1280,19 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     return std::nullopt;
 }
 
-std::optional<std::tuple<std::string, unsigned int>> Parser::create_vector_type_access( //
-    const token_slice &tokens,                                                          //
-    const std::shared_ptr<Type> type,                                                   //
-    const std::string &field_name                                                       //
+std::optional<std::pair<std::string, unsigned int>> Parser::create_vector_type_access( //
+    const token_slice &tokens,                                                         //
+    const std::shared_ptr<Type> type,                                                  //
+    const std::string &field_name                                                      //
 ) {
     PROFILE_CUMULATIVE("Parser::create_vector_type_access");
     const VectorType *vector_type = type->as<VectorType>();
     if (vector_type->width == 2) {
         // The fields are called x and y, but can be accessed via $N
         if (field_name == "x" || field_name == "s" || field_name == "i" || field_name == "u" || field_name == "$0") {
-            return std::make_tuple("$0", 0);
+            return std::make_pair("$0", 0);
         } else if (field_name == "y" || field_name == "t" || field_name == "j" || field_name == "v" || field_name == "$1") {
-            return std::make_tuple("$1", 1);
+            return std::make_pair("$1", 1);
         } else {
             THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
                 std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
@@ -1435,11 +1313,11 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_vector_type_
     } else if (vector_type->width == 3) {
         // The fields are called x, y and z, but can be accessed via $N
         if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "i" || field_name == "$0") {
-            return std::make_tuple("$0", 0);
+            return std::make_pair("$0", 0);
         } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "j" || field_name == "$1") {
-            return std::make_tuple("$1", 1);
+            return std::make_pair("$1", 1);
         } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "k" || field_name == "$2") {
-            return std::make_tuple("$2", 2);
+            return std::make_pair("$2", 2);
         } else {
             THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
                 std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
@@ -1466,13 +1344,13 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_vector_type_
     } else if (vector_type->width == 4) {
         // The fields are called r, g, b and a, but can be accessed via $N
         if (field_name == "x" || field_name == "r" || field_name == "s" || field_name == "i" || field_name == "$0") {
-            return std::make_tuple("$0", 0);
+            return std::make_pair("$0", 0);
         } else if (field_name == "y" || field_name == "g" || field_name == "t" || field_name == "j" || field_name == "$1") {
-            return std::make_tuple("$1", 1);
+            return std::make_pair("$1", 1);
         } else if (field_name == "z" || field_name == "b" || field_name == "p" || field_name == "k" || field_name == "$2") {
-            return std::make_tuple("$2", 2);
+            return std::make_pair("$2", 2);
         } else if (field_name == "w" || field_name == "a" || field_name == "q" || field_name == "l" || field_name == "$3") {
-            return std::make_tuple("$3", 3);
+            return std::make_pair("$3", 3);
         } else {
             THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type,
                 std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
@@ -1529,7 +1407,7 @@ std::optional<std::tuple<std::string, unsigned int>> Parser::create_vector_type_
             THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, type, field_map);
             return std::nullopt;
         }
-        return std::make_tuple("$" + std::to_string(id), id);
+        return std::make_pair("$" + std::to_string(id), id);
     }
 }
 

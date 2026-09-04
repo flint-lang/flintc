@@ -40,16 +40,15 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_call_statement( //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_statement");
     token_slice tokens_mut = tokens;
-    std::optional<CreateCallOrInitializerBaseRet> ret = std::nullopt;
+    std::optional<CreateCallBaseRet> ret = std::nullopt;
     if (alias.has_value()) {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, alias.value(), is_typed_call);
+        ret = create_call_base(_ctx_, scope, tokens_mut, alias.value(), is_typed_call);
     } else {
-        ret = create_call_or_initializer_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_typed_call);
+        ret = create_call_base(_ctx_, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_typed_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
     }
-    ASSERT(!ret->is_initializer);
     if (ret->instance_variable.has_value()) {
         ASSERT(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
@@ -636,7 +635,6 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, scope_segment);
     auto body_statements = create_body(body_scope, body);
     if (!body_statements.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
     body_scope->body = std::move(body_statements.value());

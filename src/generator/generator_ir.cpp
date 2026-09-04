@@ -323,14 +323,14 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                 for (size_t i = 0; i < func->required_data.size(); i++) {
                     const auto &required_data = func->required_data.at(i);
                     size_t data_id = 0;
-                    for (; data_id < object->data_modules.size(); data_id++) {
+                    for (; data_id < object->data_components.size(); data_id++) {
                         // Since data nodes are generated as unique pointers, the raw pointers can be compared directly
-                        if (object->data_modules.at(data_id).first == required_data.type->as<DataType>()->data_node) {
+                        if (object->data_components.at(data_id).first == required_data.type->as<DataType>()->data_node) {
                             break;
                         }
                     }
                     // The required data definitely should be part of the object, otherwise the parser would have crashed
-                    ASSERT(data_id != object->data_modules.size());
+                    ASSERT(data_id != object->data_components.size());
                     // Load the data pointer from the passed-in object
                     llvm::Value *const data_ptr_ptr = builder.CreateGEP(PTR_TY, arg_object, builder.getInt32(data_id), "data_ptr_ptr");
                     llvm::Value *const data_ptr = IR::aligned_load(builder, PTR_TY, data_ptr_ptr, "data_ptr_" + std::to_string(i));
@@ -838,7 +838,7 @@ Generator::IR::TypeStorageInfo Generator::IR::get_type( //
             }
             // Create the object type, it's just a struct containing pointers to the objects' defined data
             std::vector<llvm::Type *> field_types;
-            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
+            for (size_t i = 0; i < object_type->object_node->data_components.size(); i++) {
                 field_types.emplace_back(PTR_TY);
             }
             type_map[type_str] = IR::create_struct_type(type_str, field_types);

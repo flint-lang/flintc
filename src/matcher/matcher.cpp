@@ -299,6 +299,33 @@ bool Matcher::tokens_start_with_continuous(const token_slice &tokens, const Patt
     return true;
 }
 
+bool Matcher::tokens_contain_at_top_level(const token_slice &tokens, const PatternPtr &pattern) {
+    PROFILE_CUMULATIVE("Matcher::tokens_contain_at_top_level");
+    const size_t tokens_size = std::distance(tokens.first, tokens.second);
+    size_t depth = 0;
+    for (size_t i = 0; i < tokens_size; i++) {
+        const auto &tok = tokens.first + i;
+        if (depth > 0) {
+            if (token_match(tok->token, balancer_left)) {
+                depth++;
+            } else if (token_match(tok->token, balancer_right)) {
+                depth--;
+            }
+            continue;
+        }
+        const auto result = pattern->match(tokens, i);
+        if (result.has_value()) {
+            return true;
+        }
+        if (token_match(tok->token, balancer_left)) {
+            depth++;
+        } else if (token_match(tok->token, balancer_right)) {
+            return false;
+        }
+    }
+    return false;
+}
+
 bool Matcher::tokens_contain_in_range(const token_slice &tokens, const PatternPtr &pattern, const uint2 &range) {
     PROFILE_CUMULATIVE("Matcher::tokens_contain_in_range");
     ASSERT(range.second <= std::distance(tokens.first, tokens.second));

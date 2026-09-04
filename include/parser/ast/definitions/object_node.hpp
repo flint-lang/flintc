@@ -58,10 +58,10 @@ class ObjectNode : public DefinitionNode {
     /// @brief The name of the object
     std::string name;
 
-    /// @var `data_modules`
-    /// @brief The list of data modules defined inside the object and an optional accessor for that data to be used in free-floating
-    /// functions or the constructor of the object
-    std::vector<std::pair<DataNode *, std::optional<std::string>>> data_modules;
+    /// @var `data_components`
+    /// @brief The list of data modules defined inside the object and the accessor for that data to be used in free-floating functions or
+    /// the constructor of the object
+    std::vector<std::pair<DataNode *, std::string>> data_components;
 
     /// @var `func_components`
     /// @brief The list of func components used inside the object
@@ -74,8 +74,4 @@ class ObjectNode : public DefinitionNode {
     /// @var `interfaces`
     /// @brief The list of interfaces implemented by the object
     std::vector<ImplementedInterface> interfaces;
-
-    /// @var `constructor_order`
-    /// @brief The order of the data modules in which they have to be constructed
-    std::vector<size_t> constructor_order;
 };

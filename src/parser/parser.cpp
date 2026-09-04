@@ -247,7 +247,7 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     if (PRINT_DEPS) {
         Debug::Dep::print_dep_tree(0, dep_graph.value());
     }
-    bool parsed_successful = Parser::parse_all_open_data_modules(parse_parallel);
+    bool parsed_successful = Parser::parse_all_open_data_components(parse_parallel);
     if (!parsed_successful) {
         return std::nullopt;
     }
@@ -770,7 +770,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     return nonfreeable_types;
 }
 
-bool Parser::parse_open_data_module(Parser &parser, DataNode *data) {
+bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
     PROFILE_SCOPE("Process Open Data Module '" + data->name + "'");
     // Go through al default values of the data's fields and parse them
     std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
@@ -790,7 +790,7 @@ bool Parser::parse_open_data_module(Parser &parser, DataNode *data) {
     return true;
 }
 
-bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
+bool Parser::parse_all_open_data_components(const bool parse_parallel) {
     PROFILE_THREADED_SCOPE("Parse Open Data Modules", parse_parallel);
 
     // Collect all open data modules from all parsers and store them in two lists, the const ones and the non-const ones. We parse the const
@@ -813,7 +813,7 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
         std::vector<std::future<bool>> futures;
         // Parse all const data first, then parse the non-const data
         for (auto &[parser, data] : const_data) {
-            futures.emplace_back(thread_pool.enqueue(parse_open_data_module, std::ref(parser), data));
+            futures.emplace_back(thread_pool.enqueue(parse_open_data_component, std::ref(parser), data));
         }
         // Collect results from all const tasks
         for (auto &future : futures) {
@@ -821,7 +821,7 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
         }
         futures.clear();
         for (auto &[parser, data] : nonconst_data) {
-            futures.emplace_back(thread_pool.enqueue(parse_open_data_module, std::ref(parser), data));
+            futures.emplace_back(thread_pool.enqueue(parse_open_data_component, std::ref(parser), data));
         }
         // Collect results from all nonconst tasks
         for (auto &future : futures) {
@@ -830,10 +830,10 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
     } else {
         // Process data sequentially, first all const data then all nonconst dat
         for (auto &[parser, data] : const_data) {
-            result = result && parse_open_data_module(parser, data);
+            result = result && parse_open_data_component(parser, data);
         }
         for (auto &[parser, data] : nonconst_data) {
-            result = result && parse_open_data_module(parser, data);
+            result = result && parse_open_data_component(parser, data);
         }
     }
     return result;
@@ -841,7 +841,7 @@ bool Parser::parse_all_open_data_modules(const bool parse_parallel) {
 
 bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body) {
     PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
-    auto &data_modules = object->data_modules;
+    auto &data_components = object->data_components;
     auto &func_components = object->func_components;
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
 
@@ -889,7 +889,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                             }
                             const auto &data_type = tok_it->type;
                             DataNode *const data_node = data_type->as<DataType>()->data_node;
-                            for (const auto &pair : data_modules) {
+                            for (const auto &pair : data_components) {
                                 if (pair.first != data_node) {
                                     continue;
                                 }
@@ -899,24 +899,25 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                                 );
                                 return false;
                             }
-                            if (std::next(tok_it)->token == TOK_IDENTIFIER) {
-                                // An accessor follows, we need to check whether that accessor is already taken
-                                const std::string accessor(std::next(tok_it)->lexme);
-                                if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
-                                    tok_it++;
-                                    THROW_ERR(                                                        //
-                                        ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
-                                        tok_it->line, tok_it->column, accessor                        //
-                                    );
-                                    return false;
-                                }
-                                captured_object_identifiers[accessor] = data_type;
-                                data_modules.emplace_back(data_node, accessor);
-                                tok_it++;
-                            } else {
-                                // No data accessor, just the type
-                                data_modules.emplace_back(data_node, std::nullopt);
+                            if (std::next(tok_it)->token != TOK_IDENTIFIER) {
+                                const auto next = std::next(tok_it);
+                                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash, next->line, next->column, //
+                                    std::vector<Token>{TOK_IDENTIFIER}, next->token                                        //
+                                );
+                                return false;
                             }
+                            const std::string accessor(std::next(tok_it)->lexme);
+                            if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
+                                tok_it++;
+                                THROW_ERR(                                                        //
+                                    ErrDefObjectDuplicateAccessor, ERR_PARSING, parser.file_hash, //
+                                    tok_it->line, tok_it->column, accessor                        //
+                                );
+                                return false;
+                            }
+                            captured_object_identifiers[accessor] = data_type;
+                            data_components.emplace_back(data_node, accessor);
+                            tok_it++;
                             break;
                         }
                     }
@@ -976,12 +977,8 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                 ++line_it;
                 break;
         }
-        if (line_it == body.end()) {
-            THROW_ERR(ErrDefObjectConstructorMissing, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
-            return false;
-        }
     }
-    if (data_modules.empty()) {
+    if (data_components.empty()) {
         THROW_ERR(ErrDefObjectNoData, ERR_PARSING, parser.file_hash, object->line, object->column, object->length);
         return false;
     }
@@ -991,7 +988,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         for (const auto &required_data : func->required_data) {
             bool contains_required_data = false;
             const auto *required_data_node = required_data.type->as<DataType>()->data_node;
-            for (const auto &[provided_data_node, accessor] : data_modules) {
+            for (const auto &[provided_data_node, accessor] : data_components) {
                 if (provided_data_node == required_data_node) {
                     contains_required_data = true;
                     break;
@@ -1004,129 +1001,6 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                 );
                 return false;
             }
-        }
-    }
-
-    auto tok_it = line_it->tokens.first;
-    if (tok_it->token != TOK_IDENTIFIER && tok_it->token != TOK_TYPE) {
-        THROW_ERR(                                                                                    //
-            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                    //
-            tok_it->line, tok_it->column, std::vector<Token>{TOK_IDENTIFIER, TOK_TYPE}, tok_it->token //
-        );
-        return false;
-    }
-    if (tok_it->token == TOK_IDENTIFIER && tok_it->lexme != object->name) {
-        THROW_ERR(                                                                 //
-            ErrDefObjectConstructorWrongName, ERR_PARSING, parser.file_hash,       //
-            tok_it->line, tok_it->column, object->name, std::string(tok_it->lexme) //
-        );
-        return false;
-    }
-    if (tok_it->token == TOK_TYPE && tok_it->type->to_string() != object->name) {
-        THROW_ERR(                                                                 //
-            ErrDefObjectConstructorWrongName, ERR_PARSING, parser.file_hash,       //
-            tok_it->line, tok_it->column, object->name, std::string(tok_it->lexme) //
-        );
-        return false;
-    }
-    tok_it++;
-    if (tok_it->token != TOK_LEFT_PAREN) {
-        THROW_ERR(                                                                          //
-            ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                          //
-            tok_it->line, tok_it->column, std::vector<Token>{TOK_LEFT_PAREN}, tok_it->token //
-        );
-        return false;
-    }
-    tok_it++;
-    std::vector<DataNode *> constructed_data;
-    while (tok_it != line_it->tokens.second && tok_it->token != TOK_RIGHT_PAREN) {
-        switch (tok_it->token) {
-            default:
-                THROW_ERR(                                                                                               //
-                    ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash,                                               //
-                    tok_it->line, tok_it->column, std::vector<Token>{TOK_COMMA, TOK_IDENTIFIER, TOK_TYPE}, tok_it->token //
-                );
-                return false;
-            case TOK_IDENTIFIER: {
-                const std::string identifier(tok_it->lexme);
-                const auto identifier_token = tok_it;
-                // Check if this identifier comes from a data accessor
-                bool accessor_found = false;
-                for (const auto &[data_node, accessor] : data_modules) {
-                    if (!accessor.has_value()) {
-                        continue;
-                    }
-                    if (accessor.value() != identifier) {
-                        continue;
-                    }
-                    if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                        THROW_ERR(                                                                   //
-                            ErrDefObjectConstructorDuplicateAccessor, ERR_PARSING, parser.file_hash, //
-                            identifier_token->line, identifier_token->column, identifier             //
-                        );
-                        return false;
-                    }
-                    constructed_data.emplace_back(data_node);
-                    auto idx = std::find(data_modules.begin(), data_modules.end(), std::make_pair(data_node, accessor));
-                    object->constructor_order.emplace_back(std::distance(data_modules.begin(), idx));
-                    accessor_found = true;
-                    break;
-                }
-                if (accessor_found) {
-                    tok_it++;
-                    break;
-                }
-                const auto type = parser.file_node_ptr->file_namespace->get_type_from_str(identifier);
-                if (!type.has_value()) {
-                    THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{identifier_token, identifier_token + 1});
-                    return false;
-                }
-                *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
-                [[fallthrough]];
-            }
-            case TOK_TYPE: {
-                if (tok_it->type->get_variation() != Type::Variation::DATA) {
-                    THROW_ERR(ErrDefObjectConstructorNotData, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type);
-                    return false;
-                }
-                DataNode *data_node = tok_it->type->as<DataType>()->data_node;
-                int data_idx = -1;
-                for (size_t i = 0; i < data_modules.size(); i++) {
-                    const auto &pair = data_modules.at(i);
-                    if (pair.first != data_node) {
-                        continue;
-                    }
-                    if (pair.second.has_value()) {
-                        THROW_ERR(                                                                    //
-                            ErrDefObjectConstructorDataWitoutAccessor, ERR_PARSING, parser.file_hash, //
-                            tok_it->line, tok_it->column, tok_it->type, pair.second.value()           //
-                        );
-                        return false;
-                    }
-                    data_idx = i;
-                    break;
-                }
-                if (data_idx == -1) {
-                    THROW_ERR(                                                                                                           //
-                        ErrDefObjectConstructorDataNotPresent, ERR_PARSING, parser.file_hash, tok_it->line, tok_it->column, tok_it->type //
-                    );
-                    return false;
-                }
-                // Check if the module has already been added to the constructed data
-                if (std::find(constructed_data.begin(), constructed_data.end(), data_node) != constructed_data.end()) {
-                    THROW_ERR(                                                               //
-                        ErrDefObjectConstructorDuplicateData, ERR_PARSING, parser.file_hash, //
-                        tok_it->line, tok_it->column, tok_it->type->to_string()              //
-                    );
-                    return false;
-                }
-                constructed_data.emplace_back(data_node);
-                object->constructor_order.emplace_back(data_idx);
-                [[fallthrough]];
-            }
-            case TOK_COMMA:
-                tok_it++;
-                break;
         }
     }
 

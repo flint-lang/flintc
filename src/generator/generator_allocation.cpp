@@ -729,8 +729,8 @@ bool Generator::Allocation::generate_expression_allocations(              //
         }
         case ExpressionNode::Variation::INITIALIZER: {
             const auto *node = expression->as<InitializerNode>();
-            for (const auto &arg : node->args) {
-                if (!generate_expression_allocations(builder, parent, scope, struct_types, arg.get())) {
+            for (const auto &field : node->fields) {
+                if (!generate_expression_allocations(builder, parent, scope, struct_types, field.value.get())) {
                     THROW_BASIC_ERR(ERR_GENERATING);
                     return false;
                 }

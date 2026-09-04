@@ -339,8 +339,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             // Its definitely a primitive type, but all primitive types should have been created by default annyway, so this should not be
             // possible
             UNREACHABLE();
-        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_mult)) {
-            // Its a vector-type
+        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim_vec)) {
             const std::string type_string(tokens_mut.first->lexme);
             // The last character should be a number
             const char width_char = type_string.back();

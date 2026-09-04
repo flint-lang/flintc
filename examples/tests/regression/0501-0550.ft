@@ -142,3 +142,8 @@ test "0525":
 	(exit_code, output) = system_command($"cd {normalized_path} && ./main");
 	assert(exit_code == 0);
 	assert(output == "result = 30\nvec_result = (7.800000, 10.000000, 12.200001)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\ns = String 1 plus String 2\n");
+
+test "0526":
+	str path = "tests/regression/0501-0550";
+	str file = "0526.ft";
+	test_file_ok($"{path}/{file}", "(x, y, z, w) = (20, 10, 30, 40)\nv4 = (1, 2, 3, 4)\n");

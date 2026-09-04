@@ -9,14 +9,21 @@
 /// @brief Represents all initializer expressions
 class InitializerNode : public ExpressionNode {
   public:
-    InitializerNode(                                       //
-        const Hash &hash,                                  //
-        const PosTriple &pos,                              //
-        const std::shared_ptr<Type> &type,                 //
-        std::vector<std::unique_ptr<ExpressionNode>> &args //
+    /// @struct `field`
+    /// @brief Represents a single field in the initializer
+    struct Field {
+        std::string name;
+        std::unique_ptr<ExpressionNode> value;
+    };
+
+    InitializerNode(                       //
+        const Hash &hash,                  //
+        const PosTriple &pos,              //
+        const std::shared_ptr<Type> &type, //
+        std::vector<Field> &fields         //
         ) :
         ExpressionNode(hash, pos, true),
-        args(std::move(args)) {
+        fields(std::move(fields)) {
         this->type = type;
     }
 
@@ -29,14 +36,14 @@ class InitializerNode : public ExpressionNode {
     }
 
     std::unique_ptr<ExpressionNode> clone(const unsigned int scope_id) const override {
-        std::vector<std::unique_ptr<ExpressionNode>> args_clone;
-        for (auto &arg : args) {
-            args_clone.emplace_back(arg->clone(scope_id));
+        std::vector<Field> fields_clone;
+        for (auto &[name, value] : fields) {
+            fields_clone.emplace_back(Field{name, value->clone(scope_id)});
         }
-        return std::make_unique<InitializerNode>(file_hash, PosTriple{line, column, length}, type, args_clone);
+        return std::make_unique<InitializerNode>(file_hash, PosTriple{line, column, length}, type, fields_clone);
     }
 
-    /// @var `args`
-    /// @brief The arguments with which the initializer will be initialized
-    std::vector<std::unique_ptr<ExpressionNode>> args;
+    /// @var `fields`
+    /// @brief The fields with which the initializer will be initialized
+    std::vector<Field> fields;
 };

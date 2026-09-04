@@ -178,6 +178,10 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
                 continue;
             }
         } else {
+            if (is_object && line->tokens.first->token == TOK_DEF) {
+                mode = BodyMode::DEFINITION;
+                is_object = false;
+            }
             switch (mode) {
                 case BodyMode::STATEMENT:
                     break;
@@ -192,10 +196,6 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
                             line = std::prev(physical_lines.erase(line + 1));
                         }
                         ++line_end;
-                    }
-                    if (is_object && std::prev(line_end)->token == TOK_RIGHT_PAREN) {
-                        mode = BodyMode::DEFINITION;
-                        is_object = false;
                     }
                     ++line_end;
                     logical_lines.emplace_back(line->indent_lvl, token_slice{line_start, line_end});

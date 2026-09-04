@@ -397,8 +397,8 @@ void Generator::Memory::generate_free_value( //
         case Type::Variation::OBJECT: {
             const auto *object_type = type->as<ObjectType>();
             llvm::Type *const struct_type = IR::get_type(module, type).type;
-            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
-                const DataNode *data_node = object_type->object_node->data_modules.at(i).first;
+            for (size_t i = 0; i < object_type->object_node->data_components.size(); i++) {
+                const DataNode *data_node = object_type->object_node->data_components.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();
@@ -892,8 +892,8 @@ void Generator::Memory::generate_clone_value( //
             llvm::Function *const dima_allocate_fn = Module::DIMA::dima_functions.at("allocate");
             llvm::Value *const object_head = Module::DIMA::get_head(type);
             llvm::Value *const new_object_ptr = builder->CreateCall(dima_allocate_fn, {object_head}, "new_data_value");
-            for (size_t i = 0; i < object_type->object_node->data_modules.size(); i++) {
-                const DataNode *data_node = object_type->object_node->data_modules.at(i).first;
+            for (size_t i = 0; i < object_type->object_node->data_components.size(); i++) {
+                const DataNode *data_node = object_type->object_node->data_components.at(i).first;
                 const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
                 const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
                 const std::string data_type_str = data_type->to_string();

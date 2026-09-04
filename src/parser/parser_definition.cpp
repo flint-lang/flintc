@@ -10,7 +10,6 @@
 
 #include "fip.hpp"
 
-#include <algorithm>
 #include <optional>
 #include <string>
 
@@ -356,10 +355,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     bool is_const = false;
     bool is_shared = false;
     std::string name;
-
     std::vector<DataNode::Field> fields;
-    std::vector<std::string> order;
-
     for (                                                                                                    //
         auto def_it = definition.first;                                                                      //
         def_it != definition.second && (def_it == definition.first || std::prev(def_it)->token != TOK_DATA); //
@@ -386,149 +382,88 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     }
     for (auto line_it = body.begin(); line_it != body.end(); ++line_it) {
         for (auto token_it = line_it->tokens.first; token_it != line_it->tokens.second; ++token_it) {
-            if (token_it->token == TOK_IDENTIFIER && std::next(token_it)->token == TOK_LEFT_PAREN) {
-                if (is_const || is_shared) {
-                    // Const and shared data is not allowed to have an initalizer
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                // It's the initializer
-                if (token_it->lexme != name) {
-                    THROW_ERR(ErrDefDataWrongConstructorName, ERR_PARSING,                              //
-                        file_hash, token_it->line, token_it->column, name, std::string(token_it->lexme) //
-                    );
-                    return std::nullopt;
-                }
-                // Skip the identifier and the left paren
-                token_it += 2;
-                // The initializer line must end with a closing paren followed by a semicolon.
-                if (std::prev(line_it->tokens.second)->token != TOK_SEMICOLON) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                if ((line_it->tokens.second - 2)->token != TOK_RIGHT_PAREN) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                for (; token_it != line_it->tokens.second - 2; ++token_it) {
-                    if (token_it->token == TOK_IDENTIFIER) {
-                        if (std::find(order.begin(), order.end(), token_it->lexme) != order.end()) {
-                            THROW_ERR(                                                         //
-                                ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash,          //
-                                token_it->line, token_it->column, std::string(token_it->lexme) //
-                            );
-                            return std::nullopt;
-                        }
-                        order.emplace_back(token_it->lexme);
-                    } else if (token_it->token != TOK_COMMA) {
-                        // Not allowed token in field initializer
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                }
-            } else if (Matcher::tokens_start_with({token_it, line_it->tokens.second}, Matcher::type)) {
-                // It's a field
-                std::optional<uint2> range = Matcher::get_next_match_range({token_it, line_it->tokens.second}, Matcher::type);
-                if (!range.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                ASSERT(range.value().first == 0);
-                unsigned int type_advance = range.value().second;
-                token_slice type_tokens = {token_it, token_it + type_advance};
-                std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
-                // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
-                // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
-                // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
-                // callback is properly executed for re-validating the bounds)
-                const bool type_unknown = !field_type.has_value() || field_type.value()->get_variation() == Type::Variation::UNKNOWN;
-                if (type_advance == 1 && type_tokens.first->token == TOK_IDENTIFIER && type_unknown) {
-                    const std::string first_name(type_tokens.first->lexme);
-                    const auto result = resolve_alias_in_type(first_name, type_tokens.second, line_it->tokens.second);
-                    if (result.extra_tokens > 0) {
-                        type_advance += result.extra_tokens;
-                        type_tokens = {token_it, token_it + type_advance};
-                        field_type = result.resolved_type;
-                    }
-                }
-                if (!field_type.has_value()) {
-                    THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, type_tokens);
-                    return std::nullopt;
-                }
-                token_it += type_advance;
-                const std::string token_it_lexme(token_it->lexme);
-                if (token_it->token != TOK_IDENTIFIER) {
-                    // Missing field name
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                for (const auto &field : fields) {
-                    if (field.name == token_it_lexme) {
-                        // Field name duplication
-                        THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash, token_it->line, token_it->column, token_it_lexme);
-                        return std::nullopt;
-                    }
-                }
-                // Check if a ; follows, then it's a "normal" field, if a '=' follows then the field has a default value. It is parsed in
-                // the second phase of the parser.
-                token_it++;
-                if (token_it->token != TOK_SEMICOLON && token_it->token != TOK_EQUAL) {
-                    // Unexpected token after field definition
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                std::optional<std::unique_ptr<ExpressionNode>> field_initializer = std::nullopt;
-                std::optional<token_slice> field_initializer_tokens = std::nullopt;
-                if (token_it->token == TOK_EQUAL) {
-                    // Get all tokens of the expression by simply moving the token until it points to a semicolon
-                    ++token_it;
-                    field_initializer_tokens = {token_it, token_it};
-                    while (token_it->token != TOK_SEMICOLON) {
-                        token_it++;
-                    }
-                    field_initializer_tokens.value().second = token_it;
-                }
-                if (is_const && !field_initializer_tokens.has_value()) {
-                    // Every field must have an initializer if the data is const
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                fields.emplace_back(DataNode::Field{
-                    .name = token_it_lexme,
-                    .type = field_type.value(),
-                    .initializer_tokens = field_initializer_tokens,
-                    .initializer = std::move(field_initializer),
-                });
+            if (!Matcher::tokens_start_with({token_it, line_it->tokens.second}, Matcher::type)) {
+                continue;
             }
-        }
-    }
-
-    std::vector<DataNode::Field> ordered_fields;
-    ordered_fields.resize(fields.size());
-    if (order.empty()) {
-        if (!is_const && !is_shared) {
-            // Empty order on data type whose constructor should contain values
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        ordered_fields = std::move(fields);
-    } else {
-        if (order.size() != fields.size()) {
-            // Not all fields are part of the initializer, at least one is missing
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        for (auto &field : fields) {
-            const size_t field_id = std::distance(order.begin(), std::find(order.begin(), order.end(), field.name));
-            // TODO: This crashes when we have a field in the constructor that's not present in the field list of the data
-            ordered_fields[field_id] = std::move(field);
+            std::optional<uint2> range = Matcher::get_next_match_range({token_it, line_it->tokens.second}, Matcher::type);
+            if (!range.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            ASSERT(range.value().first == 0);
+            unsigned int type_advance = range.value().second;
+            token_slice type_tokens = {token_it, token_it + type_advance};
+            std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
+            // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
+            // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is not
+            // allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete callback is
+            // properly executed for re-validating the bounds)
+            const bool type_unknown = !field_type.has_value() || field_type.value()->get_variation() == Type::Variation::UNKNOWN;
+            if (type_advance == 1 && type_tokens.first->token == TOK_IDENTIFIER && type_unknown) {
+                const std::string first_name(type_tokens.first->lexme);
+                const auto result = resolve_alias_in_type(first_name, type_tokens.second, line_it->tokens.second);
+                if (result.extra_tokens > 0) {
+                    type_advance += result.extra_tokens;
+                    type_tokens = {token_it, token_it + type_advance};
+                    field_type = result.resolved_type;
+                }
+            }
+            if (!field_type.has_value()) {
+                THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, type_tokens);
+                return std::nullopt;
+            }
+            token_it += type_advance;
+            const std::string token_it_lexme(token_it->lexme);
+            if (token_it->token != TOK_IDENTIFIER) {
+                THROW_ERR(                                                                            //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash, token_it->line, token_it->column, //
+                    std::vector<Token>{TOK_IDENTIFIER}, token_it->token                               //
+                );
+                return std::nullopt;
+            }
+            for (const auto &field : fields) {
+                if (field.name == token_it_lexme) {
+                    THROW_ERR(ErrDefDataDuplicateFieldName, ERR_PARSING, file_hash, token_it->line, token_it->column, token_it_lexme);
+                    return std::nullopt;
+                }
+            }
+            // Check if a ; follows, then it's a "normal" field, if a '=' follows then the field has a default value. It is parsed in
+            // the second phase of the parser.
+            token_it++;
+            if (token_it->token != TOK_SEMICOLON && token_it->token != TOK_EQUAL) {
+                // Unexpected token after field definition
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            std::optional<std::unique_ptr<ExpressionNode>> field_initializer = std::nullopt;
+            std::optional<token_slice> field_initializer_tokens = std::nullopt;
+            if (token_it->token == TOK_EQUAL) {
+                // Get all tokens of the expression by simply moving the token until it points to a semicolon
+                ++token_it;
+                field_initializer_tokens = {token_it, token_it};
+                while (token_it->token != TOK_SEMICOLON) {
+                    token_it++;
+                }
+                field_initializer_tokens.value().second = token_it;
+            }
+            if (is_const && !field_initializer_tokens.has_value()) {
+                // Every field must have an initializer if the data is const
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            fields.emplace_back(DataNode::Field{
+                .name = token_it_lexme,
+                .type = field_type.value(),
+                .initializer_tokens = field_initializer_tokens,
+                .initializer = std::move(field_initializer),
+            });
         }
     }
 
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return DataNode(file_hash, line, column, length, is_const, is_shared, name, ordered_fields);
+    return DataNode(file_hash, line, column, length, is_const, is_shared, name, fields);
 }
 
 std::optional<FuncNode> Parser::create_func(const token_slice &definition, const std::vector<Line> &body) {
