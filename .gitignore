@@ -6,7 +6,6 @@
 .flintc
 .cache
 .zig-cache
-build
 vendor
 output.ll
 ft_test

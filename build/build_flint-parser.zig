@@ -1,10 +1,10 @@
 const std = @import("std");
 const fip = @import("fip");
 
-const FLINTC_VERSION = @import("build.zig").FLINTC_VERSION;
+const FLINTC_VERSION = @import("../build.zig").FLINTC_VERSION;
 
-const hasInternetConnection = @import("build.zig").hasInternetConnection;
-const makeEmptyStep = @import("build.zig").makeEmptyStep;
+const hasInternetConnection = @import("../build.zig").hasInternetConnection;
+const makeEmptyStep = @import("../build.zig").makeEmptyStep;
 
 // zig fmt: off
 pub const compile_flags = &[_][]const u8{

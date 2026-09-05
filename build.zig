@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const flint_parser = @import("build_flint-parser.zig");
+const flint_parser = @import("build/build_flint-parser.zig");
 
 pub const FLINTC_VERSION = @import("build.zig.zon").version;
 const DEFAULT_LLVM_VERSION = "llvmorg-22.1.8";
