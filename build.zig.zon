@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .fip = .{
-            .url = "git+https://github.com/flint-lang/fip#dd30942391ce1380da877d625023fa68540e1cae",
-            .hash = "fip-0.4.1-jXH3OSfcAwDcpDINR09FlL2fBOH9jxDU2enTLRjSEb9W",
+            .url = "git+https://github.com/flint-lang/fip#9dc9a0ea56cca64f4ea2da6f5c9e6b8d23685d78",
+            .hash = "fip-0.4.1-jXH3OfTgAwCa2HvYOj0rCgELdFEWAc7nuUKauJ-2AAjm",
         },
     },
     .paths = .{

@@ -46,10 +46,8 @@ pub fn build(b: *std.Build) !void {
 
     const target = targets(b)[@intFromEnum(target_option)];
 
-    const flint_parser_lib = try flint_parser.build_flint_parser_lib(b, target, optimize);
+    const flint_parser_lib = try flint_parser.build_flint_parser_lib(b, target, optimize, .master);
     b.installArtifact(flint_parser_lib);
-    flint_parser_lib.installHeader(b.dependency("fip", .{}).path("fip.h"), "fip.h");
-    flint_parser_lib.installHeader(b.dependency("fip", .{}).path("toml/tomlc17.h"), "toml/tomlc17.h");
 
     if (only_build_flint_parser) {
         flint_parser_lib.installHeadersDirectory(b.path("include/analyzer"), "analyzer", .{ .include_extensions = &.{".hpp"} });
@@ -123,8 +121,8 @@ pub fn build(b: *std.Build) !void {
     for (targets(b)) |t| {
         const build_llvm_step = try buildLLVM(b, &llvm_step.step, t, force_llvm_rebuild, jobs, external_llvm_dir);
 
-        const flint_parser_lib_debug = try flint_parser.build_flint_parser_lib(b, t, .Debug);
-        const flint_parser_lib_release = try flint_parser.build_flint_parser_lib(b, t, .ReleaseSmall);
+        const flint_parser_lib_debug = try flint_parser.build_flint_parser_lib(b, t, .Debug, .master);
+        const flint_parser_lib_release = try flint_parser.build_flint_parser_lib(b, t, .ReleaseSmall, .master);
 
         const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
         flintc_exe_debug.step.dependOn(last_target_step);
@@ -195,7 +193,6 @@ fn buildFLS(
     }
 
     // Add Include paths
-    exe.root_module.addIncludePath(b.dependency("fip", .{}).path("."));
     exe.root_module.addIncludePath(b.path("include"));
     exe.root_module.addIncludePath(b.path("fls/include"));
 
@@ -263,7 +260,6 @@ fn buildFlintc(
 
     // Add Include paths
     exe.root_module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{llvm_dir}) });
-    exe.root_module.addIncludePath(b.dependency("fip", .{}).path("."));
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 

@@ -1,4 +1,5 @@
 const std = @import("std");
+const fip = @import("fip");
 
 const FLINTC_VERSION = @import("build.zig").FLINTC_VERSION;
 
@@ -35,6 +36,7 @@ pub fn build_flint_parser_lib(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    lib_mode: fip.LibMode,
 ) !*std.Build.Step.Compile {
     const lib = b.addLibrary(.{
         .name = "flint-parser",
@@ -57,8 +59,11 @@ pub fn build_flint_parser_lib(
         lib.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
+    const fip_dep = b.dependency("fip", .{ .target = target, .optimize = optimize, .@"lib-mode" = lib_mode });
+    lib.root_module.linkLibrary(fip_dep.artifact("fip"));
+    lib.installLibraryHeaders(fip_dep.artifact("fip"));
+
     // Add Include paths
-    lib.root_module.addIncludePath(b.dependency("fip", .{}).path("."));
     lib.root_module.addIncludePath(b.path("include"));
 
     // Collect C++ files
@@ -87,14 +92,5 @@ pub fn build_flint_parser_lib(
         .files = cpp_files.items,
         .flags = compile_flags,
     });
-
-    // Add toml C src file for FIP
-    lib.root_module.addCSourceFile(.{
-        .file = b.dependency("fip", .{}).path("toml/tomlc17.c"),
-        .flags = &[_][]const u8{
-            "-fno-sanitize=undefined", // Disable sanitizer to prevent "missing ubsan" compile errors
-        },
-    });
-
     return lib;
 }
