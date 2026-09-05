@@ -26,5 +26,6 @@ test
 test.o
 logfile
 zig-out
+zig-pkg
 
 chat.txt

@@ -24,10 +24,9 @@ pub fn build(b: *std.Build) !void {
         @panic("To use 'llvm-prebuilt' a 'llvm-dir' needs to be provided.");
     }
     const external_skip_llvm_config = b.option(bool, "skip-llvm-config", "Wehther to skip llvm-config being executed.") orelse false;
-    const external_fip_dir = b.option([]const u8, "fip-dir", "Path to external FIP installation. Skips fetching FIP.");
     const external_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
 
-    if (external_llvm_dir == null or external_fip_dir == null) {
+    if (external_llvm_dir == null) {
         // Git is only needed when at least one source is not provided externally and thus needs to be fetched
         _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
     }
@@ -48,6 +47,9 @@ pub fn build(b: *std.Build) !void {
     const target = targets(b)[@intFromEnum(target_option)];
 
     const flint_parser_lib = try flint_parser.build_flint_parser_lib(b, target, optimize);
+    b.installArtifact(flint_parser_lib);
+    flint_parser_lib.installHeader(b.dependency("fip", .{}).path("fip.h"), "fip.h");
+    flint_parser_lib.installHeader(b.dependency("fip", .{}).path("toml/tomlc17.h"), "toml/tomlc17.h");
 
     if (only_build_flint_parser) {
         flint_parser_lib.installHeadersDirectory(b.path("include/analyzer"), "analyzer", .{ .include_extensions = &.{".hpp"} });
@@ -65,12 +67,6 @@ pub fn build(b: *std.Build) !void {
         flint_parser_lib.installHeader(b.path("include/profiler.hpp"), "profiler.hpp");
         flint_parser_lib.installHeader(b.path("include/single_executor_guard.hpp"), "single_executor_guard.hpp");
         flint_parser_lib.installHeader(b.path("include/types.hpp"), "types.hpp");
-
-        flint_parser_lib.installHeader(b.path("vendor/sources/fip/fip.h"), "fip.h");
-        flint_parser_lib.installHeader(b.path("vendor/sources/fip/toml/tomlc17.h"), "toml/tomlc17.h");
-
-        b.installArtifact(flint_parser_lib);
-
         return;
     }
 
@@ -98,14 +94,12 @@ pub fn build(b: *std.Build) !void {
     };
     std.debug.print("-- Build Date is {s}\n", .{build_date});
 
-    // Update FIP
-    const update_fip = if (external_fip_dir) |_| try makeEmptyStep(b) else try updateFip(b);
-
     // Update LLVM if no external LLVM is passed
-    var last_step = update_fip;
-    if (external_llvm_dir == null) {
-        last_step = try updateLLVM(b, &update_fip.step, llvm_version);
-    }
+    const last_step = if (external_llvm_dir == null)
+        try updateLLVM(b, llvm_version)
+    else
+        try makeEmptyStep(b);
+
     // Build LLVM if the extern LLVM dir is not prebuilt
     const llvm_step = if (external_llvm_prebuilt)
         try makeEmptyStep(b)
@@ -114,11 +108,11 @@ pub fn build(b: *std.Build) !void {
     const llvm_dir: ?[]const u8 = if (external_llvm_prebuilt) external_llvm_dir else null;
 
     // Build flintc exe
-    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib);
+    const flintc_exe = try buildFlintc(b, &llvm_step.step, target, optimize, commit_hash, build_date, llvm_dir, external_skip_llvm_config, flint_parser_lib);
     const flintc_exe_install = b.addInstallArtifact(flintc_exe, .{});
     b.getInstallStep().dependOn(&flintc_exe_install.step);
     // Build FLS exe
-    const fls_exe = try buildFLS(b, &update_fip.step, target, optimize, commit_hash, build_date, external_fip_dir, flint_parser_lib);
+    const fls_exe = try buildFLS(b, target, optimize, commit_hash, build_date, flint_parser_lib);
     fls_exe.step.dependOn(&flintc_exe.step);
     const fls_exe_install = b.addInstallArtifact(fls_exe, .{});
     b.getInstallStep().dependOn(&fls_exe_install.step);
@@ -132,19 +126,19 @@ pub fn build(b: *std.Build) !void {
         const flint_parser_lib_debug = try flint_parser.build_flint_parser_lib(b, t, .Debug);
         const flint_parser_lib_release = try flint_parser.build_flint_parser_lib(b, t, .ReleaseSmall);
 
-        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
+        const flintc_exe_debug = try buildFlintc(b, &build_llvm_step.step, t, .Debug, commit_hash, build_date, llvm_dir, external_skip_llvm_config, flint_parser_lib_debug);
         flintc_exe_debug.step.dependOn(last_target_step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_debug, .{}).step);
 
-        const fls_exe_debug = try buildFLS(b, &update_fip.step, t, .Debug, commit_hash, build_date, external_fip_dir, flint_parser_lib_debug);
+        const fls_exe_debug = try buildFLS(b, t, .Debug, commit_hash, build_date, flint_parser_lib_debug);
         fls_exe_debug.step.dependOn(&flintc_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_debug, .{}).step);
 
-        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, llvm_dir, external_skip_llvm_config, flint_parser_lib_release);
+        const flintc_exe_release = try buildFlintc(b, &build_llvm_step.step, t, .ReleaseSmall, commit_hash, build_date, llvm_dir, external_skip_llvm_config, flint_parser_lib_release);
         flintc_exe_release.step.dependOn(&fls_exe_debug.step);
         build_all_step.dependOn(&b.addInstallArtifact(flintc_exe_release, .{}).step);
 
-        const fls_exe_release = try buildFLS(b, &update_fip.step, t, .ReleaseSmall, commit_hash, build_date, external_fip_dir, flint_parser_lib_release);
+        const fls_exe_release = try buildFLS(b, t, .ReleaseSmall, commit_hash, build_date, flint_parser_lib_release);
         fls_exe_release.step.dependOn(&flintc_exe_release.step);
         build_all_step.dependOn(&b.addInstallArtifact(fls_exe_release, .{}).step);
         last_target_step = &fls_exe_release.step;
@@ -169,12 +163,10 @@ pub fn build(b: *std.Build) !void {
 
 fn buildFLS(
     b: *std.Build,
-    previous_step: *std.Build.Step,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     commit_hash: []const u8,
     build_date: []const u8,
-    external_fip_dir: ?[]const u8,
     flint_parser_lib: *std.Build.Step.Compile,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
@@ -202,10 +194,8 @@ fn buildFLS(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
-    const fip_dir = if (external_fip_dir) |dir| dir else "vendor/sources/fip";
-
     // Add Include paths
-    exe.root_module.addIncludePath(.{ .cwd_relative = fip_dir });
+    exe.root_module.addIncludePath(b.dependency("fip", .{}).path("."));
     exe.root_module.addIncludePath(b.path("include"));
     exe.root_module.addIncludePath(b.path("fls/include"));
 
@@ -227,9 +217,6 @@ fn buildFLS(
 
     // Link the flint parser library
     exe.root_module.linkLibrary(flint_parser_lib);
-
-    exe.step.dependOn(previous_step);
-
     return exe;
 }
 
@@ -240,7 +227,6 @@ fn buildFlintc(
     optimize: std.builtin.OptimizeMode,
     commit_hash: []const u8,
     build_date: []const u8,
-    external_fip_dir: ?[]const u8,
     external_llvm_dir: ?[]const u8,
     external_skip_llvm_config: bool,
     flint_parser_lib: *std.Build.Step.Compile,
@@ -274,11 +260,10 @@ fn buildFlintc(
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
     };
-    const fip_dir = if (external_fip_dir) |dir| dir else "vendor/sources/fip";
 
     // Add Include paths
     exe.root_module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{llvm_dir}) });
-    exe.root_module.addIncludePath(.{ .cwd_relative = fip_dir });
+    exe.root_module.addIncludePath(b.dependency("fip", .{}).path("."));
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 
@@ -474,7 +459,7 @@ fn buildLLVM(
     return install_runs[install_runs.len - 1];
 }
 
-fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []const u8) !*std.Build.Step.Run {
+fn updateLLVM(b: *std.Build, llvm_version: []const u8) !*std.Build.Step.Run {
     std.debug.print("-- Updating the 'llvm-project' repository\n", .{});
     // 1. Check if llvm-project exists in vendor directory
     if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/llvm-project", .{})) |_| {
@@ -488,7 +473,6 @@ fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []con
         const reset_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
         reset_llvm_cmd.setName("reset_llvm");
         reset_llvm_cmd.setCwd(b.path("vendor/sources/llvm-project"));
-        reset_llvm_cmd.step.dependOn(previous_step);
 
         // 4. Fetch llvm-project
         const fetch_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "fetch", "-fq", "--depth", "1", "origin", "tag", llvm_version });
@@ -513,70 +497,8 @@ fn updateLLVM(b: *std.Build, previous_step: *std.Build.Step, llvm_version: []con
         // 3. Clone llvm
         const clone_llvm_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "--depth", "1", "--branch", llvm_version, "https://github.com/llvm/llvm-project.git", "vendor/sources/llvm-project" });
         clone_llvm_step.setName("clone_llvm");
-        clone_llvm_step.step.dependOn(previous_step);
 
         return clone_llvm_step;
-    }
-}
-
-fn updateFip(b: *std.Build) !*std.Build.Step.Run {
-    // 1. Check if fip exists in vendor directory
-    std.debug.print("-- Updating the 'fip' repository\n", .{});
-    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/fip", .{})) |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, skipping updating 'fip'...\n", .{});
-            return makeEmptyStep(b);
-        }
-
-        // 3. Reset hard
-        const reset_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
-        reset_fip_cmd.setName("reset_fip");
-        reset_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-
-        // 4. Fetch fip
-        const fetch_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "fetch" });
-        fetch_fip_cmd.setName("fetch_fip");
-        fetch_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-        fetch_fip_cmd.step.dependOn(&reset_fip_cmd.step);
-
-        // 5. Checkout fip main
-        const checkout_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", "main" });
-        checkout_fip_cmd.setName("checkout_fip");
-        checkout_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-        checkout_fip_cmd.step.dependOn(&fetch_fip_cmd.step);
-
-        // 6. Pull fip
-        const pull_fip_cmd = b.addSystemCommand(&[_][]const u8{ "git", "pull", "-fq" });
-        pull_fip_cmd.setName("pull_fip");
-        pull_fip_cmd.setCwd(b.path("vendor/sources/fip"));
-        pull_fip_cmd.step.dependOn(&checkout_fip_cmd.step);
-
-        // 7. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.FIP_VERSION });
-        checkout_fip_hash_cmd.setName("checkout_fip_hash");
-        checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
-        checkout_fip_hash_cmd.step.dependOn(&pull_fip_cmd.step);
-
-        return checkout_fip_hash_cmd;
-    } else |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, unable to clone dependency 'fip'...\n", .{});
-            return error.NoInternetConnection;
-        }
-
-        // 3. Clone fip
-        const fetch_fip_complete_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "https://github.com/flint-lang/fip.git", "vendor/sources/fip" });
-        fetch_fip_complete_step.setName("fetch_fip_complete");
-
-        // 4. Checkout fip hash
-        const checkout_fip_hash_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", flint_parser.FIP_VERSION });
-        checkout_fip_hash_cmd.setName("checkout_fip_hash");
-        checkout_fip_hash_cmd.setCwd(b.path("vendor/sources/fip"));
-        checkout_fip_hash_cmd.step.dependOn(&fetch_fip_complete_step.step);
-
-        return checkout_fip_hash_cmd;
     }
 }
 

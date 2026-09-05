@@ -3,7 +3,12 @@
     .version = "0.4.1-core",
     .fingerprint = 0xa822051bf53ee93a, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0",
-    .dependencies = .{},
+    .dependencies = .{
+        .fip = .{
+            .url = "git+https://github.com/flint-lang/fip#dd30942391ce1380da877d625023fa68540e1cae",
+            .hash = "fip-0.4.1-jXH3OSfcAwDcpDINR09FlL2fBOH9jxDU2enTLRjSEb9W",
+        },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",
