@@ -1,41 +1,15 @@
 const std = @import("std");
 const fip = @import("fip");
 
-const FLINTC_VERSION = @import("../build.zig").FLINTC_VERSION;
+const FLINTC_VERSION = @import("../build.zig.zon").version;
+const COMPILE_FLAGS = @import("../build.zig").compile_flags;
 
-const hasInternetConnection = @import("../build.zig").hasInternetConnection;
-const makeEmptyStep = @import("../build.zig").makeEmptyStep;
-
-// zig fmt: off
-pub const compile_flags = &[_][]const u8{
-    "-std=c++20",                           // Set C++ standard to C++20
-    "-Werror",                              // Treat warnings as errors
-    "-Wall",                                // Enable most warnings
-    "-Wextra",                              // Enable extra warnings
-    "-Wshadow",                             // Warn about shadow variables
-    "-Wcast-align",                         // Warn about pointer casts that increase alignment requirement
-    "-Wcast-qual",                          // Warn about casts that remove const qualifier
-    "-Wunused",                             // Warn about unused variables
-    "-Wold-style-cast",                     // Warn about C-style casts
-    "-Wdouble-promotion",                   // Warn about float being implicitly promoted to double
-    "-Wformat=2",                           // Warn about printf/scanf/strftime/strfmon format string issue
-    "-Wundef",                              // Warn if an undefined identifier is evaluated in an #if
-    "-Wpointer-arith",                      // Warn about sizeof(void) and add/sub with void*
-    "-Wunreachable-code",                   // Warn about unreachable code
-    "-fno-omit-frame-pointer",              // Prevent omitting frame pointer for debugging and stack unwinding
-    "-funwind-tables",                      // Generate unwind tables for stack unwinding
-    "-ffunction-sections",                  // Place each function in its own section
-    "-fdata-sections",                      // Place each data object in its own section
-    "-fstandalone-debug",                   // Emit standalone debug information
-    "-fno-sanitize=undefined",              // Disable sanitizer to prevent "missing ubsan" compile errors
-    "-Wno-unused-command-line-argument",    // Supresses "argument unused during compilation" warning
-};
-// zig fmt: on
-
-pub fn build_flint_parser_lib(
+pub fn build(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
+    prev_step: *std.Build.Step,
+    install_headers: bool,
     lib_mode: fip.LibMode,
 ) !*std.Build.Step.Compile {
     const lib = b.addLibrary(.{
@@ -48,6 +22,8 @@ pub fn build_flint_parser_lib(
         }),
         .linkage = .static,
     });
+    b.installArtifact(lib);
+    lib.step.dependOn(prev_step);
     lib.link_function_sections = true;
     lib.link_data_sections = true;
     lib.link_gc_sections = true;
@@ -90,7 +66,25 @@ pub fn build_flint_parser_lib(
     lib.root_module.addCSourceFiles(.{
         .root = b.path("src"),
         .files = cpp_files.items,
-        .flags = compile_flags,
+        .flags = COMPILE_FLAGS,
     });
+
+    if (install_headers) {
+        lib.installHeadersDirectory(b.path("include/analyzer"), "analyzer", .{ .include_extensions = &.{".hpp"} });
+        lib.installHeadersDirectory(b.path("include/error"), "error", .{ .include_extensions = &.{".hpp"} });
+        lib.installHeadersDirectory(b.path("include/lexer"), "lexer", .{ .include_extensions = &.{".hpp"} });
+        lib.installHeadersDirectory(b.path("include/matcher"), "matcher", .{ .include_extensions = &.{".hpp"} });
+        lib.installHeadersDirectory(b.path("include/parser"), "parser", .{ .include_extensions = &.{".hpp"} });
+        lib.installHeadersDirectory(b.path("include/resolver"), "resolver", .{ .include_extensions = &.{".hpp"} });
+
+        lib.installHeader(b.path("include/colors.hpp"), "colors.hpp");
+        lib.installHeader(b.path("include/debug.hpp"), "debug.hpp");
+        lib.installHeader(b.path("include/fip.hpp"), "fip.hpp");
+        lib.installHeader(b.path("include/globals.hpp"), "globals.hpp");
+        lib.installHeader(b.path("include/persistent_thread_pool.hpp"), "persistent_thread_pool.hpp");
+        lib.installHeader(b.path("include/profiler.hpp"), "profiler.hpp");
+        lib.installHeader(b.path("include/single_executor_guard.hpp"), "single_executor_guard.hpp");
+        lib.installHeader(b.path("include/types.hpp"), "types.hpp");
+    }
     return lib;
 }
