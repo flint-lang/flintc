@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	f32x3 v3 = f32x3{ x = 5 };
+	print($"v3 = {v3}\n");

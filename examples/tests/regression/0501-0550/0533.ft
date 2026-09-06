@@ -1,0 +1,11 @@
+use Core.print
+
+variant Variant:
+	Int(i32), Float(f32);
+
+data Data:
+	f32 x;
+	Variant v;
+
+def main():
+	Data d = Data{.x = 3};
