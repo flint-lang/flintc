@@ -5,7 +5,7 @@
 
 class ErrEmptyStoredFixedArray : public BaseError {
   public:
-    ErrEmptyStoredFixedArray(const ErrorType error_type, const Hash &file_hash, const ASTNode::PosTriple &pos) :
+    ErrEmptyStoredFixedArray(const ErrorType error_type, const Hash &file_hash, const PosTriple &pos) :
         BaseError(error_type, file_hash, pos.line, pos.column, pos.length) {}
 
     [[nodiscard]]

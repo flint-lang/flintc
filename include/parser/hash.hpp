@@ -135,6 +135,15 @@ struct Hash {
         return string;
     }
 
+    /// @function `get_namespace`
+    /// @brief Returns the namespace of this hash
+    ///
+    /// @return `Namespace *` The namespace of this hash
+    ///
+    /// @attention This function will crash if the hash does not belong to a namespace. Only call it when you are sure that this hash
+    /// actually belongs to a valid namespace
+    Namespace *get_namespace() const;
+
     // copy operators
     Hash(const Hash &) = default;
     Hash &operator=(const Hash &) = default;

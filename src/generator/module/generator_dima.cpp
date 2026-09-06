@@ -287,9 +287,8 @@ void Generator::Module::DIMA::generate_init_function( //
     for (const ObjectNode *object : objects) {
         const std::string heads_key = object->file_hash.to_string() + "." + object->name;
         const std::string block_name = "init_object_" + object->name;
-        const Parser *object_parser_instance = Parser::get_instance_from_hash(object->file_hash).value();
-        const auto &object_type_ptr = object_parser_instance->file_node_ptr->file_namespace->get_type_from_str(object->name);
-        llvm::StructType *const object_struct_type = IR::add_and_or_get_type(module, object_type_ptr.value(), false);
+        const auto object_type = object->file_hash.get_namespace()->get_type_from_ptr(object).value();
+        llvm::StructType *const object_struct_type = IR::add_and_or_get_type(module, object_type, false);
         const size_t data_type_size = Allocation::get_type_size(module, object_struct_type);
         llvm::BasicBlock *const object_block = llvm::BasicBlock::Create(context, block_name, init_fn);
         builder->SetInsertPoint(last_block);
@@ -303,7 +302,7 @@ void Generator::Module::DIMA::generate_init_function( //
         );
         // Store the type id in the head
         llvm::Value *const type_id_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_ID, "type_id_ptr");
-        IR::aligned_store(*builder, builder->getInt32(object_type_ptr.value()->get_id()), type_id_ptr);
+        IR::aligned_store(*builder, builder->getInt32(object_type->get_id()), type_id_ptr);
         // Store the type size in the head
         llvm::Value *const type_size_ptr = builder->CreateStructGEP(head_type, allocated_head, HEAD_TYPE_SIZE, "type_size_ptr");
         IR::aligned_store(*builder, builder->getInt64(data_type_size), type_size_ptr);

@@ -1,14 +1,13 @@
 #pragma once
 
 #include "error/error_types/base_error.hpp"
-#include "parser/ast/ast_node.hpp"
 
 class ErrExprArrayComplexNeedsInitializer : public BaseError {
   public:
     ErrExprArrayComplexNeedsInitializer( //
         const ErrorType error_type,      //
         const Hash &file_hash,           //
-        const ASTNode::PosTriple &pos    //
+        const PosTriple &pos             //
         ) :
         BaseError(error_type, file_hash, pos.line, pos.column, pos.length) {}
 

@@ -8,3 +8,9 @@
 using token_list = std::vector<TokenContext>;
 using token_slice = std::pair<token_list::iterator, token_list::iterator>;
 using uint2 = std::pair<unsigned int, unsigned int>;
+
+struct PosTriple {
+    unsigned int line;
+    unsigned int column;
+    unsigned int length;
+};

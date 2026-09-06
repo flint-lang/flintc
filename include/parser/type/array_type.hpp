@@ -30,6 +30,20 @@ class ArrayType : public Type {
         return false;
     }
 
+    bool is_default_constructible() const override {
+        // An array is either default-constructible if it is a dynamic array (length 0) or when it's a fixed-size array then it's contained
+        // type needs to be default-constructible (for example in `T[10]` T needs to be default-constructible because we need to initially
+        // create 10 values of it)
+        return !sizes.has_value() || type->is_default_constructible();
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        const Hash &hash,                                             //
+        const PosTriple &pos,                                         //
+        const unsigned int scope_id                                   //
+    ) const override;
+
     Hash get_hash() const override {
         return type->get_hash();
     }

@@ -15,6 +15,7 @@
 #include "parser/type/group_type.hpp"
 #include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
+#include "parser/type/opaque_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/unknown_type.hpp"
@@ -35,6 +36,77 @@ std::optional<std::shared_ptr<Type>> Namespace::get_type_from_str(const std::str
     // If it's not a public type maybe it's a private type
     if (private_symbols.types.find(type_str) != private_symbols.types.end()) {
         return private_symbols.types.at(type_str);
+    }
+    return std::nullopt;
+}
+
+static std::optional<std::shared_ptr<Type>> get_type_from_ptr_map(     //
+    const std::unordered_map<std::string, std::shared_ptr<Type>> &map, //
+    const ASTNode *node_ptr                                            //
+) {
+    for (const auto &[type_name, type] : map) {
+        switch (type->get_variation()) {
+            default:
+                break;
+            case Type::Variation::ALIAS:
+                ASSERT(false, "All aliases should have been resolved by now");
+                break;
+            case Type::Variation::DATA:
+                if (type->as<DataType>()->data_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::ENUM:
+                if (type->as<EnumType>()->enum_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::ERROR_SET:
+                if (type->as<ErrorSetType>()->error_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::FUNC:
+                if (type->as<FuncType>()->func_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::INTERFACE:
+                if (type->as<InterfaceType>()->interface_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::OBJECT:
+                if (type->as<ObjectType>()->object_node == node_ptr) {
+                    return type;
+                }
+                break;
+            case Type::Variation::VARIANT: {
+                const auto &var_or_list = type->as<VariantType>()->var_or_list;
+                if (std::holds_alternative<VariantNode *const>(var_or_list)) {
+                    if (std::get<VariantNode *const>(var_or_list) == node_ptr) {
+                        return type;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::shared_ptr<Type>> Namespace::get_type_from_ptr(const ASTNode *node_ptr) const {
+    // Node-types never are global types so we can skip the global type check
+    if (const auto &type = get_type_from_ptr_map(public_symbols.types, node_ptr)) {
+        return type;
+    }
+    if (const auto &type = get_type_from_ptr_map(private_symbols.types, node_ptr)) {
+        return type;
+    }
+    for (const auto &import : public_symbols.aliased_imports) {
+        if (const auto &type = import.second->get_type_from_ptr(node_ptr)) {
+            return type;
+        }
     }
     return std::nullopt;
 }
@@ -568,9 +640,10 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                             if (type.has_value()) {
                                 tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, type.value());
                             } else {
-                                std::shared_ptr<Type> unknown_type = std::make_shared<UnknownType>(std::string(tok.lexme));
-                                if (!file_node->file_namespace->add_type(unknown_type)) {
-                                    unknown_type = file_node->file_namespace->get_type_from_str(unknown_type->to_string()).value();
+                                const std::string type_string(tok.lexme);
+                                std::shared_ptr<Type> unknown_type = std::make_shared<UnknownType>(type_string);
+                                if (const auto &real_type = file_node->file_namespace->get_type_from_str(type_string)) {
+                                    unknown_type = real_type.value();
                                 }
                                 tok = TokenContext(TOK_TYPE, tok.line, tok.column, tok.file_id, unknown_type);
                             }
@@ -683,8 +756,9 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
 
 bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
     switch (type->get_variation()) {
-        default:
-            return true;
+        case Type::Variation::ALIAS: {
+            return can_be_global(type->as<AliasType>()->type);
+        }
         case Type::Variation::ARRAY: {
             const auto *array_type = type->as<ArrayType>();
             return can_be_global(array_type->type);
@@ -698,6 +772,28 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
         case Type::Variation::ERROR_SET:
             // Error Sets are always user-defined
             return false;
+        case Type::Variation::FUNC:
+            // Func components are always user-defined
+            return false;
+        case Type::Variation::FN: {
+            const auto *fn_type = type->as<FnType>();
+            for (const auto &param : fn_type->params) {
+                if (!can_be_global(param.first)) {
+                    return false;
+                }
+            }
+            for (const auto &ret : fn_type->return_types) {
+                if (!can_be_global(ret)) {
+                    return false;
+                }
+            }
+            for (const auto &err : fn_type->error_types) {
+                if (!can_be_global(err)) {
+                    return false;
+                }
+            }
+            return true;
+        }
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             for (const auto &elem_type : group_type->types) {
@@ -707,6 +803,15 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
             }
             return true;
         }
+        case Type::Variation::INTERFACE:
+            // Interfaces are always user-defined
+            return false;
+        case Type::Variation::OBJECT:
+            // Objects are always user-defined
+            return false;
+        case Type::Variation::OPAQUE:
+            // Opaque types are user-defined if they are named
+            return !type->as<OpaqueType>()->name.has_value();
         case Type::Variation::OPTIONAL: {
             const auto *optional_type = type->as<OptionalType>();
             return can_be_global(optional_type->base_type);
@@ -715,6 +820,10 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
             const auto *pointer_type = type->as<PointerType>();
             return can_be_global(pointer_type->base_type);
         }
+        case Type::Variation::PRIMITIVE:
+            return true;
+        case Type::Variation::RANGE:
+            return true;
         case Type::Variation::TUPLE: {
             const auto *tuple_type = type->as<TupleType>();
             for (const auto &elem_type : tuple_type->types) {
@@ -741,8 +850,10 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
                 return true;
             }
         }
+        case Type::Variation::VECTOR:
+            return true;
     }
-    return false;
+    UNREACHABLE();
 }
 
 std::optional<FunctionNode *> Namespace::find_core_function( //

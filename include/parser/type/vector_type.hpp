@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/expressions/initializer_node.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -23,6 +24,28 @@ class VectorType : public Type {
 
     bool is_dima_managed() const override {
         return false;
+    }
+
+    bool is_default_constructible() const override {
+        return true;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        const Hash &hash,                                             //
+        const PosTriple &pos,                                         //
+        const unsigned int scope_id                                   //
+    ) const override {
+        ASSERT(self.get() == static_cast<const Type *>(this));
+        std::vector<InitializerNode::Field> fields;
+        for (size_t i = 0; i < width; i++) {
+            fields.emplace_back(InitializerNode::Field{
+                .name = "$" + std::to_string(i),
+                .value = base_type->get_default_value(base_type, hash, pos, scope_id).value(),
+            });
+        }
+        std::unique_ptr<ExpressionNode> default_value = std::make_unique<InitializerNode>(hash, pos, self, fields);
+        return default_value;
     }
 
     Hash get_hash() const override {

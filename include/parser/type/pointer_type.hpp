@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/expressions/literal_node.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -22,6 +23,21 @@ class PointerType : public Type {
 
     bool is_dima_managed() const override {
         return false;
+    }
+
+    bool is_default_constructible() const override {
+        return true;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        const Hash &hash,                                             //
+        const PosTriple &pos,                                         //
+        [[maybe_unused]] const unsigned int scope_id                  //
+    ) const override {
+        ASSERT(self.get() == static_cast<const Type *>(this));
+        LitValue value = LitPtr();
+        return std::make_unique<LiteralNode>(hash, pos, value, self, false);
     }
 
     Hash get_hash() const override {

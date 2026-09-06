@@ -1,14 +1,13 @@
 #pragma once
 
 #include "error/error_types/base_error.hpp"
-#include "parser/ast/ast_node.hpp"
 
 class ErrDefObjectImplementedTypeUnknown : public BaseError {
   public:
     ErrDefObjectImplementedTypeUnknown( //
         const ErrorType error_type,     //
         const Hash &file_file,          //
-        const ASTNode::PosTriple &pos   //
+        const PosTriple &pos            //
         ) :
         BaseError(error_type, file_file, pos.line, pos.column, pos.length) {}
 

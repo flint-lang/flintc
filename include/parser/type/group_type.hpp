@@ -25,6 +25,20 @@ class GroupType : public Type {
         return false;
     }
 
+    bool is_default_constructible() const override {
+        return false;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        [[maybe_unused]] const Hash &hash,                            //
+        [[maybe_unused]] const PosTriple &pos,                        //
+        [[maybe_unused]] const unsigned int scope_id                  //
+    ) const override {
+        ASSERT(self.get() == static_cast<const Type *>(this));
+        return std::nullopt;
+    }
+
     Hash get_hash() const override {
         std::vector<Hash> value_hashes;
         for (const auto &type : types) {

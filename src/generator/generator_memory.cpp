@@ -399,8 +399,7 @@ void Generator::Memory::generate_free_value( //
             llvm::Type *const struct_type = IR::get_type(module, type).type;
             for (size_t i = 0; i < object_type->object_node->data_components.size(); i++) {
                 const DataNode *data_node = object_type->object_node->data_components.at(i).first;
-                const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
+                const std::shared_ptr<Type> data_type = data_node->file_hash.get_namespace()->get_type_from_ptr(data_node).value();
                 const std::string data_type_str = data_type->to_string();
                 llvm::Value *const field_ptr = builder->CreateStructGEP(struct_type, value, i, "field_" + data_type_str + "_ptr");
                 llvm::Value *const data_value = IR::aligned_load(*builder, PTR_TY, field_ptr, "data_value");
@@ -894,8 +893,7 @@ void Generator::Memory::generate_clone_value( //
             llvm::Value *const new_object_ptr = builder->CreateCall(dima_allocate_fn, {object_head}, "new_data_value");
             for (size_t i = 0; i < object_type->object_node->data_components.size(); i++) {
                 const DataNode *data_node = object_type->object_node->data_components.at(i).first;
-                const Namespace *data_namespace = Resolver::get_namespace_from_hash(data_node->file_hash);
-                const std::shared_ptr<Type> data_type = data_namespace->get_type_from_str(data_node->name).value();
+                const std::shared_ptr<Type> data_type = data_node->file_hash.get_namespace()->get_type_from_ptr(data_node).value();
                 const std::string data_type_str = data_type->to_string();
                 llvm::Value *const src_field_ptr = builder->CreateStructGEP(struct_type, src, i, "src_field_" + data_type_str + "_ptr");
                 llvm::Value *const src_field = IR::aligned_load(*builder, PTR_TY, src_field_ptr, "src_field");

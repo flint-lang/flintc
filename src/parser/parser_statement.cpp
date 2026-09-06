@@ -1666,7 +1666,7 @@ std::optional<GroupAssignmentNode> Parser::create_group_assignment_shorthand( //
 
     // The rest of the tokens now is the expression
     std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
-    ASTNode::PosTriple rhs_pos;
+    PosTriple rhs_pos;
     if (rhs.has_value()) {
         expr = std::move(rhs.value());
         rhs_pos = {
@@ -1772,7 +1772,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
         // Parse the expression with the expected type passed into it
         token_slice expression_tokens = {it + 2, tokens.second};
         std::optional<std::unique_ptr<ExpressionNode>> expression;
-        ASTNode::PosTriple rhs_pos;
+        PosTriple rhs_pos;
         if (rhs.has_value()) {
             expression = std::move(rhs.value());
             rhs_pos = {
@@ -2131,7 +2131,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         Analyzer::Castability::resolve_comptime_type_of_expr(*this, rhs.value(), std::nullopt);
         final_type = rhs.value()->type;
         if (rhs.value()->type->get_variation() == Type::Variation::GROUP) {
-            const ASTNode::PosTriple rhs_pos{
+            const PosTriple rhs_pos{
                 .line = rhs.value()->line,
                 .column = rhs.value()->column,
                 .length = rhs.value()->length,
@@ -2358,7 +2358,7 @@ std::optional<DataFieldAssignmentNode> Parser::create_data_field_assignment_shor
 
     // The rest of the tokens is the expression to parse
     std::optional<std::unique_ptr<ExpressionNode>> expression;
-    ASTNode::PosTriple rhs_pos;
+    PosTriple rhs_pos;
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
         rhs_pos = {
@@ -2491,7 +2491,7 @@ std::optional<GroupedDataFieldAssignmentNode> Parser::create_grouped_data_field_
 
     // The rest of the tokens is the expression to parse
     std::optional<std::unique_ptr<ExpressionNode>> expression;
-    ASTNode::PosTriple rhs_pos;
+    PosTriple rhs_pos;
     if (rhs.has_value()) {
         expression = std::move(rhs.value());
         rhs_pos = {
@@ -2611,7 +2611,7 @@ std::optional<ArrayAssignmentNode> Parser::create_array_assignment_shorthand( //
     }
 
     // If no rhs was provided we need to parse it ourselves, otherwise we can use the provided rhs expression
-    ASTNode::PosTriple rhs_pos;
+    PosTriple rhs_pos;
     if (!rhs.has_value()) {
         const token_slice rhs_tokens = {lhs_tokens.second + 1, tokens.second};
         rhs = create_expression(_ctx_, scope, rhs_tokens, access_base.value().result_type);

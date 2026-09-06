@@ -288,7 +288,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
             // be valid Flint code
             const APInt lit_int = lit_float.to_apint();
             LitValue lit_value = LitInt{.value = lit_int};
-            const ASTNode::PosTriple &lit_pos = {literal_node->line, literal_node->column, literal_node->length};
+            const PosTriple &lit_pos = {literal_node->line, literal_node->column, literal_node->length};
             const std::unique_ptr<LiteralNode> tmp_lit_node = std::make_unique<LiteralNode>( //
                 literal_node->file_hash, lit_pos, lit_value, literal_node->type, true        //
             );
@@ -3452,7 +3452,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_initializer( 
     // because default values would lead to uninitialized memory (e.g., invalid string pointers)
     if (is_default_init) {
         if (initializer->element_type->is_freeable()) {
-            const ASTNode::PosTriple pos{
+            const PosTriple pos{
                 .line = initializer->line,
                 .column = initializer->column,
                 .length = initializer->length,
@@ -5937,13 +5937,13 @@ std::optional<llvm::Value *> Generator::Expression::generate_optional_cmp( //
     llvm::Value *lhs_value = builder.CreateExtractValue(lhs, {1}, "lhs_value");
     llvm::Value *rhs_value = builder.CreateExtractValue(rhs, {1}, "rhs_value");
     const auto *lhs_opt_type = lhs_expr->type->as<OptionalType>();
-    const ASTNode::PosTriple lhs_pos{
+    const PosTriple lhs_pos{
         lhs_expr->line,
         lhs_expr->column,
         lhs_expr->length,
     };
     const TypeNode lhs_fake(lhs_expr->file_hash, lhs_pos, lhs_opt_type->base_type);
-    const ASTNode::PosTriple rhs_pos{
+    const PosTriple rhs_pos{
         rhs_expr->line,
         rhs_expr->column,
         rhs_expr->length,

@@ -46,7 +46,7 @@ bool Analyzer::Castability::resolve_comptime_type_of_expr(  //
         const unsigned int line = literal->line;
         const unsigned int column = literal->column;
         const unsigned int length = literal->length;
-        const ASTNode::PosTriple literal_pos = {line, column, length};
+        const PosTriple literal_pos = {line, column, length};
         LitValue new_value = LitStr{str_value};
         expr = std::make_unique<LiteralNode>(                                                                            //
             parser.file_hash, literal_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded //
@@ -793,8 +793,8 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
     const std::string expr_type_str = expr->type->to_string();
     const std::string target_type_str = target_type->to_string();
     if (expr_type_str == "type.flint.str.lit" && target_type_str == "str") {
-        expr = std::make_unique<TypeCastNode>(                                                              //
-            parser.file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, target_type, expr //
+        expr = std::make_unique<TypeCastNode>(                                                     //
+            parser.file_hash, PosTriple{expr->line, expr->column, expr->length}, target_type, expr //
         );
         return true;
     }
@@ -854,7 +854,7 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
                         case CastDirection::Kind::CAST_RHS_TO_LHS: {
                             const std::string &elem_type_str = expr_elem_type->to_string();
                             if (!resolve_comptime_type_of_expr(parser, elem_expr, target_elem_type)) {
-                                const auto cast_pos = ASTNode::PosTriple{elem_expr->line, elem_expr->column, elem_expr->length};
+                                const auto cast_pos = PosTriple{elem_expr->line, elem_expr->column, elem_expr->length};
                                 elem_expr = std::make_unique<TypeCastNode>(parser.file_hash, cast_pos, target_elem_type, elem_expr);
                             }
                             new_element_types.push_back(target_elem_type);
@@ -876,14 +876,14 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
             if (expr->type->equals(target_type)) {
                 return true;
             }
-            expr = std::make_unique<TypeCastNode>(                                                              //
-                parser.file_hash, ASTNode::PosTriple{expr->line, expr->column, expr->length}, target_type, expr //
+            expr = std::make_unique<TypeCastNode>(                                                     //
+                parser.file_hash, PosTriple{expr->line, expr->column, expr->length}, target_type, expr //
             );
             return true;
         }
     }
 
-    const ASTNode::PosTriple &expr_pos = {expr->line, expr->column, expr->length};
+    const PosTriple &expr_pos = {expr->line, expr->column, expr->length};
     switch (target_type->get_variation()) {
         case Type::Variation::ALIAS:
             UNREACHABLE();
@@ -1078,7 +1078,7 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
                     const unsigned int line = literal->line;
                     const unsigned int column = literal->column;
                     const unsigned int length = literal->length;
-                    const ASTNode::PosTriple literal_pos = {
+                    const PosTriple literal_pos = {
                         .line = literal->line,
                         .column = literal->column,
                         .length = literal->length,

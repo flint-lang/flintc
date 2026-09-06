@@ -79,7 +79,7 @@ std::optional<std::unique_ptr<LiteralNode>> Parser::fold_literals( //
     const LiteralNode *rhs                                         //
 ) {
     PROFILE_CUMULATIVE("Parser::fold_literals");
-    const auto pos_triple = ASTNode::PosTriple{
+    const auto pos_triple = PosTriple{
         .line = lhs->line,
         .column = lhs->column,
         .length = (rhs->column - lhs->column) + rhs->length,
@@ -1105,8 +1105,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
         // Check if the given type contains the given field, and get the type of that field
         switch (type_token->type->get_variation()) {
             default: {
-                [[maybe_unused]] const Type::Variation variation = tokens_mut.first->type->get_variation();
-                [[maybe_unused]] const std::string type_str = tokens_mut.first->type->to_string();
+                [[maybe_unused]] const Type::Variation variation = type_token->type->get_variation();
+                [[maybe_unused]] const std::string type_str = type_token->type->to_string();
                 THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
                 return std::nullopt;
             }
@@ -1133,9 +1133,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 bool field_found = false;
                 std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
                 for (const auto &[data_node, field_accessor] : object_node->data_components) {
+                    const std::shared_ptr<Type> data_type = file_node_ptr->file_namespace->get_type_from_ptr(data_node).value();
+                    possible_fields.emplace_back(field_accessor, data_type);
                     if (field_accessor == field_name) {
                         field_found = true;
-                        field_type = file_node_ptr->file_namespace->get_type_from_str(data_node->name).value();
+                        field_type = data_type;
                         break;
                     }
                 }
@@ -1181,6 +1183,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
     }
 
     // Check for missing fields and fill them in
+    const PosTriple pos{
+        .line = tokens_mut.first->line,
+        .column = tokens_mut.first->column,
+        .length = 1,
+    };
     switch (type_token->type->get_variation()) {
         default: {
             [[maybe_unused]] const Type::Variation variation = tokens_mut.first->type->get_variation();
@@ -1204,9 +1211,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 if (contains_field) {
                     continue;
                 }
-                // Field not yet present, we need to check if it is default-constructible
-                // TODO: Add `is_default_constructible()` virtual function to the `Type` class
-                UNREACHABLE();
+                if (!data_field.type->is_default_constructible() && !data_field.initializer.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                fields.emplace_back(InitializerNode::Field{
+                    .name = data_field.name,
+                    .value = data_field.initializer.has_value()                  //
+                        ? data_field.initializer.value()->clone(scope->scope_id) //
+                        : data_field.type->get_default_value(data_field.type, file_hash, pos, scope->scope_id).value(),
+                });
             }
             break;
         }
@@ -1215,7 +1229,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
             if (object_node->data_components.size() == fields.size()) {
                 break;
             }
-            for (const auto &[data_type, data_accessor] : object_node->data_components) {
+            for (const auto &[data_node, data_accessor] : object_node->data_components) {
                 bool contains_field = false;
                 for (const auto &field : fields) {
                     if (field.name == data_accessor) {
@@ -1226,9 +1240,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 if (contains_field) {
                     continue;
                 }
-                // Field not yet present, we need to check if it is default-constructible
-                // TODO: Add `is_default_constructible()` virtual function to the `Type` class
-                UNREACHABLE();
+                const std::shared_ptr<Type> data_type = object_node->file_hash.get_namespace()->get_type_from_ptr(data_node).value();
+                if (!data_type->is_default_constructible()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                fields.emplace_back(InitializerNode::Field{
+                    .name = data_accessor,
+                    .value = data_type->get_default_value(data_type, file_hash, pos, scope->scope_id).value(),
+                });
             }
             break;
         }
@@ -1475,13 +1495,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
     // the bounds happens in the analyzer
     if (!lhs_expr.value()->type->equals(u64_ty)) {
         if (!Analyzer::Castability::resolve_comptime_type_of_expr(*this, lhs_expr.value(), u64_ty)) {
-            const ASTNode::PosTriple &lhs_pos = {lhs_expr.value()->line, lhs_expr.value()->column, lhs_expr.value()->length};
+            const PosTriple &lhs_pos = {lhs_expr.value()->line, lhs_expr.value()->column, lhs_expr.value()->length};
             lhs_expr.value() = std::make_unique<TypeCastNode>(file_hash, lhs_pos, u64_ty, lhs_expr.value());
         }
     }
     if (!rhs_expr.value()->type->equals(u64_ty)) {
         if (!Analyzer::Castability::resolve_comptime_type_of_expr(*this, rhs_expr.value(), u64_ty)) {
-            const ASTNode::PosTriple &rhs_pos = {rhs_expr.value()->line, rhs_expr.value()->column, rhs_expr.value()->length};
+            const PosTriple &rhs_pos = {rhs_expr.value()->line, rhs_expr.value()->column, rhs_expr.value()->length};
             rhs_expr.value() = std::make_unique<TypeCastNode>(file_hash, rhs_pos, u64_ty, rhs_expr.value());
         }
     }
@@ -2479,8 +2499,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                             return std::nullopt;
                         }
                         token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
-                        auto message =
-                            create_expression(ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str"));
+                        auto message = create_expression(                                                       //
+                            ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str") //
+                        );
                         if (!message.has_value()) {
                             return std::nullopt;
                         }
@@ -2853,7 +2874,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     // type mismatches are reported as parse errors, exactly as they were before the castability checks were moved into the analyzer
     const std::string lhs_type_str = lhs.value()->type->to_string();
     const std::string rhs_type_str = rhs.value()->type->to_string();
-    const ASTNode::PosTriple binop_pos = get_pos_triple(tokens);
+    const PosTriple binop_pos = get_pos_triple(tokens);
     switch (Analyzer::Castability::match_binop_operands(*this, pivot_token, lhs.value(), rhs.value())) {
         case Analyzer::Castability::BinopMatchResult::OK:
             break;

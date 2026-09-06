@@ -1,6 +1,7 @@
 #pragma once
 
 #include "assert.hpp"
+#include "types.hpp"
 
 #include <memory>
 #include <optional>
@@ -10,6 +11,7 @@
 
 // Forward-declaration of the hash to prevent circular dependencies
 struct Hash;
+class ExpressionNode;
 
 /// @class `Type`
 /// @brief This is the base class of all types, but it cannot be initialized directly. Instead, its just a base type from which all explicit
@@ -77,6 +79,28 @@ class Type {
     ///
     /// @return `bool` Whether this type is DIMA-managed
     virtual bool is_dima_managed() const = 0;
+
+    /// @function `is_default_constructible`
+    /// @brief Whether this type is default-constructible
+    ///
+    /// @return `bool` Whether this type is default-constructible
+    virtual bool is_default_constructible() const = 0;
+
+    /// @function `get_default_value`
+    /// @brief Returns the default-constructed value of this type, nullopt if this type is not default-constructible
+    ///
+    /// @param `self` The shared pointer this function is called from, so that we don't need to re-construct the shared pointer within the
+    /// dispatched version of the virtual function
+    /// @param `hash` The hash of the file in which to default-construct the type
+    /// @param `pos` The position at which to default-construct the type
+    /// @param `scope_id` The ID of the scope in which to get the default-constructed value
+    /// @return `std::optional<std::unique_ptr<ExpressionNode>>` The constructed default-value, nullopt if not default-constructible
+    virtual std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                                    //
+        const Hash &hash,                                                     //
+        const PosTriple &pos,                                                 //
+        const unsigned int scope_id                                           //
+    ) const = 0;
 
     /// @function `get_hash`
     /// @brief Returns the hash of the file this type was defined in. If it's a type which is possible to be placed at global scope, for

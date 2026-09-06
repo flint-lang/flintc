@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/expressions/literal_node.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -20,6 +21,36 @@ class PrimitiveType : public Type {
 
     bool is_dima_managed() const override {
         return false;
+    }
+
+    bool is_default_constructible() const override {
+        return type_name != "int" && type_name != "float" && //
+            (type_name == "str" || type_name == "bool" || type_name[0] == 'f' || type_name[0] == 'i' || type_name[0] == 'u');
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        const Hash &hash,                                             //
+        const PosTriple &pos,                                         //
+        [[maybe_unused]] const unsigned int scope_id                  //
+    ) const override {
+        ASSERT(self.get() == static_cast<const Type *>(this));
+        if (!is_default_constructible()) {
+            return std::nullopt;
+        }
+        LitValue value;
+        if (type_name == "str") {
+            value = LitStr("");
+        } else if (type_name == "bool") {
+            value = LitBool(false);
+        } else if (type_name[0] == 'f') {
+            value = LitFloat(APFloat("0"));
+        } else if (type_name[0] == 'i' || type_name[0] == 'u') {
+            value = LitInt(APInt("0"));
+        } else {
+            UNREACHABLE();
+        }
+        return std::make_unique<LiteralNode>(hash, pos, value, self, false);
     }
 
     Hash get_hash() const override {

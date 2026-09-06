@@ -173,7 +173,7 @@ llvm::DIType *Generator::Debug::create_debug_type_object(llvm::Module *const mod
     std::vector<llvm::Metadata *> member_types;
     for (size_t i = 0; i < data_components.size(); ++i) {
         const auto &[data_node, accessor_name] = data_components.at(i);
-        const auto data_type = Resolver::get_namespace_from_hash(data_node->file_hash)->get_type_from_str(data_node->name).value();
+        const auto data_type = data_node->file_hash.get_namespace()->get_type_from_ptr(data_node).value();
         llvm::DIType *const data_debug_type = get_or_create_debug_type(module, data_type);
 
         llvm::Type *const field_llvm_type = llvm_struct->getElementType(i);
@@ -302,8 +302,7 @@ llvm::DIType *Generator::Debug::create_debug_type_func(llvm::Module *const modul
     };
     std::vector<ObjectInfo> object_infos;
     for (const ObjectNode *node : objects) {
-        const Namespace *ns = Resolver::get_namespace_from_hash(node->file_hash);
-        const std::shared_ptr<Type> object_type = ns->get_type_from_str(node->name).value();
+        const std::shared_ptr<Type> object_type = node->file_hash.get_namespace()->get_type_from_ptr(node).value();
         object_infos.push_back({node->name, object_type, object_type->get_id()});
     }
 
@@ -584,8 +583,7 @@ llvm::DIType *Generator::Debug::create_debug_type_interface(llvm::Module *const 
     };
     std::vector<ObjectInfo> object_infos;
     for (const ObjectNode *node : objects) {
-        const Namespace *ns = Resolver::get_namespace_from_hash(node->file_hash);
-        const std::shared_ptr<Type> object_type = ns->get_type_from_str(node->name).value();
+        const std::shared_ptr<Type> object_type = node->file_hash.get_namespace()->get_type_from_ptr(node).value();
         object_infos.push_back({node->name, object_type, object_type->get_id()});
     }
 

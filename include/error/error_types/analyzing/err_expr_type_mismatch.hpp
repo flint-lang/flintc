@@ -2,7 +2,6 @@
 
 #include "colors.hpp"
 #include "error/error_types/base_error.hpp"
-#include "parser/ast/ast_node.hpp"
 #include "parser/type/type.hpp"
 
 /// @class `ErrExprTypeMismatch`
@@ -12,7 +11,7 @@ class ErrExprTypeMismatch : public BaseError {
     ErrExprTypeMismatch(                       //
         const ErrorType error_type,            //
         const Hash &file_hash,                 //
-        const ASTNode::PosTriple &pos,         //
+        const PosTriple &pos,                  //
         const std::shared_ptr<Type> &expected, //
         const std::shared_ptr<Type> &type      //
         ) :

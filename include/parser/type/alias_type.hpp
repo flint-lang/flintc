@@ -25,6 +25,21 @@ class AliasType : public Type {
         return type->is_dima_managed();
     }
 
+    bool is_default_constructible() const override {
+        return false;
+    }
+
+    std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
+        const std::shared_ptr<Type> &self,                            //
+        [[maybe_unused]] const Hash &hash,                            //
+        [[maybe_unused]] const PosTriple &pos,                        //
+        [[maybe_unused]] const unsigned int scope_id                  //
+    ) const override {
+        ASSERT(self.get() == static_cast<const Type *>(this));
+        ASSERT(false, "Alias types should have been resolved by now");
+        return std::nullopt;
+    }
+
     Hash get_hash() const override {
         return type->get_hash();
     }

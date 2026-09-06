@@ -654,7 +654,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                 && interface_type.value()->get_variation() != Type::Variation::UNKNOWN //
             ) {
                 THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, file_hash,
-                    ASTNode::PosTriple{
+                    PosTriple{
                         tok_it->line,
                         tok_it->column,
                         static_cast<unsigned int>(interface_type.value()->to_string().size()),
@@ -674,7 +674,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
             interfaces.push_back(ObjectNode::ImplementedInterface{
                 .type = interface_type.value(),
                 .pos =
-                    ASTNode::PosTriple{
+                    PosTriple{
                         .line = tok_it->line,
                         .column = tok_it->column,
                         .length = static_cast<uint32_t>(interface_type.value()->to_string().size()),
@@ -723,8 +723,8 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
         }
         // Dont actually parse the function body, only its definition
         std::shared_ptr<Type> object_type = std::make_shared<UnknownType>(object_name);
-        if (!file_node_ptr->file_namespace->add_type(object_type)) {
-            object_type = file_node_ptr->file_namespace->get_type_from_str(object_type->to_string()).value();
+        if (const auto &real_type = file_node_ptr->file_namespace->get_type_from_str(object_name)) {
+            object_type = real_type.value();
         }
         const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> required_data = std::make_pair( //
             object_name,
@@ -1215,8 +1215,8 @@ Parser::AliasLookupResult Parser::resolve_alias_in_type( //
         if (result.resolved_type == nullptr) {
             // Create an unknown type if the type was unable to be resolved
             result.resolved_type = std::make_shared<UnknownType>(full_type_name);
-            if (!file_node_ptr->file_namespace->add_type(result.resolved_type)) {
-                result.resolved_type = file_node_ptr->file_namespace->get_type_from_str(result.resolved_type->to_string()).value();
+            if (const auto &real_type = file_node_ptr->file_namespace->get_type_from_str(full_type_name)) {
+                result.resolved_type = real_type.value();
             }
         }
         result.extra_tokens = extra_tokens;

@@ -1,0 +1,34 @@
+use Core.print
+
+data Data1:
+	i32 x;
+	i32 y;
+
+data Data2:
+	i32 z;
+	i32 w;
+
+data Data3:
+	f32[] arr;
+	f32? b;
+
+object Object:
+	data:
+		Data1 d1,
+		Data2 d2,
+		Data3 d3;
+	
+	def print():
+		print($"(x, y, z, w, arr.len, b.has_value) = ({d1.x}, {d1.y}, {d2.z}, {d2.w}, {d3.arr.len}, {d3.b != none})\n");
+
+def main():
+	d1 := Data1{};
+	d2 := Data2{ .z = 30 };
+	o := Object{
+		.d1 = d1,
+		.d2 = d2,
+		};
+	o.print();
+
+	f32x4 v4 = f32x4{.x = 0, .z = 3};
+	print($"v4 = {v4}\n");

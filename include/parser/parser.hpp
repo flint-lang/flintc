@@ -379,8 +379,8 @@ class Parser {
     ///
     /// @param `tokens` The tokens to pack into a pos triple
     /// @return `PosTriple` A PosTriple containing a line, column and length field
-    static ASTNode::PosTriple get_pos_triple(const token_slice &tokens) {
-        return ASTNode::PosTriple{
+    static PosTriple get_pos_triple(const token_slice &tokens) {
+        return PosTriple{
             .line = tokens.first->line,
             .column = tokens.first->column,
             .length = tokens.second->column - tokens.first->column,

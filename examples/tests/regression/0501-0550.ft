@@ -147,3 +147,8 @@ test "0526":
 	str path = "tests/regression/0501-0550";
 	str file = "0526.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w) = (20, 10, 30, 40)\nv4 = (1, 2, 3, 4)\n");
+
+test "0527":
+	str path = "tests/regression/0501-0550";
+	str file = "0527.ft";
+	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.000000e+, 0.000000e+, 3, 0.000000e+)\n");

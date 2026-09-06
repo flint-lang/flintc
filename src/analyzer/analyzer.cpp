@@ -1,7 +1,6 @@
 #include "analyzer/analyzer.hpp"
 
 #include "error/error.hpp"
-#include "parser/ast/ast_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -648,15 +647,15 @@ bool Analyzer::analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<Expre
 
     // Finally check if one of the two sides are string literals, if they are they need to become a string variable
     if (node->left->type->to_string() == "type.flint.str.lit") {
-        node->left = std::make_unique<TypeCastNode>(                                                       //
-            node->file_hash, ASTNode::PosTriple{node->left->line, node->left->column, node->left->length}, //
-            Type::get_primitive_type("str"), node->left                                                    //
+        node->left = std::make_unique<TypeCastNode>(                                              //
+            node->file_hash, PosTriple{node->left->line, node->left->column, node->left->length}, //
+            Type::get_primitive_type("str"), node->left                                           //
         );
     }
     if (node->right->type->to_string() == "type.flint.str.lit") {
-        node->right = std::make_unique<TypeCastNode>(                                                         //
-            node->file_hash, ASTNode::PosTriple{node->right->line, node->right->column, node->right->length}, //
-            Type::get_primitive_type("str"), node->right                                                      //
+        node->right = std::make_unique<TypeCastNode>(                                                //
+            node->file_hash, PosTriple{node->right->line, node->right->column, node->right->length}, //
+            Type::get_primitive_type("str"), node->right                                             //
         );
     }
 
@@ -1208,7 +1207,7 @@ bool Analyzer::analyze_expression(                            //
 
     // Check if the types are implicitely type castable, if they are, wrap the expression in a TypeCastNode
     if (expected_type.has_value() && !expected_type.value()->equals(expr->type)) {
-        const ASTNode::PosTriple expr_pos = ASTNode::PosTriple{
+        const PosTriple expr_pos = PosTriple{
             .line = expr->line,
             .column = expr->column,
             .length = expr->length,
@@ -1270,8 +1269,8 @@ bool Analyzer::analyze_type(                      //
         case Type::Variation::ARRAY: {
             const auto *array_type = type_to_analyze->as<ArrayType>();
             if (!is_empty_fixed_array_allowed && array_type->is_fixed_and_empty()) {
-                THROW_ERR(                                                                                                              //
-                    ErrEmptyStoredFixedArray, ERR_ANALYZING, ctx.parser.file_hash, ASTNode::PosTriple{ctx.line, ctx.column, ctx.length} //
+                THROW_ERR(                                                                                                     //
+                    ErrEmptyStoredFixedArray, ERR_ANALYZING, ctx.parser.file_hash, PosTriple{ctx.line, ctx.column, ctx.length} //
                 );
                 return false;
             }

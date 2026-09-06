@@ -589,8 +589,8 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         // Typecast all string literals in the args to string variables
         auto &arg = arguments[i].first;
         if (arg->type->to_string() == "type.flint.str.lit") {
-            arg = std::make_unique<TypeCastNode>(                                                                        //
-                file_hash, ASTNode::PosTriple{arg->line, arg->column, arg->length}, Type::get_primitive_type("str"), arg //
+            arg = std::make_unique<TypeCastNode>(                                                               //
+                file_hash, PosTriple{arg->line, arg->column, arg->length}, Type::get_primitive_type("str"), arg //
             );
         }
         if (arg->type->get_variation() == Type::Variation::ALIAS) {
@@ -1181,7 +1181,8 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             const ObjectNode *parent_object = captured_object_type->as<ObjectType>()->object_node;
             std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
             for (const auto &[data_node, accessor] : parent_object->data_components) {
-                possible_fields.emplace_back(accessor, file_node_ptr->file_namespace->get_type_from_str(data_node->name).value());
+                const auto data_type = file_node_ptr->file_namespace->get_type_from_ptr(data_node).value();
+                possible_fields.emplace_back(accessor, data_type);
                 if (accessor != field_name) {
                     continue;
                 }
@@ -1191,13 +1192,11 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                         continue;
                     }
                     base_var->name = "self";
-                    auto data_type = file_node_ptr->file_namespace->get_type_from_str(data_node->name);
-                    ASSERT(data_type.has_value());
                     return CreateFieldAccessBaseRet{
                         .base_expr = std::move(base_expr.value()),
                         .field_name = std::nullopt,
                         .field_id = static_cast<unsigned int>(i),
-                        .field_type = data_type.value(),
+                        .field_type = data_type,
                     };
                 }
                 UNREACHABLE();
