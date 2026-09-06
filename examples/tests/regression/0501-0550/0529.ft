@@ -1,0 +1,15 @@
+use Core.print
+
+def main():
+	f32 a = 0;
+	f32 b = 3;
+	f32 c = 2.3;
+	f32 d = 10000000000;
+	f32 e = -0.0;
+	f64 g = 1.5;
+	f64 h = 0.0;
+	f64 i = 0.0000001;
+	f32 j = 0.1;
+	f32 k = 0.2;
+	f32 l = j + k;
+	print($"{a}\n{b}\n{c}\n{d}\n{e}\n{g}\n{h}\n{i}\n{j}\n{k}\n{l}\n");

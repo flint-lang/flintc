@@ -492,7 +492,7 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     arg_uvalue->setName("u_value");
 
     // Check if u_value == 0
-    llvm::Value *const is_zero = builder->CreateICmpEQ(arg_uvalue, llvm::ConstantInt::get(builder->getIntNTy(N), 0), "is_zero");
+    llvm::Value *const is_zero = builder->CreateICmpEQ(arg_uvalue, builder->getIntN(N, 0), "is_zero");
     builder->CreateCondBr(is_zero, zero_case_block, nonzero_case_block);
 
     // Zero case block
@@ -541,11 +541,11 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     llvm::Value *const buffer_load = IR::aligned_load(*builder, builder->getPtrTy(), current_buffer, "buffer_load");
 
     // Calculate value % 10
-    llvm::Value *const remainder = builder->CreateURem(value_load, llvm::ConstantInt::get(builder->getIntNTy(N), 10), "remainder");
+    llvm::Value *const remainder = builder->CreateURem(value_load, builder->getIntN(N, 10), "remainder");
 
     // Calculate '0' + (value % 10)
     llvm::Value *const digit_char = builder->CreateAdd(        //
-        llvm::ConstantInt::get(builder->getInt8Ty(), '0'),     //
+        builder->getInt8('0'),                                 //
         builder->CreateTrunc(remainder, builder->getInt8Ty()), //
         "digit_char"                                           //
     );
@@ -565,13 +565,13 @@ void Generator::Module::TypeCast::generate_uN_to_str( //
     IR::aligned_store(*builder, buffer_prev, current_buffer);
 
     // Calculate value / 10
-    llvm::Value *const new_value = builder->CreateUDiv(value_load, llvm::ConstantInt::get(builder->getIntNTy(N), 10), "new_value");
+    llvm::Value *const new_value = builder->CreateUDiv(value_load, builder->getIntN(N, 10), "new_value");
 
     // Update value
     IR::aligned_store(*builder, new_value, current_value);
 
     // Check if value > 0
-    llvm::Value *const continue_loop = builder->CreateICmpUGT(new_value, llvm::ConstantInt::get(builder->getIntNTy(N), 0), "continue_loop");
+    llvm::Value *const continue_loop = builder->CreateICmpUGT(new_value, builder->getIntN(N, 0), "continue_loop");
 
     // Branch based on condition
     builder->CreateCondBr(continue_loop, loop_block, exit_block);
@@ -847,26 +847,42 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     //     char buffer[32];
     //     int len = 0;
     //     const float f_pow = f_value * f_value;
-    //     if (f_pow < 1e-8f || f_pow > 1e12f) {
+    //     // Use exponent notation for non-zero values outside the middle range, but never for exact 0.0
+    //     if ((f_pow < 1e-8f || f_pow > 1e12f) && f_value != 0.0f) {
     //         len = snprintf(buffer, sizeof(buffer), "%.6e", f_value);
     //     } else {
     //         len = snprintf(buffer, sizeof(buffer), "%.6f", f_value);
     //     }
     //
-    //     // Trim trailing zeros after decimal point
-    //     int last_non_zero = len - 1;
+    //     // Locate the 'e'/'E' marker if present so the exponent can be kept intact
+    //     int e_pos = len;
+    //     for (int i = len - 1; i >= 0; i--) {
+    //         if (buffer[i] == 'e' || buffer[i] == 'E') {
+    //             e_pos = i;
+    //             break;
+    //         }
+    //     }
+    //
+    //     // Trim trailing zeros after the decimal point (stop before the exponent)
+    //     int last_non_zero = e_pos - 1;
     //     while (last_non_zero > 0 && buffer[last_non_zero] == '0') {
     //         last_non_zero--;
     //     }
     //
-    //     // If we ended up at the decimal point, remove it too
+    //     // Keep at least one fractional digit (e.g. "3.0", "0.0")
     //     if (buffer[last_non_zero] == '.') {
-    //         last_non_zero--;
+    //         last_non_zero++;
     //     }
     //
-    //     return init_str(buffer, last_non_zero + 1);
+    //     // Build the mantissa, then append the exponent part back if present
+    //     str *result = init_str(buffer, last_non_zero + 1);
+    //     if (e_pos < len) {
+    //         append_lit(&result, buffer + e_pos, len - e_pos);
+    //     }
+    //     return result;
     // }
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *const snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *const f32_to_str_type = llvm::FunctionType::get( //
@@ -900,6 +916,13 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     llvm::BasicBlock *const loop_merge_block = llvm::BasicBlock::Create(context, "loop_merge", f32_to_str_fn);
     llvm::BasicBlock *const decimal_case_block = llvm::BasicBlock::Create(context, "decimal_case", f32_to_str_fn);
     llvm::BasicBlock *const return_block = llvm::BasicBlock::Create(context, "return", f32_to_str_fn);
+    llvm::BasicBlock *const exp_scan_cond_block = llvm::BasicBlock::Create(context, "exp_scan_cond", f32_to_str_fn);
+    llvm::BasicBlock *const exp_scan_char_block = llvm::BasicBlock::Create(context, "exp_scan_char", f32_to_str_fn);
+    llvm::BasicBlock *const exp_scan_next_block = llvm::BasicBlock::Create(context, "exp_scan_next", f32_to_str_fn);
+    llvm::BasicBlock *const exp_scan_found_block = llvm::BasicBlock::Create(context, "exp_scan_found", f32_to_str_fn);
+    llvm::BasicBlock *const exp_scan_done_block = llvm::BasicBlock::Create(context, "exp_scan_done", f32_to_str_fn);
+    llvm::BasicBlock *const exp_append_block = llvm::BasicBlock::Create(context, "exp_append", f32_to_str_fn);
+    llvm::BasicBlock *const exp_done_block = llvm::BasicBlock::Create(context, "exp_done", f32_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -975,7 +998,9 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     llvm::Value *const f_pow = builder->CreateFMul(arg_fvalue, arg_fvalue, "f_pow");
     llvm::Constant *const min_pow = llvm::ConstantFP::get(builder->getFloatTy(), static_cast<double>(1.0e-8f));
     llvm::Constant *const max_pow = llvm::ConstantFP::get(builder->getFloatTy(), static_cast<double>(1.0e12f));
-    llvm::Value *const is_too_small = builder->CreateFCmpOLT(f_pow, min_pow, "is_too_small");
+    llvm::Value *const pow_lt_min = builder->CreateFCmpOLT(f_pow, min_pow, "pow_lt_min");
+    llvm::Value *const is_nonzero = builder->CreateFCmpUNE(arg_fvalue, llvm::ConstantFP::get(builder->getFloatTy(), 0.0), "is_nonzero");
+    llvm::Value *const is_too_small = builder->CreateAnd(pow_lt_min, is_nonzero, "is_too_small");
     llvm::Value *const is_too_large = builder->CreateFCmpOGT(f_pow, max_pow, "is_too_large");
     llvm::Value *const exponent_condition = builder->CreateOr(is_too_small, is_too_large, "exponent_condition");
     builder->CreateCondBr(exponent_condition, exponent_block, no_exponent_block);
@@ -987,12 +1012,12 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         llvm::Value *const f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::CallInst *const snprintf_ret = builder->CreateCall(snprintf_fn,
             {
-                buffer_ptr,                                        //
-                llvm::ConstantInt::get(builder->getInt64Ty(), 32), //
-                snprintf_format,                                   //
-                f_value_as_d                                       //
-            },                                                     //
-            "snprintf_ret_e"                                       //
+                buffer_ptr,            //
+                builder->getInt64(32), //
+                snprintf_format,       //
+                f_value_as_d           //
+            },                         //
+            "snprintf_ret_e"           //
         );
         IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
@@ -1004,12 +1029,12 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         llvm::Value *const f_value_as_d = f32_to_f64(*builder, arg_fvalue);
         llvm::Value *const snprintf_ret = builder->CreateCall(snprintf_fn,
             {
-                buffer_ptr,                                        //
-                llvm::ConstantInt::get(builder->getInt64Ty(), 32), //
-                snprintf_format,                                   //
-                f_value_as_d                                       //
-            },                                                     //
-            "snprintf_ret_f"                                       //
+                buffer_ptr,            //
+                builder->getInt64(32), //
+                snprintf_format,       //
+                f_value_as_d           //
+            },                         //
+            "snprintf_ret_f"           //
         );
         IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
@@ -1019,20 +1044,64 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
     builder->SetInsertPoint(exponent_merge_block);
     llvm::Value *const last_non_zero = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "last_non_zero");
     llvm::Value *const len_value = IR::aligned_load(*builder, builder->getInt32Ty(), len_var, "len_val");
-    llvm::Value *const len_minus_1 = builder->CreateSub(len_value, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "len_m_1");
-    IR::aligned_store(*builder, len_minus_1, last_non_zero);
-    builder->CreateBr(loop_block);
+    llvm::Value *const exp_pos = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "exp_pos");
+    IR::aligned_store(*builder, len_value, exp_pos);
+    llvm::Value *const scan_index = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "scan_index");
+    llvm::Value *const initial_scan = builder->CreateSub(len_value, builder->getInt32(1), "scan_i_0");
+    IR::aligned_store(*builder, initial_scan, scan_index);
+    llvm::AllocaInst *const result_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "result_alloca");
+    builder->CreateBr(exp_scan_cond_block);
+
+    // The exp_scan_cond_block
+    {
+        builder->SetInsertPoint(exp_scan_cond_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const scan_valid = builder->CreateICmpSGE(scan_i, builder->getInt32(0), "scan_valid");
+        builder->CreateCondBr(scan_valid, exp_scan_char_block, exp_scan_done_block);
+    }
+
+    // The exp_scan_char_block
+    {
+        builder->SetInsertPoint(exp_scan_char_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const scan_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, scan_i, "scan_char_ptr");
+        llvm::Value *const scan_char = IR::aligned_load(*builder, builder->getInt8Ty(), scan_char_ptr, "scan_char");
+        llvm::Value *const is_e = builder->CreateICmpEQ(scan_char, builder->getInt8('e'), "is_e");
+        llvm::Value *const is_E = builder->CreateICmpEQ(scan_char, builder->getInt8('E'), "is_E");
+        llvm::Value *const is_exp_marker = builder->CreateOr(is_e, is_E, "is_exp_marker");
+        builder->CreateCondBr(is_exp_marker, exp_scan_found_block, exp_scan_next_block);
+    }
+
+    // The exp_scan_found_block
+    {
+        builder->SetInsertPoint(exp_scan_found_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        IR::aligned_store(*builder, scan_i, exp_pos);
+        builder->CreateBr(exp_scan_done_block);
+    }
+
+    // The exp_scan_next_block
+    {
+        builder->SetInsertPoint(exp_scan_next_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const next_i = builder->CreateSub(scan_i, builder->getInt32(1), "next_i");
+        IR::aligned_store(*builder, next_i, scan_index);
+        builder->CreateBr(exp_scan_cond_block);
+    }
+
+    // The exp_scan_done_block
+    {
+        builder->SetInsertPoint(exp_scan_done_block);
+        llvm::Value *const e_pos_val = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "e_pos_val");
+        llvm::Value *const e_pos_minus_1 = builder->CreateSub(e_pos_val, builder->getInt32(1), "e_pos_m_1");
+        IR::aligned_store(*builder, e_pos_minus_1, last_non_zero);
+        builder->CreateBr(loop_block);
+    }
 
     // The loop_block
     builder->SetInsertPoint(loop_block);
-    // Load current value of last_non_zero
     llvm::Value *last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
-    // Check if last_non_zero > 0
-    llvm::Value *const is_valid_index = builder->CreateICmpSGT( //
-        last_zero_val,                                          //
-        llvm::ConstantInt::get(builder->getInt32Ty(), 0),       //
-        "is_valid_index"                                        //
-    );
+    llvm::Value *const is_valid_index = builder->CreateICmpSGT(last_zero_val, builder->getInt32(0), "is_valid_index");
     builder->CreateCondBr(is_valid_index, check_char_block, loop_merge_block);
 
     // The check_char_block
@@ -1043,7 +1112,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         // Load the current character
         llvm::Value *const cur_char = IR::aligned_load(*builder, builder->getInt8Ty(), cur_char_ptr, "cur_char");
         // Check if the current character is '0'
-        llvm::Value *const is_zero = builder->CreateICmpEQ(cur_char, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), "is_zero");
+        llvm::Value *const is_zero = builder->CreateICmpEQ(cur_char, builder->getInt8('0'), "is_zero");
         // Combine conditions: should continue if index > 0 && char == '0'
         llvm::Value *const should_continue = builder->CreateAnd(is_valid_index, is_zero, "should_continue");
         // Branch to loop body or merge
@@ -1055,9 +1124,7 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         builder->SetInsertPoint(loop_body_block);
         // Decrement last_non_zero
         last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
-        llvm::Value *const new_last_zero = builder->CreateSub(                               //
-            last_zero_val, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "new_last_zero" //
-        );
+        llvm::Value *const new_last_zero = builder->CreateSub(last_zero_val, builder->getInt32(1), "new_last_zero");
         IR::aligned_store(*builder, new_last_zero, last_non_zero);
         // Jump back to loop condition
         builder->CreateBr(loop_block);
@@ -1073,38 +1140,53 @@ void Generator::Module::TypeCast::generate_f32_to_str(llvm::IRBuilder<> *builder
         // Load the character
         llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
         // Check if the character is '.'
-        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, llvm::ConstantInt::get(builder->getInt8Ty(), '.'), "is_dot");
+        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, builder->getInt8('.'), "is_dot");
         // Branch based on whether the character is a decimal point
         builder->CreateCondBr(is_dot, decimal_case_block, return_block);
     }
 
-    // The decimal_case_block - handle case where we need to remove decimal point
+    // The decimal_case_block: we detected the last char is '.', pass through to return
     {
         builder->SetInsertPoint(decimal_case_block);
-        // Decrement last_non_zero one more time
-        llvm::Value *const decimal_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
-        llvm::Value *const adjusted_last_zero = builder->CreateSub( //
-            decimal_last_zero,                                      //
-            llvm::ConstantInt::get(builder->getInt32Ty(), 1),       //
-            "adjusted_last_zero"                                    //
-        );
-        IR::aligned_store(*builder, adjusted_last_zero, last_non_zero);
-        // Branch to return block
         builder->CreateBr(return_block);
     }
 
     // The return_block
     {
         builder->SetInsertPoint(return_block);
-        // Calculate final length: last_non_zero + 1
+        // Calculate the mantissa length: if last char is '.', keep ".X" (at least one decimal place)
         llvm::Value *const final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
-        llvm::Value *const final_len = builder->CreateAdd(final_last_zero, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "final_len");
-        // Convert to i64 for init_str
-        llvm::Value *const final_len_i64 = builder->CreateZExt(final_len, builder->getInt64Ty(), "final_len_i64");
-        // Call init_str with buffer and calculated length
-        llvm::Value *const result = builder->CreateCall(init_str_fn, {buffer_ptr, final_len_i64}, "result");
-        // Return the string
-        builder->CreateRet(result);
+        llvm::Value *const last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_last_zero, "last_char_ptr");
+        llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
+        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, builder->getInt8('.'), "is_dot");
+        llvm::Value *const mantissa_len_inc = builder->CreateSelect(is_dot, builder->getInt32(2), builder->getInt32(1), "mantissa_len_inc");
+        llvm::Value *const mantissa_len = builder->CreateAdd(final_last_zero, mantissa_len_inc, "mantissa_len");
+        llvm::Value *const mantissa_len_i64 = builder->CreateZExt(mantissa_len, builder->getInt64Ty(), "mantissa_len_i64");
+        // Create the result string from the mantissa part of the buffer
+        llvm::Value *const mantissa_str = builder->CreateCall(init_str_fn, {buffer_ptr, mantissa_len_i64}, "mantissa_str");
+        IR::aligned_store(*builder, mantissa_str, result_alloca);
+        // Check if there is an exponent part to append
+        llvm::Value *const final_e_pos = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "final_e_pos");
+        llvm::Value *const final_has_exp = builder->CreateICmpNE(final_e_pos, len_value, "final_has_exp");
+        builder->CreateCondBr(final_has_exp, exp_append_block, exp_done_block);
+    }
+
+    // The exp_append_block: append the exponent part to the result
+    {
+        builder->SetInsertPoint(exp_append_block);
+        llvm::Value *const final_e_pos = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "final_e_pos");
+        llvm::Value *const exp_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_e_pos, "exp_ptr");
+        llvm::Value *const final_exp_len = builder->CreateSub(len_value, final_e_pos, "final_exp_len");
+        llvm::Value *const final_exp_len_i64 = builder->CreateZExt(final_exp_len, builder->getInt64Ty(), "final_exp_len_i64");
+        builder->CreateCall(append_lit_fn, {result_alloca, exp_ptr, final_exp_len_i64});
+        builder->CreateBr(exp_done_block);
+    }
+
+    // The exp_done_block: return the final string
+    {
+        builder->SetInsertPoint(exp_done_block);
+        llvm::Value *const final_result = IR::aligned_load(*builder, PTR_TY, result_alloca, "final_result");
+        builder->CreateRet(final_result);
     }
 }
 
@@ -1132,26 +1214,42 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     //     char buffer[64];
     //     int len = 0;
     //     const double d_pow = d_value * d_value;
-    //     if (d_pow < 1e-8f || d_pow > 1e30f) {
+    //     // Use exponent notation for non-zero values outside the middle range, but never for exact 0.0
+    //     if ((d_pow < 1e-8f || d_pow > 1e30f) && d_value != 0.0) {
     //         len = snprintf(buffer, sizeof(buffer), "%.15e", d_value);
     //     } else {
     //         len = snprintf(buffer, sizeof(buffer), "%.15f", d_value);
     //     }
     //
-    //     // Trim trailing zeros after decimal point
-    //     int last_non_zero = len - 1;
+    //     // Locate the 'e'/'E' marker if present so the exponent can be kept intact
+    //     int e_pos = len;
+    //     for (int i = len - 1; i >= 0; i--) {
+    //         if (buffer[i] == 'e' || buffer[i] == 'E') {
+    //             e_pos = i;
+    //             break;
+    //         }
+    //     }
+    //
+    //     // Trim trailing zeros after the decimal point (stop before the exponent)
+    //     int last_non_zero = e_pos - 1;
     //     while (last_non_zero > 0 && buffer[last_non_zero] == '0') {
     //         last_non_zero--;
     //     }
     //
-    //     // If we ended up at the decimal point, remove it too
+    //     // Keep at least one fractional digit (e.g. "3.0", "0.0")
     //     if (buffer[last_non_zero] == '.') {
-    //         last_non_zero--;
+    //         last_non_zero++;
     //     }
     //
-    //     return init_str(buffer, last_non_zero + 1);
+    //     // Build the mantissa, then append the exponent part back if present
+    //     str *result = init_str(buffer, last_non_zero + 1);
+    //     if (e_pos < len) {
+    //         append_lit(&result, buffer + e_pos, len - e_pos);
+    //     }
+    //     return result;
     // }
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
+    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *const snprintf_fn = c_functions.at(SNPRINTF);
 
     llvm::FunctionType *const f64_to_str_type = llvm::FunctionType::get( //
@@ -1185,6 +1283,13 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     llvm::BasicBlock *const loop_merge_block = llvm::BasicBlock::Create(context, "loop_merge", f64_to_str_fn);
     llvm::BasicBlock *const decimal_case_block = llvm::BasicBlock::Create(context, "decimal_case", f64_to_str_fn);
     llvm::BasicBlock *const return_block = llvm::BasicBlock::Create(context, "return", f64_to_str_fn);
+    llvm::BasicBlock *const exp_scan_cond_block = llvm::BasicBlock::Create(context, "exp_scan_cond", f64_to_str_fn);
+    llvm::BasicBlock *const exp_scan_char_block = llvm::BasicBlock::Create(context, "exp_scan_char", f64_to_str_fn);
+    llvm::BasicBlock *const exp_scan_next_block = llvm::BasicBlock::Create(context, "exp_scan_next", f64_to_str_fn);
+    llvm::BasicBlock *const exp_scan_found_block = llvm::BasicBlock::Create(context, "exp_scan_found", f64_to_str_fn);
+    llvm::BasicBlock *const exp_scan_done_block = llvm::BasicBlock::Create(context, "exp_scan_done", f64_to_str_fn);
+    llvm::BasicBlock *const exp_append_block = llvm::BasicBlock::Create(context, "exp_append", f64_to_str_fn);
+    llvm::BasicBlock *const exp_done_block = llvm::BasicBlock::Create(context, "exp_done", f64_to_str_fn);
 
     // Set insert point to entry block
     builder->SetInsertPoint(entry_block);
@@ -1260,7 +1365,9 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     llvm::Value *const d_pow = builder->CreateFMul(arg_dvalue, arg_dvalue, "d_pow");
     llvm::Constant *const min_pow = llvm::ConstantFP::get(builder->getDoubleTy(), static_cast<double>(1.0e-8f));
     llvm::Constant *const max_pow = llvm::ConstantFP::get(builder->getDoubleTy(), static_cast<double>(1.0e30f));
-    llvm::Value *const is_too_small = builder->CreateFCmpOLT(d_pow, min_pow, "is_too_small");
+    llvm::Value *const pow_lt_min = builder->CreateFCmpOLT(d_pow, min_pow, "pow_lt_min");
+    llvm::Value *const is_nonzero = builder->CreateFCmpUNE(arg_dvalue, llvm::ConstantFP::get(builder->getDoubleTy(), 0.0), "is_nonzero");
+    llvm::Value *const is_too_small = builder->CreateAnd(pow_lt_min, is_nonzero, "is_too_small");
     llvm::Value *const is_too_large = builder->CreateFCmpOGT(d_pow, max_pow, "is_too_large");
     llvm::Value *const exponent_condition = builder->CreateOr(is_too_small, is_too_large, "exponent_condition");
     builder->CreateCondBr(exponent_condition, exponent_block, no_exponent_block);
@@ -1271,12 +1378,12 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         llvm::Value *const snprintf_format = IR::generate_const_string(module, "%.15e");
         llvm::CallInst *const snprintf_ret = builder->CreateCall(snprintf_fn,
             {
-                buffer_ptr,                                        //
-                llvm::ConstantInt::get(builder->getInt64Ty(), 64), //
-                snprintf_format,                                   //
-                arg_dvalue                                         //
-            },                                                     //
-            "snprintf_ret_e"                                       //
+                buffer_ptr,            //
+                builder->getInt64(64), //
+                snprintf_format,       //
+                arg_dvalue             //
+            },                         //
+            "snprintf_ret_e"           //
         );
         IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
@@ -1287,12 +1394,12 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         llvm::Value *const snprintf_format = IR::generate_const_string(module, "%.15f");
         llvm::Value *const snprintf_ret = builder->CreateCall(snprintf_fn,
             {
-                buffer_ptr,                                        //
-                llvm::ConstantInt::get(builder->getInt64Ty(), 64), //
-                snprintf_format,                                   //
-                arg_dvalue                                         //
-            },                                                     //
-            "snprintf_ret_f"                                       //
+                buffer_ptr,            //
+                builder->getInt64(64), //
+                snprintf_format,       //
+                arg_dvalue             //
+            },                         //
+            "snprintf_ret_f"           //
         );
         IR::aligned_store(*builder, snprintf_ret, len_var);
         builder->CreateBr(exponent_merge_block);
@@ -1302,20 +1409,66 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
     builder->SetInsertPoint(exponent_merge_block);
     llvm::Value *const last_non_zero = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "last_non_zero");
     llvm::Value *const len_value = IR::aligned_load(*builder, builder->getInt32Ty(), len_var, "len_val");
-    llvm::Value *const len_minus_1 = builder->CreateSub(len_value, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "len_m_1");
-    IR::aligned_store(*builder, len_minus_1, last_non_zero);
-    builder->CreateBr(loop_block);
+    llvm::Value *const exp_pos = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "exp_pos");
+    IR::aligned_store(*builder, len_value, exp_pos);
+    llvm::Value *const scan_index = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "scan_index");
+    llvm::Value *const initial_scan = builder->CreateSub(len_value, builder->getInt32(1), "scan_i_0");
+    IR::aligned_store(*builder, initial_scan, scan_index);
+    llvm::AllocaInst *const result_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "result_alloca");
+    builder->CreateBr(exp_scan_cond_block);
+
+    // The exp_scan_cond_block
+    {
+        builder->SetInsertPoint(exp_scan_cond_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const scan_valid = builder->CreateICmpSGE(scan_i, builder->getInt32(0), "scan_valid");
+        builder->CreateCondBr(scan_valid, exp_scan_char_block, exp_scan_done_block);
+    }
+
+    // The exp_scan_char_block
+    {
+        builder->SetInsertPoint(exp_scan_char_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const scan_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, scan_i, "scan_char_ptr");
+        llvm::Value *const scan_char = IR::aligned_load(*builder, builder->getInt8Ty(), scan_char_ptr, "scan_char");
+        llvm::Value *const is_e = builder->CreateICmpEQ(scan_char, builder->getInt8('e'), "is_e");
+        llvm::Value *const is_E = builder->CreateICmpEQ(scan_char, builder->getInt8('E'), "is_E");
+        llvm::Value *const is_exp_marker = builder->CreateOr(is_e, is_E, "is_exp_marker");
+        builder->CreateCondBr(is_exp_marker, exp_scan_found_block, exp_scan_next_block);
+    }
+
+    // The exp_scan_found_block
+    {
+        builder->SetInsertPoint(exp_scan_found_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        IR::aligned_store(*builder, scan_i, exp_pos);
+        builder->CreateBr(exp_scan_done_block);
+    }
+
+    // The exp_scan_next_block
+    {
+        builder->SetInsertPoint(exp_scan_next_block);
+        llvm::Value *const scan_i = IR::aligned_load(*builder, builder->getInt32Ty(), scan_index, "scan_i");
+        llvm::Value *const next_i = builder->CreateSub(scan_i, builder->getInt32(1), "next_i");
+        IR::aligned_store(*builder, next_i, scan_index);
+        builder->CreateBr(exp_scan_cond_block);
+    }
+
+    // The exp_scan_done_block
+    {
+        builder->SetInsertPoint(exp_scan_done_block);
+        llvm::Value *const e_pos_val = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "e_pos_val");
+        llvm::Value *const e_pos_minus_1 = builder->CreateSub(e_pos_val, builder->getInt32(1), "e_pos_m_1");
+        IR::aligned_store(*builder, e_pos_minus_1, last_non_zero);
+        builder->CreateBr(loop_block);
+    }
 
     // The loop_block
     builder->SetInsertPoint(loop_block);
     // Load current value of last_non_zero
     llvm::Value *last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
     // Check if last_non_zero > 0
-    llvm::Value *const is_valid_index = builder->CreateICmpSGT( //
-        last_zero_val,                                          //
-        llvm::ConstantInt::get(builder->getInt32Ty(), 0),       //
-        "is_valid_index"                                        //
-    );
+    llvm::Value *const is_valid_index = builder->CreateICmpSGT(last_zero_val, builder->getInt32(0), "is_valid_index");
     builder->CreateCondBr(is_valid_index, check_char_block, loop_merge_block);
 
     // The check_char_block
@@ -1326,7 +1479,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         // Load the current character
         llvm::Value *const cur_char = IR::aligned_load(*builder, builder->getInt8Ty(), cur_char_ptr, "cur_char");
         // Check if the current character is '0'
-        llvm::Value *const is_zero = builder->CreateICmpEQ(cur_char, llvm::ConstantInt::get(builder->getInt8Ty(), '0'), "is_zero");
+        llvm::Value *const is_zero = builder->CreateICmpEQ(cur_char, builder->getInt8('0'), "is_zero");
         // Combine conditions: should continue if index > 0 && char == '0'
         llvm::Value *const should_continue = builder->CreateAnd(is_valid_index, is_zero, "should_continue");
         // Branch to loop body or merge
@@ -1338,9 +1491,7 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         builder->SetInsertPoint(loop_body_block);
         // Decrement last_non_zero
         last_zero_val = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "last_zero_val");
-        llvm::Value *const new_last_zero = builder->CreateSub(                               //
-            last_zero_val, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "new_last_zero" //
-        );
+        llvm::Value *const new_last_zero = builder->CreateSub(last_zero_val, builder->getInt32(1), "new_last_zero");
         IR::aligned_store(*builder, new_last_zero, last_non_zero);
         // Jump back to loop condition
         builder->CreateBr(loop_block);
@@ -1356,38 +1507,53 @@ void Generator::Module::TypeCast::generate_f64_to_str(llvm::IRBuilder<> *builder
         // Load the character
         llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
         // Check if the character is '.'
-        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, llvm::ConstantInt::get(builder->getInt8Ty(), '.'), "is_dot");
+        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, builder->getInt8('.'), "is_dot");
         // Branch based on whether the character is a decimal point
         builder->CreateCondBr(is_dot, decimal_case_block, return_block);
     }
 
-    // The decimal_case_block - handle case where we need to remove decimal point
+    // The decimal_case_block: we detected the last char is '.', pass through to return
     {
         builder->SetInsertPoint(decimal_case_block);
-        // Decrement last_non_zero one more time
-        llvm::Value *const decimal_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "decimal_last_zero");
-        llvm::Value *const adjusted_last_zero = builder->CreateSub( //
-            decimal_last_zero,                                      //
-            llvm::ConstantInt::get(builder->getInt32Ty(), 1),       //
-            "adjusted_last_zero"                                    //
-        );
-        IR::aligned_store(*builder, adjusted_last_zero, last_non_zero);
-        // Branch to return block
         builder->CreateBr(return_block);
     }
 
     // The return_block
     {
         builder->SetInsertPoint(return_block);
-        // Calculate final length: last_non_zero + 1
+        // Calculate the mantissa length: if last char is '.', keep ".X" (at least one decimal place)
         llvm::Value *const final_last_zero = IR::aligned_load(*builder, builder->getInt32Ty(), last_non_zero, "final_last_zero");
-        llvm::Value *const final_len = builder->CreateAdd(final_last_zero, llvm::ConstantInt::get(builder->getInt32Ty(), 1), "final_len");
-        // Convert to i64 for init_str
-        llvm::Value *const final_len_i64 = builder->CreateZExt(final_len, builder->getInt64Ty(), "final_len_i64");
-        // Call init_str with buffer and calculated length
-        llvm::Value *const result = builder->CreateCall(init_str_fn, {buffer_ptr, final_len_i64}, "result");
-        // Return the string
-        builder->CreateRet(result);
+        llvm::Value *const last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_last_zero, "last_char_ptr");
+        llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
+        llvm::Value *const is_dot = builder->CreateICmpEQ(last_char, builder->getInt8('.'), "is_dot");
+        llvm::Value *const mantissa_len_inc = builder->CreateSelect(is_dot, builder->getInt32(2), builder->getInt32(1), "mantissa_len_inc");
+        llvm::Value *const mantissa_len = builder->CreateAdd(final_last_zero, mantissa_len_inc, "mantissa_len");
+        llvm::Value *const mantissa_len_i64 = builder->CreateZExt(mantissa_len, builder->getInt64Ty(), "mantissa_len_i64");
+        // Create the result string from the mantissa part of the buffer
+        llvm::Value *const mantissa_str = builder->CreateCall(init_str_fn, {buffer_ptr, mantissa_len_i64}, "mantissa_str");
+        IR::aligned_store(*builder, mantissa_str, result_alloca);
+        // Check if there is an exponent part to append
+        llvm::Value *const final_e_pos = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "final_e_pos");
+        llvm::Value *const final_has_exp = builder->CreateICmpNE(final_e_pos, len_value, "final_has_exp");
+        builder->CreateCondBr(final_has_exp, exp_append_block, exp_done_block);
+    }
+
+    // The exp_append_block: append the exponent part to the result
+    {
+        builder->SetInsertPoint(exp_append_block);
+        llvm::Value *const final_e_pos = IR::aligned_load(*builder, builder->getInt32Ty(), exp_pos, "final_e_pos");
+        llvm::Value *const exp_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer_ptr, final_e_pos, "exp_ptr");
+        llvm::Value *const final_exp_len = builder->CreateSub(len_value, final_e_pos, "final_exp_len");
+        llvm::Value *const final_exp_len_i64 = builder->CreateZExt(final_exp_len, builder->getInt64Ty(), "final_exp_len_i64");
+        builder->CreateCall(append_lit_fn, {result_alloca, exp_ptr, final_exp_len_i64});
+        builder->CreateBr(exp_done_block);
+    }
+
+    // The exp_done_block: return the final string
+    {
+        builder->SetInsertPoint(exp_done_block);
+        llvm::Value *const final_result = IR::aligned_load(*builder, PTR_TY, result_alloca, "final_result");
+        builder->CreateRet(final_result);
     }
 }
 
