@@ -2748,6 +2748,7 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
     switch (initializer->type->get_variation()) {
         default:
             // Unsupported initializer type
+            THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         case Type::Variation::DATA: {
             // Allocate space for the data
@@ -2868,6 +2869,30 @@ Generator::group_mapping Generator::Expression::generate_initializer( //
                 builder.CreateCall(clone_fn, {expr_val, dest_ptr, builder.getInt32(field.value->type->get_id())});
             }
             return std::vector<llvm::Value *>{object_ptr};
+        }
+        case Type::Variation::TUPLE: {
+            // Tuples are value types (LLVM structs), so we build the struct directly instead of allocating it on the heap. This
+            // mirrors the code generation of the type cast from a group to a tuple
+            const auto *tuple_type = initializer->type->as<TupleType>();
+            llvm::Type *const tup_type = IR::get_type(ctx.parent->getParent(), initializer->type).type;
+            llvm::Value *result = IR::get_default_value_of_type(tup_type);
+            for (const auto &field : initializer->fields) {
+                group_mapping field_value = generate_expression(builder, ctx, garbage, expr_depth, field.value.get());
+                if (!field_value.has_value()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                if (field_value.value().size() != 1) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                // The field name of a tuple initializer is "$<index>" (e.g. "$0", "$1", ...)
+                ASSERT(field.name.size() > 1 && field.name[0] == '$');
+                const size_t index = std::stoul(field.name.substr(1));
+                ASSERT(index < tuple_type->types.size());
+                result = builder.CreateInsertValue(result, field_value.value().front(), {static_cast<unsigned int>(index)}, "tuple_insert");
+            }
+            return std::vector<llvm::Value *>{result};
         }
         case Type::Variation::VECTOR: {
             // Create an "empty" vector of the vector-type

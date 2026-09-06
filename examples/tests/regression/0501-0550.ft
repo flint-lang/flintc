@@ -152,3 +152,8 @@ test "0527":
 	str path = "tests/regression/0501-0550";
 	str file = "0527.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.000000e+, 0.000000e+, 3, 0.000000e+)\n");
+
+test "0528":
+	str path = "tests/regression/0501-0550";
+	str file = "0528.ft";
+	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.000000e+, 0.000000e+, 3, 0.000000e+)\ntuple.($0, $1, $2) = (10, 2.3, hi)\n");

@@ -37,6 +37,7 @@
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
 #include "parser/type/primitive_type.hpp"
+#include "parser/type/tuple_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "parser/type/vector_type.hpp"
 
@@ -1083,7 +1084,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
             return std::nullopt;
         }
         arg_tokens.first++;
-        if (arg_tokens.first->token != TOK_IDENTIFIER) {
+        const bool is_dollar = arg_tokens.first->token == TOK_DOLLAR;
+        if (!is_dollar && arg_tokens.first->token != TOK_IDENTIFIER) {
             THROW_ERR(                                                                                            //
                 ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
                 std::vector<Token>{TOK_IDENTIFIER}, arg_tokens.first->token                                       //
@@ -1091,6 +1093,16 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
             return std::nullopt;
         }
         std::string field_name(arg_tokens.first->lexme);
+        if (is_dollar) {
+            if (std::next(arg_tokens.first)->token != TOK_INT_VALUE) {
+                THROW_ERR(                                                                                            //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
+                    std::vector<Token>{TOK_INT_VALUE}, arg_tokens.first->token                                        //
+                );
+                return std::nullopt;
+            }
+            field_name += std::string(std::next(arg_tokens.first)->lexme);
+        }
         std::optional<std::shared_ptr<Type>> field_type = std::nullopt;
         // Check for duplicate fields
         for (const auto &field : fields) {
@@ -1147,6 +1159,25 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 }
                 break;
             }
+            case Type::Variation::TUPLE: {
+                const auto *tuple_type = type_token->type->as<TupleType>();
+                bool field_found = false;
+                std::vector<std::pair<std::string, std::shared_ptr<Type>>> possible_fields;
+                for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                    const std::string tuple_field_name = "$" + std::to_string(i);
+                    possible_fields.emplace_back(tuple_field_name, tuple_type->types.at(i));
+                    if (tuple_field_name == field_name) {
+                        field_found = true;
+                        field_type = tuple_type->types.at(i);
+                        break;
+                    }
+                }
+                if (!field_found) {
+                    THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, arg_tokens, field_name, type_token->type, possible_fields);
+                    return std::nullopt;
+                }
+                break;
+            }
             case Type::Variation::VECTOR: {
                 const auto *vector_type = type_token->type->as<VectorType>();
                 const auto &access = create_vector_type_access(                                       //
@@ -1162,6 +1193,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
         }
 
         arg_tokens.first++;
+        if (is_dollar) {
+            arg_tokens.first++;
+        }
         if (arg_tokens.first->token != TOK_EQUAL) {
             THROW_ERR(                                                                                            //
                 ErrParsUnexpectedToken, ERR_PARSING, file_hash, arg_tokens.first->line, arg_tokens.first->column, //
@@ -1248,6 +1282,35 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 fields.emplace_back(InitializerNode::Field{
                     .name = data_accessor,
                     .value = data_type->get_default_value(data_type, file_hash, pos, scope->scope_id).value(),
+                });
+            }
+            break;
+        }
+        case Type::Variation::TUPLE: {
+            const auto *tuple_type = type_token->type->as<TupleType>();
+            if (tuple_type->types.size() == fields.size()) {
+                break;
+            }
+            for (size_t i = 0; i < tuple_type->types.size(); i++) {
+                const auto &type = tuple_type->types.at(i);
+                const std::string field_name = "$" + std::to_string(i);
+                bool contains_type = false;
+                for (const auto &field : fields) {
+                    if (field.name == field_name) {
+                        contains_type = true;
+                        break;
+                    }
+                }
+                if (contains_type) {
+                    continue;
+                }
+                if (!type->is_default_constructible()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                fields.emplace_back(InitializerNode::Field{
+                    .name = field_name,
+                    .value = type->get_default_value(type, file_hash, pos, scope->scope_id).value(),
                 });
             }
             break;
