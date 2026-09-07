@@ -974,14 +974,12 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                                 );
                                 return false;
                             }
-                            if (std::next(tok_it)->token != TOK_IDENTIFIER) {
-                                const auto next = std::next(tok_it);
-                                THROW_ERR(ErrParsUnexpectedToken, ERR_PARSING, parser.file_hash, next->line, next->column, //
-                                    std::vector<Token>{TOK_IDENTIFIER}, next->token                                        //
-                                );
-                                return false;
+                            std::string accessor = "";
+                            if (std::next(tok_it)->token == TOK_IDENTIFIER) {
+                                accessor = std::string(std::next(tok_it)->lexme);
+                            } else {
+                                accessor = "field." + std::to_string(data_components.size());
                             }
-                            const std::string accessor(std::next(tok_it)->lexme);
                             if (captured_object_identifiers.find(accessor) != captured_object_identifiers.end()) {
                                 tok_it++;
                                 THROW_ERR(                                                        //
