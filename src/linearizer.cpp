@@ -178,7 +178,7 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
                 continue;
             }
         } else {
-            if (is_object && line->tokens.first->token == TOK_DEF) {
+            if (is_object && (line->tokens.first->token != TOK_DATA && line->tokens.first->token != TOK_FUNC)) {
                 mode = BodyMode::DEFINITION;
                 is_object = false;
             }
