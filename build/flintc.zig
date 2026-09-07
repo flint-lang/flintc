@@ -25,7 +25,6 @@ pub fn build(
             .pic = true,
         }),
     });
-    b.installArtifact(exe);
     exe.root_module.linkLibrary(flint_parser_lib);
     exe.link_function_sections = true;
     exe.link_data_sections = true;
