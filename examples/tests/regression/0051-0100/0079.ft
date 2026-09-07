@@ -12,11 +12,9 @@ interface IShape:
 data DCircle:
 	i32x2 pos;
 	i32 radius;
-	DCircle(pos, radius);
 
 object Circle implements(IShape):
 	data: DCircle d;
-	Circle(d);
 	
 	def draw():
 		print($"Drawing circle at [pos={d.pos}, r={d.radius}]\n");
@@ -28,11 +26,9 @@ object Circle implements(IShape):
 data DRectangle:
 	i32x2 pos;
 	i32x2 size;
-	DRectangle(pos, size);
 
 object Rectangle implements(IShape):
 	data: DRectangle d;
-	Rectangle(d);
 
 	def draw():
 		print($"Drawing rectangle at [pos={d.pos}, width={d.size.x}, height={d.size.y}\n");
@@ -54,10 +50,10 @@ def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
 	return sum;
 
 def main():
-	IShape[] shapes = IShape[4](Circle(DCircle((11, 2), 5)));
-	shapes[1] = Rectangle(DRectangle((10, 20), (4, 5)));
-	shapes[2] = Circle(DCircle((3, 5), 10));
-	shapes[3] = Rectangle(DRectangle((0, 0), (4, 2)));
+	IShape[] shapes = IShape[4](Circle{DCircle{(11, 2), 5}});
+	shapes[1] = Rectangle{DRectangle{(10, 20), (4, 5)}};
+	shapes[2] = Circle{DCircle{(3, 5), 10}};
+	shapes[3] = Rectangle{DRectangle{(0, 0), (4, 2)}};
 
 	draw_shapes(shapes);
 	print("\n");

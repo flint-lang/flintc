@@ -2,4 +2,3 @@ data Vec3:
 	i32 x;
 	i32 y;
 	i32 z;
-	Vec3(x, y, z);

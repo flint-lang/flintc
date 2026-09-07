@@ -3,7 +3,6 @@ use Core.print
 data Data:
 	i32 x;
 	i32 y;
-	Data(x, y);
 
 interface Interface:
 	def print();
@@ -15,8 +14,7 @@ func Func requires(Data d):
 object Object:
 	data: Data;
 	func: Func;
-	Object(Data);
 
 def main():
-	o := Object(Data(10, 20));
+	o := Object{Data{10, 20}};
 	o.print();

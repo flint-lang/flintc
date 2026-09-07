@@ -6,7 +6,6 @@ interface IMove:
 
 data DPosition:
 	i32x2 pos;
-	DPosition(pos);
 
 func FMovable requires(DPosition d):
 	def move():
@@ -18,12 +17,11 @@ func FMovable requires(DPosition d):
 object Player implements(IMove):
 	data: DPosition;
 	func: FMovable;
-	Player(DPosition);
 
 def apply(mut IMove m):
 	m.move();
 	m.print_pos();
 
 def main():
-	p := Player(DPosition(i32x2(10, 20)));
+	p := Player{DPosition{i32x2{10, 20}}};
 	apply(p);

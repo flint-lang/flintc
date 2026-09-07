@@ -3,7 +3,6 @@ use Core.print
 data Data:
     i32 x;
     i32 y;
-    Data(x, y);
 
 func Func requires(Data d):
     def move(i32x2 diff):
@@ -18,12 +17,10 @@ func Func requires(Data d):
 object Entity:
     data: Data;
     func: Func;
-    Entity(Data);
 
 data Data2:
     i32 z;
     i32 speed;
-    Data2(z, speed);
 
 func Func2 requires(Data d, Data2 d2):
     def move2(f32x3 direction):
@@ -37,7 +34,6 @@ func Func2 requires(Data d, Data2 d2):
 object Entity2:
     data: Data, Data2;
     func: Func, Func2;
-    Entity2(Data, Data2);
 
 def apply_move_operation(mut Func f, i32x2 diff):
     f.move(diff);
@@ -45,13 +41,13 @@ def apply_move_operation(mut Func f, i32x2 diff):
 def main():
     Func f;
     if true:
-        e1 := Entity(Data(10, 20));
+        e1 := Entity{Data{10, 20}};
         f = e1;
     print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
-    apply_move_operation(f, i32x2(5, 5));
+    apply_move_operation(f, i32x2(5));
     print($"f.(x, y) = ({f.get_x()}, {f.get_y()})\n");
 
-    e2 := Entity2(Data(10, 20), Data2(30, 3));
+    e2 := Entity2{Data{10, 20}, Data2{30, 3}};
     print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");
-    apply_move_operation(e2, i32x2(5, 5));
+    apply_move_operation(e2, i32x2(5));
     print($"e2.(x, y, z) = ({e2.get_x()}, {e2.get_y()}, {e2.get_z()})\n");

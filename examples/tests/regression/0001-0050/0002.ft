@@ -10,9 +10,9 @@ def main():
 	print($"var_1 = {var_1!(i64)}\n");
 	print($"var_2 = {var_2!(i64)}\n");
 
-	var_1 = i32x3(10, 20, 30);
+	var_1 = i32x3{10, 20, 30};
 	print("stored var_1\n");
-	var_2 = i32x3(-5, -10, -15);
+	var_2 = i32x3{-5, -10, -15};
 	print("stored var_2\n");
 
 	print($"var_1 = {var_1!(i32x3)}\n");

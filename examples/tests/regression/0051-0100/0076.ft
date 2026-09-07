@@ -12,7 +12,6 @@ interface IShape:
 data DCircle:
 	i32x2 pos;
 	i32 radius;
-	DCircle(pos, radius);
 
 func FCircle requires(DCircle d):
 	def draw():
@@ -24,13 +23,11 @@ func FCircle requires(DCircle d):
 object Circle implements(IShape):
 	data: DCircle;
 	func: FCircle;
-	Circle(DCircle);
 
 
 data DRectangle:
 	i32x2 pos;
 	i32x2 size;
-	DRectangle(pos, size);
 
 func FRectangle requires(DRectangle d):
 	def draw():
@@ -42,7 +39,6 @@ func FRectangle requires(DRectangle d):
 object Rectangle implements(IShape):
 	data: DRectangle;
 	func: FRectangle;
-	Rectangle(DRectangle);
 
 
 def draw_shapes(mut IShape[] shapes):
@@ -58,10 +54,10 @@ def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
 	return sum;
 
 def main():
-	IShape[] shapes = IShape[4](Circle(DCircle((11, 2), 5)));
-	shapes[1] = Rectangle(DRectangle((10, 20), (4, 5)));
-	shapes[2] = Circle(DCircle((3, 5), 10));
-	shapes[3] = Rectangle(DRectangle((0, 0), (4, 2)));
+	IShape[] shapes = IShape[4](Circle{DCircle{(11, 2), 5}});
+	shapes[1] = Rectangle{DRectangle{(10, 20), (4, 5)}};
+	shapes[2] = Circle{DCircle{(3, 5), 10}};
+	shapes[3] = Rectangle{DRectangle{(0, 0), (4, 2)}};
 
 	draw_shapes(shapes);
 	print("\n");

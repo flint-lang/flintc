@@ -6,7 +6,6 @@ data MyData:
 	i32 x = 10;
 	Color c = (10, 20, 30, 40);
 	Color c2 = Globals.WHITE;
-	MyData(x, c, c2);
 
 const data Globals:
 	Color WHITE = (245, 245, 245, 255);

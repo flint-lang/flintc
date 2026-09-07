@@ -104,7 +104,7 @@ test "0020":
 test "0021":
 	str path = "tests/regression/0001-0050";
 	str file = "0021.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0001-0050/0021.ft:46:5\n└──┬┤E0000│\n45 │ def main():\n46 │ »   Func f;\n┌──┴─────┘\n└─ Freeable typed variable declaration is missing an initializer\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0001-0050/0021.ft:42:5\n└──┬┤E0000│\n41 │ def main():\n42 │ »   Func f;\n┌──┴─────┘\n└─ Freeable typed variable declaration is missing an initializer\n");
 
 test "0022":
 	str path = "tests/regression/0001-0050";
@@ -144,7 +144,7 @@ test "0028":
 test "0029":
 	str path = "tests/regression/0001-0050";
 	str file = "0029.ft";
-	test_file_ok($"{path}/{file}", "t.pos.x = 1\n");
+	test_file_ok($"{path}/{file}", "t.pos.x = 1.0\n");
 
 test "0030":
 	str path = "tests/regression/0001-0050";

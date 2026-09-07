@@ -2,7 +2,6 @@ use Core.print
 
 data BaseData:
 	i32 speed;
-	BaseData(speed);
 
 func BaseFunc requires(BaseData d):
 	def base():
@@ -11,13 +10,11 @@ func BaseFunc requires(BaseData d):
 object BaseEntity:
 	data: BaseData;
 	func: BaseFunc;
-	BaseEntity(BaseData);
 
 data MyData:
 	i32 x;
 	i32 y;
 	i32 z;
-	MyData(x, y, z);
 
 func MyFunc requires(MyData d):
 	def print():
@@ -31,18 +28,17 @@ object MyEntity:
 		BaseData, MyData;
 	func:
 		BaseFunc, MyFunc;
-	MyEntity(BaseData, MyData);
 
 def main():
-	d := MyData(10, 20, 30);
+	d := MyData{10, 20, 30};
 	MyFunc.print(d);
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
 
-	be := BaseEntity(BaseData(10));
+	be := BaseEntity{BaseData{10}};
 	be.base();
 
-	me := MyEntity(BaseData(10), MyData(1, 2, 3));
+	me := MyEntity{BaseData{10}, MyData{1, 2, 3}};
 	me.base();
 	me.print();
 	x = me.get_x();

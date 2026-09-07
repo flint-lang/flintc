@@ -4,7 +4,6 @@ data MyData:
 	i32 x;
 	i32 y;
 	i32 z;
-	MyData(x, y, z);
 
 func MyFunc requires(MyData d):
 	def print():

@@ -118,12 +118,12 @@ test "0073":
 test "0074":
 	str path = "tests/regression/0051-0100";
 	str file = "0074.ft";
-	test_file_ok($"{path}/{file}", "OutOfBounds\nval = 0.000000000000000e+\nOutOfBounds\nval = 0.000000000000000e+\nInvalidCharacter\nval = 0.000000000000000e+\nval = -34892.322999999996682\n");
+	test_file_ok($"{path}/{file}", "OutOfBounds\nval = 0.0\nOutOfBounds\nval = 0.0\nInvalidCharacter\nval = 0.0\nval = -34892.322999999996682\n");
 
 test "0075":
 	str path = "tests/regression/0051-0100/0075";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "v1.values[0] = 60\nv1.values[1] = 40\nv1.values[2] = 70\n");
+	test_file_ok_in(path, file, "v1.values[0] = 60.0\nv1.values[1] = 40.0\nv1.values[2] = 70.0\n");
 
 test "0076":
 	str path = "tests/regression/0051-0100";
@@ -213,7 +213,7 @@ test "0092":
 test "0093":
 	str path = "tests/regression/0051-0100";
 	str file = "0093.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0093.ft:8:1\n└─┬┤E0000│\n8 │ object Entity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0093.ft:7:1\n└─┬┤E0000│\n7 │ object Entity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
 
 test "0094":
 	str path = "tests/regression/0051-0100";
@@ -233,7 +233,7 @@ test "0096":
 test "0097":
 	str path = "tests/regression/0051-0100";
 	str file = "0097.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0097.ft:8:16\n└─┬┤E0000│\n7 │ func SomeFunc requires(SomeData d):\n8 │ »   def append(SomeData d):\n┌─┴────────────────┘\n└─ Function parameter shadows data required by func component\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0051-0100/0097.ft:7:16\n└─┬┤E0000│\n6 │ func SomeFunc requires(SomeData d):\n7 │ »   def append(SomeData d):\n┌─┴────────────────┘\n└─ Function parameter shadows data required by func component\n");
 
 test "0098":
 	str path = "tests/regression/0051-0100/0098";

@@ -3,7 +3,6 @@ use Core.print
 data Data:
 	i32 x;
 	i32 y;
-	Data(x, y);
 
 def some_function(mut Data d, const str s):
 	d.x = 40;
@@ -11,6 +10,6 @@ def some_function(mut Data d, const str s):
 	print($"s = {s}\n");
 
 def main():
-	d := Data(10, 20);
+	d := Data{10, 20};
 	s := "Hi, There";
 	some_function(d, s);

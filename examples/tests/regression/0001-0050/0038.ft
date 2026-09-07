@@ -6,12 +6,11 @@ data Node:
 	u32 value = 0;
 	Node? left = none;
 	Node? right = none;
-	Node(value, left, right);
 
 def make_tree(u32 depth) -> Node?:
 	if depth == 0:
 		return none;
-	return Node(depth, make_tree(depth - 1), make_tree(depth - 1));
+	return Node{depth, make_tree(depth - 1), make_tree(depth - 1)};
 
 def check_tree(Node? node) -> u32:
 	u32 result = switch node:
