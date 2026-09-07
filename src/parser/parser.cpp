@@ -924,6 +924,9 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
     bool data_parsed = false;
     bool func_parsed = false;
     for (size_t i = 0; i < 2; i++) {
+        if (line_it == body.end()) {
+            break;
+        }
         auto tok_it = line_it->tokens.first;
         switch (tok_it->token) {
             default:
