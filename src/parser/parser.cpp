@@ -445,30 +445,22 @@ bool Parser::resolve_all_unknown_types() {
         for (auto &definition : file_namespace->public_symbols.definitions) {
             // Resolve all types of the definitions first
             switch (definition->get_variation()) {
-                default:
-                    break;
-                case DefinitionNode::Variation::OBJECT: {
-                    auto *object = definition->as<ObjectNode>();
-                    for (auto &interface : object->interfaces) {
-                        if (interface.type->get_variation() == Type::Variation::UNKNOWN) {
-                            const UnknownType *unknown_type = interface.type->as<UnknownType>();
-                            auto type = file_namespace->get_type_from_str(unknown_type->type_str);
-                            if (!type.has_value()) {
-                                THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, interface.pos);
-                                return false;
-                            }
-                            interface.type = type.value();
-                        }
-                        if (interface.type->get_variation() != Type::Variation::INTERFACE) {
-                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, interface.pos);
+                case DefinitionNode::Variation::DATA: {
+                    auto *const node = definition->as<DataNode>();
+                    for (auto &field : node->fields) {
+                        if (!file_namespace->resolve_type(field.type)) {
                             return false;
                         }
                     }
                     break;
                 }
+                case DefinitionNode::Variation::ENUM:
+                    break;
+                case DefinitionNode::Variation::ERROR:
+                    break;
                 case DefinitionNode::Variation::FUNC: {
-                    auto *func = definition->as<FuncNode>();
-                    for (auto &required_data : func->required_data) {
+                    auto *const node = definition->as<FuncNode>();
+                    for (auto &required_data : node->required_data) {
                         switch (required_data.type->get_variation()) {
                             case Type::Variation::DATA:
                                 // All ok
@@ -500,43 +492,81 @@ bool Parser::resolve_all_unknown_types() {
                     break;
                 }
                 case DefinitionNode::Variation::FUNCTION: {
-                    auto *function_node = definition->as<FunctionNode>();
-                    if (function_node->visibility != FunctionNode::Visibility::EXTERN) {
+                    auto *const node = definition->as<FunctionNode>();
+                    if (node->visibility != FunctionNode::Visibility::EXTERN) {
                         break;
                     }
                     // Resolve all argument and return type aliases
-                    for (auto &param : function_node->parameters) {
+                    for (auto &param : node->parameters) {
                         if (!file_namespace->resolve_type(param.type)) {
                             return false;
                         }
                     }
                     // Resolve all return types of the function
-                    for (auto &ret : function_node->return_types) {
+                    for (auto &ret : node->return_types) {
                         if (!file_namespace->resolve_type(ret)) {
                             return false;
                         }
                     }
                     // Resolve all error types of the function
-                    for (auto &err : function_node->error_types) {
+                    for (auto &err : node->error_types) {
                         if (!file_namespace->resolve_type(err)) {
                             return false;
                         }
                     }
                     break;
                 }
-                case DefinitionNode::Variation::VARIANT: {
-                    auto *variant_node = definition->as<VariantNode>();
-                    for (auto &type : variant_node->possible_types) {
-                        if (!file_namespace->resolve_type(type.second)) {
+                case DefinitionNode::Variation::IMPORT:
+                    break;
+                case DefinitionNode::Variation::INTERFACE: {
+                    auto *const node = definition->as<InterfaceNode>();
+                    for (auto *const function : node->functions) {
+                        // Resolve all argument and return type aliases
+                        for (auto &param : function->parameters) {
+                            if (!file_namespace->resolve_type(param.type)) {
+                                return false;
+                            }
+                        }
+                        // Resolve all return types of the function
+                        for (auto &ret : function->return_types) {
+                            if (!file_namespace->resolve_type(ret)) {
+                                return false;
+                            }
+                        }
+                        // Resolve all error types of the function
+                        for (auto &err : function->error_types) {
+                            if (!file_namespace->resolve_type(err)) {
+                                return false;
+                            }
+                        }
+                    }
+                    break;
+                }
+                case DefinitionNode::Variation::OBJECT: {
+                    auto *const object = definition->as<ObjectNode>();
+                    for (auto &interface : object->interfaces) {
+                        if (interface.type->get_variation() == Type::Variation::UNKNOWN) {
+                            const UnknownType *unknown_type = interface.type->as<UnknownType>();
+                            const auto type = file_namespace->get_type_from_str(unknown_type->type_str);
+                            if (!type.has_value()) {
+                                THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, interface.pos);
+                                return false;
+                            }
+                            interface.type = type.value();
+                        }
+                        if (interface.type->get_variation() != Type::Variation::INTERFACE) {
+                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, interface.pos);
                             return false;
                         }
                     }
                     break;
                 }
-                case DefinitionNode::Variation::DATA: {
-                    auto *data_node = definition->as<DataNode>();
-                    for (auto &field : data_node->fields) {
-                        if (!file_namespace->resolve_type(field.type)) {
+                case DefinitionNode::Variation::TEST:
+                    break;
+                case DefinitionNode::Variation::VARIANT: {
+                    auto *const node = definition->as<VariantNode>();
+                    for (auto &type : node->possible_types) {
+                        if (!file_namespace->resolve_type(type.second)) {
                             return false;
                         }
                     }
