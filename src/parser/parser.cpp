@@ -406,6 +406,17 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                     break;
                 }
             }
+            // Add all named opaque types from the imported namespace to this namespaces type map. Named opaque "definitions" do not emit
+            // "real" definitions, instead their types are simply added, so we need to do this to make the named opaque types accessible
+            for (const auto &[type_name, type] : imported_namespace->public_symbols.types) {
+                if (type->get_variation() != Type::Variation::OPAQUE) {
+                    continue;
+                }
+                if (file_namespace->get_type_from_str(type_name).has_value()) {
+                    continue;
+                }
+                private_symbols.types[type_name] = type;
+            }
         }
         // Import shared data globals from the imported namespace into private_symbols.globals
         for (const auto &[name, variable] : imported_namespace->public_symbols.globals) {
