@@ -181,6 +181,9 @@ class ExprTrie : public Trie<ExprTrie, 4> {
                     if (token_size < 3) {
                         return false;
                     }
+                    if (tokens.first->token != TOK_TYPE || tokens.first->type->get_variation() == Type::Variation::ARRAY) {
+                        return false;
+                    }
                     return Matcher::tokens_match(tokens, Matcher::initializer);
                 },
             },
