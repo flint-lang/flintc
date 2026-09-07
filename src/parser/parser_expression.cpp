@@ -1058,9 +1058,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
         type_token->type = type_token->type->as<AliasType>()->type;
     }
     // Parse all initializer fields
-    ASSERT(tokens_mut.first->token == TOK_LEFT_BRACE);
+    if (tokens_mut.first->token != TOK_LEFT_BRACE) {
+        THROW_ERR(                                                                                            //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, tokens_mut.first->line, tokens_mut.first->column, //
+            std::vector<Token>{TOK_LEFT_BRACE}, tokens_mut.first->token                                       //
+        );
+        return std::nullopt;
+    }
     tokens_mut.first++;
-    ASSERT(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACE);
+    if (std::prev(tokens_mut.second)->token != TOK_RIGHT_BRACE) {
+        THROW_ERR(                                                                                                                    //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, std::prev(tokens_mut.second)->line, std::prev(tokens_mut.second)->column, //
+            std::vector<Token>{TOK_RIGHT_BRACE}, std::prev(tokens_mut.second)->token                                                  //
+        );
+        return std::nullopt;
+    }
     tokens_mut.second--;
     std::vector<InitializerNode::Field> fields;
     bool is_first_field = true;
