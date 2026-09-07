@@ -6,21 +6,20 @@ data Player:
 	f32x2 pos;
 	f32 speed;
 	Color color;
-	Player(size, pos, speed, color);
 
 def draw_player(Player player):
 	// We need to claculate the rendering position by the player position through offsetting it by half the
 	// width and the height of the player
 	i32 render_pos_x = i32(player.pos.x) - (player.size.x / 2);
 	i32 render_pos_y = i32(player.pos.y) - (player.size.y / 2);
-	Rectangle rec = Rectangle(render_pos_x, render_pos_y, player.size.x, player.size.y);
+	Rectangle rec = Rectangle{.x = f32(render_pos_x), .y = f32(render_pos_y), .width = f32(player.size.x), .height = f32(player.size.y)};
 	DrawRectangleRounded(rec, 0.8, 0, player.color);
 
 def clamp_position(mut Player player):
 	if player.pos.y - f32(player.size.y / 2) < 10.0:
-		player.pos = f32x2(player.pos.x, f32(player.size.y / 2) + 10.0);
+		player.pos = f32x2{.x = player.pos.x, .y = f32(player.size.y / 2) + 10.0};
 	else if player.pos.y + f32(player.size.y / 2) > f32(GetScreenHeight() - 10):
-		player.pos = f32x2(player.pos.x, GetScreenHeight() - player.size.y / 2 - 10);
+		player.pos = f32x2{.x = player.pos.x, .y = f32(GetScreenHeight() - player.size.y / 2 - 10)};
 
 def update_player(mut Player player, f32 delta):
 	if IsKeyDown(265): // 265 is the KEY_UP key in Raylib

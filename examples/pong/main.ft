@@ -158,16 +158,16 @@ def main():
     save_cursor();
 
     // Initialize the game's data
-    Pedal pedal = Pedal(15, 3, '#');
+    Pedal pedal = Pedal{.pos = 15, .size = 3, .texture = '#'};
     i32x2 ball_pos = (49, 14);
     i32x2 ball_dir = (-1, 1);
     i32x2 ball_size = (1, 1);
-    Ball ball = Ball(ball_pos, ball_dir, ball_size, 'O');
-    Screen screen = Screen(99, 29, '|', '=');
-    KeyMap keymap = KeyMap('w', 's', 'e');
+    Ball ball = Ball{.pos = ball_pos, .dir = ball_dir, .size = ball_size, .texture = 'O'};
+    Screen screen = Screen{.width = 99, .height = 29, .delim_lr = '|', .delim_ud = '='};
+    KeyMap keymap = KeyMap{.up_key = 'w', .down_key = 's', .exit_key = 'e'};
     bool8 user_input = u8(0); // Set all bits to 0
     // Because the pedals are copied into the game_data, we can use the same pedal for the initial values
-    GameData game_data = GameData(pedal, pedal, ball, screen, keymap, user_input);
+    GameData game_data = GameData{.left = pedal, .right = pedal, .ball = ball, .screen = screen, .keymap = keymap, .user_input = user_input};
 
     bool is_running = true;
     while is_running:
@@ -200,7 +200,7 @@ def main():
         // Check if it's game over
         if game_data.user_input.$1:
             is_running = false;
-    
+
     // Restore the cursor position after the porgram has finished rendering
     restore_cursor();
-      
+

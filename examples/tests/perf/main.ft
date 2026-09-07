@@ -26,7 +26,6 @@ data Result:
 	Duration median;
 	Duration mean;
 	u64 std_dev;
-	Result(min, max, median, mean, std_dev);
 
 def main():
 	str[] tags = get_tags();
@@ -159,7 +158,7 @@ def profile_executable(str path, u64 warmup, u64 iterations) -> Result:
 	for (_, _) in 0..warmup:
 		system_command($"cd {path} && ./main");
 
-	durations := DurationList(DurationListHead(none));
+	durations := DurationList{.head = DurationListHead{.head = none}};
 	for (i, _) in 0..iterations:
 		TimeStamp start = now();
 		(exit_code, output) := system_command($"cd {path} && ./main");
@@ -180,18 +179,18 @@ def profile_executable(str path, u64 warmup, u64 iterations) -> Result:
 		// Even, calculate mean from two middle values
 		Duration left = durations.at(middle)!;
 		Duration right = durations.at(middle + 1)!;
-		median = Duration((left.value + right.value) / 2);
+		median = Duration{.value = (left.value + right.value) / 2};
 	else:
 		// Uneven, mean is just the middle value
 		median = durations.at(middle)!;
 
 	// Calculate mean by dividing total duration sum through iteration count
 	u64 durations_sum = durations.sum();
-	Duration mean = Duration(durations_sum / iterations);
+	Duration mean = Duration{.value = durations_sum / iterations};
 
 	// TODO: Calculate standard deviation of the durations
 	u64 std_dev = 0;
-	return Result(min, max, median, mean, std_dev);
+	return Result{.min = min, .max = max, .median = median, .mean = mean, .std_dev = std_dev};
 
 /// @brief Executes the `fetch.sh` script to fetch and download all compilers from GH
 ///        Flint has no networking Core module yet so we need to rely on the extern

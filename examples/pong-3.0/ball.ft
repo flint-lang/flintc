@@ -10,7 +10,6 @@ data DBall:
 	f32x2 dir;
 	f32 speed;
 	f32 radius;
-	DBall(pos, dir, speed, radius);
 
 func FBall requires(DBall ball):
 	def get_x() -> f32:
@@ -40,7 +39,7 @@ func FBall requires(DBall ball):
 
 		ball.speed = 400.0;
 		ball.dir = ball_dir;
-		ball.pos = f32x2(GetScreenWidth() / 2, GetScreenHeight() / 2);
+		ball.pos = f32x2{f32(GetScreenWidth() / 2), f32(GetScreenHeight() / 2)};
 
 	/// @brief Reflects the ball along the vertical axis, so when it collided with p1 or p2
 	def reflect_v():
@@ -58,6 +57,5 @@ func FBall requires(DBall ball):
 		return ball.pos.x + ball.radius > player.get_x();
 
 object Ball:
-	data: DBall;
+	data: DBall ball;
 	func: FBall;
-	Ball(DBall);

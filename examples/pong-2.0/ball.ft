@@ -6,7 +6,6 @@ data Ball:
 	f32 speed;
 	f32 radius;
 	Color color;
-	Ball(pos, dir, speed, radius, color);
 
 def draw_ball(Ball ball):
 	DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, ball.color);

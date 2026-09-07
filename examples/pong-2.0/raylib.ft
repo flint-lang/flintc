@@ -3,14 +3,12 @@ data Color:
 	u8 g;
 	u8 b;
 	u8 a;
-	Color(r, g, b, a);
 
 data Rectangle:
 	f32 x;
 	f32 y;
 	f32 width;
 	f32 height;
-	Rectangle(x, y, width, height);
 
 extern def InitWindow(mut i32 width, mut i32 height, str title);
 extern def WindowShouldClose() -> bool;

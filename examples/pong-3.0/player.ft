@@ -12,9 +12,8 @@ func FPlayerControl requires(DPaddle paddle):
 		paddle.pos = (f32(GetScreenWidth() - paddle.size.x / 2 - 10), paddle.pos.y);
 
 	def reset():
-		paddle.pos = f32x2(GetScreenWidth() - paddle.size.x / 2 - 10, GetScreenHeight() / 2);
+		paddle.pos = f32x2{f32(GetScreenWidth() - paddle.size.x / 2 - 10), f32(GetScreenHeight() / 2)};
 
 object Player:
-	data: DPaddle;
+	data: DPaddle paddle;
 	func: FPaddleCommon, FPlayerControl;
-	Player(DPaddle);

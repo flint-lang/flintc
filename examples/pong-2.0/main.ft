@@ -17,23 +17,23 @@ def reset_objects(mut Ball ball, mut Player p1, mut Player p2):
 	// Reset the ball values
 	ball.speed = 400.0;
 	ball.dir = ball_dir;
-	ball.pos = f32x2(GetScreenWidth() / 2, GetScreenHeight() / 2);
+	ball.pos = f32x2{.x = f32(GetScreenWidth() / 2), .y = f32(GetScreenHeight() / 2)};
 
 	// Resetting the positions of the players
-	f32x2 p1_pos = f32x2(10 + p1.size.x / 2, GetScreenHeight() / 2);
+	f32x2 p1_pos = f32x2{.x = f32(10 + p1.size.x / 2), .y = f32(GetScreenHeight() / 2)};
 	p1.pos = p1_pos;
-	f32x2 p2_pos = f32x2(GetScreenWidth() - p2.size.x / 2 - 10, GetScreenHeight() / 2);
+	f32x2 p2_pos = f32x2{.x = f32(GetScreenWidth() - p2.size.x / 2 - 10), .y = f32(GetScreenHeight() / 2)};
 	p2.pos = p2_pos;
 
 def main():
 	// Colors
-	Color black = Color(u8(0), u8(0), u8(0), u8(255));
-	Color white = Color(u8(190), u8(190), u8(190), u8(255));
-	Color gray = Color(u8(100), u8(100), u8(100), u8(255));
-	Color green = Color(u8(38), u8(185), u8(154), u8(255));
-	Color dark_green = Color(u8(20), u8(160), u8(133), u8(255));
-	Color light_green = Color(u8(129), u8(204), u8(184), u8(255));
-	Color yellow = Color(u8(243), u8(213), u8(91), u8(255));
+	Color black = Color{.r = u8(0), .g = u8(0), .b = u8(0), .a = u8(255)};
+	Color white = Color{.r = u8(190), .g = u8(190), .b = u8(190), .a = u8(255)};
+	Color gray = Color{.r = u8(100), .g = u8(100), .b = u8(100), .a = u8(255)};
+	Color green = Color{.r = u8(38), .g = u8(185), .b = u8(154), .a = u8(255)};
+	Color dark_green = Color{.r = u8(20), .g = u8(160), .b = u8(133), .a = u8(255)};
+	Color light_green = Color{.r = u8(129), .g = u8(204), .b = u8(184), .a = u8(255)};
+	Color yellow = Color{.r = u8(243), .g = u8(213), .b = u8(91), .a = u8(255)};
 
 	// Screen
 	i32x2 screen = (1280, 800);
@@ -45,9 +45,9 @@ def main():
 
 	// Objects
 	i32x2 player_size = (24, 120);
-	Ball ball = Ball(f32x2(0, 0), f32x2(0, 0), 0.0, 20.0, yellow);
-	Player p1 = Player(player_size, f32x2(0, 0), 370.0, white);
-	Player p2 = Player(player_size, f32x2(0, 0), 370.0, white);
+	Ball ball = Ball{.pos = f32x2{.x = 0, .y = 0}, .dir = f32x2{.x = 0, .y = 0}, .speed = 0.0, .radius = 20.0, .color = yellow};
+	Player p1 = Player{.size = player_size, .pos = f32x2{.x = 0, .y = 0}, .speed = 370.0, .color = white};
+	Player p2 = Player{.size = player_size, .pos = f32x2{.x = 0, .y = 0}, .speed = 370.0, .color = white};
 	reset_objects(ball, p1, p2);
 
 

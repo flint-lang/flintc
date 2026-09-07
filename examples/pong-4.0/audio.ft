@@ -17,11 +17,9 @@ data DAudio:
 	u32 total_frames = 0;
 	u32 frames_written = 0;
 	bool playing = false;
-	DAudio(stream, buffer, phase, frequency, total_frames, frames_written, playing);
 
 object Audio:
 	data: DAudio a;
-	Audio(a);
 
 	def play(f32 freq, Duration duration):
 		print($"audio play {freq}Hz for {as_unit(duration, TimeUnit.MS)}ms\n");
@@ -74,4 +72,4 @@ def init_audio() -> Audio:
 	print("init audio\n");
 	rl.InitAudioDevice();
 	rl.SetAudioStreamBufferSizeDefault(AudioConfig.BUFFER_SIZE);
-	return Audio(DAudio(_));
+	return Audio{};

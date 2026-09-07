@@ -7,12 +7,10 @@ data Edge:
 	u64 a = 0;
 	u64 b = 0;
 	u64 dist = 0;
-	Edge(a, b, dist);
 
 data DisjointSetUnion:
 	u64[] parent;
 	u64[] size;
-	DisjointSetUnion(parent, size);
 
 def find(mut DisjointSetUnion dsu, u64 x) -> u64:
 	if dsu.parent[x] == x:
@@ -89,31 +87,31 @@ def push_max_heap(mut Edge[] heap, u64 size, Edge e, u64 K) -> u64:
 def main():
 	str[] lines = read_lines("input.txt");
 	
-	i64x3[] coords = i64x3[lines.len](i64x3(0, 0, 0));
+	i64x3[] coords = i64x3[lines.len](i64x3{.x = 0, .y = 0, .z = 0});
 	for (i, line) in lines:
 		nums := split(line, ',');
-		coords[i] = i64x3(parse_i64(nums[0]), parse_i64(nums[1]), parse_i64(nums[2]));
+		coords[i] = i64x3{.x = parse_i64(nums[0]), .y = parse_i64(nums[1]), .z = parse_i64(nums[2])};
 	
 	// Pre-allocate all (i<j) edges — no append-copy, just direct assignment
 	u64 total = coords.len * (coords.len - 1) / 2;
-	Edge[] edges = Edge[total](Edge(_));
+	Edge[] edges = Edge[total](Edge{.a = 0, .b = 0, .dist = 0});
 	u64 idx = 0;
 	for (i, p0) in coords:
 		for (j, p1) in coords:
 			if j <= i:
 				continue;
-			edges[idx] = Edge(i, j, dist2(p0, p1));
+			edges[idx] = Edge{.a = i, .b = j, .dist = u64(dist2(p0, p1))};
 			idx++;
 
 	// Max-heap to select the 1000 smallest edges without sorting all 500k
 	u64 K = 1000;
-	Edge[] heap = Edge[K](Edge(_));
+	Edge[] heap = Edge[K](Edge{.a = 0, .b = 0, .dist = 0});
 	u64 heap_size = 0;
 	for (_, e) in edges:
 		heap_size = push_max_heap(heap, heap_size, e, K);
 
 	// Extract the K smallest from the heap (they come out in descending order)
-	Edge[] top_edges = Edge[K](Edge(_));
+	Edge[] top_edges = Edge[K](Edge{.a = 0, .b = 0, .dist = 0});
 	u64 remaining = K;
 	for (i, _) in 0..K:
 		top_edges[i] = heap[0];
@@ -134,7 +132,7 @@ def main():
 			j = m;
 
 	// Union-find on the 1000 smallest edges
-	DisjointSetUnion dsu = DisjointSetUnion(u64[coords.len](0), u64[coords.len](1));
+	DisjointSetUnion dsu = DisjointSetUnion{.parent = u64[coords.len](0), .size = u64[coords.len](1)};
 	
 	for (i, _) in 0..coords.len:
 		dsu.parent[i] = i;

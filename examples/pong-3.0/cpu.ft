@@ -11,9 +11,8 @@ func FCpuControl requires(DPaddle paddle):
 		FPaddleCommon.clamp_position(paddle);
 
 	def reset():
-		paddle.pos = f32x2(10 + paddle.size.x / 2, GetScreenHeight() / 2);
+		paddle.pos = f32x2{f32(10 + paddle.size.x / 2), f32(GetScreenHeight() / 2)};
 
 object Cpu:
-	data: DPaddle;
+	data: DPaddle paddle;
 	func: FPaddleCommon, FCpuControl;
-	Cpu(DPaddle);
