@@ -4438,6 +4438,10 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 result.emplace_back(expr.at(0));
                 return result;
             }
+            if (expr.size() == 1 && type_cast_node->expr->type->get_variation() == Type::Variation::VECTOR) {
+                expr[0] = generate_type_cast(builder, ctx, expr[0], type_cast_node->expr->type, type_cast_node->type);
+                return expr;
+            }
             // The expression now must be a group type, so the `expr` size must be the vector-type width
             if (expr.size() != vector_type->width) {
                 // If the sizes dont match, the rhs must have size 1 and its type must match the element type of the vector-type

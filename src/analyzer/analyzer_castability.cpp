@@ -780,8 +780,12 @@ bool Analyzer::Castability::is_castable_to(const std::shared_ptr<Type> &from, co
     }
 }
 
-bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_ptr<Type> &target_type,
-    std::unique_ptr<ExpressionNode> &expr, const bool is_implicit) {
+bool Analyzer::Castability::check_castability( //
+    Parser &parser,                            //
+    const std::shared_ptr<Type> &target_type,  //
+    std::unique_ptr<ExpressionNode> &expr,     //
+    const bool is_implicit                     //
+) {
     PROFILE_CUMULATIVE("Analyzer::Castability::check_castability_expr_inplace");
     if (target_type->get_variation() == Type::Variation::ALIAS) {
         const auto *alias_type = target_type->as<AliasType>();
@@ -948,6 +952,24 @@ bool Analyzer::Castability::check_castability(Parser &parser, const std::shared_
                             case CastDirection::Kind::SAME_TYPE:
                             case CastDirection::Kind::CAST_RHS_TO_LHS:
                             case CastDirection::Kind::CAST_BIDIRECTIONAL:
+                                break;
+                        }
+                    }
+                    expr = std::make_unique<TypeCastNode>(parser.file_hash, expr_pos, target_type, expr);
+                    return true;
+                }
+                if (expr->type->get_variation() == Type::Variation::VECTOR) {
+                    const auto *expr_vector = expr->type->as<VectorType>();
+                    if (expr_vector->width != vector_type->width) {
+                        return false;
+                    }
+                    if (!expr_vector->base_type->equals(vector_type->base_type)) {
+                        switch (check_primitive_castability(vector_type->base_type, expr_vector->base_type, is_implicit).kind) {
+                            case CastDirection::Kind::NOT_CASTABLE:
+                            case CastDirection::Kind::CAST_BOTH_TO_COMMON:
+                            case CastDirection::Kind::CAST_LHS_TO_RHS:
+                                return false;
+                            default:
                                 break;
                         }
                     }

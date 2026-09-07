@@ -2752,19 +2752,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return create_initializer(ctx, scope, tokens_mut);
         }
         case ExprTrie::Pattern::TYPE_CAST: {
-            if (primitives.find(tokens_mut.first->type->to_string()) == primitives.end()) {
-                if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
-                    // It's an array initializer
-                    return create_array_initializer(ctx, scope, tokens);
-                }
-            } else if (tokens_mut.first->type->get_variation() == Type::Variation::VECTOR &&
-                tokens_mut.first->type->to_string() != "bool8") {
-                // It's an explicit initializer of an vector-type
-                return create_initializer(ctx, scope, tokens_mut);
-            } else {
-                // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
-                return create_type_cast(ctx, scope, tokens_mut);
+            if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
+                // It's an array initializer
+                return create_array_initializer(ctx, scope, tokens);
             }
+            // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
+            return create_type_cast(ctx, scope, tokens_mut);
         }
         case ExprTrie::Pattern::ANONYMOUS_ERROR:
             return create_anonymous_error(ctx, scope, tokens_mut);
