@@ -134,6 +134,15 @@ class Parser {
         return source_code_lines;
     }
 
+    /// @function `resolve_imports`
+    /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
+    /// also checks for multiple definitions of the same symbol in multiple imported files and prints that it has defined at multiple places
+    ///
+    /// @param `file_namespace` The namespace of the file of which to resolve all imports of
+    /// @param `alias` Whether to only resolve all aliased (true) or all un-aliased imports (false)
+    /// @return `bool` Whether everything went as expected
+    static bool resolve_imports(Namespace *const file_namespace, const bool alias);
+
     /// @function `resolve_all_imports`
     /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
     /// also checks for multiple definitions of the same symbol in multiple imported files and prints that it has defined at multiple places

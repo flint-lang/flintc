@@ -15,6 +15,7 @@
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/interface_type.hpp"
+#include "parser/type/object_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "persistent_thread_pool.hpp"
@@ -303,90 +304,134 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
     return dep_graph;
 }
 
-bool Parser::resolve_all_imports() {
-    PROFILE_CUMULATIVE("Parser::resolve_all_imports");
-    for (const auto &instance : instances) {
-        const auto &file_namespace = instance.file_node_ptr->file_namespace;
-        const auto &imports = file_namespace->public_symbols.imports;
-        for (const auto &import : imports) {
-            Namespace *imported_namespace = nullptr;
-            if (std::holds_alternative<Hash>(import->path)) {
-                const Hash &import_hash = std::get<Hash>(import->path);
-                imported_namespace = Resolver::get_namespace_from_hash(import_hash);
-            } else {
-                // Check if it's a core module, continue if it's not
-                const auto &import_segments = std::get<std::vector<std::string>>(import->path);
-                if (import_segments.size() > 2 || import_segments.front() != "Core") {
-                    continue;
-                }
-                // Not-available core modules should have been caught some time earlier
-                ASSERT(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
-                imported_namespace = Parser::core_namespaces.at(import_segments.back()).get();
+bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) {
+    PROFILE_CUMULATIVE("Parser::resolve_imports");
+    const auto &imports = file_namespace->public_symbols.imports;
+    for (const auto &import : imports) {
+        Namespace *imported_namespace = nullptr;
+        if (std::holds_alternative<Hash>(import->path)) {
+            const Hash &import_hash = std::get<Hash>(import->path);
+            imported_namespace = Resolver::get_namespace_from_hash(import_hash);
+        } else {
+            // Check if it's a core module, continue if it's not
+            const auto &import_segments = std::get<std::vector<std::string>>(import->path);
+            if (import_segments.size() > 2 || import_segments.front() != "Core") {
+                continue;
             }
-            // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
+            // Not-available core modules should have been caught some time earlier
+            ASSERT(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
+            imported_namespace = Parser::core_namespaces.at(import_segments.back()).get();
+        }
+        // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
+        if (alias) {
             if (import->alias.has_value()) {
                 auto &aliased_imports = file_namespace->public_symbols.aliased_imports;
                 aliased_imports[import->alias.value()] = imported_namespace;
-                continue;
             }
-            // Place all symbols of non-aliased imports to the private symbol list
-            // Place all defined types in the private types map and all functions in the function map
-            const Hash import_hash = imported_namespace->namespace_hash;
-            auto &private_symbols = file_namespace->private_symbols;
-            for (const auto &definition : imported_namespace->public_symbols.definitions) {
-                switch (definition->get_variation()) {
-                    default:
-                        break;
-                    case DefinitionNode::Variation::DATA: {
-                        auto *node = definition->as<DataNode>();
-                        if (!file_namespace->get_type_from_str(node->name).has_value()) {
-                            std::shared_ptr<Type> data_type = std::make_shared<DataType>(node);
-                            private_symbols.types[data_type->to_string()] = data_type;
-                        }
-                        break;
+            continue;
+        }
+        // Place all symbols of non-aliased imports to the private symbol list
+        // Place all defined types in the private types map and all functions in the function map
+        const Hash import_hash = imported_namespace->namespace_hash;
+        auto &private_symbols = file_namespace->private_symbols;
+        for (const auto &definition : imported_namespace->public_symbols.definitions) {
+            switch (definition->get_variation()) {
+                case DefinitionNode::Variation::DATA: {
+                    auto *const node = definition->as<DataNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> data_type = std::make_shared<DataType>(node);
+                        private_symbols.types[data_type->to_string()] = data_type;
                     }
-                    case DefinitionNode::Variation::ENUM: {
-                        auto *node = definition->as<EnumNode>();
-                        if (!file_namespace->get_type_from_str(node->name).has_value()) {
-                            std::shared_ptr<Type> enum_type = std::make_shared<EnumType>(node);
-                            private_symbols.types[enum_type->to_string()] = enum_type;
-                        }
-                        break;
+                    break;
+                }
+                case DefinitionNode::Variation::ENUM: {
+                    auto *const node = definition->as<EnumNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> enum_type = std::make_shared<EnumType>(node);
+                        private_symbols.types[enum_type->to_string()] = enum_type;
                     }
-                    case DefinitionNode::Variation::ERROR: {
-                        auto *node = definition->as<ErrorNode>();
-                        if (!file_namespace->get_type_from_str(node->name).has_value()) {
-                            std::shared_ptr<Type> error_type = std::make_shared<ErrorSetType>(node);
-                            private_symbols.types[error_type->to_string()] = error_type;
-                        }
-                        break;
+                    break;
+                }
+                case DefinitionNode::Variation::ERROR: {
+                    auto *const node = definition->as<ErrorNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> error_type = std::make_shared<ErrorSetType>(node);
+                        private_symbols.types[error_type->to_string()] = error_type;
                     }
-                    case DefinitionNode::Variation::FUNCTION: {
-                        auto *function = definition->as<FunctionNode>();
-                        if (private_symbols.functions.find(import_hash) == private_symbols.functions.end()) {
-                            private_symbols.functions[import_hash].emplace_back(function);
-                        } else {
-                            private_symbols.functions.at(import_hash).emplace_back(function);
-                        }
-                        break;
+                    break;
+                }
+                case DefinitionNode::Variation::FUNC: {
+                    auto *const node = definition->as<FuncNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> error_type = std::make_shared<FuncType>(node);
+                        private_symbols.types[error_type->to_string()] = error_type;
                     }
-                    case DefinitionNode::Variation::VARIANT: {
-                        auto *node = definition->as<VariantNode>();
-                        if (!file_namespace->get_type_from_str(node->name).has_value()) {
-                            // const std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> var_or_list = node;
-                            std::shared_ptr<Type> variant_type = std::make_shared<VariantType>(node, false);
-                            private_symbols.types[variant_type->to_string()] = variant_type;
-                        }
-                        break;
+                    break;
+                }
+                case DefinitionNode::Variation::FUNCTION: {
+                    auto *const function = definition->as<FunctionNode>();
+                    if (private_symbols.functions.find(import_hash) == private_symbols.functions.end()) {
+                        private_symbols.functions[import_hash].emplace_back(function);
+                    } else {
+                        private_symbols.functions.at(import_hash).emplace_back(function);
                     }
+                    break;
+                }
+                case DefinitionNode::Variation::IMPORT:
+                    break;
+                case DefinitionNode::Variation::INTERFACE: {
+                    auto *const node = definition->as<InterfaceNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> error_type = std::make_shared<InterfaceType>(node);
+                        private_symbols.types[error_type->to_string()] = error_type;
+                    }
+                    break;
+                }
+                case DefinitionNode::Variation::OBJECT: {
+                    auto *const node = definition->as<ObjectNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> error_type = std::make_shared<ObjectType>(node);
+                        private_symbols.types[error_type->to_string()] = error_type;
+                    }
+                    break;
+                }
+                case DefinitionNode::Variation::TEST:
+                    break;
+                case DefinitionNode::Variation::VARIANT: {
+                    auto *const node = definition->as<VariantNode>();
+                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                        std::shared_ptr<Type> variant_type = std::make_shared<VariantType>(node, false);
+                        private_symbols.types[variant_type->to_string()] = variant_type;
+                    }
+                    break;
                 }
             }
-            // Import shared data globals from the imported namespace into private_symbols.globals
-            for (const auto &[name, variable] : imported_namespace->public_symbols.globals) {
-                if (private_symbols.globals.find(name) == private_symbols.globals.end()) {
-                    private_symbols.globals[name] = variable;
-                }
+        }
+        // Import shared data globals from the imported namespace into private_symbols.globals
+        for (const auto &[name, variable] : imported_namespace->public_symbols.globals) {
+            if (private_symbols.globals.find(name) == private_symbols.globals.end()) {
+                private_symbols.globals[name] = variable;
             }
+        }
+    }
+    return true;
+}
+
+bool Parser::resolve_all_imports() {
+    PROFILE_CUMULATIVE("Parser::resolve_all_imports");
+    // We need to resolve all imports in two passed because the first fill all aliased_imports placeholders, then import symbols. Ordering
+    // is mandatory because the symbol pass recurses through aliased_imports via `Namespace::get_type_from_ptr()`, and unfilled placeholders
+    // are nullptr which would lead to null-references if we did not strictly control the ordering
+    for (const auto &instance : instances) {
+        const auto &file_namespace = instance.file_node_ptr->file_namespace;
+        if (!resolve_imports(file_namespace.get(), true)) {
+            return false;
+        }
+    }
+    for (const auto &instance : instances) {
+        const auto &file_namespace = instance.file_node_ptr->file_namespace;
+        if (!resolve_imports(file_namespace.get(), false)) {
+            return false;
         }
     }
     return true;
