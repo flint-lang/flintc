@@ -13,7 +13,7 @@ test "0102":
 test "0103":
 	str path = "tests/regression/0101-0150";
 	str file = "0103.ft";
-	test_file_ok($"{path}/{file}", "i.(x, y) = (10, 20)\no.i.x = 5\no: { i: { x: 4, y: 6.5 }, c: 33 }\n");
+	test_file_ok($"{path}/{file}", "i.(x, y) = (10, 20.0)\no.i.x = 5\no: { i: { x: 4, y: 6.5 }, c: 33 }\n");
 
 test "0104":
 	str path = "tests/regression/0101-0150";
@@ -23,7 +23,7 @@ test "0104":
 test "0105":
 	str path = "tests/regression/0101-0150";
 	str file = "0105.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0105.ft:4:16\n└─┬┤E0000│\n3 │ def main():\n4 │ »   i32x3 v3 = i32x3(10, 20);\n┌─┴────────────────┘\n└─ Expected '3' values inside vector-type cast but got '2' values instead\n");
+	test_file_ok($"{path}/{file}", "v3 = (10, 20, 0)\n");
 
 test "0106":
 	str path = "tests/regression/0101-0150";
@@ -48,7 +48,7 @@ test "0109":
 test "0110":
 	str path = "tests/regression/0101-0150";
 	str file = "0110.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0110.ft:16:15\n└──┬┤E0000│\n13 │ object Entity:\n14 │ »   data:\n16 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0110.ft:14:15\n└──┬┤E0000│\n11 │ object Entity:\n12 │ »   data:\n14 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
 
 test "0111":
 	str path = "tests/regression/0101-0150";
@@ -73,7 +73,7 @@ test "0114":
 test "0115":
 	str path = "tests/regression/0101-0150";
 	str file = "0115.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0115.ft:13:11\n└──┬┤E0000│\n12 │ object Entity:\n13 │ »   data: Func d1;\n┌──┴───────────┘\n└─ Type mismatch. Expected data type for object-provided data\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0101-0150/0115.ft:12:11\n└──┬┤E0000│\n11 │ object Entity:\n12 │ »   data: Func d1;\n┌──┴───────────┘\n└─ Type mismatch. Expected data type for object-provided data\n");
 
 test "0116":
 	str path = "tests/regression/0101-0150";

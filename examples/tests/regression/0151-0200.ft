@@ -43,7 +43,7 @@ test "0158":
 test "0159":
 	str path = "tests/regression/0151-0200/0159";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\nCheck true\n");
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9.0, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9.0)\nHello there!\nCheck true\n");
 
 test "0160":
 	str path = "tests/regression/0151-0200";
@@ -83,7 +83,7 @@ test "0166":
 test "0167":
 	str path = "tests/regression/0151-0200";
 	str file = "0167.ft";
-	test_file_ok($"{path}/{file}", "t.pos.x = 1\n");
+	test_file_ok($"{path}/{file}", "t.pos.x = 1.0\n");
 
 test "0168":
 	str path = "tests/regression/0151-0200";
@@ -123,7 +123,7 @@ test "0174":
 test "0175":
 	str path = "tests/regression/0151-0200";
 	str file = "0175.ft";
-	test_file_ok($"{path}/{file}", "27 ** 0.333333 = 3\nsin(0.5236) = 0.500001\n");
+	test_file_ok($"{path}/{file}", "27.0 ** 0.333333 = 3.0\nsin(0.5236) = 0.500001\n");
 
 test "0176":
 	str path = "tests/regression/0151-0200";
@@ -138,7 +138,7 @@ test "0177":
 test "0178":
 	str path = "tests/regression/0151-0200";
 	str file = "0178.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0178.ft:22:16\n└──┬┤E0000│\n17 │ object Entity:\n22 │ »   Entity(d1, d1, d2);\n┌──┴────────────────┘\n└─ Object constructor contains accessor 'd1' twice\n");
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
 
 test "0179":
 	str path = "tests/regression/0151-0200";
@@ -211,7 +211,7 @@ test "0191":
 test "0192":
 	str path = "tests/regression/0151-0200";
 	str file = "0192.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0192.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0192.ft:8:5\n└─┬┤E0000│\n7 │ def increment_by(Point p, i32 value):\n8 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
 
 test "0193":
 	str path = "tests/regression/0151-0200";
@@ -246,7 +246,7 @@ test "0198":
 test "0199":
 	str path = "tests/regression/0151-0200";
 	str file = "0199.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0199.ft:16:21\n└──┬┤E0000│\n16 │ func Func3 requires(Func d):\n┌──┴─────────────────────┘\n└─ Only data types are allowed to be required by func components\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0199.ft:15:21\n└──┬┤E0000│\n15 │ func Func3 requires(Func d):\n┌──┴─────────────────────┘\n└─ Only data types are allowed to be required by func components\n");
 
 test "0200":
 	str path = "tests/regression/0151-0200";

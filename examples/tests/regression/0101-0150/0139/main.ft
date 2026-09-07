@@ -4,5 +4,5 @@ use "imported.ft" as b
 use Core.print
 
 def main():
-	b.Vector2 v2 = b.Vector2(1.1, 2.2);
+	b.Vector2 v2 = b.Vector2{1.1, 2.2};
 	print($"v2.x = {v2.x}\n");

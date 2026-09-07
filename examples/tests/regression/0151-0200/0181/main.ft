@@ -8,8 +8,8 @@ const data Globals:
 	u32 font_size = 60;
 
 const data Colors:
-	u8x4 background = u8x4(245, 245, 245, 255);
-	u8x4 text = u8x4(45, 45, 45, 255);
+	u8x4 background = u8x4{245, 245, 245, 255};
+	u8x4 text = u8x4{45, 45, 45, 255};
 
 def main():
 	rl.InitWindow(Globals.width, Globals.height, Globals.window_name);
