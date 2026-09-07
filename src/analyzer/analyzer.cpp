@@ -1161,7 +1161,9 @@ bool Analyzer::analyze_expression(                            //
                 return false;
             }
             // If the inner expression is a literal, retype the literal and remove the cast node
-            if (Analyzer::Castability::resolve_comptime_type_of_expr(local_ctx.parser, node->expr, node->type)) {
+            if (node->type->get_variation() == Type::Variation::PRIMITIVE                                         //
+                && Analyzer::Castability::resolve_comptime_type_of_expr(local_ctx.parser, node->expr, node->type) //
+            ) {
                 expr = std::move(node->expr);
                 break;
             }
