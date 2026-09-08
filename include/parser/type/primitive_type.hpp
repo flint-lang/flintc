@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -41,6 +42,10 @@ class PrimitiveType : public Type {
         LitValue value;
         if (type_name == "str") {
             value = LitStr("");
+            std::unique_ptr<ExpressionNode> str_lit = std::make_unique<LiteralNode>(    //
+                hash, pos, value, Type::get_primitive_type("type.flint.str.lit"), false //
+            );
+            return std::make_unique<TypeCastNode>(hash, pos, self, str_lit);
         } else if (type_name == "bool") {
             value = LitBool(false);
         } else if (type_name[0] == 'f') {
