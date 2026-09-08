@@ -16,18 +16,17 @@ func MyFunc requires(BaseData d):
 object MyEntity:
 	data BaseData;
 	func: BaseFunc, MyFunc;
-	MyEntity(BaseData);
 
 def main():
-	d := BaseData(10);
+	d := BaseData{10};
 	MyFunc.print(d);
 	x := MyFunc.get_x(d);
 	print($"d.x = {x}\n");
 
-	be := BaseEntity(BaseData(10));
+	be := BaseEntity{BaseData{10}};
 	be.base();
 
-	me := MyEntity(BaseData(10));
+	me := MyEntity{BaseData{10}};
 	me.base();
 	me.print();
 	x = me.get_x();

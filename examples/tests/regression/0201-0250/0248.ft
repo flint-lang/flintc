@@ -2,10 +2,9 @@ use Core.print
 
 data Vector4:
 	f32[4] values;
-	Vector4(values);
 
 def main():
-	v := Vector4(f32[4](0.0));
+	v := Vector4{f32[4](0.0)};
 	v.values[1] = 1.0;
 	v.values[2] = 4.0;
 	v.values[3] = 9.0;

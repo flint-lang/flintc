@@ -3,11 +3,9 @@ use Core.print
 data DTransform:
 	i32x2 pos;
 	i32x2 size;
-	DTransform(pos, size);
 
 data DScale:
 	f32x2 scale;
-	DScale(scale);
 
 func FMove requires(DTransform trans, DScale scale):
 	def print():
@@ -19,9 +17,8 @@ func FMove requires(DTransform trans, DScale scale):
 object Entity:
 	data: DTransform;
 	func: FMove;
-	Entity(DTransform);
 
 def main():
-	e := Entity(DTransform(i32x2(100, 120), i32x2(200, 220)));
+	e := Entity{DTransform{i32x2{100, 120}, i32x2{200, 220}}};
 	e.print();
 	print($"e.pos = {e.get_pos()}\n");

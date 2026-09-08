@@ -11,7 +11,6 @@ data DTriangle:
 	i32x2 p1;
 	i32x2 p2;
 	i32x2 p3;
-	DTriangle(p1, p2, p3);
 
 func FTriangle requires(DTriangle d):
 	def draw():
@@ -27,7 +26,6 @@ func FTriangle requires(DTriangle d):
 object Triangle implements(IShape):
 	data: DTriangle;
 	func: FTriangle;
-	Triangle(DTriangle);
 
 
 data DQuad:
@@ -35,7 +33,6 @@ data DQuad:
 	i32x2 p2;
 	i32x2 p3;
 	i32x2 p4;
-	DQuad(p1, p2, p3, p4);
 
 func FQuad requires(DQuad d):
 	def draw():
@@ -52,7 +49,6 @@ func FQuad requires(DQuad d):
 object Quad implements(IShape):
 	data: DQuad;
 	func: FQuad;
-	Quad(DQuad);
 
 
 def draw_shapes(mut IShape[] shapes):
@@ -65,7 +61,7 @@ def sum_areas_of_shapes(mut IShape[] shapes) -> i32:
 		sum += s.area();
 
 def main():
-	t1 := Triangle(DTriangle((0, 0), (4, 0), (0, 3)));
+	t1 := Triangle{DTriangle{(0, 0), (4, 0), (0, 3)}};
 	IShape[] shapes = IShape[4](t1);
 
 	draw_shapes(shapes);

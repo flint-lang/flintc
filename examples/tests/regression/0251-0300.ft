@@ -3,7 +3,7 @@ use "../../utils.ft"
 test "0251":
 	str path = "tests/regression/0251-0300/0251";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\n");
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3.0, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1.0, 2.0, 3.0, -5.0)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2.0, 6.0, 12.0, -8.0)\n");
 
 test "0252":
 	str path = "tests/regression/0251-0300";
@@ -33,7 +33,7 @@ test "0256":
 test "0257":
 	str path = "tests/regression/0251-0300";
 	str file = "0257.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0257.ft:26:16\n└──┬┤E0000│\n25 │ def print(Entity2 e):\n26 │ »   print_data(e.d);\n┌──┴────────────────┘\n└─ Direct field accesses are not allowed on objects\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0257.ft:23:16\n└──┬┤E0000│\n22 │ def print(Entity2 e):\n23 │ »   print_data(e.d);\n┌──┴────────────────┘\n└─ Direct field accesses are not allowed on objects\n");
 
 test "0258":
 	str path = "tests/regression/0251-0300";
@@ -78,12 +78,12 @@ test "0265":
 test "0266":
 	str path = "tests/regression/0251-0300/0266";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\n");
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3.0, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1.0, 2.0, 3.0, -5.0)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2.0, 6.0, 12.0, -8.0)\n");
 
 test "0267":
 	str path = "tests/regression/0251-0300";
 	str file = "0267.ft";
-	test_file_ok($"{path}/{file}", "grey = (100, 120, 140, 255)\n27 ** 0.333333 = 3\nsin(0.5236) = 0.500001\n");
+	test_file_ok($"{path}/{file}", "grey = (100, 120, 140, 255)\n27.0 ** 0.333333 = 3.0\nsin(0.5236) = 0.500001\n");
 
 test "0268":
 	str path = "tests/regression/0251-0300";
@@ -109,7 +109,7 @@ test "0271":
 test "0272":
 	str path = "tests/regression/0251-0300";
 	str file = "0272.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0272.ft:19:1\n└──┬┤E0000│\n19 │ object Entity:\n┌──┴─┘\n└─ Object type is missing data 'DScale' required by func component 'FMove'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0251-0300/0272.ft:17:1\n└──┬┤E0000│\n17 │ object Entity:\n┌──┴─┘\n└─ Object type is missing data 'DScale' required by func component 'FMove'\n");
 
 test "0273":
 	str path = "tests/regression/0251-0300";
@@ -234,7 +234,7 @@ test "0296":
 test "0297":
 	str path = "tests/regression/0251-0300/0297";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Parse Error at main.ft:22:18\n└──┬┤E0000│\n17 │ def main():\n22 │ »   print($\"z = {k}\\n\");\n┌──┴──────────────────┘\n└─ Use of undeclared variable 'k'\n");
+	test_file_fail_in(path, file, "Parse Error at main.ft:21:18\n└──┬┤E0000│\n16 │ def main():\n21 │ »   print($\"z = {k}\\n\");\n┌──┴──────────────────┘\n└─ Use of undeclared variable 'k'\n");
 
 test "0298":
 	str path = "tests/regression/0251-0300/0298";

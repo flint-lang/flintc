@@ -70,12 +70,12 @@ test "[win]0213":
 test "0214":
 	str path = "tests/regression/0201-0250";
 	str file = "0214.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0214.ft:13:11\n└──┬┤E0000│\n12 │ def main():\n13 │ »   v1 := Vec3(_, _, _);\n┌──┴───────────┘\n├─ Field 'y' cannot be default-initialized\n└─ If you want to default-initialize 'y' then you need to edit the field declaration in the data type\n");
+	test_file_ok($"{path}/{file}", "v1.(x, y, z) = (10.0, 20.0, 30.0)\n");
 
 test "0215":
 	str path = "tests/regression/0201-0250";
 	str file = "0215.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0215.ft:11:10\n└──┬┤E0000│\n8  │ def main():\n11 │ »   x := s.lenge;\n┌──┴──────────┘\n├─ Field 'lenge' does not exist on type 'str'\n└─ Available fields are:\n    ├─ u64 length\n    └─ u64 len\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0215.ft:10:10\n└──┬┤E0000│\n7  │ def main():\n10 │ »   x := s.lenge;\n┌──┴──────────┘\n├─ Field 'lenge' does not exist on type 'str'\n└─ Available fields are:\n    ├─ u64 length\n    └─ u64 len\n");
 
 test "0216":
 	str path = "tests/regression/0201-0250";
@@ -95,7 +95,7 @@ test "0218":
 test "0219":
 	str path = "tests/regression/0201-0250";
 	str file = "0219.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0219.ft:21:10\n└──┬┤E0000│\n19 │ def main():\n21 │ »   e := Entity(10);\n┌──┴──────────┘\n└─ Type mismatch of expression\n    ├─ Expected: Vec3\n    └─ But got:  int\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0219.ft:19:17\n└──┬┤E0000│\n17 │ def main():\n19 │ »   e := Entity{10};\n┌──┴─────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: Vec3\n    └─ But got:  int\n");
 
 test "0220":
 	str path = "tests/regression/0201-0250";
@@ -187,7 +187,7 @@ test "0236":
 test "0237":
 	str path = "tests/regression/0201-0250";
 	str file = "0237.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0237.ft:22:16\n└──┬┤E0000│\n17 │ object Entity:\n22 │ »   Entity(d1, Func, d2);\n┌──┴────────────────┘\n└─ Object constructor is only allowed to contain data typed values\n");
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
 
 // TODO: Should 'int' only be castable to integer types, not floating point types?
 // This would solve this ambiguity problem, as then
@@ -213,7 +213,7 @@ test "0240":
 test "0241":
 	str path = "tests/regression/0201-0250";
 	str file = "0241.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0241.ft:20:15\n└──┬┤E0000│\n17 │ object Entity:\n18 │ »   data:\n20 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0201-0250/0241.ft:18:15\n└──┬┤E0000│\n15 │ object Entity:\n16 │ »   data:\n18 │ »   »   Data2 d1;\n┌──┴───────────────┘\n└─ Object type defines accessor 'd1' twice\n");
 
 test "0242":
 	str path = "tests/regression/0201-0250";
@@ -248,7 +248,7 @@ test "0247":
 test "0248":
 	str path = "tests/regression/0201-0250";
 	str file = "0248.ft";
-	test_file_ok($"{path}/{file}", "v.values[0] = 0.000000e+\nv.values[1] = 1\nv.values[2] = 4\nv.values[3] = 9\n");
+	test_file_ok($"{path}/{file}", "v.values[0] = 0.0\nv.values[1] = 1.0\nv.values[2] = 4.0\nv.values[3] = 9.0\n");
 
 test "0249":
 	str path = "tests/regression/0201-0250";

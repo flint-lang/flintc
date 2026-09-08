@@ -6,7 +6,6 @@ data DVec3:
 	i32 x;
 	i32 y;
 	i32 z;
-	DVec3(x, y, z);
 
 def somefn(DVec3 d3, MyEntity e):
 	e.printVec3(d3);
