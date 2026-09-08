@@ -329,6 +329,8 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 aliased_imports[import->alias.value()] = imported_namespace;
             }
             continue;
+        } else if (import->alias.has_value()) {
+            continue;
         }
         // Place all symbols of non-aliased imports to the private symbol list
         // Place all defined types in the private types map and all functions in the function map
