@@ -5,7 +5,6 @@ data Color:
 	u8 g;
 	u8 b;
 	u8 a;
-	Color(r, g, b, a);
 
 extern def InitWindow(mut i32 width, mut i32 height, str title);
 extern def WindowShouldClose() -> bool;
@@ -25,8 +24,8 @@ def IsWindowReady() -> bool:
 def main():
 	print($"IsWindowReady() = {IsWindowReady()}\n");
 	InitWindow(800, 450, "Hello from Flint!");
-	Color white = Color(u8(190), u8(190), u8(190), u8(255));
-	Color gray = Color(u8(100), u8(100), u8(100), u8(255));
+	Color white = Color{u8(190), u8(190), u8(190), u8(255)};
+	Color gray = Color{u8(100), u8(100), u8(100), u8(255)};
 
 	while not WindowShouldClose():
 		BeginDrawing();

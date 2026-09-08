@@ -4,7 +4,6 @@ data MyData:
 	i32 x;
 	i32 y;
 	MyData? next;
-	MyData(x, y, next);
 
 func MyFunc requires(MyData d1):
 	const export def print():

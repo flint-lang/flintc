@@ -6,7 +6,6 @@ interface IMovement:
 data DPlayer:
 	i32x2 pos;
 	i32x2 dir;
-	DPlayer(pos, dir);
 
 func FPlayer requires(DPlayer d):
 	def move():
@@ -18,13 +17,11 @@ object Player:
 	data: DPlayer;
 	func: /*IMovement,*/ FPlayer;
 	//link: IMovement::move -> FPlayer::move;
-	Player(DPlayer);
 
 data DComputer:
 	i32x2 pos;
 	i32x2 dir;
 	i32 speed;
-	DComputer(pos, dir, speed);
 
 func FComputer requires(DComputer d):
 	def move():
@@ -36,16 +33,15 @@ object Computer:
 	data: DComputer;
 	func: /*IMovement,*/ FComputer;
 	//link: IMovement::move -> FComputer::move;
-	Computer(DComputer);
 
 //def apply_movement(mut IMovement m):
 //	m.move();
 
 def main():
-	p := Player(DPlayer(i32x2(10, 20), i32x2(3, 2)));
+	p := Player{DPlayer{i32x2{10, 20}, i32x2{3, 2}}};
 	p.move();
 	//apply_movement(p);
 
-	c := Computer(DComputer(i32x2(20, 10), i32x2(-3, -2), 2));
+	c := Computer{DComputer{i32x2{20, 10}, i32x2{-3, -2}, 2}};
 	c.move();
 	//apply_movement(c);

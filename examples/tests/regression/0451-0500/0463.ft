@@ -4,10 +4,9 @@ data Point:
 	i32 x;
 	i32 y;
 	i32 z;
-	Point(x, y, z);
 
 def create_point(i32 x, i32 y, i32 z) -> Point:
-	return Point(x, y, z);
+	return Point{x, y, z};
 
 def main():
     Point p = create_point(5, 7, 9);

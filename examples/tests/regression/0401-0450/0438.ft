@@ -4,7 +4,6 @@ data MyData:
 	i32 x;
 	i32 y;
 	i32 z;
-	MyData(x, y, z);
 
 func MyFunc requires(MyData d):
 	def print():
@@ -14,7 +13,6 @@ object MyEntity:
 	data: MyData d;
 	// Uncommenting this should result in a compile error (duplicate function definition)
 	//func: MyFunc;
-	MyEntity(d);
 
 	def print():
 		print("Hello, World!\n");
@@ -26,8 +24,8 @@ object MyEntity:
 	//	print("Hello, World!\n");
 
 def main():
-	d := MyData(10, 20, 30);
-	e := MyEntity(d);
+	d := MyData{10, 20, 30};
+	e := MyEntity{d};
 	e.print();
 
 	MyFunc.print(d);

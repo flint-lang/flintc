@@ -3,7 +3,6 @@ use Core.print
 data MyData:
 	i32x2 pos;
 	i32x2 size;
-	MyData(pos, size);
 
 func MyFunc requires(MyData d1, MyData d2):
 	def move(i32 x, i32 y):
@@ -13,7 +12,7 @@ func MyFunc requires(MyData d1, MyData d2):
 		print($"pos: {d.pos}, size: {d.size}\n");
 
 def main():
-	d := MyData(i32x2(100, 100), i32x2(100, 100));
+	d := MyData{i32x2(100), i32x2(100)};
 	MyFunc.print(d);
 	MyFunc.move(d, 10, 20);
 	MyFunc.print(d);

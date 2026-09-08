@@ -113,7 +113,7 @@ test "0521":
 test "0522":
 	str path = "tests/regression/0501-0550/0522";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\nthis is a string literal\n");
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9.0, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9.0)\nHello there!\nthis is a string literal\n");
 
 test "0523":
 	str path = "tests/regression/0501-0550";
@@ -146,7 +146,7 @@ test "0525":
 test "0526":
 	str path = "tests/regression/0501-0550";
 	str file = "0526.ft";
-	test_file_ok($"{path}/{file}", "(x, y, z, w) = (20, 10, 30, 40)\nv4 = (1, 2, 3, 4)\n");
+	test_file_ok($"{path}/{file}", "(x, y, z, w) = (20, 10, 30, 40)\nv4 = (1.0, 2.0, 3.0, 4.0)\n");
 
 test "0527":
 	str path = "tests/regression/0501-0550";

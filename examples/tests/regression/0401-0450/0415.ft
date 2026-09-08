@@ -3,12 +3,10 @@ use Core.print
 data Data1:
 	i32 x = 10;
 		i32 y = 20;
-			Data1(x, y);
 
 data Data2:
 			i32 z = 30;
 		i32 w = 40;
-	Data2(z, w);
 
 func Func1 requires(
 	Data1 d1
@@ -27,7 +25,6 @@ object Object:
 	data:
 	Data1 d1,
 	Data2 d2;
-	Object(d1, d2);
 
 	def				print		(		
 		)
@@ -59,8 +56,8 @@ def main():
 	i < 3;
 	i++: print($"i = {i}\n");
 
-	o := Object(
-		Data1(20, 10),
-		Data2(40, 30)
-		);
+	o := Object{
+		Data1{20, 10},
+		Data2{40, 30},
+		};
 	o.print();

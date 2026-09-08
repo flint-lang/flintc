@@ -8,7 +8,7 @@ test "0401":
 test "0402":
 	str path = "tests/regression/0401-0450/0402";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Parse Error at main.ft:6:11\n└─┬┤E0000│\n5 │ def main():\n6 │ »   v1 := c.Vec3(f32[3](0.0), 1);\n┌─┴───────────┘\n└─ Expected 1 argument for initializer but got 2\n");
+	test_file_fail_in(path, file, "Parse Error at main.ft:6:31\n└─┬┤E0000│\n5 │ def main():\n6 │ »   v1 := c.Vec3{f32[3](0.0), 1};\n┌─┴───────────────────────────────┘\n└─ Expected atmost '1' values for initializer, but more were provided\n");
 
 test "0403":
 	str path = "tests/regression/0401-0450";
@@ -38,7 +38,7 @@ test "0407":
 test "0408":
 	str path = "tests/regression/0401-0450";
 	str file = "0408.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0408.ft:19:15\n└──┬┤E0000│\n13 │ def main():\n18 │ »   if true:\n19 │ »   »   print(rectt);\n┌──┴───────────────┘\n└─ Use of undeclared variable 'rectt'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0408.ft:17:15\n└──┬┤E0000│\n11 │ def main():\n16 │ »   if true:\n17 │ »   »   print(rectt);\n┌──┴───────────────┘\n└─ Use of undeclared variable 'rectt'\n");
 
 test "0409":
 	str path = "tests/regression/0401-0450";
@@ -53,7 +53,7 @@ test "0410":
 test "0411":
 	str path = "tests/regression/0401-0450";
 	str file = "0411.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0411.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: tests/regression/0401-0450/0411.ft:20:1\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0411.ft:20:1\n└──┬┤E0000│\n20 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: tests/regression/0401-0450/0411.ft:19:1\n");
 
 test "0412":
 	str path = "tests/regression/0401-0450";
@@ -63,7 +63,7 @@ test "0412":
 test "0413":
 	str path = "tests/regression/0401-0450";
 	str file = "0413.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0413.ft:18:1\n└──┬┤E0000│\n18 │ object Player implements(IMove):\n┌──┴─┘\n└─ Virtual function 'IMove.move' not implemented in object\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0413.ft:17:1\n└──┬┤E0000│\n17 │ object Player implements(IMove):\n┌──┴─┘\n└─ Virtual function 'IMove.move' not implemented in object\n");
 
 test "0414":
 	str path = "tests/regression/0401-0450";
@@ -83,7 +83,7 @@ test "0416":
 test "0417":
 	str path = "tests/regression/0401-0450/0417";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nmd3.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1, 2, 3, -5)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2, 6, 12, -8)\nx = 11\n");
+	test_file_ok_in(path, file, "md.(x, y, speed, is_something) = (1, 2, 3.0, false)\nmd2.(x, y, speed, is_something) = (3, 7, 1.5, true)\nmd3.(x, y, speed, is_something) = (3, 7, 1.5, true)\nbd.(x, y, z, dx, dy, dz, speed) = (1, 2, 3, 1.0, 2.0, 3.0, -5.0)\nbd2.(x, y, z, dx, dy, dz, speed) = (3, 5, 7, 2.0, 6.0, 12.0, -8.0)\nx = 11\n");
 
 test "0418":
 	str path = "tests/regression/0401-0450";
@@ -178,7 +178,7 @@ test "0435":
 test "0436":
 	str path = "tests/regression/0401-0450";
 	str file = "0436.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0436.ft:9:1\n└─┬┤E0000│\n9 │ object MyEntity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0436.ft:8:1\n└─┬┤E0000│\n8 │ object MyEntity:\n┌─┴─┘\n├─ Object type does not contain any functionality\n└─ Objects must either provide functions themselves or use at least one func-module\n");
 
 test "0437":
 	str path = "tests/regression/0401-0450";
@@ -198,7 +198,7 @@ test "0439":
 test "0440":
 	str path = "tests/regression/0401-0450";
 	str file = "0440.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0440.ft:30:31\n└──┬┤E0000│\n29 │ object MyEntity:\n30 │ »   data: BaseData d1, MyData d1;\n┌──┴───────────────────────────────┘\n└─ Object type defines accessor 'd1' twice\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0440.ft:27:31\n└──┬┤E0000│\n26 │ object MyEntity:\n27 │ »   data: BaseData d1, MyData d1;\n┌──┴───────────────────────────────┘\n└─ Object type defines accessor 'd1' twice\n");
 
 test "0441":
 	str path = "tests/regression/0401-0450";
@@ -208,7 +208,7 @@ test "0441":
 test "0442":
 	str path = "tests/regression/0401-0450";
 	str file = "0442.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0442.ft:17:1\n└──┬┤E0000│\n17 │ object E:\n┌──┴─┘\n└─ Missing constructor in object type definition\n");
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
 
 test "0443":
 	str path = "tests/regression/0401-0450";
@@ -233,7 +233,7 @@ test "0446":
 test "0447":
 	str path = "tests/regression/0401-0450";
 	str file = "0447.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0447.ft:8:33\n└─┬┤E0000│\n8 │ func MyFunc requires(MyData d1, MyData d2):\n┌─┴─────────────────────────────────┘\n├─ Requiring the same type twice: MyData\n└─ Each required data type needs to be unique\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0447.ft:7:33\n└─┬┤E0000│\n7 │ func MyFunc requires(MyData d1, MyData d2):\n┌─┴─────────────────────────────────┘\n├─ Requiring the same type twice: MyData\n└─ Each required data type needs to be unique\n");
 
 test "0448":
 	str path = "tests/regression/0401-0450";
@@ -243,7 +243,7 @@ test "0448":
 test "0449":
 	str path = "tests/regression/0401-0450/0449";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9)\nHello there!\n");
+	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9.0, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9.0)\nHello there!\n");
 
 test "0450":
 	str path = "tests/regression/0401-0450";
