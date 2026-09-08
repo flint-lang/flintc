@@ -1,11 +1,6 @@
 use Core.print
 use Core.time
 
-data Data:
-	i32 x;
-	i32 y;
-	Data(x, y);
-
 def main():
 	TimeStamp last_frame = now();
 	TimeStamp current_frame = now();

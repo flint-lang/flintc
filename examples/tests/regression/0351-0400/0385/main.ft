@@ -4,11 +4,6 @@ use Core.assert
 
 use "imported.ft"
 
-data MyData:
-	i32 x;
-	f32 y;
-	MyData(x, y);
-
 def some_function(i32 x, i32 y) -> i32:
 	return x + y;
 

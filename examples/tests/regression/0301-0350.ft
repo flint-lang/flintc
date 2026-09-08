@@ -3,7 +3,8 @@ use "../../utils.ft"
 test "0301":
 	str path = "tests/regression/0301-0350";
 	str file = "0301.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0301.ft:27:23\n└──┬┤E0000│\n22 │ object Entity:\n27 │ »   Entity(d1, Data2, Data2);\n┌──┴───────────────────────┘\n└─ Object constructor contains data type 'Data2' twice\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0301.ft:26:55\n└──┬┤E0000│\n19 │ object Entity:\n25 │ »   def print():\n26 │ »   »   print($\"d1.(x, y) = {d1.(x, y)}, d2.(z, w) = {d2.(z, w)}\\n\");\n┌──┴───────────────────────────────────────────────────────┘
+└─ Use of undeclared variable 'd2'\n");
 
 test "0302":
 	str path = "tests/regression/0301-0350";
@@ -13,7 +14,7 @@ test "0302":
 test "0303":
 	str path = "tests/regression/0301-0350";
 	str file = "0303.ft";
-	test_file_fail($"{path}/{file}", "Generation Error at tests/regression/0301-0350/0303.ft:4:18\n└─┬┤E0000│\n3 │ def main():\n4 │ »   str[] args = str[3](_);\n┌─┴──────────────────┘\n└─ Array initializer for complex values needs explicit initializer value, default value is not sufficient\n");
+	test_file_ok($"{path}/{file}", "args[0] = wololo\nargs[1] = something else\nargs[2] = hello there!\n");
 
 test "0304":
 	str path = "tests/regression/0301-0350";
@@ -138,7 +139,7 @@ test "0327":
 test "0328":
 	str path = "tests/regression/0301-0350";
 	str file = "0328.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0328.ft:27:20\n└──┬┤E0000│\n22 │ object Entity:\n27 │ »   Entity(d1, d2, Data3);\n┌──┴────────────────────┘\n├─ This data type is not part of the object\n└─ Only data defined in the 'data:' section can be used in the constructor\n");
+	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\n");
 
 test "0329":
 	str path = "tests/regression/0301-0350";
@@ -158,7 +159,7 @@ test "0331":
 test "0332":
 	str path = "tests/regression/0301-0350";
 	str file = "0332.ft";
-	test_file_ok($"{path}/{file}", "t.pos.x = 1\nt.pos.x = 4.2\n");
+	test_file_ok($"{path}/{file}", "t.pos.x = 1.0\nt.pos.x = 4.2\n");
 
 test "0333":
 	str path = "tests/regression/0301-0350";
@@ -173,7 +174,7 @@ test "0334":
 test "0335":
 	str path = "tests/regression/0301-0350";
 	str file = "0335.ft";
-	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n(x, y, z) = (6, 7, 8)\n");
+	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1.0, 2.0, 3.0)\nv3.(x, y, z) = (2.0, 3.0, 4.0)\n(x, y, z) = (6, 7, 8)\n");
 
 test "0336":
 	str path = "tests/regression/0301-0350";
@@ -208,7 +209,7 @@ test "0341":
 test "0342":
 	str path = "tests/regression/0301-0350";
 	str file = "0342.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0342.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0301-0350/0342.ft:12:18\n└──┬┤E0000│\n10 │ def main():\n12 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
 test "0343":
 	str path = "tests/regression/0301-0350";

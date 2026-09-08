@@ -5,8 +5,7 @@ data MyData:
 	f32 y;
 	u64 z;
 	str s;
-	MyData(x, y, z, s);
 
 def main():
-	MyData d = MyData(-10, 3.4, 100, "wololo");
+	MyData d = MyData{-10, 3.4, 100, "wololo"};
 	print($"d = \{{d.x}, {d.y}, {d.z}, \"{d.s}\"\}\n");

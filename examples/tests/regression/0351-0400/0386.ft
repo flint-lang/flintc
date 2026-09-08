@@ -3,18 +3,15 @@ use Core.print
 data Data:
 	i32 x;
 	i32 y;
-	Data(x, y);
 
 data Data2:
 	f32 x;
 	f32 y;
-	Data2(x, y);
 
 object Entity:
 	data:
 		Data d,
 		Data2 d2;
-	Entity(d2, d);
 
 	def print():
 		print($"e.d.(x, y) = {d.(x, y)}\n");
@@ -29,7 +26,7 @@ def main():
 	for (i, elem) in 0..10:
 		print($"{i} = {elem}\n");
 
-	d := Data(x, y);
+	d := Data{x, y};
 	d.(x, y) += (2, 2);
 	d.x /= d.y;
 	print($"d.(x, y) = {d.(x, y)}\n");
@@ -48,5 +45,5 @@ def main():
 	v3[3, 2] = 40;
 	print($"v3.[(1, 0), (2, 2), (3, 2)] = ({v3[1, 0]}, {v3[2, 2]}, {v3[3, 2]})\n");
 
-	e := Entity(Data2(3.4, 6.9), Data(12, 13));
+	e := Entity{.d2 = Data2{3.4, 6.9}, .d = Data{12, 13}};
 	e.print();

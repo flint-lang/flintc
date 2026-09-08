@@ -8,7 +8,7 @@ test "0351":
 test "0352":
 	str path = "tests/regression/0351-0400";
 	str file = "0352.ft";
-	test_file_ok($"{path}/{file}", "3 ** 3 = 27\nsin(0.5236) = 0.500001\n");
+	test_file_ok($"{path}/{file}", "3.0 ** 3.0 = 27.0\nsin(0.5236) = 0.500001\n");
 
 test "0353":
 	str path = "tests/regression/0351-0400";
@@ -110,7 +110,7 @@ test "0371":
 test "0372":
 	str path = "tests/regression/0351-0400";
 	str file = "0372.ft";
-	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0351-0400/0372.ft:11:13\n└──┬┤E0000│\n9  │ def main():\n11 │ »   i32 x = i32(v1);\n┌──┴─────────────┘\n└─ Cannot cast value\n    ├─ From Vec3\n    └─ To   i32\n");
+	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0351-0400/0372.ft:10:13\n└──┬┤E0000│\n8  │ def main():\n10 │ »   i32 x = i32(v1);\n┌──┴─────────────┘\n└─ Cannot cast value\n    ├─ From Vec3\n    └─ To   i32\n");
 
 test "0373":
 	str path = "tests/regression/0351-0400";
