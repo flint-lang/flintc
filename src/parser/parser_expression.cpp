@@ -1795,7 +1795,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
         // Create the initializer expression
         std::optional<std::unique_ptr<ExpressionNode>> initializer;
         if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-            initializer = std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), arr_type->type);
+            if (!arr_type->type->is_default_constructible()) {
+                THROW_ERR(ErrExprArrayNeedsInitializer, ERR_GENERATING, file_hash, get_pos_triple(initializer_tokens), arr_type->type);
+                return std::nullopt;
+            }
+            initializer = arr_type->type->get_default_value(arr_type->type, file_hash, get_pos_triple(initializer_tokens), scope->scope_id);
         } else {
             initializer = create_expression(ctx, scope, initializer_tokens);
         }

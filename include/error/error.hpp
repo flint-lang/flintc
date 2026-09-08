@@ -62,7 +62,7 @@
 #include "error_types/parsing/definitions/object/err_def_object_unresolved_virtual.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
 #include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"
-#include "error_types/parsing/expressions/err_expr_array_complex_needs_initializer.hpp"
+#include "error_types/parsing/expressions/err_expr_array_needs_initializer.hpp"
 #include "error_types/parsing/expressions/err_expr_call_ambiguous.hpp"
 #include "error_types/parsing/expressions/err_expr_call_missing_closing_paren.hpp"
 #include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"

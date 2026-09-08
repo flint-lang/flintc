@@ -3471,35 +3471,18 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_initializer( 
 
     // Generate the initializer expression (shared between const and dynamic paths)
     llvm::Value *initializer_expression = nullptr;
-    bool is_default_init = initializer->initializer_value->get_variation() == ExpressionNode::Variation::DEFAULT;
-
-    // For complex types (strings, data/structs), we require an explicit initializer
-    // because default values would lead to uninitialized memory (e.g., invalid string pointers)
-    if (is_default_init) {
-        if (initializer->element_type->is_freeable()) {
-            const PosTriple pos{
-                .line = initializer->line,
-                .column = initializer->column,
-                .length = initializer->length,
-            };
-            THROW_ERR(ErrExprArrayComplexNeedsInitializer, ERR_GENERATING, initializer->file_hash, pos);
-            return std::nullopt;
-        }
-        initializer_expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), initializer->element_type);
-    } else {
-        group_mapping initializer_mapping = generate_expression(builder, ctx, garbage, expr_depth, initializer->initializer_value.get());
-        if (!initializer_mapping.has_value()) {
-            return std::nullopt;
-        }
-        if (initializer_mapping.value().size() > 1) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return std::nullopt;
-        }
-        initializer_expression = initializer_mapping.value().front();
-        std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
-        if (!init_expr_type->equals(initializer->element_type)) {
-            initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
-        }
+    group_mapping initializer_mapping = generate_expression(builder, ctx, garbage, expr_depth, initializer->initializer_value.get());
+    if (!initializer_mapping.has_value()) {
+        return std::nullopt;
+    }
+    if (initializer_mapping.value().size() > 1) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
+    initializer_expression = initializer_mapping.value().front();
+    std::shared_ptr<Type> init_expr_type = initializer->initializer_value->type;
+    if (!init_expr_type->equals(initializer->element_type)) {
+        initializer_expression = generate_type_cast(builder, ctx, initializer_expression, init_expr_type, initializer->element_type);
     }
     llvm::Value *const type_id = initializer->element_type->is_freeable() //
         ? builder.getInt32(initializer->element_type->get_id())           //
