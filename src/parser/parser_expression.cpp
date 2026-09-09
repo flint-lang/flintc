@@ -2568,7 +2568,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     if (!is_binary_op) {
         pattern = ExprTrie::match(tokens_mut);
         if (!pattern.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
+            THROW_ERR(ErrExprNotRecognizable, ERR_PARSING, file_hash, get_pos_triple(tokens_mut));
             return std::nullopt;
         }
     }

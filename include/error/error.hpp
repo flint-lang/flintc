@@ -21,6 +21,7 @@
 #include "error_types/parsing/annotations/err_anno_duplicate.hpp"
 #include "error_types/parsing/annotations/err_anno_leftover.hpp"
 #include "error_types/parsing/annotations/err_anno_unknown.hpp"
+
 #include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
 #include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"
 #include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
@@ -61,6 +62,7 @@
 #include "error_types/parsing/definitions/object/err_def_object_provided_type_not_func.hpp"
 #include "error_types/parsing/definitions/object/err_def_object_unresolved_virtual.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
+
 #include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"
 #include "error_types/parsing/expressions/err_expr_array_needs_initializer.hpp"
 #include "error_types/parsing/expressions/err_expr_call_ambiguous.hpp"
@@ -86,6 +88,7 @@
 #include "error_types/parsing/expressions/err_expr_interpolation_only_one_expr.hpp"
 #include "error_types/parsing/expressions/err_expr_mutating_const.hpp"
 #include "error_types/parsing/expressions/err_expr_nested_group.hpp"
+#include "error_types/parsing/expressions/err_expr_not_recognizable.hpp"
 #include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
 #include "error_types/parsing/expressions/err_expr_unary_op_missing_expr.hpp"
 
@@ -105,6 +108,7 @@
 #include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
 #include "error_types/parsing/statements/err_stmt_mussing_initializer_of_freeable.hpp"
 #include "error_types/parsing/statements/err_stmt_mussing_initializer_of_persistent.hpp"
+#include "error_types/parsing/statements/err_stmt_not_recognizable.hpp"
 
 #include "error_types/parsing/types/err_type_not_default_constructible.hpp"
 #include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"

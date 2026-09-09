@@ -2707,8 +2707,8 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
 ) {
     const std::optional<StmtTrie::Pattern> pattern = StmtTrie::match(tokens);
     if (!pattern.has_value()) {
-        token_list toks = clone_from_slice(tokens);
-        UNREACHABLE();
+        THROW_ERR(ErrStmtNotRecognizable, ERR_PARSING, file_hash, get_pos_triple(tokens));
+        return std::nullopt;
     }
 
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
@@ -2968,9 +2968,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     const token_slice definition = {definition_it->tokens.first, definition_it->tokens.second};
     const std::optional<ScopedStmtTrie::Pattern> pattern = ScopedStmtTrie::match(definition);
     if (!pattern.has_value()) {
-        // Unknown scoped statement
-        token_list toks = clone_from_slice(definition);
-        THROW_BASIC_ERR(ERR_PARSING);
+        THROW_ERR(ErrStmtNotRecognizable, ERR_PARSING, file_hash, get_pos_triple(definition));
         return std::nullopt;
     }
 
