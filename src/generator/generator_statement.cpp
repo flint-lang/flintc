@@ -1155,7 +1155,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1271,7 +1271,7 @@ bool Generator::Statement::generate_variant_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch, if it is this is the last branch to generate
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1390,7 +1390,7 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Check if it's the default branch
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -1431,7 +1431,7 @@ bool Generator::Statement::generate_switch_statement( //
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
         // Skip the default node, this block is not targetted directly by any switch expression
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             continue;
         }
 

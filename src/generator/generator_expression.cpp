@@ -7,9 +7,9 @@
 #include "lexer/token.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/callable_call_node_expression.hpp"
-#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/instance_call_node_expression.hpp"
+#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/parser.hpp"
@@ -73,11 +73,6 @@ Generator::group_mapping Generator::Expression::generate_expression( //
             const auto *node = expression_node->as<DataAccessNode>();
             return generate_data_access(builder, ctx, garbage, expr_depth, node, is_reference);
         }
-        case ExpressionNode::Variation::DEFAULT: {
-            [[maybe_unused]] const auto *node = expression_node->as<DefaultNode>();
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // TODO: Somehow it was unused until now?
-            return std::nullopt;
-        }
         case ExpressionNode::Variation::FUNCTION_REFERENCE: {
             const auto *node = expression_node->as<FunctionReferenceNode>();
             return std::vector<llvm::Value *>{generate_function_reference(builder, ctx, node)};
@@ -137,6 +132,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         case ExpressionNode::Variation::SWITCH_EXPRESSION: {
             const auto *node = expression_node->as<SwitchExpression>();
             return generate_switch_expression(builder, ctx, garbage, expr_depth, node);
+        }
+        case ExpressionNode::Variation::SWITCH_DEFAULT: {
+            [[maybe_unused]] const auto *node = expression_node->as<SwitchDefaultNode>();
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET); // Somehow it was unused until now?
+            return std::nullopt;
         }
         case ExpressionNode::Variation::SWITCH_MATCH: {
             [[maybe_unused]] const auto *node = expression_node->as<SwitchMatchNode>();
@@ -2982,7 +2982,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "else")
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -3093,7 +3093,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "else")
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -3162,7 +3162,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
         const auto &branch = switch_expression->branches[i];
         // Skip the default node
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             continue;
         }
 
@@ -3226,7 +3226,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
         const auto &branch = switch_expression->branches[i];
 
         // Check if it's the default branch (represented by "_")
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             if (default_block != nullptr) {
                 // Two default blocks have been defined, only one is allowed
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -3290,7 +3290,7 @@ Generator::group_mapping Generator::Expression::generate_switch_expression( //
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
         const auto &branch = switch_expression->branches[i];
         // Skip the default node
-        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::DEFAULT) {
+        if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_DEFAULT) {
             continue;
         }
 

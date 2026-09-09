@@ -3,9 +3,9 @@
 #include "error/error_types/base_error.hpp"
 #include "types.hpp"
 
-class ErrUnknownType : public BaseError {
+class ErrTypeUnknown : public BaseError {
   public:
-    ErrUnknownType(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
+    ErrTypeUnknown(const ErrorType error_type, const Hash &file_hash, const token_slice &tokens) :
         BaseError(error_type, file_hash, tokens) {}
 
     [[nodiscard]]

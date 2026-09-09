@@ -106,8 +106,10 @@
 #include "error_types/parsing/statements/err_stmt_mussing_initializer_of_freeable.hpp"
 #include "error_types/parsing/statements/err_stmt_mussing_initializer_of_persistent.hpp"
 
+#include "error_types/parsing/types/err_type_not_default_constructible.hpp"
 #include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"
-#include "error_types/parsing/types/err_unknown_type.hpp"
+#include "error_types/parsing/types/err_type_unknown.hpp"
+#include "error_types/parsing/types/err_type_unknown_for_default_construction.hpp"
 
 #include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
 

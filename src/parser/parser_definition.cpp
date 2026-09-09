@@ -409,7 +409,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 }
             }
             if (!field_type.has_value()) {
-                THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, type_tokens);
+                THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                 return std::nullopt;
             }
             token_it += type_advance;

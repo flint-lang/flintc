@@ -804,10 +804,10 @@ namespace Debug {
             }
         }
 
-        void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node) {
+        void print_default(unsigned int indent_lvl, TreeBits &bits, const SwitchDefaultNode &switch_default_node) {
             Local::print_header(indent_lvl, bits, "Default ");
-            std::cout << "[" << (default_node.is_const ? "c" : "m") << "] ";
-            std::cout << "of type " << default_node.type->to_string() << std::endl;
+            std::cout << "[" << (switch_default_node.is_const ? "c" : "m") << "] ";
+            std::cout << "of type " << switch_default_node.type->to_string() << std::endl;
         }
 
         void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node) {
@@ -897,8 +897,8 @@ namespace Debug {
                     print_data_access(indent_lvl, bits, *node);
                     break;
                 }
-                case ExpressionNode::Variation::DEFAULT: {
-                    const auto *node = expr->as<DefaultNode>();
+                case ExpressionNode::Variation::SWITCH_DEFAULT: {
+                    const auto *node = expr->as<SwitchDefaultNode>();
                     print_default(indent_lvl, bits, *node);
                     break;
                 }

@@ -788,8 +788,6 @@ bool Analyzer::analyze_expression(                            //
             }
             break;
         }
-        case ExpressionNode::Variation::DEFAULT:
-            break;
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             auto *node = expr->as<GroupExpressionNode>();
             for (auto &expression : node->expressions) {
@@ -1134,6 +1132,8 @@ bool Analyzer::analyze_expression(                            //
             }
             break;
         }
+        case ExpressionNode::Variation::SWITCH_DEFAULT:
+            break;
         case ExpressionNode::Variation::SWITCH_MATCH:
             break;
         case ExpressionNode::Variation::TYPE_CAST: {

@@ -967,7 +967,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                         case TOK_IDENTIFIER: {
                             auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
                             if (!type.has_value()) {
-                                THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                THROW_ERR(ErrTypeUnknown, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                                 return false;
                             }
                             *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());
@@ -1037,7 +1037,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
                         case TOK_IDENTIFIER: {
                             auto type = parser.file_node_ptr->file_namespace->get_type_from_str(std::string(tok_it->lexme));
                             if (!type.has_value()) {
-                                THROW_ERR(ErrUnknownType, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
+                                THROW_ERR(ErrTypeUnknown, ERR_PARSING, parser.file_hash, token_slice{tok_it, tok_it + 1});
                                 return false;
                             }
                             *tok_it = TokenContext(TOK_TYPE, tok_it->line, tok_it->column, tok_it->file_id, type.value());

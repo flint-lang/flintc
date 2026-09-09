@@ -14,7 +14,6 @@
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/callable_call_node_expression.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
-#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
@@ -26,6 +25,7 @@
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
+#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -921,10 +921,6 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_expr( //
             // It's hovering over the dot
             return std::nullopt;
         }
-        case ExpressionNode::Variation::DEFAULT: {
-            const auto *node = expr->as<DefaultNode>();
-            return node->type;
-        }
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
             const auto *node = expr->as<GroupExpressionNode>();
             for (const auto &g_expr : node->expressions) {
@@ -1083,6 +1079,10 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_expr( //
                 }
             }
             return std::nullopt;
+        }
+        case ExpressionNode::Variation::SWITCH_DEFAULT: {
+            const auto *node = expr->as<SwitchDefaultNode>();
+            return node->type;
         }
         case ExpressionNode::Variation::SWITCH_MATCH: {
             [[maybe_unused]] const auto *node = expr->as<SwitchMatchNode>();

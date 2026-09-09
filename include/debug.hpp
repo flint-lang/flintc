@@ -17,7 +17,6 @@
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
-#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
@@ -30,6 +29,7 @@
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
 #include "parser/ast/expressions/string_interpolation_node.hpp"
+#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
@@ -183,7 +183,7 @@ namespace Debug {
         void print_grouped_data_access(unsigned int indent_lvl, TreeBits &bits, const GroupedDataAccessNode &access);
         void print_switch_match(unsigned int indent_lvl, TreeBits &bits, const SwitchMatchNode &match);
         void print_switch_expression(unsigned int indent_lvl, TreeBits &bits, const SwitchExpression &switch_expression);
-        void print_default(unsigned int indent_lvl, TreeBits &bits, const DefaultNode &default_node);
+        void print_switch_default(unsigned int indent_lvl, TreeBits &bits, const SwitchDefaultNode &default_node);
         void print_optional_chain(unsigned int indent_lvl, TreeBits &bits, const OptionalChainNode &chain_node);
         void print_optional_unwrap(unsigned int indent_lvl, TreeBits &bits, const OptionalUnwrapNode &unwrap_node);
         void print_variant_extraction(unsigned int indent_lvl, TreeBits &bits, const VariantExtractionNode &extraction);

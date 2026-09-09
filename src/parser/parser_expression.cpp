@@ -14,7 +14,6 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/callable_call_node_expression.hpp"
-#include "parser/ast/expressions/default_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
@@ -23,6 +22,7 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
+#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
@@ -1935,7 +1935,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
     if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-        initializer = std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), element_type.value());
+        initializer = element_type.value()->get_default_value(element_type.value(), file_hash, get_pos_triple(tokens), scope->scope_id);
     } else {
         initializer = create_expression(ctx, scope, initializer_tokens);
     }
@@ -2583,14 +2583,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
         case ExprTrie::Pattern::VARIABLE:
             return create_variable(scope, tokens_mut);
-        case ExprTrie::Pattern::DEFAULT:
+        case ExprTrie::Pattern::DEFAULT: {
+            const PosTriple &pos = get_pos_triple(tokens_mut);
             if (!expected_type.has_value()) {
-                // Default node at a place where it's type cannot be inferred. This is fine because when used in initializers, for example,
-                // at the time we parse the initializer argument the type cannot be inferred as we do not know *what* we are initializing
-                // yet
-                return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), Type::get_primitive_type("type.flint.default"));
+                THROW_ERR(ErrTypeUnknownForDefaultConstruction, ERR_PARSING, file_hash, pos);
+                return std::nullopt;
             }
-            return std::make_unique<DefaultNode>(file_hash, get_pos_triple(tokens), expected_type.value());
+            if (!expected_type.value()->is_default_constructible()) {
+                THROW_ERR(ErrTypeNotDefaultConstructible, ERR_PARSING, file_hash, pos, expected_type.value());
+                return std::nullopt;
+            }
+            return expected_type.value()->get_default_value(expected_type.value(), file_hash, pos, scope->scope_id);
+        }
         case ExprTrie::Pattern::TYPE:
             return std::make_unique<TypeNode>(file_hash, get_pos_triple(tokens), tokens_mut.first->type);
         case ExprTrie::Pattern::RANGE: {

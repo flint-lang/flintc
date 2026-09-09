@@ -7,7 +7,7 @@
 #include "matcher/scoped_stmt_trie.hpp"
 #include "matcher/stmt_trie.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
-#include "parser/ast/expressions/default_node.hpp"
+#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/switch_expression.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/statements/break_node.hpp"
@@ -745,7 +745,7 @@ bool Parser::create_switch_branches(            //
         token_slice match_tokens = {tokens.first, tokens.first + match_range.value().second - 1};
         std::vector<std::unique_ptr<ExpressionNode>> matches;
         if (std::next(match_tokens.first) == match_tokens.second && match_tokens.first->token == TOK_ELSE) {
-            matches.emplace_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
+            matches.emplace_back(std::make_unique<SwitchDefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
         } else {
             auto match_expressions = create_group_expressions(_ctx_, scope, match_tokens);
             if (!match_expressions.has_value()) {
@@ -763,7 +763,7 @@ bool Parser::create_switch_branches(            //
         for (auto &match : matches) {
             const auto variation = match->get_variation();
             const bool is_not_literal = variation != ExpressionNode::Variation::LITERAL;
-            const bool is_not_default_value = variation != ExpressionNode::Variation::DEFAULT;
+            const bool is_not_default_value = variation != ExpressionNode::Variation::SWITCH_DEFAULT;
             if (is_not_literal && is_not_default_value) {
                 // Not allowed value for the switch statement's expression
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -821,7 +821,7 @@ bool Parser::create_enum_switch_branches(       //
             if (match_tokens.first->token == TOK_ELSE) {
                 // The else branch, which gets matched if no other branch get's matched
                 is_default_present = true;
-                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
+                match_expressions.push_back(std::make_unique<SwitchDefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
             } else {
                 const std::string enum_value(match_tokens.first->lexme);
                 const std::vector<std::string>::const_iterator matched_enum_id = std::find( //
@@ -948,7 +948,7 @@ bool Parser::create_error_switch_branches(      //
             if (match_tokens.first->token == TOK_ELSE) {
                 // The else branch, which gets matched if no other branch get's matched
                 is_default_present = true;
-                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
+                match_expressions.push_back(std::make_unique<SwitchDefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
             } else {
                 const std::string error_value(match_tokens.first->lexme);
                 auto pair_maybe = error_node->get_id_msg_pair_of_value(error_value);
@@ -1148,7 +1148,7 @@ bool Parser::create_variant_switch_branches(    //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
                 }
-                match_expressions.push_back(std::make_unique<DefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
+                match_expressions.push_back(std::make_unique<SwitchDefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
                 if (!create_switch_branch_body(                                          //
                         scope, scope_segment, match_expressions, s_branches, e_branches, //
                         line_it, body, tokens, match_range.value(), is_statement)        //
@@ -2068,7 +2068,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         if (lhs_tokens.first->token != TOK_TYPE) {
             ASSERT((lhs_tokens.second - 1) != lhs_tokens.first);
             ASSERT((lhs_tokens.second - 2) != lhs_tokens.first);
-            THROW_ERR(ErrUnknownType, ERR_PARSING, file_hash, token_slice{lhs_tokens.first, lhs_tokens.second - 2});
+            THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, token_slice{lhs_tokens.first, lhs_tokens.second - 2});
             return std::nullopt;
         }
         declared_type = lhs_tokens.first->type;

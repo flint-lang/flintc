@@ -667,8 +667,6 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
-        case ExpressionNode::Variation::DEFAULT:
-            break;
         case ExpressionNode::Variation::FUNCTION_REFERENCE:
             break;
         case ExpressionNode::Variation::GROUP_EXPRESSION: {
@@ -802,6 +800,8 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
+        case ExpressionNode::Variation::SWITCH_DEFAULT:
+            break;
         case ExpressionNode::Variation::SWITCH_MATCH:
             break;
         case ExpressionNode::Variation::TYPE_CAST: {
