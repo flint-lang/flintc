@@ -12,7 +12,7 @@ pub fn build(
     flint_parser_lib: *std.Build.Step.Compile,
     commit_hash: []const u8,
     build_date: []const u8,
-) !void {
+) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
         .name = if (optimize == .Debug) "fls-debug" else "fls",
         .root_module = b.createModule(.{
@@ -22,7 +22,6 @@ pub fn build(
             .pic = true,
         }),
     });
-    b.installArtifact(exe);
     exe.root_module.linkLibrary(flint_parser_lib);
     exe.link_function_sections = true;
     exe.link_data_sections = true;
@@ -58,4 +57,5 @@ pub fn build(
         },
         .flags = COMPILE_FLAGS,
     });
+    return exe;
 }

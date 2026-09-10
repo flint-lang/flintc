@@ -94,10 +94,13 @@ pub fn build(b: *std.Build) !void {
 
         const flint_parser_lib = try flint_parser.build(b, tar, opt, last_step, false, .master);
         const llvm_step = try llvm.build(b, tar, &flint_parser_lib.step, o_llvm_prebuilt_dir, o_llvm_rebuild, o_llvm_jobs);
+        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib, commit_hash, build_date);
+        const fls_install_step = &b.addInstallArtifact(fls_exe, .{}).step;
+        b.getInstallStep().dependOn(fls_install_step);
         const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib, llvm_step, o_llvm_prebuilt_dir, commit_hash, build_date);
         const flintc_install_step = &b.addInstallArtifact(flintc_exe, .{}).step;
         b.getInstallStep().dependOn(flintc_install_step);
-        try fls.build(b, tar, opt, flint_parser_lib, commit_hash, build_date);
+        flintc_install_step.dependOn(fls_install_step);
         if (single_build) |*s| {
             s.s = flintc_exe;
         }
