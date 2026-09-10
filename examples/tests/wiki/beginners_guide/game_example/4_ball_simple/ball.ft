@@ -7,11 +7,9 @@ data DBall:
 	f32x2 dir;
 	f32 speed;
 	f32 radius;
-	DBall(pos, dir, speed, radius);
 
 object Ball:
 	data: DBall ball;
-	Ball(ball);
 
 	const def draw():
 		rl.DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, Colors.yellow);

@@ -5,5 +5,5 @@ data MyData:
     i32 y;
 
 def main():
-    MyData d = MyData{ .y = 20 }; // x uses the default value of 5
+    MyData d = MyData{_, _};
     print($"d.(x, y) = ({d.x}, {d.y})\n");

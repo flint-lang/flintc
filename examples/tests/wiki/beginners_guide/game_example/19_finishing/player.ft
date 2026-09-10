@@ -1,11 +1,11 @@
 use Fip.raylib as rl
 
+use "ball.ft"
 use "paddle.ft"
 
 object Player implements(IPaddle):
 	data: DPaddle paddle;
 	func: FPaddleCommon;
-	Player(paddle);
 
 	const def ball_passed(Ball ball) -> bool:
 		return ball.get_x() - ball.get_radius() < paddle.pos.x;
@@ -18,4 +18,4 @@ object Player implements(IPaddle):
 		FPaddleCommon.clamp_position(paddle);
 
 	def reset():
-		paddle.pos = f32x2(10 + paddle.size.x / 2, rl.GetScreenHeight() / 2);
+		paddle.pos = f32x2(i32x2{10 + paddle.size.x / 2, rl.GetScreenHeight() / 2});

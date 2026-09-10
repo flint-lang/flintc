@@ -1,15 +1,13 @@
 use Core.print
 
 data Wings:
-	u32 size; // The size of the wings
+	u32 size;        // The size of the wings
 	u32 flight_time; // How long we are able to fly
-	Wings(size, flight_time);
 
 data Legs:
-	u32 count; // How many legs we have
-	f32 speed; // How fast we are able to run
+	u32 count;  // How many legs we have
+	f32 speed;  // How fast we are able to run
 	f32 height; // How high we are able to jump
-	Legs(count, speed, height);
 
 func Fly requires(Wings w):
 	def fly():
@@ -26,20 +24,18 @@ func Jump requires(Legs l):
 object Dog:
 	data: Legs;
 	func: Run, Jump;
-	Dog(Legs);
 
 object Bird:
 	data: Wings, Legs;
 	func: Fly, Run, Jump;
-	Bird(Wings, Legs);
 
 def main():
-	d := Dog(Legs(4, 30.0, 0.8));
+	d := Dog{Legs{4, 30.0, 0.8}};
 	d.run();
 	d.jump();
 
 	print("\n");
-	b := Bird(Wings(10, 100), Legs(2, 1.5, 0.1));
+	b := Bird{Wings{10, 100}, Legs{2, 1.5, 0.1}};
 	b.run();
 	b.jump();
 	b.fly();

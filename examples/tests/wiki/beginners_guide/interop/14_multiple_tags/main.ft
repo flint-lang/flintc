@@ -3,8 +3,8 @@ use Fip.c as c
 use Fip.ex2 as e
 
 def main():
-	s1 := c.MyStruct(-112, 22.1, 33_302);
-	s2 := c.MyStruct(12, 17.9, 2_698);
+	s1 := c.MyStruct{-112, 22.1, 33_302};
+	s2 := c.MyStruct{12, 17.9, 2_698};
 	c.add_structs(&s1, s2);
 	print($"s1.(x, y, z) = ({s1.x}, {s1.y}, {s1.z})\n");
 

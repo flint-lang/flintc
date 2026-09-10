@@ -18,17 +18,17 @@ test "2_decl_field_assign.ft":
 test "3_decl_grouped_access.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "3_decl_grouped_access.ft";
-	test_file_ok($"{path}/{file}", "(x, y, z) = (1, 2, 3)\n");
+	test_file_ok($"{path}/{file}", "(x, y, z) = (1.0, 2.0, 3.0)\n");
 
 test "4_decl_grouped_assign.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "4_decl_grouped_assign.ft";
-	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (3, 1, 2)\n");
+	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1.0, 2.0, 3.0)\nv3.(x, y, z) = (3.0, 1.0, 2.0)\n");
 
 test "5_decl_grouped_increment.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "5_decl_grouped_increment.ft";
-	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3.(x, y, z) = (2, 3, 4)\n");
+	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1.0, 2.0, 3.0)\nv3.(x, y, z) = (2.0, 3.0, 4.0)\n");
 
 test "6_default_one.ft":
 	str path = "tests/wiki/beginners_guide/data";
@@ -38,154 +38,174 @@ test "6_default_one.ft":
 test "7_default_all.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "7_default_all.ft";
-	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 7)\n");
+	test_file_ok($"{path}/{file}", "d.(x, y) = (5, 0)\n");
 
-test "8_nested_simple.ft":
+test "8_default_operator.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "8_nested_simple.ft";
+	str file = "8_default_operator.ft";
+	test_file_ok($"{path}/{file}", "d.(x, y) = (0, 0)\n");
+
+test "9_nested_simple.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "9_nested_simple.ft";
 	test_file_ok($"{path}/{file}", "rect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
 
-test "9_nested_copy.ft":
+test "10_nested_copy.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "9_nested_copy.ft";
+	str file = "10_nested_copy.ft";
 	test_file_ok($"{path}/{file}", "p1.(x, y) = (0, 0)\np2.(x, y) = (10, 10)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n\np1.(x, y) = (4, 5)\np2.(x, y) = (22, 33)\nrect.top_left.(x, y) = (0, 0)\nrect.bottom_right.(x, y) = (10, 10)\n");
 
-test "10_nested_circle.ft":
+test "11_nested_circle.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "10_nested_circle.ft";
+	str file = "11_nested_circle.ft";
 	test_file_ok($"{path}/{file}", "");
 
-test "11_function_simple.ft":
+test "12_function_simple.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "11_function_simple.ft";
+	str file = "12_function_simple.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 3, y: 4)\n");
 
-test "12_function_mutating_immutable.ft":
+test "13_function_mutating_immutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "12_function_mutating_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/12_function_mutating_immutable.ft:9:5\n└─┬┤E0000│\n8 │ def increment_by(Point p, i32 value):\n9 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
+	str file = "13_function_mutating_immutable.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/13_function_mutating_immutable.ft:8:5\n└─┬┤E0000│\n7 │ def increment_by(Point p, i32 value):\n8 │ »   p.(x, y) += (value, value);\n┌─┴─────┘\n└─ Expression is marked as constant and cannot be modified!\n");
 
-test "13_function_mutating_mutable.ft":
+test "14_function_mutating_mutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "13_function_mutating_mutable.ft";
+	str file = "14_function_mutating_mutable.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 6, y: 7)\n");
 
-test "14_function_pass_immutable.ft":
+test "15_function_pass_immutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "14_function_pass_immutable.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/14_function_pass_immutable.ft:13:18\n└──┬┤E0000│\n11 │ def main():\n13 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
+	str file = "15_function_pass_immutable.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/15_function_pass_immutable.ft:12:18\n└──┬┤E0000│\n10 │ def main():\n12 │ »   increment_by(p, 3);\n┌──┴──────────────────┘\n└─ Variable 'p' is marked as 'const' and cannot be modified!\n");
 
-test "15_function_return.ft":
+test "16_function_return.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "15_function_return.ft";
+	str file = "16_function_return.ft";
 	test_file_ok($"{path}/{file}", "Point(x: 5, y: 7)\n");
 
-test "16_tuple_define.ft":
+test "17_tuple_define.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "16_tuple_define.ft";
+	str file = "17_tuple_define.ft";
 	test_file_ok($"{path}/{file}", "");
 
-test "17_tuple_access.ft":
+test "18_tuple_access.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "17_tuple_access.ft";
+	str file = "18_tuple_access.ft";
 	test_file_ok($"{path}/{file}", "first = 3\nsecond = 2.2\nthird = \"hello!\"\n");
 
-test "18_tuple_oob.ft":
+test "19_tuple_oob.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "18_tuple_oob.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/18_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
+	str file = "19_tuple_oob.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/19_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
 
-test "19_tuple_assign.ft":
+test "20_tuple_assign.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "19_tuple_assign.ft";
+	str file = "20_tuple_assign.ft";
 	test_file_ok($"{path}/{file}", "first = 7\nsecond = 4.7\nthird = \"yes\"\n");
 
-test "20_tuple_grouped.ft":
+test "21_tuple_grouped.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "20_tuple_grouped.ft";
+	str file = "21_tuple_grouped.ft";
 	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (7, 4.7, \"yes\")\n");
 
-test "21_tuple_vector_overlap.ft":
+test "22_tuple_vector_overlap.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "21_tuple_vector_overlap.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/21_tuple_vector_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a vector-type\n");
+	str file = "22_tuple_vector_overlap.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/22_tuple_vector_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a vector-type\n");
 
-test "22_tuple_return_wrong.ft":
+test "23_tuple_return_wrong.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "22_tuple_return_wrong.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/22_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+	str file = "23_tuple_return_wrong.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/23_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
-test "23_tuple_return_correct.ft":
+test "24_tuple_return_correct.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "23_tuple_return_correct.ft";
+	str file = "24_tuple_return_correct.ft";
 	test_file_ok($"{path}/{file}", "tuple.($0, $1, $2) = (1, 4.7, hello)\n");
 
-test "24_tuple_param_immutable.ft":
+test "25_tuple_param_immutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "24_tuple_param_immutable.ft";
+	str file = "25_tuple_param_immutable.ft";
 	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\n");
 
-test "25_tuple_param_mutable.ft":
+test "26_tuple_param_mutable.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "25_tuple_param_mutable.ft";
+	str file = "26_tuple_param_mutable.ft";
 	test_file_ok($"{path}/{file}", "tuple.(i32, f32, str) = (1, 2.2, \"three\")\ntuple.(i32, f32, str) = (2, 3.3, \"four\")\n");
 
-test "26_vector.ft":
+test "27_tuple_constructor.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "26_vector.ft";
+	str file = "27_tuple_constructor.ft";
+	test_file_ok($"{path}/{file}", "t1.($0, $1, $2) = (1, 2.2, three)\nt2.($0, $1, $2) = (100, 2.222, four)\n");
+
+test "28_vector.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "28_vector.ft";
 	test_file_ok($"{path}/{file}", "v3.(x, y, z) = (1, 2, 3)\nv3 = (4, 5, 6)\n");
 
-test "27_vector_function.ft":
+test "29_vector_function.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "27_vector_function.ft";
+	str file = "29_vector_function.ft";
 	test_file_ok($"{path}/{file}", "(x, y) = (10, 20)\n");
 
-test "28_vector_arithmetic.ft":
+test "30_vector_arithmetic.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "28_vector_arithmetic.ft";
+	str file = "30_vector_arithmetic.ft";
 	test_file_ok($"{path}/{file}", "sum = (6, 8, 10, 12)\n");
 
-test "29_splatting.ft":
+test "31_vector_constructor.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "29_splatting.ft";
+	str file = "31_vector_constructor.ft";
+	test_file_ok($"{path}/{file}", "v1 = (0, 0, 0, 0)\nv2 = (3, 0, 5, 0)\nv3 = (0, 2, 3, 0, 0, 0, 0, 0)\nv4 = (10, 30, 40)\n");
+
+test "32_splatting.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "32_splatting.ft";
 	test_file_ok($"{path}/{file}", "vec3 = (10, 20, 30)\nvec3 = (40, 80, 120)\n");
 
-test "30_set_cmp_scalar.ft":
+test "33_set_cmp_scalar.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "30_set_cmp_scalar.ft";
+	str file = "33_set_cmp_scalar.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
-test "31_set_cmp_group.ft":
+test "34_set_cmp_group.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "31_set_cmp_group.ft";
+	str file = "34_set_cmp_group.ft";
 	test_file_ok($"{path}/{file}", "0 is not 1, 2 or 3\n1 is 1, 2 or 3\n2 is 1, 2 or 3\n3 is 1, 2 or 3\n4 is not 1, 2 or 3\n");
 
-test "32_set_cmp_enum.ft":
+test "35_set_cmp_enum.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "32_set_cmp_enum.ft";
+	str file = "35_set_cmp_enum.ft";
 	test_file_ok($"{path}/{file}", "is VAL2 or VAL4\nis VAL2 or VAL4\n");
 
-test "33_tuple_type_alias.ft":
+test "36_tuple_type_alias.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "33_tuple_type_alias.ft";
+	str file = "36_tuple_type_alias.ft";
 	test_file_ok($"{path}/{file}", "st.($0, $1, $2) = (-6, 4.5, 9)\n");
 
-test "34_prim_type_alias.ft":
+test "37_prim_type_alias.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "34_prim_type_alias.ft";
+	str file = "37_prim_type_alias.ft";
 	test_file_ok($"{path}/{file}", "i: -10, f: 3.5\n");
 
-test "35_const_data.ft":
+test "38_const_data.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "35_const_data.ft";
+	str file = "38_const_data.ft";
 	test_file_ok($"{path}/{file}", "x = 10\n");
 
-test "36_expression_substitution.ft":
+test "39_expression_substitution.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "36_expression_substitution.ft";
+	str file = "39_expression_substitution.ft";
 	test_file_ok($"{path}/{file}", "x = 10\nmd.(x, y, s) = (10, 38.200001, \"Hello 2\")\n");
 
-test "37_call_substitution.ft":
+test "40_call_substitution.ft":
 	str path = "tests/wiki/beginners_guide/data";
-	str file = "37_call_substitution.ft";
+	str file = "40_call_substitution.ft";
 	test_file_ok($"{path}/{file}", "10 + 20 = 30\nx = 30\n");
+
+test "41_shared_data.ft":
+	str path = "tests/wiki/beginners_guide/data";
+	str file = "41_shared_data.ft";
+	test_file_ok($"{path}/{file}", "init called\ninit2 called\nGlobals.c = 5\nGlobals.c2 = 10\nGlobals.c = 15\nGlobals.s = Hi, there\nGlobals.s = Woof\n");

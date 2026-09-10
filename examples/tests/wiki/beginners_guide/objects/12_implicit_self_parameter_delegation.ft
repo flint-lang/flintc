@@ -2,7 +2,6 @@ use Core.print
 
 data Data:
 	i32 value;
-	Data(value);
 
 func Func1 requires(Data d):
 	const def fn1():
@@ -17,7 +16,6 @@ object Object:
 		Data d;
 	func:
 		Func1, Func2;
-	Object(d);
 	
 	def do_stuff():
 		self.fn1();
@@ -25,5 +23,5 @@ object Object:
 		self.fn2();
 
 def main():
-	o := Object(Data(10));
+	o := Object{Data{10}};
 	o.do_stuff();

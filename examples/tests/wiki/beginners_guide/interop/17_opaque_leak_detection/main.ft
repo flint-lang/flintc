@@ -2,7 +2,7 @@ use Core.print
 use Fip.c
 
 def main():
-    c := Container(null, 0);
+    c := Container{null, 0};
     print($"c.value = {c.value}\n");
     print($"c.len = {c.len}\n");
 

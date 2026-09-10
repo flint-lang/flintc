@@ -5,7 +5,6 @@ use "paddle.ft"
 object Cpu:
 	data: DPaddle paddle;
 	func: FPaddleCommon;
-	Cpu(paddle);
 
 	def update(f32 ball_y, f32 delta):
 		if paddle.pos.y - 10.0 > ball_y:
@@ -15,4 +14,7 @@ object Cpu:
 		self.clamp_position();
 
 	def reset():
-		paddle.pos = f32x2(rl.GetScreenWidth() - paddle.size.x / 2 - 10, rl.GetScreenHeight() / 2);
+		paddle.pos = f32x2(i32x2{
+			rl.GetScreenWidth() - paddle.size.x / 2 - 10,
+			rl.GetScreenHeight() / 2,
+			});

@@ -2,9 +2,8 @@ use Core.print
 
 data MyData:
     i32 x = 5;
-    i32 y = 7;
-    MyData(x, y);
+    i32 y;
 
 def main():
-    MyData d = MyData(_);
+    MyData d = MyData{};
     print($"d.(x, y) = ({d.x}, {d.y})\n");

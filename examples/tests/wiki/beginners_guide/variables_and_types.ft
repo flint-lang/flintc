@@ -98,13 +98,12 @@ test "18_casting_cutoff.ft":
 test "19_casting_implicit.ft":
 	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "19_casting_implicit.ft";
-	// NOTE: This should print 'fval = 3.0\n' but it does not print that yet
-	test_file_ok($"{path}/{file}", "fval = 3\n");
+	test_file_ok($"{path}/{file}", "fval = 3.0\n");
 
 test "20_interpol_addition.ft":
 	str path = "tests/wiki/beginners_guide/variables_and_types";
 	str file = "20_interpol_addition.ft";
-	test_file_ok($"{path}/{file}", "fval = 3\n");
+	test_file_ok($"{path}/{file}", "fval = 3.0\n");
 
 test "21_interpol.ft":
 	str path = "tests/wiki/beginners_guide/variables_and_types";

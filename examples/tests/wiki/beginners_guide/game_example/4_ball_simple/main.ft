@@ -1,5 +1,6 @@
 use Fip.raylib as rl
 
+use "ball.ft"
 use "colors.ft"
 
 def main():

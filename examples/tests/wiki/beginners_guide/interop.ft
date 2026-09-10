@@ -38,7 +38,7 @@ test "5_data_passing":
 test "6_name_doesnt_matter":
 	str path = "tests/wiki/beginners_guide/interop/6_name_doesnt_matter";
 	str file = "main.ft";
-	test_file_fail_in(path, file, "Generation Error at main.ft:18:1\n└──┬┤E0000│\n18 │ extern def do_something(SomeData md) -> SomeData;\n┌──┴─┘\n├─ Defined extern function 'do_something' twice\n└─ It was first defined at main.ft:17:1\n");
+	test_file_fail_in(path, file, "Generation Error at main.ft:16:1\n└──┬┤E0000│\n16 │ extern def do_something(SomeData md) -> SomeData;\n┌──┴─┘\n├─ Defined extern function 'do_something' twice\n└─ It was first defined at main.ft:15:1\n");
 
 test "7_tuples":
 	str path = "tests/wiki/beginners_guide/interop/7_tuples";
@@ -68,28 +68,28 @@ test "11_ptr_in_body":
 test "12_tags":
 	str path = "tests/wiki/beginners_guide/interop/12_tags";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40, 36000)\nis VAL3\nx = 32\n");
+	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
-	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n	MyStruct(x, y, z);\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
+	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 
 test "13_tags_aliasing":
 	str path = "tests/wiki/beginners_guide/interop/13_tags_aliasing";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40, 36000)\nis VAL3\nx = 32\n");
+	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
-	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n	MyStruct(x, y, z);\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
+	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 
 test "14_multiple_tags":
 	str path = "tests/wiki/beginners_guide/interop/14_multiple_tags";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40, 36000)\nis VAL3\nx = 32\nv3 = (30.200001, 50.400002, 70.599998)\n");
+	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\nv3 = (30.200001, 50.400002, 70.599998)\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
+	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 	str ex2 = read_file(get_path($"{path}/.fip/generated/ex2.ft"));
 	assert(ex2 == "type Vector3 f32x3\nextern def vadd(const Vector3 v1, const Vector3 v2) -> Vector3;\n");
-	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n	MyStruct(x, y, z);\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 
 test "15_opaque_simple":
 	str path = "tests/wiki/beginners_guide/interop/15_opaque_simple";
@@ -97,7 +97,7 @@ test "15_opaque_simple":
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value = 0x", "\ncon.len = 100\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
-	assert(c == "data Container:\n	opaque value;\n	u64 len;\n	Container(value, len);\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
+	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "16_opaque_comparison":
 	str path = "tests/wiki/beginners_guide/interop/16_opaque_comparison";
@@ -105,7 +105,7 @@ test "16_opaque_comparison":
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value points to something\ncon.len = 100\ncon.value was properly freed\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
-	assert(c == "data Container:\n	opaque value;\n	u64 len;\n	Container(value, len);\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
+	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "17_opaque_leak_detection":
 	str path = "tests/wiki/beginners_guide/interop/17_opaque_leak_detection";
@@ -113,7 +113,7 @@ test "17_opaque_leak_detection":
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value points to something\ncon.len = 100\nError: Leaking memory!\n");
 
 	str c = read_file(get_path($"{path}/.fip/generated/c.ft"));
-	assert(c == "data Container:\n	opaque value;\n	u64 len;\n	Container(value, len);\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
+	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "18_opaque_low_level":
 	str path = "tests/wiki/beginners_guide/interop/18_opaque_low_level";

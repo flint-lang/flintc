@@ -2,7 +2,6 @@ use Core.print
 
 data Data:
 	i32 value;
-	Data(value);
 
 func Func requires(Data d):
 	def inc(i32 x):
@@ -14,10 +13,9 @@ func Func requires(Data d):
 object Object:
 	data: Data d;
 	func: Func;
-	Object(d);
 
 def main():
-	o := Object(Data(10));
+	o := Object{Data{10}};
 	o.inc(2);
 	o.print();
 

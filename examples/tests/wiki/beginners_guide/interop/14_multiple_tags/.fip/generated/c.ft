@@ -2,7 +2,6 @@ data MyStruct:
 	i32 x;
 	f32 y;
 	u64 z;
-	MyStruct(x, y, z);
 
 enum MyEnum:
 	VAL1 = 0,

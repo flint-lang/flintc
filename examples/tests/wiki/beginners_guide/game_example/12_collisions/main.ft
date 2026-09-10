@@ -16,9 +16,9 @@ def main():
 	rl.InitWindow(screen.x, screen.y, "Pong");
 
 	// Initialize game objects
-	ball := Ball(DBall(_));
+	ball := Ball{};
 	ball.reset();
-	paddle := Paddle(DPaddle(_, f32x2(screen / 2), _));
+	paddle := Paddle{DPaddle{ .pos = f32x2(screen / 2) }};
 
 	TimeStamp last_frame = now();
 	while not rl.WindowShouldClose():

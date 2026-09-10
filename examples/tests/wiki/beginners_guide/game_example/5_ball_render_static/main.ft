@@ -12,7 +12,7 @@ def main():
 	rl.InitWindow(screen.x, screen.y, "Pong");
 
 	// Initialize game objects
-	ball := Ball(DBall(f32x2(screen / 2), f32x2(1, 1), 100, 20));
+	ball := Ball{DBall{f32x2(screen / 2), f32x2(1), 100, 20}};
 
 	while not rl.WindowShouldClose():
 		screen = (rl.GetScreenWidth(), rl.GetScreenHeight());

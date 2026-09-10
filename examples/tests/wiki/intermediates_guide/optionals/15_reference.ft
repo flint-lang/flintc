@@ -4,10 +4,9 @@ data MyData:
 	i32 x;
 	f32 y;
 	str v;
-	MyData(x, y, v);
 
 def main():
-	MyData md = MyData(-5, 3.14, "Hello There");
+	MyData md = MyData{-5, 3.14, "Hello There"};
 	MyData? ref = md;
 
 	ref!.(x, y) = (7, 6.28);

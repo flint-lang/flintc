@@ -3,10 +3,9 @@ use Core.print
 data Point:
     i32 x;
     i32 y;
-    Point(x, y);
 
 def create_point(i32 x, i32 y) -> Point:
-    return Point(x, y);
+    return Point{x, y};
 
 def main():
     Point p = create_point(5, 7);

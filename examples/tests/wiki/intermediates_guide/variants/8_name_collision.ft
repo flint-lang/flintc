@@ -4,7 +4,6 @@ data Tuple:
 	i32 x;
 	f32 y;
 	bool8 z;
-	Tuple(x, y, z);
 
 variant MyVariant:
 	Tuple, Tuple(u64, f64), i32;

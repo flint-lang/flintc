@@ -33,7 +33,7 @@ test "5_alias_chain":
 test "6_aliased_type":
 	str path = "tests/wiki/beginners_guide/imports/6_aliased_type";
 	str file = "main.ft";
-	test_file_ok_in(path, file, "v3 = (15, 25, 35)\n");
+	test_file_ok_in(path, file, "v3 = (15.0, 25.0, 35.0)\n");
 
 test "7_subdir":
 	str path = "tests/wiki/beginners_guide/imports/7_subdir";

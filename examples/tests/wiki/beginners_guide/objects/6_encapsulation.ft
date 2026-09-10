@@ -3,7 +3,6 @@ use Core.print
 data Transform:
 	i32x2 pos;
 	i32x2 size;
-	Transform(pos, size);
 
 func FMove requires(Transform t):
 	def print():
@@ -15,9 +14,8 @@ func FMove requires(Transform t):
 object Object:
 	data: Transform;
 	func: FMove;
-	Object(Transform);
 
 def main():
-	o := Object(Transform(i32x2(100, 120), i32x2(200, 220)));
+	o := Object{Transform{i32x2{100, 120}, i32x2{200, 220}}};
 	o.print();
 	print($"o.pos = {o.get_pos()}\n");

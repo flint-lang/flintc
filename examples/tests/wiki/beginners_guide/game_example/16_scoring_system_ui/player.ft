@@ -5,7 +5,6 @@ use "paddle.ft"
 object Player:
 	data: DPaddle paddle;
 	func: FPaddleCommon;
-	Player(paddle);
 
 	def update(f32 delta):
 		if rl.IsKeyDown(i32(rl.KeyboardKey.KEY_UP)):
@@ -15,4 +14,4 @@ object Player:
 		FPaddleCommon.clamp_position(paddle);
 
 	def reset():
-		paddle.pos = f32x2(10 + paddle.size.x / 2, rl.GetScreenHeight() / 2);
+		paddle.pos = f32x2(i32x2{10 + paddle.size.x / 2, rl.GetScreenHeight() / 2});

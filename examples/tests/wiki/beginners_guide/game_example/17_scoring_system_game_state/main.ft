@@ -24,9 +24,9 @@ def main():
 	rl.InitWindow(screen.x, screen.y, "Pong");
 
 	// Initialize game objects
-	ball := Ball(DBall(_));
-	player := Player(DPaddle(_));
-	cpu := Cpu(DPaddle(_));
+	ball := Ball{};
+	player := Player{};
+	cpu := Cpu{};
 	reset_objects(ball, player, cpu);
 
 	u32 player_score = 0;

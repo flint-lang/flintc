@@ -1,0 +1,12 @@
+use Core.print
+
+def main():
+	v1 := i32x4{};                 // Default-construction
+	v2 := i32x4{.x = 3, .z = 5};   // Selective named-field-construction
+	v3 := i32x8{.$1 = 2, .$2 = 3}; // Using IDs for large vectors
+	v4 := i32x3{10, 30, 40};       // Positional construction
+
+	print($"v1 = {v1}\n");
+	print($"v2 = {v2}\n");
+	print($"v3 = {v3}\n");
+	print($"v4 = {v4}\n");

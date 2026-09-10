@@ -16,8 +16,5 @@ def main():
 	var = f32(3.4);
 	print_var(var);
 
-	// Flint currently has no way of using a group as the rhs of a variant assignment
-	// when a tuple needs to be stored in the variant, but it will have it *eventually*
-	data<i32, f32, bool8> tuple = (5, 6.9, bool8(u8(33)));
-	var = tuple;
+	var = data<i32, f32, bool8>{5, 6.9, bool8(u8(33))};
 	print_var(var);

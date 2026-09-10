@@ -6,15 +6,13 @@ use Fip.raylib as rl
 use "colors.ft"
 
 data DBall:
-	f32x2 pos = f32x2(0, 0);
-	f32x2 dir = f32x2(0, 0);
+	f32x2 pos = f32x2(0);
+	f32x2 dir = f32x2(0);
 	f32 speed = 0;
 	f32 radius = 20;
-	DBall(pos, dir, speed, radius);
 
 object Ball:
 	data: DBall ball;
-	Ball(ball);
 
 	const def draw():
 		rl.DrawCircle(i32(ball.pos.x), i32(ball.pos.y), ball.radius, Colors.yellow);
@@ -32,4 +30,4 @@ object Ball:
 
 		ball.speed = 400.0;
 		ball.dir = ball_dir;
-		ball.pos = f32x2(rl.GetScreenWidth() / 2, rl.GetScreenHeight() / 2);
+		ball.pos = f32x2(i32x2{rl.GetScreenWidth(), rl.GetScreenHeight()} / 2);
