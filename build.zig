@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) !void {
     const only_build_flint_parser = b.option(bool, "only-build-flint-parser", "Build only the flintc-parser library") orelse
         false;
     if (only_build_flint_parser) {
-        _ = try flint_parser.build(b, target, optimize, try makeEmptyStep(b), only_build_flint_parser, .master);
+        _ = try flint_parser.build(b, target, optimize, try makeEmptyStep(b), only_build_flint_parser, .master, false);
         return;
     }
 
@@ -92,12 +92,13 @@ pub fn build(b: *std.Build) !void {
         const opt = resolveOptimize(kvp.key, optimize);
         const tar = resolveTarget(b, .{ .target = kvp.key });
 
-        const flint_parser_lib = try flint_parser.build(b, tar, opt, last_step, false, .master);
-        const llvm_step = try llvm.build(b, tar, &flint_parser_lib.step, o_llvm_prebuilt_dir, o_llvm_rebuild, o_llvm_jobs);
-        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib, commit_hash, build_date);
+        const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, false, .master, false);
+        const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, false, .master, true);
+        const llvm_step = try llvm.build(b, tar, &flint_parser_lib_flintc.step, o_llvm_prebuilt_dir, o_llvm_rebuild, o_llvm_jobs);
+        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, build_date);
         const fls_install_step = &b.addInstallArtifact(fls_exe, .{}).step;
         b.getInstallStep().dependOn(fls_install_step);
-        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib, llvm_step, o_llvm_prebuilt_dir, commit_hash, build_date);
+        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, o_llvm_prebuilt_dir, commit_hash, build_date);
         const flintc_install_step = &b.addInstallArtifact(flintc_exe, .{}).step;
         b.getInstallStep().dependOn(flintc_install_step);
         flintc_install_step.dependOn(fls_install_step);

@@ -869,7 +869,9 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
         if (!field.initializer_tokens.has_value()) {
             continue;
         }
-        parser.collapse_types_in_slice(field.initializer_tokens.value(), parser.file_node_ptr->tokens);
+        if (!parser.collapse_types_in_slice(field.initializer_tokens.value(), parser.file_node_ptr->tokens)) {
+            return false;
+        }
         field.initializer = parser.create_expression(data_context, data_scope, field.initializer_tokens.value());
         if (!field.initializer.has_value()) {
             return false;
@@ -1197,7 +1199,9 @@ bool Parser::parse_all_open_objects(const bool parse_parallel) {
     // Go through all open objects and refine their body lines before the loop
     Profiler::start_task("Refine object body lines");
     for (auto &[parser, object, body] : open_objects) {
-        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
+        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
+            return false;
+        }
     }
     Profiler::end_task("Refine object body lines");
 
@@ -1286,7 +1290,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
         if (function->visibility == FunctionNode::Visibility::EXTERN) {
             continue;
         }
-        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
+        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
+            return false;
+        }
     }
     Profiler::end_task("Refine function body lines");
 
@@ -1394,7 +1400,9 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
     // Go through all open tests and refine their body lines before the loop
     Profiler::start_task("Refine test body lines");
     for (auto &[parser, test, body] : open_tests) {
-        parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens);
+        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
+            return false;
+        }
     }
     Profiler::end_task("Refine test body lines");
 

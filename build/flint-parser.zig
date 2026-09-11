@@ -11,9 +11,11 @@ pub fn build(
     prev_step: *std.Build.Step,
     install_headers: bool,
     lib_mode: fip.LibMode,
+    lsp_mode: bool,
 ) !*std.Build.Step.Compile {
+    const name: []const u8 = if (lsp_mode) "flint-parser-lsp" else "flint-parser";
     const lib = b.addLibrary(.{
-        .name = "flint-parser",
+        .name = name,
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -33,6 +35,9 @@ pub fn build(
     lib.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
     if (optimize == .Debug) {
         lib.root_module.addCMacro("DEBUG_BUILD", "");
+    }
+    if (lsp_mode) {
+        lib.root_module.addCMacro("FLINT_LSP", "");
     }
 
     const fip_dep = b.dependency("fip", .{ .target = target, .optimize = optimize, .@"lib-mode" = lib_mode });

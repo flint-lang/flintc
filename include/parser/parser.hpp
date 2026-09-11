@@ -689,7 +689,8 @@ class Parser {
     ///
     /// @param `slice` The slice in which to collapse all types
     /// @param `source` The source in which the slice views into, since we modify it we need it as a parameter
-    void collapse_types_in_slice(token_slice &slice, token_list &source);
+    /// @return `bool` Whether collapsing the types was successfull
+    [[nodiscard]] bool collapse_types_in_slice(token_slice &slice, token_list &source);
 
     /// @function `collapse_types_in_lines`
     /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
@@ -697,10 +698,11 @@ class Parser {
     ///
     /// @param `lines` The lines to refine
     /// @param `source` A reference to the source token vector directly to enable direct modification
+    /// @return `bool` Whether collapsing the types was successfull
     ///
     /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
     /// @note Also replaces all type aliases with their aliased types
-    void collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+    [[nodiscard]] bool collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
 
     /// @function `substitute_type_aliases`
     /// @brief Recursively substitutes all type aliases within the type to resolve

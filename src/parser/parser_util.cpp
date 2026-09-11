@@ -314,7 +314,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
     return true;
 }
 
-void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
+bool Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
     ASSERT_ST
     for (auto it = slice.first; it != slice.second;) {
         // Erase all indentations within a line, which are not at the beginning of a line
@@ -391,7 +391,8 @@ void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
                 // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
                 auto type = file_node_ptr->file_namespace->get_type(token_slice{it, it + type_range.value().second});
                 if (!type.has_value()) {
-                    std::exit(EXIT_FAILURE);
+                    THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, token_slice{it, it + type_range.value().second});
+                    return false;
                 }
                 // Change this token to be a type token
                 *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
@@ -401,12 +402,15 @@ void Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
         }
         ++it;
     }
+    return true;
 }
 
-void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
+bool Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
     PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
     for (auto line : lines) {
-        collapse_types_in_slice(line.tokens, source);
+        if (!collapse_types_in_slice(line.tokens, source)) {
+            return false;
+        }
     }
 
     // Substitute all types aliases
@@ -417,6 +421,7 @@ void Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &sourc
             }
         }
     }
+    return true;
 }
 
 void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
