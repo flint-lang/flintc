@@ -4,4 +4,4 @@ def greet():
 	print("Hello, World!\n");
 
 def main():
-	fn<> function = ::greet;
+	fn[] function = ::greet;

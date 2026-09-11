@@ -11,6 +11,6 @@ def div(i32 x, i32 y) -> i32:
 def main():
 	div(10, 0) catch err:
 		// 'err' is actually of type 'anyerror' now because there are no other types in the variant
-		// A 'variant<anyerror>' is just a 'anyerror'
+		// A 'variant[anyerror]' is just a 'anyerror'
 		print($"Caught error '{err}': \"{err.message}\"\n");
 		throw err;

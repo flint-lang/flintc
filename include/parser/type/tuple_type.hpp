@@ -97,14 +97,14 @@ class TupleType : public Type {
     }
 
     std::string to_string() const override {
-        std::string type_str = "data<";
+        std::string type_str = "data[";
         for (size_t i = 0; i < types.size(); i++) {
             if (i != 0) {
                 type_str += ", ";
             }
             type_str += types[i]->to_string();
         }
-        type_str += ">";
+        type_str += "]";
         return type_str;
     }
 

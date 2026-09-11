@@ -98,7 +98,7 @@ test "18_tuple_access.ft":
 test "19_tuple_oob.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "19_tuple_oob.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/19_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data<i32, f32, str>'\n└─ The tuples last element is '$2'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/19_tuple_oob.ft:3:19\n└─┬┤E0000│\n1 │ def main():\n3 │ »   i32 x = tuple.$3;\n┌─┴───────────────────┘\n├─ Out of bounds access on tuple type 'data[i32, f32, str]'\n└─ The tuples last element is '$2'\n");
 
 test "20_tuple_assign.ft":
 	str path = "tests/wiki/beginners_guide/data";
@@ -113,12 +113,12 @@ test "21_tuple_grouped.ft":
 test "22_tuple_vector_overlap.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "22_tuple_vector_overlap.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/22_tuple_vector_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<i32, i32, i32> tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a vector-type\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/22_tuple_vector_overlap.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data[i32, i32, i32] tuple = (1, 1, 1);\n┌─┴─────┘\n└─ Cannot create a tuple type which overlaps with a vector-type\n");
 
 test "23_tuple_return_wrong.ft":
 	str path = "tests/wiki/beginners_guide/data";
 	str file = "23_tuple_return_wrong.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/23_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/data/23_tuple_return_wrong.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data[i32, f32, str]:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "24_tuple_return_correct.ft":
 	str path = "tests/wiki/beginners_guide/data";

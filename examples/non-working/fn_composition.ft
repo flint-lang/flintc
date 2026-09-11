@@ -29,13 +29,13 @@ def main():
 	// res = divide(4, add(3, 5));
 
 	// 	2. It can be used for composing functions. When both the lhs and the rhs of the pipe operator is _some_ 'fn' type, its result will be a lambda of said functions
-	fn<() -> i32> add35_then_square = ::add(3, 5) |> ::square($);
+	fn[() -> i32] add35_then_square = ::add(3, 5) |> ::square($);
 	// The above code expands to:
 	// .. = () -> add(3, 5) |> square($);
-	fn<() -> i32> square4_then_mult2 = ::square(4) |> ::mult($, 2);
+	fn[() -> i32] square4_then_mult2 = ::square(4) |> ::mult($, 2);
 	// The above code expands to:
 	// .. = () -> square(4) |> mult($, 2);
-	fn<i32, i32 -> i32> add_then_square = ::add(_, _) |> ::square($);
+	fn[i32, i32 -> i32] add_then_square = ::add(_, _) |> ::square($);
 	// The above code expands to:
 	// .. = (i32 a, b) -> add(a, b) |> square($);
 
@@ -51,13 +51,13 @@ def main():
 	print($"add(4, 6) |> square = {add_then_square(4, 6)}");
 
 	// A fn variable also can be used within the composition of a new function!
-	fn<i32, i32, i32 -> i32> add_square_div = ::add_then_square(_, _) |> ::divide($, _);
+	fn[i32, i32, i32 -> i32] add_square_div = ::add_then_square(_, _) |> ::divide($, _);
 
 	print($"asd 3 7 5 = {add_square_div(3, 7, 5)}"); // Result of add_square_div will be '20'
 	str some_val = $"{$"{((i32 x, i32 y) -> x + y)(1, 2)}" + supi}";
 
 	// Because the result of 'divide_2' is a vector-type, splitting it into two i32 is allowed, because a vector-type is just a native group!
-	fn<i32x2, i32x2 -> i32> div_2_add = ::divide_2(_, _) |> ::add($1, $2);
+	fn[i32x2, i32x2 -> i32] div_2_add = ::divide_2(_, _) |> ::add($1, $2);
 	// The above is the same as the one below
 	div_2_add = (i32x2 x, y) -> divide_2(x, y) |> add($1, $1);
 	res = div_2_add((4, 6), (2, 3)); // res = '4'

@@ -762,14 +762,14 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
                 file << s->name;
                 break;
             }
-            file << "data<";
+            file << "data[]";
             for (size_t i = 0; i < s->field_count; i++) {
                 if (i > 0) {
                     file << ", ";
                 }
                 generate_fip_type(&s->fields[i], file, false);
             }
-            file << ">";
+            file << "]";
             break;
         }
         case FIP_TYPE_RECURSIVE:

@@ -7,6 +7,6 @@ def counter() -> i32:
 	return val;
 
 def main():
-	fn<() -> i32> c = ::counter;
+	fn[() -> i32] c = ::counter;
 	print($"c() = {c()}\n");
 	print($"c() = {c()}\n");

@@ -2,10 +2,10 @@ use Core.print
 
 data MyData:
 	bool8 flags;
-	variant<i32, f32> value;
+	variant[i32, f32] value;
 
 def main():
-	variant<i32, f32> var = i32(-10);
+	variant[i32, f32] var = i32(-10);
 	MyData md = MyData{u8(0), var};
 	print($"flags = {md.flags}\n");
 	switch md.value:

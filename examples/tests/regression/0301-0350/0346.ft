@@ -47,5 +47,5 @@ def main():
 	//e2.print();
 	e2.print_pos();
 	
-	//fn<mut MyEntity> p = MyEntity::print;
+	//fn[mut MyEntity] p = MyEntity::print;
 	//MyEntity.print(e);

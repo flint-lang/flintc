@@ -4,7 +4,7 @@ use Core.time
 def execute_function():
 	print("Executed\n");
 
-def execute_maybe(fn<> function) -> bool:
+def execute_maybe(fn[] function) -> bool:
 	persistent TimeStamp last = now();
 	TimeStamp current = now();
 	Duration elapsed = duration(last, current);
@@ -17,8 +17,8 @@ def execute_maybe(fn<> function) -> bool:
 	return true;
 
 def main():
-	fn<> task = ::execute_function;
-	fn<fn<> -> bool> throttled = ::execute_maybe;
+	fn[] task = ::execute_function;
+	fn[fn[] -> bool] throttled = ::execute_maybe;
 	i32 c = 0;
 	while c < 4:
 		if throttled(task):

@@ -6,7 +6,7 @@ def may_fail(bool fail) {ErrAssert}:
     assert(not fail);
 
 def main():
-    fn<bool {ErrAssert}> f = ::may_fail;
+    fn[bool {ErrAssert}] f = ::may_fail;
     f(false) catch err:
         switch err:
             ErrAssert(e):

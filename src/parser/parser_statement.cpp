@@ -488,7 +488,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     // The next token should either be a `(` or an identifer. If its an identifier we use the "tupled" enhanced for loop approach
     std::variant<std::pair<std::optional<std::string>, std::optional<std::string>>, std::string> iterators;
     if (definition_mut.first->token == TOK_IDENTIFIER) {
-        // Its a tuple, e.g. `for t in iterable:` where `t` is of type `data<u64, T>`
+        // Its a tuple, e.g. `for t in iterable:` where `t` is of type `data[u64, T]`
         iterators = std::string(definition_mut.first->lexme);
         definition_mut.first++;
     } else {

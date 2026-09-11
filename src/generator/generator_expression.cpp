@@ -4457,7 +4457,7 @@ Generator::group_mapping Generator::Expression::generate_type_cast( //
                 llvm::Type *const tup_type = IR::get_type(ctx.parent->getParent(), type_cast_node->type).type;
                 llvm::Value *result = IR::get_default_value_of_type(tup_type);
                 for (unsigned int i = 0; i < expr_group_type->types.size(); i++) {
-                    ASSERT(expr_group_type->types[i] == tuple_type->types[i]);
+                    ASSERT(expr_group_type->types[i]->equals(tuple_type->types[i]));
                     result = builder.CreateInsertValue(result, expr[i], {i});
                 }
                 return std::vector<llvm::Value *>{result};

@@ -28,7 +28,7 @@ def has_fired() -> bool:
 	return true;
 
 def main():
-	fn<i32, i32 -> i32> a = ::add;
+	fn[i32, i32 -> i32] a = ::add;
 	print(a(_)); // prints '11'
 	a = ::add(1, 2);
 	print(a(_)); // prints '3'
@@ -66,10 +66,9 @@ def main():
 
 
 data Attacks:
-	fn<i32, i32 -> i32> base = (i32 a, d) -> a - d;
-	fn<i32, i32 -> i32> strong = (i32 a, d) -> 2 * a - d;
-	fn<i32, i32 -> i32> special = (i32 a, d) -> 3 * a - d;
-	Attacks(base, strong, special);
+	fn[i32, i32 -> i32] base = (i32 a, d) -> a - d;
+	fn[i32, i32 -> i32] strong = (i32 a, d) -> 2 * a - d;
+	fn[i32, i32 -> i32] special = (i32 a, d) -> 3 * a - d;
 
 func Attacking requires(Attacks a):
 	def base_attack(i32 att, i32 defense) -> i32:
@@ -81,23 +80,22 @@ func Attacking requires(Attacks a):
 	def special_attack(i32 att, i32 defense) -> i32:
 		return a.special(att, defense);
 	
-	def set_base_attack(fn<i32, i32 -> i32> att):
+	def set_base_attack(fn[i32, i32 -> i32] att):
 		a.base = att;
 	
-	def set_strong_attack(fn<i32, i32 -> i32> att):
+	def set_strong_attack(fn[i32, i32 -> i32] att):
 		a.strong = att;
 	
-	def set_special_attack(fn<i32, i32 -> i32> att):
+	def set_special_attack(fn[i32, i32 -> i32] att):
 		a.special = att;
 	
 object Player:
 	data: Attacks;
 	func: Attacking;
-	Player(Attacks);
 
 
 def main():
-	p1 := Player(_);
+	p1 := Player{};
 	print(p1.base_attack(50, 40)); // prints '10'
 	print(p1.strong_attack(50, 40)); // prints '60'
 	print(p1.special_attack(50, 40)); // prints '110'
@@ -108,4 +106,4 @@ def main():
 	print(p1.base_attack(40, 50)); // prints '0'
 
 	// reference to the base_attack function of the func component
-	fn<mut Attacks, i32, i32 -> i32> ba = Attacking::base_attack;
+	fn[mut Attacks, i32, i32 -> i32] ba = Attacking::base_attack;

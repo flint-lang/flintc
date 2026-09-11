@@ -17,6 +17,6 @@ def execute_next_phase():
 			state = State.S1;
 
 def main():
-	fn<> state_handler = ::execute_next_phase;
+	fn[] state_handler = ::execute_next_phase;
 	for (_, _) in 0..6:
 		state_handler();

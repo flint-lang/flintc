@@ -25,5 +25,5 @@ def main():
 	d := MyData{10, 20, 30};
 	e := MyEntity{d};
 	e.print();
-	//fn<mut MyEntity> p = MyEntity::print;
+	//fn[mut MyEntity] p = MyEntity::print;
 	//MyEntity.print(e);

@@ -8,8 +8,8 @@ def counter() -> i32:
 	return current;
 
 def main():
-	fn<() -> i32> c1 = ::counter;
-	fn<() -> i32> c2 = ::counter;
+	fn[() -> i32] c1 = ::counter;
+	fn[() -> i32] c2 = ::counter;
 	print($"c1() = {c1()}\n");
 	print($"c1() = {c1()}\n");
 	print($"c2() = {c2()}\n");

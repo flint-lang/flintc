@@ -1,8 +1,8 @@
 use Core.print
 
 def main():
-	t1 := data<i32, f32, str>{1, 2.2, "three"};
+	t1 := data[i32, f32, str]{1, 2.2, "three"};
 	print($"t1.($0, $1, $2) = {t1.($0, $1, $2)}\n");
 
-	t2 := data<i32, f32, str>{ .$0 = 100, .$1 = 2.222, .$2 = "four" };
+	t2 := data[i32, f32, str]{ .$0 = 100, .$1 = 2.222, .$2 = "four" };
 	print($"t2.($0, $1, $2) = {t2.($0, $1, $2)}\n");

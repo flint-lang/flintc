@@ -88,7 +88,7 @@ test "0516":
 test "0517":
 	str path = "tests/regression/0501-0550";
 	str file = "0517.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0517.ft:4:44\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data<data<i32, f32>, str> something = ((1, 3.3), \"str\");\n┌─┴────────────────────────────────────────────┘\n└─ Nested groups are not allowed\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0517.ft:4:44\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data[data[i32, f32], str] something = ((1, 3.3), \"str\");\n┌─┴────────────────────────────────────────────┘\n└─ Nested groups are not allowed\n");
 
 test "0518":
 	str path = "tests/regression/0501-0550";
@@ -192,3 +192,8 @@ test "0535":
 	str path = "tests/regression/0501-0550";
 	str file = "0535.ft";
 	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0535.ft:4:30\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{.x = 1, 2};\n┌─┴──────────────────────────────┘\n├─ Use of mixed field styles is not allowed\n└─ Expected all fields to be named: .value = expression\n");
+
+test "0536":
+	str path = "tests/regression/0501-0550";
+	str file = "0536.ft";
+	test_file_ok($"{path}/{file}", "(t.$0.$0, t.$0.$1, t.$1) = (1, 3.3, str)\n");

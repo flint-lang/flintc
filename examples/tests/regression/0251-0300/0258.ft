@@ -13,7 +13,7 @@ def main():
 		bool(b) -> constant + 3;
 	print($"res = {res}\n");
 
-	data<f32, i32> tuple = (3.4, 2);
+	data[f32, i32] tuple = (3.4, 2);
 	my_var = Var.Tuple(tuple);
 	switch my_var:
 		Var.Int(i): print($"i = {i}\n");

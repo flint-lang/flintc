@@ -60,7 +60,7 @@ class FnType : public Type {
 
     std::string to_string() const override {
         std::stringstream ss;
-        ss << "fn<";
+        ss << "fn[";
         if (params.empty()) {
             ss << "()";
         } else {
@@ -100,7 +100,7 @@ class FnType : public Type {
             }
             ss << "}";
         }
-        ss << ">";
+        ss << "]";
         return ss.str();
     }
 

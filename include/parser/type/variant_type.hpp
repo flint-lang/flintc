@@ -105,14 +105,14 @@ class VariantType : public Type {
     std::string to_string() const override {
         if (std::holds_alternative<std::vector<std::shared_ptr<Type>>>(var_or_list)) {
             auto &types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
-            std::string result = "variant<";
+            std::string result = "variant[";
             for (auto it = types.begin(); it != types.end(); ++it) {
                 if (it != types.begin()) {
                     result += ", ";
                 }
                 result += (*it)->to_string();
             }
-            result += ">";
+            result += "]";
             return result;
         } else {
             auto &variant_node = std::get<VariantNode *const>(var_or_list);

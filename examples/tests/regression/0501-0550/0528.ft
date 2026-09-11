@@ -33,5 +33,5 @@ def main():
 	f32x4 v4 = f32x4{.x = 0, .z = 3};
 	print($"v4 = {v4}\n");
 
-	data<i32, f32, str> tuple = data<i32, f32, str>{.$0 = 10, .$1 = 2.3, .$2 = "hi"};
+	data[i32, f32, str] tuple = data[i32, f32, str]{.$0 = 10, .$1 = 2.3, .$2 = "hi"};
 	print($"tuple.($0, $1, $2) = {tuple.($0, $1, $2)}\n");

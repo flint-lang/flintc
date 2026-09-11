@@ -79,13 +79,11 @@ use Core.print
 data Wings:
 	u32 size;
 	u32 flight_time;
-	Wings(size, flight_time);
 
 data Legs:
 	u32 count;
 	f32 speed;
 	f32 height;
-	Legs(count, speed, height);
 
 func Fly requires(Wings w):
 	def fly():
@@ -102,20 +100,18 @@ func Jump requires(Legs l):
 object Dog:
 	data: Legs;
 	func: Run, Jump;
-	Dog(Legs);
 
 object Bird:
 	data: Wings, Legs;
 	func: Fly, Run, Jump;
-	Bird(Wings, Legs);
 
 def main():
-	d := Dog(Legs(4, 30.0, 0.8));
+	d := Dog{Legs{4, 30.0, 0.8}};
 	d.run();
 	d.jump();
 
 	print("\n");
-	b := Bird(Wings(10, 100), Legs(2, 1.5, 0.1));
+	b := Bird{Wings{10, 100}, Legs{2, 1.5, 0.1}};
 	b.run();
 	b.jump();
 	b.fly();
@@ -153,14 +149,14 @@ def div(i32 x, i32 y) -> i32:
 def sub(i32 x, i32 y) -> i32:
 	return x - y;
 
-def bind_sub(mut fn<i32, i32 -> i32> c):
+def bind_sub(mut fn[i32, i32 -> i32] c):
 	c = ::sub;
 
-def execute(fn<i32, i32 -> i32> c, i32 x, i32 y) -> i32:
+def execute(fn[i32, i32 -> i32] c, i32 x, i32 y) -> i32:
 	return c(x, y);
 
 def main():
-	fn<i32, i32 -> i32> c = ::div;
+	fn[i32, i32 -> i32] c = ::div;
 	i32 result = execute(c, 10, 2);
 	print($"result = {result}\n");
 

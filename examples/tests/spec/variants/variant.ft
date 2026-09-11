@@ -13,7 +13,7 @@ def test_tagged_tuple_variant():
 		bool(b) -> constant + 3;
 	assert(res == 8);
 
-	data<f32, i32> tuple = (3.4, 2);
+	data[f32, i32] tuple = (3.4, 2);
 	my_var = tuple;
 	switch my_var:
 		VarTup.Int(i): assert(false);

@@ -31,4 +31,4 @@ def main():
 	MyFunc.print(d);
 	//MyEntity.print(e);
 
-	//fn<mut MyEntity> p = MyEntity::print;
+	//[mut MyEntity] p = MyEntity::print;

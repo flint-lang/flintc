@@ -696,13 +696,9 @@ class Matcher {
     static const inline PatternPtr until_right_bracket = balanced_match_until( //
         token(TOK_LEFT_BRACKET), token(TOK_RIGHT_BRACKET), std::nullopt, 1     //
     );
-    static const inline PatternPtr until_comma = balanced_match_until(                                  //
-        one_of({TOK_LEFT_PAREN, TOK_LESS}), token(TOK_COMMA), one_of({TOK_RIGHT_PAREN, TOK_GREATER}), 0 //
-    );
+    static const inline PatternPtr until_comma = balanced_match_until(balancer_left, token(TOK_COMMA), balancer_right, 0);
     static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
-    static const inline PatternPtr until_arrow = balanced_match_until(         //
-        token(TOK_LEFT_BRACKET), token(TOK_ARROW), token(TOK_RIGHT_BRACKET), 0 //
-    );
+    static const inline PatternPtr until_arrow = balanced_match_until(balancer_left, token(TOK_ARROW), balancer_right, 0);
     static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
     static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
     static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({TOK_EQUAL, TOK_COLON_EQUAL}));
@@ -730,26 +726,33 @@ class Matcher {
         TOK_STR_VALUE, TOK_INT_VALUE, TOK_FLOAT_VALUE, TOK_CHAR_VALUE, TOK_TRUE, TOK_FALSE, TOK_NONE, TOK_NULL //
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_vec});
+    static const inline PatternPtr variant_or_tuple_type = sequence({
+        one_of({TOK_DATA, TOK_VARIANT}), token(TOK_LEFT_BRACKET), until_right_bracket //
+    });
+    static const inline PatternPtr callable_type = sequence({
+        one_of({TOK_FN, TOK_BP}), token(TOK_LEFT_BRACKET), until_right_bracket //
+    });
     static const inline PatternPtr type = one_of({
         sequence({
             one_of({
-                token(TOK_TYPE), simple_type, // Single base type
-                sequence({
-                    one_of({token(TOK_DATA), token(TOK_VARIANT), token(TOK_FN)}),           // Single base type
-                    token(TOK_LESS), balanced_match(token(TOK_LESS), token(TOK_GREATER), 1) // <..> Type group on data, variant or fn
-                })                                                                          //
-            }),                                                                             //
+                token(TOK_TYPE),
+                simple_type,
+                variant_or_tuple_type,
+                callable_type,
+            }),
+            // [][,][,,] Arrays
             zero_or_more(sequence({
-                token(TOK_LEFT_BRACKET),                                                                                    //
-                optional(token(TOK_INT_VALUE)), zero_or_more(sequence({token(TOK_COMMA), optional(token(TOK_INT_VALUE))})), //
-                token(TOK_RIGHT_BRACKET)                                                                                    //
-            })), // [][,][,,] Arrays
+                token(TOK_LEFT_BRACKET),
+                optional(token(TOK_INT_VALUE)),
+                zero_or_more(sequence({token(TOK_COMMA), optional(token(TOK_INT_VALUE))})),
+                token(TOK_RIGHT_BRACKET),
+            })),
             optional(one_of({
                 token(TOK_QUESTION), // ? for optionals
                 token(TOK_MULT)      // * for pointers
-            }))                      //
-        }),                          //
-        token(TOK_TYPE)              //
+            })),
+        }),
+        token(TOK_TYPE),
     });
     static const inline PatternPtr mutability_prefix = optional(one_of({TOK_MUT, TOK_CONST}));
     static const inline PatternPtr decl_prefix = optional(one_of({TOK_MUT, TOK_CONST, TOK_PERSISTENT}));

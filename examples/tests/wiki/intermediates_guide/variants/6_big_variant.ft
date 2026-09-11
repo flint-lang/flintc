@@ -1,13 +1,13 @@
 use Core.print
 
 variant MyVariant:
-	i32, f32, data<i32, f32, bool8>;
+	i32, f32, data[i32, f32, bool8];
 
 def print_var(MyVariant var):
 	switch var:
 		i32(i): print($"holds i32 value of {i}\n");
 		f32(f): print($"holds f32 value of {f}\n");
-		data<i32, f32, bool8>(t): print($"holds tuple value of ({t.$0}, {t.$1}, {t.$2})\n");
+		data[i32, f32, bool8](t): print($"holds tuple value of ({t.$0}, {t.$1}, {t.$2})\n");
 
 def main():
 	MyVariant var = i32(-5);
@@ -16,5 +16,5 @@ def main():
 	var = f32(3.4);
 	print_var(var);
 
-	var = data<i32, f32, bool8>{5, 6.9, bool8(u8(33))};
+	var = data[i32, f32, bool8]{5, 6.9, bool8(u8(33))};
 	print_var(var);

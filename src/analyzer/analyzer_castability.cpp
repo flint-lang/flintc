@@ -374,7 +374,7 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_castability( /
             }
             // None of the sides is a optional literal, so we need to check if one of the sides is the same type as the optional's base type
             if (lhs_opt != nullptr) {
-                if (lhs_opt->base_type == rhs_type) {
+                if (lhs_opt->base_type->equals(rhs_type)) {
                     return CastDirection::rhs_to_lhs();
                 } else if ((rhs_str == "int" || rhs_str == "float")                                                           //
                     && check_primitive_castability(lhs_opt->base_type, rhs_type).kind == CastDirection::Kind::CAST_RHS_TO_LHS //
@@ -421,7 +421,7 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_castability( /
             const std::string rhs_type_str = rhs_type->to_string();
             for (const auto &[_, type] : lhs_var->get_possible_types()) {
                 const std::string type_str = type->to_string();
-                if (type == rhs_type) {
+                if (type->equals(rhs_type)) {
                     return CastDirection::rhs_to_lhs();
                 }
             }
@@ -431,7 +431,7 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_castability( /
             const std::string rhs_type_str = rhs_type->to_string();
             for (const auto &[_, type] : rhs_var->get_possible_types()) {
                 const std::string type_str = type->to_string();
-                if (type == lhs_type) {
+                if (type->equals(lhs_type)) {
                     return CastDirection::lhs_to_rhs();
                 }
             }
@@ -498,7 +498,7 @@ Analyzer::Castability::CastDirection Analyzer::Castability::check_castability( /
                 for (size_t i = 0; i < lhs_tup->types.size(); i++) {
                     const std::shared_ptr<Type> lhs_elem_type = lhs_tup->types[i];
                     const std::shared_ptr<Type> rhs_elem_type = rhs_group->types[i];
-                    if (lhs_elem_type == rhs_elem_type) {
+                    if (lhs_elem_type->equals(rhs_elem_type)) {
                         continue;
                     }
                     const std::string rhs_elem_type_str = rhs_elem_type->to_string();

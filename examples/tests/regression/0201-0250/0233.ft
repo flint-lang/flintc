@@ -13,16 +13,16 @@ def add(i32 x, i32 y) -> i32:
 	return x + y;
 
 def main():
-	fn<> greet_fn = ::greet;
+	fn[] greet_fn = ::greet;
 	greet_fn();
 
-	fn<i32> print_val_fn = ::print_val;
+	fn[i32] print_val_fn = ::print_val;
 	print_val_fn(20);
 
-	fn<() -> i32> get_val_fn = ::get_val;
+	fn[() -> i32] get_val_fn = ::get_val;
 	i32 x = get_val_fn();
 	print($"x = {x}\n");
 
-	fn<i32, i32 -> i32> add_fn = ::add;
+	fn[i32, i32 -> i32] add_fn = ::add;
 	x = add_fn(10, 20);
 	print($"x = {x}\n");

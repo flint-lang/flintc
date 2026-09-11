@@ -423,101 +423,134 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             const unsigned int width = width_char - '0';
             return std::make_shared<VectorType>(base_type, width);
         }
+        if (tokens_mut.first->token == TOK_TYPE) {
+            return tokens_mut.first->type;
+        }
         // Its a data, object or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
         return std::make_shared<UnknownType>(std::string(tokens_mut.first->lexme));
     }
-    // If the type list ends with a ], its definitely an array type
-    if (std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET) {
-        tokens_mut.second--; // Remove the ]
-        // Now, check how many commas follow (in reverse order) to get the dimensionality
-        std::vector<size_t> sizes;
-        size_t dimensionality = 1;
-        while (std::prev(tokens_mut.second)->token != TOK_LEFT_BRACKET) {
-            switch (std::prev(tokens_mut.second)->token) {
-                default:
-                    // Unknown token
+    if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
+        // It's an optional type
+        if (tokens_mut.first == std::prev(tokens_mut.second)) {
+            // A single trailing ? which is not part of any other type, a ? cannot stand alone
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Everything to the left of the question mark is the base type of the optional
+        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
+        if (!base_type.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_shared<OptionalType>(base_type.value());
+    } else if (std::prev(tokens_mut.second)->token == TOK_MULT) {
+        // It's a pointer type
+        if (tokens_mut.first == std::prev(tokens_mut.second)) {
+            // A single * without anything before it, this should not be possible
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        // Everything to the left of the * is the base type of the pointer
+        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
+        if (!base_type.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return std::make_shared<PointerType>(base_type.value());
+    }
+
+    // If the type ends with a ], we need to check the "base type" to either detect it is a generic type or one of these tokens:
+    //   - `variant`, `data`, `fn`
+    // If not one of these tokens and if not an generic type, it's an array type, otherwise it's a CPL application
+    if (std::prev(tokens_mut.second)->token != TOK_RIGHT_BRACKET) {
+        // The type can not be parsed and does not exist yet
+        token_list toks = Parser::clone_from_slice(tokens);
+        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        return std::nullopt;
+    }
+
+    /// The tokens which are present in-between the trailing brackets. For generic or CPL types these should only be types
+    /// themselves, for array types they only should contain the lengths
+    token_slice bracket_tokens = {tokens_mut.second - 2, tokens_mut.second - 1};
+    {
+        size_t depth = 1;
+        while (bracket_tokens.first != tokens_mut.first) {
+            if (bracket_tokens.first->token == TOK_LEFT_BRACKET) {
+                depth--;
+                if (depth == 0) {
+                    break;
+                }
+            } else if (bracket_tokens.first->token == TOK_RIGHT_BRACKET) {
+                depth++;
+            }
+            bracket_tokens.first--;
+        }
+    }
+    ASSERT(bracket_tokens.first->token == TOK_LEFT_BRACKET);
+    tokens_mut.second = bracket_tokens.first;
+    bracket_tokens.first++;
+
+    // Check if this type is inline-defined variant, data or fn type, if not get the base type
+    std::optional<std::shared_ptr<Type>> base_type;
+    const size_t tokens_mut_len = std::distance(tokens_mut.first, tokens_mut.second);
+    switch (tokens_mut.first->token) {
+        case TOK_VARIANT: {
+            if (tokens_mut_len > 1) {
+                goto regular_type;
+            }
+            // Get all the possible types of the variant, but we need to check them all for uniqueness too
+            std::vector<std::shared_ptr<Type>> possible_types;
+            while (bracket_tokens.first != bracket_tokens.second) {
+                if (bracket_tokens.first->token == TOK_COMMA) {
+                    bracket_tokens.first++;
+                }
+                const std::optional<uint2> next_range = Matcher::get_next_match_range(bracket_tokens, Matcher::type);
+                if (!next_range.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
-                case TOK_COMMA:
-                    dimensionality++;
-                    break;
-                case TOK_INT_VALUE:
-                    sizes.emplace_back(std::stoull(std::string(std::prev(tokens_mut.second)->lexme)));
-                    break;
-            }
-            tokens_mut.second--;
-        }
-        std::reverse(sizes.begin(), sizes.end());
-        // Now, check if the last element is a [ token
-        if (std::prev(tokens_mut.second)->token != TOK_LEFT_BRACKET) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        tokens_mut.second--; // Remove the [
-        std::optional<std::shared_ptr<Type>> arr_type = get_type(tokens_mut);
-        if (!arr_type.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        if (sizes.empty()) {
-            return std::make_shared<ArrayType>(dimensionality, arr_type.value(), std::nullopt);
-        } else {
-            return std::make_shared<ArrayType>(dimensionality, arr_type.value(), sizes);
-        }
-    } else if (std::prev(tokens_mut.second)->token == TOK_GREATER) {
-        // Its a nested type
-        if (tokens_mut.first->token == TOK_DATA) {
-            // Its a tuple type
-            tokens_mut.first++;
-            // Now should come a '<' token
-            if (tokens_mut.first->token != TOK_LESS) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            tokens_mut.first++;
-            // Now get all sub-types balancedly
-            std::vector<std::shared_ptr<Type>> subtypes;
-            int depth = 1;
-            auto type_start = tokens_mut.first;
-            while (tokens_mut.first != tokens_mut.second) {
-                if (tokens_mut.first->token == TOK_LESS || tokens_mut.first->token == TOK_LEFT_BRACKET) {
-                    depth++;
-                    tokens_mut.first++;
-                } else if (tokens_mut.first->token == TOK_GREATER || tokens_mut.first->token == TOK_RIGHT_BRACKET) {
-                    depth--;
-                    tokens_mut.first++;
-                    if (depth < 0 && tokens_mut.first != tokens_mut.second) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    if (depth == 0) {
-                        auto type_result = get_type({type_start, tokens_mut.first - 1});
-                        if (!type_result.has_value()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        subtypes.emplace_back(type_result.value());
-                    } else if (depth == 1) {
-                        auto type_result = get_type({type_start, tokens_mut.first});
-                        if (!type_result.has_value()) {
-                            THROW_BASIC_ERR(ERR_PARSING);
-                            return std::nullopt;
-                        }
-                        subtypes.emplace_back(type_result.value());
-                    }
-                } else if (depth == 1 && tokens_mut.first->token == TOK_COMMA) {
-                    auto type_result = get_type({type_start, tokens_mut.first});
-                    if (!type_result.has_value()) {
-                        THROW_BASIC_ERR(ERR_PARSING);
-                        return std::nullopt;
-                    }
-                    subtypes.emplace_back(type_result.value());
-                    tokens_mut.first++;
-                    type_start = tokens_mut.first;
-                } else {
-                    tokens_mut.first++;
                 }
+                ASSERT(next_range.value().first == 0);
+                const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second};
+                bracket_tokens.first = type_tokens.second;
+                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                if (!type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                if (std::find(possible_types.begin(), possible_types.end(), type.value()) != possible_types.end()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                possible_types.emplace_back(type.value());
+            }
+            std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> variant_type = possible_types;
+            return std::make_shared<VariantType>(variant_type, false);
+        }
+        case TOK_DATA: {
+            if (tokens_mut_len > 1) {
+                goto regular_type;
+            }
+            // Get all sub-types balancedly
+            std::vector<std::shared_ptr<Type>> subtypes;
+            while (bracket_tokens.first != bracket_tokens.second) {
+                if (bracket_tokens.first->token == TOK_COMMA) {
+                    bracket_tokens.first++;
+                }
+                const std::optional<uint2> next_range = Matcher::get_next_match_range(bracket_tokens, Matcher::type);
+                if (!next_range.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                ASSERT(next_range.value().first == 0);
+                const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second};
+                bracket_tokens.first = type_tokens.second;
+                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                if (!type.has_value()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                subtypes.emplace_back(type.value());
             }
             if (subtypes.empty()) {
                 // Empty tuples are not allowed
@@ -546,79 +579,40 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     }
                     if (all_types_same) {
                         // Its a vector-type but defined as a tuple, which is not valid
-                        const Hash &file_hash = Resolver::file_ids.at(tokens_mut.first->file_id);
+                        const Hash &file_hash = Resolver::file_ids.at(bracket_tokens.first->file_id);
                         THROW_ERR(ErrTypeTupleVectorOverlap, ERR_PARSING, file_hash, tokens);
                         return std::nullopt;
                     }
                 }
             }
             return std::make_shared<TupleType>(subtypes);
-        } else if (tokens_mut.first->token == TOK_VARIANT) {
-            // It's a inline-defined variant, which has no support for tags, so this makes the parsing of the type quite a lot easier
-            tokens_mut.first++;
-            if (tokens_mut.first->token != TOK_LESS) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+        }
+        case TOK_FN: {
+            if (tokens_mut_len > 1) {
+                goto regular_type;
             }
-            tokens_mut.first++;
-            // Now get all the possible types of the variant, but we need to check them all for uniqueness too
-            std::vector<std::shared_ptr<Type>> possible_types;
-            while (tokens_mut.first != tokens_mut.second) {
-                if (tokens_mut.first->token == TOK_COMMA) {
-                    tokens_mut.first++;
-                } else if (tokens_mut.first->token == TOK_GREATER) {
-                    break;
-                }
-                const std::optional<uint2> next_range = Matcher::get_next_match_range(tokens_mut, Matcher::type);
-                if (!next_range.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                ASSERT(next_range.value().first == 0);
-                const token_slice type_tokens = {tokens_mut.first, tokens_mut.first + next_range.value().second};
-                tokens_mut.first = type_tokens.second;
-                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
-                if (!type.has_value()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                if (std::find(possible_types.begin(), possible_types.end(), type.value()) != possible_types.end()) {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                possible_types.emplace_back(type.value());
-            }
-            std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> variant_type = possible_types;
-            return std::make_shared<VariantType>(variant_type, false);
-        } else if (tokens_mut.first->token == TOK_FN) {
-            // It's a fn type so we need to parse the parameter types and return types
-            tokens_mut.first++;
-            if (tokens_mut.first->token != TOK_LESS) {
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
-            }
-            tokens_mut.first++;
-            ASSERT(std::prev(tokens_mut.second)->token == TOK_GREATER);
-            tokens_mut.second--;
             // We search for the arrow token. Everything to the left of it are the parameter types, everything to the right of it the return
             // types
             std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
             std::vector<std::shared_ptr<Type>> return_types;
             std::vector<std::shared_ptr<Type>> error_types;
-            const std::optional<uint2> param_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_arrow);
+            const std::optional<uint2> param_range = Matcher::get_next_match_range(bracket_tokens, Matcher::until_arrow);
             token_slice param_tokens;
             token_slice return_tokens;
             token_slice *error_set_tokens = &return_tokens;
             if (param_range.has_value()) {
-                param_tokens = token_slice{tokens_mut.first + param_range.value().first, tokens_mut.first + param_range.value().second - 1};
-                return_tokens = token_slice{tokens_mut.first + param_range.value().second, tokens_mut.second};
+                param_tokens = token_slice{
+                    bracket_tokens.first + param_range.value().first,
+                    bracket_tokens.first + param_range.value().second - 1,
+                };
+                return_tokens = token_slice{bracket_tokens.first + param_range.value().second, bracket_tokens.second};
                 ASSERT(std::prev(return_tokens.first)->token == TOK_ARROW);
                 ASSERT(param_tokens.second->token == TOK_ARROW);
             } else {
-                // There is no `->` token in the fn definiton, which means everything between the `<>` are paramters and the return type is
+                // There is no `->` token in the fn definiton, which means everything between the `[]` are paramters and the return type is
                 // of type void, e.g. empty return_types
-                param_tokens = tokens_mut;
-                return_tokens = {tokens_mut.first, tokens_mut.first};
+                param_tokens = bracket_tokens;
+                return_tokens = {bracket_tokens.first, bracket_tokens.first};
                 error_set_tokens = &param_tokens;
             }
             // Check if the return tokens end with a `}`, signifying that there are error sets defined in the fn type
@@ -718,40 +712,40 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             }
             return std::make_shared<FnType>(params, return_types, error_types);
         }
-    } else if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
-        // It's an optional type
-        if (tokens_mut.first == std::prev(tokens_mut.second)) {
-            // A single trailing ? which is not part of any other type, a ? cannot stand alone
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        // Everything to the left of the question mark is the base type of the optional
-        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
-        if (!base_type.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_shared<OptionalType>(base_type.value());
-    } else if (std::prev(tokens_mut.second)->token == TOK_MULT) {
-        // It's a pointer type
-        if (tokens_mut.first == std::prev(tokens_mut.second)) {
-            // A single * without anything before it, this should not be possible
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        // Everything to the left of the * is the base type of the pointer
-        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
-        if (!base_type.has_value()) {
-            THROW_BASIC_ERR(ERR_PARSING);
-            return std::nullopt;
-        }
-        return std::make_shared<PointerType>(base_type.value());
+        default:
+        regular_type:
+            base_type = get_type(tokens_mut);
+            break;
+    }
+    if (!base_type.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
     }
 
-    // The type can not be parsed and does not exist yet
-    token_list toks = Parser::clone_from_slice(tokens);
-    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-    return std::nullopt;
+    // TODO: Generic types are not supported yet, but this is the place where we would check for them and handle them
+
+    std::vector<size_t> sizes;
+    size_t dimensionality = 1;
+    while (bracket_tokens.first != bracket_tokens.second) {
+        switch (bracket_tokens.first->token) {
+            default:
+                // Unknown token
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            case TOK_COMMA:
+                dimensionality++;
+                break;
+            case TOK_INT_VALUE:
+                sizes.emplace_back(std::stoull(std::string(bracket_tokens.first->lexme)));
+                break;
+        }
+        bracket_tokens.first++;
+    }
+    if (sizes.size() == dimensionality) {
+        return std::make_shared<ArrayType>(dimensionality, base_type.value(), sizes);
+    } else {
+        return std::make_shared<ArrayType>(dimensionality, base_type.value(), std::nullopt);
+    }
 }
 
 bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {

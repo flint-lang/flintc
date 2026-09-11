@@ -1,13 +1,13 @@
 use Core.print
 
-def print_var(variant<i32, f32, str> var):
+def print_var(variant[i32, f32, str] var):
 	switch var:
 		i32(i): print($"i = {i}\n");
 		f32(f): print($"f = {f}\n");
 		str(s): print($"s = {s}\n");
 
 def main():
-	variant<i32, f32, str> var = i32(-55);
+	variant[i32, f32, str] var = i32(-55);
 	print_var(var);
 
 	var = f32(3.14);

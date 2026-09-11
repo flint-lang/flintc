@@ -41,7 +41,7 @@ def main():
 
 	// Print MyEntity first
 	e.print();
-	fn<mut MyEntity> p = MyEntity::print;
+	fn[mut MyEntity] p = MyEntity::print;
 	p(e);
 	MyEntity.print(e);
 

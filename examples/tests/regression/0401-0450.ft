@@ -48,7 +48,7 @@ test "0409":
 test "0410":
 	str path = "tests/regression/0401-0450";
 	str file = "0410.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0410.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data<i32, f32, str>:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0401-0450/0410.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data[i32, f32, str]:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "0411":
 	str path = "tests/regression/0401-0450";
@@ -113,7 +113,7 @@ test "0422":
 test "0423":
 	str path = "tests/regression/0401-0450";
 	str file = "0423.ft";
-	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0401-0450/0423.ft:8:25\n└─┬┤E0000│\n5 │ def main():\n7 │ »   i32 result = read_i32() catch err:\n8 │ »   »   print($\"Err is {err}\\n\");\n┌─┴─────────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: str\n    └─ But got:  variant<anyerror, ErrRead>\n");
+	test_file_fail($"{path}/{file}", "Analyzing Error at tests/regression/0401-0450/0423.ft:8:25\n└─┬┤E0000│\n5 │ def main():\n7 │ »   i32 result = read_i32() catch err:\n8 │ »   »   print($\"Err is {err}\\n\");\n┌─┴─────────────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: str\n    └─ But got:  variant[anyerror, ErrRead]\n");
 
 test "0424":
 	str path = "tests/regression/0401-0450";

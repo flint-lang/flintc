@@ -9,10 +9,10 @@ def greet():
 	print("Hello, World!\n");
 
 def main():
-	fn<> g = ::greet;
+	fn[] g = ::greet;
 	g();
 
-	fn<i32 -> i32 {ErrAssert}> c = ::assert_not_0;
+	fn[i32 -> i32 {ErrAssert}] c = ::assert_not_0;
 	i32 x = c(10) catch:
 		ErrAssert(e):
 			print($"err = {e}\n");

@@ -409,7 +409,7 @@ bool Lexer::number() {
 
     if (peek_next() == '.') {
         // Check whether an additional '.' follows, if it does it's an integer followed by a range
-        if (static_cast<size_t>(current + 2) >= source.size() || source.at(current + 2) == '.') {
+        if (static_cast<size_t>(current + 2) >= source.size() || !is_digit(source.at(current + 2))) {
             add_token(TOK_INT_VALUE);
             return true;
         }

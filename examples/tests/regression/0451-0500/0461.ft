@@ -4,7 +4,7 @@ use Core.time
 def execute_function():
 	print("Executed\n");
 
-def execute_maybe(fn<> e) -> bool:
+def execute_maybe(fn[] e) -> bool:
 	persistent TimeStamp ts = now();
 	TimeStamp n = now();
 	Duration d = duration(ts, n);
@@ -15,8 +15,8 @@ def execute_maybe(fn<> e) -> bool:
 	return true;
 
 def main():
-	fn<> e_fn = ::execute_function;
-	fn<fn<> -> bool> e = ::execute_maybe;
+	fn[] e_fn = ::execute_function;
+	fn[fn[] -> bool] e = ::execute_maybe;
 	i32 c = 0;
 	while c < 4:
 		if e(e_fn):

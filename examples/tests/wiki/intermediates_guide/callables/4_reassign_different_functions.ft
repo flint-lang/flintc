@@ -8,7 +8,7 @@ def greet2():
     print($"Hello from second greeting! local = {local}\n");
 
 def main():
-    fn<() -> void> g = ::greet;
+    fn[() -> void] g = ::greet;
     g();
 
     g = ::greet2;
