@@ -1571,7 +1571,19 @@ namespace Debug {
         //     Prints the content of the generated ObjectNode
         void print_object(unsigned int indent_lvl, TreeBits &bits, const ObjectNode &object) {
             Local::print_header(indent_lvl, bits, "Object ");
-            std::cout << object.name << std::endl;
+            std::cout << object.name;
+            if (!object.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < object.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = object.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
+            std::cout << std::endl;
 
             if (!object.interfaces.empty()) {
                 TreeBits interface_bits = bits.child(indent_lvl + 1, false);
@@ -1654,6 +1666,17 @@ namespace Debug {
         void print_func(unsigned int indent_lvl, TreeBits &bits, const FuncNode &func) {
             Local::print_header(indent_lvl, bits, "Func ");
             std::cout << func.name;
+            if (!func.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < func.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = func.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
             if (!func.required_data.empty()) {
                 std::cout << " requires(";
                 for (size_t i = 0; i < func.required_data.size(); i++) {
@@ -1677,6 +1700,17 @@ namespace Debug {
         void print_interface(unsigned int indent_lvl, TreeBits &bits, const InterfaceNode &interface) {
             Local::print_header(indent_lvl, bits, "Interface ");
             std::cout << interface.name;
+            if (!interface.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < interface.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = interface.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
             std::cout << "\n";
             for (size_t i = 0; i < interface.functions.size(); i++) {
                 const auto *function = interface.functions.at(i);
@@ -1706,6 +1740,17 @@ namespace Debug {
                     break;
             }
             std::cout << function.name;
+            if (!function.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < function.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = function.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
             std::cout << "(";
             size_t counter = 0;
             for (const FunctionNode::Parameter &param : function.parameters) {
@@ -1788,7 +1833,19 @@ namespace Debug {
         ///     Prints the content of the generated VariantNode
         void print_variant(unsigned int indent_lvl, TreeBits &bits, const VariantNode &variant) {
             Local::print_header(indent_lvl, bits, "Variant ");
-            std::cout << variant.name << "\n";
+            std::cout << variant.name;
+            if (!variant.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < variant.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = variant.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
+            std::cout << "\n";
 
             indent_lvl++;
             for (auto type = variant.possible_types.begin(); type != variant.possible_types.end(); ++type) {
