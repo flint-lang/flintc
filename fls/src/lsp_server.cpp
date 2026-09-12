@@ -5,9 +5,8 @@
 #include "lexer/lexer.hpp"
 #include "lsp_protocol.hpp"
 #include "parser/parser.hpp"
-#include "parser/type/interface_type.hpp"
-#include "parser/type/type_type.hpp"
 #include "profiler.hpp"
+#include "specializer/specializer.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
@@ -61,8 +60,10 @@
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/type.hpp"
+#include "parser/type/type_type.hpp"
 #include "parser/type/variant_type.hpp"
 
 #include <iostream>
@@ -100,6 +101,7 @@ void parser_cleanup() {
         Profiler::profile_stack.pop();
     }
     Profiler::active_tasks.clear();
+    Specializer::clear();
     FIP::shutdown();
 }
 

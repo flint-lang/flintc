@@ -26,6 +26,12 @@ class Specializer {
         std::vector<std::shared_ptr<Type>> cvl                            //
     );
 
+    /// @function `clear`
+    /// @brief Clears all internal state of the specializer, needed for the LSP to work more than just once
+    static void clear() {
+        specializations.clear();
+    }
+
   private:
     using specialization_map = std::unordered_map<std::string, DefinitionNode *>;
 
