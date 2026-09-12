@@ -1,0 +1,29 @@
+use Core.print
+
+data Kvp[type K, type V]:
+	K key;
+	V value;
+
+data Node[type T]:
+	T value;
+	Node[T]? next;
+
+data Node2[type T]:
+	T value;
+	Node2[T]? next = none;
+
+def main():
+	Kvp[i32, f32] kvp = Kvp[i32, f32]{ .key = 100, .value = 3.14 };
+	print($"kvp.(key, value) = {kvp.(key, value)}\n");
+
+	Node[i32] n1 = Node[i32]{10};
+	print($"n1.(value, has_next) = ({n1.value}, {n1.next != none})\n");
+
+	n1 = Node[i32]{20, none};
+	print($"n1.(value, has_next) = ({n1.value}, {n1.next != none})\n");
+
+	Node2[f32] n2 = Node2[f32]{10.0};
+	print($"n2.(value, has_next) = ({n2.value}, {n2.next != none})\n");
+
+	n2 = Node2[f32]{20.0, none};
+	print($"n2.(value, has_next) = ({n2.value}, {n2.next != none})\n");

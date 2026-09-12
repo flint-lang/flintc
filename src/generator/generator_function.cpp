@@ -269,6 +269,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         false,                            //
         FunctionNode::Visibility::INTERN, //
         test_name,                        //
+        {},                               //
         fake_fn_parameters,               //
         fake_fn_return_types,             //
         fake_fn_error_types,              //

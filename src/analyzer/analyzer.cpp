@@ -1281,6 +1281,8 @@ bool Analyzer::analyze_type(                      //
             }
             break;
         }
+        case Type::Variation::COMPTIME:
+            break;
         case Type::Variation::DATA:
             break;
         case Type::Variation::ENUM:
@@ -1303,6 +1305,8 @@ bool Analyzer::analyze_type(                      //
             }
             break;
         }
+        case Type::Variation::GENERIC:
+            break;
         case Type::Variation::GROUP: {
             const auto *group_type = type_to_analyze->as<GroupType>();
             for (const auto &type : group_type->types) {
@@ -1357,6 +1361,8 @@ bool Analyzer::analyze_type(                      //
             }
             break;
         }
+        case Type::Variation::TYPE:
+            break;
         case Type::Variation::UNKNOWN:
             break;
         case Type::Variation::VARIANT: {

@@ -95,9 +95,10 @@ void Parser::init_core_modules() {
                         .initializer = std::nullopt,
                     });
                 }
+                const std::vector<DefinitionNode::ComptimeParameter> cpl;
                 std::unique_ptr<DefinitionNode> data = std::make_unique<DataNode>( //
                     core_namespace->namespace_hash, 0, 0, 0,                       //
-                    false, false, data_type_name, fields                           //
+                    false, false, data_type_name, cpl, fields                      //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(data));
                 DataNode *const data_ptr = core_namespace->public_symbols.definitions.back()->as<DataNode>();
@@ -139,9 +140,10 @@ void Parser::init_core_modules() {
                 }
 
                 std::optional<std::shared_ptr<Scope>> scope = std::nullopt;
+                const std::vector<DefinitionNode::ComptimeParameter> cpl;
                 std::unique_ptr<DefinitionNode> function = std::make_unique<FunctionNode>(  //
                     core_namespace->namespace_hash, 0, 0, 0, std::vector<AnnotationNode>{}, //
-                    false, FunctionNode::Visibility::CORE, function_name,                   //
+                    false, FunctionNode::Visibility::CORE, function_name, cpl,              //
                     parameters, return_types, error_types, scope, std::nullopt              //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(function));
@@ -658,7 +660,7 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
     if (include_core) {
         for (const auto &[module_name, module_namespace] : core_namespaces) {
             for (const auto &definition : module_namespace->public_symbols.definitions) {
-                if (definition->get_variation() == DefinitionNode::Variation::FUNCTION) {
+                if (definition->get_variation() == DefinitionNode::Variation::FUNCTION && definition->cpl.empty()) {
                     const auto *function_node = definition->as<FunctionNode>();
                     functions.emplace_back(function_node);
                 }
@@ -668,7 +670,7 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
     // Go through all instances of the parser and collect all functions from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION) {
+            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION || !definition->cpl.empty()) {
                 continue;
             }
             const auto *function_node = definition->as<FunctionNode>();
@@ -686,7 +688,7 @@ std::vector<const ObjectNode *> Parser::get_all_objects() {
     std::vector<const ObjectNode *> objects;
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::OBJECT) {
+            if (definition->get_variation() == DefinitionNode::Variation::OBJECT && definition->cpl.empty()) {
                 objects.emplace_back(definition->as<ObjectNode>());
             }
         }
@@ -699,7 +701,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     // Go through all core Modules and collect all data nodes they provide
     for (const auto &[module_name, module_namespace] : core_namespaces) {
         for (const auto &definition : module_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::DATA) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA && definition->cpl.empty()) {
                 const auto *data_node = definition->as<DataNode>();
                 const auto data_type = module_namespace->get_type_from_ptr(data_node).value();
                 data_types.emplace_back(data_type);
@@ -709,7 +711,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     // Go through all instances of the parser and collect all data nodes from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::DATA) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA && definition->cpl.empty()) {
                 const auto *data_node = definition->as<DataNode>();
                 const auto data_type = instance.file_node_ptr->file_namespace->get_type_from_ptr(data_node).value();
                 data_types.emplace_back(data_type);
@@ -726,6 +728,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     // Go through all core Modules and collect all freeable types they provide
     for (const auto &[module_name, module_namespace] : core_namespaces) {
         for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+            if (!type->is_runtime_compatible()) {
+                continue;
+            }
             if (!type->is_freeable()) {
                 continue;
             }
@@ -738,6 +743,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     // Go through all instances of the parser and collect all freeable types from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
+            if (!type->is_runtime_compatible()) {
+                continue;
+            }
             if (!type->is_freeable()) {
                 continue;
             }
@@ -749,6 +757,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     }
     // Go through all public types and collect all freable types
     for (const auto &[type_string, type] : Type::types) {
+        if (!type->is_runtime_compatible()) {
+            continue;
+        }
         if (!type->is_freeable()) {
             continue;
         }
@@ -767,6 +778,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all core Modules and collect all non-freeable types they provide
     for (const auto &[module_name, module_namespace] : core_namespaces) {
         for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+            if (!type->is_runtime_compatible()) {
+                continue;
+            }
             if (type->get_variation() == Type::Variation::UNKNOWN) {
                 continue;
             }
@@ -789,6 +803,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all instances of the parser and collect all non-freeable types from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
+            if (!type->is_runtime_compatible()) {
+                continue;
+            }
             if (type->get_variation() == Type::Variation::UNKNOWN) {
                 continue;
             }
@@ -811,6 +828,9 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all public types and collect all freable types
     const std::vector<std::string> skipped_types = {"float", "int", "void", "void?", "type.flint.default", "type.flint.str.lit"};
     for (const auto &[type_string, type] : Type::types) {
+        if (!type->is_runtime_compatible()) {
+            continue;
+        }
         if (type->get_variation() == Type::Variation::UNKNOWN) {
             continue;
         }

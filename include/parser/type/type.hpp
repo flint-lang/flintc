@@ -36,11 +36,13 @@ class Type {
     enum class Variation {
         ALIAS,
         ARRAY,
+        COMPTIME,
         DATA,
         ENUM,
         ERROR_SET,
         FUNC,
         FN,
+        GENERIC,
         GROUP,
         INTERFACE,
         OBJECT,
@@ -50,6 +52,7 @@ class Type {
         PRIMITIVE,
         RANGE,
         TUPLE,
+        TYPE,
         UNKNOWN,
         VARIANT,
         VECTOR,
@@ -85,6 +88,13 @@ class Type {
     ///
     /// @return `bool` Whether this type is default-constructible
     virtual bool is_default_constructible() const = 0;
+
+    /// @function `is_runtime_compatible`
+    /// @brief Whether this type is runtime-compatible, e.g. whether it can be used by the generator and at codegen. Generic types, for
+    /// example, are not runtime compatible, just like comptime-types like the `type` type or types like `int` and `float`
+    ///
+    /// @return `bool` Whether this type is runtime-compatible
+    virtual bool is_runtime_compatible() const = 0;
 
     /// @function `get_default_value`
     /// @brief Returns the default-constructed value of this type, nullopt if this type is not default-constructible

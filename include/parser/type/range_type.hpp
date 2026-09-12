@@ -26,6 +26,10 @@ class RangeType : public Type {
         return false;
     }
 
+    bool is_runtime_compatible() const override {
+        return true;
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         [[maybe_unused]] const Hash &hash,                            //

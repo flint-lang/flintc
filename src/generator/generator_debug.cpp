@@ -977,6 +977,8 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::ARRAY:
             di_type = create_debug_type_array(module, type);
             break;
+        case Type::Variation::COMPTIME:
+            ASSERT(false, "Comptime types cannot be represented as debug types as they are compile-time only");
         case Type::Variation::DATA:
             di_type = create_debug_type_data(module, type);
             break;
@@ -992,6 +994,8 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::FN:
             di_type = create_debug_type_fn(module);
             break;
+        case Type::Variation::GENERIC:
+            ASSERT(false, "Generic types cannot be represented as debug types as they are compile-time only");
         case Type::Variation::GROUP:
             ASSERT(false, "Group types cannot be represented as debug types as groups cannot be stored anywhere");
         case Type::Variation::INTERFACE:
@@ -1016,6 +1020,8 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
         case Type::Variation::TUPLE:
             di_type = create_debug_type_tuple(module, type);
             break;
+        case Type::Variation::TYPE:
+            ASSERT(false, "'type' types cannot be represented as debug types as they are compile-time only");
         case Type::Variation::UNKNOWN:
             ASSERT(false, "Unknown types cannot be represented as debug types");
         case Type::Variation::VARIANT:

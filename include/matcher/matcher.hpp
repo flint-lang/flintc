@@ -691,14 +691,19 @@ class Matcher {
     // --- UNTILS ---
     static const inline PatternPtr balancer_left = one_of({TOK_LEFT_PAREN, TOK_LEFT_BRACKET, TOK_LEFT_BRACE});
     static const inline PatternPtr balancer_right = one_of({TOK_RIGHT_PAREN, TOK_RIGHT_BRACKET, TOK_RIGHT_BRACE});
-    static const inline PatternPtr until_right_paren = balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1);
-    static const inline PatternPtr until_right_brace = balanced_match_until(token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1);
-    static const inline PatternPtr until_right_bracket = balanced_match_until( //
-        token(TOK_LEFT_BRACKET), token(TOK_RIGHT_BRACKET), std::nullopt, 1     //
+    static const inline PatternPtr continue_until_right_paren = balanced_match_until( //
+        token(TOK_LEFT_PAREN), token(TOK_RIGHT_PAREN), std::nullopt, 1                //
     );
+    static const inline PatternPtr continue_until_right_brace = balanced_match_until( //
+        token(TOK_LEFT_BRACE), token(TOK_RIGHT_BRACE), std::nullopt, 1                //
+    );
+    static const inline PatternPtr continue_until_right_bracket = balanced_match_until( //
+        token(TOK_LEFT_BRACKET), token(TOK_RIGHT_BRACKET), std::nullopt, 1              //
+    );
+    static const inline PatternPtr until_right_bracket = balanced_match_until(balancer_left, token(TOK_RIGHT_BRACKET), balancer_right, 0);
     static const inline PatternPtr until_comma = balanced_match_until(balancer_left, token(TOK_COMMA), balancer_right, 0);
-    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
     static const inline PatternPtr until_arrow = balanced_match_until(balancer_left, token(TOK_ARROW), balancer_right, 0);
+    static const inline PatternPtr until_colon = match_until(token(TOK_COLON));
     static const inline PatternPtr until_semicolon = match_until(token(TOK_SEMICOLON));
     static const inline PatternPtr until_colon_equal = match_until(token(TOK_COLON_EQUAL));
     static const inline PatternPtr until_eq_or_colon_equal = match_until(one_of({TOK_EQUAL, TOK_COLON_EQUAL}));
@@ -727,10 +732,10 @@ class Matcher {
     });
     static const inline PatternPtr simple_type = one_of({token(TOK_IDENTIFIER), type_prim, type_prim_vec});
     static const inline PatternPtr variant_or_tuple_type = sequence({
-        one_of({TOK_DATA, TOK_VARIANT}), token(TOK_LEFT_BRACKET), until_right_bracket //
+        one_of({TOK_DATA, TOK_VARIANT}), token(TOK_LEFT_BRACKET), continue_until_right_bracket //
     });
     static const inline PatternPtr callable_type = sequence({
-        one_of({TOK_FN, TOK_BP}), token(TOK_LEFT_BRACKET), until_right_bracket //
+        one_of({TOK_FN, TOK_BP}), token(TOK_LEFT_BRACKET), continue_until_right_bracket //
     });
     static const inline PatternPtr type = one_of({
         sequence({
@@ -741,18 +746,14 @@ class Matcher {
                 callable_type,
             }),
             // [][,][,,] Arrays
-            zero_or_more(sequence({
-                token(TOK_LEFT_BRACKET),
-                optional(token(TOK_INT_VALUE)),
-                zero_or_more(sequence({token(TOK_COMMA), optional(token(TOK_INT_VALUE))})),
-                token(TOK_RIGHT_BRACKET),
-            })),
+            zero_or_more(sequence({token(TOK_LEFT_BRACKET), continue_until_right_bracket})),
             optional(one_of({
                 token(TOK_QUESTION), // ? for optionals
                 token(TOK_MULT)      // * for pointers
             })),
         }),
         token(TOK_TYPE),
+        token(TOK_TYPE_KEYWORD),
     });
     static const inline PatternPtr mutability_prefix = optional(one_of({TOK_MUT, TOK_CONST}));
     static const inline PatternPtr decl_prefix = optional(one_of({TOK_MUT, TOK_CONST, TOK_PERSISTENT}));
@@ -779,6 +780,7 @@ class Matcher {
     });
     static const inline PatternPtr param = sequence({mutability_prefix, type, token(TOK_IDENTIFIER)});
     static const inline PatternPtr params = sequence({param, zero_or_more(sequence({token(TOK_COMMA), param}))});
+    static const inline PatternPtr comptime_parameter_list = sequence({token(TOK_LEFT_BRACKET), params, token(TOK_RIGHT_BRACKET)});
     static const inline PatternPtr no_prim_args = sequence({
         token(TOK_IDENTIFIER), token(TOK_IDENTIFIER),                                            //
         zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER), token(TOK_IDENTIFIER)})) //
@@ -813,15 +815,15 @@ class Matcher {
         optional(token(TOK_EXPORT)), optional(token(TOK_CONST)), token(TOK_DEF),                //
         token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
-            sequence({token(TOK_ARROW), group}),                        //
-            sequence({token(TOK_ARROW), type})                          //
-        })),                                                            //
-        optional(sequence({token(TOK_LEFT_BRACE), until_right_brace})), //
-        token(TOK_COLON)                                                //
+            sequence({token(TOK_ARROW), group}),                                 //
+            sequence({token(TOK_ARROW), type})                                   //
+        })),                                                                     //
+        optional(sequence({token(TOK_LEFT_BRACE), continue_until_right_brace})), //
+        token(TOK_COLON)                                                         //
     });
     static const inline PatternPtr data_definition = sequence({
-        optional(one_of({TOK_SHARED, TOK_CONST})),               //
-        token(TOK_DATA), token(TOK_IDENTIFIER), token(TOK_COLON) //
+        optional(one_of({TOK_SHARED, TOK_CONST})),                                                  //
+        token(TOK_DATA), token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_COLON) //
     });
     static const inline PatternPtr func_definition = sequence({
         token(TOK_FUNC), token(TOK_IDENTIFIER),                                                                                  //
@@ -829,12 +831,14 @@ class Matcher {
     });
     static const inline PatternPtr interface_definition = sequence({token(TOK_INTERFACE), token(TOK_IDENTIFIER), token(TOK_COLON)});
     static const inline PatternPtr error_definition = sequence({
-        token(TOK_ERROR), token(TOK_IDENTIFIER),                        //
-        optional(sequence({token(TOK_LEFT_PAREN), until_right_paren})), //
-        token(TOK_COLON)                                                //
+        token(TOK_ERROR), token(TOK_IDENTIFIER),                                 //
+        optional(sequence({token(TOK_LEFT_PAREN), continue_until_right_paren})), //
+        token(TOK_COLON)                                                         //
     });
     static const inline PatternPtr enum_definition = sequence({token(TOK_ENUM), token(TOK_IDENTIFIER), token(TOK_COLON)});
-    static const inline PatternPtr variant_definition = sequence({token(TOK_VARIANT), token(TOK_IDENTIFIER), token(TOK_COLON)});
+    static const inline PatternPtr variant_definition = sequence({
+        token(TOK_VARIANT), token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_COLON) //
+    });
     static const inline PatternPtr test_definition = sequence({token(TOK_TEST), token(TOK_STR_VALUE), token(TOK_COLON)});
     static const inline PatternPtr opaque_definition = sequence({
         one_of({TOK_TYPE, TOK_OPAQUE}), token(TOK_IDENTIFIER), token(TOK_SEMICOLON) //
@@ -868,18 +872,18 @@ class Matcher {
     static const inline PatternPtr string_interpolation = sequence({token(TOK_DOLLAR), token(TOK_STR_VALUE)});
     static const inline PatternPtr group_expression = sequence({
         token(TOK_LEFT_PAREN), balanced_match_until(token(TOK_LEFT_PAREN), token(TOK_COMMA), token(TOK_RIGHT_PAREN), 0), //
-        until_right_paren                                                                                                //
+        continue_until_right_paren                                                                                       //
     });
-    static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr function_call = sequence({token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), continue_until_right_paren});
     static const inline PatternPtr instance_call = sequence({token(TOK_IDENTIFIER), token(TOK_DOT), function_call});
     static const inline PatternPtr aliased_function_call = sequence({one_of({TOK_ALIAS, TOK_TYPE}), token(TOK_DOT), function_call});
     static const inline PatternPtr function_reference = sequence({
         optional(one_of({TOK_TYPE, TOK_IDENTIFIER})), token(TOK_REFERENCE), token(TOK_IDENTIFIER) //
     });
     static const inline PatternPtr initializer = sequence({
-        one_of({token(TOK_TYPE), type_prim_vec}), token(TOK_LEFT_BRACE), until_right_brace //
+        one_of({token(TOK_TYPE), type_prim_vec}), token(TOK_LEFT_BRACE), continue_until_right_brace //
     });
-    static const inline PatternPtr type_cast = sequence({token(TOK_TYPE), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr type_cast = sequence({token(TOK_TYPE), token(TOK_LEFT_PAREN), continue_until_right_paren});
     static const inline PatternPtr bin_op_expr = sequence({
         one_or_more(not_p(binary_operator)), binary_operator, one_or_more(not_p(binary_operator)) //
     });
@@ -897,35 +901,35 @@ class Matcher {
     static const inline PatternPtr data_access = not_preceded_by(one_of({TOK_TYPE, TOK_ERROR, TOK_QUESTION}), field_access);
     static const inline PatternPtr grouped_data_access = sequence({token(TOK_DOT), group_expression});
     static const inline PatternPtr array_initializer = sequence({
-        type, optional(sequence({token(TOK_LEFT_BRACKET), until_right_bracket})), // T[ sizes ]
+        type, optional(sequence({token(TOK_LEFT_BRACKET), continue_until_right_bracket})), // T[ sizes ]
         one_of({
-            sequence({token(TOK_LEFT_PAREN), until_right_paren}), // ( initializer )
-            sequence({token(TOK_LEFT_BRACE), until_right_brace})  // { initializer, ... }
-        })                                                        //
+            sequence({token(TOK_LEFT_PAREN), continue_until_right_paren}), // ( initializer )
+            sequence({token(TOK_LEFT_BRACE), continue_until_right_brace})  // { initializer, ... }
+        })                                                                 //
     });
-    static const inline PatternPtr raw_array_access = sequence({token(TOK_LEFT_BRACKET), until_right_bracket});
+    static const inline PatternPtr raw_array_access = sequence({token(TOK_LEFT_BRACKET), continue_until_right_bracket});
     static const inline PatternPtr array_access = not_preceded_by(one_of({TOK_DOT, TOK_QUESTION}), raw_array_access);
     static const inline PatternPtr grouped_array_access = not_preceded_by(token(TOK_QUESTION), //
-        sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), until_right_bracket})               //
+        sequence({token(TOK_DOT), token(TOK_LEFT_BRACKET), continue_until_right_bracket})      //
     );
     static const inline PatternPtr optional_chain = sequence({token(TOK_QUESTION), one_of({raw_array_access, field_access})});
     static const inline PatternPtr optional_unwrap = sequence({token(TOK_EXCLAMATION), not_followed_by(token(TOK_LEFT_PAREN))});
-    static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), until_right_paren});
-    static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), until_right_paren});
+    static const inline PatternPtr variant_extraction = sequence({token(TOK_QUESTION), token(TOK_LEFT_PAREN), continue_until_right_paren});
+    static const inline PatternPtr variant_unwrap = sequence({token(TOK_EXCLAMATION), token(TOK_LEFT_PAREN), continue_until_right_paren});
     static const inline PatternPtr anonymous_error = sequence({
-        token(TOK_ERROR), token(TOK_DOT), token(TOK_IDENTIFIER), optional(sequence({token(TOK_LEFT_PAREN), until_right_paren})) //
+        token(TOK_ERROR), token(TOK_DOT), token(TOK_IDENTIFIER), optional(sequence({token(TOK_LEFT_PAREN), continue_until_right_paren})) //
     });
     static const inline PatternPtr stackable_basic_expr = one_of({
         // Method call: .call()
-        sequence({token(TOK_DOT), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), until_right_paren}),
+        sequence({token(TOK_DOT), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), continue_until_right_paren}),
         // Grouped access: .()
-        sequence({token(TOK_DOT), token(TOK_LEFT_PAREN), until_right_paren}),
+        sequence({token(TOK_DOT), token(TOK_LEFT_PAREN), continue_until_right_paren}),
         // Field access: .field
         sequence({token(TOK_DOT), token(TOK_IDENTIFIER)}),
         // Tuple / vector-type field access: .$N
         sequence({token(TOK_DOT), token(TOK_DOLLAR), token(TOK_INT_VALUE)}),
         // Array/map access: []
-        sequence({token(TOK_LEFT_BRACKET), until_right_bracket}) //
+        sequence({token(TOK_LEFT_BRACKET), continue_until_right_bracket}) //
     });
     static const inline PatternPtr range_expression = balanced_match_until( //
         one_of({TOK_LEFT_PAREN, TOK_LEFT_BRACKET}),                         //
@@ -935,7 +939,7 @@ class Matcher {
 
     // --- STATEMENTS ---
     static const inline PatternPtr group_declaration_inferred = sequence({
-        token(TOK_LEFT_PAREN), until_comma, until_right_paren, token(TOK_COLON_EQUAL) //
+        token(TOK_LEFT_PAREN), until_comma, continue_until_right_paren, token(TOK_COLON_EQUAL) //
     });
     static const inline PatternPtr declaration_without_initializer = sequence({
         decl_prefix, type, token(TOK_IDENTIFIER), token(TOK_SEMICOLON) //
@@ -945,11 +949,11 @@ class Matcher {
     static const inline PatternPtr assignment = sequence({token(TOK_IDENTIFIER), token(TOK_EQUAL)});
     static const inline PatternPtr assignment_shorthand = sequence({token(TOK_IDENTIFIER), assignment_shorthand_operator});
     static const inline PatternPtr discard_assignment = sequence({token(TOK_UNDERSCORE), token(TOK_EQUAL)});
-    static const inline PatternPtr group_assignment = not_preceded_by(token(TOK_DOT), //
-        sequence({token(TOK_LEFT_PAREN), until_right_paren, token(TOK_EQUAL)})        //
+    static const inline PatternPtr group_assignment = not_preceded_by(token(TOK_DOT),   //
+        sequence({token(TOK_LEFT_PAREN), continue_until_right_paren, token(TOK_EQUAL)}) //
     );
-    static const inline PatternPtr group_assignment_shorthand = not_preceded_by(token(TOK_DOT), //
-        sequence({token(TOK_LEFT_PAREN), until_right_paren, assignment_shorthand_operator})     //
+    static const inline PatternPtr group_assignment_shorthand = not_preceded_by(token(TOK_DOT),      //
+        sequence({token(TOK_LEFT_PAREN), continue_until_right_paren, assignment_shorthand_operator}) //
     );
     static const inline PatternPtr data_field_assignment = sequence({one_of({type_field_access, data_access}), token(TOK_EQUAL)});
     static const inline PatternPtr data_field_assignment_shorthand = sequence({

@@ -41,22 +41,23 @@ class FunctionNode : public DefinitionNode {
         bool is_mutable;
     };
 
-    explicit FunctionNode(                                //
-        const Hash &file_hash,                            //
-        const unsigned int line,                          //
-        const unsigned int column,                        //
-        const unsigned int length,                        //
-        const std::vector<AnnotationNode> &annotations,   //
-        const bool is_const,                              //
-        const Visibility visibility,                      //
-        const std::string &name,                          //
-        std::vector<Parameter> &parameters,               //
-        std::vector<std::shared_ptr<Type>> &return_types, //
-        std::vector<std::shared_ptr<Type>> &error_types,  //
-        std::optional<std::shared_ptr<Scope>> &scope,     //
-        const std::optional<size_t> &mangle_id            //
+    explicit FunctionNode(                                         //
+        const Hash &file_hash,                                     //
+        const unsigned int line,                                   //
+        const unsigned int column,                                 //
+        const unsigned int length,                                 //
+        const std::vector<AnnotationNode> &annotations,            //
+        const bool is_const,                                       //
+        const Visibility visibility,                               //
+        const std::string &name,                                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<Parameter> &parameters,                        //
+        std::vector<std::shared_ptr<Type>> &return_types,          //
+        std::vector<std::shared_ptr<Type>> &error_types,           //
+        std::optional<std::shared_ptr<Scope>> &scope,              //
+        const std::optional<size_t> &mangle_id                     //
         ) :
-        DefinitionNode(file_hash, line, column, length, annotations),
+        DefinitionNode(file_hash, line, column, length, annotations, cpl),
         is_const(is_const),
         visibility(visibility),
         name(name),

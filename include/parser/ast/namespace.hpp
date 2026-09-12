@@ -76,6 +76,19 @@ class Namespace {
         std::unordered_map<std::string, Scope::Variable> globals;
     };
 
+    /// @struct `TypeResult`
+    /// @brief The result of the `get_type` and `create_type` functions respectively returning how many of the passed-in tokens were
+    /// consumed to create the result type
+    struct TypeResult {
+        /// @var `type`
+        /// @brief The type which was created
+        std::shared_ptr<Type> type;
+
+        /// @var `consumed_tokens`
+        /// @brief The number of tokens consumed to create the type
+        size_t consumed_tokens;
+    };
+
     /// @var `public_symbols`
     /// @brief The public section containing all types, functions and imports of this file
     PublicSymbols public_symbols{};
@@ -151,8 +164,12 @@ class Namespace {
     /// @brief Creates a type from the given list of tokens and adds it to the public or global type list of this namespace
     ///
     /// @param `tokens` The tokens to create a type from
-    /// @return `std::optional<std::shared_ptr<Type>>` The type the tokens represent, nullopt if not convertible to any type
-    [[nodiscard]] std::optional<std::shared_ptr<Type>> get_type(const token_slice &tokens);
+    /// @param `cpl` The comptime parameter list of the definition the type is being searched in
+    /// @return `std::optional<TypeResult>` The type the tokens represent, nullopt if not convertible to any type
+    [[nodiscard]] std::optional<TypeResult> get_type(             //
+        const token_slice &tokens,                                //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl //
+    );
 
     /// @function `add_type`
     /// @brief Adds the given type to the public or global type list
@@ -172,8 +189,12 @@ class Namespace {
     /// @brief Creates a type from a given list of tokens
     ///
     /// @param `tokens` The list of tokens to create the type from
-    /// @return `std::optional<Type>` The created type, nullopt if creation failed
-    [[nodiscard]] std::optional<std::shared_ptr<Type>> create_type(const token_slice &tokens);
+    /// @param `cpl` The comptime parameter list of the definition the type is being created in
+    /// @return `std::optional<TypeResult>` The created type, nullopt if creation failed
+    [[nodiscard]] std::optional<TypeResult> create_type(          //
+        const token_slice &tokens,                                //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl //
+    );
 
     /// @function `can_be_global`
     /// @brief Checks whether the given type can be put into the global type map, e.g. whether it does not contain any user-defined types

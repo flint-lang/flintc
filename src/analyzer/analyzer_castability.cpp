@@ -895,6 +895,10 @@ bool Analyzer::Castability::check_castability( //
         case Type::Variation::FN:
             UNREACHABLE();
             break;
+        case Type::Variation::COMPTIME:
+            // TODO: Implement?
+            UNREACHABLE();
+            break;
         case Type::Variation::ARRAY:
         case Type::Variation::DATA:
         case Type::Variation::OBJECT:
@@ -906,6 +910,10 @@ bool Analyzer::Castability::check_castability( //
         case Type::Variation::RANGE:
             expr = std::make_unique<TypeCastNode>(parser.file_hash, expr_pos, target_type, expr);
             return true;
+        case Type::Variation::GENERIC:
+            // TODO: Implement?
+            UNREACHABLE();
+            break;
         case Type::Variation::GROUP: {
             if (expr->type->get_variation() == Type::Variation::VECTOR) {
                 const auto *expr_vector = expr->type->as<VectorType>();
@@ -1123,6 +1131,8 @@ bool Analyzer::Castability::check_castability( //
         case Type::Variation::TUPLE:
             expr = std::make_unique<TypeCastNode>(parser.file_hash, expr_pos, target_type, expr);
             return true;
+        case Type::Variation::TYPE:
+            return false;
         case Type::Variation::UNKNOWN:
             return false;
         case Type::Variation::VARIANT: {

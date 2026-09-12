@@ -24,7 +24,7 @@ class TestNode : public DefinitionNode {
         const std::string &name,                        //
         std::shared_ptr<Scope> &scope                   //
         ) :
-        DefinitionNode(file_hash, line, column, length, annotations),
+        DefinitionNode(file_hash, line, column, length, annotations, {}),
         name(name),
         scope(std::move(scope)) {}
 

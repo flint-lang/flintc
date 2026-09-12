@@ -32,17 +32,18 @@ class DataNode : public DefinitionNode {
         std::optional<std::unique_ptr<ExpressionNode>> initializer;
     };
 
-    explicit DataNode(             //
-        const Hash &file_hash,     //
-        const unsigned int line,   //
-        const unsigned int column, //
-        const unsigned int length, //
-        const bool is_const,       //
-        const bool is_shared,      //
-        const std::string &name,   //
-        std::vector<Field> &fields //
+    explicit DataNode(                                             //
+        const Hash &file_hash,                                     //
+        const unsigned int line,                                   //
+        const unsigned int column,                                 //
+        const unsigned int length,                                 //
+        const bool is_const,                                       //
+        const bool is_shared,                                      //
+        const std::string &name,                                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<Field> &fields                                 //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, {}, cpl),
         is_const(is_const),
         is_shared(is_shared),
         name(name),

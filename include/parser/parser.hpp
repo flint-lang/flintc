@@ -62,7 +62,6 @@
 
 /// @class `Parser`
 /// @brief The class which is responsible for the AST generation (parsing)
-/// @note This class cannot be initialized and all functions within this class are static
 class Parser {
   public:
     // Set the Analyzer and Analyzer::Castability classes as friends so they can access the private fields of Parser instances (like the
@@ -564,17 +563,19 @@ class Parser {
     }
 
     /// @function `get_next_open_data`
-    /// @brief Returns the next open data module to parse
+    /// @brief Returns the next open data component to parse. Does *not* return generic data components, only "real" ones.
     ///
-    /// @return `std::optional<std::pair<DataNode *, std::vector<Line>>>` The next open func component to parse. Returns a nullopt if there
-    /// are no open funct modules left
+    /// @return `std::optional<DataNode *>` The next open data component to parse. Returns a nullopt if there are no open data components
+    /// left
     std::optional<DataNode *> get_next_open_data() {
-        if (open_data_list.empty()) {
-            return std::nullopt;
+        while (!open_data_list.empty()) {
+            DataNode *od = std::move(open_data_list.back());
+            open_data_list.pop_back();
+            if (od->cpl.empty()) {
+                return od;
+            }
         }
-        DataNode *od = std::move(open_data_list.back());
-        open_data_list.pop_back();
-        return od;
+        return std::nullopt;
     }
 
     /// @function `get_next_open_object`
@@ -655,7 +656,8 @@ class Parser {
     static void remove_surrounding_paren(token_slice &tokens) {
         // Us the Matcher to check if the first and last paren are not parens by accident, for example in '(1 + 2) * (3 + 4)', because if we
         // would not check for that the expression would become '1 + 2) * (3 + 4' and that is definitely wrong
-        if (tokens.first->token == TOK_LEFT_PAREN && Matcher::tokens_match({tokens.first + 1, tokens.second}, Matcher::until_right_paren)) {
+        if (tokens.first->token == TOK_LEFT_PAREN &&
+            Matcher::tokens_match({tokens.first + 1, tokens.second}, Matcher::continue_until_right_paren)) {
             tokens.first++;
             tokens.second--;
         }
@@ -1835,6 +1837,13 @@ class Parser {
      * @region `Definition`
      * @brief This region is responsible for parsing everything about definitions
      *************************************************************************************************************************************/
+
+    /// @function `create_cpl`
+    /// @brief Creats a comptime parameter list from the given tokens
+    ///
+    /// @param `tokens` The tokens containing the CPL
+    /// @return `std::optional>std::vector<DefinitionNode::ComptimeParameter>>` The created CPL, nullopt if creation failed
+    [[nodiscard]] std::optional<std::vector<DefinitionNode::ComptimeParameter>> create_cpl(token_slice tokens);
 
     /// @function `create_function`
     /// @brief Creates a FunctionNode from the given definiton tokens of the FunctionNode as well as its body. Will cause additional

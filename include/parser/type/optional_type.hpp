@@ -1,6 +1,7 @@
 #pragma once
 
 #include "parser/ast/expressions/literal_node.hpp"
+#include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/hash.hpp"
 #include "type.hpp"
 
@@ -29,6 +30,10 @@ class OptionalType : public Type {
         return true;
     }
 
+    bool is_runtime_compatible() const override {
+        return base_type->is_runtime_compatible();
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         const Hash &hash,                                             //
@@ -37,7 +42,8 @@ class OptionalType : public Type {
     ) const override {
         ASSERT(self.get() == static_cast<const Type *>(this));
         LitValue value = LitOptional();
-        return std::make_unique<LiteralNode>(hash, pos, value, self, false);
+        std::unique_ptr<ExpressionNode> literal = std::make_unique<LiteralNode>(hash, pos, value, Type::get_primitive_type("void?"), false);
+        return std::make_unique<TypeCastNode>(hash, pos, self, literal);
     }
 
     Hash get_hash() const override {

@@ -19,16 +19,17 @@ class FuncNode : public DefinitionNode {
         size_t column;
     };
 
-    explicit FuncNode(                            //
-        const Hash &file_hash,                    //
-        const unsigned int line,                  //
-        const unsigned int column,                //
-        const unsigned int length,                //
-        const std::string &name,                  //
-        std::vector<RequiredData> &required_data, //
-        std::vector<FunctionNode *> &functions    //
+    explicit FuncNode(                                             //
+        const Hash &file_hash,                                     //
+        const unsigned int line,                                   //
+        const unsigned int column,                                 //
+        const unsigned int length,                                 //
+        const std::string &name,                                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<RequiredData> &required_data,                  //
+        std::vector<FunctionNode *> &functions                     //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, {}, cpl),
         name(name),
         required_data(std::move(required_data)),
         functions(std::move(functions)) {}

@@ -13,6 +13,48 @@
 #include <optional>
 #include <string>
 
+std::optional<std::vector<DefinitionNode::ComptimeParameter>> Parser::create_cpl(token_slice tokens) {
+    PROFILE_CUMULATIVE("Parser::create_cpl");
+    ASSERT(tokens.first->token == TOK_LEFT_BRACKET);
+    tokens.first++;
+    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
+    while (tokens.first != tokens.second) {
+        std::optional<uint2> next_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
+        if (!next_range.has_value()) {
+            next_range = {0, std::distance(tokens.first, tokens.second)};
+        }
+        ASSERT(next_range.value().first == 0);
+        if (next_range.value().second <= 1) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const token_slice type_tokens = {tokens.first, tokens.first + next_range.value().second - 2};
+        if (type_tokens.second->token != TOK_IDENTIFIER) {
+            THROW_ERR(                                                                                                //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, type_tokens.second->line, type_tokens.second->column, //
+                std::vector<Token>{TOK_IDENTIFIER}, type_tokens.second->token                                         //
+            );
+            return std::nullopt;
+        }
+        const std::string param_name(type_tokens.second->lexme);
+        // TODO: Pass-in the currently built CPL to allow something like `[type T, T[] ARR]` as valid comptime parameters?
+        const std::optional<Namespace::TypeResult> param_type = file_node_ptr->file_namespace->get_type(type_tokens, {});
+        if (!param_type.has_value()) {
+            THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
+            return std::nullopt;
+        }
+        if (param_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+            // Not the full type was consumed, error
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        cpl.emplace_back(DefinitionNode::ComptimeParameter{.type = param_type.value().type, .name = param_name});
+        tokens.first += next_range.value().second;
+    }
+    return cpl;
+}
+
 std::optional<FunctionNode> Parser::create_function(                                                //
     const token_slice &definition,                                                                  //
     const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data //
@@ -21,6 +63,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     std::string name;
     std::vector<FunctionNode::Parameter> parameters;
     std::vector<std::shared_ptr<Type>> return_types;
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
     bool is_const = false;
     bool is_extern = false;
     bool is_export = false;
@@ -116,12 +159,16 @@ std::optional<FunctionNode> Parser::create_function(                            
                     is_mutable = true;
                     type_tokens.first++;
                 }
-                const auto param_type = file_node_ptr->file_namespace->get_type(type_tokens);
+                const auto param_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
                 if (!param_type.has_value()) {
                     return std::nullopt;
                 }
+                if (param_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
                 parameters.emplace_back(FunctionNode::Parameter{
-                    .type = param_type.value(),
+                    .type = param_type.value().type,
                     .name = param_name,
                     .is_mutable = is_mutable,
                 });
@@ -147,15 +194,19 @@ std::optional<FunctionNode> Parser::create_function(                            
             ASSERT(type_range.has_value());
             ASSERT(type_range.value().first == 0);
             token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
-            const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
+            const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
             if (!return_type.has_value()) {
                 return std::nullopt;
             }
-            if (return_type.value()->get_variation() == Type::Variation::TUPLE) {
-                THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value());
+            if (return_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            return_types.emplace_back(return_type.value());
+            if (return_type.value().type->get_variation() == Type::Variation::TUPLE) {
+                THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value().type);
+                return std::nullopt;
+            }
+            return_types.emplace_back(return_type.value().type);
             tok_it = type_tokens.second;
         } else {
             // Skip the left paren
@@ -175,11 +226,15 @@ std::optional<FunctionNode> Parser::create_function(                            
                 } else if (depth == 0 && (tok_it->token == TOK_COMMA || tok_it->token == TOK_RIGHT_PAREN)) {
                     // The type is everything from the last param begin
                     token_slice type_tokens = {last_type_begin, tok_it};
-                    const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens);
+                    const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
                     if (!return_type.has_value()) {
                         return std::nullopt;
                     }
-                    return_types.emplace_back(return_type.value());
+                    if (return_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    return_types.emplace_back(return_type.value().type);
                     last_type_begin = tok_it + 1;
                     if (tok_it->token == TOK_RIGHT_PAREN) {
                         break;
@@ -199,11 +254,12 @@ std::optional<FunctionNode> Parser::create_function(                            
     if (tok_it->token == TOK_LEFT_BRACE) {
         tok_it++;
         while (tok_it->token != TOK_RIGHT_BRACE) {
-            std::optional<std::shared_ptr<Type>> err_type = file_node_ptr->file_namespace->get_type(token_slice{tok_it, tok_it + 1});
+            const auto &err_type = file_node_ptr->file_namespace->get_type(token_slice{tok_it, tok_it + 1}, cpl);
             if (!err_type.has_value()) {
                 return std::nullopt;
             }
-            error_types.emplace_back(err_type.value());
+            ASSERT(err_type.value().consumed_tokens == 1);
+            error_types.emplace_back(err_type.value().type);
             const bool is_last = std::next(tok_it)->token == TOK_RIGHT_BRACE;
             tok_it += 2;
             if (is_last) {
@@ -325,9 +381,9 @@ std::optional<FunctionNode> Parser::create_function(                            
     } else if (is_export) {
         visibility = FunctionNode::Visibility::EXPORT;
     }
-    return FunctionNode(                                                                   //
-        file_hash, line, column, length, {},                                               //
-        is_const, visibility, name, parameters, return_types, error_types, body_scope, mid //
+    return FunctionNode(                                                                        //
+        file_hash, line, column, length, {},                                                    //
+        is_const, visibility, name, cpl, parameters, return_types, error_types, body_scope, mid //
     );
 }
 
@@ -356,11 +412,9 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     bool is_shared = false;
     std::string name;
     std::vector<DataNode::Field> fields;
-    for (                                                                                                    //
-        auto def_it = definition.first;                                                                      //
-        def_it != definition.second && (def_it == definition.first || std::prev(def_it)->token != TOK_DATA); //
-        ++def_it                                                                                             //
-    ) {
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
+    auto def_it = definition.first;
+    for (; def_it != definition.second && (def_it == definition.first || std::prev(def_it)->token != TOK_DATA); ++def_it) {
         switch (def_it->token) {
             default:
                 break;
@@ -374,6 +428,24 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
                 name = (def_it + 1)->lexme;
                 break;
         }
+    }
+    def_it++;
+    if (def_it->token == TOK_LEFT_BRACKET) {
+        if (is_const) {
+            // 'const data' cannot be generic
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (is_shared) {
+            // 'shared data' cannot be generic
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const auto &cpl_maybe = create_cpl({def_it, definition.second - 1});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
     }
     if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
         DefinitionNode *const original = existing.value();
@@ -393,7 +465,14 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
             ASSERT(range.value().first == 0);
             unsigned int type_advance = range.value().second;
             token_slice type_tokens = {token_it, token_it + type_advance};
-            std::optional<std::shared_ptr<Type>> field_type = file_node_ptr->file_namespace->get_type(type_tokens);
+            std::optional<std::shared_ptr<Type>> field_type = std::nullopt;
+            if (const auto &type = file_node_ptr->file_namespace->get_type(type_tokens, cpl)) {
+                if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                field_type = type.value().type;
+            }
             // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
             // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is not
             // allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete callback is
@@ -463,7 +542,7 @@ std::optional<DataNode> Parser::create_data(const token_slice &definition, const
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return DataNode(file_hash, line, column, length, is_const, is_shared, name, fields);
+    return DataNode(file_hash, line, column, length, is_const, is_shared, name, cpl, fields);
 }
 
 std::optional<FuncNode> Parser::create_func(const token_slice &definition, const std::vector<Line> &body) {
@@ -480,22 +559,27 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     }
     token_mut.first++;
     std::vector<FuncNode::RequiredData> required_data;
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
     if (token_mut.first->token == TOK_REQUIRES) {
         auto tok_it = token_mut.first + 1;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != token_mut.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
-            const auto required_data_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            const auto required_data_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1}, cpl);
             if (!required_data_type.has_value()) {
                 return std::nullopt;
             }
-            if (required_data_type.value()->get_variation() != Type::Variation::DATA       //
-                && required_data_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            if (required_data_type.value().consumed_tokens != 1) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (required_data_type.value().type->get_variation() != Type::Variation::DATA       //
+                && required_data_type.value().type->get_variation() != Type::Variation::UNKNOWN //
             ) {
-                THROW_ERR(                                                                       //
-                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, file_hash,                       //
-                    tok_it->line, tok_it->column, required_data_type.value()->to_string().size() //
+                THROW_ERR(                                                                            //
+                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, file_hash,                            //
+                    tok_it->line, tok_it->column, required_data_type.value().type->to_string().size() //
                 );
                 return std::nullopt;
             }
@@ -503,16 +587,16 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
             const std::string access_name((tok_it + 1)->lexme);
             for (const auto &present : required_data) {
-                if (present.type->equals(required_data_type.value())) {
-                    THROW_ERR(                                                      //
-                        ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,   //
-                        token_slice{tok_it, tok_it + 2}, required_data_type.value() //
+                if (present.type->equals(required_data_type.value().type)) {
+                    THROW_ERR(                                                           //
+                        ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,        //
+                        token_slice{tok_it, tok_it + 2}, required_data_type.value().type //
                     );
                     return std::nullopt;
                 }
             }
             required_data.emplace_back(FuncNode::RequiredData{
-                .type = required_data_type.value(),
+                .type = required_data_type.value().type,
                 .accessor_name = access_name,
                 .line = tok_it->line,
                 .column = tok_it->column,
@@ -565,6 +649,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         column,        //
         length,        //
         func_name,     //
+        cpl,           //
         required_data, //
         functions      //
     );
@@ -586,6 +671,7 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
 
     std::vector<FunctionNode *> functions;
     std::vector<Line> body_mut = body;
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
     while (!body_mut.empty()) {
         const Line function_definition_line = body_mut.front();
         body_mut.erase(body_mut.begin());
@@ -622,6 +708,7 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
         column,           //
         length,           //
         interface_name,   //
+        cpl,              //
         functions         //
     );
 }
@@ -640,31 +727,36 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     }
     tok_it++;
     std::vector<ObjectNode::ImplementedInterface> interfaces;
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
     if (tok_it->token == TOK_IMPLEMENTS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
             // The current token is the type
-            const auto interface_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1});
+            const auto interface_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1}, cpl);
             if (!interface_type.has_value()) {
                 return std::nullopt;
             }
-            if (interface_type.value()->get_variation() != Type::Variation::INTERFACE  //
-                && interface_type.value()->get_variation() != Type::Variation::UNKNOWN //
+            if (interface_type.value().consumed_tokens != 1) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (interface_type.value().type->get_variation() != Type::Variation::INTERFACE  //
+                && interface_type.value().type->get_variation() != Type::Variation::UNKNOWN //
             ) {
                 THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, file_hash,
                     PosTriple{
                         tok_it->line,
                         tok_it->column,
-                        static_cast<unsigned int>(interface_type.value()->to_string().size()),
+                        static_cast<unsigned int>(interface_type.value().type->to_string().size()),
                     } //
                 );
                 return std::nullopt;
             }
             // Check if this interface type is already present in the interfaces list
             for (const auto &interface : interfaces) {
-                if (interface.type->equals(interface_type.value())) {
+                if (interface.type->equals(interface_type.value().type)) {
                     THROW_ERR(                                                                                                            //
                         ErrDefObjectDuplicateInterface, ERR_PARSING, file_hash, tok_it->line, tok_it->column, interface.type->to_string() //
                     );
@@ -672,12 +764,12 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                 }
             }
             interfaces.push_back(ObjectNode::ImplementedInterface{
-                .type = interface_type.value(),
+                .type = interface_type.value().type,
                 .pos =
                     PosTriple{
                         .line = tok_it->line,
                         .column = tok_it->column,
-                        .length = static_cast<uint32_t>(interface_type.value()->to_string().size()),
+                        .length = static_cast<uint32_t>(interface_type.value().type->to_string().size()),
                     },
             });
             tok_it++;
@@ -773,7 +865,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return ObjectNode(file_hash, line, column, length, object_name, functions, interfaces);
+    return ObjectNode(file_hash, line, column, length, object_name, cpl, functions, interfaces);
 }
 
 std::optional<EnumNode> Parser::create_enum(const token_slice &definition, const std::vector<Line> &body) {
@@ -917,11 +1009,12 @@ std::optional<ErrorNode> Parser::create_error(const token_slice &definition, con
 
 std::optional<VariantNode> Parser::create_variant(const token_slice &definition, const std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_variant");
-    ASSERT(definition.first->token == TOK_VARIANT);
-    ASSERT((definition.first + 1)->token == TOK_IDENTIFIER);
-    ASSERT((definition.first + 2)->token == TOK_COLON);
-    ASSERT((definition.first + 3) == definition.second);
-    const std::string name((definition.first + 1)->lexme);
+    auto def_it = definition.first;
+    ASSERT(def_it->token == TOK_VARIANT);
+    def_it++;
+    ASSERT(def_it->token == TOK_IDENTIFIER);
+    const std::string name(def_it->lexme);
+    def_it++;
     if (const auto existing = file_node_ptr->file_namespace->get_definition_from_name(name)) {
         DefinitionNode *const original = existing.value();
         THROW_ERR(ErrDefRedefinition, ERR_PARSING, file_hash, definition.first->line, definition.first->column, original, name);
@@ -929,6 +1022,15 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
     }
 
     std::vector<std::pair<std::optional<std::string>, std::shared_ptr<Type>>> possible_types;
+    std::vector<DefinitionNode::ComptimeParameter> cpl;
+    if (def_it->token == TOK_LEFT_BRACKET) {
+        const auto &cpl_maybe = create_cpl({def_it, definition.second - 1});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
+    }
+
     for (auto body_it = body.front().tokens.first; body_it != body.back().tokens.second;) {
         if (body_it->token == TOK_COMMA) {
             ++body_it;
@@ -969,7 +1071,14 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
                 ASSERT(type_range.value().first == 0);
                 type_tokens.second = body_it + type_range.value().second;
                 token_list toks = clone_from_slice(type_tokens);
-                std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+                std::optional<std::shared_ptr<Type>> type = std::nullopt;
+                if (const auto &type_result = file_node_ptr->file_namespace->get_type(type_tokens, cpl)) {
+                    if (type_result.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    type = type_result.value().type;
+                }
                 // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
                 // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
                 // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
@@ -1017,7 +1126,14 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
             // Now we can adjust the type token's end with our range and get the type and add it to the list
             ASSERT(type_range.value().first == 0);
             type_tokens.second = body_it + type_range.value().second;
-            std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type(type_tokens);
+            std::optional<std::shared_ptr<Type>> type = std::nullopt;
+            if (const auto &type_result = file_node_ptr->file_namespace->get_type(type_tokens, cpl)) {
+                if (type_result.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                type = type_result.value().type;
+            }
             // Check the field type comes from an aliased import file, like `a.b.Type` or `a.Type` for example
             // We cannot just use `collapse_types_in_slice` for data because we are in an early pass where the outer "main" iterator is
             // not allowed to be invalidated, unlike later on phases where all iterators are already line-based (and thus the delete
@@ -1047,7 +1163,7 @@ std::optional<VariantNode> Parser::create_variant(const token_slice &definition,
     const unsigned int line = definition.first->line;
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
-    return VariantNode(file_hash, line, column, length, name, possible_types);
+    return VariantNode(file_hash, line, column, length, name, cpl, possible_types);
 }
 
 std::optional<TestNode> Parser::create_test(const token_slice &definition) {

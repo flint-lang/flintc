@@ -224,16 +224,16 @@ bool FileNode::add_error(ErrorNode &error) {
     return true;
 }
 
-bool FileNode::add_variant(VariantNode &variant) {
+std::optional<VariantNode *> FileNode::add_variant(VariantNode &variant) {
     auto &definitions = file_namespace->public_symbols.definitions;
     definitions.emplace_back(std::make_unique<VariantNode>(std::move(variant)));
     VariantNode *const added_variant = static_cast<VariantNode *>(definitions.back().get());
     if (!file_namespace->add_type(std::make_shared<VariantType>(added_variant, false))) {
         // Varaint type redefinition
         THROW_BASIC_ERR(ERR_PARSING);
-        return false;
+        return std::nullopt;
     }
-    return true;
+    return added_variant;
 }
 
 TestNode *FileNode::add_test(TestNode &test) {

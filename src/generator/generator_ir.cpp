@@ -805,6 +805,9 @@ Generator::IR::TypeStorageInfo Generator::IR::get_type( //
             llvm::ArrayType *const arr_type = llvm::ArrayType::get(elem_type, num_elems);
             return {.type = arr_type, .is_complex = false, .is_reference = true, .is_indirect = true};
         }
+        case Type::Variation::COMPTIME:
+            ASSERT(false, "Comptime types cannot be represented at runtime in the generator, something went wrong");
+            break;
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();
             // Check if its a known data type
@@ -874,6 +877,9 @@ Generator::IR::TypeStorageInfo Generator::IR::get_type( //
             // A fn variable is just a pointer to the heap-allocated function frame, so it is literally just a simple pointer
             return {.type = PTR_TY, .is_complex = true, .is_reference = true, .is_indirect = true};
         }
+        case Type::Variation::GENERIC:
+            ASSERT(false, "Generic types cannot be represented at runtime in the generator, something went wrong");
+            break;
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             const std::string type_str = group_type->get_type_string();
@@ -1001,6 +1007,9 @@ Generator::IR::TypeStorageInfo Generator::IR::get_type( //
             }
             return {.type = type_map.at(tuple_str), .is_complex = false, .is_reference = true, .is_indirect = false};
         }
+        case Type::Variation::TYPE:
+            ASSERT(false, "'type' types cannot be represented at runtime in the generator, something went wrong");
+            break;
         case Type::Variation::UNKNOWN:
             // TODO: Add this?
             break;

@@ -17,7 +17,7 @@ class EnumNode : public DefinitionNode {
         const std::string &name,                                        //
         const std::vector<std::pair<std::string, unsigned int>> &values //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, {}, {}),
         name(name),
         values(values) {}
 

@@ -26,6 +26,10 @@ class FuncType : public Type {
         return false;
     }
 
+    bool is_runtime_compatible() const override {
+        return func_node->cpl.empty();
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         [[maybe_unused]] const Hash &hash,                            //

@@ -1,17 +1,18 @@
 #pragma once
 
-#include "parser/ast/definitions/enum_node.hpp"
+#include "parser/hash.hpp"
 #include "type.hpp"
 
-/// @class `EnumType`
-/// @brief Represents enum types
-class EnumType : public Type {
+/// @class `ComptimeType`
+/// @brief Represents compile-time types in the bodies of definitions which wait to be resolved. For example in the comptime parameter `type
+/// T` the type `T` becomes a comtpime-type in the body where the CPL is defined at
+class ComptimeType : public Type {
   public:
-    EnumType(EnumNode *const enum_node) :
-        enum_node(enum_node) {}
+    ComptimeType(const std::string &name) :
+        name(name) {}
 
     Variation get_variation() const override {
-        return Variation::ENUM;
+        return Variation::COMPTIME;
     }
 
     bool is_freeable() const override {
@@ -27,7 +28,7 @@ class EnumType : public Type {
     }
 
     bool is_runtime_compatible() const override {
-        return true;
+        return false;
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
@@ -41,27 +42,27 @@ class EnumType : public Type {
     }
 
     Hash get_hash() const override {
-        return enum_node->file_hash;
+        return Hash(std::string(""));
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {
-        if (other->get_variation() != Variation::ENUM) {
+        if (other->get_variation() != Variation::COMPTIME) {
             return false;
         }
-        const EnumType *const other_type = other->as<EnumType>();
-        return enum_node == other_type->enum_node;
+        const ComptimeType *const other_type = other->as<ComptimeType>();
+        return name == other_type->name;
     }
 
     std::string to_string() const override {
-        return enum_node->name;
+        return name;
     }
 
-    std::string get_type_string(const bool is_return_type = false) const override {
-        const std::string type_str = is_return_type ? ".type.ret.enum." : ".type.enum.";
-        return enum_node->file_hash.to_string() + type_str + enum_node->name;
+    std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
+        ASSERT(false, "Comptime types cannot be used in the generator and already should have been resolved by now");
+        UNREACHABLE();
     }
 
-    /// @var `enum_node`
-    /// @brief The enum node this enum type points to
-    EnumNode *const enum_node;
+    /// @var `name`
+    /// The name of the comptime parameter used to substitute this comptime type
+    std::string name;
 };

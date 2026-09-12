@@ -36,6 +36,20 @@ class FnType : public Type {
         return false;
     }
 
+    bool is_runtime_compatible() const override {
+        for (const auto &[type, is_mutable] : params) {
+            if (!type->is_runtime_compatible()) {
+                return false;
+            }
+        }
+        for (const auto &type : return_types) {
+            if (!type->is_runtime_compatible()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         [[maybe_unused]] const Hash &hash,                            //

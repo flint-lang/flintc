@@ -37,6 +37,23 @@ class VariantType : public Type {
         return false;
     }
 
+    bool is_runtime_compatible() const override {
+        if (std::holds_alternative<VariantNode *const>(var_or_list)) {
+            const auto *variant = std::get<VariantNode *const>(var_or_list);
+            if (!variant->cpl.empty()) {
+                return false;
+            }
+        } else {
+            const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
+            for (const auto &type : possible_types) {
+                if (!type->is_runtime_compatible()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         [[maybe_unused]] const Hash &hash,                            //

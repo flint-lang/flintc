@@ -27,16 +27,17 @@ class ObjectNode : public DefinitionNode {
         std::unordered_map<FunctionNode *, FunctionNode *> mapping = {};
     };
 
-    explicit ObjectNode(                              //
-        const Hash &file_hash,                        //
-        const unsigned int line,                      //
-        const unsigned int column,                    //
-        const unsigned int length,                    //
-        const std::string &name,                      //
-        const std::vector<FunctionNode *> &functions, //
-        std::vector<ImplementedInterface> interfaces  //
+    explicit ObjectNode(                                           //
+        const Hash &file_hash,                                     //
+        const unsigned int line,                                   //
+        const unsigned int column,                                 //
+        const unsigned int length,                                 //
+        const std::string &name,                                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        const std::vector<FunctionNode *> &functions,              //
+        std::vector<ImplementedInterface> interfaces               //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, {}, cpl),
         name(name),
         functions(functions),
         interfaces(interfaces) {}

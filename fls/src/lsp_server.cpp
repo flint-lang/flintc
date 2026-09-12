@@ -6,6 +6,7 @@
 #include "lsp_protocol.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/interface_type.hpp"
+#include "parser/type/type_type.hpp"
 #include "profiler.hpp"
 
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -1624,6 +1625,8 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
         case Type::Variation::ARRAY:
             ss << "**array**\n```\n" << type->to_string() << "\n```\n";
             break;
+        case Type::Variation::COMPTIME:
+            UNREACHABLE();
         case Type::Variation::DATA: {
             const auto *data_type = type->as<DataType>();
             const auto *node = data_type->data_node;
@@ -1731,6 +1734,9 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
         case Type::Variation::FN:
             ss << "**callable**\n```\n" << type->to_string() << "\n```\n";
             break;
+        case Type::Variation::GENERIC:
+            // TODO: Implement I guess?
+            UNREACHABLE();
         case Type::Variation::GROUP:
             ss << "**group**\n```\n" << type->to_string() << "\n```\n";
             break;
@@ -1773,6 +1779,12 @@ std::string LspServer::build_type_hover_info(const std::shared_ptr<Type> &type) 
                 ss << "$" << std::to_string(i) << ": " << tuple_type->types.at(i)->to_string() << "\n";
             }
             ss << "```\n";
+            break;
+        }
+        case Type::Variation::TYPE: {
+            // TODO: Proper information about the type, if possible
+            [[maybe_unused]] const auto *type_type = type->as<TypeType>();
+            ss << "**type**\n";
             break;
         }
         case Type::Variation::UNKNOWN:

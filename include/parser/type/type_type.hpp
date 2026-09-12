@@ -1,17 +1,16 @@
 #pragma once
 
-#include "parser/ast/definitions/enum_node.hpp"
+#include "parser/hash.hpp"
 #include "type.hpp"
 
-/// @class `EnumType`
-/// @brief Represents enum types
-class EnumType : public Type {
+/// @class `TypeType`
+/// @brief Represents the `type` type. This type is a pure compile-time type and can resolve to every other type
+class TypeType : public Type {
   public:
-    EnumType(EnumNode *const enum_node) :
-        enum_node(enum_node) {}
+    TypeType() = default;
 
     Variation get_variation() const override {
-        return Variation::ENUM;
+        return Variation::TYPE;
     }
 
     bool is_freeable() const override {
@@ -27,7 +26,7 @@ class EnumType : public Type {
     }
 
     bool is_runtime_compatible() const override {
-        return true;
+        return false;
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
@@ -41,27 +40,19 @@ class EnumType : public Type {
     }
 
     Hash get_hash() const override {
-        return enum_node->file_hash;
+        return Hash(std::string(""));
     }
 
     bool equals(const std::shared_ptr<Type> &other) const override {
-        if (other->get_variation() != Variation::ENUM) {
-            return false;
-        }
-        const EnumType *const other_type = other->as<EnumType>();
-        return enum_node == other_type->enum_node;
+        return other->get_variation() == Variation::TYPE;
     }
 
     std::string to_string() const override {
-        return enum_node->name;
+        return "type";
     }
 
-    std::string get_type_string(const bool is_return_type = false) const override {
-        const std::string type_str = is_return_type ? ".type.ret.enum." : ".type.enum.";
-        return enum_node->file_hash.to_string() + type_str + enum_node->name;
+    std::string get_type_string([[maybe_unused]] const bool is_return_type = false) const override {
+        ASSERT(false, "'type' types cannot be used in the generator and already should have been resolved by now");
+        UNREACHABLE();
     }
-
-    /// @var `enum_node`
-    /// @brief The enum node this enum type points to
-    EnumNode *const enum_node;
 };

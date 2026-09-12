@@ -12,6 +12,7 @@
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/generic_type.hpp"
 #include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
@@ -168,11 +169,15 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             }
             // Everything from the second to the it token is the type
             const token_slice type_tokens{definition_tokens.first + 2, it};
-            std::optional<std::shared_ptr<Type>> aliased_type = file_node_ptr->file_namespace->get_type(type_tokens);
+            const auto &aliased_type = file_node_ptr->file_namespace->get_type(type_tokens, {});
             if (!aliased_type.has_value()) {
                 return false;
             }
-            std::shared_ptr<Type> type = std::make_shared<AliasType>(type_alias, aliased_type.value());
+            if (aliased_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+            std::shared_ptr<Type> type = std::make_shared<AliasType>(type_alias, aliased_type.value().type);
             if (!file_node_ptr->file_namespace->add_type(type)) {
                 type = file_node_ptr->file_namespace->get_type_from_str(type->to_string()).value();
             }
@@ -295,7 +300,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!variant_node.has_value()) {
                 return false;
             }
-            if (!file_node_ptr->add_variant(variant_node.value())) {
+            if (!file_node_ptr->add_variant(variant_node.value()).has_value()) {
                 return false;
             }
             break;
@@ -383,21 +388,24 @@ bool Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
                         *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
                     }
                 }
-            } else if (it->token != TOK_IDENTIFIER ||
-                file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value()) {
+            } else if (                                                                                 //
+                it->token != TOK_IDENTIFIER                                                             //
+                || file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value() //
+            ) {
                 // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
                 // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
                 // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
                 // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
-                auto type = file_node_ptr->file_namespace->get_type(token_slice{it, it + type_range.value().second});
+                const token_slice type_tokens{it, it + type_range.value().second};
+                const auto &type = file_node_ptr->file_namespace->get_type(type_tokens, {});
                 if (!type.has_value()) {
-                    THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, token_slice{it, it + type_range.value().second});
+                    THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                     return false;
                 }
                 // Change this token to be a type token
-                *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
+                *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value().type);
                 // Erase all the following type tokens from the tokens list
-                Line::delete_tokens(source, it + 1, type_range.value().second - 1);
+                Line::delete_tokens(source, it + 1, type.value().consumed_tokens - 1);
             }
         }
         ++it;
@@ -436,6 +444,9 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
             substitute_type_aliases(array_type->type);
             break;
         }
+        case Type::Variation::COMPTIME:
+            // TODO: Implement if needed
+            UNREACHABLE();
         case Type::Variation::DATA:
             // Data types resolve in a different stage
             break;
@@ -454,6 +465,13 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
         case Type::Variation::FN:
             // Fn types resolve in a different stage
             break;
+        case Type::Variation::GENERIC: {
+            auto *generic_type = type_to_resolve->as<GenericType>();
+            for (auto &type : generic_type->cvl) {
+                substitute_type_aliases(type);
+            }
+            break;
+        }
         case Type::Variation::GROUP: {
             auto *group_type = type_to_resolve->as<GroupType>();
             for (auto &type : group_type->types) {
@@ -495,6 +513,8 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
             }
             break;
         }
+        case Type::Variation::TYPE:
+            break;
         case Type::Variation::UNKNOWN:
             // We do not handle unknown types here
             break;

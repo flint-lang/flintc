@@ -1,0 +1,15 @@
+use Core.print
+
+variant Option[type T]:
+	None(void), Some(T);
+
+def main():
+	Option[i32] o = Option[i32].Some(100);
+	switch o:
+		Option[i32].None(): print("o = .None\n");
+		Option[i32].Some(value): print($"o = .Some({value})\n");
+
+	o = Option[i32].None();
+	switch o:
+		Option[i32].None(): print("o = .None\n");
+		Option[i32].Some(value): print($"o = .Some({value})\n");

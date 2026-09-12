@@ -22,7 +22,6 @@
 #include "parser/ast/expressions/literal_node.hpp"
 #include "parser/ast/expressions/optional_unwrap_node.hpp"
 #include "parser/ast/expressions/range_expression_node.hpp"
-#include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/type_cast_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
 #include "parser/ast/expressions/variant_unwrap_node.hpp"
@@ -1321,12 +1320,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                     );
                     return std::nullopt;
                 }
-                fields.emplace_back(InitializerNode::Field{
-                    .name = data_field.name,
-                    .value = data_field.initializer.has_value()                  //
-                        ? data_field.initializer.value()->clone(scope->scope_id) //
-                        : data_field.type->get_default_value(data_field.type, file_hash, pos, scope->scope_id).value(),
-                });
+                if (data_field.initializer.has_value()) {
+                    auto cloned_field = data_field.initializer.value()->clone(scope->scope_id);
+                    if (!Analyzer::Castability::check_castability(*this, data_field.type, cloned_field)) {
+                        return std::nullopt;
+                    }
+                    fields.emplace_back(InitializerNode::Field{
+                        .name = data_field.name,
+                        .value = std::move(cloned_field),
+                    });
+                } else {
+                    fields.emplace_back(InitializerNode::Field{
+                        .name = data_field.name,
+                        .value = data_field.type->get_default_value(data_field.type, file_hash, pos, scope->scope_id).value(),
+                    });
+                }
             }
             break;
         }
@@ -1818,8 +1826,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     token_slice tokens_mut = tokens;
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
-    std::optional<std::shared_ptr<Type>> element_type = file_node_ptr->file_namespace->get_type(type_tokens);
+    const auto &element_type = file_node_ptr->file_namespace->get_type(type_tokens, {});
     if (!element_type.has_value()) {
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (element_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -1924,7 +1936,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
         }
 
         // Build the array type (all sizes are now known by now)
-        std::shared_ptr<Type> array_type = std::make_shared<ArrayType>(length_expressions.size(), element_type.value(), known_sizes);
+        std::shared_ptr<Type> array_type = std::make_shared<ArrayType>(length_expressions.size(), element_type.value().type, known_sizes);
         if (!file_node_ptr->file_namespace->add_type(array_type)) {
             array_type = file_node_ptr->file_namespace->get_type_from_str(array_type->to_string()).value();
         }
@@ -1937,7 +1949,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
     if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-        initializer = element_type.value()->get_default_value(element_type.value(), file_hash, get_pos_triple(tokens), scope->scope_id);
+        initializer = element_type.value().type->get_default_value(                       //
+            element_type.value().type, file_hash, get_pos_triple(tokens), scope->scope_id //
+        );
     } else {
         initializer = create_expression(ctx, scope, initializer_tokens);
     }
@@ -1965,7 +1979,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             known_sizes.emplace_back(size.value());
         }
     }
-    std::string actual_type_str = element_type.value()->to_string() + "[";
+    std::string actual_type_str = element_type.value().type->to_string() + "[";
     const bool is_const_array = known_sizes.size() == length_expressions.value().size();
     if (is_const_array) {
         for (size_t i = 0; i < known_sizes.size(); i++) {
@@ -1982,9 +1996,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     if (!actual_array_type.has_value()) {
         // This type does not yet exist, so we need to create it
         if (is_const_array) {
-            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value(), known_sizes);
+            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value().type, known_sizes);
         } else {
-            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value(), std::nullopt);
+            actual_array_type = std::make_shared<ArrayType>(length_expressions.value().size(), element_type.value().type, std::nullopt);
         }
         if (!file_node_ptr->file_namespace->add_type(actual_array_type.value())) {
             return std::nullopt;
@@ -2708,8 +2722,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                                     THROW_BASIC_ERR(ERR_PARSING);
                                     return std::nullopt;
                                 }
-                                const auto &expr_range = Matcher::get_next_match_range(     //
-                                    {tag_it, tokens_mut.second}, Matcher::until_right_paren //
+                                const auto &expr_range = Matcher::get_next_match_range(              //
+                                    {tag_it, tokens_mut.second}, Matcher::continue_until_right_paren //
                                 );
                                 if (!expr_range.has_value()) {
                                     THROW_BASIC_ERR(ERR_PARSING);

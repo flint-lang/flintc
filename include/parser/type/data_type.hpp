@@ -32,6 +32,10 @@ class DataType : public Type {
         return true;
     }
 
+    bool is_runtime_compatible() const override {
+        return data_node->cpl.empty();
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         const Hash &hash,                                             //

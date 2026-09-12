@@ -815,7 +815,7 @@ bool Generator::Builtin::generate_builtin_main( //
     auto error_types = std::vector<std::shared_ptr<Type>>{Type::get_type_from_str("anyerror").value()};
     FunctionNode function_node = FunctionNode(                                         //
         Parser::main_file_hash, 1, 1, 10, {}, false, FunctionNode::Visibility::INTERN, //
-        "_main", parameters, return_types, error_types, scope, std::nullopt            //
+        "_main", {}, parameters, return_types, error_types, scope, std::nullopt        //
     );
 
     // Get the custom user-defined main function
@@ -2329,6 +2329,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
                 false,                                 //
                 FunctionNode::Visibility::INTERN,      //
                 test_function_name,                    //
+                {},                                    //
                 fake_fn_parameters,                    //
                 fake_fn_return_types,                  //
                 fake_fn_error_types,                   //

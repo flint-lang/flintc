@@ -117,8 +117,9 @@ class FileNode : public ASTNode {
     /// @brief Adds a variant node to this file node
     ///
     /// @param `variant` The variant node to add
-    /// @return `bool` Whether the variant was successfully added (true) or already present in this napespace (false)
-    bool add_variant(VariantNode &variant);
+    /// @return `std::optional<VariantNode *>` A pointer to the added variant node, because this function takes ownership of `variant`,
+    /// nullopt if the given variant already existed in the file's namespace, e.g. duplicate definition
+    std::optional<VariantNode *> add_variant(VariantNode &variant);
 
     /// @function `add_test`
     /// @brief Adds a test node to this file node

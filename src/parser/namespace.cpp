@@ -8,19 +8,23 @@
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
+#include "parser/type/comptime_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/fn_type.hpp"
 #include "parser/type/func_type.hpp"
+#include "parser/type/generic_type.hpp"
 #include "parser/type/group_type.hpp"
 #include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
 #include "parser/type/opaque_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
+#include "parser/type/type_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "parser/type/vector_type.hpp"
+#include "specializer/specializer.hpp"
 
 #include <algorithm>
 
@@ -217,29 +221,47 @@ std::vector<const FunctionNode *> Namespace::get_functions_with_name( //
     return found_functions;
 }
 
-std::optional<std::shared_ptr<Type>> Namespace::get_type(const token_slice &tokens) {
+std::optional<Namespace::TypeResult> Namespace::get_type(     //
+    const token_slice &tokens,                                //
+    const std::vector<DefinitionNode::ComptimeParameter> &cpl //
+) {
     ASSERT(tokens.first != tokens.second);
-    const std::string type_str = Lexer::to_string(tokens);
+    const size_t token_count = std::distance(tokens.first, tokens.second);
+    std::string type_str = Lexer::to_string(tokens);
     // Check if the map already contains the given key
-    std::optional<std::shared_ptr<Type>> type = get_type_from_str(type_str);
-    if (type.has_value()) {
-        return type;
+    if (const std::optional<std::shared_ptr<Type>> type = get_type_from_str(type_str)) {
+        return TypeResult{.type = type.value(), .consumed_tokens = token_count};
     }
     // Create the type
-    type = create_type(tokens);
+    const auto &type = create_type(tokens, cpl);
     if (!type.has_value()) {
         return std::nullopt;
     }
-    if (type.value()->get_variation() == Type::Variation::UNKNOWN) {
-        public_symbols.unknown_types[type_str] = type.value();
-        return public_symbols.unknown_types.at(type_str);
-    }
-    if (can_be_global(type.value())) {
-        Type::add_type(type.value());
+    if (type.value().type->get_variation() == Type::Variation::COMPTIME) {
         return type.value();
     }
-    public_symbols.types[type_str] = type.value();
-    return public_symbols.types.at(type_str);
+    // Re-create the string based on how many tokens were part of the creation. Since the type string now changed we need to call
+    // `get_type_from_str` again to see if the type was already present in the map and then return that type instead
+    type_str = Lexer::to_string(token_slice{tokens.first, tokens.first + type.value().consumed_tokens});
+    if (const std::optional<std::shared_ptr<Type>> type_maybe = get_type_from_str(type_str)) {
+        return TypeResult{.type = type_maybe.value(), .consumed_tokens = type.value().consumed_tokens};
+    }
+    if (type.value().type->get_variation() == Type::Variation::UNKNOWN) {
+        public_symbols.unknown_types[type_str] = type.value().type;
+        return TypeResult{
+            .type = public_symbols.unknown_types.at(type_str),
+            .consumed_tokens = type.value().consumed_tokens,
+        };
+    }
+    if (can_be_global(type.value().type)) {
+        Type::add_type(type.value().type);
+        return type.value();
+    }
+    public_symbols.types[type_str] = type.value().type;
+    return TypeResult{
+        .type = public_symbols.types.at(type_str),
+        .consumed_tokens = type.value().consumed_tokens,
+    };
 }
 
 bool Namespace::add_type(const std::shared_ptr<Type> &type) {
@@ -403,11 +425,17 @@ bool Namespace::resolve_type(std::shared_ptr<Type> &type) {
     return true;
 }
 
-std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &tokens) {
+std::optional<Namespace::TypeResult> Namespace::create_type(  //
+    const token_slice &tokens,                                //
+    const std::vector<DefinitionNode::ComptimeParameter> &cpl //
+) {
+    const size_t token_count = std::distance(tokens.first, tokens.second);
     token_slice tokens_mut = tokens;
     // If the size of the token type list is 1, its definitely a simple type
     if (std::next(tokens_mut.first) == tokens_mut.second) {
-        if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim)) {
+        if (tokens_mut.first->token == TOK_TYPE_KEYWORD) {
+            return TypeResult{.type = std::make_shared<TypeType>(), .consumed_tokens = 1};
+        } else if (Matcher::token_match(tokens_mut.first->token, Matcher::type_prim)) {
             // Its definitely a primitive type, but all primitive types should have been created by default annyway, so this should not be
             // possible
             UNREACHABLE();
@@ -421,14 +449,24 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             const std::string type_str = type_string.substr(0, type_string.size() - (ends_with_x ? 2 : 1));
             const std::shared_ptr<Type> base_type = get_type_from_str(type_str).value();
             const unsigned int width = width_char - '0';
-            return std::make_shared<VectorType>(base_type, width);
+            return TypeResult{.type = std::make_shared<VectorType>(base_type, width), .consumed_tokens = 1};
         }
         if (tokens_mut.first->token == TOK_TYPE) {
-            return tokens_mut.first->type;
+            return TypeResult{.type = tokens_mut.first->type, .consumed_tokens = 1};
+        }
+        // Check if it's part of the cpl, if part of the cpl and the comptime parameter is of type `type` then this type is a comptime type
+        const std::string type_string(tokens_mut.first->lexme);
+        for (const auto &param : cpl) {
+            if (param.type->get_variation() != Type::Variation::TYPE) {
+                continue;
+            }
+            if (param.name == type_string) {
+                return TypeResult{.type = std::make_shared<ComptimeType>(type_string), .consumed_tokens = 1};
+            }
         }
         // Its a data, object or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
-        return std::make_shared<UnknownType>(std::string(tokens_mut.first->lexme));
+        return TypeResult{.type = std::make_shared<UnknownType>(type_string), .consumed_tokens = 1};
     }
     if (std::prev(tokens_mut.second)->token == TOK_QUESTION) {
         // It's an optional type
@@ -438,12 +476,17 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             return std::nullopt;
         }
         // Everything to the left of the question mark is the base type of the optional
-        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
+        const token_slice base_tokens{tokens_mut.first, std::prev(tokens_mut.second)};
+        const std::optional<TypeResult> base_type = get_type(base_tokens, cpl);
         if (!base_type.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_shared<OptionalType>(base_type.value());
+        if (base_type.value().consumed_tokens != static_cast<size_t>(std::distance(base_tokens.first, base_tokens.second))) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return TypeResult{.type = std::make_shared<OptionalType>(base_type.value().type), .consumed_tokens = token_count};
     } else if (std::prev(tokens_mut.second)->token == TOK_MULT) {
         // It's a pointer type
         if (tokens_mut.first == std::prev(tokens_mut.second)) {
@@ -452,12 +495,17 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
             return std::nullopt;
         }
         // Everything to the left of the * is the base type of the pointer
-        std::optional<std::shared_ptr<Type>> base_type = get_type({tokens_mut.first, std::prev(tokens_mut.second)});
+        const token_slice base_tokens{tokens_mut.first, std::prev(tokens_mut.second)};
+        const std::optional<TypeResult> base_type = get_type(base_tokens, cpl);
         if (!base_type.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_shared<PointerType>(base_type.value());
+        if (base_type.value().consumed_tokens != static_cast<size_t>(std::distance(base_tokens.first, base_tokens.second))) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return TypeResult{.type = std::make_shared<PointerType>(base_type.value().type), .consumed_tokens = token_count};
     }
 
     // If the type ends with a ], we need to check the "base type" to either detect it is a generic type or one of these tokens:
@@ -513,19 +561,23 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 ASSERT(next_range.value().first == 0);
                 const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second};
                 bracket_tokens.first = type_tokens.second;
-                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                const std::optional<TypeResult> type = get_type(type_tokens, cpl);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                if (std::find(possible_types.begin(), possible_types.end(), type.value()) != possible_types.end()) {
+                if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                possible_types.emplace_back(type.value());
+                if (std::find(possible_types.begin(), possible_types.end(), type.value().type) != possible_types.end()) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                possible_types.emplace_back(type.value().type);
             }
             std::variant<VariantNode *const, std::vector<std::shared_ptr<Type>>> variant_type = possible_types;
-            return std::make_shared<VariantType>(variant_type, false);
+            return TypeResult{.type = std::make_shared<VariantType>(variant_type, false), .consumed_tokens = token_count};
         }
         case TOK_DATA: {
             if (tokens_mut_len > 1) {
@@ -545,12 +597,16 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 ASSERT(next_range.value().first == 0);
                 const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second};
                 bracket_tokens.first = type_tokens.second;
-                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                const std::optional<TypeResult> type = get_type(type_tokens, cpl);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                subtypes.emplace_back(type.value());
+                if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                subtypes.emplace_back(type.value().type);
             }
             if (subtypes.empty()) {
                 // Empty tuples are not allowed
@@ -585,7 +641,7 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     }
                 }
             }
-            return std::make_shared<TupleType>(subtypes);
+            return TypeResult{.type = std::make_shared<TupleType>(subtypes), .consumed_tokens = token_count};
         }
         case TOK_FN: {
             if (tokens_mut_len > 1) {
@@ -679,12 +735,16 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                     }
                     ASSERT(next_range.value().first == 0);
                     const token_slice type_tokens = {param_tokens.first, param_tokens.first + next_range.value().second};
-                    const std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                    const std::optional<TypeResult> type = get_type(type_tokens, cpl);
                     if (!type.has_value()) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
-                    params.emplace_back(type.value(), is_mutable);
+                    if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                        THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    params.emplace_back(type.value().type, is_mutable);
                     param_tokens.first = type_tokens.second;
                 }
             }
@@ -699,39 +759,91 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
                 }
                 ASSERT(next_range.value().first == 0);
                 const token_slice type_tokens = {return_tokens.first, return_tokens.first + next_range.value().second};
-                std::optional<std::shared_ptr<Type>> type = get_type(type_tokens);
+                const std::optional<TypeResult> type = get_type(type_tokens, cpl);
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                return_types.emplace_back(type.value());
+                if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                    THROW_BASIC_ERR(ERR_PARSING);
+                    return std::nullopt;
+                }
+                return_types.emplace_back(type.value().type);
                 return_tokens.first = type_tokens.second;
             }
             if (return_types.size() == 1 && return_types.front()->to_string() == "void") {
                 return_types.clear();
             }
-            return std::make_shared<FnType>(params, return_types, error_types);
+            return TypeResult{.type = std::make_shared<FnType>(params, return_types, error_types), .consumed_tokens = token_count};
         }
-        default:
+        default: {
         regular_type:
-            base_type = get_type(tokens_mut);
+            const std::optional<TypeResult> type = get_type(tokens_mut, cpl);
+            if (!type.has_value()) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            if (type.value().consumed_tokens != static_cast<size_t>(std::distance(tokens_mut.first, tokens_mut.second))) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            base_type = type.value().type;
             break;
+        }
     }
-    if (!base_type.has_value()) {
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    ASSERT(base_type.has_value());
+    std::vector<std::shared_ptr<Type>> cvl;
+    for (auto it = bracket_tokens.first; it != bracket_tokens.second;) {
+        if (it->token == TOK_COMMA) {
+            it++;
+        }
+        const std::optional<uint2> next_range = Matcher::get_next_match_range(token_slice{it, bracket_tokens.second}, Matcher::type);
+        if (!next_range.has_value()) {
+            cvl.clear();
+            break;
+        }
+        if (next_range.value().first != 0) {
+            cvl.clear();
+            break;
+        }
+        const token_slice type_tokens = {it, it + next_range.value().second};
+        it = type_tokens.second;
+        const std::optional<TypeResult> type = get_type(type_tokens, cpl);
+        if (!type.has_value()) {
+            cvl.clear();
+            break;
+        }
+        if (type.value().type->get_variation() == Type::Variation::UNKNOWN) {
+            cvl.clear();
+            break;
+        }
+        if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+            cvl.clear();
+            break;
+        }
+        cvl.emplace_back(type.value().type);
     }
 
-    // TODO: Generic types are not supported yet, but this is the place where we would check for them and handle them
+    // We only try to specialize if the type list is non-empty
+    if (!cvl.empty()) {
+        const std::optional<std::shared_ptr<Type>> specialized = Specializer::specialize( //
+            file_node->file_namespace.get(), base_type.value(), cvl                       //
+        );
+        if (!specialized.has_value()) {
+            // Specialization failed
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        return TypeResult{.type = specialized.value(), .consumed_tokens = token_count};
+    }
 
     std::vector<size_t> sizes;
     size_t dimensionality = 1;
     while (bracket_tokens.first != bracket_tokens.second) {
         switch (bracket_tokens.first->token) {
             default:
-                // Unknown token
-                THROW_BASIC_ERR(ERR_PARSING);
-                return std::nullopt;
+                // Unknown token, just return base type as this does not seem to be an array type
+                return TypeResult{.type = base_type.value(), .consumed_tokens = tokens_mut_len};
             case TOK_COMMA:
                 dimensionality++;
                 break;
@@ -742,9 +854,15 @@ std::optional<std::shared_ptr<Type>> Namespace::create_type(const token_slice &t
         bracket_tokens.first++;
     }
     if (sizes.size() == dimensionality) {
-        return std::make_shared<ArrayType>(dimensionality, base_type.value(), sizes);
+        return TypeResult{
+            .type = std::make_shared<ArrayType>(dimensionality, base_type.value(), sizes),
+            .consumed_tokens = token_count,
+        };
     } else {
-        return std::make_shared<ArrayType>(dimensionality, base_type.value(), std::nullopt);
+        return TypeResult{
+            .type = std::make_shared<ArrayType>(dimensionality, base_type.value(), std::nullopt),
+            .consumed_tokens = token_count,
+        };
     }
 }
 
@@ -757,6 +875,8 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
             const auto *array_type = type->as<ArrayType>();
             return can_be_global(array_type->type);
         }
+        case Type::Variation::COMPTIME:
+            return false;
         case Type::Variation::DATA:
             // Data is always user-defined
             return false;
@@ -788,6 +908,8 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
             }
             return true;
         }
+        case Type::Variation::GENERIC:
+            return false;
         case Type::Variation::GROUP: {
             const auto *group_type = type->as<GroupType>();
             for (const auto &elem_type : group_type->types) {
@@ -827,6 +949,8 @@ bool Namespace::can_be_global(const std::shared_ptr<Type> &type) {
             }
             return true;
         }
+        case Type::Variation::TYPE:
+            return true;
         case Type::Variation::UNKNOWN:
             return false;
         case Type::Variation::VARIANT: {

@@ -11,15 +11,16 @@
 /// @brief Represents interface definitions
 class InterfaceNode : public DefinitionNode {
   public:
-    explicit InterfaceNode(                    //
-        const Hash &file_hash,                 //
-        const unsigned int line,               //
-        const unsigned int column,             //
-        const unsigned int length,             //
-        const std::string &name,               //
-        std::vector<FunctionNode *> &functions //
+    explicit InterfaceNode(                                        //
+        const Hash &file_hash,                                     //
+        const unsigned int line,                                   //
+        const unsigned int column,                                 //
+        const unsigned int length,                                 //
+        const std::string &name,                                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<FunctionNode *> &functions                     //
         ) :
-        DefinitionNode(file_hash, line, column, length, {}),
+        DefinitionNode(file_hash, line, column, length, {}, cpl),
         name(name),
         functions(std::move(functions)) {}
 

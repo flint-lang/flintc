@@ -29,6 +29,10 @@ class PrimitiveType : public Type {
             (type_name == "str" || type_name == "bool" || type_name[0] == 'f' || type_name[0] == 'i' || type_name[0] == 'u');
     }
 
+    bool is_runtime_compatible() const override {
+        return type_name != "int" && type_name != "float";
+    }
+
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
         const std::shared_ptr<Type> &self,                            //
         const Hash &hash,                                             //

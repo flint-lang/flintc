@@ -577,7 +577,7 @@ namespace Debug {
                 Local::print_header(indent_lvl, name_bits, field->name + " ");
                 std::cout << std::endl;
                 TreeBits expr_bits = name_bits.child(indent_lvl + 1, true);
-                print_expression(indent_lvl, expr_bits, field->value);
+                print_expression(indent_lvl + 1, expr_bits, field->value);
             }
         }
 
@@ -1527,7 +1527,20 @@ namespace Debug {
             if (data.is_shared) {
                 std::cout << "shared ";
             }
-            std::cout << data.name << "(";
+            std::cout << data.name;
+            if (!data.cpl.empty()) {
+                std::cout << "[";
+                for (size_t i = 0; i < data.cpl.size(); i++) {
+                    if (i > 0) {
+                        std::cout << ", ";
+                    }
+                    const auto &param = data.cpl.at(i);
+                    std::cout << param.type->to_string() << " " << param.name;
+                }
+                std::cout << "]";
+            }
+
+            std::cout << "(";
             for (auto field_it = data.fields.begin(); field_it != data.fields.end(); ++field_it) {
                 if (field_it != data.fields.begin()) {
                     std::cout << ", ";
