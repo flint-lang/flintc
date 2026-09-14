@@ -1,0 +1,294 @@
+use Core.random as rand
+use Core.math as math
+
+use Fip.raylib as rl
+
+const data CScreen:
+    int WIDTH = 800;
+    int HEIGHT = 600;
+
+const data CShip:
+    float SIZE = 20.0;
+    float ROTATION_SPEED = 3.5;
+    float THRUST = 220.0;
+    float DRAG = 0.60;
+    float MAX_SPEED = 380.0;
+    float COLLISION_RADIUS = 12.0;
+
+const data CBullet:
+    int MAX_COUNT = 32;
+    float SPEED = 520.0;
+    float LIFETIME = 1.1;
+    float COOLDOWN = 0.25;
+    float RADIUS = 2.0;
+
+const data CAsteroid:
+    f32[3] RADIUS = f32[3]{ 40.0, 22.0, 12.0 };
+    u32[3] SCORE = u32[3]{ 20, 50, 100 };
+    int MAX_COUNT = 64;
+    int SPLIT_COUNT = 2;
+    int START_COUNT = 4;
+    float SPEED_MIN = 40.0;
+    float SPEED_MAX = 110.0;
+
+const data CGame:
+    int STARTING_LIVES = 3;
+    int STARTING_ASTEROIDS = 4;
+    float INVULNERABILITY_TIME = 2.0;
+    float RESPAWN_DELAY = 1.5;
+
+enum AsteroidSize:
+    LARGE = 0, MEDIUM = 1, SMALL = 2;
+
+data Ship:
+    f32x2 position = f32x2(CScreen.(WIDTH, HEIGHT) / 2);
+    f32x2 velocity = f32x2(0.0, 0.0);
+    f32 rotation = 0.0;
+    bool alive = true;
+    f32 invulnerable_timer = CGame.INVULNERABILITY_TIME;
+    Ship(position, velocity, rotation, alive, invulnerable_timer);
+
+data Bullet:
+    f32x2 position = f32x2(0.0, 0.0);
+    f32x2 velocity = f32x2(0.0, 0.0);
+    f32 lifetime = 0.0;
+    bool active = false;
+    Bullet(position, velocity, lifetime, active);
+
+data Asteroid:
+    f32x2 position = f32x2(0.0, 0.0);
+    f32x2 velocity = f32x2(0.0, 0.0);
+    AsteroidSize size = AsteroidSize.LARGE;
+    f32 rotation = 0.0;
+    f32 rotation_speed = 0.0;
+    bool active = false;
+    Asteroid(position, velocity, size, rotation, rotation_speed, active);
+
+enum GameState:
+    PLAYING, GAME_OVER;
+
+data Game:
+    Ship ship = Ship(_);
+    Bullet[CBullet.MAX_COUNT] bullets = Bullet[CBullet.MAX_COUNT](Bullet(_));
+    Asteroid[CAsteroid.MAX_COUNT] asteroids = Asteroid[CAsteroid.MAX_COUNT](Asteroid(_));
+    u32 score = 0;
+    u32 lives = CGame.STARTING_LIVES;
+    u32 wave = 1;
+    f32 fire_cooldown = 0.0;
+    f32 respawn_timer = 0.0;
+    GameState state = GameState.PLAYING;
+    Game(ship, bullets, asteroids, score, lives, wave, fire_cooldown, respawn_timer, state);
+
+def WrapPosition(mut f32x2 pos) -> f32x2:
+    if pos.x < 0: pos.x += CScreen.WIDTH;
+    if pos.x > CScreen.WIDTH: pos.x -= CScreen.WIDTH;
+    if pos.y < 0: pos.y += CScreen.HEIGHT;
+    if pos.y > CScreen.HEIGHT: pos.y -= CScreen.HEIGHT;
+    return pos;
+
+def CircleCollide(f32x2 a, f32 ra, f32x2 b, f32 rb) -> bool:
+    return math.len(a - b) < (ra + rb);
+
+def SpawnAsteroid(mut Game g, f32x2 position, AsteroidSize size):
+    for (i, asteroid) in g.asteroids:
+        if asteroid.active: continue;
+        f32 angle = rand.randr(0.0, 2.0 * math.C.PI);
+        f32x2 direction = (math.cos(angle), math.sin(angle));
+        f32 speed = rand.randr(
+            CAsteroid.SPEED_MIN,
+            CAsteroid.SPEED_MAX);
+        asteroid = Asteroid(
+            position,
+            speed * direction,
+            size,
+            rand.randr(0.0, 2.0 * math.C.PI),
+            rand.randr(-2.0, 2.0),
+            true);
+        return;
+
+def SpawnWave(mut Game g):
+    const u64 count = CAsteroid.START_COUNT + g.wave - 1;
+    for (i, _) in 0..count:
+        f32x2 pos = 0;
+        if rand.rand() % 2 == 0:
+            if rand.rand() % 2 != 0:
+                pos.x = CScreen.WIDTH;
+            pos.y = rand.randr(0.0, CScreen.HEIGHT);
+        else:
+            pos.x = rand.randr(0.0, CScreen.WIDTH);
+            if rand.rand() % 2 != 0:
+                pos.y = CScreen.HEIGHT;
+        SpawnAsteroid(g, pos, AsteroidSize.LARGE);
+
+def InitGame() -> Game:
+    g:= Game(_);
+    SpawnWave(g);
+    return g;
+
+def FireBullet(mut Game g):
+    if g.fire_cooldown > 0.0: return;
+    for (i, bullet) in g.bullets:
+        if bullet.active: continue;
+        f32x2 facing = (math.sin(g.ship.rotation), -math.cos(g.ship.rotation));
+        f32x2 nose = g.ship.position + (facing * CShip.SIZE);
+        bullet = Bullet(
+            nose,
+            facing * CBullet.SPEED,
+            CBullet.LIFETIME,
+            true);
+        g.fire_cooldown = CBullet.COOLDOWN;
+        return;
+
+def SplitAsteroid(mut Game g, mut Asteroid a):
+    g.score += CAsteroid.SCORE[u32(a.size)];
+    if a.size != AsteroidSize.SMALL:
+        AsteroidSize next = switch a.size:
+            LARGE -> AsteroidSize.MEDIUM;
+            MEDIUM -> AsteroidSize.SMALL;
+            SMALL -> AsteroidSize.SMALL;
+        for _ in 0..CAsteroid.SPLIT_COUNT:
+            SpawnAsteroid(g, a.position, next);
+    a.active = false;
+
+def Update(mut Game g, f32 dt):
+    if g.state == GameState.GAME_OVER:
+        if rl.IsKeyPressed(rl.Key.ENTER): g = InitGame();
+        return;
+
+    if g.respawn_timer > 0.0:
+        g.respawn_timer -= dt;
+        if g.respawn_timer <= 0.0:
+            g.ship.position = CScreen.(WIDTH, HEIGHT) / 2;
+            g.ship.velocity = 0;
+            g.ship.rotation = 0;
+            g.ship.alive = true;
+            g.ship.invulnerable_timer = CGame.INVULNERABILITY_TIME;
+    else:
+        if rl.IsKeyDown(rl.Key.KEY_A) or rl.IsKeyDown(rl.Key.KEY_LEFT):
+            g.ship.rotation -= CShip.ROTATION_SPEED * dt;
+        if rl.IsKeyDown(rl.Key.KEY_D) or rl.IsKeyDown(rl.Key.KEY_RIGHT):
+            g.ship.rotation += CShip.ROTATION_SPEED * dt;
+
+        if rl.IsKeyDown(rl.Key.KEY_W) or rl.IsKeyDown(rl.Key.KEY_UP):
+            f32x2 facing = (math.sin(g.ship.rotation), -math.cos(g.ship.rotation));
+            g.ship.velocity += facing * (CShip.THRUST * dt);
+
+        if rl.IsKeyDown(rl.Key.KEY_SPACE):
+            FireBullet(g);
+
+        f32 speed = math.len(g.ship.velocity);
+        if speed > CShip.MAX_SPEED:
+            g.ship.velocity *= CShip.MAX_SPEED / speed;
+
+        const f32 dragFactor = CShip.DRAG ** dt;
+        g.ship.velocity *= dragFactor;
+
+        g.ship.position += g.ship.velocity * dt;
+        g.ship.position = WrapPosition(g.ship.position);
+
+    if g.fire_cooldown > 0.0:
+        g.fire_cooldown -= dt;
+
+    for (_, b) in g.bullets:
+        if not b.active: continue;
+        b.position += b.velocity * dt;
+        b.lifetime -= dt;
+        if b.lifetime <= 0.0 or b.position.x < 0 or b.position.x > CScreen.WIDTH or b.position.y < 0 or b.position.y > CScreen.HEIGHT:
+            b.active = false;
+
+    for (_, a) in g.asteroids:
+        if not a.active: continue;
+        a.position += a.velocity * dt;
+        a.position = WrapPosition(a.position);
+        a.rotation += a.rotation_speed * dt;
+
+    for (_, b) in g.bullets:
+        if not b.active: continue;
+        for (_, a) in g.asteroids:
+            if not a.active: continue;
+            if CircleCollide(b.position, CBullet.RADIUS, a.position, CAsteroid.RADIUS[u64(a.size)]):
+                b.active = false;
+                SplitAsteroid(g, a);
+                break;
+
+    if g.ship.alive and g.ship.invulnerable_timer <= 0.0:
+        for (_, a) in g.asteroids:
+            if not a.active: continue;
+            if CircleCollide(g.ship.position, CShip.COLLISION_RADIUS, a.position, CAsteroid.RADIUS[u64(a.size)]):
+                g.lives -= 1;
+                g.ship.alive = false;
+                if g.lives <= 0:
+                    g.state = GameState.GAME_OVER;
+                else:
+                    g.respawn_timer = CGame.RESPAWN_DELAY;
+                break;
+
+    if g.ship.invulnerable_timer > 0.0:
+        g.ship.invulnerable_timer -= dt;
+
+    bool anyAsteroids = false;
+    for (_, a) in g.asteroids:
+        if a.active: anyAsteroids = true; break;
+    if not anyAsteroids and g.state == GameState.PLAYING:
+        g.wave += 1;
+        SpawnWave(g);
+
+def DrawShip(Game g):
+    if not g.ship.alive: return;
+    if g.ship.invulnerable_timer > 0.0 and (i32(rl.GetTime() * 10.0) % 2 == 0): return;
+
+    f32x2 nose = g.ship.position + (
+        math.sin(g.ship.rotation) * CShip.SIZE,
+        -math.cos(g.ship.rotation) * CShip.SIZE
+        );
+    f32x2 left = g.ship.position + (
+        math.sin(g.ship.rotation + 2.5) * CShip.SIZE,
+        -math.cos(g.ship.rotation + 2.5) * CShip.SIZE
+        );
+    f32x2 right = g.ship.position + (
+        math.sin(g.ship.rotation - 2.5) * CShip.SIZE,
+        -math.cos(g.ship.rotation - 2.5) * CShip.SIZE
+        );
+
+    rl.DrawTriangleLines(nose, left, right, rl.Color.WHITE);
+
+def Draw(Game g):
+    rl.BeginDrawing();
+    rl.ClearBackground(rl.Color.BLACK);
+
+    DrawShip(g);
+
+    for (_, a) in g.asteroids:
+        if not a.active: continue;
+        rl.DrawCircleLines(i32(a.position.x), i32(a.position.y), CAsteroid.RADIUS[u64(a.size)], rl.Color.GRAY);
+
+    for (_, b) in g.bullets:
+        if not b.active: continue;
+        rl.DrawCircleV(b.position, CBullet.RADIUS, rl.Color.YELLOW);
+
+    rl.DrawText(rl.TextFormat("SCORE %d", g.score), 10, 10, 20, rl.Color.WHITE);
+    rl.DrawText(rl.TextFormat("LIVES %d", g.lives), 10, 34, 20, rl.Color.WHITE);
+    rl.DrawText(rl.TextFormat("WAVE %d", g.wave), 10, 58, 20, rl.Color.WHITE);
+
+    if g.state == GameState.GAME_OVER:
+        const str msg = "GAME OVER";
+        i32 w = rl.MeasureText(msg, 40);
+        rl.DrawText(msg, CScreen.WIDTH / 2 - w / 2, CScreen.HEIGHT / 2 - 40, 40, rl.Color.RED);
+        const str sub = "Press ENTER to restart";
+        i32 w2 = rl.MeasureText(sub, 20);
+        rl.DrawText(sub, CScreen.WIDTH / 2 - w2 / 2, CScreen.HEIGHT / 2 + 10, 20, rl.Color.WHITE);
+
+    rl.EndDrawing();
+
+def main():
+    rl.InitWindow(CScreen.WIDTH, CScreen.HEIGHT, "Asteroids - Flint");
+    rl.SetTargetFPS(60);
+
+    Game game = InitGame();
+
+    while not rl.WindowShouldClose():
+        f32 dt = rl.GetFrameTime();
+        Update(game, dt);
+        Draw(game);
+
+    rl.CloseWindow();

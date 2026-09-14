@@ -125,7 +125,8 @@ std::optional<Namespace *> Namespace::get_namespace_from_alias(const std::string
 std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
     const std::string &fn_name,                                       //
     const std::vector<std::shared_ptr<Type>> &arg_types,              //
-    const bool is_aliased                                             //
+    const bool is_aliased,                                            //
+    const std::vector<std::shared_ptr<Type>> &cvl                     //
 ) const {
     std::vector<FunctionNode *> available_functions;
 
@@ -144,7 +145,7 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
     }
 
     std::vector<FunctionNode *> found_functions;
-    // Filter functions based on name, parameter count, and type compatibility
+    // Filter functions based on name, parameter count, and either on whether they are generic or on type compatibility otherwise
     for (auto *fn : available_functions) {
         // Check if function name matches
         if (fn->name != fn_name) {
@@ -153,6 +154,15 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
 
         // Check if parameter count matches
         if (fn->parameters.size() != arg_types.size()) {
+            continue;
+        }
+
+        // Add all generic functions whose counts match up exactly
+        if (!cvl.empty()) {
+            if (fn->cpl.size() != cvl.size()) {
+                continue;
+            }
+            found_functions.emplace_back(fn);
             continue;
         }
 
@@ -184,6 +194,20 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
         if (all_params_match) {
             found_functions.emplace_back(fn);
         }
+    }
+    if (!cvl.empty()) {
+        if (found_functions.size() > 1) {
+            // Unable to resolve generic if two functions have the same number of comptime parameters and "real" parameters
+            // TODO: Make this an error at definition-side instead maybe?
+            THROW_BASIC_ERR(ERR_PARSING);
+            return {};
+        }
+
+        const auto &specialized = Specializer::specialize_function(found_functions.front(), cvl);
+        if (!specialized.has_value()) {
+            return {};
+        }
+        found_functions.front() = specialized.value();
     }
     return found_functions;
 }
@@ -236,6 +260,9 @@ std::optional<Namespace::TypeResult> Namespace::get_type(     //
     const auto &type = create_type(tokens, cpl);
     if (!type.has_value()) {
         return std::nullopt;
+    }
+    if (type.value().consumed_tokens == 0) {
+        return type;
     }
     if (type.value().type->get_variation() == Type::Variation::COMPTIME) {
         return type.value();
@@ -482,6 +509,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
+        if (base_type.value().consumed_tokens == 0) {
+            return base_type;
+        }
         if (base_type.value().consumed_tokens != static_cast<size_t>(std::distance(base_tokens.first, base_tokens.second))) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -500,6 +530,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
         if (!base_type.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
+        }
+        if (base_type.value().consumed_tokens == 0) {
+            return base_type;
         }
         if (base_type.value().consumed_tokens != static_cast<size_t>(std::distance(base_tokens.first, base_tokens.second))) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -566,6 +599,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
+                if (type.value().consumed_tokens == 0) {
+                    return type;
+                }
                 if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -601,6 +637,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
                 if (!type.has_value()) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
+                }
+                if (type.value().consumed_tokens == 0) {
+                    return type;
                 }
                 if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                     THROW_BASIC_ERR(ERR_PARSING);
@@ -740,6 +779,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
                     }
+                    if (type.value().consumed_tokens == 0) {
+                        return type;
+                    }
                     if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                         THROW_BASIC_ERR(ERR_PARSING);
                         return std::nullopt;
@@ -764,6 +806,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
+                if (type.value().consumed_tokens == 0) {
+                    return type;
+                }
                 if (type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
@@ -782,6 +827,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
             if (!type.has_value()) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
+            }
+            if (type.value().consumed_tokens == 0) {
+                return type;
             }
             if (type.value().consumed_tokens != static_cast<size_t>(std::distance(tokens_mut.first, tokens_mut.second))) {
                 THROW_BASIC_ERR(ERR_PARSING);
@@ -813,6 +861,9 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
             cvl.clear();
             break;
         }
+        if (type.value().consumed_tokens == 0) {
+            return type;
+        }
         if (type.value().type->get_variation() == Type::Variation::UNKNOWN) {
             cvl.clear();
             break;
@@ -822,6 +873,14 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
             break;
         }
         cvl.emplace_back(type.value().type);
+    }
+
+    if (base_type.value()->get_variation() == Type::Variation::UNKNOWN) {
+        const std::string &function_name = base_type.value()->as<UnknownType>()->type_str;
+        const auto functions = file_node->file_namespace->get_functions_with_name(function_name, false, false);
+        if (!functions.empty()) {
+            return TypeResult{.type = nullptr, .consumed_tokens = 0};
+        }
     }
 
     // We only try to specialize if the type list is non-empty

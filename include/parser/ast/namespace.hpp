@@ -139,11 +139,13 @@ class Namespace {
     /// @param `arg_types` The types of the arguments of the call
     /// @param `is_aliased` Whether the this namespace is the current file's namespace (for non-aliased calls the private functions are
     /// available too, but for aliased calls only publically available functions are visible)
+    /// @param `cvl` The applied comptime value list for generic function calls, regular call if list is empty
     /// @return `std::vector<FunctionNode *>` A simple list of all possible functions which would match the name and arg types
     [[nodiscard]] std::vector<FunctionNode *> get_functions_from_call_types( //
         const std::string &fn_name,                                          //
         const std::vector<std::shared_ptr<Type>> &arg_types,                 //
-        const bool is_aliased                                                //
+        const bool is_aliased,                                               //
+        const std::vector<std::shared_ptr<Type>> &cvl                        //
     ) const;
 
     /// @function `get_functions_with_name`

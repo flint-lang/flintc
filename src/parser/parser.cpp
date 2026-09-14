@@ -199,6 +199,7 @@ std::optional<FileNode *> Parser::parse() {
         return std::nullopt;
     }
     // Consume all tokens and convert them to nodes
+    Line::update_tokens(lines.value(), file_node_ptr->tokens.begin());
     bool had_failure = false;
     while (!lines.value().empty()) {
         if (!add_next_main_node(lines.value())) {
@@ -889,10 +890,14 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
         if (!field.initializer_tokens.has_value()) {
             continue;
         }
-        if (!parser.collapse_types_in_slice(field.initializer_tokens.value(), parser.file_node_ptr->tokens)) {
+        // Clone the initializer tokens out of the data's own token list. Collapsing them in place would delete tokens and thereby shift
+        // the stored initializer slices of all following fields
+        token_list initializer_tokens = clone_from_slice(field.initializer_tokens.value());
+        token_slice initializer_slice{initializer_tokens.begin(), initializer_tokens.end()};
+        if (!parser.collapse_types_in_slice(initializer_slice, initializer_tokens)) {
             return false;
         }
-        field.initializer = parser.create_expression(data_context, data_scope, field.initializer_tokens.value());
+        field.initializer = parser.create_expression(data_context, data_scope, initializer_slice);
         if (!field.initializer.has_value()) {
             return false;
         }
@@ -951,6 +956,9 @@ bool Parser::parse_all_open_data_components(const bool parse_parallel) {
 
 bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body) {
     PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
+    if (!parser.collapse_types_in_lines(body, object->tokens)) {
+        return false;
+    }
     auto &data_components = object->data_components;
     auto &func_components = object->func_components;
     std::unordered_map<std::string, std::shared_ptr<Type>> captured_object_identifiers;
@@ -1216,15 +1224,6 @@ bool Parser::parse_all_open_objects(const bool parse_parallel) {
     }
     Profiler::end_task("Collect all open objects");
 
-    // Go through all open objects and refine their body lines before the loop
-    Profiler::start_task("Refine object body lines");
-    for (auto &[parser, object, body] : open_objects) {
-        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
-            return false;
-        }
-    }
-    Profiler::end_task("Refine object body lines");
-
     bool result = true;
     if (parse_parallel) {
         // Enqueue tasks in the global thread pool
@@ -1260,6 +1259,9 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
             return false;
         }
         return true;
+    }
+    if (!parser.collapse_types_in_lines(body, function->tokens)) {
+        return false;
     }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
@@ -1303,18 +1305,6 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
         }
     }
     Profiler::end_task("Collect all open functions");
-
-    // Go through all open functions and refine their body lines before the loop
-    Profiler::start_task("Refine function body lines");
-    for (auto &[parser, function, body] : open_functions) {
-        if (function->visibility == FunctionNode::Visibility::EXTERN) {
-            continue;
-        }
-        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
-            return false;
-        }
-    }
-    Profiler::end_task("Refine function body lines");
 
     // Go through all open functions and call all values for the anonymous error set of that function
     Profiler::start_task("Create all anonymous error sets");
@@ -1381,6 +1371,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
 
 bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body) {
     PROFILE_SCOPE("Process Open Test '" + test->name + "'");
+    if (!parser.collapse_types_in_lines(body, test->tokens)) {
+        return false;
+    }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
@@ -1416,15 +1409,6 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         }
     }
     Profiler::end_task("Collect all open tests");
-
-    // Go through all open tests and refine their body lines before the loop
-    Profiler::start_task("Refine test body lines");
-    for (auto &[parser, test, body] : open_tests) {
-        if (!parser.collapse_types_in_lines(body, parser.file_node_ptr->tokens)) {
-            return false;
-        }
-    }
-    Profiler::end_task("Refine test body lines");
 
     bool result = true;
     if (parse_parallel) {

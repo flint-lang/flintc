@@ -766,6 +766,10 @@ bool Generator::generate_file_ir(             //
             if (function_node->name == "_main") {
                 continue;
             }
+            if (!function_node->cpl.empty()) {
+                // Skip generic functions
+                continue;
+            }
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
@@ -807,6 +811,9 @@ bool Generator::generate_file_ir(             //
             case DefinitionNode::Variation::FUNCTION: {
                 auto *function_node = node->as<FunctionNode>();
                 if ((is_test || libname.has_value()) && function_node->name == "_main") {
+                    continue;
+                }
+                if (!function_node->cpl.empty()) {
                     continue;
                 }
                 if (!Function::generate_function_body(function_node, file.imported_core_modules)) {

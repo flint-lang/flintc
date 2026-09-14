@@ -1,5 +1,6 @@
 #include "specializer/specializer.hpp"
 
+#include "error/error.hpp"
 #include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/interface_node.hpp"
@@ -7,6 +8,7 @@
 #include "parser/ast/definitions/variant_node.hpp"
 #include "parser/ast/file_node.hpp"
 #include "parser/ast/namespace.hpp"
+#include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/comptime_type.hpp"
@@ -138,6 +140,71 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
         }
     }
     return ns->get_type_from_ptr(result);
+}
+
+std::optional<FunctionNode *const> Specializer::specialize_function( //
+    const FunctionNode *const definition,                            //
+    const std::vector<std::shared_ptr<Type>> &cvl                    //
+) {
+    ASSERT(definition->cpl.size() == cvl.size());
+    for (const auto &param : definition->cpl) {
+        if (param.type->get_variation() != Type::Variation::TYPE) {
+            return std::nullopt;
+        }
+    }
+    if (!std::all_of(cvl.begin(), cvl.end(), &is_specializable)) {
+        // All types need to be specializable for functions, not being able to specialize simply is not allowed.
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+
+    const std::string definition_key = get_definition_string(definition, cvl, false);
+    specialization_map &map = specializations[definition_key];
+    const std::string specialization_key = get_definition_string(definition, cvl, true);
+    if (map.find(specialization_key) != map.end()) {
+        return static_cast<FunctionNode *>(map.at(specialization_key));
+    }
+
+    Namespace *const src_ns = definition->file_hash.get_namespace();
+    std::vector<FunctionNode::Parameter> parameters;
+    for (const auto &param : definition->parameters) {
+        const auto &new_type = specialize_type(src_ns, param.type, definition->cpl, cvl);
+        if (!new_type.has_value()) {
+            map.erase(specialization_key);
+            return std::nullopt;
+        }
+        parameters.emplace_back(new_type.value().second, param.name, param.is_mutable);
+    }
+    std::vector<std::shared_ptr<Type>> return_types = definition->return_types;
+    if (!specialize_type_list(src_ns, return_types, definition->cpl, cvl).has_value()) {
+        return std::nullopt;
+    }
+    std::vector<std::shared_ptr<Type>> error_types = definition->error_types;
+    std::optional<std::shared_ptr<Scope>> scope;
+    FunctionNode new_node(       //
+        definition->file_hash,   //
+        definition->line,        //
+        definition->column,      //
+        definition->length,      //
+        definition->annotations, //
+        definition->is_const,    //
+        definition->visibility,  //
+        specialization_key,      //
+        definition->cpl,         //
+        parameters,              //
+        return_types,            //
+        error_types,             //
+        scope,                   //
+        definition->mangle_id    //
+    );
+    const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_namespaces);
+    if (!added_fn.has_value()) {
+        return std::nullopt;
+    }
+    map[specialization_key] = added_fn.value();
+
+    UNREACHABLE();
+    return added_fn.value();
 }
 
 std::string Specializer::get_definition_string(    //

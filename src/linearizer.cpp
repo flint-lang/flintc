@@ -41,8 +41,12 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
         if (current_indent_lvl == 0 && ends_with_colon) {
             if (it->token == TOK_COLON) {
                 ++it;
-                token_slice current_line = {current_line_start, it};
-                physical_lines.emplace_back(current_indent_lvl, current_line);
+                physical_lines.emplace_back(Line{
+                    .indent_lvl = current_indent_lvl,
+                    .offset = 0,
+                    .len = 0,
+                    .tokens = {current_line_start, it},
+                });
                 if (it->token == TOK_EOL) [[likely]] {
                     ++it;
                 }
@@ -54,8 +58,12 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
             continue;
         }
         if (it->token == TOK_EOL) {
-            token_slice current_line = {current_line_start, it};
-            physical_lines.emplace_back(current_indent_lvl, current_line);
+            physical_lines.emplace_back(Line{
+                .indent_lvl = current_indent_lvl,
+                .offset = 0,
+                .len = 0,
+                .tokens = {current_line_start, it},
+            });
             ++it;
             current_line_start = it;
             current_indent_lvl = 0;
@@ -64,8 +72,12 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
             if (current_line_start == it) {
                 break;
             }
-            token_slice current_line = {current_line_start, it};
-            physical_lines.emplace_back(current_indent_lvl, current_line);
+            physical_lines.emplace_back(Line{
+                .indent_lvl = current_indent_lvl,
+                .offset = 0,
+                .len = 0,
+                .tokens = {current_line_start, it},
+            });
             break;
         }
         ++it;
@@ -151,13 +163,17 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
 
         if (mode == BodyMode::STATEMENT || line->indent_lvl > 1) {
             // We iterate through all tokens within the logical line
-            size_t indentation_offset = 0;
+            unsigned int indentation_offset = 0;
             while (line_end != line->tokens.second) {
                 const bool is_colon = line_end->token == TOK_COLON;
                 if (line_end->token == TOK_SEMICOLON || is_colon) {
                     ++line_end;
-                    const token_slice logical_line = {line_start, line_end};
-                    logical_lines.emplace_back(line->indent_lvl + indentation_offset, logical_line);
+                    logical_lines.emplace_back(Line{
+                        .indent_lvl = line->indent_lvl + indentation_offset,
+                        .offset = 0,
+                        .len = 0,
+                        .tokens = {line_start, line_end},
+                    });
                     line_start = line_end;
                     if (is_colon) {
                         indentation_offset++;
@@ -198,7 +214,12 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
                         ++line_end;
                     }
                     ++line_end;
-                    logical_lines.emplace_back(line->indent_lvl, token_slice{line_start, line_end});
+                    logical_lines.emplace_back(Line{
+                        .indent_lvl = line->indent_lvl,
+                        .offset = 0,
+                        .len = 0,
+                        .tokens = {line_start, line_end},
+                    });
                     if (line_end->token == TOK_EOL) {
                         ++line;
                         line_end = line->tokens.first;
@@ -220,7 +241,12 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
                         ++line_end;
                     }
                     ++line_end;
-                    logical_lines.emplace_back(line->indent_lvl, token_slice{line_start, line_end});
+                    logical_lines.emplace_back(Line{
+                        .indent_lvl = line->indent_lvl,
+                        .offset = 0,
+                        .len = 0,
+                        .tokens = {line_start, line_end},
+                    });
                     if (line_end->token == TOK_EOL) {
                         ++line;
                         line_end = line->tokens.first;
@@ -271,7 +297,7 @@ void Linearizer::remove_indent_eol_tokens(token_list &source, std::vector<Line> 
 
     // Mark every INDENT/EOL token which lies inside of one of the logical lines
     std::vector<bool> to_delete(source.size(), false);
-    for (const auto &line : lines) {
+    for (auto &line : lines) {
         for (auto it = line.tokens.first; it != line.tokens.second; ++it) {
             if (it->token == TOK_INDENT || it->token == TOK_EOL) {
                 to_delete[static_cast<std::size_t>(it - source.begin())] = true;
@@ -300,6 +326,14 @@ void Linearizer::remove_indent_eol_tokens(token_list &source, std::vector<Line> 
     for (auto &line : lines) {
         line.tokens.first = source.begin() + new_index[static_cast<std::size_t>(line.tokens.first - source.begin())];
         line.tokens.second = source.begin() + new_index[static_cast<std::size_t>(line.tokens.second - source.begin())];
+    }
+
+    // Compute the offsets and lengths of each line
+    for (size_t i = 0; i < lines.size(); ++i) {
+        lines[i].offset = i == 0                                   //
+            ? std::distance(source.begin(), lines[i].tokens.first) //
+            : std::distance(lines[i - 1].tokens.second, lines[i].tokens.first);
+        lines[i].len = std::distance(lines[i].tokens.first, lines[i].tokens.second);
     }
 
     // Drop the moved-from tail. `TokenContext` is not default-constructible, so `resize` cannot be used here.

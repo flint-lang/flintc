@@ -84,6 +84,14 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
         }
     }
 
+    // Every definition owns the tokens of its body. Clone the body's token span out of the files token list into a list which the
+    // definition will own, and re-base its body lines into that list. The definition header stays a plain slice into the file list, since
+    // nothing mutates it anymore after this pass
+    token_list definition_tokens_list;
+    if (!body_lines.empty()) {
+        body_lines.front().offset = 0;
+    }
+
     switch (pattern.value()) {
         case DefTrie::Pattern::ANNOTATION:
             return add_annotation(definition_tokens);
@@ -212,6 +220,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!function_node.has_value()) {
                 return false;
             }
+            function_node.value().tokens = partition_body(body_lines, body_lines.front().tokens.first);
             std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
             if (!added_function.has_value()) {
                 return false;
@@ -224,6 +233,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!test_node.has_value()) {
                 return false;
             }
+            test_node.value().tokens = partition_body(body_lines, body_lines.front().tokens.first);
             TestNode *added_test = file_node_ptr->add_test(test_node.value());
             add_open_test({added_test, body_lines});
             add_parsed_test(added_test, file_name);
@@ -268,6 +278,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!object_node.has_value()) {
                 return false;
             }
+            object_node.value().tokens = partition_body(body_lines, body_lines.front().tokens.first);
             std::optional<ObjectNode *> added_object = file_node_ptr->add_object(object_node.value());
             if (!added_object.has_value()) {
                 return false;
@@ -319,110 +330,186 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
     return true;
 }
 
+token_list Parser::partition_body(std::vector<Line> &body_lines, const token_list::iterator start) {
+    PROFILE_CUMULATIVE("Parser::partition_body");
+    ASSERT(!body_lines.empty());
+    size_t size = 0;
+    for (const auto &line : body_lines) {
+        size += line.offset;
+        size += line.len;
+    }
+    return clone_from_slice(token_slice{start, start + size});
+}
+
 bool Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
-    ASSERT_ST
-    for (auto it = slice.first; it != slice.second;) {
+    PROFILE_CUMULATIVE("Parser::collapse_types_in_slice");
+    const std::size_t region_start = static_cast<std::size_t>(std::distance(source.begin(), slice.first));
+    std::size_t region_len = static_cast<std::size_t>(std::distance(slice.first, slice.second));
+    if (!collapse_types_in_region(source, region_start, region_len)) {
+        return false;
+    }
+    // The deletions shift the absolute positions of the slice's end, recompute it
+    slice.first = source.begin() + static_cast<std::ptrdiff_t>(region_start);
+    slice.second = source.begin() + static_cast<std::ptrdiff_t>(region_start + region_len);
+    return true;
+}
+
+bool Parser::collapse_types_in_region(token_list &source, const std::size_t region_start, std::size_t &region_len) {
+    PROFILE_CUMULATIVE("Parser::collapse_types_in_region");
+    ASSERT(region_start + region_len <= source.size());
+    std::size_t i = 0;
+    while (i < region_len) {
         // Erase all indentations within a line, which are not at the beginning of a line
-        if (it->token == TOK_INDENT) {
-            Line::delete_tokens(source, it, 1);
+        if (source[region_start + i].token == TOK_INDENT) {
+            source.erase(source.begin() + region_start + i, source.begin() + region_start + i + 1);
+            region_len--;
             continue;
         }
         // Check if the next token will definitely be not the begin of a type, like commas or a lot of other tokens. In that case no
         // expensive matching logic needs to be run, so we can safely skip that token entirely
-        if (it->token != TOK_TYPE && it->token != TOK_DATA && it->token != TOK_VARIANT && it->token != TOK_FN &&
-            it->token != TOK_IDENTIFIER) {
-            ++it;
+        const Token cursor_token = source[region_start + i].token;
+        if (cursor_token != TOK_TYPE && cursor_token != TOK_DATA && cursor_token != TOK_VARIANT && cursor_token != TOK_FN &&
+            cursor_token != TOK_IDENTIFIER) {
+            ++i;
             continue;
         }
         // Collapse the whole alias chain to a single alias or to a single type
         Namespace *alias_namespace = file_node_ptr->file_namespace.get();
         // First check if the next token is an identifier and if it's a known import alias
-        if (it->token == TOK_IDENTIFIER && alias_namespace->get_namespace_from_alias(std::string(it->lexme)).has_value()) {
-            alias_namespace = alias_namespace->get_namespace_from_alias(std::string(it->lexme)).value();
-            *it = TokenContext(TOK_ALIAS, it->line, it->column, it->file_id, alias_namespace);
-            while (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+        if (cursor_token == TOK_IDENTIFIER &&
+            alias_namespace->get_namespace_from_alias(std::string(source[region_start + i].lexme)).has_value()) {
+            alias_namespace = alias_namespace->get_namespace_from_alias(std::string(source[region_start + i].lexme)).value();
+            source[region_start + i] = TokenContext( //
+                TOK_ALIAS,                           //
+                source[region_start + i].line,       //
+                source[region_start + i].column,     //
+                source[region_start + i].file_id,    //
+                alias_namespace                      //
+            );
+            while (i + 1 < region_len                                   //
+                && source[region_start + i + 1].token == TOK_DOT        //
+                && i + 2 < region_len                                   //
+                && source[region_start + i + 2].token == TOK_IDENTIFIER //
+            ) {
                 // Check if the next two tokens are another alias, for example in the expression `a.b.call()` we collapse the alias
                 // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` instead it will collapse to a single
                 // `Type` instead, since we know which exact type from which file it targets
                 std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias( //
-                    std::string((it + 2)->lexme)                                                             //
+                    std::string(source[region_start + i + 2].lexme)                                          //
                 );
                 if (next_alias_namespace.has_value()) {
-                    it->alias_namespace = next_alias_namespace.value();
+                    source[region_start + i].alias_namespace = next_alias_namespace.value();
                     alias_namespace = next_alias_namespace.value();
                     // Delete the `.b` since we changed the import of `a` to point to the `b` namespace directly
-                    Line::delete_tokens(source, it + 1, 2);
+                    source.erase(source.begin() + region_start + i + 1, source.begin() + region_start + i + 3);
+                    region_len -= 2;
                 } else {
                     break;
                 }
             }
             // Check if it's an imported type from another namespaces. Types from other namespaces will *always* only be an
             // `alias.identifier`, they can never be anything else since otherwise they would not be exportable.
-            if (std::next(it)->token == TOK_DOT && (it + 2)->token == TOK_IDENTIFIER) {
+            if (i + 1 < region_len                                      //
+                && source[region_start + i + 1].token == TOK_DOT        //
+                && i + 2 < region_len                                   //
+                && source[region_start + i + 2].token == TOK_IDENTIFIER //
+            ) {
                 // Check if the type exists in the imported aliased namespace
-                auto imported_type = alias_namespace->get_type_from_str(std::string((it + 2)->lexme));
+                auto imported_type = alias_namespace->get_type_from_str(std::string(source[region_start + i + 2].lexme));
                 if (imported_type.has_value()) {
-                    *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, imported_type.value());
-                    Line::delete_tokens(source, it + 1, 2);
+                    source[region_start + i] = TokenContext( //
+                        TOK_TYPE,                            //
+                        source[region_start + i].line,       //
+                        source[region_start + i].column,     //
+                        source[region_start + i].file_id,    //
+                        imported_type.value()                //
+                    );
+                    source.erase(source.begin() + region_start + i + 1, source.begin() + region_start + i + 3);
+                    region_len -= 2;
                 }
             }
-            ++it;
+            ++i;
             continue;
         }
         // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
-        if (Matcher::tokens_start_with(token_slice{it, slice.second}, Matcher::type)) {
+        const token_slice region_slice{source.begin() + region_start + i, source.begin() + region_start + region_len};
+        if (Matcher::tokens_start_with(region_slice, Matcher::type)) {
             // It's a type token
-            std::optional<uint2> type_range = Matcher::get_next_match_range(token_slice{it, slice.second}, Matcher::type);
+            std::optional<uint2> type_range = Matcher::get_next_match_range(region_slice, Matcher::type);
             ASSERT(type_range.has_value());
             ASSERT(type_range.value().first == 0);
             if (type_range.value().second == 1) {
                 // It's a primitive / simple type. Such types definitely need to exist already, so if it does not exists it's a regular
                 // identifier. And if this token is already a type it means its a primitive type, so we can skip it as well
-                if (it->token != TOK_TYPE) {
+                if (source[region_start + i].token != TOK_TYPE) {
                     // Types of size 1 always need to be an identifier if they are not already a type (primitives)
-                    ASSERT(it->token == TOK_IDENTIFIER);
+                    ASSERT(source[region_start + i].token == TOK_IDENTIFIER);
                     std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
-                        std::string(it->lexme)                                                                    //
+                        std::string(source[region_start + i].lexme)                                               //
                     );
                     if (type.has_value()) {
-                        *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value());
+                        source[region_start + i] = TokenContext( //
+                            TOK_TYPE,                            //
+                            source[region_start + i].line,       //
+                            source[region_start + i].column,     //
+                            source[region_start + i].file_id,    //
+                            type.value()                         //
+                        );
                     }
                 }
-            } else if (                                                                                 //
-                it->token != TOK_IDENTIFIER                                                             //
-                || file_node_ptr->file_namespace->get_type_from_str(std::string(it->lexme)).has_value() //
+            } else if (                                                                                                      //
+                source[region_start + i].token != TOK_IDENTIFIER                                                             //
+                || file_node_ptr->file_namespace->get_type_from_str(std::string(source[region_start + i].lexme)).has_value() //
             ) {
                 // If its a bigger type and it starts with an identifier, the identifier itself must be a known type already. If the
                 // identifier is not a known type, this is an edge case like `i < 5 and x > 2` where `i<5 and x>` is interpreted as
                 // `T<..>`. So, `T` must be a known type in this case, otherwise the whole thing is no type. *or* it has to be a
                 // keyword, like `data` or `variant`. But when it's a keywords it's no identifier annyway.
-                const token_slice type_tokens{it, it + type_range.value().second};
+                const token_slice type_tokens{
+                    source.begin() + region_start + i,
+                    source.begin() + region_start + i + type_range.value().second,
+                };
                 const auto &type = file_node_ptr->file_namespace->get_type(type_tokens, {});
                 if (!type.has_value()) {
                     THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                     return false;
                 }
                 // Change this token to be a type token
-                *it = TokenContext(TOK_TYPE, it->line, it->column, it->file_id, type.value().type);
+                if (type.value().consumed_tokens > 0) {
+                    source[region_start + i] = TokenContext( //
+                        TOK_TYPE,                            //
+                        source[region_start + i].line,       //
+                        source[region_start + i].column,     //
+                        source[region_start + i].file_id,    //
+                        type.value().type                    //
+                    );
+                }
                 // Erase all the following type tokens from the tokens list
-                Line::delete_tokens(source, it + 1, type.value().consumed_tokens - 1);
+                if (type.value().consumed_tokens > 1) {
+                    source.erase(source.begin() + region_start + i + 1, source.begin() + region_start + i + type.value().consumed_tokens);
+                    region_len -= type.value().consumed_tokens - 1;
+                }
             }
         }
-        ++it;
+        ++i;
     }
     return true;
 }
 
 bool Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
     PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
-    for (auto line : lines) {
-        if (!collapse_types_in_slice(line.tokens, source)) {
+    std::size_t pos = 0;
+    for (auto &line : lines) {
+        pos += line.offset;
+        if (!collapse_types_in_region(source, pos, line.len)) {
             return false;
         }
+        pos += line.len;
     }
+    Line::update_tokens(lines, source.begin());
 
     // Substitute all types aliases
-    for (auto line : lines) {
+    for (auto &line : lines) {
         for (auto it = line.tokens.first; it != line.tokens.second; ++it) {
             if (it->token == TOK_TYPE) {
                 substitute_type_aliases(it->type);
@@ -647,6 +734,48 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         ? tokens.first->type->to_string() + "." + std::string(tok->lexme) //
         : std::string(tok->lexme);
 
+    tok++;
+    std::vector<std::shared_ptr<Type>> cvl;
+    if (tok->token == TOK_LEFT_BRACKET) {
+        const auto &bracket_range = Matcher::get_next_match_range(                     //
+            {std::next(tok), tokens.second - 1}, Matcher::continue_until_right_bracket //
+        );
+        if (!bracket_range.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(bracket_range.value().first == 0);
+        tok++;
+        token_slice bracket_tokens = {tok, tok + bracket_range.value().second};
+        ASSERT(std::prev(bracket_tokens.second)->token == TOK_RIGHT_BRACKET);
+        std::vector<DefinitionNode::ComptimeParameter> cpl;
+        while (bracket_tokens.first != bracket_tokens.second) {
+            std::optional<uint2> next_range = Matcher::get_next_match_range(bracket_tokens, Matcher::until_comma);
+            if (!next_range.has_value()) {
+                next_range = {0, std::distance(bracket_tokens.first, bracket_tokens.second)};
+            }
+            ASSERT(next_range.value().first == 0);
+            if (next_range.value().second <= 1) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second - 1};
+            const std::optional<Namespace::TypeResult> comptime_value = file_node_ptr->file_namespace->get_type(type_tokens, {});
+            if (!comptime_value.has_value()) {
+                THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
+                return std::nullopt;
+            }
+            if (comptime_value.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                // Not the full type was consumed, error
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            cvl.emplace_back(comptime_value.value().type);
+            bracket_tokens.first += next_range.value().second;
+        }
+        tok += 1 + bracket_range.value().second;
+    }
+
     // Get the function from it's name and the argument types
     // It's not a builtin call, so we need to get the function from it's name
     const bool is_aliased = call_namespace->namespace_hash.to_string() != file_node_ptr->file_namespace->namespace_hash.to_string();
@@ -738,7 +867,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         }
         instance_variable = std::move(variable_node.value());
     } else {
-        auto fns = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased);
+        auto fns = call_namespace->get_functions_from_call_types(function_name, argument_types, is_aliased, cvl);
         for (FunctionNode *fn : fns) {
             functions.emplace_back(fn, 0);
         }

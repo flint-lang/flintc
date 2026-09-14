@@ -17,7 +17,7 @@ std::optional<std::vector<DefinitionNode::ComptimeParameter>> Parser::create_cpl
     PROFILE_CUMULATIVE("Parser::create_cpl");
     ASSERT(tokens.first->token == TOK_LEFT_BRACKET);
     tokens.first++;
-    assert(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
     std::vector<DefinitionNode::ComptimeParameter> cpl;
     while (tokens.first != tokens.second) {
         std::optional<uint2> next_range = Matcher::get_next_match_range(tokens, Matcher::until_comma);
@@ -38,6 +38,13 @@ std::optional<std::vector<DefinitionNode::ComptimeParameter>> Parser::create_cpl
             return std::nullopt;
         }
         const std::string param_name(type_tokens.second->lexme);
+        for (const auto &param : cpl) {
+            if (param.name == param_name) {
+                // Duplicate comptime parameter
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
         // TODO: Pass-in the currently built CPL to allow something like `[type T, T[] ARR]` as valid comptime parameters?
         const std::optional<Namespace::TypeResult> param_type = file_node_ptr->file_namespace->get_type(type_tokens, {});
         if (!param_type.has_value()) {
@@ -68,24 +75,34 @@ std::optional<FunctionNode> Parser::create_function(                            
     bool is_extern = false;
     bool is_export = false;
 
-    auto tok_it = definition.first;
+    auto def_it = definition.first;
     // Parse everything before the parameters
     bool def_missing = true;
-    while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_LEFT_PAREN) {
-        if (tok_it->token == TOK_CONST) {
+    while (def_it != definition.second && std::next(def_it) != definition.second) {
+        if (def_it->token == TOK_CONST) {
             is_const = true;
         }
-        if (tok_it->token == TOK_EXTERN) {
+        if (def_it->token == TOK_EXTERN) {
             is_extern = true;
         }
-        if (tok_it->token == TOK_EXPORT) {
+        if (def_it->token == TOK_EXPORT) {
             is_export = true;
         }
-        if (tok_it->token == TOK_DEF) {
-            name = std::next(tok_it)->lexme;
+        if (def_it->token == TOK_DEF) {
+            def_it++;
+            if (def_it->token != TOK_IDENTIFIER) {
+                THROW_ERR(                                                                        //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash, def_it->line, def_it->column, //
+                    std::vector<Token>{TOK_IDENTIFIER}, def_it->token                             //
+                );
+                return std::nullopt;
+            }
+            name = def_it->lexme;
             def_missing = false;
+            def_it++;
+            break;
         }
-        tok_it++;
+        def_it++;
     }
     if (is_extern && is_export) {
         // A function cannot be extern and export at the same time
@@ -96,7 +113,7 @@ std::optional<FunctionNode> Parser::create_function(                            
         THROW_ERR(ErrFnDefMissing, ERR_PARSING, file_hash, definition);
         return std::nullopt;
     }
-    ASSERT(tok_it != definition.second);
+    ASSERT(def_it != definition.second);
     // Add implicit required data parameters with mutability based on is_const
     if (required_data.has_value()) {
         for (auto &data_param : required_data.value().second) {
@@ -109,49 +126,78 @@ std::optional<FunctionNode> Parser::create_function(                            
     }
     // Check if the name is reserved
     if (name == "_main") {
-        token_slice err_tokens = {std::prev(tok_it), definition.second};
+        token_slice err_tokens = {std::prev(def_it), definition.second};
         THROW_ERR(ErrFnReservedName, ERR_PARSING, file_hash, err_tokens, name);
         return std::nullopt;
     } else if (name == "main" && main_function.load() != nullptr) {
         // Redefinition of the main function
-        token_slice err_tokens = {std::prev(tok_it), definition.second};
+        token_slice err_tokens = {std::prev(def_it), definition.second};
         THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens, main_function.load());
         return std::nullopt;
     }
+
+    // Parse the CPL, if present
+    if (def_it->token == TOK_LEFT_BRACKET) {
+        if (is_extern) {
+            // 'extern' functions cannot be generic
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        if (is_export) {
+            // 'export'ed functions cannot be generic
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        const auto &bracket_range = Matcher::get_next_match_range(                            //
+            {std::next(def_it), definition.second - 1}, Matcher::continue_until_right_bracket //
+        );
+        if (!bracket_range.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(bracket_range.value().first == 0);
+        const auto &cpl_maybe = create_cpl({def_it, def_it + 1 + bracket_range.value().second});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
+        def_it += 1 + bracket_range.value().second;
+    }
+
     // Skip the left paren
-    tok_it++;
-    const auto arg_start_it = tok_it;
+    def_it++;
+    const auto arg_start_it = def_it;
     // Parse the parameters only if there are any parameters
-    if (tok_it->token != TOK_RIGHT_PAREN) {
+    if (def_it->token != TOK_RIGHT_PAREN) {
         // Set the last_param_begin to + 1 to skip the left paren
-        token_list::iterator last_param_begin = tok_it;
+        token_list::iterator last_param_begin = def_it;
         unsigned int depth = 0;
-        while (tok_it != definition.second && std::next(tok_it) != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
-            if (tok_it->token == TOK_LESS || tok_it->token == TOK_LEFT_BRACKET) {
+        while (def_it != definition.second && std::next(def_it) != definition.second && def_it->token != TOK_RIGHT_PAREN) {
+            if (def_it->token == TOK_LESS || def_it->token == TOK_LEFT_BRACKET) {
                 depth++;
-                tok_it++;
+                def_it++;
                 continue;
-            } else if (tok_it->token == TOK_GREATER || tok_it->token == TOK_RIGHT_BRACKET) {
+            } else if (def_it->token == TOK_GREATER || def_it->token == TOK_RIGHT_BRACKET) {
                 depth--;
-                tok_it++;
+                def_it++;
                 continue;
             }
-            if (depth == 0 && (std::next(tok_it)->token == TOK_COMMA || std::next(tok_it)->token == TOK_RIGHT_PAREN)) {
+            if (depth == 0 && (std::next(def_it)->token == TOK_COMMA || std::next(def_it)->token == TOK_RIGHT_PAREN)) {
                 // The current token is the parameter name
-                const std::string param_name(tok_it->lexme);
+                const std::string param_name(def_it->lexme);
                 if (required_data.has_value()) {
                     // Check if there are any overlaps with required data
                     for (const auto &required_data_value : required_data.value().second) {
                         if (required_data_value.accessor_name == param_name) {
                             THROW_ERR(                                                                                                  //
-                                ErrFnParamShadowsRequiredData, ERR_PARSING, file_hash, token_slice{last_param_begin, std::next(tok_it)} //
+                                ErrFnParamShadowsRequiredData, ERR_PARSING, file_hash, token_slice{last_param_begin, std::next(def_it)} //
                             );
                             return std::nullopt;
                         }
                     }
                 }
                 // The type is everything from the last param begin
-                token_slice type_tokens = {last_param_begin, tok_it};
+                token_slice type_tokens = {last_param_begin, def_it};
                 bool is_mutable = false;
                 if (type_tokens.first->token == TOK_CONST) {
                     type_tokens.first++;
@@ -164,7 +210,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                     return std::nullopt;
                 }
                 if (param_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
-                    THROW_BASIC_ERR(ERR_PARSING);
+                    THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                     return std::nullopt;
                 }
                 parameters.emplace_back(FunctionNode::Parameter{
@@ -172,28 +218,28 @@ std::optional<FunctionNode> Parser::create_function(                            
                     .name = param_name,
                     .is_mutable = is_mutable,
                 });
-                last_param_begin = tok_it + 2;
+                last_param_begin = def_it + 2;
             }
-            tok_it++;
+            def_it++;
         }
-        ASSERT(tok_it != definition.second);
+        ASSERT(def_it != definition.second);
     }
-    const auto arg_end_it = tok_it;
+    const auto arg_end_it = def_it;
     // Skip the right paren
-    tok_it++;
+    def_it++;
 
     // Now the token should be an arrow, if not there are no return values
-    auto ret_start_it = tok_it;
-    if (tok_it->token == TOK_ARROW) {
-        tok_it++;
+    auto ret_start_it = def_it;
+    if (def_it->token == TOK_ARROW) {
+        def_it++;
         ret_start_it++;
-        ASSERT(tok_it != definition.second);
-        if (tok_it->token != TOK_LEFT_PAREN) {
+        ASSERT(def_it != definition.second);
+        if (def_it->token != TOK_LEFT_PAREN) {
             // There is only a single return type, so everything until the colon is considere the return type
-            std::optional<uint2> type_range = Matcher::get_next_match_range({tok_it, definition.second}, Matcher::type);
+            std::optional<uint2> type_range = Matcher::get_next_match_range({def_it, definition.second}, Matcher::type);
             ASSERT(type_range.has_value());
             ASSERT(type_range.value().first == 0);
-            token_slice type_tokens = {tok_it, tok_it + type_range.value().second};
+            token_slice type_tokens = {def_it, def_it + type_range.value().second};
             const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
             if (!return_type.has_value()) {
                 return std::nullopt;
@@ -207,25 +253,25 @@ std::optional<FunctionNode> Parser::create_function(                            
                 return std::nullopt;
             }
             return_types.emplace_back(return_type.value().type);
-            tok_it = type_tokens.second;
+            def_it = type_tokens.second;
         } else {
             // Skip the left paren
-            tok_it++;
+            def_it++;
             // Parse the return types
-            token_list::iterator last_type_begin = tok_it;
+            token_list::iterator last_type_begin = def_it;
             unsigned int depth = 0;
-            while (tok_it != definition.second) {
-                if (tok_it->token == TOK_LESS || tok_it->token == TOK_LEFT_BRACKET) {
+            while (def_it != definition.second) {
+                if (def_it->token == TOK_LESS || def_it->token == TOK_LEFT_BRACKET) {
                     depth++;
-                    tok_it++;
+                    def_it++;
                     continue;
-                } else if (tok_it->token == TOK_GREATER || tok_it->token == TOK_RIGHT_BRACKET) {
+                } else if (def_it->token == TOK_GREATER || def_it->token == TOK_RIGHT_BRACKET) {
                     depth--;
-                    tok_it++;
+                    def_it++;
                     continue;
-                } else if (depth == 0 && (tok_it->token == TOK_COMMA || tok_it->token == TOK_RIGHT_PAREN)) {
+                } else if (depth == 0 && (def_it->token == TOK_COMMA || def_it->token == TOK_RIGHT_PAREN)) {
                     // The type is everything from the last param begin
-                    token_slice type_tokens = {last_type_begin, tok_it};
+                    token_slice type_tokens = {last_type_begin, def_it};
                     const auto return_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
                     if (!return_type.has_value()) {
                         return std::nullopt;
@@ -235,47 +281,47 @@ std::optional<FunctionNode> Parser::create_function(                            
                         return std::nullopt;
                     }
                     return_types.emplace_back(return_type.value().type);
-                    last_type_begin = tok_it + 1;
-                    if (tok_it->token == TOK_RIGHT_PAREN) {
+                    last_type_begin = def_it + 1;
+                    if (def_it->token == TOK_RIGHT_PAREN) {
                         break;
                     }
                 }
-                tok_it++;
+                def_it++;
             }
             // Skip the right paren
-            tok_it++;
+            def_it++;
         }
     }
 
     // Check if a curly brace follows, if it does then the error types follow
     std::vector<std::shared_ptr<Type>> error_types;
     error_types.emplace_back(Type::get_primitive_type("anyerror"));
-    const auto brace_start_it = tok_it;
-    if (tok_it->token == TOK_LEFT_BRACE) {
-        tok_it++;
-        while (tok_it->token != TOK_RIGHT_BRACE) {
-            const auto &err_type = file_node_ptr->file_namespace->get_type(token_slice{tok_it, tok_it + 1}, cpl);
+    const auto brace_start_it = def_it;
+    if (def_it->token == TOK_LEFT_BRACE) {
+        def_it++;
+        while (def_it->token != TOK_RIGHT_BRACE) {
+            const auto &err_type = file_node_ptr->file_namespace->get_type(token_slice{def_it, def_it + 1}, cpl);
             if (!err_type.has_value()) {
                 return std::nullopt;
             }
             ASSERT(err_type.value().consumed_tokens == 1);
             error_types.emplace_back(err_type.value().type);
-            const bool is_last = std::next(tok_it)->token == TOK_RIGHT_BRACE;
-            tok_it += 2;
+            const bool is_last = std::next(def_it)->token == TOK_RIGHT_BRACE;
+            def_it += 2;
             if (is_last) {
                 break;
             }
         }
     }
     // Check if a body should follow (`:`) or if it's just a function declaration (`;`)
-    if (tok_it->token != TOK_COLON && tok_it->token != TOK_SEMICOLON) {
+    if (def_it->token != TOK_COLON && def_it->token != TOK_SEMICOLON) {
         THROW_ERR(                                                                        //
-            ErrParsUnexpectedToken, ERR_PARSING, file_hash, tok_it->line, tok_it->column, //
-            std::vector<Token>{TOK_COLON, TOK_SEMICOLON}, tok_it->token                   //
+            ErrParsUnexpectedToken, ERR_PARSING, file_hash, def_it->line, def_it->column, //
+            std::vector<Token>{TOK_COLON, TOK_SEMICOLON}, def_it->token                   //
         );
         return std::nullopt;
     }
-    const bool is_declaration = tok_it->token == TOK_SEMICOLON;
+    const bool is_declaration = def_it->token == TOK_SEMICOLON;
 
     // If its the main function, change its name
     if (name == "main") {
@@ -637,6 +683,8 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             THROW_ERR(ErrDefFuncContansVirtualFunction, ERR_PARSING, file_hash, function_definition_line.tokens);
             return std::nullopt;
         }
+        function_body_lines.front().offset = 0;
+        added_function.value()->tokens = partition_body(function_body_lines, function_body_lines.front().tokens.first);
         add_open_function({added_function.value(), function_body_lines});
         functions.emplace_back(added_function.value());
     }
@@ -858,6 +906,8 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
         if (!added_function.has_value()) {
             return std::nullopt;
         }
+        body_lines.front().offset = 0;
+        added_function.value()->tokens = partition_body(body_lines, body_lines.front().tokens.first);
         add_open_function({added_function.value(), body_lines});
         functions.emplace_back(added_function.value());
     }

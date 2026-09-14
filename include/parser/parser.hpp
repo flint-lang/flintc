@@ -686,6 +686,14 @@ class Parser {
     /// @return `bool` Whether the next main node was added correctly. Returns false if there was an error
     bool add_next_main_node(std::vector<Line> &lines);
 
+    /// @function `partition_body`
+    /// @brief Clones the contiguous token span of the given body lines into a new token list
+    ///
+    /// @param `body_lines` The body lines to adopt
+    /// @param `start` The iterator in the source token list from which the cloned slice is returned
+    /// @return `token_list` The cloned token list containing the body's tokens
+    [[nodiscard]] static token_list partition_body(std::vector<Line> &body_lines, const token_list::iterator start);
+
     /// @function `collapse_types_in_slice`
     /// @brief Collapses all types found within a given source slice
     ///
@@ -694,9 +702,20 @@ class Parser {
     /// @return `bool` Whether collapsing the types was successfull
     [[nodiscard]] bool collapse_types_in_slice(token_slice &slice, token_list &source);
 
+    /// @function `collapse_types_in_region`
+    /// @brief Collapses all types found within a contiguous region of the source, addressed by a start index and a length. Deletions
+    /// always stay inside the region, `region_len` shrinks accordingly and no stored iterator is ever used after a deletion
+    ///
+    /// @param `source` The source token list in which to collapse the types, it gets modified by the deletions
+    /// @param `region_start` The index at which the region starts
+    /// @param `region_len` The current length of the region, gets shrunk by every deletion
+    /// @return `bool` Whether collapsing the types was successfull
+    [[nodiscard]] bool collapse_types_in_region(token_list &source, const std::size_t region_start, std::size_t &region_len);
+
     /// @function `collapse_types_in_lines`
     /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
-    /// single type token instead. When deleting tokens from the source, all other Lines' ranges are updated automatically
+    /// single type token instead. The lines address their owner list via relative `offset`/`len` pairs, so deleting tokens from one line
+    /// never invalidates the positions of the following lines
     ///
     /// @param `lines` The lines to refine
     /// @param `source` A reference to the source token vector directly to enable direct modification

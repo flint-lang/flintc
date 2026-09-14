@@ -43,6 +43,11 @@ class DefinitionNode : public ASTNode {
     /// @brief The comptime parameter list of this definition node, for example `[type T, int N]`
     std::vector<ComptimeParameter> cpl;
 
+    /// @var `tokens`
+    /// @brief The tokens of this definition's body which the definition owns. Each definition copies the token span of its body out of
+    /// the file's token list into this list, so type-collapsing can mutate them freely without invalidating any other definition slices
+    token_list tokens;
+
     /// @function `contains_annotation`
     /// @brief Checks whether this definition contains the given annotation kind
     ///

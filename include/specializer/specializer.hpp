@@ -26,6 +26,17 @@ class Specializer {
         std::vector<std::shared_ptr<Type>> cvl                            //
     );
 
+    /// @function `specialize_function`
+    /// @brief Specializes the given function and returns the specialized function if specialization was successful
+    ///
+    /// @param `definition` The function definition to specialize
+    /// @param `cvl` All comptime values applied to the definition to specialize it
+    /// @return `std::optional<FunctionNode *const>` The specialized function, nullopt if specialization failed
+    [[nodiscard]] static std::optional<FunctionNode *const> specialize_function( //
+        const FunctionNode *const definition,                                    //
+        const std::vector<std::shared_ptr<Type>> &cvl                            //
+    );
+
     /// @function `clear`
     /// @brief Clears all internal state of the specializer, needed for the LSP to work more than just once
     static void clear() {

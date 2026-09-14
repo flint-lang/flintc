@@ -135,6 +135,17 @@ class FunctionNode : public DefinitionNode {
             }
             oss << name.substr(dot_dist + 1);
         }
+        if (!cpl.empty()) {
+            oss << "[";
+            for (size_t i = 0; i < cpl.size(); i++) {
+                if (i > 0) {
+                    oss << ", ";
+                }
+                const auto &param = cpl.at(i);
+                oss << param.type->to_string() << " " << param.name;
+            }
+            oss << "]";
+        }
         oss << "(";
         for (size_t j = implicit_parameters_to_skip; j < parameters.size(); j++) {
             if (j > implicit_parameters_to_skip) {
