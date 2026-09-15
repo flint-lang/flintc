@@ -788,8 +788,11 @@ class Matcher {
     static const inline PatternPtr identifier_list = sequence({
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})) //
     });
-    static const inline PatternPtr group = sequence({
-        token(TOK_LEFT_PAREN), type, zero_or_more(sequence({token(TOK_COMMA), type})), token(TOK_RIGHT_PAREN) //
+    static const inline PatternPtr type_list = sequence({
+        type, zero_or_more(sequence({token(TOK_COMMA), type})) //
+    });
+    static const inline PatternPtr group_type = sequence({
+        token(TOK_LEFT_PAREN), type_list, token(TOK_RIGHT_PAREN) //
     });
     static const inline PatternPtr expression_separator = one_of({
         operational_binop, relational_binop, boolean_binop, unary_pre_operator, unary_post_operator, token(TOK_RANGE) //
@@ -806,16 +809,16 @@ class Matcher {
     static const inline PatternPtr extern_function_declaration = sequence({
         token(TOK_EXTERN), token(TOK_DEF), token(TOK_IDENTIFIER), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
-            sequence({token(TOK_ARROW), group}), //
-            sequence({token(TOK_ARROW), type})   //
-        })),                                     //
-        token(TOK_SEMICOLON)                     //
+            sequence({token(TOK_ARROW), group_type}), //
+            sequence({token(TOK_ARROW), type})        //
+        })),                                          //
+        token(TOK_SEMICOLON)                          //
     });
     static const inline PatternPtr function_definition = sequence({
         optional(token(TOK_EXPORT)), optional(token(TOK_CONST)), token(TOK_DEF),                                                   //
         token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
-            sequence({token(TOK_ARROW), group}),
+            sequence({token(TOK_ARROW), group_type}),
             sequence({token(TOK_ARROW), type}),
         })),
         optional(sequence({token(TOK_LEFT_BRACE), continue_until_right_brace})),
@@ -829,7 +832,9 @@ class Matcher {
         token(TOK_FUNC), token(TOK_IDENTIFIER), optional(comptime_parameter_list),                                               //
         optional(sequence({token(TOK_REQUIRES), token(TOK_LEFT_PAREN), no_prim_args, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
-    static const inline PatternPtr interface_definition = sequence({token(TOK_INTERFACE), token(TOK_IDENTIFIER), token(TOK_COLON)});
+    static const inline PatternPtr interface_definition = sequence({
+        token(TOK_INTERFACE), token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_COLON) //
+    });
     static const inline PatternPtr error_definition = sequence({
         token(TOK_ERROR), token(TOK_IDENTIFIER),                                 //
         optional(sequence({token(TOK_LEFT_PAREN), continue_until_right_paren})), //
@@ -846,8 +851,8 @@ class Matcher {
 
     // --- OBJECT DEFINITION ---
     static const inline PatternPtr object_definition = sequence({
-        token(TOK_OBJECT), token(TOK_IDENTIFIER),                                                                                     //
-        optional(sequence({token(TOK_IMPLEMENTS), token(TOK_LEFT_PAREN), identifier_list, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
+        token(TOK_OBJECT), token(TOK_IDENTIFIER),                                                                               //
+        optional(sequence({token(TOK_IMPLEMENTS), token(TOK_LEFT_PAREN), type_list, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
     static const inline PatternPtr object_body_data = sequence({
         token(TOK_DATA), token(TOK_COLON), one_of({TOK_TYPE, TOK_IDENTIFIER}), token(TOK_IDENTIFIER), //

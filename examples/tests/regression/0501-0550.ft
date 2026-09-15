@@ -222,3 +222,13 @@ test "0541":
 	str path = "tests/regression/0501-0550";
 	str file = "0541.ft";
 	test_file_ok($"{path}/{file}", "10 -> 20 -> 30\n3.14 -> 6.9 -> 42.0\n");
+
+test "0542":
+	str path = "tests/regression/0501-0550";
+	str file = "0542.ft";
+	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");
+
+test "0543":
+	str path = "tests/regression/0501-0550";
+	str file = "0543.ft";
+	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");

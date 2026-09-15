@@ -762,11 +762,28 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
     std::vector<FunctionNode *> functions;
     std::vector<Line> body_mut = body;
     std::vector<DefinitionNode::ComptimeParameter> cpl;
+    if (token_mut.first->token == TOK_LEFT_BRACKET) {
+        const auto &bracket_range = Matcher::get_next_match_range( //
+            {std::next(token_mut.first), token_mut.second - 1},    //
+            Matcher::continue_until_right_bracket                  //
+        );
+        if (!bracket_range.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(bracket_range.value().first == 0);
+        const auto &cpl_maybe = create_cpl({token_mut.first, token_mut.first + 1 + bracket_range.value().second});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
+        token_mut.first += 1 + bracket_range.value().second;
+    }
     while (!body_mut.empty()) {
         const Line function_definition_line = body_mut.front();
         body_mut.erase(body_mut.begin());
         const std::pair<std::string, std::vector<FuncNode::RequiredData>> required_data = {interface_name, {}};
-        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data);
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data, cpl);
         if (!fn.has_value()) {
             return std::nullopt;
         }
@@ -823,12 +840,22 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != definition.second && tok_it->token != TOK_RIGHT_PAREN) {
-            // The current token is the type
-            const auto interface_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1}, cpl);
+            std::optional<uint2> next_range = Matcher::get_next_match_range({tok_it, definition.second - 1}, Matcher::until_comma);
+            if (!next_range.has_value()) {
+                next_range = {0, static_cast<unsigned int>(std::distance(tok_it, definition.second - 1))};
+            }
+            ASSERT(next_range.value().first == 0);
+            if (next_range.value().second <= 1) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            // The implemented interface type spans everything before the comma (or the closing parenthesis)
+            const token_slice type_tokens = {tok_it, tok_it + next_range.value().second - 1};
+            const auto interface_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
             if (!interface_type.has_value()) {
                 return std::nullopt;
             }
-            if (interface_type.value().consumed_tokens != 1) {
+            if (interface_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
@@ -862,7 +889,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                         .length = static_cast<uint32_t>(interface_type.value().type->to_string().size()),
                     },
             });
-            tok_it++;
+            tok_it = type_tokens.second;
             if (tok_it->token != TOK_COMMA && tok_it->token != TOK_RIGHT_PAREN) {
                 THROW_ERR(                                                                                      //
                     ErrParsUnexpectedToken, ERR_PARSING, file_hash,                                             //

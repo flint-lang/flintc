@@ -2,6 +2,7 @@
 
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
+#include "parser/ast/definitions/interface_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
 #include <mutex>
@@ -114,6 +115,20 @@ class Specializer {
     [[nodiscard]] static bool specialize_variant(     //
         VariantNode *const node,                      //
         const VariantNode *const definition,          //
+        const std::vector<std::shared_ptr<Type>> &cvl //
+    );
+
+    /// @function `specialize_interface`
+    /// @brief Specializes the given interface definition into the given node and returns whether specialization was successful. The
+    /// virtual function declarations of the interface are specialized along with it
+    ///
+    /// @param `node` The destination interface definition to put the specialized interface definition into
+    /// @param `definition` The source interface definition to specialize
+    /// @param `cvl` All comptime parameters applied to the definition to specialize it
+    /// @return `bool` Whether specialization was successful
+    [[nodiscard]] static bool specialize_interface(   //
+        InterfaceNode *const node,                    //
+        const InterfaceNode *const definition,        //
         const std::vector<std::shared_ptr<Type>> &cvl //
     );
 

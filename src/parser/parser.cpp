@@ -1178,9 +1178,19 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
         ASSERT(interface.type->get_variation() == Type::Variation::INTERFACE);
         const InterfaceNode *interface_node = interface.type->as<InterfaceType>()->interface_node;
         for (const auto &src : interface_node->functions) {
+            // The virtual functions of interfaces are named using the interface node's name as prefix (like `Object.method`). To match them
+            // against the functions the object provides, only the member name (interface node name stripped, instead of the first dot) in
+            // combination with the parameter/return/error types matters
+            if (src->name.size() <= interface_node->name.size()) {
+                continue;
+            }
+            const std::string src_member_name = src->name.substr(interface_node->name.size() + 1);
+            const auto dot_index = src->name.find('.');
+            const std::string src_name_part = dot_index == std::string::npos ? src->name : src->name.substr(dot_index + 1);
+            const std::string src_member_sig = src_member_name + src->get_signature_string().substr(src_name_part.size());
             bool added = false;
             for (const auto &dest : object->functions) {
-                if (src->get_signature_string() == dest->get_signature_string(1)) {
+                if (src_member_sig == dest->get_signature_string(1)) {
                     ASSERT(interface.mapping.find(src) == interface.mapping.end());
                     interface.mapping[src] = dest;
                     added = true;
@@ -1192,7 +1202,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             }
             for (const auto &func_component : object->func_components) {
                 for (const auto &dest : func_component->functions) {
-                    if (src->get_signature_string() == dest->get_signature_string(func_component->required_data.size())) {
+                    if (src_member_sig == dest->get_signature_string(func_component->required_data.size())) {
                         ASSERT(interface.mapping.find(src) == interface.mapping.end());
                         interface.mapping[src] = dest;
                         added = true;

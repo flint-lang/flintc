@@ -125,8 +125,11 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
             UNREACHABLE();
         }
         case DefinitionNode::Variation::INTERFACE: {
-            [[maybe_unused]] const auto *const node = definition->as<InterfaceNode>();
-            UNREACHABLE();
+            const auto *const src = definition->as<InterfaceNode>();
+            if (!specialize_interface(static_cast<InterfaceNode *const>(result), src, cvl)) {
+                return std::nullopt;
+            }
+            break;
         }
         case DefinitionNode::Variation::OBJECT: {
             [[maybe_unused]] const auto *const node = definition->as<ObjectNode>();
@@ -477,8 +480,22 @@ std::optional<DefinitionNode *> Specializer::pre_create(const DefinitionNode *co
             break;
         }
         case DefinitionNode::Variation::INTERFACE: {
-            [[maybe_unused]] const auto *const node = definition->as<InterfaceNode>();
-            UNREACHABLE();
+            const auto *const node = definition->as<InterfaceNode>();
+            std::vector<FunctionNode *> functions;
+            InterfaceNode new_node = InterfaceNode( //
+                node->file_hash,                    //
+                node->line,                         //
+                node->column,                       //
+                node->length,                       //
+                name,                               //
+                {},                                 //
+                functions                           //
+            );
+            const std::optional<InterfaceNode *> added_interface = src_ns->file_node->add_interface(new_node);
+            if (!added_interface.has_value()) {
+                return std::nullopt;
+            }
+            added_node = added_interface;
             break;
         }
         case DefinitionNode::Variation::OBJECT: {
@@ -556,6 +573,66 @@ bool Specializer::specialize_variant(             //
             return false;
         }
         node->possible_types.emplace_back(type_tag, new_type.value().second);
+    }
+    return true;
+}
+
+bool Specializer::specialize_interface(           //
+    InterfaceNode *const node,                    //
+    const InterfaceNode *const definition,        //
+    const std::vector<std::shared_ptr<Type>> &cvl //
+) {
+    ASSERT(definition->cpl.size() == cvl.size());
+    node->specialization = {
+        .origin = const_cast<InterfaceNode *>(definition),
+        .applied_cvl = cvl,
+    };
+    for (const FunctionNode *const function : definition->functions) {
+        std::vector<FunctionNode::Parameter> parameters;
+        for (const auto &param : function->parameters) {
+            const auto &new_type = specialize_type(definition->file_hash.get_namespace(), param.type, definition->cpl, cvl);
+            if (!new_type.has_value()) {
+                return false;
+            }
+            parameters.emplace_back(new_type.value().second, param.name, param.is_mutable);
+        }
+        std::vector<std::shared_ptr<Type>> return_types = function->return_types;
+        if (!specialize_type_list(definition->file_hash.get_namespace(), return_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+        std::vector<std::shared_ptr<Type>> error_types = function->error_types;
+        if (!specialize_type_list(definition->file_hash.get_namespace(), error_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+        // The virtual function declarations are named using the specialized interface's name as prefix, so that interface-typed calls find
+        // their virtual functions by stripping the interface node's name from the function's name (like free-floating object functions)
+        const std::string name = node->name + "." + function->name.substr(function->name.find('.') + 1);
+        std::optional<std::shared_ptr<Scope>> scope = std::nullopt;
+        FunctionNode new_node(     //
+            function->file_hash,   //
+            function->line,        //
+            function->column,      //
+            function->length,      //
+            function->annotations, //
+            function->is_const,    //
+            function->visibility,  //
+            name,                  //
+            {},                    //
+            parameters,            //
+            return_types,          //
+            error_types,           //
+            scope,                 //
+            function->mangle_id    //
+        );
+        const auto added_fn = definition->file_hash.get_namespace()->file_node->add_function(new_node, Parser::core_namespaces);
+        if (!added_fn.has_value()) {
+            return false;
+        }
+        added_fn.value()->specialization = {
+            .origin = const_cast<FunctionNode *>(function),
+            .applied_cvl = cvl,
+        };
+        node->functions.emplace_back(added_fn.value());
     }
     return true;
 }
