@@ -1,5 +1,6 @@
 #pragma once
 
+#include "linearizer/line.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/scope.hpp"
 #include "parser/hash.hpp"
@@ -252,4 +253,9 @@ class FunctionNode : public DefinitionNode {
     /// @var `persistent_count`
     /// @brief How many persistent locals are defined inside this function's body
     size_t persistent_count{0};
+
+    /// @var `body_lines`
+    /// @brief The body lines used to create this function. This field is only set if the function is generic, as then every specialization
+    /// needs to parse the function body from scratch
+    std::vector<Line> body_lines;
 };

@@ -90,6 +90,7 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
 
     // Check if specialization already exists, return that one if present
     const std::string definition_key = get_definition_string(definition, cvl, false);
+    std::lock_guard<std::recursive_mutex> lock(specializations_mutex);
     specialization_map &map = specializations[definition_key];
     const std::string specialization_key = get_definition_string(definition, cvl, true);
     if (map.find(specialization_key) != map.end()) {
@@ -159,6 +160,7 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
     }
 
     const std::string definition_key = get_definition_string(definition, cvl, false);
+    std::lock_guard<std::recursive_mutex> lock(specializations_mutex);
     specialization_map &map = specializations[definition_key];
     const std::string specialization_key = get_definition_string(definition, cvl, true);
     if (map.find(specialization_key) != map.end()) {
@@ -180,7 +182,50 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
         return std::nullopt;
     }
     std::vector<std::shared_ptr<Type>> error_types = definition->error_types;
-    std::optional<std::shared_ptr<Scope>> scope;
+    // The applied CPL carries the comptime values, so that re-parsing the body can resolve every comptime type to its concrete type
+    std::vector<DefinitionNode::ComptimeParameter> applied_cpl = definition->cpl;
+    for (std::size_t i = 0; i < cvl.size(); i++) {
+        applied_cpl.at(i).applied_value = cvl.at(i);
+    }
+    // Create the body scope with the specialized params and return types, so that statement parsing can resolve them (just like
+    // `create_function` does)
+    std::optional<std::shared_ptr<Scope>> scope = std::make_shared<Scope>();
+    std::shared_ptr<Type> return_type = nullptr;
+    switch (return_types.size()) {
+        case 0:
+            return_type = Type::get_primitive_type("void");
+            break;
+        case 1:
+            return_type = return_types.front();
+            break;
+        default:
+            return_type = std::make_shared<GroupType>(return_types);
+            if (!src_ns->add_type(return_type)) {
+                return_type = src_ns->get_type_from_str(return_type->to_string()).value();
+            }
+            break;
+    }
+    scope.value()->add_variable("flint.return_type",
+        {
+            .type = return_type,
+            .scope_id = 0,
+            .scope_segment = 0,
+            .is_mutable = false,
+            .is_persistent = false,
+            .is_fn_param = true,
+            .is_pseudo_variable = true,
+        });
+    for (const auto &param : parameters) {
+        scope.value()->add_variable(param.name,
+            {
+                .type = param.type,
+                .scope_id = scope.value()->scope_id,
+                .scope_segment = 0,
+                .is_mutable = param.is_mutable,
+                .is_persistent = false,
+                .is_fn_param = true,
+            });
+    }
     FunctionNode new_node(       //
         definition->file_hash,   //
         definition->line,        //
@@ -190,20 +235,34 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
         definition->is_const,    //
         definition->visibility,  //
         specialization_key,      //
-        definition->cpl,         //
+        applied_cpl,             //
         parameters,              //
         return_types,            //
         error_types,             //
         scope,                   //
         definition->mangle_id    //
     );
+    // The specialized body is re-parsed from the template's own body copy, so carry the tokens and body lines over to the new node
+    new_node.tokens = definition->tokens;
+    new_node.body_lines = definition->body_lines;
+    Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
     const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_namespaces);
     if (!added_fn.has_value()) {
         return std::nullopt;
     }
     map[specialization_key] = added_fn.value();
 
-    UNREACHABLE();
+    bool found_parser = false;
+    for (auto &parser : Parser::instances) {
+        if (parser.file_node_ptr.get() != src_ns->file_node) {
+            continue;
+        }
+        found_parser = true;
+        if (!Parser::parse_open_function(parser, added_fn.value(), added_fn.value()->body_lines)) {
+            return std::nullopt;
+        }
+    }
+    ASSERT(found_parser);
     return added_fn.value();
 }
 

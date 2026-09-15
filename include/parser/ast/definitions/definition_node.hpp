@@ -10,6 +10,7 @@ class DefinitionNode : public ASTNode {
     struct ComptimeParameter {
         std::shared_ptr<Type> type;
         std::string name;
+        std::optional<std::shared_ptr<Type>> applied_value = std::nullopt;
     };
 
   protected:
@@ -42,6 +43,23 @@ class DefinitionNode : public ASTNode {
     /// @var `cpl`
     /// @brief The comptime parameter list of this definition node, for example `[type T, int N]`
     std::vector<ComptimeParameter> cpl;
+
+    /// @function `is_generic_template`
+    /// @brief Whether this definition is a generic template which has not been specialized yet. A template does not have a single applied
+    /// value set in its CPL, so it is never parsed/analyzed/code-generated on its own
+    ///
+    /// @return `bool` Whether this definition is an un-specialized generic template
+    bool is_generic_template() const {
+        if (cpl.empty()) {
+            return false;
+        }
+        for (const auto &param : cpl) {
+            if (!param.applied_value.has_value()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /// @var `tokens`
     /// @brief The tokens of this definition's body which the definition owns. Each definition copies the token span of its body out of

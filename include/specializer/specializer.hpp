@@ -4,6 +4,8 @@
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
 
+#include <mutex>
+
 /// @class `Specializer`
 /// @brief The class which is responsible for generic application of compile-time parameters (specialization)
 /// @note This class cannot be initialized and all functions within this class are static
@@ -40,11 +42,17 @@ class Specializer {
     /// @function `clear`
     /// @brief Clears all internal state of the specializer, needed for the LSP to work more than just once
     static void clear() {
+        std::lock_guard<std::recursive_mutex> lock(specializations_mutex);
         specializations.clear();
     }
 
   private:
     using specialization_map = std::unordered_map<std::string, DefinitionNode *>;
+
+    /// @var `specializations_mutex`
+    /// @brief Guards `specializations` against concurrent access. Specialization can happen from multiple threads during parsing while
+    /// being re-entrant (specializing a function triggers parsing its body, which can specialize nested functions), hence recursive
+    static inline std::recursive_mutex specializations_mutex{};
 
     /// @var `specializations`
     /// @brief A list of all specializations for every definition node

@@ -206,14 +206,14 @@ class Parser {
     /// @param `parser` The parser instance in which the data module is defined in
     /// @param `data` The data module definition to parse
     /// @return `bool` Whether the data module was able to be parsed
-    static bool parse_open_data_component(Parser &parser, DataNode *data);
+    [[nodiscard]] static bool parse_open_data_component(Parser &parser, DataNode *data);
 
     /// @function `parse_all_open_data_components`
     /// @brief Parses all still open data module "bodies"
     ///
     /// @param `parse_parallel` Whether to parse the open data modules in parallel
     /// @return `bool` Whether all data modules were able to be parsed
-    static bool parse_all_open_data_components(const bool parse_parallel);
+    [[nodiscard]] static bool parse_all_open_data_components(const bool parse_parallel);
 
     /// @function `parse_open_object`
     /// @brief Parses a single open object body
@@ -222,14 +222,14 @@ class Parser {
     /// @param `object` The object definition to parse
     /// @param `body` The body of the object to parse
     /// @return `bool` Whether the object was able to be parsed
-    static bool parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body);
+    [[nodiscard]] static bool parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body);
 
     /// @function `parse_all_open_objects`
     /// @brief Parses all still open object bodies
     ///
     /// @param `parse_parallel` Whether to parse the open objects in parallel
     /// @return `bool` Wheter all objects were able to be parsed
-    static bool parse_all_open_objects(const bool parse_parallel);
+    [[nodiscard]] static bool parse_all_open_objects(const bool parse_parallel);
 
     /// @function `parse_open_function`
     /// @brief Parses a single open function body
@@ -238,7 +238,7 @@ class Parser {
     /// @param `function` The function definition to parse
     /// @param `body` The body of the function to parse
     /// @return `bool` Whether the function was able to be parsed
-    static bool parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body);
+    [[nodiscard]] static bool parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body);
 
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
@@ -248,7 +248,7 @@ class Parser {
     ///                    "main" file are parsed. Defintions and types of all other files are properly parsed, though. This is there
     ///                    because parsing defintions is fast, while parsing functions is slow.
     /// @return `bool` Wheter all functions were able to be parsed
-    static bool parse_all_open_functions(const bool parse_parallel, const std::optional<Hash> &only_file = std::nullopt);
+    [[nodiscard]] static bool parse_all_open_functions(const bool parse_parallel, const std::optional<Hash> &only_file = std::nullopt);
 
     /// @function `parse_open_test`
     /// @brief Parses a single open test body
@@ -257,7 +257,7 @@ class Parser {
     /// @param `test` The test definition to parse
     /// @param `body` The body of the test to parse
     /// @return `bool` Whether the test was able to be parsed
-    static bool parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body);
+    [[nodiscard]] static bool parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body);
 
     /// @function `parse_all_open_tests`
     /// @brief Parses all still open test bodies
@@ -267,7 +267,7 @@ class Parser {
     ///
     /// @note This will only be called when the developer wants to run the tests, e.g. make a test build. In the normal compilation
     /// pipeline, the parsing and generation of all tests will not be done, to make compilation as fast as possible.
-    static bool parse_all_open_tests(const bool parse_parallel);
+    [[nodiscard]] static bool parse_all_open_tests(const bool parse_parallel);
 
     /// @function `clear_instances`
     /// @brief Clears all parser instances
@@ -697,33 +697,49 @@ class Parser {
     /// @function `collapse_types_in_slice`
     /// @brief Collapses all types found within a given source slice
     ///
+    /// @param `cpl` The comptime parameter list of the definition we are collapsing the types in
     /// @param `slice` The slice in which to collapse all types
     /// @param `source` The source in which the slice views into, since we modify it we need it as a parameter
     /// @return `bool` Whether collapsing the types was successfull
-    [[nodiscard]] bool collapse_types_in_slice(token_slice &slice, token_list &source);
+    [[nodiscard]] bool collapse_types_in_slice(                    //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        token_slice &slice,                                        //
+        token_list &source                                         //
+    );
 
     /// @function `collapse_types_in_region`
     /// @brief Collapses all types found within a contiguous region of the source, addressed by a start index and a length. Deletions
     /// always stay inside the region, `region_len` shrinks accordingly and no stored iterator is ever used after a deletion
     ///
+    /// @param `cpl` The comptime parameter list of the definition we are collapsing the types in
     /// @param `source` The source token list in which to collapse the types, it gets modified by the deletions
     /// @param `region_start` The index at which the region starts
     /// @param `region_len` The current length of the region, gets shrunk by every deletion
     /// @return `bool` Whether collapsing the types was successfull
-    [[nodiscard]] bool collapse_types_in_region(token_list &source, const std::size_t region_start, std::size_t &region_len);
+    [[nodiscard]] bool collapse_types_in_region(                   //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        token_list &source,                                        //
+        const std::size_t region_start,                            //
+        std::size_t &region_len                                    //
+    );
 
     /// @function `collapse_types_in_lines`
     /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
     /// single type token instead. The lines address their owner list via relative `offset`/`len` pairs, so deleting tokens from one line
     /// never invalidates the positions of the following lines
     ///
+    /// @param `cpl` The comptime parameter list of the definition we are collapsing the types in
     /// @param `lines` The lines to refine
     /// @param `source` A reference to the source token vector directly to enable direct modification
     /// @return `bool` Whether collapsing the types was successfull
     ///
     /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
     /// @note Also replaces all type aliases with their aliased types
-    [[nodiscard]] bool collapse_types_in_lines(std::vector<Line> &lines, token_list &source);
+    [[nodiscard]] bool collapse_types_in_lines(                    //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<Line> &lines,                                  //
+        token_list &source                                         //
+    );
 
     /// @function `substitute_type_aliases`
     /// @brief Recursively substitutes all type aliases within the type to resolve

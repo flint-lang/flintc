@@ -1,4 +1,6 @@
 #include "parser/ast/scope.hpp"
+#include "parser/ast/definitions/function_node.hpp"
+#include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/statements/catch_node.hpp"
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/do_while_node.hpp"
@@ -213,4 +215,20 @@ std::vector<std::pair<std::string, Scope::Variable>> Scope::get_all_variables() 
         }
     }
     return all_variables;
+}
+
+const std::vector<DefinitionNode::ComptimeParameter> &Scope::get_cpl() const {
+    if (std::holds_alternative<FunctionNode *>(function)) {
+        const auto *const node = std::get<FunctionNode *>(function);
+        if (node != nullptr) {
+            return node->cpl;
+        }
+    } else {
+        const auto *const node = std::get<TestNode *>(function);
+        if (node != nullptr) {
+            return node->cpl;
+        }
+    }
+    static const std::vector<DefinitionNode::ComptimeParameter> empty_cpl{};
+    return empty_cpl;
 }

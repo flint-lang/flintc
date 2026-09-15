@@ -789,7 +789,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             token.column += tok->column + it->first + 1;
         }
         token_slice expr_slice = {expr_tokens.begin(), expr_tokens.end()};
-        if (!collapse_types_in_slice(expr_slice, expr_tokens)) {
+        if (!collapse_types_in_slice(scope->get_cpl(), expr_slice, expr_tokens)) {
             return std::nullopt;
         }
         // `collapse_types_in_slice` may invalidate the end iterator when deleting tokens
@@ -1826,7 +1826,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     token_slice tokens_mut = tokens;
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
-    const auto &element_type = file_node_ptr->file_namespace->get_type(type_tokens, {});
+    const auto &element_type = file_node_ptr->file_namespace->get_type(type_tokens, scope->get_cpl());
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;

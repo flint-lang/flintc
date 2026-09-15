@@ -1322,6 +1322,10 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             break;
         }
         case Type::Variation::OPTIONAL: {
+            if (switcher.value()->get_variation() != ExpressionNode::Variation::VARIABLE) {
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
             const auto *var_node = switcher.value()->as<VariableNode>();
             const bool is_mutable = scope->variables.at(var_node->name).is_mutable;
             if (!create_optional_switch_branches(                                                                         //

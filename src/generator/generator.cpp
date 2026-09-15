@@ -766,8 +766,8 @@ bool Generator::generate_file_ir(             //
             if (function_node->name == "_main") {
                 continue;
             }
-            if (!function_node->cpl.empty()) {
-                // Skip generic functions
+            if (function_node->is_generic_template()) {
+                // Skip un-specialized generic templates, only their specializations get forward-declared
                 continue;
             }
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
@@ -813,7 +813,7 @@ bool Generator::generate_file_ir(             //
                 if ((is_test || libname.has_value()) && function_node->name == "_main") {
                     continue;
                 }
-                if (!function_node->cpl.empty()) {
+                if (function_node->is_generic_template()) {
                     continue;
                 }
                 if (!Function::generate_function_body(function_node, file.imported_core_modules)) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/type/type.hpp"
 
@@ -167,6 +168,12 @@ class Scope {
     ///
     /// @return `std::vector<std::pair<std::string, Variable>>` A list of all varaibles of all nested scopes
     std::vector<std::pair<std::string, Variable>> get_all_variables() const;
+
+    /// @function `get_cpl`
+    /// @brief Returns the comptime parameter list from the definition this scope was defined in
+    ///
+    /// @return `std::vector<DefinitionNode::ComptimeParameter>` The comptime parameter list of the current definition
+    const std::vector<DefinitionNode::ComptimeParameter> &get_cpl() const;
 
     /// @var `scope_id`
     /// @brief The unique id of this scope. Every scope has its own id

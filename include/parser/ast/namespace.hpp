@@ -224,4 +224,19 @@ class Namespace {
     /// @param `name` The name of the definition node to search for
     /// @return `std::optional<DefinitionNode *>` The found definition, nullopt of not yet present
     [[nodiscard]] std::optional<DefinitionNode *> get_definition_from_name(const std::string &name) const;
+
+  private:
+    /// @function `is_generic_template`
+    /// @brief Checks whether the given type is a generic template type
+    ///
+    /// @param `type` The type to check
+    /// @return `bool` Whether the type is a generic template
+    [[nodiscard]] static bool is_generic_template(const std::shared_ptr<Type> &type);
+
+    /// @function `contains_comptime`
+    /// @brief Recursively checks whether the given type contains a comptime parameter anywhere in its structure
+    ///
+    /// @param `type` The type to check
+    /// @return `bool` Whether the type contains a comptime parameter
+    [[nodiscard]] static bool contains_comptime(const std::shared_ptr<Type> &type);
 };

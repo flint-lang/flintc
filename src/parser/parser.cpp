@@ -671,7 +671,7 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
     // Go through all instances of the parser and collect all functions from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION || !definition->cpl.empty()) {
+            if (definition->get_variation() != DefinitionNode::Variation::FUNCTION || definition->is_generic_template()) {
                 continue;
             }
             const auto *function_node = definition->as<FunctionNode>();
@@ -894,7 +894,7 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
         // the stored initializer slices of all following fields
         token_list initializer_tokens = clone_from_slice(field.initializer_tokens.value());
         token_slice initializer_slice{initializer_tokens.begin(), initializer_tokens.end()};
-        if (!parser.collapse_types_in_slice(initializer_slice, initializer_tokens)) {
+        if (!parser.collapse_types_in_slice(data->cpl, initializer_slice, initializer_tokens)) {
             return false;
         }
         field.initializer = parser.create_expression(data_context, data_scope, initializer_slice);
@@ -956,7 +956,7 @@ bool Parser::parse_all_open_data_components(const bool parse_parallel) {
 
 bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<Line> body) {
     PROFILE_SCOPE("Parse Open Object '" + object->name + "'");
-    if (!parser.collapse_types_in_lines(body, object->tokens)) {
+    if (!parser.collapse_types_in_lines(object->cpl, body, object->tokens)) {
         return false;
     }
     auto &data_components = object->data_components;
@@ -1260,7 +1260,7 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         }
         return true;
     }
-    if (!parser.collapse_types_in_lines(body, function->tokens)) {
+    if (!parser.collapse_types_in_lines(function->cpl, body, function->tokens)) {
         return false;
     }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {
@@ -1371,7 +1371,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
 
 bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body) {
     PROFILE_SCOPE("Process Open Test '" + test->name + "'");
-    if (!parser.collapse_types_in_lines(body, test->tokens)) {
+    if (!parser.collapse_types_in_lines(test->cpl, body, test->tokens)) {
         return false;
     }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {

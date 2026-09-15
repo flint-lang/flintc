@@ -104,6 +104,9 @@ bool Analyzer::analyze_definition(const Context &ctx, std::unique_ptr<Definition
             break;
         case DefinitionNode::Variation::FUNCTION: {
             auto *node = definition->as<FunctionNode>();
+            if (node->is_generic_template()) {
+                break;
+            }
             Context local_ctx = ctx;
             if (node->is_const) {
                 // 6 characters for 'const '

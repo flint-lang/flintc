@@ -9,6 +9,7 @@
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
+#include "parser/type/comptime_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/func_type.hpp"
@@ -225,7 +226,11 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!added_function.has_value()) {
                 return false;
             }
-            add_open_function({added_function.value(), body_lines});
+            if (added_function.value()->cpl.empty()) {
+                add_open_function({added_function.value(), body_lines});
+            } else {
+                added_function.value()->body_lines = body_lines;
+            }
             break;
         }
         case DefTrie::Pattern::TEST: {
@@ -341,11 +346,15 @@ token_list Parser::partition_body(std::vector<Line> &body_lines, const token_lis
     return clone_from_slice(token_slice{start, start + size});
 }
 
-bool Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
+bool Parser::collapse_types_in_slice(                          //
+    const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+    token_slice &slice,                                        //
+    token_list &source                                         //
+) {
     PROFILE_CUMULATIVE("Parser::collapse_types_in_slice");
     const std::size_t region_start = static_cast<std::size_t>(std::distance(source.begin(), slice.first));
     std::size_t region_len = static_cast<std::size_t>(std::distance(slice.first, slice.second));
-    if (!collapse_types_in_region(source, region_start, region_len)) {
+    if (!collapse_types_in_region(cpl, source, region_start, region_len)) {
         return false;
     }
     // The deletions shift the absolute positions of the slice's end, recompute it
@@ -354,7 +363,12 @@ bool Parser::collapse_types_in_slice(token_slice &slice, token_list &source) {
     return true;
 }
 
-bool Parser::collapse_types_in_region(token_list &source, const std::size_t region_start, std::size_t &region_len) {
+bool Parser::collapse_types_in_region(                         //
+    const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+    token_list &source,                                        //
+    const std::size_t region_start,                            //
+    std::size_t &region_len                                    //
+) {
     PROFILE_CUMULATIVE("Parser::collapse_types_in_region");
     ASSERT(region_start + region_len <= source.size());
     std::size_t i = 0;
@@ -444,9 +458,22 @@ bool Parser::collapse_types_in_region(token_list &source, const std::size_t regi
                 if (source[region_start + i].token != TOK_TYPE) {
                     // Types of size 1 always need to be an identifier if they are not already a type (primitives)
                     ASSERT(source[region_start + i].token == TOK_IDENTIFIER);
-                    std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str( //
-                        std::string(source[region_start + i].lexme)                                               //
-                    );
+                    std::string type_name(source[region_start + i].lexme);
+                    std::optional<std::shared_ptr<Type>> type = file_node_ptr->file_namespace->get_type_from_str(type_name);
+                    if (!type.has_value()) {
+                        // It could also be a comptime parameter, resolve it to its applied value if it has been specialized
+                        for (const auto &param : cpl) {
+                            if (param.name != type_name) {
+                                continue;
+                            }
+                            if (param.applied_value.has_value()) {
+                                type = param.applied_value.value();
+                            } else {
+                                type = std::make_shared<ComptimeType>(type_name);
+                            }
+                            break;
+                        }
+                    }
                     if (type.has_value()) {
                         source[region_start + i] = TokenContext( //
                             TOK_TYPE,                            //
@@ -469,7 +496,7 @@ bool Parser::collapse_types_in_region(token_list &source, const std::size_t regi
                     source.begin() + region_start + i,
                     source.begin() + region_start + i + type_range.value().second,
                 };
-                const auto &type = file_node_ptr->file_namespace->get_type(type_tokens, {});
+                const auto &type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
                 if (!type.has_value()) {
                     THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                     return false;
@@ -496,12 +523,16 @@ bool Parser::collapse_types_in_region(token_list &source, const std::size_t regi
     return true;
 }
 
-bool Parser::collapse_types_in_lines(std::vector<Line> &lines, token_list &source) {
+bool Parser::collapse_types_in_lines(                          //
+    const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+    std::vector<Line> &lines,                                  //
+    token_list &source                                         //
+) {
     PROFILE_CUMULATIVE("Parser::collapse_types_in_lines");
     std::size_t pos = 0;
     for (auto &line : lines) {
         pos += line.offset;
-        if (!collapse_types_in_region(source, pos, line.len)) {
+        if (!collapse_types_in_region(cpl, source, pos, line.len)) {
             return false;
         }
         pos += line.len;
@@ -760,7 +791,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                 return std::nullopt;
             }
             const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second - 1};
-            const std::optional<Namespace::TypeResult> comptime_value = file_node_ptr->file_namespace->get_type(type_tokens, {});
+            const std::optional<Namespace::TypeResult> comptime_value = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
             if (!comptime_value.has_value()) {
                 THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                 return std::nullopt;

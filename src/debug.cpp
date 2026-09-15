@@ -1740,7 +1740,7 @@ namespace Debug {
                     break;
             }
             std::cout << function.name;
-            if (!function.cpl.empty()) {
+            if (!function.cpl.empty() && function.is_generic_template()) {
                 std::cout << "[";
                 for (size_t i = 0; i < function.cpl.size(); i++) {
                     if (i > 0) {

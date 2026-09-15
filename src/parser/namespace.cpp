@@ -273,6 +273,13 @@ std::optional<Namespace::TypeResult> Namespace::get_type(     //
     if (const std::optional<std::shared_ptr<Type>> type_maybe = get_type_from_str(type_str)) {
         return TypeResult{.type = type_maybe.value(), .consumed_tokens = type.value().consumed_tokens};
     }
+    if (is_generic_template(type.value().type)) {
+        // Generic templates carry unresolved comptime parameters and cannot be cached by their parameterized name. The same parameterized
+        // source text (e.g. `Node[T]`) can resolve to a different concrete type depending on the active comptime list, so a template must
+        // be re-created (and re-specialized) on every use instead. Templates are only ever held directly by definition nodes, so skipping
+        // the cache is safe.
+        return type.value();
+    }
     if (type.value().type->get_variation() == Type::Variation::UNKNOWN) {
         public_symbols.unknown_types[type_str] = type.value().type;
         return TypeResult{
@@ -284,14 +291,20 @@ std::optional<Namespace::TypeResult> Namespace::get_type(     //
         Type::add_type(type.value().type);
         return type.value();
     }
-    public_symbols.types[type_str] = type.value().type;
+    // Key the entry by its resolved string rather than the source text. The same parameterized source (e.g. `Node[T]`) can resolve to
+    // different concrete types depending on the active comptime list, so those instantiations must not overwrite each other
+    public_symbols.types[type.value().type->to_string()] = type.value().type;
     return TypeResult{
-        .type = public_symbols.types.at(type_str),
+        .type = public_symbols.types.at(type.value().type->to_string()),
         .consumed_tokens = type.value().consumed_tokens,
     };
 }
 
 bool Namespace::add_type(const std::shared_ptr<Type> &type) {
+    if (is_generic_template(type)) {
+        // Templates must never be published by name (see `is_generic_template`). They are only consumed in-place by definition nodes.
+        return true;
+    }
     // First we check if the type already exists in the global type map
     const std::string type_string = type->to_string();
     if (const auto global_type = Type::get_type_from_str(type_string)) {
@@ -487,9 +500,13 @@ std::optional<Namespace::TypeResult> Namespace::create_type(  //
             if (param.type->get_variation() != Type::Variation::TYPE) {
                 continue;
             }
-            if (param.name == type_string) {
-                return TypeResult{.type = std::make_shared<ComptimeType>(type_string), .consumed_tokens = 1};
+            if (param.name != type_string) {
+                continue;
             }
+            if (param.applied_value.has_value()) {
+                return TypeResult{.type = param.applied_value.value(), .consumed_tokens = 1};
+            }
+            return TypeResult{.type = std::make_shared<ComptimeType>(type_string), .consumed_tokens = 1};
         }
         // Its a data, object or any other type that only has one string as its descriptor, and this type has not been added yet. This means
         // that its an up until now unknown type. This should only happen in the definition phase.
@@ -1094,6 +1111,90 @@ std::optional<DefinitionNode *> Namespace::get_definition_from_name(const std::s
         }
         case Type::Variation::VARIANT: {
             return std::get<VariantNode *const>(existing.value()->as<VariantType>()->var_or_list);
+        }
+    }
+}
+
+bool Namespace::is_generic_template(const std::shared_ptr<Type> &type) {
+    if (type->get_variation() != Type::Variation::GENERIC) {
+        return false;
+    }
+    for (const auto &cvl_arg : type->as<GenericType>()->cvl) {
+        if (contains_comptime(cvl_arg)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Namespace::contains_comptime(const std::shared_ptr<Type> &type) {
+    switch (type->get_variation()) {
+        default:
+            return false;
+        case Type::Variation::COMPTIME:
+            return true;
+        case Type::Variation::ALIAS:
+            return contains_comptime(type->as<AliasType>()->type);
+        case Type::Variation::ARRAY:
+            return contains_comptime(type->as<ArrayType>()->type);
+        case Type::Variation::FN: {
+            const auto *const fn_type = type->as<FnType>();
+            for (const auto &[param_type, _] : fn_type->params) {
+                if (contains_comptime(param_type)) {
+                    return true;
+                }
+            }
+            for (const auto &return_type : fn_type->return_types) {
+                if (contains_comptime(return_type)) {
+                    return true;
+                }
+            }
+            for (const auto &error_type : fn_type->error_types) {
+                if (contains_comptime(error_type)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case Type::Variation::GROUP: {
+            for (const auto &elem_type : type->as<GroupType>()->types) {
+                if (contains_comptime(elem_type)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case Type::Variation::TUPLE: {
+            for (const auto &elem_type : type->as<TupleType>()->types) {
+                if (contains_comptime(elem_type)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case Type::Variation::OPTIONAL:
+            return contains_comptime(type->as<OptionalType>()->base_type);
+        case Type::Variation::POINTER:
+            return contains_comptime(type->as<PointerType>()->base_type);
+        case Type::Variation::GENERIC: {
+            for (const auto &cvl_arg : type->as<GenericType>()->cvl) {
+                if (contains_comptime(cvl_arg)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        case Type::Variation::VARIANT: {
+            const auto *const variant = type->as<VariantType>();
+            if (std::holds_alternative<VariantNode *const>(variant->var_or_list)) {
+                return false;
+            }
+            for (const auto &possible_type : std::get<std::vector<std::shared_ptr<Type>>>(variant->var_or_list)) {
+                if (contains_comptime(possible_type)) {
+                    return true;
+                }
+            }
+            return false;
         }
     }
 }
