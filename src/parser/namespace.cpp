@@ -274,11 +274,8 @@ std::optional<Namespace::TypeResult> Namespace::get_type(     //
     if (const std::optional<std::shared_ptr<Type>> type_maybe = get_type_from_str(type_str)) {
         return TypeResult{.type = type_maybe.value(), .consumed_tokens = type.value().consumed_tokens};
     }
-    if (is_generic_template(type.value().type)) {
-        // Generic templates carry unresolved comptime parameters and cannot be cached by their parameterized name. The same parameterized
-        // source text (e.g. `Node[T]`) can resolve to a different concrete type depending on the active comptime list, so a template must
-        // be re-created (and re-specialized) on every use instead. Templates are only ever held directly by definition nodes, so skipping
-        // the cache is safe.
+    if (contains_comptime(type.value().type)) {
+        // Do not cache types containing comtpime types
         return type.value();
     }
     if (type.value().type->get_variation() == Type::Variation::UNKNOWN) {

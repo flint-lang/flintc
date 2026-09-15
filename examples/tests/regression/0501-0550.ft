@@ -231,4 +231,9 @@ test "0542":
 test "0543":
 	str path = "tests/regression/0501-0550";
 	str file = "0543.ft";
-	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");
+	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\ni.compare_with(100) = true\n");
+
+test "0544":
+	str path = "tests/regression/0501-0550";
+	str file = "0544.ft";
+	test_file_ok($"{path}/{file}", "l1.size() = 3\n10 -> 20 -> 30\nl2.size() = 3\n3.14 -> 6.9 -> 42.0\n");

@@ -75,4 +75,9 @@ class ObjectNode : public DefinitionNode {
     /// @var `interfaces`
     /// @brief The list of interfaces implemented by the object
     std::vector<ImplementedInterface> interfaces;
+
+    /// @var `body_lines`
+    /// @brief The body lines used to create this object. This field is only set if the object is generic, as then every specialization
+    /// needs to parse the data and func components of the object body from scratch
+    std::vector<Line> body_lines;
 };

@@ -851,7 +851,7 @@ class Matcher {
 
     // --- OBJECT DEFINITION ---
     static const inline PatternPtr object_definition = sequence({
-        token(TOK_OBJECT), token(TOK_IDENTIFIER),                                                                               //
+        token(TOK_OBJECT), token(TOK_IDENTIFIER), optional(comptime_parameter_list),                                            //
         optional(sequence({token(TOK_IMPLEMENTS), token(TOK_LEFT_PAREN), type_list, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
     static const inline PatternPtr object_body_data = sequence({

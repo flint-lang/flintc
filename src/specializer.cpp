@@ -132,8 +132,11 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
             break;
         }
         case DefinitionNode::Variation::OBJECT: {
-            [[maybe_unused]] const auto *const node = definition->as<ObjectNode>();
-            UNREACHABLE();
+            const auto *const src = definition->as<ObjectNode>();
+            if (!specialize_object(static_cast<ObjectNode *const>(result), src, cvl)) {
+                return std::nullopt;
+            }
+            break;
         }
         case DefinitionNode::Variation::VARIANT: {
             const auto *const node = definition->as<VariantNode>();
@@ -499,8 +502,23 @@ std::optional<DefinitionNode *> Specializer::pre_create(const DefinitionNode *co
             break;
         }
         case DefinitionNode::Variation::OBJECT: {
-            [[maybe_unused]] const auto *const node = definition->as<ObjectNode>();
-            UNREACHABLE();
+            const auto *const node = definition->as<ObjectNode>();
+            std::vector<FunctionNode *> functions;
+            ObjectNode new_node = ObjectNode( //
+                node->file_hash,              //
+                node->line,                   //
+                node->column,                 //
+                node->length,                 //
+                name,                         //
+                {},                           //
+                functions,                    //
+                {}                            //
+            );
+            const std::optional<ObjectNode *> added_object = src_ns->file_node->add_object(new_node);
+            if (!added_object.has_value()) {
+                return std::nullopt;
+            }
+            added_node = added_object;
             break;
         }
         case DefinitionNode::Variation::VARIANT: {
@@ -634,6 +652,149 @@ bool Specializer::specialize_interface(           //
         };
         node->functions.emplace_back(added_fn.value());
     }
+    return true;
+}
+
+bool Specializer::specialize_object(              //
+    ObjectNode *const node,                       //
+    const ObjectNode *const definition,           //
+    const std::vector<std::shared_ptr<Type>> &cvl //
+) {
+    ASSERT(definition->cpl.size() == cvl.size());
+    node->specialization = {
+        .origin = const_cast<ObjectNode *>(definition),
+        .applied_cvl = cvl,
+    };
+    Namespace *const src_ns = definition->file_hash.get_namespace();
+    std::vector<DefinitionNode::ComptimeParameter> applied_cpl = definition->cpl;
+    for (size_t i = 0; i < cvl.size(); i++) {
+        applied_cpl.at(i).applied_value = cvl.at(i);
+    }
+    node->cpl = applied_cpl;
+
+    // Specialize the implemented interfaces
+    for (const auto &interface : definition->interfaces) {
+        const auto &new_type = specialize_type(src_ns, interface.type, definition->cpl, cvl);
+        if (!new_type.has_value()) {
+            return false;
+        }
+        node->interfaces.emplace_back(ObjectNode::ImplementedInterface{
+            .type = new_type.value().second,
+            .pos = interface.pos,
+        });
+    }
+
+    // Create the specialized free-floating functions, mirroring `specialize_function`
+    const std::shared_ptr<Type> self_type = src_ns->get_type_from_ptr(node).value();
+    for (const FunctionNode *const function : definition->functions) {
+        std::vector<FunctionNode::Parameter> parameters = function->parameters;
+        for (size_t i = 0; i < parameters.size(); i++) {
+            if (i == 0) {
+                parameters.at(i).type = self_type;
+                continue;
+            }
+            const auto &new_type = specialize_type(src_ns, parameters.at(i).type, definition->cpl, cvl);
+            if (!new_type.has_value() || !new_type.value().first) {
+                return false;
+            }
+            parameters.at(i).type = new_type.value().second;
+        }
+        std::vector<std::shared_ptr<Type>> return_types = function->return_types;
+        if (!specialize_type_list(src_ns, return_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+        std::vector<std::shared_ptr<Type>> error_types = function->error_types;
+        if (!specialize_type_list(src_ns, error_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+
+        const std::string name = node->name + "." + function->name.substr(function->name.find('.') + 1);
+        std::optional<std::shared_ptr<Scope>> scope = std::make_shared<Scope>();
+        std::shared_ptr<Type> return_type = nullptr;
+        switch (return_types.size()) {
+            case 0:
+                return_type = Type::get_primitive_type("void");
+                break;
+            case 1:
+                return_type = return_types.front();
+                break;
+            default:
+                return_type = std::make_shared<GroupType>(return_types);
+                if (!src_ns->add_type(return_type)) {
+                    return_type = src_ns->get_type_from_str(return_type->to_string()).value();
+                }
+                break;
+        }
+        scope.value()->add_variable("flint.return_type",
+            {
+                .type = return_type,
+                .scope_id = 0,
+                .scope_segment = 0,
+                .is_mutable = false,
+                .is_persistent = false,
+                .is_fn_param = true,
+                .is_pseudo_variable = true,
+            });
+        for (const auto &param : parameters) {
+            scope.value()->add_variable(param.name,
+                {
+                    .type = param.type,
+                    .scope_id = scope.value()->scope_id,
+                    .scope_segment = 0,
+                    .is_mutable = param.is_mutable,
+                    .is_persistent = false,
+                    .is_fn_param = true,
+                });
+        }
+        FunctionNode new_node(     //
+            function->file_hash,   //
+            function->line,        //
+            function->column,      //
+            function->length,      //
+            function->annotations, //
+            function->is_const,    //
+            function->visibility,  //
+            name,                  //
+            applied_cpl,           //
+            parameters,            //
+            return_types,          //
+            error_types,           //
+            scope,                 //
+            function->mangle_id    //
+        );
+        // The specialized body is re-parsed from the template's own body copy, so carry the tokens and body lines over to the new node
+        new_node.tokens = function->tokens;
+        new_node.body_lines = function->body_lines;
+        Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
+        const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_namespaces);
+        if (!added_fn.has_value()) {
+            return false;
+        }
+        added_fn.value()->specialization = {
+            .origin = const_cast<FunctionNode *>(function),
+            .applied_cvl = cvl,
+        };
+        node->functions.emplace_back(added_fn.value());
+    }
+
+    // Parse the specialized object itself and then the bodies of all free-floating functions
+    node->tokens = definition->tokens;
+    bool found_parser = false;
+    for (auto &parser : Parser::instances) {
+        if (parser.file_node_ptr.get() != src_ns->file_node) {
+            continue;
+        }
+        found_parser = true;
+        if (!Parser::parse_open_object(parser, node, definition->body_lines)) {
+            return false;
+        }
+        for (FunctionNode *const function : node->functions) {
+            if (!Parser::parse_open_function(parser, function, function->body_lines)) {
+                return false;
+            }
+        }
+    }
+    ASSERT(found_parser);
     return true;
 }
 

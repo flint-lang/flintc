@@ -1,0 +1,52 @@
+use Core.print
+
+data DListNode[type T]:
+	T value;
+	DListNode[T]? next = none;
+
+data DListHead[type T]:
+	DListNode[T]? head;
+
+object List[type T]:
+	data: DListHead[T] list;
+
+	def append(T value):
+		if list.head == none:
+			list.head = DListNode[T]{value};
+			return;
+		DListNode[T]? current = list.head;
+		while current!.next != none:
+			current = current!.next;
+		current!.next = DListNode[T]{value};
+
+	const def print():
+		DListNode[T]? current = list.head;
+		while current != none:
+			print(str(current!.value));
+			if current!.next != none:
+				print(" -> ");
+			current = current!.next;
+		print("\n");
+
+	const def size() -> u64:
+		u64 size = 0;
+		DListNode[T]? current = list.head;
+		while current != none:
+			size++;
+			current = current!.next;
+		return size;
+
+def main():
+	l1 := List[i32]{};
+	l1.append(10);
+	l1.append(20);
+	l1.append(30);
+	print($"l1.size() = {l1.size()}\n");
+	l1.print();
+
+	l2 := List[f32]{};
+	l2.append(3.14);
+	l2.append(6.9);
+	l2.append(42.0);
+	print($"l2.size() = {l2.size()}\n");
+	l2.print();

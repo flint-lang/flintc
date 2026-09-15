@@ -835,6 +835,23 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
     tok_it++;
     std::vector<ObjectNode::ImplementedInterface> interfaces;
     std::vector<DefinitionNode::ComptimeParameter> cpl;
+    if (tok_it->token == TOK_LEFT_BRACKET) {
+        const auto &bracket_range = Matcher::get_next_match_range( //
+            {std::next(tok_it), definition.second - 1},            //
+            Matcher::continue_until_right_bracket                  //
+        );
+        if (!bracket_range.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(bracket_range.value().first == 0);
+        const auto &cpl_maybe = create_cpl({tok_it, tok_it + 1 + bracket_range.value().second});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
+        tok_it += 1 + bracket_range.value().second;
+    }
     if (tok_it->token == TOK_IMPLEMENTS) {
         tok_it++;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
@@ -944,7 +961,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                 .column = 0,
             }} //
         );
-        std::optional<FunctionNode> function_node = create_function(definition_tokens, required_data);
+        std::optional<FunctionNode> function_node = create_function(definition_tokens, required_data, cpl);
         if (!function_node.has_value()) {
             return std::nullopt;
         }
@@ -977,7 +994,12 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
         }
         body_lines.front().offset = 0;
         added_function.value()->tokens = partition_body(body_lines, body_lines.front().tokens.first);
-        add_open_function({added_function.value(), body_lines});
+        if (added_function.value()->cpl.empty()) {
+            add_open_function({added_function.value(), body_lines});
+        } else {
+            // The body of a generic function inside an object is only parsed once it gets specialized
+            added_function.value()->body_lines = body_lines;
+        }
         functions.emplace_back(added_function.value());
     }
 

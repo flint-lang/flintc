@@ -694,7 +694,7 @@ std::vector<const ObjectNode *> Parser::get_all_objects() {
     std::vector<const ObjectNode *> objects;
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::OBJECT && definition->cpl.empty()) {
+            if (definition->get_variation() == DefinitionNode::Variation::OBJECT && !definition->is_generic_template()) {
                 objects.emplace_back(definition->as<ObjectNode>());
             }
         }

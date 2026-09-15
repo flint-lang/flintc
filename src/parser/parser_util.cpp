@@ -288,7 +288,12 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!added_object.has_value()) {
                 return false;
             }
-            add_open_object({added_object.value(), body_lines});
+            if (added_object.value()->cpl.empty()) {
+                add_open_object({added_object.value(), body_lines});
+            } else {
+                // The body of a generic object is only parsed once it gets specialized
+                added_object.value()->body_lines = body_lines;
+            }
             break;
         }
         case DefTrie::Pattern::ENUM: {
