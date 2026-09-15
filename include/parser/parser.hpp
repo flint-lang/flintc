@@ -1886,10 +1886,13 @@ class Parser {
     ///
     /// @param `definition` The list of tokens representing the function definition
     /// @param `required_data` A list of required data if the function is defined within a func component
+    /// @param `parent_cpl` The comptime parameter list of the definition the function was defined in (if the function is defined within a
+    /// generic `func`, `object` or `interface` definition)
     /// @return `std::optional<FunctionNode>` The created FunctionNode
-    std::optional<FunctionNode> create_function(                                                        //
-        const token_slice &definition,                                                                  //
-        const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data //
+    std::optional<FunctionNode> create_function(                                                         //
+        const token_slice &definition,                                                                   //
+        const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data, //
+        const std::vector<DefinitionNode::ComptimeParameter> &parent_cpl = {}                            //
     );
 
     /// @function `create_extern_function`

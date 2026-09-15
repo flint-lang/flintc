@@ -497,6 +497,11 @@ bool Parser::resolve_all_unknown_types() {
                                 }
                                 [[fallthrough]];
                             }
+                            case Type::Variation::GENERIC:
+                                if (!node->cpl.empty()) {
+                                    break;
+                                }
+                                [[fallthrough]];
                             default:
                                 THROW_ERR(                                                                           //
                                     ErrDefFuncRequiredTypeNotData, ERR_PARSING, parser.file_hash,                    //

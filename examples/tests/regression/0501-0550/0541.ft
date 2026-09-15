@@ -1,0 +1,31 @@
+use Core.print
+
+data Node[type T]:
+	T value;
+	Node[T]? next = none;
+
+func FList[type T] requires(Node[T] list):
+	def append(T value):
+		if list.next != none:
+			FList.append[T](list.next!, value);
+		else:
+			list.next = Node[T]{value};
+
+	const def print():
+		print(str(list.value));
+		if list.next != none:
+			print(" -> ");
+			FList.print[T](list.next!);
+		else:
+			print("\n");
+
+def main():
+	l1 := Node[i32]{10};
+	FList.append[i32](l1, 20);
+	FList.append[i32](l1, 30);
+	FList.print[i32](l1);
+
+	l2 := Node[f32]{3.14};
+	FList.append[_](l2, 6.9);
+	FList.append[_](l2, 42.0);
+	FList.print[_](l2);

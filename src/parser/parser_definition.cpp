@@ -62,9 +62,10 @@ std::optional<std::vector<DefinitionNode::ComptimeParameter>> Parser::create_cpl
     return cpl;
 }
 
-std::optional<FunctionNode> Parser::create_function(                                                //
-    const token_slice &definition,                                                                  //
-    const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data //
+std::optional<FunctionNode> Parser::create_function(                                                 //
+    const token_slice &definition,                                                                   //
+    const std::optional<std::pair<std::string, std::vector<FuncNode::RequiredData>>> &required_data, //
+    const std::vector<DefinitionNode::ComptimeParameter> &parent_cpl                                 //
 ) {
     PROFILE_CUMULATIVE("Parser::create_function");
     std::string name;
@@ -163,6 +164,9 @@ std::optional<FunctionNode> Parser::create_function(                            
         cpl = cpl_maybe.value();
         def_it += 1 + bracket_range.value().second;
     }
+    // If this function is defined within a different generic definition, its cpl gets prepended before the function's own cpl so that the
+    // outer definitions comptime parameters are resolved first when specialization happens
+    cpl.insert(cpl.begin(), parent_cpl.begin(), parent_cpl.end());
 
     // Skip the left paren
     def_it++;
@@ -606,22 +610,58 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
     token_mut.first++;
     std::vector<FuncNode::RequiredData> required_data;
     std::vector<DefinitionNode::ComptimeParameter> cpl;
+    if (token_mut.first->token == TOK_LEFT_BRACKET) {
+        const auto &bracket_range = Matcher::get_next_match_range( //
+            {std::next(token_mut.first), token_mut.second - 1},    //
+            Matcher::continue_until_right_bracket                  //
+        );
+        if (!bracket_range.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+        ASSERT(bracket_range.value().first == 0);
+        const auto &cpl_maybe = create_cpl({token_mut.first, token_mut.first + 1 + bracket_range.value().second});
+        if (!cpl_maybe.has_value()) {
+            return std::nullopt;
+        }
+        cpl = cpl_maybe.value();
+        token_mut.first += 1 + bracket_range.value().second;
+    }
     if (token_mut.first->token == TOK_REQUIRES) {
         auto tok_it = token_mut.first + 1;
         ASSERT(tok_it->token == TOK_LEFT_PAREN);
         tok_it++;
         while (tok_it != token_mut.second && tok_it->token != TOK_RIGHT_PAREN) {
-            // The current token is the type
-            const auto required_data_type = file_node_ptr->file_namespace->get_type({tok_it, tok_it + 1}, cpl);
-            if (!required_data_type.has_value()) {
-                return std::nullopt;
+            std::optional<uint2> next_range = Matcher::get_next_match_range({tok_it, token_mut.second}, Matcher::until_comma);
+            if (!next_range.has_value()) {
+                next_range = {0, std::distance(tok_it, token_mut.second - 1)};
             }
-            if (required_data_type.value().consumed_tokens != 1) {
+            ASSERT(next_range.value().first == 0);
+            if (next_range.value().second <= 1) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return std::nullopt;
             }
-            if (required_data_type.value().type->get_variation() != Type::Variation::DATA       //
-                && required_data_type.value().type->get_variation() != Type::Variation::UNKNOWN //
+            const token_slice type_tokens = {tok_it, tok_it + next_range.value().second - 2};
+            if (type_tokens.second->token != TOK_IDENTIFIER) {
+                THROW_ERR(                                                                                                //
+                    ErrParsUnexpectedToken, ERR_PARSING, file_hash, type_tokens.second->line, type_tokens.second->column, //
+                    std::vector<Token>{TOK_IDENTIFIER}, type_tokens.second->token                                         //
+                );
+                return std::nullopt;
+            }
+            const std::string param_name(type_tokens.second->lexme);
+            const auto required_data_type = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
+            if (!required_data_type.has_value()) {
+                return std::nullopt;
+            }
+            if (required_data_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+            const Type::Variation type_variation = required_data_type.value().type->get_variation();
+            if (type_variation != Type::Variation::DATA       //
+                && type_variation != Type::Variation::UNKNOWN //
+                && type_variation != Type::Variation::GENERIC //
             ) {
                 THROW_ERR(                                                                            //
                     ErrDefFuncRequiredTypeNotData, ERR_PARSING, file_hash,                            //
@@ -629,14 +669,12 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
                 );
                 return std::nullopt;
             }
-            // The next token is the required data accessor name
-            ASSERT((tok_it + 1)->token == TOK_IDENTIFIER);
-            const std::string access_name((tok_it + 1)->lexme);
+            const std::string access_name(type_tokens.second->lexme);
             for (const auto &present : required_data) {
                 if (present.type->equals(required_data_type.value().type)) {
-                    THROW_ERR(                                                           //
-                        ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,        //
-                        token_slice{tok_it, tok_it + 2}, required_data_type.value().type //
+                    THROW_ERR(                                                                       //
+                        ErrDefFuncRequiringSameDataTwice, ERR_PARSING, file_hash,                    //
+                        token_slice{tok_it, type_tokens.second + 1}, required_data_type.value().type //
                     );
                     return std::nullopt;
                 }
@@ -647,10 +685,9 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
                 .line = tok_it->line,
                 .column = tok_it->column,
             });
-            if ((tok_it + 2)->token == TOK_RIGHT_PAREN) {
-                tok_it += 2;
-            } else {
-                tok_it += 3;
+            tok_it = type_tokens.second + 1;
+            if (tok_it->token == TOK_COMMA) {
+                tok_it++;
             }
         }
         ASSERT(tok_it != definition.second);
@@ -662,7 +699,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         const Line function_definition_line = body_mut.front();
         body_mut.erase(body_mut.begin());
         std::pair<std::string, std::vector<FuncNode::RequiredData>> required_data_pair{func_name, required_data};
-        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair);
+        std::optional<FunctionNode> fn = create_function(function_definition_line.tokens, required_data_pair, cpl);
         if (!fn.has_value()) {
             return std::nullopt;
         }
@@ -685,7 +722,12 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         }
         function_body_lines.front().offset = 0;
         added_function.value()->tokens = partition_body(function_body_lines, function_body_lines.front().tokens.first);
-        add_open_function({added_function.value(), function_body_lines});
+        if (added_function.value()->cpl.empty()) {
+            add_open_function({added_function.value(), function_body_lines});
+        } else {
+            // The body of a generic function inside a func component is only parsed once it gets specialized
+            added_function.value()->body_lines = function_body_lines;
+        }
         functions.emplace_back(added_function.value());
     }
     const unsigned int line = definition.first->line;

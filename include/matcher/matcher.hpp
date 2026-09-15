@@ -782,8 +782,8 @@ class Matcher {
     static const inline PatternPtr params = sequence({param, zero_or_more(sequence({token(TOK_COMMA), param}))});
     static const inline PatternPtr comptime_parameter_list = sequence({token(TOK_LEFT_BRACKET), params, token(TOK_RIGHT_BRACKET)});
     static const inline PatternPtr no_prim_args = sequence({
-        token(TOK_IDENTIFIER), token(TOK_IDENTIFIER),                                            //
-        zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER), token(TOK_IDENTIFIER)})) //
+        type, token(TOK_IDENTIFIER),                                            //
+        zero_or_more(sequence({token(TOK_COMMA), type, token(TOK_IDENTIFIER)})) //
     });
     static const inline PatternPtr identifier_list = sequence({
         token(TOK_IDENTIFIER), zero_or_more(sequence({token(TOK_COMMA), token(TOK_IDENTIFIER)})) //
@@ -826,7 +826,7 @@ class Matcher {
         token(TOK_DATA), token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_COLON) //
     });
     static const inline PatternPtr func_definition = sequence({
-        token(TOK_FUNC), token(TOK_IDENTIFIER),                                                                                  //
+        token(TOK_FUNC), token(TOK_IDENTIFIER), optional(comptime_parameter_list),                                               //
         optional(sequence({token(TOK_REQUIRES), token(TOK_LEFT_PAREN), no_prim_args, token(TOK_RIGHT_PAREN)})), token(TOK_COLON) //
     });
     static const inline PatternPtr interface_definition = sequence({token(TOK_INTERFACE), token(TOK_IDENTIFIER), token(TOK_COLON)});
