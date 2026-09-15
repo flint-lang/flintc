@@ -791,6 +791,11 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                 return std::nullopt;
             }
             const token_slice type_tokens = {bracket_tokens.first, bracket_tokens.first + next_range.value().second - 1};
+            if (next_range.value().second == 2 && type_tokens.first->token == TOK_UNDERSCORE) {
+                cvl.emplace_back(nullptr);
+                bracket_tokens.first += next_range.value().second;
+                continue;
+            }
             const std::optional<Namespace::TypeResult> comptime_value = file_node_ptr->file_namespace->get_type(type_tokens, cpl);
             if (!comptime_value.has_value()) {
                 THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);

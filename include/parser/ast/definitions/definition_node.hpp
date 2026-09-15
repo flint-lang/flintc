@@ -7,10 +7,33 @@
 /// @brief Base class for all top-level definitions
 class DefinitionNode : public ASTNode {
   public:
+    /// @struct `ComptimeParameter`
+    /// @brief Small collection of all values needed for a comptime parameter
     struct ComptimeParameter {
+        /// @var `type`
+        /// @brief The type of the comptime parameter, for now it is only allowed to be a `TypeType`
         std::shared_ptr<Type> type;
+
+        /// @var `name`
+        /// @brief The name of the comptime parameter
         std::string name;
+
+        /// @var `applied_value`
+        /// @brief The applied value makes specializing functions a lot easier, is not necessarily needed to represent a comptime parameter
+        /// itself
         std::optional<std::shared_ptr<Type>> applied_value = std::nullopt;
+    };
+
+    /// @struct `Specialization`
+    /// @brief Small collection of things only present in the definition if it was specialized from a template
+    struct Specialization {
+        /// @var `origin`
+        /// @brief The original template definition this definition was specialized from
+        DefinitionNode *origin;
+
+        /// @var `applied_cvl`
+        /// @brief The comptime values which were applied to specialize this definition
+        std::vector<std::shared_ptr<Type>> applied_cvl;
     };
 
   protected:
@@ -43,6 +66,10 @@ class DefinitionNode : public ASTNode {
     /// @var `cpl`
     /// @brief The comptime parameter list of this definition node, for example `[type T, int N]`
     std::vector<ComptimeParameter> cpl;
+
+    /// @var `specialization`
+    /// @brief If this definition is a specialization then this value contains all information about that, nullopt if not specialized
+    std::optional<Specialization> specialization;
 
     /// @function `is_generic_template`
     /// @brief Whether this definition is a generic template which has not been specialized yet. A template does not have a single applied

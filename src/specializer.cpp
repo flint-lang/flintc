@@ -145,7 +145,8 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
 
 std::optional<FunctionNode *const> Specializer::specialize_function( //
     const FunctionNode *const definition,                            //
-    const std::vector<std::shared_ptr<Type>> &cvl                    //
+    const std::vector<std::shared_ptr<Type>> &arg_types,             //
+    std::vector<std::shared_ptr<Type>> &cvl                          //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
     for (const auto &param : definition->cpl) {
@@ -153,10 +154,34 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
             return std::nullopt;
         }
     }
-    if (!std::all_of(cvl.begin(), cvl.end(), &is_specializable)) {
-        // All types need to be specializable for functions, not being able to specialize simply is not allowed.
-        THROW_BASIC_ERR(ERR_PARSING);
-        return std::nullopt;
+    for (const auto &arg_type : arg_types) {
+        if (arg_type->get_variation() == Type::Variation::GENERIC) {
+            // Passed-in arguments are not allowed to be generic, they always have to be concrete
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
+    }
+    for (size_t i = 0; i < cvl.size(); i++) {
+        if (cvl[i] == nullptr) {
+            for (size_t j = 0; j < arg_types.size(); j++) {
+                if (const auto &extracted = extract_inferred_type(                                 //
+                        definition->cpl.at(i), definition->parameters.at(j).type, arg_types.at(j)) //
+                ) {
+                    cvl[i] = extracted.value();
+                    break;
+                }
+            }
+            if (cvl[i] == nullptr) {
+                // No parameter type contained the requested comptime type, so it cannot be inferred from the applied arguments
+                THROW_BASIC_ERR(ERR_PARSING);
+                return std::nullopt;
+            }
+        }
+        if (!is_specializable(cvl[i])) {
+            // All types need to be specializable for functions, not being able to specialize simply is not allowed.
+            THROW_BASIC_ERR(ERR_PARSING);
+            return std::nullopt;
+        }
     }
 
     const std::string definition_key = get_definition_string(definition, cvl, false);
@@ -251,6 +276,10 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
         return std::nullopt;
     }
     map[specialization_key] = added_fn.value();
+    added_fn.value()->specialization = {
+        .origin = const_cast<FunctionNode *>(definition),
+        .applied_cvl = cvl,
+    };
 
     bool found_parser = false;
     for (auto &parser : Parser::instances) {
@@ -485,6 +514,10 @@ bool Specializer::specialize_data(                //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    node->specialization = {
+        .origin = const_cast<DataNode *>(definition),
+        .applied_cvl = cvl,
+    };
     for (const auto &field : definition->fields) {
         DataNode::Field new_field = {
             .name = field.name,
@@ -513,6 +546,10 @@ bool Specializer::specialize_variant(             //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    node->specialization = {
+        .origin = const_cast<VariantNode *>(definition),
+        .applied_cvl = cvl,
+    };
     for (const auto &[type_tag, type] : definition->possible_types) {
         const auto &new_type = specialize_type(definition->file_hash.get_namespace(), type, definition->cpl, cvl);
         if (!new_type.has_value()) {
@@ -521,6 +558,143 @@ bool Specializer::specialize_variant(             //
         node->possible_types.emplace_back(type_tag, new_type.value().second);
     }
     return true;
+}
+
+DefinitionNode *Specializer::get_definition_node(const std::shared_ptr<Type> &type) {
+    switch (type->get_variation()) {
+        case Type::Variation::DATA:
+            return type->as<DataType>()->data_node;
+        case Type::Variation::FUNC:
+            return type->as<FuncType>()->func_node;
+        case Type::Variation::INTERFACE:
+            return type->as<InterfaceType>()->interface_node;
+        case Type::Variation::OBJECT:
+            return type->as<ObjectType>()->object_node;
+        case Type::Variation::VARIANT: {
+            const auto *variant = type->as<VariantType>();
+            if (std::holds_alternative<VariantNode *const>(variant->var_or_list)) {
+                return std::get<VariantNode *const>(variant->var_or_list);
+            }
+            return nullptr;
+        }
+        default:
+            return nullptr;
+    }
+}
+
+std::optional<std::shared_ptr<Type>> Specializer::extract_inferred_type( //
+    const DefinitionNode::ComptimeParameter &comptime_param,             //
+    const std::shared_ptr<Type> &param_type,                             //
+    const std::shared_ptr<Type> &arg_type                                //
+) {
+    const auto &param_variation = param_type->get_variation();
+    const auto &arg_variation = arg_type->get_variation();
+    switch (param_variation) {
+        case Type::Variation::ALIAS: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto *param = param_type->as<AliasType>();
+            const auto *arg = arg_type->as<AliasType>();
+            return extract_inferred_type(comptime_param, param->type, arg->type);
+        }
+        case Type::Variation::ARRAY: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto *param = param_type->as<ArrayType>();
+            const auto *arg = arg_type->as<ArrayType>();
+            return extract_inferred_type(comptime_param, param->type, arg->type);
+        }
+        case Type::Variation::OPTIONAL: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto *param = param_type->as<OptionalType>();
+            const auto *arg = arg_type->as<OptionalType>();
+            return extract_inferred_type(comptime_param, param->base_type, arg->base_type);
+        }
+        case Type::Variation::POINTER: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto *param = param_type->as<PointerType>();
+            const auto *arg = arg_type->as<PointerType>();
+            return extract_inferred_type(comptime_param, param->base_type, arg->base_type);
+        }
+        case Type::Variation::GROUP: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto &param_types = param_type->as<GroupType>()->types;
+            const auto &arg_types = arg_type->as<GroupType>()->types;
+            for (size_t i = 0; i < param_types.size() && i < arg_types.size(); i++) {
+                if (const auto &extracted = extract_inferred_type(comptime_param, param_types.at(i), arg_types.at(i))) {
+                    return extracted;
+                }
+            }
+            break;
+        }
+        case Type::Variation::TUPLE: {
+            if (param_variation != arg_variation) {
+                break;
+            }
+            const auto &param_types = param_type->as<TupleType>()->types;
+            const auto &arg_types = arg_type->as<TupleType>()->types;
+            for (size_t i = 0; i < param_types.size() && i < arg_types.size(); i++) {
+                if (const auto &extracted = extract_inferred_type(comptime_param, param_types.at(i), arg_types.at(i))) {
+                    return extracted;
+                }
+            }
+            break;
+        }
+        case Type::Variation::COMPTIME: {
+            // A comptime value is inferred if the comptime type is the comptime parameter we are searching for, no matter which concrete
+            // type the caller chose for it
+            if (param_type->as<ComptimeType>()->name == comptime_param.name) {
+                return arg_type;
+            }
+            break;
+        }
+        case Type::Variation::GENERIC: {
+            const auto *param = param_type->as<GenericType>();
+            // The argument has to be a concrete specialization of the same template, its applied comptime values are recovered from the
+            // origin and the applied CVL of its definition node
+            DefinitionNode *const arg_node = get_definition_node(arg_type);
+            const DefinitionNode *const template_node = get_definition_node(param->base);
+            if (arg_node == nullptr || template_node == nullptr) {
+                break;
+            }
+            if (!arg_node->specialization.has_value() || arg_node->specialization.value().origin != template_node) {
+                break;
+            }
+            const auto &applied = arg_node->specialization.value().applied_cvl;
+            for (size_t i = 0; i < param->cvl.size() && i < applied.size(); i++) {
+                if (const auto &extracted = extract_inferred_type(comptime_param, param->cvl.at(i), applied.at(i))) {
+                    return extracted;
+                }
+            }
+            break;
+        }
+        case Type::Variation::ENUM:
+        case Type::Variation::ERROR_SET:
+        case Type::Variation::FN:
+        case Type::Variation::FUNC:
+        case Type::Variation::INTERFACE:
+        case Type::Variation::OBJECT:
+        case Type::Variation::OPAQUE:
+        case Type::Variation::PRIMITIVE:
+        case Type::Variation::RANGE:
+        case Type::Variation::TYPE:
+        case Type::Variation::UNKNOWN:
+        case Type::Variation::VARIANT:
+        case Type::Variation::VECTOR:
+        case Type::Variation::DATA:
+            // Types of these variations cannot contain the searched-for comptime type as any comptime type would end up in a generic type,
+            // and generic types cannot be contained in these types
+            break;
+    }
+    return std::nullopt;
 }
 
 std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_type( //

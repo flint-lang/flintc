@@ -1,0 +1,30 @@
+use Core.print
+
+data Node[type T]:
+	T value;
+	Node[T]? next = none;
+
+def append[type T](mut Node[T] list, T value):
+	if list.next != none:
+		append[T](list.next!, value);
+	else:
+		list.next = Node[T]{value};
+
+def print[type T](Node[T] list):
+	print(str(list.value));
+	if list.next != none:
+		print(" -> ");
+		print[T](list.next!);
+	else:
+		print("\n");
+
+def main():
+	Node[i32] l1 = Node[i32]{10};
+	append[_](l1, 20);
+	append[_](l1, 30);
+	print[_](l1);
+
+	l2 := Node[f32]{3.14};
+	append[_](l2, 6.9);
+	append[_](l2, 42.0);
+	print[_](l2);

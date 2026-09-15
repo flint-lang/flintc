@@ -32,11 +32,13 @@ class Specializer {
     /// @brief Specializes the given function and returns the specialized function if specialization was successful
     ///
     /// @param `definition` The function definition to specialize
+    /// @param `arg_types` The types of the arguments of the call, needed for CVL type inferring
     /// @param `cvl` All comptime values applied to the definition to specialize it
     /// @return `std::optional<FunctionNode *const>` The specialized function, nullopt if specialization failed
     [[nodiscard]] static std::optional<FunctionNode *const> specialize_function( //
         const FunctionNode *const definition,                                    //
-        const std::vector<std::shared_ptr<Type>> &cvl                            //
+        const std::vector<std::shared_ptr<Type>> &arg_types,                     //
+        std::vector<std::shared_ptr<Type>> &cvl                                  //
     );
 
     /// @function `clear`
@@ -114,6 +116,29 @@ class Specializer {
         const VariantNode *const definition,          //
         const std::vector<std::shared_ptr<Type>> &cvl //
     );
+
+    /// @function `extract_inferred_type`
+    /// @brief Tries to extract the inferred type of the comptime parameter. For example a comptime parameter like `[type T]` when inferred,
+    /// and the first argumant is something like `Node[T]?` we need to recurse into the "real" provided type of the parameter, for example
+    /// `Node[i32]?` to then find out the inferred type is `i32`. That's all this function does.
+    ///
+    /// @param `comptime_param` The comptime parameter which needs to be inferred (`T` in the example above)
+    /// @param `param_type` The parameter type of the the template function needed to find out *which* type is the one we need to infer
+    /// @param `arg_type` The argument type passed to the function, the type is inferred from the (nested) type in the argument type
+    /// @return `std::optional<std::shared_ptr<Type>>` The extracted inferred type, if one was found, nullopt if unable to infer
+    [[nodiscard]] static std::optional<std::shared_ptr<Type>> extract_inferred_type( //
+        const DefinitionNode::ComptimeParameter &comptime_param,                     //
+        const std::shared_ptr<Type> &param_type,                                     //
+        const std::shared_ptr<Type> &arg_type                                        //
+    );
+
+    /// @function `get_definition_node`
+    /// @brief Returns the definition node a type references, for example the data node a data type points to. Returns `nullptr` for types
+    /// which do not reference a definition node
+    ///
+    /// @param `type` The type to get the referenced definition node of
+    /// @return `DefinitionNode *` The referenced definition node, `nullptr` if the type does not reference one
+    [[nodiscard]] static DefinitionNode *get_definition_node(const std::shared_ptr<Type> &type);
 
     /// @function `specialize_type`
     /// @brief Specializes the given type with the given CPL and applied CVL
