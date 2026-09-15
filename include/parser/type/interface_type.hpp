@@ -27,7 +27,7 @@ class InterfaceType : public Type {
     }
 
     bool is_runtime_compatible() const override {
-        return interface_node->cpl.empty();
+        return !interface_node->is_generic_template();
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //

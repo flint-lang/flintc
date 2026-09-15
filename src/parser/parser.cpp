@@ -666,7 +666,7 @@ std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_c
     if (include_core) {
         for (const auto &[module_name, module_namespace] : core_namespaces) {
             for (const auto &definition : module_namespace->public_symbols.definitions) {
-                if (definition->get_variation() == DefinitionNode::Variation::FUNCTION && definition->cpl.empty()) {
+                if (definition->get_variation() == DefinitionNode::Variation::FUNCTION && !definition->is_generic_template()) {
                     const auto *function_node = definition->as<FunctionNode>();
                     functions.emplace_back(function_node);
                 }
@@ -707,7 +707,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     // Go through all core Modules and collect all data nodes they provide
     for (const auto &[module_name, module_namespace] : core_namespaces) {
         for (const auto &definition : module_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::DATA && definition->cpl.empty()) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA && !definition->is_generic_template()) {
                 const auto *data_node = definition->as<DataNode>();
                 const auto data_type = module_namespace->get_type_from_ptr(data_node).value();
                 data_types.emplace_back(data_type);
@@ -717,7 +717,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     // Go through all instances of the parser and collect all data nodes from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &definition : instance.file_node_ptr->file_namespace->public_symbols.definitions) {
-            if (definition->get_variation() == DefinitionNode::Variation::DATA && definition->cpl.empty()) {
+            if (definition->get_variation() == DefinitionNode::Variation::DATA && !definition->is_generic_template()) {
                 const auto *data_node = definition->as<DataNode>();
                 const auto data_type = instance.file_node_ptr->file_namespace->get_type_from_ptr(data_node).value();
                 data_types.emplace_back(data_type);

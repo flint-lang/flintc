@@ -40,7 +40,7 @@ class VariantType : public Type {
     bool is_runtime_compatible() const override {
         if (std::holds_alternative<VariantNode *const>(var_or_list)) {
             const auto *variant = std::get<VariantNode *const>(var_or_list);
-            if (!variant->cpl.empty()) {
+            if (variant->is_generic_template()) {
                 return false;
             }
         } else {

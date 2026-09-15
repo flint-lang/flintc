@@ -33,7 +33,7 @@ class DataType : public Type {
     }
 
     bool is_runtime_compatible() const override {
-        return data_node->cpl.empty();
+        return !data_node->is_generic_template();
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
