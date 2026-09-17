@@ -1618,12 +1618,13 @@ bool Generator::Expression::is_arg_reference(                    //
         }
     }
     const bool is_literal = arg.first->is_literal();
-    const bool is_variant_literal = arg.first->get_variation() == ExpressionNode::Variation::LITERAL //
-        && std::holds_alternative<LitVariant>(arg.first->as<LiteralNode>()->value);
+    const bool is_freeable_variant_literal = arg.first->get_variation() == ExpressionNode::Variation::LITERAL //
+        && std::holds_alternative<LitVariant>(arg.first->as<LiteralNode>()->value)                            //
+        && std::get<LitVariant>(arg.first->as<LiteralNode>()->value).variant_type->is_freeable();
     const bool is_initializer = arg.first->get_variation() == ExpressionNode::Variation::INITIALIZER;
     const bool is_opt_unwrap = arg.first->get_variation() == ExpressionNode::Variation::OPTIONAL_UNWRAP;
     const bool is_type_cast = arg.first->get_variation() == ExpressionNode::Variation::TYPE_CAST;
-    const bool is_reference = arg.second && !is_temporary && (!is_literal || is_variant_literal) //
+    const bool is_reference = arg.second && !is_temporary && (!is_literal || is_freeable_variant_literal) //
         && !is_initializer && (!is_opt_unwrap || param_type->is_reference()) && !is_type_cast;
     return is_reference;
 }

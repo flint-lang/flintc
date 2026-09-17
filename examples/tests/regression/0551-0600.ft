@@ -19,3 +19,8 @@ test "0554":
 	str path = "tests/regression/0551-0600";
 	str file = "0554.ft";
 	test_file_ok($"{path}/{file}", "IN7\n");
+
+test "0555":
+	str path = "tests/regression/0551-0600";
+	str file = "0555.ft";
+	test_file_ok($"{path}/{file}", "I(7)\n");

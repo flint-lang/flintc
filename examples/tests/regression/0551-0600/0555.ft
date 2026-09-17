@@ -1,0 +1,16 @@
+use Core.print
+
+variant V:
+	Empty(void),
+	Input(u32),
+	Big(u32);
+
+def one(V c) -> str:
+	return switch c:
+		V.Empty() -> "E";
+		V.Input(input) -> $"I({input})";
+		V.Big(input) -> $"B({input})";
+
+def main():
+	print(one(V.Input(7)));
+	print("\n");
