@@ -1,0 +1,18 @@
+use Core.print
+
+variant Cell:
+	Empty(void),
+	Input(u32),
+	Operator(str);
+
+data Grid:
+	Cell[,] cells;
+	u64 rows;
+	u64 cols;
+
+def main():
+	Cell[,] cells = Cell[2, 2](Cell.Empty());
+	cells[0, 0] = Cell.Input(3);
+	Grid g = Grid{cells, 2, 2};
+	Cell c = g.cells[0, 0];
+	print("read ok\n");

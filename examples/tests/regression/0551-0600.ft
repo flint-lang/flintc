@@ -9,3 +9,8 @@ test "0552":
 	str path = "tests/regression/0551-0600";
 	str file = "0552.ft";
 	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0551-0600/0552.ft:3:20\n└─┬┤E0000│\n3 │ def get() -> (i32, void):\n┌─┴────────────────────┘\n└─ Functions cannot return a group containing a void type\n");
+
+test "0553":
+	str path = "tests/regression/0551-0600";
+	str file = "0553.ft";
+	test_file_ok($"{path}/{file}", "read ok\n");

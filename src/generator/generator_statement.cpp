@@ -1705,7 +1705,8 @@ bool Generator::Statement::generate_declaration( //
         if (is_const_array_init) {
             ctx.dest = alloca;
         }
-        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::ERROR_SET;
+        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::ERROR_SET //
+            || declaration_node->type->get_variation() == Type::Variation::VARIANT;
         Expression::garbage_type garbage;
         auto expr_val = Expression::generate_expression(                                        //
             builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
