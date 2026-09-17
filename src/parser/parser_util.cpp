@@ -197,7 +197,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!function_node.has_value()) {
                 return false;
             }
-            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_module_files);
             if (!added_function.has_value()) {
                 return false;
             }
@@ -222,7 +222,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                 return false;
             }
             function_node.value().tokens = partition_body(body_lines, body_lines.front().tokens.first);
-            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_module_files);
             if (!added_function.has_value()) {
                 return false;
             }

@@ -57,6 +57,7 @@ bool Generator::Module::generate_module(     //
             Builtin::generate_c_functions(module.get());
             Memory::generate_memory_functions(builder.get(), module.get(), true);
             Array::generate_array_manip_functions(builder.get(), module.get(), false);
+            Array::generate_array_functions(builder.get(), module.get(), false);
             break;
         case BuiltinLibrary::READ:
             Builtin::generate_c_functions(module.get());

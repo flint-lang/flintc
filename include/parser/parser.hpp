@@ -57,7 +57,6 @@
 #include <mutex>
 #include <optional>
 #include <stdexcept>
-#include <tuple>
 #include <utility>
 
 /// @class `Parser`
@@ -82,7 +81,7 @@ class Parser {
     static constexpr Context _ctx_{.level = ContextLevel::INTERNAL};
 
     /// @function `init_core_modules`
-    /// @brief Initializes all the namespaces of the Core modules to prepare them to be imported
+    /// @brief Initializes all the file nodes of the Core modules to prepare them to be imported
     static void init_core_modules();
 
     /// @function `create`
@@ -288,22 +287,9 @@ class Parser {
         {
             std::lock_guard<std::mutex> lock(parsed_tests_mutex);
             parsed_tests.clear();
+            core_module_files.clear();
         }
     }
-
-    /// @function `get_builtin_function`
-    /// @brief Returns the module the builtin function is contained in, as well as the function overloads and possible aliases for it
-    ///
-    /// @param `function_name` The name of the function to check for
-    /// @param `imported_core_modules` The core modules that have been imported in this file
-    /// @return `std::optional<std::tuple<std::string, overloads, std::optional<std::string>>>` The builtin function match, nullopt if not
-    ///     - The first element is the name of the core module the function comes from
-    ///     - The second element are the overloads of the function from the module
-    ///     - The third element is the alias of the module, if there is any, nullopt if there is none
-    static std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> get_builtin_function( //
-        const std::string &function_name,                                                                      //
-        const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                        //
-    );
 
     /// @var `main_function`
     /// @brief The main function of the parsed program
@@ -333,9 +319,9 @@ class Parser {
     /// @brief A list of all annotations which are queued up before parsing the next definition or statement
     std::vector<AnnotationNode> annotation_queue;
 
-    /// @var `core_namespaces`
-    /// @brief A map mapping the names of each core module to it's namespace containing all definitions of that namespace
-    static inline std::unordered_map<std::string, std::unique_ptr<Namespace>> core_namespaces;
+    /// @var `core_module_files`
+    /// @brief A map mapping the names of each core module to the file node containing that module's namespace with all its definitions
+    static inline std::unordered_map<std::string, std::unique_ptr<FileNode>> core_module_files;
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system

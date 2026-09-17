@@ -277,7 +277,7 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
     new_node.tokens = definition->tokens;
     new_node.body_lines = definition->body_lines;
     Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
-    const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_namespaces);
+    const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
     if (!added_fn.has_value()) {
         return std::nullopt;
     }
@@ -286,6 +286,12 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
         .origin = const_cast<FunctionNode *>(definition),
         .applied_cvl = cvl,
     };
+
+    // Body-less templates (such as the generic Core module functions) do not have a body which could be parsed, their specialized bodies
+    // stay empty and the calls to them are lowered directly by the generator instead
+    if (definition->body_lines.empty()) {
+        return added_fn.value();
+    }
 
     bool found_parser = false;
     for (auto &parser : Parser::instances) {
@@ -328,7 +334,11 @@ std::string Specializer::get_definition_string(    //
         }
         case DefinitionNode::Variation::FUNCTION: {
             const auto *const node = definition->as<FunctionNode>();
-            ss << node->name;
+            if (include_cpl) {
+                ss << node->get_signature_string(0, true, false, false, false, false, false);
+            } else {
+                ss << node->name;
+            }
             break;
         }
         case DefinitionNode::Variation::INTERFACE: {
@@ -642,7 +652,7 @@ bool Specializer::specialize_interface(           //
             scope,                 //
             function->mangle_id    //
         );
-        const auto added_fn = definition->file_hash.get_namespace()->file_node->add_function(new_node, Parser::core_namespaces);
+        const auto added_fn = definition->file_hash.get_namespace()->file_node->add_function(new_node, Parser::core_module_files);
         if (!added_fn.has_value()) {
             return false;
         }
@@ -766,7 +776,7 @@ bool Specializer::specialize_object(              //
         new_node.tokens = function->tokens;
         new_node.body_lines = function->body_lines;
         Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
-        const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_namespaces);
+        const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
         if (!added_fn.has_value()) {
             return false;
         }

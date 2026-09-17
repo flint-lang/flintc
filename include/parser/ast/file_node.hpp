@@ -91,12 +91,12 @@ class FileNode : public ASTNode {
     /// @brief Adds a function node to this file node
     ///
     /// @param `function` The function node to add
-    /// @param `core_namespaces` Reference to the Parser-internal initialized core namespaces map
+    /// @param `core_module_files` Reference to the Parser-internal initialized core module file nodes map
     /// @return `std::optional<FunctionNode *>` A pointer to the added function node, because this function takes ownership of `function`,
     /// nullopt if the given function already existed in the file's namespace, e.g. duplicate definition
-    std::optional<FunctionNode *> add_function(                                            //
-        FunctionNode &function,                                                            //
-        const std::unordered_map<std::string, std::unique_ptr<Namespace>> &core_namespaces //
+    std::optional<FunctionNode *> add_function(                                          //
+        FunctionNode &function,                                                          //
+        const std::unordered_map<std::string, std::unique_ptr<FileNode>> &core_module_files //
     );
 
     /// @function `add_enum`

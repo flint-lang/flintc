@@ -10,12 +10,15 @@
 #include "matcher/expr_trie.hpp"
 #include "matcher/scoped_stmt_trie.hpp"
 #include "matcher/stmt_trie.hpp"
+#include "parser/type/array_type.hpp"
+#include "parser/type/comptime_type.hpp"
 #include "parser/type/data_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
 #include "parser/type/func_type.hpp"
 #include "parser/type/interface_type.hpp"
 #include "parser/type/object_type.hpp"
+#include "parser/type/type_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
 #include "persistent_thread_pool.hpp"
@@ -35,10 +38,14 @@ std::vector<Parser> Parser::instances;
 void Parser::init_core_modules() {
     for (const auto &[module_name_view, overload_list] : core_module_functions) {
         const std::string module_name(module_name_view);
-        ASSERT(core_namespaces.find(module_name) == core_namespaces.end());
-        core_namespaces[module_name] = std::make_unique<Namespace>(module_name);
-        std::unique_ptr<Namespace> &core_namespace = core_namespaces.at(module_name);
-        Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace.get();
+        ASSERT(core_module_files.find(module_name) == core_module_files.end());
+        core_module_files[module_name] = std::make_unique<FileNode>();
+        FileNode *const core_file_node = core_module_files.at(module_name).get();
+        core_file_node->file_namespace = std::make_unique<Namespace>(module_name);
+        core_file_node->file_name = "Core." + module_name + ".ft";
+        Namespace *const core_namespace = core_file_node->file_namespace.get();
+        core_namespace->file_node = core_file_node;
+        Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace;
         auto &types = core_namespace->public_symbols.types;
         // First go through all types the core module defines and add them to the namespace
         // - Add all error set types
@@ -147,6 +154,67 @@ void Parser::init_core_modules() {
                     parameters, return_types, error_types, scope, std::nullopt              //
                 );
                 core_namespace->public_symbols.definitions.emplace_back(std::move(function));
+            }
+        }
+
+        // Then create and add all generic function definitions. These functions are not implemented in Flint and are never specialized
+        if (core_module_generic_functions.find(module_name) != core_module_generic_functions.end()) {
+            for (const auto &[function_name_view, generic_function_overloads] : core_module_generic_functions.at(module_name)) {
+                const std::string function_name(function_name_view);
+                for (const auto &generic_function : generic_function_overloads) {
+                    // All generic core module functions get `anyerror` as their error type
+                    std::vector<std::shared_ptr<Type>> error_types{Type::get_primitive_type("anyerror")};
+                    std::vector<DefinitionNode::ComptimeParameter> cpl;
+                    for (const auto &[comptime_type_view, comptime_name_view] : generic_function.comptime_parameters) {
+                        const std::string comptime_type_str(comptime_type_view);
+                        ASSERT(comptime_type_str == "type");
+                        const std::string comptime_name_str(comptime_name_view);
+                        cpl.emplace_back(DefinitionNode::ComptimeParameter{
+                            .type = std::make_shared<TypeType>(),
+                            .name = comptime_name_str,
+                            .applied_value = std::nullopt,
+                        });
+                    }
+                    std::vector<FunctionNode::Parameter> parameters;
+                    for (const auto &[param_type_view, param_name_view, param_is_mutable] : generic_function.parameters) {
+                        const std::string param_type_str(param_type_view);
+                        const std::string param_name_str(param_name_view);
+                        // Comptime types need to be specialized manually. But since there only exist a fixed number of generic core module
+                        // functions, this should not be a problem. This check just needs to be extended in the future if new generic
+                        // functions are added
+                        std::shared_ptr<Type> param_type;
+                        if (param_type_str == "T") {
+                            param_type = std::make_shared<ComptimeType>("T");
+                        } else if (param_type_str == "T[]") {
+                            param_type = std::make_shared<ArrayType>(1, std::make_shared<ComptimeType>("T"), std::nullopt);
+                        } else {
+                            param_type = core_namespace->get_type_from_str(param_type_str).value();
+                        }
+                        parameters.emplace_back(FunctionNode::Parameter{
+                            .type = param_type,
+                            .name = param_name_str,
+                            .is_mutable = param_is_mutable,
+                        });
+                    }
+                    std::vector<std::shared_ptr<Type>> return_types;
+                    for (const auto &return_type_view : generic_function.returns) {
+                        const std::string return_type_str(return_type_view);
+                        std::shared_ptr<Type> return_type;
+                        if (return_type_str == "T?") {
+                            return_type = std::make_shared<OptionalType>(std::make_shared<ComptimeType>("T"));
+                        } else {
+                            return_type = core_namespace->get_type_from_str(return_type_str).value();
+                        }
+                        return_types.emplace_back(return_type);
+                    }
+                    std::optional<std::shared_ptr<Scope>> scope = std::nullopt;
+                    std::unique_ptr<DefinitionNode> function = std::make_unique<FunctionNode>(  //
+                        core_namespace->namespace_hash, 0, 0, 0, std::vector<AnnotationNode>{}, //
+                        false, FunctionNode::Visibility::CORE, function_name, cpl,              //
+                        parameters, return_types, error_types, scope, std::nullopt              //
+                    );
+                    core_namespace->public_symbols.definitions.emplace_back(std::move(function));
+                }
             }
         }
     }
@@ -322,8 +390,8 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 continue;
             }
             // Not-available core modules should have been caught some time earlier
-            ASSERT(Parser::core_namespaces.find(import_segments.back()) != Parser::core_namespaces.end());
-            imported_namespace = Parser::core_namespaces.at(import_segments.back()).get();
+            ASSERT(core_module_files.find(import_segments.back()) != core_module_files.end());
+            imported_namespace = core_module_files.at(import_segments.back())->file_namespace.get();
         }
         // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
         if (alias) {
@@ -641,8 +709,8 @@ std::vector<FunctionNode *> Parser::get_open_functions() {
 std::vector<const ErrorNode *> Parser::get_all_errors() {
     std::vector<const ErrorNode *> errors;
     // Go through all core Modules and collect all errors they provide
-    for (const auto &[module_name, module_namespace] : core_namespaces) {
-        for (const auto &definition : module_namespace->public_symbols.definitions) {
+    for (const auto &[module_name, module_file] : core_module_files) {
+        for (const auto &definition : module_file->file_namespace->public_symbols.definitions) {
             if (definition->get_variation() == DefinitionNode::Variation::ERROR) {
                 const auto *error_node = definition->as<ErrorNode>();
                 errors.emplace_back(error_node);
@@ -664,8 +732,8 @@ std::vector<const ErrorNode *> Parser::get_all_errors() {
 std::vector<const FunctionNode *> Parser::get_all_functions(const bool include_core) {
     std::vector<const FunctionNode *> functions;
     if (include_core) {
-        for (const auto &[module_name, module_namespace] : core_namespaces) {
-            for (const auto &definition : module_namespace->public_symbols.definitions) {
+        for (const auto &[module_name, module_file] : core_module_files) {
+            for (const auto &definition : module_file->file_namespace->public_symbols.definitions) {
                 if (definition->get_variation() == DefinitionNode::Variation::FUNCTION && !definition->is_generic_template()) {
                     const auto *function_node = definition->as<FunctionNode>();
                     functions.emplace_back(function_node);
@@ -705,11 +773,11 @@ std::vector<const ObjectNode *> Parser::get_all_objects() {
 std::vector<std::shared_ptr<Type>> Parser::get_all_data_types() {
     std::vector<std::shared_ptr<Type>> data_types;
     // Go through all core Modules and collect all data nodes they provide
-    for (const auto &[module_name, module_namespace] : core_namespaces) {
-        for (const auto &definition : module_namespace->public_symbols.definitions) {
+    for (const auto &[module_name, module_file] : core_module_files) {
+        for (const auto &definition : module_file->file_namespace->public_symbols.definitions) {
             if (definition->get_variation() == DefinitionNode::Variation::DATA && !definition->is_generic_template()) {
                 const auto *data_node = definition->as<DataNode>();
-                const auto data_type = module_namespace->get_type_from_ptr(data_node).value();
+                const auto data_type = module_file->file_namespace->get_type_from_ptr(data_node).value();
                 data_types.emplace_back(data_type);
             }
         }
@@ -732,8 +800,8 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     std::vector<std::string> collected_types;
 
     // Go through all core Modules and collect all freeable types they provide
-    for (const auto &[module_name, module_namespace] : core_namespaces) {
-        for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+    for (const auto &[module_name, module_file] : core_module_files) {
+        for (const auto &[type_string, type] : module_file->file_namespace->public_symbols.types) {
             if (!type->is_runtime_compatible()) {
                 continue;
             }
@@ -782,8 +850,8 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     std::vector<std::string> collected_types;
 
     // Go through all core Modules and collect all non-freeable types they provide
-    for (const auto &[module_name, module_namespace] : core_namespaces) {
-        for (const auto &[type_string, type] : module_namespace->public_symbols.types) {
+    for (const auto &[module_name, module_file] : core_module_files) {
+        for (const auto &[type_string, type] : module_file->file_namespace->public_symbols.types) {
             if (!type->is_runtime_compatible()) {
                 continue;
             }
@@ -1445,20 +1513,6 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         }
     }
     return result;
-}
-
-std::optional<std::tuple<std::string, overloads, std::optional<std::string>>> Parser::get_builtin_function( //
-    const std::string &function_name,                                                                       //
-    const std::unordered_map<std::string, ImportNode *const> &imported_core_modules                         //
-) {
-    for (const auto &[module_name, import_node] : imported_core_modules) {
-        const auto &module_functions = core_module_functions.at(module_name);
-        if (module_functions.find(function_name) != module_functions.end()) {
-            const auto &function_variants = module_functions.at(function_name);
-            return std::make_tuple(module_name, function_variants, import_node->alias);
-        }
-    }
-    return std::nullopt;
 }
 
 token_list Parser::extract_from_to(unsigned int from, unsigned int to, token_list &tokens) {

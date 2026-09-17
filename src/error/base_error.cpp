@@ -245,8 +245,8 @@ std::string BaseError::cwd_relative(const Hash &hash, const unsigned int line, c
     if (hash.path.empty()) {
         // It's a Core Module, we return `Core.<name>` instead of the path
         const Namespace *core_namespace = Resolver::get_namespace_from_hash(hash);
-        for (const auto &[name, space] : Parser::core_namespaces) {
-            if (space.get() == core_namespace) {
+        for (const auto &[name, module_file] : Parser::core_module_files) {
+            if (module_file->file_namespace.get() == core_namespace) {
                 return "Core." + name;
             }
         }

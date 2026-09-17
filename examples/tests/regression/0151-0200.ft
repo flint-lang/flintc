@@ -8,7 +8,7 @@ test "0151":
 test "0152":
 	str path = "tests/regression/0151-0200";
 	str file = "0152.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0152.ft:3:10\n└─┬┤E0000│\n3 │ use Core.something\n┌─┴──────────┘\n├─ The Core module 'something' does not exist\n└─ Available Core modules are\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0151-0200/0152.ft:3:10\n└─┬┤E0000│\n3 │ use Core.something\n┌─┴──────────┘\n├─ The Core module 'something' does not exist\n└─ Available Core modules are\n    ├─ array\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n");
 
 test "0153":
 	str path = "tests/regression/0151-0200";

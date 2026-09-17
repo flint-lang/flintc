@@ -123,7 +123,8 @@ class FunctionNode : public DefinitionNode {
         const bool include_modifiers = true,          //
         const bool include_param_names = true,        //
         const bool include_return_types = true,       //
-        const bool include_error_types = true         //
+        const bool include_error_types = true,        //
+        const bool emit_spaces = true                 //
     ) const {
         std::ostringstream oss;
         const auto dot_idx = std::find(name.begin(), name.end(), '.');
@@ -140,7 +141,10 @@ class FunctionNode : public DefinitionNode {
             oss << "[";
             for (size_t i = 0; i < cpl.size(); i++) {
                 if (i > 0) {
-                    oss << ", ";
+                    oss << ",";
+                    if (emit_spaces) {
+                        oss << " ";
+                    }
                 }
                 const auto &param = cpl.at(i);
                 oss << param.type->to_string() << " " << param.name;
@@ -150,10 +154,14 @@ class FunctionNode : public DefinitionNode {
         oss << "(";
         for (size_t j = implicit_parameters_to_skip; j < parameters.size(); j++) {
             if (j > implicit_parameters_to_skip) {
-                oss << ", ";
+                oss << ",";
+                if (emit_spaces) {
+                    oss << " ";
+                }
             }
             const auto &[param_type, param_name, is_mut] = parameters.at(j);
             if (include_modifiers) {
+                ASSERT(emit_spaces);
                 if (is_mut) {
                     oss << "mut ";
                 } else {
@@ -162,12 +170,19 @@ class FunctionNode : public DefinitionNode {
             }
             oss << param_type->to_string();
             if (include_param_names) {
+                ASSERT(emit_spaces);
                 oss << " " << param_name;
             }
         }
         oss << ")";
         if (include_return_types) {
-            oss << " -> ";
+            if (emit_spaces) {
+                oss << " ";
+            }
+            oss << "->";
+            if (emit_spaces) {
+                oss << " ";
+            }
             switch (return_types.size()) {
                 case 0:
                     oss << "void";
@@ -179,7 +194,10 @@ class FunctionNode : public DefinitionNode {
                     oss << "(";
                     for (size_t j = 0; j < return_types.size(); j++) {
                         if (j > 0) {
-                            oss << ", ";
+                            oss << ",";
+                            if (emit_spaces) {
+                                oss << " ";
+                            }
                         }
                         oss << return_types.at(j)->to_string();
                     }
@@ -188,7 +206,9 @@ class FunctionNode : public DefinitionNode {
             }
         }
         if (include_error_types) {
-            oss << " ";
+            if (emit_spaces) {
+                oss << " ";
+            }
             switch (error_types.size()) {
                 case 0:
                     break;
@@ -196,7 +216,10 @@ class FunctionNode : public DefinitionNode {
                     oss << "{";
                     for (size_t j = 0; j < error_types.size(); j++) {
                         if (j > 0) {
-                            oss << ", ";
+                            oss << ",";
+                            if (emit_spaces) {
+                                oss << " ";
+                            }
                         }
                         oss << error_types.at(j)->to_string();
                     }

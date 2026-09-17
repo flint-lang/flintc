@@ -703,7 +703,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         if (!fn.has_value()) {
             return std::nullopt;
         }
-        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_module_files);
         if (!added_function.has_value()) {
             return std::nullopt;
         }
@@ -787,7 +787,7 @@ std::optional<InterfaceNode> Parser::create_interface(const token_slice &definit
         if (!fn.has_value()) {
             return std::nullopt;
         }
-        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(fn.value(), core_module_files);
         if (!added_function.has_value()) {
             return std::nullopt;
         }
@@ -988,7 +988,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
                 return std::nullopt;
             }
         }
-        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_namespaces);
+        std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_module_files);
         if (!added_function.has_value()) {
             return std::nullopt;
         }

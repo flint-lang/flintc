@@ -164,8 +164,7 @@ void Generator::Module::Array::generate_create_arr_function( //
     IR::aligned_store(*builder, builder->getInt64(1), arr_len);
 
     // Calculate total_size = sizeof(str) + dimensionality * sizeof(size_t)
-    llvm::DataLayout data_layout = module->getDataLayout();
-    uint64_t str_size = data_layout.getTypeAllocSize(str_type);
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
     llvm::Value *dimensionality_size = builder->CreateMul(arg_dimensionality, builder->getInt64(8), "dimensionality_size");
     llvm::Value *total_size = builder->CreateAdd( //
         builder->getInt64(str_size),              //
@@ -1574,4 +1573,585 @@ void Generator::Module::Array::generate_array_manip_functions( //
     generate_access_arr_function(builder, module, only_declaration);
     generate_get_arr_slice_1d_function(builder, module, only_declaration);
     generate_get_arr_slice_function(builder, module, only_declaration);
+}
+
+void Generator::Module::Array::generate_array_shrink_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // str *shrink(str *arr, const size_t by, const size_t element_size, const i32 type_id) {
+    //     const size_t old_len = *(size_t *)arr->value;
+    //     const size_t real_by = by > old_len ? old_len : by;
+    //     if (real_by == 0) {
+    //         return arr;
+    //     }
+    //     const size_t new_len = old_len - real_by;
+    //     *(size_t *)arr->value = new_len;
+    //     if (type_id != 0) {
+    //         char *data = arr->value + sizeof(size_t);
+    //         for (size_t i = new_len; i < old_len; i++) {
+    //             free(data + i * element_size, type_id);
+    //         }
+    //     }
+    //     const size_t new_size = sizeof(str) + sizeof(size_t) + new_len * element_size;
+    //     str *new_arr = (str *)realloc(arr, new_size);
+    //     return new_arr;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+    llvm::Function *const realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *const free_fn = Memory::memory_functions.at("free");
+
+    llvm::FunctionType *const shrink_type = llvm::FunctionType::get( //
+        PTR_TY,                                                      // Return type: str*
+        {
+            PTR_TY, // Argument: str* arr
+            i64_ty, // Argument: u64 by
+            i64_ty, // Argument: u64 element_size
+            i32_ty, // Argument: i32 type_id
+        },
+        false // No vaargs
+    );
+    llvm::Function *const shrink_fn = llvm::Function::Create( //
+        shrink_type,                                          //
+        llvm::Function::ExternalLinkage,                      //
+        prefix + "shrink",                                    //
+        module                                                //
+    );
+    array_functions["shrink"] = shrink_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::Argument *const arg_arr = shrink_fn->arg_begin();
+    arg_arr->setName("arr");
+    llvm::Argument *const arg_by = shrink_fn->arg_begin() + 1;
+    arg_by->setName("by");
+    llvm::Argument *const arg_element_size = shrink_fn->arg_begin() + 2;
+    arg_element_size->setName("element_size");
+    llvm::Argument *const arg_type_id = shrink_fn->arg_begin() + 3;
+    arg_type_id->setName("type_id");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", shrink_fn);
+    llvm::BasicBlock *const no_shrink_block = llvm::BasicBlock::Create(context, "no_shrink", shrink_fn);
+    llvm::BasicBlock *const shrink_block = llvm::BasicBlock::Create(context, "shrink", shrink_fn);
+    llvm::BasicBlock *const complex_block = llvm::BasicBlock::Create(context, "complex", shrink_fn);
+    llvm::BasicBlock *const free_cond_block = llvm::BasicBlock::Create(context, "free_cond", shrink_fn);
+    llvm::BasicBlock *const free_body_block = llvm::BasicBlock::Create(context, "free_body", shrink_fn);
+    llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", shrink_fn);
+
+    builder->SetInsertPoint(entry_block);
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
+    llvm::Value *const old_len_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "old_len_ptr");
+    llvm::Value *const old_len = IR::aligned_load(*builder, builder->getInt64Ty(), old_len_ptr, "old_len");
+    llvm::Value *const by_gt_old_len = builder->CreateICmpUGT(arg_by, old_len, "by_gt_old_len");
+    llvm::Value *const real_by = builder->CreateSelect(by_gt_old_len, old_len, arg_by, "real_by");
+    llvm::Value *const real_by_eq_0 = builder->CreateICmpEQ(real_by, builder->getInt64(0), "real_by_eq_0");
+    builder->CreateCondBr(real_by_eq_0, no_shrink_block, shrink_block);
+
+    builder->SetInsertPoint(no_shrink_block);
+    builder->CreateRet(arg_arr);
+
+    builder->SetInsertPoint(shrink_block);
+    llvm::Value *const new_len = builder->CreateSub(old_len, real_by, "new_len");
+    IR::aligned_store(*builder, new_len, old_len_ptr);
+    llvm::Value *const type_id_eq_0 = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_eq_0");
+    builder->CreateCondBr(type_id_eq_0, ret_block, complex_block);
+
+    {
+        builder->SetInsertPoint(complex_block);
+        llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i_alloca");
+        llvm::Value *const value_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "value_ptr");
+        llvm::Value *const data_ptr = builder->CreateGEP(builder->getInt64Ty(), value_ptr, builder->getInt32(1), "data_ptr");
+        IR::aligned_store(*builder, new_len, i_alloca);
+        builder->CreateBr(free_cond_block);
+
+        builder->SetInsertPoint(free_cond_block);
+        llvm::Value *const i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+        llvm::Value *const i_lt_old_len = builder->CreateICmpULT(i_value, old_len, "i_lt_old_len");
+        builder->CreateCondBr(i_lt_old_len, free_body_block, ret_block);
+
+        builder->SetInsertPoint(free_body_block);
+        llvm::Value *const offset = builder->CreateMul(i_value, arg_element_size, "offset");
+        llvm::Value *const slot_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, offset, "slot_ptr");
+        builder->CreateCall(free_fn, {slot_ptr, arg_type_id});
+        llvm::Value *const next_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+        IR::aligned_store(*builder, next_i_value, i_alloca);
+        builder->CreateBr(free_cond_block);
+    }
+
+    builder->SetInsertPoint(ret_block);
+    llvm::Value *const str_header_size = builder->CreateAdd(builder->getInt64(str_size), builder->getInt64(8), "str_header_size");
+    llvm::Value *const new_element_size = builder->CreateMul(new_len, arg_element_size, "new_element_size");
+    llvm::Value *const new_size = builder->CreateAdd(str_header_size, new_element_size, "new_size");
+    llvm::Value *const new_arr = builder->CreateCall(realloc_fn, {arg_arr, new_size}, "new_arr");
+    builder->CreateRet(new_arr);
+}
+
+void Generator::Module::Array::generate_array_resize_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // str *resize(str *arr, const size_t new_len, const size_t element_size, const void *default_value, const i32 type_id) {
+    //     const size_t old_len = *(size_t *)arr->value;
+    //     if (new_len <= old_len) {
+    //         const size_t by = old_len - new_len;
+    //         str *new_arr = shrink(arr, by, element_size, type_id);
+    //         return new_arr;
+    //     }
+    //     // Growing: reallocate, then default-initialize all new values
+    //     *(size_t *)arr->value = new_len;
+    //     const size_t new_size = sizeof(str) + sizeof(size_t) + new_len * element_size;
+    //     str *new_arr = (str *)realloc(arr, new_size);
+    //     char *data = new_arr->value + sizeof(size_t);
+    //     for (size_t i = old_len; i < new_len; i++) {
+    //         char *slot = data + i * element_size;
+    //         if (type_id == 0) {
+    //             memcpy(slot, default_value, element_size);
+    //         } else {
+    //             clone(default_value, slot, type_id);
+    //         }
+    //     }
+    //     return new_arr;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+    llvm::Function *const realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *const shrink_fn = array_functions.at("shrink");
+    llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+
+    llvm::FunctionType *const resize_type = llvm::FunctionType::get( //
+        PTR_TY,                                                      // Return type: str*
+        {
+            PTR_TY, // Argument: str* arr
+            i64_ty, // Argument: u64 new_len
+            i64_ty, // Argument: u64 element_size
+            PTR_TY, // Argument: i8* default_value
+            i32_ty, // Argument: i32 type_id
+        },
+        false // No vaargs
+    );
+    llvm::Function *const resize_fn = llvm::Function::Create( //
+        resize_type,                                          //
+        llvm::Function::ExternalLinkage,                      //
+        prefix + "resize",                                    //
+        module                                                //
+    );
+    array_functions["resize"] = resize_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::Argument *const arg_arr = resize_fn->arg_begin();
+    arg_arr->setName("arr");
+    llvm::Argument *const arg_new_len = resize_fn->arg_begin() + 1;
+    arg_new_len->setName("new_len");
+    llvm::Argument *const arg_element_size = resize_fn->arg_begin() + 2;
+    arg_element_size->setName("element_size");
+    llvm::Argument *const arg_default_value = resize_fn->arg_begin() + 3;
+    arg_default_value->setName("default_value");
+    llvm::Argument *const arg_type_id = resize_fn->arg_begin() + 4;
+    arg_type_id->setName("type_id");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", resize_fn);
+    llvm::BasicBlock *const shrink_block = llvm::BasicBlock::Create(context, "shrink", resize_fn);
+    llvm::BasicBlock *const grow_block = llvm::BasicBlock::Create(context, "grow", resize_fn);
+    llvm::BasicBlock *const grow_cond_block = llvm::BasicBlock::Create(context, "grow_cond", resize_fn);
+    llvm::BasicBlock *const grow_body_block = llvm::BasicBlock::Create(context, "grow_body", resize_fn);
+    llvm::BasicBlock *const grow_primitive_block = llvm::BasicBlock::Create(context, "grow_primitive", resize_fn);
+    llvm::BasicBlock *const grow_complex_block = llvm::BasicBlock::Create(context, "grow_complex", resize_fn);
+    llvm::BasicBlock *const grow_ret_block = llvm::BasicBlock::Create(context, "grow_ret", resize_fn);
+
+    builder->SetInsertPoint(entry_block);
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
+    llvm::Value *const old_len_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "old_len_ptr");
+    llvm::Value *const old_len = IR::aligned_load(*builder, builder->getInt64Ty(), old_len_ptr, "old_len");
+    llvm::Value *const new_len_ge_old_len = builder->CreateICmpULE(arg_new_len, old_len, "new_len_ge_old_len");
+    builder->CreateCondBr(new_len_ge_old_len, shrink_block, grow_block);
+
+    {
+        builder->SetInsertPoint(shrink_block);
+        llvm::Value *const by = builder->CreateSub(old_len, arg_new_len, "by");
+        llvm::Value *const new_arr = builder->CreateCall(shrink_fn, {arg_arr, by, arg_element_size, arg_type_id}, "new_arr");
+        builder->CreateRet(new_arr);
+    }
+
+    {
+        builder->SetInsertPoint(grow_block);
+        IR::aligned_store(*builder, arg_new_len, old_len_ptr);
+        llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i_alloca");
+        llvm::Value *const type_id_eq_0 = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "type_id_eq_0");
+        llvm::Value *const new_header_size = builder->CreateAdd(builder->getInt64(str_size), builder->getInt64(8), "new_header_size");
+        llvm::Value *const new_data_size = builder->CreateMul(arg_new_len, arg_element_size, "new_data_size");
+        llvm::Value *const new_size = builder->CreateAdd(new_header_size, new_data_size, "new_size");
+        llvm::Value *const new_arr = builder->CreateCall(realloc_fn, {arg_arr, new_size}, "new_arr");
+        llvm::Value *const new_arr_len_ptr = builder->CreateStructGEP(str_type, new_arr, 1, "new_arr_len_ptr");
+        llvm::Value *const data_ptr = builder->CreateGEP(builder->getInt64Ty(), new_arr_len_ptr, builder->getInt64(1), "data_ptr");
+        IR::aligned_store(*builder, old_len, i_alloca);
+        builder->CreateBr(grow_cond_block);
+
+        {
+            builder->SetInsertPoint(grow_cond_block);
+            llvm::Value *const i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "i_value");
+            llvm::Value *const i_lt_new_len = builder->CreateICmpSLT(i_value, arg_new_len, "i_lt_new_len");
+            builder->CreateCondBr(i_lt_new_len, grow_body_block, grow_ret_block);
+
+            builder->SetInsertPoint(grow_body_block);
+            llvm::Value *const offset = builder->CreateMul(i_value, arg_element_size, "offset");
+            llvm::Value *const slot = builder->CreateGEP(builder->getInt8Ty(), data_ptr, offset, "slot");
+            llvm::Value *const new_i_value = builder->CreateAdd(i_value, builder->getInt64(1), "next_i_value");
+            IR::aligned_store(*builder, new_i_value, i_alloca);
+            builder->CreateCondBr(type_id_eq_0, grow_primitive_block, grow_complex_block);
+
+            builder->SetInsertPoint(grow_primitive_block);
+            builder->CreateCall(memcpy_fn, {slot, arg_default_value, arg_element_size});
+            builder->CreateBr(grow_cond_block);
+
+            builder->SetInsertPoint(grow_complex_block);
+            builder->CreateCall(clone_fn, {arg_default_value, slot, arg_type_id});
+            builder->CreateBr(grow_cond_block);
+        }
+
+        builder->SetInsertPoint(grow_ret_block);
+        builder->CreateRet(new_arr);
+    }
+}
+
+void Generator::Module::Array::generate_array_insert_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // str *insert(str *arr, const size_t element_size, const void *value, const size_t i, const i32 type_id) {
+    //     const size_t old_len = *(size_t *)arr->value;
+    //     const size_t new_len = old_len + 1;
+    //     *(size_t *)arr->value = new_len;
+    //     const size_t new_size = sizeof(str) + sizeof(size_t) + new_len * element_size;
+    //     str *new_arr = (str *)realloc(arr, new_size);
+    //     char *data = new_arr->value + sizeof(size_t);
+    //     const size_t real_i = i > old_len ? old_len : i;
+    //     char *slot = data + real_i * element_size;
+    //     memmove(data + (real_i + 1) * element_size, slot, (old_len - real_i) * element_size);
+    //     if (type_id == 0) {
+    //         memcpy(slot, value, element_size);
+    //     } else {
+    //         clone(value, slot, type_id);
+    //     }
+    //     return new_arr;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Type *const i32_ty = llvm::Type::getInt32Ty(context);
+    llvm::Function *const realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *const memmove_fn = c_functions.at(MEMMOVE);
+    llvm::Function *const clone_fn = Memory::memory_functions.at("clone");
+
+    llvm::FunctionType *const insert_type = llvm::FunctionType::get( //
+        PTR_TY,                                                      // Return type: str*
+        {
+            PTR_TY, // Argument: str* arr
+            i64_ty, // Argument: u64 element_size
+            PTR_TY, // Argument: i8* value
+            i64_ty, // Argument: u64 i
+            i32_ty, // Argument: i32 type_id
+        },
+        false // No vaargs
+    );
+    llvm::Function *const insert_fn = llvm::Function::Create( //
+        insert_type,                                          //
+        llvm::Function::ExternalLinkage,                      //
+        prefix + "insert",                                    //
+        module                                                //
+    );
+    array_functions["insert"] = insert_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::Argument *const arg_arr = insert_fn->arg_begin();
+    arg_arr->setName("arr");
+    llvm::Argument *const arg_element_size = insert_fn->arg_begin() + 1;
+    arg_element_size->setName("element_size");
+    llvm::Argument *const arg_value = insert_fn->arg_begin() + 2;
+    arg_value->setName("value");
+    llvm::Argument *const arg_i = insert_fn->arg_begin() + 3;
+    arg_i->setName("i");
+    llvm::Argument *const arg_type_id = insert_fn->arg_begin() + 4;
+    arg_type_id->setName("type_id");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", insert_fn);
+    llvm::BasicBlock *const primitive_block = llvm::BasicBlock::Create(context, "primitive", insert_fn);
+    llvm::BasicBlock *const complex_block = llvm::BasicBlock::Create(context, "complex", insert_fn);
+    llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", insert_fn);
+    builder->SetInsertPoint(entry_block);
+
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
+    llvm::Value *const old_len_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "old_len_ptr");
+    llvm::Value *const old_len = IR::aligned_load(*builder, builder->getInt64Ty(), old_len_ptr, "old_len");
+    llvm::Value *const new_len = builder->CreateAdd(old_len, builder->getInt64(1), "new_len");
+    IR::aligned_store(*builder, new_len, old_len_ptr);
+    llvm::Value *const new_element_data_size = builder->CreateMul(arg_element_size, new_len, "new_element_data_size");
+    llvm::Value *const new_data_size = builder->CreateAdd(new_element_data_size, builder->getInt64(8), "new_data_size");
+    llvm::Value *const new_size = builder->CreateAdd(new_data_size, builder->getInt64(str_size), "new_size");
+    llvm::Value *const new_arr = builder->CreateCall(realloc_fn, {arg_arr, new_size}, "new_arr");
+
+    llvm::Value *const new_arr_len_ptr = builder->CreateStructGEP(str_type, new_arr, 1, "new_arr_len_ptr");
+    llvm::Value *const new_arr_data_ptr = builder->CreateGEP(                              //
+        builder->getInt64Ty(), new_arr_len_ptr, {builder->getInt64(1)}, "new_arr_data_ptr" //
+    );
+    llvm::Value *const i_gt_old_len = builder->CreateICmpUGT(arg_i, old_len, "i_gt_old_len");
+    llvm::Value *const real_i = builder->CreateSelect(i_gt_old_len, old_len, arg_i, "real_i");
+    llvm::Value *const offset = builder->CreateMul(real_i, arg_element_size, "offset");
+    llvm::Value *const real_i_p1 = builder->CreateAdd(real_i, builder->getInt64(1), "real_i_p1");
+    llvm::Value *const offset_p1 = builder->CreateMul(real_i_p1, arg_element_size, "offset_p1");
+    llvm::Value *const move_count = builder->CreateSub(old_len, real_i, "move_count");
+    llvm::Value *const move_size = builder->CreateMul(move_count, arg_element_size, "move_size");
+    llvm::Value *const move_src_ptr = builder->CreateGEP(builder->getInt8Ty(), new_arr_data_ptr, offset, "move_src_ptr");
+    llvm::Value *const move_dest_ptr = builder->CreateGEP(builder->getInt8Ty(), new_arr_data_ptr, offset_p1, "move_dest_ptr");
+    builder->CreateCall(memmove_fn, {move_dest_ptr, move_src_ptr, move_size});
+    llvm::Value *const is_primitive = builder->CreateICmpEQ(arg_type_id, builder->getInt32(0), "is_primitive");
+    builder->CreateCondBr(is_primitive, primitive_block, complex_block);
+
+    builder->SetInsertPoint(primitive_block);
+    builder->CreateCall(memcpy_fn, {move_src_ptr, arg_value, arg_element_size});
+    builder->CreateBr(ret_block);
+
+    builder->SetInsertPoint(complex_block);
+    builder->CreateCall(clone_fn, {arg_value, move_src_ptr, arg_type_id});
+    builder->CreateBr(ret_block);
+
+    builder->SetInsertPoint(ret_block);
+    builder->CreateRet(new_arr);
+}
+
+void Generator::Module::Array::generate_array_remove_function( //
+    llvm::IRBuilder<> *builder,                                //
+    llvm::Module *module,                                      //
+    const bool only_declarations                               //
+) {
+    // THE C IMPLEMENTATION:
+    // str *remove(str *arr, const size_t i, const size_t element_size, void *result, const size_t alignment) {
+    //     const size_t old_len = *(size_t *)arr->value;
+    //     uint8_t *has_value = (uint8_t *)result;
+    //     if (i >= old_len) {
+    //         *has_value = 0;
+    //         return arr;
+    //     }
+    //     char *data = arr->value + sizeof(size_t);
+    //     char *result_slot = ((char *)result) + alignment;
+    //     *has_value = 1;
+    //     memcpy(result_slot, data + i * element_size, element_size);
+    //
+    //     // Shift
+    //     const size_t new_len = old_len - 1;
+    //     const size_t tail_size = (new_len - i) * element_size;
+    //     memmove(data + i * element_size, data + (i + 1) * element_size, tail_size);
+    //     // Shrink
+    //     *(size_t *)arr->value = new_len;
+    //     const size_t new_size = sizeof(str) + sizeof(size_t) + new_len * element_size;
+    //     str *new_arr = (str *)realloc(arr, new_size);
+    //     return new_arr;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Function *const memcpy_fn = c_functions.at(MEMCPY);
+    llvm::Function *const memmove_fn = c_functions.at(MEMMOVE);
+    llvm::Function *const realloc_fn = c_functions.at(REALLOC);
+
+    llvm::FunctionType *const remove_type = llvm::FunctionType::get( //
+        PTR_TY,                                                      // Return type: str*
+        {
+            PTR_TY, // Argument: str* arr
+            i64_ty, // Argument: u64 i
+            i64_ty, // Argument: u64 element_size
+            PTR_TY, // Argument: void* result
+            i64_ty, // Argument: i64 alignment
+        },
+        false // No vaargs
+    );
+    llvm::Function *const remove_fn = llvm::Function::Create( //
+        remove_type,                                          //
+        llvm::Function::ExternalLinkage,                      //
+        prefix + "remove",                                    //
+        module                                                //
+    );
+    array_functions["remove"] = remove_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::Argument *const arg_arr = remove_fn->arg_begin();
+    arg_arr->setName("arr");
+    llvm::Argument *const arg_i = remove_fn->arg_begin() + 1;
+    arg_i->setName("i");
+    llvm::Argument *const arg_element_size = remove_fn->arg_begin() + 2;
+    arg_element_size->setName("element_size");
+    llvm::Argument *const arg_result = remove_fn->arg_begin() + 3;
+    arg_result->setName("result");
+    llvm::Argument *const arg_alignment = remove_fn->arg_begin() + 4;
+    arg_alignment->setName("alignment");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", remove_fn);
+    llvm::BasicBlock *const oob_block = llvm::BasicBlock::Create(context, "oob", remove_fn);
+    llvm::BasicBlock *const in_bounds_block = llvm::BasicBlock::Create(context, "in_bounds", remove_fn);
+
+    builder->SetInsertPoint(entry_block);
+    llvm::Value *const old_len_ptr = builder->CreateStructGEP(str_type, arg_arr, 1, "old_len_ptr");
+    llvm::Value *const old_len = IR::aligned_load(*builder, builder->getInt64Ty(), old_len_ptr, "old_len");
+    llvm::Value *const i_ge_old_len = builder->CreateICmpUGE(arg_i, old_len, "i_ge_old_len");
+    builder->CreateCondBr(i_ge_old_len, oob_block, in_bounds_block);
+
+    builder->SetInsertPoint(oob_block);
+    IR::aligned_store(*builder, builder->getInt8(0), arg_result);
+    builder->CreateRet(arg_arr);
+
+    builder->SetInsertPoint(in_bounds_block);
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
+    llvm::Value *const data_ptr = builder->CreateGEP(builder->getInt64Ty(), old_len_ptr, builder->getInt64(1), "data_ptr");
+    llvm::Value *const result_slot_ptr = builder->CreateGEP(builder->getInt8Ty(), arg_result, arg_alignment, "result_slot_ptr");
+    llvm::Value *const slot_offset = builder->CreateMul(arg_i, arg_element_size, "slot_offset");
+    llvm::Value *const slot_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, slot_offset, "slot_ptr");
+    IR::aligned_store(*builder, builder->getInt8(1), arg_result);
+    builder->CreateCall(memcpy_fn, {result_slot_ptr, slot_ptr, arg_element_size});
+    llvm::Value *const slot_p1_offset = builder->CreateAdd(slot_offset, arg_element_size, "slot_p1_offset");
+    llvm::Value *const slot_p1_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, slot_p1_offset, "slot_p1_ptr");
+    llvm::Value *const new_len = builder->CreateSub(old_len, builder->getInt64(1), "new_len");
+    llvm::Value *const tail_length = builder->CreateSub(new_len, arg_i, "tail_length");
+    llvm::Value *const tail_size = builder->CreateMul(tail_length, arg_element_size, "tail_size");
+    builder->CreateCall(memmove_fn, {slot_ptr, slot_p1_ptr, tail_size});
+    IR::aligned_store(*builder, new_len, old_len_ptr);
+    llvm::Value *const header_size = builder->CreateAdd(builder->getInt64(str_size), builder->getInt64(8), "header_size");
+    llvm::Value *const new_data_size = builder->CreateMul(new_len, arg_element_size, "new_data_size");
+    llvm::Value *const new_size = builder->CreateAdd(header_size, new_data_size, "new_size");
+    llvm::Value *const new_arr = builder->CreateCall(realloc_fn, {arg_arr, new_size}, "new_arr");
+    builder->CreateRet(new_arr);
+}
+
+void Generator::Module::Array::generate_array_merge_function( //
+    llvm::IRBuilder<> *builder,                               //
+    llvm::Module *module,                                     //
+    const bool only_declarations                              //
+) {
+    // THE C IMPLEMENTATION:
+    // void merge(str **arr_ptr, str **src_ptr, const size_t i, const size_t element_size) {
+    //     str *arr = *arr_ptr;
+    //     str *src = *src_ptr;
+    //     const size_t old_len = *(size_t *)arr->value;
+    //     const size_t src_len = *(size_t *)src->value;
+    //     if (src_len == 0) {
+    //         return;
+    //     }
+    //     const size_t real_i = i > old_len ? old_len : i;
+    //     const size_t new_len = old_len + src_len;
+    //     const size_t new_size = sizeof(str) + sizeof(size_t) + new_len * element_size;
+    //     *(size_t *)arr->value = new_len;
+    //     str *new_arr = (str *)realloc(arr, new_size);
+    //     char *data = new_arr->value + sizeof(size_t);
+    //     const char *src_data = src->value + sizeof(size_t);
+    //     const size_t tail_elem_count = old_len - real_i;
+    //     memmove(data + (real_i + src_len) * element_size, data + real_i * element_size, tail_elem_count * element_size);
+    //     memmove(data + real_i * element_size, src_data, src_len * element_size);
+    //     *(size_t *)src->value = 0;
+    //     str *new_src = (str *)realloc(src, sizeof(str) + sizeof(size_t));
+    //     *arr_ptr = new_arr;
+    //     *src_ptr = new_src;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Type *const i64_ty = llvm::Type::getInt64Ty(context);
+    llvm::Function *const realloc_fn = c_functions.at(REALLOC);
+    llvm::Function *const memmove_fn = c_functions.at(MEMMOVE);
+
+    llvm::FunctionType *const merge_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                             // Return type: void
+        {
+            PTR_TY, // Argument: str** arr_ptr
+            PTR_TY, // Argument: str** src_ptr
+            i64_ty, // Argument: u64 i
+            i64_ty, // Argument: u64 element_size
+        },
+        false // No vaargs
+    );
+    llvm::Function *const merge_fn = llvm::Function::Create( //
+        merge_type,                                          //
+        llvm::Function::ExternalLinkage,                     //
+        prefix + "merge",                                    //
+        module                                               //
+    );
+    array_functions["merge"] = merge_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    llvm::Argument *const arg_arr_ptr = merge_fn->arg_begin();
+    arg_arr_ptr->setName("arr_ptr");
+    llvm::Argument *const arg_src_ptr = merge_fn->arg_begin() + 1;
+    arg_src_ptr->setName("src_ptr");
+    llvm::Argument *const arg_i = merge_fn->arg_begin() + 2;
+    arg_i->setName("i");
+    llvm::Argument *const arg_element_size = merge_fn->arg_begin() + 3;
+    arg_element_size->setName("element_size");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", merge_fn);
+    llvm::BasicBlock *const src_empty_block = llvm::BasicBlock::Create(context, "src_empty", merge_fn);
+    llvm::BasicBlock *const src_nonempty_block = llvm::BasicBlock::Create(context, "src_nonempty", merge_fn);
+
+    builder->SetInsertPoint(entry_block);
+    const uint64_t str_size = module->getDataLayout().getTypeAllocSize(str_type);
+    llvm::Value *const arr = IR::aligned_load(*builder, PTR_TY, arg_arr_ptr, "arr_ptr");
+    llvm::Value *const src = IR::aligned_load(*builder, PTR_TY, arg_src_ptr, "src_ptr");
+    llvm::Value *const old_len_ptr = builder->CreateStructGEP(str_type, arr, 1, "old_len_ptr");
+    llvm::Value *const old_len = IR::aligned_load(*builder, builder->getInt64Ty(), old_len_ptr, "old_len");
+    llvm::Value *const src_len_ptr = builder->CreateStructGEP(str_type, src, 1, "src_len_ptr");
+    llvm::Value *const src_len = IR::aligned_load(*builder, builder->getInt64Ty(), src_len_ptr, "src_len");
+    llvm::Value *const src_len_eq_0 = builder->CreateICmpEQ(src_len, builder->getInt64(0), "src_len_eq_0");
+    builder->CreateCondBr(src_len_eq_0, src_empty_block, src_nonempty_block);
+
+    builder->SetInsertPoint(src_empty_block);
+    builder->CreateRetVoid();
+
+    builder->SetInsertPoint(src_nonempty_block);
+    llvm::Value *const i_gt_old_len = builder->CreateICmpUGT(arg_i, old_len, "i_gt_old_len");
+    llvm::Value *const real_i = builder->CreateSelect(i_gt_old_len, old_len, arg_i, "real_i");
+    llvm::Value *const new_len = builder->CreateAdd(old_len, src_len, "new_len");
+    llvm::Value *const header_size = builder->CreateAdd(builder->getInt64(str_size), builder->getInt64(8), "header_size");
+    llvm::Value *const new_data_size = builder->CreateMul(new_len, arg_element_size, "new_data_size");
+    llvm::Value *const new_size = builder->CreateAdd(header_size, new_data_size, "new_size");
+    IR::aligned_store(*builder, new_len, old_len_ptr);
+    llvm::Value *const new_arr = builder->CreateCall(realloc_fn, {arr, new_size}, "new_arr");
+    llvm::Value *const data_ptr = builder->CreateGEP(builder->getInt64Ty(), new_arr, builder->getInt64(2), "data_ptr");
+    llvm::Value *const src_data_ptr = builder->CreateGEP(builder->getInt64Ty(), src, builder->getInt64(2), "src_data_ptr");
+    llvm::Value *const arr_src_offset = builder->CreateMul(real_i, arg_element_size, "arr_src_offset");
+    llvm::Value *const arr_src_ptr = builder->CreateGEP(builder->getInt8Ty(), data_ptr, arr_src_offset, "arr_src_ptr");
+    llvm::Value *const src_size = builder->CreateMul(src_len, arg_element_size, "arr_dest_offset");
+    llvm::Value *const arr_dest_ptr = builder->CreateGEP(builder->getInt8Ty(), arr_src_ptr, src_size, "arr_dest_ptr");
+    llvm::Value *const tail_elem_count = builder->CreateSub(old_len, real_i, "tail_elem_count");
+    llvm::Value *const tail_elem_size = builder->CreateMul(tail_elem_count, arg_element_size, "tail_elem_size");
+    builder->CreateCall(memmove_fn, {arr_dest_ptr, arr_src_ptr, tail_elem_size});
+    builder->CreateCall(memmove_fn, {arr_src_ptr, src_data_ptr, src_size});
+    IR::aligned_store(*builder, builder->getInt64(0), src_len_ptr);
+    llvm::Value *const new_src = builder->CreateCall(realloc_fn, {src, header_size}, "new_src");
+    IR::aligned_store(*builder, new_arr, arg_arr_ptr);
+    IR::aligned_store(*builder, new_src, arg_src_ptr);
+    builder->CreateRetVoid();
+}
+
+void Generator::Module::Array::generate_array_functions( //
+    llvm::IRBuilder<> *builder,                          //
+    llvm::Module *module,                                //
+    const bool only_declaration                          //
+) {
+    generate_array_shrink_function(builder, module, only_declaration);
+    generate_array_resize_function(builder, module, only_declaration);
+    generate_array_insert_function(builder, module, only_declaration);
+    generate_array_remove_function(builder, module, only_declaration);
+    generate_array_merge_function(builder, module, only_declaration);
 }

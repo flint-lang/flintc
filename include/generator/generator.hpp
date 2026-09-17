@@ -1834,8 +1834,7 @@ class Generator {
         /// @return `bool` Whether the given argument should be passed by reference
         static bool is_arg_reference(                                    //
             const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
-            const std::shared_ptr<Type> &param_type,                     //
-            const GenerationContext &ctx                                 //
+            const std::shared_ptr<Type> &param_type                      //
         );
 
         /// @function `generate_call_arg_prep`
@@ -3495,6 +3494,23 @@ class Generator {
                 {"get_arr_slice", nullptr},
             };
 
+            /// @var `array_functions`
+            /// @brief Map containing references to all array functions publically callable from the `Core.array` module. The
+            /// `array_manip_functions` are pure internal functions and not callable by the user, these however are callable by the user.
+            ///
+            /// @details
+            /// - **Key** `std::string_view` - The name of the function
+            /// - **Value** `llvm::Function *` - The reference to the generated function
+            ///
+            /// @attention The functions are nullpointers until the `generate_array_functions` function is called
+            static inline std::unordered_map<std::string_view, llvm::Function *> array_functions = {
+                {"shrink", nullptr},
+                {"resize", nullptr},
+                {"insert", nullptr},
+                {"remove", nullptr},
+                {"merge", nullptr},
+            };
+
             /// @function `generate_get_arr_len_function`
             /// @brief Generates the builtin hidded `get_arr_len` function
             ///
@@ -3571,7 +3587,63 @@ class Generator {
                 llvm::Module *module,                   //
                 const bool only_declarations = true     //
             );
-        }; // subclass Array
+
+            /// @function `generate_array_shrink_function`
+            /// @brief Generates the `shrink` function of the `Core.array` module which shrinks a 1-D array, freeing the removed values
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `shrink` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_array_shrink_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_array_resize_function`
+            /// @brief Generates the `resize` function of the `Core.array` module which resizes a 1-D array, freeing the removed values or
+            ///        default-initializing the newly added values
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `resize` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_array_resize_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_array_insert_function`
+            /// @brief Generates the `insert` function of the `Core.array` module which inserts a single value into the given index of a 1-D
+            /// array
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `insert` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_array_insert_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_array_remove_function`
+            /// @brief Generates the `remove` function of the `Core.array` module which removes a single value from the given index of a 1-D
+            /// array
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `remove` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_array_remove_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_array_merge_function`
+            /// @brief Generates the `merge` function of the `Core.array` module which merge the `src` array into the `arr` array at
+            /// position `i`
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `merge` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_array_merge_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+
+            /// @function `generate_array_functions`
+            /// @brief Generates all the Core.array functions
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the array functions will be generated in
+            /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
+            static void generate_array_functions(   //
+                llvm::IRBuilder<> *builder,         //
+                llvm::Module *module,               //
+                const bool only_declarations = true //
+            );
+        };
 
         /// @class `Assert`
         /// @brief The class which is responsible for generating everything related to assert

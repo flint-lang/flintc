@@ -101,7 +101,7 @@ std::optional<ObjectNode *> FileNode::add_object(ObjectNode &object) {
 
 std::optional<FunctionNode *> FileNode::add_function(                                  //
     FunctionNode &function,                                                            //
-    const std::unordered_map<std::string, std::unique_ptr<Namespace>> &core_namespaces //
+    const std::unordered_map<std::string, std::unique_ptr<FileNode>> &core_module_files //
 ) {
     auto &public_definitions = file_namespace->public_symbols.definitions;
     for (const auto &def : public_definitions) {
@@ -159,7 +159,7 @@ std::optional<FunctionNode *> FileNode::add_function(                           
     }
     for (const auto &[module_name, import] : imported_core_modules) {
         // Get the function list of the imported core module namespace
-        const auto &core_namespace = core_namespaces.at(module_name);
+        const auto &core_namespace = core_module_files.at(module_name)->file_namespace;
         for (const auto &def : core_namespace->public_symbols.definitions) {
             if (def->get_variation() != DefinitionNode::Variation::FUNCTION) {
                 continue;

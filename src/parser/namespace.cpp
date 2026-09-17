@@ -196,13 +196,15 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
         }
     }
     if (!cvl.empty()) {
+        if (found_functions.empty()) {
+            return {};
+        }
         if (found_functions.size() > 1) {
             // Unable to resolve generic if two functions have the same number of comptime parameters and "real" parameters
             // TODO: Make this an error at definition-side instead maybe?
             THROW_BASIC_ERR(ERR_PARSING);
             return {};
         }
-
         auto cvl_copy = cvl;
         const auto &specialized = Specializer::specialize_function(found_functions.front(), arg_types, cvl_copy);
         if (!specialized.has_value()) {

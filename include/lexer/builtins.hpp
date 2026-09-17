@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string_view>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -25,6 +26,10 @@ using function_overload_list = std::unordered_map<std::string_view, overloads>;
 /// @var `core_module_functions`
 /// @brief A map containing all core modules and maps the module to its functions
 static const inline std::map<std::string_view, function_overload_list> core_module_functions = {
+    {"array", // The 'array' module
+        {
+            // The 'array' module only provides generic functions, see `core_module_generic_functions`
+        }},
     {"print", // The 'print' module
         {
             {"print", // The 'print' function
@@ -268,6 +273,84 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                     {{{"u64", "value"}, {"TimeUnit", "unit"}}, {"Duration"}, {}}, // The single version of the 'from' function
                 }},
         }} // End of the 'time' module
+};
+
+/// @typedef `generic_core_parameter`
+/// @brief The type, name and mutability of a parameter of a generic core module function
+using generic_core_parameter = std::tuple<std::string_view, std::string_view, bool>;
+
+/// @struct `generic_core_function`
+/// @brief All information needed to construct a generic core module function node. Generic core module functions are not implemented in
+///        Flint and are never specialized, all calls to them are lowered directly by the generator
+struct generic_core_function {
+    /// @var `comptime_parameters`
+    /// @brief The comptime parameters of the function, each being a pair of the comptime kind and the name, e.g. `("type", "T")`
+    std::vector<std::pair<std::string_view, std::string_view>> comptime_parameters;
+
+    /// @var `parameters`
+    /// @brief The parameters of the function, each being a triple of the type, the name and a flag whether the parameter is mutable
+    std::vector<generic_core_parameter> parameters;
+
+    /// @var `returns`
+    /// @brief The types the function returns
+    string_list returns;
+
+    /// @var `errors`
+    /// @brief The error types the function could throw
+    string_list errors;
+};
+
+/// @var `core_module_generic_functions`
+/// @brief A map containing all core modules and maps the module to all generic functions it provides. These functions are never implemented
+///        in Flint and are never specialized, instead all calls to them are directly lowered by the generator which uses the argument types
+///        to determine the concrete types
+static const inline std::map<std::string_view, std::unordered_map<std::string_view, std::vector<generic_core_function>>>
+    core_module_generic_functions = {
+        {"array", // The 'array' module
+            {
+                {"shrink", // The 'shrink' function
+                    {{
+                        {{"type", "T"}},                                // Comptime parameters
+                        {{{"T[]", "arr", true}, {"u64", "by", false}}}, // Function parameters
+                        {},                                             // Return types
+                        {},                                             // Error types
+                    }}},
+                {"resize",                             // The 'resize' function
+                    std::vector<generic_core_function>{//
+                        {
+                            {{"type", "T"}},                                  // Comptime parameters
+                            {{{"T[]", "arr", true}, {"u64", "size", false}}}, // Function parameters
+                            {},                                               // Return types
+                            {},                                               // Error types
+                        },
+                        {
+                            {{"type", "T"}},                                                           // Comptime parameters
+                            {{{"T[]", "arr", true}, {"u64", "size", false}, {"T", "default", false}}}, // Function parameters
+                            {},                                                                        // Return types
+                            {},                                                                        // Error types
+                        }}},
+                {"insert", // The 'insert' function
+                    {{
+                        {{"type", "T"}},                                                      // Comptime parameters
+                        {{{"T[]", "arr", true}, {"T", "value", false}, {"u64", "i", false}}}, // Function parameters
+                        {},                                                                   // Return types
+                        {},                                                                   // Error types
+                    }}},
+                {"remove", // The 'remove' function
+                    {{
+                        {{"type", "T"}},                               // Comptime parameters
+                        {{{"T[]", "arr", true}, {"u64", "i", false}}}, // Function parameters
+                        {"T?"},                                        // Return types
+                        {},                                            // Error types
+                    }}},
+                {"merge", // The 'merge' function
+                    {{
+                        {{"type", "T"}},                                                     // Comptime parameters
+                        {{{"T[]", "arr", true}, {"T[]", "src", true}, {"u64", "i", false}}}, // Function parameters
+                        {},                                                                  // Return types
+                        {},                                                                  // Error types
+                    }}},
+            }}, // End of the 'array' module
 };
 
 /// @typedef `error_value`

@@ -388,7 +388,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // Pre-populate debug file entries for all imported core modules
         for (const auto &parser : Parser::instances) {
             for (const auto &[module_name, _] : parser.file_node_ptr->imported_core_modules) {
-                const Hash &hash = Parser::core_namespaces.at(module_name)->namespace_hash;
+                const Hash &hash = Parser::core_module_files.at(module_name)->file_namespace->namespace_hash;
                 if (Debug::debug_files.find(hash) == Debug::debug_files.end()) {
                     Debug::debug_files[hash] = Debug::DIB->createFile("Core." + module_name, ".");
                 }
@@ -697,29 +697,17 @@ bool Generator::generate_file_ir(             //
 
     for (auto &imported_core_module : file.imported_core_modules) {
         const std::string &core_module_name = imported_core_module.first;
-        if (core_module_name == "print") {
-            static bool print_added = false;
-            if (!print_added) {
-                Module::Print::generate_print_functions(nullptr, module, true);
-                print_added = true;
-            }
-        } else if (core_module_name == "read") {
-            static bool read_added = false;
-            if (!read_added) {
-                Module::Read::generate_read_functions(nullptr, module, true);
-                read_added = true;
-            }
-        } else if (core_module_name == "assert") {
+        if (core_module_name == "assert") {
             static bool assert_added = false;
             if (!assert_added) {
                 Module::Assert::generate_assert_functions(nullptr, module, true);
                 assert_added = true;
             }
-        } else if (core_module_name == "filesystem") {
-            static bool filesystem_added = false;
-            if (!filesystem_added) {
-                Module::FileSystem::generate_filesystem_functions(nullptr, module, true);
-                filesystem_added = true;
+        } else if (core_module_name == "array") {
+            static bool array_added = false;
+            if (!array_added) {
+                Module::Array::generate_array_functions(nullptr, module, true);
+                array_added = true;
             }
         } else if (core_module_name == "env") {
             static bool env_added = false;
@@ -727,12 +715,11 @@ bool Generator::generate_file_ir(             //
                 Module::Env::generate_env_functions(nullptr, module, true);
                 env_added = true;
             }
-        } else if (core_module_name == "system") {
-            // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
-            static bool system_added = is_test;
-            if (!system_added) {
-                Module::System::generate_system_functions(nullptr, module, true);
-                system_added = true;
+        } else if (core_module_name == "filesystem") {
+            static bool filesystem_added = false;
+            if (!filesystem_added) {
+                Module::FileSystem::generate_filesystem_functions(nullptr, module, true);
+                filesystem_added = true;
             }
         } else if (core_module_name == "math") {
             static bool math_added = false;
@@ -745,6 +732,25 @@ bool Generator::generate_file_ir(             //
             if (!parse_added) {
                 Module::Parse::generate_parse_functions(nullptr, module, true);
                 parse_added = true;
+            }
+        } else if (core_module_name == "print") {
+            static bool print_added = false;
+            if (!print_added) {
+                Module::Print::generate_print_functions(nullptr, module, true);
+                print_added = true;
+            }
+        } else if (core_module_name == "read") {
+            static bool read_added = false;
+            if (!read_added) {
+                Module::Read::generate_read_functions(nullptr, module, true);
+                read_added = true;
+            }
+        } else if (core_module_name == "system") {
+            // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
+            static bool system_added = is_test;
+            if (!system_added) {
+                Module::System::generate_system_functions(nullptr, module, true);
+                system_added = true;
             }
         } else if (core_module_name == "time") {
             // The 'time' module is *always* required when building a program with the `--test` flag because of the builtin performance test

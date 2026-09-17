@@ -205,7 +205,7 @@ test "0390":
 test "0391":
 	str path = "tests/regression/0351-0400";
 	str file = "0391.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0351-0400/0391.ft:3:10\n└─┬┤E0000│\n3 │ use Core.wololo\n┌─┴──────────┘\n├─ The Core module 'wololo' does not exist\n└─ Available Core modules are\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n\nParse Error at tests/regression/0351-0400/0391.ft:5:1\n└─┬┤E0000│\n5 │ use \"imported.ft\"\n┌─┴─┘\n└─ Imported file does not exist\n");
+	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0351-0400/0391.ft:3:10\n└─┬┤E0000│\n3 │ use Core.wololo\n┌─┴──────────┘\n├─ The Core module 'wololo' does not exist\n└─ Available Core modules are\n    ├─ array\n    ├─ assert\n    ├─ env\n    ├─ filesystem\n    ├─ math\n    ├─ parse\n    ├─ print\n    ├─ read\n    ├─ system\n    └─ time\n\nParse Error at tests/regression/0351-0400/0391.ft:5:1\n└─┬┤E0000│\n5 │ use \"imported.ft\"\n┌─┴─┘\n└─ Imported file does not exist\n");
 
 test "0392":
 	str path = "tests/regression/0351-0400";

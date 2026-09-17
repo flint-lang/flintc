@@ -119,11 +119,7 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
 
     Profiler::start_task("ALL");
     Type::init_types();
-    static bool core_modules_initialized = false;
-    if (!core_modules_initialized) {
-        Parser::init_core_modules();
-        core_modules_initialized = true;
-    }
+    Parser::init_core_modules();
     // Set the "main" file to the current source file being parsed
     main_file_path = source_file_path;
     std::optional<FileNode *> file;

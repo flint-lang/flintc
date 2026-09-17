@@ -12,7 +12,7 @@
 #include "parser/ast/expressions/switch_default_node.hpp"
 #include "parser/ast/expressions/switch_match_node.hpp"
 #include "parser/ast/expressions/type_node.hpp"
-#include "parser/parser.hpp"
+#include "parser/type/alias_type.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/enum_type.hpp"
 #include "parser/type/error_set_type.hpp"
@@ -29,6 +29,7 @@
 #include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
+#include <stack>
 #include <string>
 #include <variant>
 
@@ -1445,9 +1446,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
     for (size_t i = 0; i < call_node->arguments.size(); i++) {
         const auto &arg = call_node->arguments[i];
         const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
-        convert_type_to_ext(                                                                                                    //
-            builder, ctx, arg.first->type, args[i], converted_args, scratchspace_offset, is_arg_reference(arg, param_type, ctx) //
-        );
+        convert_type_to_ext(builder, ctx, arg.first->type, args[i], converted_args, scratchspace_offset, is_arg_reference(arg, param_type));
     }
     auto result = Function::get_function_definition(ctx.parent, call_node);
     if (call_node->type->to_string() == "void") {
@@ -1580,8 +1579,7 @@ Generator::group_mapping Generator::Expression::generate_extern_call( //
 
 bool Generator::Expression::is_arg_reference(                    //
     const std::pair<std::unique_ptr<ExpressionNode>, bool> &arg, //
-    const std::shared_ptr<Type> &param_type,                     //
-    const GenerationContext &ctx                                 //
+    const std::shared_ptr<Type> &param_type                      //
 ) {
     const Type::Variation arg_var = arg.first->type->get_variation();
     const bool is_tmp_opt = param_type->get_variation() == Type::Variation::OPTIONAL && arg_var != Type::Variation::OPTIONAL;
@@ -1596,7 +1594,7 @@ bool Generator::Expression::is_arg_reference(                    //
             break;
         case ExpressionNode::Variation::CALL: {
             const auto *call_expr = arg.first->as<CallNodeExpression>();
-            if (Parser::get_builtin_function(call_expr->function->name, ctx.imported_core_modules).has_value()) {
+            if (call_expr->function->visibility == FunctionNode::Visibility::CORE) {
                 is_temporary = true;
             }
             break;
@@ -1630,8 +1628,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     const CallNodeBase *call_node,                             //
     const bool is_reference                                    //
 ) {
-    const std::string &function_name = call_node->function->name;
-    const auto builtin_function = Parser::get_builtin_function(call_node->function->name, ctx.imported_core_modules);
+    const bool is_core_function = call_node->function->visibility == FunctionNode::Visibility::CORE;
     // Get the arguments
     std::vector<llvm::Value *> args;
     garbage_type garbage;
@@ -1639,25 +1636,35 @@ Generator::group_mapping Generator::Expression::generate_call( //
     for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
         parameters.emplace_back(param_type, param_is_mutable);
     }
-    if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters, builtin_function.has_value())) {
+    if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters, is_core_function)) {
         return std::nullopt;
     }
 
     llvm::Function *func_decl = nullptr;
     enum class FunctionOrigin { INTERN, EXTERN, BUILTIN };
     FunctionOrigin function_origin = FunctionOrigin::INTERN;
-    // First check which core modules have been imported
-    if (builtin_function.has_value()) {
-        return generate_builtin_call(              //
-            builder,                               //
-            ctx,                                   //
-            garbage,                               //
-            args,                                  //
-            call_node,                             //
-            function_name,                         //
-            std::get<0>(builtin_function.value()), //
-            std::get<1>(builtin_function.value())  //
-        );
+    // Generate a builtin call if the call targets a core module function
+    if (is_core_function) {
+        const std::string function_name = call_node->function->specialization.has_value()  //
+            ? call_node->function->specialization.value().origin->as<FunctionNode>()->name //
+            : call_node->function->name;
+        std::string module_name;
+        overloads ov{};
+        for (const auto &[mod_name, import_node] : ctx.imported_core_modules) {
+            const auto &module_functions = core_module_functions.at(mod_name);
+            if (module_functions.find(function_name) != module_functions.end()) {
+                module_name = mod_name;
+                ov = module_functions.at(function_name);
+                break;
+            }
+            if (core_module_generic_functions.find(mod_name) != core_module_generic_functions.end()                                   //
+                && core_module_generic_functions.at(mod_name).find(function_name) != core_module_generic_functions.at(mod_name).end() //
+            ) {
+                module_name = mod_name;
+                break;
+            }
+        }
+        return generate_builtin_call(builder, ctx, garbage, args, call_node, function_name, module_name, ov);
     } else if (call_node->function->visibility == FunctionNode::Visibility::EXTERN) {
         return generate_extern_call(builder, ctx, call_node, args);
     } else {
@@ -1694,7 +1701,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     for (size_t i = 0; i < args.size(); i++) {
         const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
         llvm::Value *arg_value = args[i];
-        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
+        if (is_arg_reference(call_node->arguments[i], param_type)) {
             const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
             llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
@@ -1708,6 +1715,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     IR::aligned_store(builder, fn_frame, next_stack_frame);
 
     // Call the actual function by passing the stack frame pointer to it
+    const std::string &function_name = call_node->function->name;
     llvm::CallInst *call = builder.CreateCall(                       //
         func_decl,                                                   //
         {next_stack_frame},                                          //
@@ -1856,7 +1864,7 @@ bool Generator::Expression::generate_call_arg_prep(                             
             // Data is always passed by reference
             llvm::Function *const retain_fn = Module::DIMA::dima_functions.at("retain");
             llvm::Value *data_value = expr_val;
-            if (is_reference && is_arg_reference(arg, param_type, ctx)) {
+            if (is_reference && is_arg_reference(arg, param_type)) {
                 data_value = IR::aligned_load(builder, PTR_TY, expr_val, "data_value");
             }
             llvm::CallInst *const retain_call = builder.CreateCall(retain_fn, {data_value});
@@ -1942,7 +1950,7 @@ bool Generator::Expression::generate_call_arg_cleanup(                          
         llvm::Function *release_fn = Module::DIMA::dima_functions.at("release");
         auto data_head = Module::DIMA::get_head(arg.first->type);
         llvm::Value *data_value = args.at(i);
-        if (is_arg_reference(arguments[i], parameters[i].first, ctx)) {
+        if (is_arg_reference(arguments[i], parameters[i].first)) {
             data_value = IR::aligned_load(builder, PTR_TY, data_value, "data_value");
         }
         llvm::CallInst *release_call = builder.CreateCall(release_fn, {data_head, data_value});
@@ -2243,6 +2251,181 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
                         "Calling 'release' on arg " + std::to_string(i) + " after calling function '" + call_node->function->name + "'")));
         }
         return return_value;
+    } else if (module_name == "array" && Module::Array::array_functions.find(function_name) != Module::Array::array_functions.end()) {
+        // The generic Core.array functions are never specialized, they are lowered directly to the low-level functions of the array
+        // module. The element type of the array argument is the concrete comptime type parameter `T` of the function
+        ASSERT(!call_node->arguments.empty());
+        std::shared_ptr<Type> array_arg_type = call_node->arguments.front().first->type;
+        while (array_arg_type->get_variation() == Type::Variation::ALIAS) {
+            array_arg_type = array_arg_type->as<AliasType>()->type;
+        }
+        if (array_arg_type->get_variation() != Type::Variation::ARRAY) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        const ArrayType *const array_type = array_arg_type->as<ArrayType>();
+        // Only 1-dimensional dynamic arrays are supported
+        if (array_type->sizes.has_value() || array_type->dimensionality != 1) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return std::nullopt;
+        }
+        const std::shared_ptr<Type> elem_type = array_type->type;
+        const IR::TypeStorageInfo &elem_type_info = IR::get_type(ctx.parent->getParent(), elem_type);
+        llvm::Type *const element_type = elem_type->is_dima_managed() ? PTR_TY : elem_type_info.type;
+        const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
+        llvm::Value *const element_size = builder.getInt64(element_size_in_bytes);
+        llvm::Value *const type_id = elem_type->is_freeable() ? builder.getInt32(elem_type->get_id()) : builder.getInt32(0);
+        llvm::Value *const arr_ptr = args.front();
+        // The array may be reallocated, the low-level functions return the (possibly moved) array pointer which needs to be stored back
+        // into the argument if the argument is a plain variable
+        if (call_node->arguments.front().first->get_variation() != ExpressionNode::Variation::VARIABLE) {
+            // Relocating only works for arguments which are variables
+            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+            return std::nullopt;
+        }
+
+        if (function_name == "shrink") {
+            // The 'by' argument is always castable to u64
+            const std::shared_ptr<Type> by_type = call_node->arguments.at(1).first->type;
+            llvm::Value *const by = generate_type_cast(builder, ctx, args.at(1), by_type, Type::get_primitive_type("u64"));
+            llvm::CallInst *const shrink_call = builder.CreateCall(         //
+                Module::Array::array_functions.at("shrink"),                //
+                {arr_ptr, by, element_size, type_id},                       //
+                function_name + std::to_string(call_node->call_id) + "_arr" //
+            );
+            // Store back the relocated variable
+            garbage_type store_garbage;
+            const auto target = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.front().first.get(), true);
+            if (!target.has_value() || target.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            IR::aligned_store(builder, shrink_call, target.value().front());
+            return return_value;
+        } else if (function_name == "resize") {
+            // The size argument is always castable to u64
+            const std::shared_ptr<Type> size_type = call_node->arguments.at(1).first->type;
+            llvm::Value *const new_len = generate_type_cast(builder, ctx, args.at(1), size_type, Type::get_primitive_type("u64"));
+            // Growing needs to default-initialize all new values, which requires a default-constructible element type
+            llvm::Value *default_value = nullptr;
+            if (args.size() == 2) {
+                // For the 2-parameter overload, the type needs to be default-constructible. If it is not default-constructible the
+                // 3-parameter overload needs to be called
+                if (!elem_type->is_default_constructible()) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return std::nullopt;
+                }
+                const Hash hash = std::holds_alternative<FunctionNode *>(ctx.scope->function) //
+                    ? std::get<FunctionNode *>(ctx.scope->function)->file_hash                //
+                    : std::get<TestNode *>(ctx.scope->function)->file_hash;
+                const auto default_node = elem_type->get_default_value(elem_type, hash, PosTriple{}, ctx.scope->scope_id).value();
+                const group_mapping default_expr = generate_expression(builder, ctx, garbage, 0, default_node.get());
+                if (!default_expr.has_value()) {
+                    return std::nullopt;
+                }
+                default_value = default_expr.value().front();
+            } else {
+                ASSERT(args.size() == 3);
+                default_value = args.at(2);
+            }
+            // The default value is always passed as a pointer to its value: complex values are already pointers, primitive values need to
+            // be stored in the scratchspace first
+            if (!default_value->getType()->isPointerTy()) {
+                IR::aligned_store(builder, default_value, scratchspace);
+                default_value = scratchspace;
+            }
+            llvm::CallInst *const resize_call = builder.CreateCall(         //
+                Module::Array::array_functions.at("resize"),                //
+                {arr_ptr, new_len, element_size, default_value, type_id},   //
+                function_name + std::to_string(call_node->call_id) + "_arr" //
+            );
+            // Store back the relocated variable
+            garbage_type store_garbage;
+            const auto target = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.front().first.get(), true);
+            if (!target.has_value() || target.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            IR::aligned_store(builder, resize_call, target.value().front());
+            return return_value;
+        } else if (function_name == "insert") {
+            // The 'insert' function takes the value to insert as its second argument. Complex values are passed as a pointer to their data
+            // directly, primitive values need to be stored in the scratchspace so that a pointer to them can be passed
+            const std::shared_ptr<Type> value_type = call_node->arguments.at(1).first->type;
+            llvm::Value *value = args.at(1);
+            if (!value_type->equals(elem_type)) {
+                value = generate_type_cast(builder, ctx, value, value_type, elem_type);
+            }
+            llvm::Value *value_ptr = value;
+            if (!value->getType()->isPointerTy()) {
+                IR::aligned_store(builder, value, scratchspace);
+                value_ptr = scratchspace;
+            }
+            llvm::CallInst *const insert_call = builder.CreateCall(         //
+                Module::Array::array_functions.at("insert"),                //
+                {arr_ptr, element_size, value_ptr, args.at(2), type_id},    //
+                function_name + std::to_string(call_node->call_id) + "_arr" //
+            );
+            // Store back the relocated value
+            garbage_type store_garbage;
+            const auto target = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.front().first.get(), true);
+            if (!target.has_value() || target.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            IR::aligned_store(builder, insert_call, target.value().front());
+            return return_value;
+        } else if (function_name == "remove") {
+            // The index argument 'i' is always castable to u64
+            const std::shared_ptr<Type> i_type = call_node->arguments.at(1).first->type;
+            llvm::Value *const i = generate_type_cast(builder, ctx, args.at(1), i_type, Type::get_primitive_type("u64"));
+            // The removed element is returned as a 'T?' optional. Get the optional struct type and the value-slot offset (its 'alignment')
+            llvm::Module *const module = ctx.parent->getParent();
+            llvm::StructType *const opt_struct_type = IR::add_and_or_get_type(module, call_node->type, false);
+            const uint64_t opt_value_offset = module->getDataLayout().getStructLayout(opt_struct_type)->getElementOffset(1);
+            llvm::CallInst *const remove_call = builder.CreateCall(                          //
+                Module::Array::array_functions.at("remove"),                                 //
+                {arr_ptr, i, element_size, scratchspace, builder.getInt64(opt_value_offset)} //
+            );
+            // Load the removed 'T?' from the scratchspace and return it as the expression result
+            return_value.emplace_back(IR::aligned_load(builder, opt_struct_type, scratchspace, "removed_opt"));
+            // Store back the relocated variable
+            garbage_type store_garbage;
+            const auto target = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.front().first.get(), true);
+            if (!target.has_value() || target.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            IR::aligned_store(builder, remove_call, target.value().front());
+            return return_value;
+        } else if (function_name == "merge") {
+            // The index argument 'i' is always castable to u64
+            const std::shared_ptr<Type> i_type = call_node->arguments.at(2).first->type;
+            llvm::Value *const i = generate_type_cast(builder, ctx, args.at(2), i_type, Type::get_primitive_type("u64"));
+            if (call_node->arguments.at(1).first->get_variation() != ExpressionNode::Variation::VARIABLE) {
+                // Relocating only works for arguments which are variables
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return std::nullopt;
+            }
+            // Get both array arguments as direct references
+            garbage_type store_garbage;
+            const auto arr_arg = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.front().first.get(), true);
+            if (!arr_arg.has_value() || arr_arg.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            const auto src_arg = generate_expression(builder, ctx, store_garbage, 0, call_node->arguments.at(1).first.get(), true);
+            if (!src_arg.has_value() || src_arg.value().empty()) {
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            builder.CreateCall(                                                     //
+                Module::Array::array_functions.at("merge"),                         //
+                {arr_arg.value().front(), src_arg.value().front(), i, element_size} //
+            );
+            return return_value;
+        }
+        UNREACHABLE();
     } else {
         THROW_BASIC_ERR(ERR_GENERATING);
         return std::nullopt;
@@ -2383,7 +2566,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 
         // Check if the arg is a reference
         llvm::Value *arg_value = args[i];
-        if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
+        if (is_arg_reference(call_node->arguments[i], param_type)) {
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
         // arg_value->dump();
@@ -2528,7 +2711,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             for (size_t i = 0; i < args.size(); i++) {
                 const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
                 llvm::Value *arg_value = args[i];
-                if (is_arg_reference(call_node->arguments[i], param_type, ctx)) {
+                if (is_arg_reference(call_node->arguments[i], param_type)) {
                     const IR::TypeStorageInfo &param_type_info = IR::get_type(ctx.parent->getParent(), param_type);
                     llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
                     arg_value = IR::aligned_load(builder, param_ty, arg_value);
