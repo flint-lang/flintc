@@ -629,6 +629,9 @@ bool Generator::Allocation::generate_expression_allocations(              //
         case ExpressionNode::Variation::ARRAY_INITIALIZER: {
             const auto *node = expression->as<ArrayInitializerNode>();
             generate_array_indexing_allocation(builder, struct_types, node->length_expressions);
+            if (!generate_expression_allocations(builder, parent, scope, struct_types, node->initializer_value.get())) {
+                return false;
+            }
             break;
         }
         case ExpressionNode::Variation::BINARY_OP: {

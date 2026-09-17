@@ -3910,14 +3910,29 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
     }
     const size_t element_size_in_bytes = Allocation::get_type_size(ctx.parent->getParent(), element_type);
     switch (result_type->get_variation()) {
-        default:
+        case Type::Variation::ALIAS:
+        case Type::Variation::COMPTIME:
+        case Type::Variation::ERROR_SET:
+        case Type::Variation::FUNC:
+        case Type::Variation::FN:
+        case Type::Variation::GENERIC:
+        case Type::Variation::GROUP:
+        case Type::Variation::RANGE:
+        case Type::Variation::TYPE:
+        case Type::Variation::UNKNOWN:
             // Non-supported type for array access
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         case Type::Variation::DATA:
         case Type::Variation::ENUM:
+        case Type::Variation::INTERFACE:
+        case Type::Variation::OBJECT:
+        case Type::Variation::OPAQUE:
+        case Type::Variation::OPTIONAL:
+        case Type::Variation::POINTER:
         case Type::Variation::PRIMITIVE:
         case Type::Variation::TUPLE:
+        case Type::Variation::VARIANT:
         case Type::Variation::VECTOR: {
             ASSERT(base_type->get_variation() == Type::Variation::ARRAY);
             const ArrayType *base_arr_type = base_type->as<ArrayType>();

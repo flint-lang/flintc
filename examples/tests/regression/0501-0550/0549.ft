@@ -1,0 +1,18 @@
+use Core.print
+
+variant Cell:
+	Empty(void),
+	Input(u32),
+	Operator(str);
+
+def cellstr(Cell c) -> str:
+	return switch c:
+		Cell.Empty() -> "Empty";
+		Cell.Input(input) -> $"Input({input})";
+		Cell.Operator(op) -> $"Operator({op})";
+
+def main():
+	Cell[] cells = Cell[2](Cell.Empty());
+	cells[0] = Cell.Input(3);
+	print(cellstr(cells[0]));
+	print("\n");
