@@ -3317,7 +3317,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
 
         generate_switch_branch_garbage_cleanup(builder, garbage, garbage_before, branch_value);
 
-        phi_values.emplace_back(branch_value, branch_blocks[i]);
+        phi_values.emplace_back(branch_value, builder.GetInsertBlock());
         if (builder.GetInsertBlock()->getTerminator() == nullptr) {
             builder.CreateBr(merge_block);
         }
