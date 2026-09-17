@@ -172,10 +172,10 @@ static const inline std::map<std::string_view, function_overload_list> core_modu
                 }},
             {"abs", // The 'abs' function
                 {
-                    {{{"i8", "value"}}, {"i8"}, {}},   // The 'i8' overload of the 'abs' function
-                    {{{"i16", "value"}}, {"i16"}, {}}, // The 'i16' overload of the 'abs' function
-                    {{{"i32", "value"}}, {"i32"}, {}}, // The 'i32' overload of the 'abs' function
-                    {{{"i64", "value"}}, {"i64"}, {}}, // The 'i64' overload of the 'abs' function
+                    {{{"i8", "value"}}, {"u8"}, {}},   // The 'i8' overload of the 'abs' function
+                    {{{"i16", "value"}}, {"u16"}, {}}, // The 'i16' overload of the 'abs' function
+                    {{{"i32", "value"}}, {"u32"}, {}}, // The 'i32' overload of the 'abs' function
+                    {{{"i64", "value"}}, {"u64"}, {}}, // The 'i64' overload of the 'abs' function
                     {{{"f32", "value"}}, {"f32"}, {}}, // The 'f32' overload of the 'abs' function
                     {{{"f64", "value"}}, {"i64"}, {}}, // The 'f64' overload of the 'abs' function
                 }},

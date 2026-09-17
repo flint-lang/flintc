@@ -3165,6 +3165,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
     expression.value()->file_hash = file_hash;
     expression.value()->line = tokens.first->line;
     expression.value()->column = tokens.first->column;
-    expression.value()->length = tokens.second->column - tokens.first->column;
+    expression.value()->length = expr_tokens.second->column - expr_tokens.first->column;
     return expression;
 }

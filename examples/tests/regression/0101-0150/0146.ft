@@ -21,7 +21,7 @@ func FTriangle requires(DTriangle d):
 		i32 diff2 = d.p2.x * (d.p3.y - d.p1.y);
 		i32 diff3 = d.p3.x * (d.p1.y - d.p2.y);
 		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3));
-		return abs(signed_area);
+		return i32(abs(signed_area));
 
 object Triangle implements(IShape):
 	data: DTriangle;
@@ -44,7 +44,7 @@ func FQuad requires(DQuad d):
 		i32 diff3 = d.p3.x * d.p4.y - d.p4.x * d.p3.y;
 		i32 diff4 = d.p4.x * d.p1.y - d.p1.x * d.p4.y;
 		i32 signed_area = i32(0.5 * f32(diff1 + diff2 + diff3 + diff4));
-		return abs(signed_area);
+		return i32(abs(signed_area));
 
 object Quad implements(IShape):
 	data: DQuad;

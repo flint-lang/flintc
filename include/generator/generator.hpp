@@ -4042,27 +4042,43 @@ class Generator {
             /// @attention The functions are nullpointers until the `generate_math_functions` function is called
             /// @attention The map is not being cleared after the program module has been generated
             static inline std::unordered_map<std::string_view, llvm::Function *> math_functions = {
+                // sin
                 {"sin_f32", nullptr},
                 {"sin_f64", nullptr},
+                // cos
                 {"cos_f32", nullptr},
                 {"cos_f64", nullptr},
+                // sqrt
                 {"sqrt_f32", nullptr},
                 {"sqrt_f64", nullptr},
+                // abs
+                {"abs_i8", nullptr},
+                {"abs_i16", nullptr},
                 {"abs_i32", nullptr},
                 {"abs_i64", nullptr},
                 {"abs_f32", nullptr},
                 {"abs_f64", nullptr},
+                // min
+                {"min_u8", nullptr},
+                {"min_i8", nullptr},
+                {"min_u16", nullptr},
+                {"min_i16", nullptr},
                 {"min_u32", nullptr},
                 {"min_i32", nullptr},
-                {"min_f32", nullptr},
                 {"min_u64", nullptr},
                 {"min_i64", nullptr},
+                {"min_f32", nullptr},
                 {"min_f64", nullptr},
+                // max
+                {"max_u8", nullptr},
+                {"max_i8", nullptr},
+                {"max_u16", nullptr},
+                {"max_i16", nullptr},
                 {"max_u32", nullptr},
                 {"max_i32", nullptr},
-                {"max_f32", nullptr},
                 {"max_u64", nullptr},
                 {"max_i64", nullptr},
+                {"max_f32", nullptr},
                 {"max_f64", nullptr},
             };
 

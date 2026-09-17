@@ -24,7 +24,7 @@ def part_2(i32[] numbers):
 	for (_, num) in numbers:
 		if dial > 0 and num < 0 and dial + num < 0:
 			count++;
-		count += u32(abs(dial + num) - 1) / 100;
+		count += u32(i32(abs(dial + num)) - 1) / 100;
 		dial = mod(dial + num, 100);
 		if dial == 0:
 			count++;

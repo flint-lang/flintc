@@ -55,63 +55,24 @@ void Generator::Module::Math::generate_abs_iN_function( //
     const bool only_declarations,                       //
     const size_t N                                      //
 ) {
-    llvm::Function *abs_fn = nullptr;
-    if (N <= 32) {
-        abs_fn = c_functions.at(ABS);
-    } else if (N <= 64) {
-        abs_fn = c_functions.at(LABS);
-    } else {
-        UNREACHABLE();
-    }
-
-    // Create function type
     llvm::IntegerType *const intN_t = llvm::IntegerType::getIntNTy(context, N);
-    llvm::FunctionType *abs_int_type = llvm::FunctionType::get( //
-        intN_t,                                                 // return iX
-        {intN_t},                                               //  iX x
-        false                                                   // no vaarg
-    );
-    // Create the function
+    llvm::FunctionType *const abs_int_type = llvm::FunctionType::get(intN_t, {intN_t}, false);
     const std::string fn_name = "abs_i" + std::to_string(N);
-    llvm::Function *abs_int_fn = llvm::Function::Create( //
-        abs_int_type,                                    //
-        llvm::Function::ExternalLinkage,                 //
-        prefix + fn_name,                                //
-        module                                           //
-    );
+    llvm::Function *const abs_int_fn = llvm::Function::Create(abs_int_type, llvm::Function::ExternalLinkage, prefix + fn_name, module);
     math_functions[fn_name] = abs_int_fn;
     if (only_declarations) {
         return;
     }
-
-    // Get function parameter
-    llvm::Argument *arg_x = abs_int_fn->arg_begin();
+    llvm::Argument *const arg_x = abs_int_fn->arg_begin();
     arg_x->setName("x");
 
-    // Create basic blocks for the function
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create(context, "entry", abs_int_fn);
-    llvm::BasicBlock *is_min_block = llvm::BasicBlock::Create(context, "is_min", abs_int_fn);
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", abs_int_fn);
-
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", abs_int_fn);
     builder->SetInsertPoint(entry_block);
-
-    llvm::Value *int_min = llvm::ConstantInt::get(builder->getIntNTy(N), llvm::APInt::getSignedMinValue(N));
-    llvm::Value *is_min = builder->CreateICmpEQ(int_min, arg_x);
-    builder->CreateCondBr(is_min, is_min_block, merge_block, IR::generate_weights(1, 100));
-
-    builder->SetInsertPoint(is_min_block);
-    llvm::Value *int_max = llvm::ConstantInt::get(builder->getIntNTy(N), llvm::APInt::getSignedMaxValue(N));
-    builder->CreateRet(int_max);
-
-    builder->SetInsertPoint(merge_block);
-    llvm::Value *arg_x_ext = arg_x;
-    if (N != 32 && N != 64) {
-        arg_x_ext = builder->CreateSExt(arg_x, builder->getIntNTy(N < 32 ? 32 : 64), "arg_x_ext");
-    }
-    llvm::Value *abs_value = builder->CreateCall(abs_fn, {arg_x_ext}, "abs_val");
-    if (N != 32 && N != 64) {
-        abs_value = builder->CreateTrunc(abs_value, builder->getIntNTy(N), "abs_val_i" + std::to_string(N));
-    }
+    llvm::Value *const zero = builder->getIntN(N, 0);
+    // two's complement: wraps, 0 - i8_MIN == 0x80 == 128 as u8
+    llvm::Value *const neg = builder->CreateSub(zero, arg_x, "neg");
+    llvm::Value *const x_negative = builder->CreateICmpSLT(arg_x, zero, "x_negative");
+    llvm::Value *const abs_value = builder->CreateSelect(x_negative, neg, arg_x, "abs_val");
     builder->CreateRet(abs_value);
 }
 

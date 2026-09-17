@@ -12,7 +12,10 @@
     .paths = .{
         "build.zig",
         "build.zig.zon",
-        "build_flint-parser.zig",
+        "build/flint-parser.zig",
+        "build/flintc.zig",
+        "build/fls.zig",
+        "build/llvm.zig",
         "src",
     },
 }
