@@ -393,7 +393,14 @@ Generator::group_mapping Generator::Expression::generate_literal( //
             THROW_BASIC_ERR(ERR_GENERATING);
             return std::nullopt;
         }
-        llvm::Value *tag_ptr = builder.CreateStructGEP(variant_ty, scratchspace, 0, "tag_ptr");
+        // Make sure to use the slot in the frame pointer instead of scratchspace for freeable variant literals to prevent memory overlaps
+        // and corruptions in cases where multiple freeable variant literals are active at the same time
+        llvm::Value *slot = scratchspace;
+        if (variant.variant_type->is_freeable()) {
+            const std::string variant_slot_name = "flint.variant.literal." + std::to_string(reinterpret_cast<std::uintptr_t>(literal_node));
+            slot = ctx.allocations.at(variant_slot_name);
+        }
+        llvm::Value *tag_ptr = builder.CreateStructGEP(variant_ty, slot, 0, "tag_ptr");
         llvm::Value *tag_idx = builder.getInt8(tag_index.value());
         IR::aligned_store(builder, tag_idx, tag_ptr);
         if (variant.expr.has_value()) {
@@ -402,14 +409,13 @@ Generator::group_mapping Generator::Expression::generate_literal( //
                 return std::nullopt;
             }
             ASSERT(expr.value().size() == 1);
-            llvm::Value *value_ptr = builder.CreateStructGEP(variant_ty, scratchspace, 1, "value_ptr");
+            llvm::Value *value_ptr = builder.CreateStructGEP(variant_ty, slot, 1, "value_ptr");
             IR::aligned_store(builder, expr.value().front(), value_ptr);
         }
         if (variant.variant_type->is_freeable()) {
-            return std::vector<llvm::Value *>{scratchspace};
+            return std::vector<llvm::Value *>{slot};
         } else {
-            llvm::Value *result = IR::aligned_load(builder, variant_ty, scratchspace, "result");
-            return std::vector<llvm::Value *>{result};
+            return std::vector<llvm::Value *>{IR::aligned_load(builder, variant_ty, slot, "result")};
         }
     }
     UNREACHABLE();

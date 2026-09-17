@@ -748,8 +748,38 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
-        case ExpressionNode::Variation::LITERAL:
+        case ExpressionNode::Variation::LITERAL: {
+            const auto *literal_node = expression->as<LiteralNode>();
+            if (!std::holds_alternative<LitVariant>(literal_node->value)) {
+                break;
+            }
+            const auto &variant_literal = std::get<LitVariant>(literal_node->value);
+            // The payload of a variant literal can itself contain another freeable variant literal, so it needs to be visited as well
+            if (variant_literal.expr.has_value()) {
+                if (!generate_expression_allocations(builder, parent, scope, struct_types, variant_literal.expr.value().get())) {
+                    THROW_BASIC_ERR(ERR_GENERATING);
+                    return false;
+                }
+            }
+            if (!variant_literal.variant_type->is_freeable()) {
+                break;
+            }
+            // Freeable variant literals are returned as pointers and can be alive at the same time as other variant literals, so each one
+            // gets its own slot in the Thread Stack frame instead of all of them sharing the global scratchspace
+            const std::string slot_name = "flint.variant.literal." + std::to_string(reinterpret_cast<std::uintptr_t>(literal_node));
+            bool already_present = false;
+            for (const auto &[name, type] : struct_types) {
+                if (name == slot_name) {
+                    already_present = true;
+                    break;
+                }
+            }
+            if (!already_present) {
+                llvm::StructType *const variant_ty = IR::add_and_or_get_type(parent->getParent(), variant_literal.variant_type, false);
+                struct_types.emplace_back(slot_name, variant_ty);
+            }
             break;
+        }
         case ExpressionNode::Variation::OPTIONAL_CHAIN: {
             const auto *node = expression->as<OptionalChainNode>();
             if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {

@@ -1,0 +1,21 @@
+use Core.print
+
+variant Payload:
+	None(void),
+	Int(i64),
+	Name(str);
+
+variant Cell:
+	Empty(void),
+	Input(u32),
+	Operator(str);
+
+def two(Cell c, Payload p) -> str:
+	return switch c:
+		Cell.Empty() -> "Empty";
+		Cell.Input(input) -> $"Input({input})";
+		Cell.Operator(op) -> $"Operator({op})";
+
+def main():
+	print(two(Cell.Input(7), Payload.Int(5)));
+	print("\n");
