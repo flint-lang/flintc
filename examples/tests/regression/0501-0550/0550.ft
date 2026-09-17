@@ -1,0 +1,14 @@
+use Core.print
+
+variant Cell:
+	Empty(void),
+	Input(u32),
+	Operator(str);
+
+def fill(mut Cell[,] cells) -> void:
+	cells[0, 0] = Cell.Input(3);
+
+def main():
+	Cell[,] cells = Cell[2, 2](Cell.Empty());
+	fill(cells);
+	print("done\n");

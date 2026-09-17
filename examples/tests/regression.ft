@@ -32,3 +32,6 @@ test "regression/0451-0500":
 
 test "regression/0501-0550":
 	test_test("tests/regression", "0501-0550.ft");
+
+test "regression/0551-0600":
+	test_test("tests/regression", "0551-0600.ft");

@@ -42,6 +42,8 @@
 #include "error_types/parsing/definitions/function/err_fn_param_shadows_required_data.hpp"
 #include "error_types/parsing/definitions/function/err_fn_redefinition.hpp"
 #include "error_types/parsing/definitions/function/err_fn_reserved_name.hpp"
+#include "error_types/parsing/definitions/function/err_fn_void_in_return_group.hpp"
+#include "error_types/parsing/definitions/function/err_fn_void_param_type.hpp"
 #include "error_types/parsing/definitions/import/err_import_duplicate_alias.hpp"
 #include "error_types/parsing/definitions/import/err_import_exited_cwd.hpp"
 #include "error_types/parsing/definitions/import/err_import_nonexistent_file.hpp"

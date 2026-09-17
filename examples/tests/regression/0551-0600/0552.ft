@@ -1,0 +1,7 @@
+use Core.print
+
+def get() -> (i32, void):
+	print("Nope\n");
+
+def main():
+	get();

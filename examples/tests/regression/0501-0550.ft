@@ -262,3 +262,8 @@ test "0549":
 	str path = "tests/regression/0501-0550";
 	str file = "0549.ft";
 	test_file_ok($"{path}/{file}", "Input(3)\n");
+
+test "0550":
+	str path = "tests/regression/0501-0550";
+	str file = "0550.ft";
+	test_file_ok($"{path}/{file}", "done\n");

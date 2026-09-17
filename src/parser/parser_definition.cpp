@@ -217,6 +217,10 @@ std::optional<FunctionNode> Parser::create_function(                            
                     THROW_ERR(ErrTypeUnknown, ERR_PARSING, file_hash, type_tokens);
                     return std::nullopt;
                 }
+                if (param_type.value().type->equals(Type::get_primitive_type("void"))) {
+                    THROW_ERR(ErrFnVoidParamType, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
+                    return std::nullopt;
+                }
                 parameters.emplace_back(FunctionNode::Parameter{
                     .type = param_type.value().type,
                     .name = param_name,
@@ -256,7 +260,9 @@ std::optional<FunctionNode> Parser::create_function(                            
                 THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value().type);
                 return std::nullopt;
             }
-            return_types.emplace_back(return_type.value().type);
+            if (!return_type.value().type->equals(Type::get_primitive_type("void"))) {
+                return_types.emplace_back(return_type.value().type);
+            }
             def_it = type_tokens.second;
         } else {
             // Skip the left paren
@@ -282,6 +288,10 @@ std::optional<FunctionNode> Parser::create_function(                            
                     }
                     if (return_type.value().consumed_tokens != static_cast<size_t>(std::distance(type_tokens.first, type_tokens.second))) {
                         THROW_BASIC_ERR(ERR_PARSING);
+                        return std::nullopt;
+                    }
+                    if (return_type.value().type->equals(Type::get_primitive_type("void"))) {
+                        THROW_ERR(ErrFnVoidInReturnGroup, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
                         return std::nullopt;
                     }
                     return_types.emplace_back(return_type.value().type);
