@@ -35,6 +35,10 @@ class TestNode : public DefinitionNode {
         AnnotationKind::TEST_OUTPUT_NEVER,
         AnnotationKind::TEST_PERFORMANCE,
         AnnotationKind::TEST_SHOULD_FAIL,
+        AnnotationKind::TEST_INIT,
+        AnnotationKind::TEST_PRE,
+        AnnotationKind::TEST_POST,
+        AnnotationKind::TEST_DEINIT,
     };
 
     std::unordered_set<AnnotationKind> get_possible_annotations() const override {
@@ -87,10 +91,33 @@ class TestNode : public DefinitionNode {
     }
 
     /// @function `clear_test_namees`
-    /// @brief Clears all the test names
+    /// @brief Clears all the test names and the setup tests
     static void clear_test_names() {
-        std::lock_guard<std::mutex> lock(test_names_mutex);
-        test_names.clear();
+        {
+            std::lock_guard<std::mutex> lock(test_names_mutex);
+            test_names.clear();
+        }
+        {
+            std::lock_guard<std::mutex> setup_lock(setup_tests_mutex);
+            setup_tests.clear();
+        }
+    }
+
+    /// @function `check_setup_test`
+    /// @brief Checks that no test with the same setup annotation kind (`#test_init`, `#test_pre`, `#test_post` or `#test_deinit`) has
+    /// already been defined in this file. If the annotation kind is not yet used, it is registered for this file.
+    ///
+    /// @param `file_name` The name of the file to check for the setup tests
+    /// @param `kind` The annotation kind to check and register for
+    /// @return `bool` Whether the annotation kind can be used, `false` if a test with that kind already exists in the file
+    [[nodiscard]] static bool check_setup_test(const std::string &file_name, const AnnotationKind kind) {
+        std::lock_guard<std::mutex> lock(setup_tests_mutex);
+        std::unordered_set<AnnotationKind> &kinds = setup_tests[file_name];
+        if (kinds.find(kind) != kinds.end()) {
+            return false;
+        }
+        kinds.insert(kind);
+        return true;
     }
 
   private:
@@ -101,6 +128,15 @@ class TestNode : public DefinitionNode {
     /// @var `test_names_mutex`
     /// @brief Mutex for the test names map variable
     static inline std::mutex test_names_mutex;
+
+    /// @var `setup_tests`
+    /// @brief A map which maps each file name to the set of setup annotation kinds (`#test_init`, `#test_pre`, `#test_post`,
+    /// `#test_deinit`) already defined inside the file
+    static inline std::unordered_map<std::string, std::unordered_set<AnnotationKind>> setup_tests;
+
+    /// @var `setup_tests_mutex`
+    /// @brief Mutex for the setup tests map variable
+    static inline std::mutex setup_tests_mutex;
 
     /// @function `get_next_test_id`
     /// @brief Returns the next test id. Ensures that each test gets its own id for the lifetime of the program

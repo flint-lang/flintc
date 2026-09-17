@@ -1349,6 +1349,22 @@ std::optional<TestNode> Parser::create_test(const token_slice &definition) {
     const unsigned int column = definition.first->column;
     const unsigned int length = definition.second->column - definition.first->column;
     const auto annotations = AnnotationNode::extract_consumable(annotation_queue, TestNode::consumable_annotations);
+
+    // Only one `#test_init`, `#test_pre`, `#test_post` and `#test_deinit` test is allowed per file
+    for (const auto &annotation : annotations) {
+        const AnnotationKind kind = annotation.kind;
+        if (kind != AnnotationKind::TEST_INIT      //
+            && kind != AnnotationKind::TEST_PRE    //
+            && kind != AnnotationKind::TEST_POST   //
+            && kind != AnnotationKind::TEST_DEINIT //
+        ) {
+            continue;
+        }
+        if (!TestNode::check_setup_test(file_name, kind)) {
+            THROW_ERR(ErrTestSetupDuplicate, ERR_PARSING, file_hash, line, column, std::string(annotation_map_rev.at(kind)));
+            return std::nullopt;
+        }
+    }
     return TestNode(file_hash, line, column, length, annotations, test_name, body_scope);
 }
 

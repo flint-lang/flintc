@@ -22,6 +22,7 @@ main.o
 mylib.o
 mylib.obj
 test
+!test/
 test.o
 logfile
 zig-out

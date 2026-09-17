@@ -62,6 +62,7 @@
 #include "error_types/parsing/definitions/object/err_def_object_provided_type_not_func.hpp"
 #include "error_types/parsing/definitions/object/err_def_object_unresolved_virtual.hpp"
 #include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
+#include "error_types/parsing/definitions/test/err_test_setup_duplicate.hpp"
 
 #include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"
 #include "error_types/parsing/expressions/err_expr_array_needs_initializer.hpp"

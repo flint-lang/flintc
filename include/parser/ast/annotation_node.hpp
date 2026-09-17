@@ -13,6 +13,10 @@ enum class AnnotationKind {
     TEST_OUTPUT_NEVER,  // #test_output_never usable on `TestNode`s
     TEST_PERFORMANCE,   // #test_performance usable on `TestNode`s
     TEST_SHOULD_FAIL,   // #test_should_fail usable on `TestNode`s
+    TEST_INIT,          // #test_init usable on `TestNode`s
+    TEST_PRE,           // #test_pre usable on `TestNode`s
+    TEST_POST,          // #test_post usable on `TestNode`s
+    TEST_DEINIT,        // #test_deinit usable on `TestNode`s
 };
 
 /// @var `annotation_map`
@@ -23,6 +27,10 @@ static const inline std::map<std::string_view, AnnotationKind> annotation_map = 
     {"test_output_never", AnnotationKind::TEST_OUTPUT_NEVER},
     {"test_performance", AnnotationKind::TEST_PERFORMANCE},
     {"test_should_fail", AnnotationKind::TEST_SHOULD_FAIL},
+    {"test_init", AnnotationKind::TEST_INIT},
+    {"test_pre", AnnotationKind::TEST_PRE},
+    {"test_post", AnnotationKind::TEST_POST},
+    {"test_deinit", AnnotationKind::TEST_DEINIT},
 };
 
 /// @var `annotation_map_rev`
@@ -33,6 +41,10 @@ static const inline std::map<AnnotationKind, std::string_view> annotation_map_re
     {AnnotationKind::TEST_OUTPUT_NEVER, "test_output_never"},
     {AnnotationKind::TEST_PERFORMANCE, "test_performance"},
     {AnnotationKind::TEST_SHOULD_FAIL, "test_should_fail"},
+    {AnnotationKind::TEST_INIT, "test_init"},
+    {AnnotationKind::TEST_PRE, "test_pre"},
+    {AnnotationKind::TEST_POST, "test_post"},
+    {AnnotationKind::TEST_DEINIT, "test_deinit"},
 };
 
 /// @class `AnnotationNode`
