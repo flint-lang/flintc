@@ -1367,7 +1367,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     // here.
     std::shared_ptr<Type> common_type = e_branches.front().expr->type;
     for (const auto &branch : e_branches) {
-        if (branch.expr->type == common_type) {
+        if (branch.expr->type->equals(common_type)) {
             continue;
         }
 
@@ -1395,6 +1395,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     auto switch_expr = std::make_unique<SwitchExpression>(file_hash, get_pos_triple(definition), switcher.value(), e_branches);
     // Set the type of the switch expression to the common type of all its branches, the branch expressions are cast to this type in the
     // analyzer
+    if (common_type->equals(Type::get_primitive_type("type.flint.str.lit"))) {
+        common_type = Type::get_primitive_type("str");
+    }
     switch_expr->type = common_type;
     // Now we need to parse the lhs of the switch *somehow*...
     token_slice lhs_tokens = {definition.first, switcher_tokens.first - 1};

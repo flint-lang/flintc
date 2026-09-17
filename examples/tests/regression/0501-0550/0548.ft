@@ -1,0 +1,16 @@
+use Core.print
+
+variant Cell:
+	Empty(void),
+	Input(u32),
+	Operator(str);
+
+def one(Cell c) -> str:
+	return switch c:
+		Cell.Empty() -> "E";
+		Cell.Input(input) -> "I";
+		Cell.Operator(op) -> "O";
+
+def main():
+	print(one(Cell.Input(7)));
+	print("\n");
