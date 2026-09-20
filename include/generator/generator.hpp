@@ -655,6 +655,72 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Builtin() = delete;
 
+        /// @enum` TestStatus`
+        /// @brief Simple enum of all possible statuses which are able to be passed to the test result printing functions at runtime
+        enum TestStatus {
+            TEST_STATUS_PASSED = 0,
+            TEST_STATUS_FAILED = 1,
+            TEST_STATUS_FAILED_PRE = 2,
+            TEST_STATUS_FAILED_POST = 3,
+            TEST_STATUS_FAILED_INIT = 4,
+            TEST_STATUS_FAILED_DEINIT = 5,
+            TEST_STATUS_DISCARD = 6,
+        };
+
+        /// @struct `DeferredTestResultSlots`
+        /// @brief Bundles the allocations which hold the result of the last regular test of a file, so that it can be deferred and printed
+        /// after the `#test_deinit` test (if any) has run. The glyph of the deferred line depends on the deinit test's outcome
+        struct DeferredTestResultSlots {
+            /// @var `status`
+            /// @brief The status of the deferred test
+            llvm::AllocaInst *status;
+
+            /// @var `captured`
+            /// @brief The captured output of the deferred test
+            llvm::AllocaInst *captured;
+
+            /// @var `output_always`
+            /// @brief The `output_always` flag of the deferred test
+            llvm::AllocaInst *output_always;
+
+            /// @var `output_never`
+            /// @brief The `output_never` flag of the deferred test
+            llvm::AllocaInst *output_never;
+
+            /// @var `is_perf`
+            /// @brief Whether the deferred test is a perf test
+            llvm::AllocaInst *is_perf;
+
+            /// @var `perf_start`
+            /// @brief The perf start time point of the deferred test
+            llvm::AllocaInst *perf_start;
+
+            /// @var `perf_end`
+            /// @brief The perf end time point of the deferred test
+            llvm::AllocaInst *perf_end;
+
+            /// @var `failed`
+            /// @brief Whether the deferred test has failed
+            llvm::AllocaInst *failed;
+        };
+
+        /// @struct `BodyPostOutputSelection`
+        /// @brief The output-related result values of a regular test body / `#test_post` pair, computed from the `show_post` condition.
+        /// The caller may wrap them further, e.g. when a `#test_pre` failure overrides the displayed output with the pre test's output
+        struct BodyPostOutputSelection {
+            /// @var `captured_ptr`
+            /// @brief The `ptr*` alloca of the captured output which should be displayed
+            llvm::Value *captured_ptr;
+
+            /// @var `output_always`
+            /// @brief The `i1` `output_always` flag of the displayed output
+            llvm::Value *output_always;
+
+            /// @var `output_never`
+            /// @brief The `i1` `output_never` flag of the displayed output
+            llvm::Value *output_never;
+        };
+
         /// @function `init_global_variables`
         /// @brief Generates all initialization code for all global variables by storing a pseudo-frame at `ts_stack_data_ptr`
         ///        and evaluating the rhs expressions of all global variables
@@ -787,14 +853,176 @@ class Generator {
         static llvm::Function *generate_visible_width_function(llvm::IRBuilder<> *builder, llvm::Module *module);
 
         /// @function `generate_execute_test_function`
-        /// @brief Generates the `execute_test` function which is a wrapper around running a test, printing it's output etc. All the good
-        /// stuff. It has been created because without it the code duplication levels were kinda insane. With it, the IR code of tests now
-        /// is roughly 80% smaller, leading to way faster builds and compilations for the `--test` flag
+        /// @brief Generates the `execute_test` function which is a wrapper around running a test, capturing its output and timing it
+        /// if it is a perf test. It has been created because without it the code duplication levels were kinda insane. With it, the IR code
+        /// of tests now is roughly 80% smaller, leading to way faster builds and compilations for the `--test` flag
+        ///
+        /// The printing of the result itself is done by the `print_test_result` function because through the addition of the `#test_init`,
+        /// `#test_pre`, `#test_post` and `#test_deinit` functions printing output has become conditional.
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `module` The LLVM Module the `execute_test` function is being generated in
         /// @return `llvm::Function *` The generated `execute_test` function
-        static llvm::Function *generate_execute_test_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static llvm::Function *generate_execute_test_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
+
+        /// @function `generate_print_test_result_function`
+        /// @brief Generates the `print_test_result` function which prints a single test result line (including the output box and the
+        /// perf line, if the test is a perf test) and then frees the captured output. Which glyph (`├─` or `└─`) and which failure
+        /// suffix (`(pre)`, `(post)`, `(init)` or `(deinit)`) is used is decided at runtime. It is also responsible for freeing
+        /// captured outputs which will never be printed, a status of `TEST_STATUS_DISCARD` makes it free the captured output without
+        /// printing anything.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the `print_test_result` function is being generated in
+        /// @return `llvm::Function *` The generated `print_test_result` function
+        static llvm::Function *generate_print_test_result_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+
+        /// @function `emit_test_execute`
+        /// @brief Emits the frame setup and the call to the `execute_test` function for the given test.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module the test function is looked up in and the frame is emitted in
+        /// @param `execute_test_fn` The generated `execute_test` function to call
+        /// @param `ts_ptr` The pointer to the TS stack itself
+        /// @param `ts_stack_data_ptr` The pointer to the TS data section, passed as the stack argument
+        /// @param `test_node` The test node of the test to execute
+        /// @param `test_function_name` The mangled name of the test function to look up and execute
+        /// @param `is_perf_test` Whether the test is a performance test (only regular test bodies can be)
+        /// @param `captured_out` The `ptr*` out-parameter for the captured stdout of the test
+        /// @param `perf_start_out` The `ptr*` out-parameter for the perf start time point (only valid for perf tests)
+        /// @param `perf_end_out` The `ptr*` out-parameter for the perf end time point (only valid for perf tests)
+        /// @return `std::optional<llvm::Value *>` The `i1` `was_failure` value of the executed test, or `std::nullopt` when the test
+        /// function could not be found in the module
+        [[nodiscard]] static std::optional<llvm::Value *> emit_test_execute( //
+            llvm::IRBuilder<> *const builder,                                //
+            llvm::Module *const module,                                      //
+            llvm::Function *const execute_test_fn,                           //
+            llvm::Value *const ts_ptr,                                       //
+            llvm::Value *const ts_stack_data_ptr,                            //
+            const TestNode *const test_node,                                 //
+            const std::string &test_function_name,                           //
+            const bool is_perf_test,                                         //
+            llvm::Value *const captured_out,                                 //
+            llvm::Value *const perf_start_out,                               //
+            llvm::Value *const perf_end_out                                  //
+        );
+
+        /// @function `emit_free_test_capture`
+        /// @brief Emits a call to the `print_test_result` function with a `TEST_STATUS_DISCARD` status, which frees the given captured
+        /// output without printing anything. It is used for the captured outputs of passed setup tests and for the captured output of the
+        /// test whose output is *not* displayed
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `print_test_result_fn` The generated `print_test_result` function to call
+        /// @param `longest_name_value` The `i32` length of the longest test name of the file, used for the alignment of the box
+        /// @param `captured_ptr` The `ptr*` alloca of the captured output to free
+        static void emit_free_test_capture(             //
+            llvm::IRBuilder<> *const builder,           //
+            llvm::Function *const print_test_result_fn, //
+            llvm::Value *const longest_name_value,      //
+            llvm::Value *const captured_ptr             //
+        );
+
+        /// @function `emit_discard_unshown_output`
+        /// @brief Emits the block structure which frees the captured output of the test which is *not* displayed: the displayed output
+        /// is the body's unless the post test failed (and the body passed), in which case the post test's output is shown instead. The
+        /// `show_post` condition decides which capture is freed. After this function returns, the insert point is set to the merge block
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `main_function` The LLVM Function the blocks are being generated in (the test entry point)
+        /// @param `print_test_result_fn` The generated `print_test_result` function to call
+        /// @param `longest_name_value` The `i32` length of the longest test name of the file, used for the alignment of the box
+        /// @param `show_post` The `i1` condition which decides whether the post test's output is displayed
+        /// @param `body_captured_ptr` The `ptr*` alloca of the captured output of the body test
+        /// @param `post_captured_ptr` The `ptr*` alloca of the captured output of the post test
+        static void emit_discard_unshown_output(        //
+            llvm::IRBuilder<> *const builder,           //
+            llvm::Function *const main_function,        //
+            llvm::Function *const print_test_result_fn, //
+            llvm::Value *const longest_name_value,      //
+            llvm::Value *const show_post,               //
+            llvm::Value *const body_captured_ptr,       //
+            llvm::Value *const post_captured_ptr        //
+        );
+
+        /// @function `emit_body_post_status`
+        /// @brief Computes the status of a body / post test pair, where the body failure takes precedence over the post failure. A
+        /// status of `TEST_STATUS_FAILED_POST` is returned when only the post test failed, `TEST_STATUS_FAILED` when the body failed
+        /// and `TEST_STATUS_PASSED` when neither failed
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `body_fail` The `i1` `was_failure` value of the body test
+        /// @param `post_fail` The `i1` `was_failure` value of the post test
+        /// @return `llvm::Value *` The `i32` status of the body / post test pair
+        [[nodiscard]] static llvm::Value *emit_body_post_status( //
+            llvm::IRBuilder<> *const builder,                    //
+            llvm::Value *const body_fail,                        //
+            llvm::Value *const post_fail                         //
+        );
+
+        /// @function `emit_body_post_output_selection`
+        /// @brief Computes the output-related result values of a body / post test pair: the pointer to the captured output which should
+        /// be displayed (the body's unless the body passed and the post test failed) and the `output_always` / `output_never` flags
+        /// which follow the same rule
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `show_post` The `i1` condition which decides whether the post test's output is displayed (body passed and post failed)
+        /// @param `body_captured_ptr` The `ptr*` alloca of the captured output of the body test
+        /// @param `post_captured_ptr` The `ptr*` alloca of the captured output of the post test (must be the body's when there is no
+        /// post test, the selection then always picks the body)
+        /// @param `body_output_always` The `output_always` flag of the body test
+        /// @param `post_output_always` The `output_always` flag of the post test
+        /// @param `body_output_never` The `output_never` flag of the body test
+        /// @param `post_output_never` The `output_never` flag of the post test
+        /// @return `BodyPostOutputSelection` The selected captured output and output flags of the pair
+        [[nodiscard]] static BodyPostOutputSelection emit_body_post_output_selection( //
+            llvm::IRBuilder<> *const builder,                                         //
+            llvm::Value *const show_post,                                             //
+            llvm::Value *const body_captured_ptr,                                     //
+            llvm::Value *const post_captured_ptr,                                     //
+            const bool body_output_always,                                            //
+            const bool post_output_always,                                            //
+            const bool body_output_never,                                             //
+            const bool post_output_never                                              //
+        );
+
+        /// @function `emit_print_or_defer_test_result`
+        /// @brief Emits the result of a regular test: either it is printed inline (and the fail counter is incremented when it has
+        /// failed) or, when it is the last regular test of the file, its result is stored into the `deferred_slots` so that it can be
+        /// printed after the `#test_deinit` test (if any) has run
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `print_test_result_fn` The generated `print_test_result` function to call
+        /// @param `is_last` Whether the test is the last regular test of the file
+        /// @param `name_value` The `char*` name of the test to print
+        /// @param `status` The `i32` status of the test
+        /// @param `longest_name_value` The `i32` length of the longest test name of the file, used for the alignment of the box
+        /// @param `captured` The captured output of the test to print or defer
+        /// @param `is_perf` The `i1` perf flag of the test
+        /// @param `output_always` The `i1` `output_always` flag of the test
+        /// @param `output_never` The `i1` `output_never` flag of the test
+        /// @param `perf_start` The perf start time point of the test
+        /// @param `perf_end` The perf end time point of the test
+        /// @param `failed` The `i1` value of whether the test has failed, used for the counter
+        /// @param `counter_alloca` The alloca of the fail counter, incremented when the test has failed
+        /// @param `deferred_slots` The slots to store the result into when `is_last` is true
+        static void emit_print_or_defer_test_result(      //
+            llvm::IRBuilder<> *const builder,             //
+            llvm::Function *const print_test_result_fn,   //
+            const bool is_last,                           //
+            llvm::Value *const name_value,                //
+            llvm::Value *const status,                    //
+            llvm::Value *const longest_name_value,        //
+            llvm::Value *const captured,                  //
+            llvm::Value *const is_perf,                   //
+            llvm::Value *const output_always,             //
+            llvm::Value *const output_never,              //
+            llvm::Value *const perf_start,                //
+            llvm::Value *const perf_end,                  //
+            llvm::Value *const failed,                    //
+            llvm::Value *const counter_alloca,            //
+            const DeferredTestResultSlots &deferred_slots //
+        );
 
         /// @function `generate_builtin_test`
         /// @brief Generates the entry point of the program when compiled with the `--test` flag enabled

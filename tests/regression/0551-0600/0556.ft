@@ -1,0 +1,33 @@
+use Core.assert
+use Core.print
+
+shared data G:
+	i32 c = 0;
+
+#test_init
+test "init":
+	G.c = 10;
+
+#test_deinit
+test "deinit":
+	assert(G.c == 14);
+	G.c = 0;
+
+#test_pre
+test "pre":
+	G.c++;
+
+#test_post
+test "post":
+	G.c++;
+
+test "t1":
+	print($"G.c = {G.c}\n");
+	assert(G.c == 11);
+
+test "t2":
+	print($"G.c = {G.c}\n");
+	assert(G.c == 13);
+
+def main():
+	print("Hello, World!\n");

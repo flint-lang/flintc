@@ -1857,62 +1857,39 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     return visible_width_fn;
 }
 
-llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    llvm::Function *visible_width_fn = generate_visible_width_function(builder, module);
-    llvm::Type *i32_type = llvm::Type::getInt32Ty(context);
-    llvm::Type *i1_type = llvm::Type::getInt1Ty(context);
-    llvm::FunctionType *exec_type = llvm::FunctionType::get( //
-        i1_type,                                             // Whether the test failed (to increment counter)
+llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuilder<> *const builder, llvm::Module *const module) {
+    llvm::Type *const i1_type = llvm::Type::getInt1Ty(context);
+    llvm::FunctionType *const exec_type = llvm::FunctionType::get( //
+        i1_type,                                                   // Whether the test failed (to increment counter)
         {
-            PTR_TY,   // void* test_fn_ptr
-            PTR_TY,   // void* stack
-            PTR_TY,   // char* test_name_value
-            PTR_TY,   // char* success_fmt
-            PTR_TY,   // char* fail_fmt
-            PTR_TY,   // char* perf_fmt
-            PTR_TY,   // char* output_begin
-            PTR_TY,   // char* output_line
-            PTR_TY,   // char *output_end
-            i32_type, // longest_name
-            i1_type,  // is_perf_test
-            i1_type,  // should_fail
-            i1_type,  // output_always
-            i1_type   // output_never
-        },            //
-        false         //
+            PTR_TY,  // void* test_fn_ptr
+            PTR_TY,  // void* stack
+            i1_type, // is_perf_test
+            i1_type, // should_fail
+            PTR_TY,  // ptr* out_captured (captured stdout of the test)
+            PTR_TY,  // ptr* out_perf_start
+            PTR_TY   // ptr* out_perf_end
+        },           //
+        false        //
     );
-    llvm::Function *exec_fn = llvm::Function::Create(exec_type, llvm::Function::ExternalLinkage, "test.execute_test", module);
+    llvm::Function *const exec_fn = llvm::Function::Create(exec_type, llvm::Function::ExternalLinkage, "test.execute_test", module);
 
     // Get function arguments
     auto arg_it = exec_fn->arg_begin();
-    llvm::Argument *arg_test_fn_ptr = arg_it++;
+    llvm::Argument *const arg_test_fn_ptr = arg_it++;
     arg_test_fn_ptr->setName("test_fn_ptr");
-    llvm::Argument *arg_stack = arg_it++;
+    llvm::Argument *const arg_stack = arg_it++;
     arg_stack->setName("stack");
-    llvm::Argument *arg_test_name_value = arg_it++;
-    arg_test_name_value->setName("test_name_value");
-    llvm::Argument *arg_success_fmt = arg_it++;
-    arg_success_fmt->setName("success_fmt");
-    llvm::Argument *arg_fail_fmt = arg_it++;
-    arg_fail_fmt->setName("fail_fmt");
-    llvm::Argument *arg_perf_fmt = arg_it++;
-    arg_perf_fmt->setName("perf_fmt");
-    llvm::Argument *arg_output_begin_fmt = arg_it++;
-    arg_output_begin_fmt->setName("output_begin_fmt");
-    llvm::Argument *arg_output_line_fmt = arg_it++;
-    arg_output_line_fmt->setName("output_line_fmt");
-    llvm::Argument *arg_output_end_fmt = arg_it++;
-    arg_output_end_fmt->setName("output_end_fmt");
-    llvm::Argument *arg_longest_name = arg_it++;
-    arg_longest_name->setName("longest_name");
-    llvm::Argument *arg_is_perf_test = arg_it++;
+    llvm::Argument *const arg_is_perf_test = arg_it++;
     arg_is_perf_test->setName("is_perf_test");
-    llvm::Argument *arg_should_fail = arg_it++;
+    llvm::Argument *const arg_should_fail = arg_it++;
     arg_should_fail->setName("should_fail");
-    llvm::Argument *arg_output_always = arg_it++;
-    arg_output_always->setName("output_always");
-    llvm::Argument *arg_output_never = arg_it++;
-    arg_output_never->setName("output_never");
+    llvm::Argument *const arg_out_captured = arg_it++;
+    arg_out_captured->setName("out_captured");
+    llvm::Argument *const arg_out_perf_start = arg_it++;
+    arg_out_perf_start->setName("out_perf_start");
+    llvm::Argument *const arg_out_perf_end = arg_it++;
+    arg_out_perf_end->setName("out_perf_end");
 
     // Create basic blocks of function
     llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", exec_fn);
@@ -1920,73 +1897,27 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::BasicBlock *const perf_test_start_merge_block = llvm::BasicBlock::Create(context, "perf_test_start_merge", exec_fn);
     llvm::BasicBlock *const perf_test_end_block = llvm::BasicBlock::Create(context, "perf_test_end", exec_fn);
     llvm::BasicBlock *const perf_test_end_merge_block = llvm::BasicBlock::Create(context, "perf_test_end_merge", exec_fn);
-    llvm::BasicBlock *const succeed_block = llvm::BasicBlock::Create(context, "test_success", exec_fn);
-    llvm::BasicBlock *const fail_block = llvm::BasicBlock::Create(context, "test_fail", exec_fn);
-    llvm::BasicBlock *const print_output_block = llvm::BasicBlock::Create(context, "print_output", exec_fn);
-    llvm::BasicBlock *const find_longest_line_cond_block = llvm::BasicBlock::Create( //
-        context, "find_longest_line_cond", exec_fn                                   //
-    );
-    llvm::BasicBlock *const find_longest_line_body_block = llvm::BasicBlock::Create( //
-        context, "find_longest_line_body", exec_fn                                   //
-    );
-    llvm::BasicBlock *const find_longest_line_merge_block = llvm::BasicBlock::Create( //
-        context, "find_longest_line_merge", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_begin_m_cond_block = llvm::BasicBlock::Create( //
-        context, "output_begin_m_cond", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_begin_m_body_block = llvm::BasicBlock::Create( //
-        context, "output_begin_m_body", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_begin_m_merge_block = llvm::BasicBlock::Create( //
-        context, "output_begin_m_merge", exec_fn                                   //
-    );
-    llvm::BasicBlock *const print_output_loop_cond_block = llvm::BasicBlock::Create( //
-        context, "print_output_loop_cond", exec_fn                                   //
-    );
-    llvm::BasicBlock *const print_output_loop_body_block = llvm::BasicBlock::Create( //
-        context, "print_output_loop_body", exec_fn                                   //
-    );
-    llvm::BasicBlock *const print_output_loop_merge_block = llvm::BasicBlock::Create( //
-        context, "print_output_loop_merge", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_end_m_cond_block = llvm::BasicBlock::Create( //
-        context, "output_end_m_cond", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_end_m_body_block = llvm::BasicBlock::Create( //
-        context, "output_end_m_body", exec_fn                                   //
-    );
-    llvm::BasicBlock *const output_end_m_merge_block = llvm::BasicBlock::Create( //
-        context, "output_end_m_merge", exec_fn                                   //
-    );
-    llvm::BasicBlock *const check_perf_print_block = llvm::BasicBlock::Create(context, "check_perf_print", exec_fn);
-    llvm::BasicBlock *const perf_print_results_block = llvm::BasicBlock::Create(context, "perf_print_result", exec_fn);
-    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", exec_fn);
-
-    llvm::Function *printf_fn = c_functions.at(PRINTF);
 
     builder->SetInsertPoint(entry_block);
-    llvm::AllocaInst *perf_start_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_start_TimePoint");
-    llvm::AllocaInst *perf_end_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_end_TimePoint");
+    llvm::AllocaInst *const perf_start_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_start_TimePoint");
+    llvm::AllocaInst *const perf_end_point = builder->CreateAlloca(PTR_TY, nullptr, "perf_end_TimePoint");
     // Start capturing the output
-    llvm::Function *start_capture_fn = Module::System::system_functions.at("start_capture");
+    llvm::Function *const start_capture_fn = Module::System::system_functions.at("start_capture");
     builder->CreateCall(start_capture_fn, {});
     builder->CreateCondBr(arg_is_perf_test, perf_test_start_block, perf_test_start_merge_block);
 
     // Store the current time in the test_start allocation
     builder->SetInsertPoint(perf_test_start_block);
-    llvm::Function *time_now_fn = Module::Time::time_functions.at("now");
-    llvm::Value *now = builder->CreateCall(time_now_fn, {}, "start_val");
-    IR::aligned_store(*builder, now, perf_start_point);
+    llvm::Function *const time_now_fn = Module::Time::time_functions.at("now");
+    llvm::Value *const start_val = builder->CreateCall(time_now_fn, {}, "start_val");
+    IR::aligned_store(*builder, start_val, perf_start_point);
     builder->CreateBr(perf_test_start_merge_block);
 
     // Add a call to the actual function
     builder->SetInsertPoint(perf_test_start_merge_block);
-    llvm::FunctionType *const test_function_type = llvm::FunctionType::get( //
-        builder->getInt1Ty(), {PTR_TY}, false                               //
-    );
+    llvm::FunctionType *const test_function_type = llvm::FunctionType::get(builder->getInt1Ty(), {PTR_TY}, false);
     llvm::FunctionCallee test_fn(test_function_type, arg_test_fn_ptr);
-    llvm::CallInst *test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
+    llvm::CallInst *const test_fail = builder->CreateCall(test_fn, {arg_stack}, "test_fail");
     if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
         test_fail->addParamAttr(0, llvm::Attribute::InReg);
     }
@@ -1994,36 +1925,205 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
 
     builder->SetInsertPoint(perf_test_end_block);
     // Store the current time in the test_end allocation
-    now = builder->CreateCall(time_now_fn, {}, "end_val");
-    IR::aligned_store(*builder, now, perf_end_point);
+    llvm::Value *const end_val = builder->CreateCall(time_now_fn, {}, "end_val");
+    IR::aligned_store(*builder, end_val, perf_end_point);
     builder->CreateBr(perf_test_end_merge_block);
 
     builder->SetInsertPoint(perf_test_end_merge_block);
-    // Get the captured output
-    llvm::Function *end_capture_fn = Module::System::system_functions.at("end_capture_lines");
-    llvm::Value *captured_output = builder->CreateCall(end_capture_fn, {}, "captured_output");
+    // Get the captured output and hand it back to the caller, so it can be printed - or discarded - at a later point in time
+    llvm::Function *const end_capture_fn = Module::System::system_functions.at("end_capture_lines");
+    llvm::Value *const captured_output = builder->CreateCall(end_capture_fn, {}, "captured_output");
+    IR::aligned_store(*builder, captured_output, arg_out_captured);
+    // Also hand back the perf time points, they are only valid when this is a perf test
+    llvm::Value *const perf_start_value = IR::aligned_load(*builder, PTR_TY, perf_start_point, "perf_start_value");
+    llvm::Value *const perf_end_value = IR::aligned_load(*builder, PTR_TY, perf_end_point, "perf_end_value");
+    IR::aligned_store(*builder, perf_start_value, arg_out_perf_start);
+    IR::aligned_store(*builder, perf_end_value, arg_out_perf_end);
 
-    // Create branching condition. Go to succeed block if the test_err_val is == 0, to the fail_block otherwise
-    // If the test should fail then the condition is flipped
-    llvm::Value *test_ok = builder->CreateNot(test_fail, "test_ok");
-    llvm::Value *comparison_value = builder->CreateSelect(arg_should_fail, test_fail, test_ok, "test_succeed");
-    builder->CreateCondBr(comparison_value, succeed_block, fail_block);
+    // Create the comparison value: if the test should fail then the condition is flipped
+    llvm::Value *const test_ok = builder->CreateNot(test_fail, "test_ok");
+    llvm::Value *const comparison_value = builder->CreateSelect(arg_should_fail, test_fail, test_ok, "test_succeed");
+    llvm::Value *const was_failure = builder->CreateNot(comparison_value, "was_failure");
+    builder->CreateRet(was_failure);
+
+    return exec_fn;
+}
+
+llvm::Function *Generator::Builtin::generate_print_test_result_function(llvm::IRBuilder<> *const builder, llvm::Module *const module) {
+    llvm::Function *const visible_width_fn = generate_visible_width_function(builder, module);
+    llvm::Type *const i32_type = llvm::Type::getInt32Ty(context);
+    llvm::Type *const i1_type = llvm::Type::getInt1Ty(context);
+    llvm::FunctionType *const print_type = llvm::FunctionType::get( //
+        llvm::Type::getVoidTy(context),                             //
+        {
+            PTR_TY,   // char* test_name_value
+            i32_type, // status
+            i1_type,  // is_end
+            i32_type, // longest_name
+            PTR_TY,   // ptr captured_output
+            i1_type,  // is_perf_test
+            i1_type,  // output_always
+            i1_type,  // output_never
+            PTR_TY,   // perf_start
+            PTR_TY    // perf_end
+        },            //
+        false         //
+    );
+    llvm::Function *const print_fn = llvm::Function::Create(print_type, llvm::Function::ExternalLinkage, "test.print_test_result", module);
+
+    // Get function arguments
+    auto arg_it = print_fn->arg_begin();
+    llvm::Argument *const arg_test_name_value = arg_it++;
+    arg_test_name_value->setName("test_name_value");
+    llvm::Argument *const arg_status = arg_it++;
+    arg_status->setName("status");
+    llvm::Argument *const arg_is_end = arg_it++;
+    arg_is_end->setName("is_end");
+    llvm::Argument *const arg_longest_name = arg_it++;
+    arg_longest_name->setName("longest_name");
+    llvm::Argument *const arg_captured_output = arg_it++;
+    arg_captured_output->setName("captured_output");
+    llvm::Argument *const arg_is_perf_test = arg_it++;
+    arg_is_perf_test->setName("is_perf_test");
+    llvm::Argument *const arg_output_always = arg_it++;
+    arg_output_always->setName("output_always");
+    llvm::Argument *const arg_output_never = arg_it++;
+    arg_output_never->setName("output_never");
+    llvm::Argument *const arg_perf_start = arg_it++;
+    arg_perf_start->setName("perf_start");
+    llvm::Argument *const arg_perf_end = arg_it++;
+    arg_perf_end->setName("perf_end");
+
+    // Create basic blocks of function
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", print_fn);
+    llvm::BasicBlock *const check_status_block = llvm::BasicBlock::Create(context, "check_status", print_fn);
+    llvm::BasicBlock *const discard_block = llvm::BasicBlock::Create(context, "discard", print_fn);
+    llvm::BasicBlock *const succeed_block = llvm::BasicBlock::Create(context, "test_success", print_fn);
+    llvm::BasicBlock *const fail_block = llvm::BasicBlock::Create(context, "test_fail", print_fn);
+    llvm::BasicBlock *const print_output_block = llvm::BasicBlock::Create(context, "print_output", print_fn);
+    llvm::BasicBlock *const find_longest_line_cond_block = llvm::BasicBlock::Create( //
+        context, "find_longest_line_cond", print_fn                                  //
+    );
+    llvm::BasicBlock *const find_longest_line_body_block = llvm::BasicBlock::Create( //
+        context, "find_longest_line_body", print_fn                                  //
+    );
+    llvm::BasicBlock *const find_longest_line_merge_block = llvm::BasicBlock::Create( //
+        context, "find_longest_line_merge", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_begin_m_cond_block = llvm::BasicBlock::Create( //
+        context, "output_begin_m_cond", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_begin_m_body_block = llvm::BasicBlock::Create( //
+        context, "output_begin_m_body", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_begin_m_merge_block = llvm::BasicBlock::Create( //
+        context, "output_begin_m_merge", print_fn                                  //
+    );
+    llvm::BasicBlock *const print_output_loop_cond_block = llvm::BasicBlock::Create( //
+        context, "print_output_loop_cond", print_fn                                  //
+    );
+    llvm::BasicBlock *const print_output_loop_body_block = llvm::BasicBlock::Create( //
+        context, "print_output_loop_body", print_fn                                  //
+    );
+    llvm::BasicBlock *const print_output_loop_merge_block = llvm::BasicBlock::Create( //
+        context, "print_output_loop_merge", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_end_m_cond_block = llvm::BasicBlock::Create( //
+        context, "output_end_m_cond", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_end_m_body_block = llvm::BasicBlock::Create( //
+        context, "output_end_m_body", print_fn                                  //
+    );
+    llvm::BasicBlock *const output_end_m_merge_block = llvm::BasicBlock::Create( //
+        context, "output_end_m_merge", print_fn                                  //
+    );
+    llvm::BasicBlock *const check_perf_print_block = llvm::BasicBlock::Create(context, "check_perf_print", print_fn);
+    llvm::BasicBlock *const perf_print_results_block = llvm::BasicBlock::Create(context, "perf_print_result", print_fn);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", print_fn);
+
+    llvm::Function *const printf_fn = c_functions.at(PRINTF);
+
+    builder->SetInsertPoint(entry_block);
+    // The type id of the `str[]` array type, used to free the captured output
+    const auto array_type = Type::get_type_from_str("str[]").value();
+    llvm::Value *const type_id = builder->getInt32(array_type->get_id());
+
+    // Select the formats of the line and the output box based on whether this is the last line of the file
+    llvm::Value *const success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
+    llvm::Value *const success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
+    llvm::Value *const fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed%s\033[0m\n");
+    llvm::Value *const fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed%s\033[0m\n");
+    llvm::Value *const perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
+    llvm::Value *const perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
+    llvm::Value *const output_begin_fmt_middle = IR::generate_const_string(module, " │   ├─ Output ─");
+    llvm::Value *const output_line_fmt_middle = IR::generate_const_string(module, " │   │ %.*s%*s│\n");
+    llvm::Value *const output_end_fmt_middle = IR::generate_const_string(module, " │   └──────────");
+    llvm::Value *const output_end_fmt_middle_2 = IR::generate_const_string(module, " │   ├──────────");
+    llvm::Value *const output_begin_fmt_end = IR::generate_const_string(module, "     ├─ Output ─");
+    llvm::Value *const output_line_fmt_end = IR::generate_const_string(module, "     │ %.*s%*s│\n");
+    llvm::Value *const output_end_fmt_end = IR::generate_const_string(module, "     └──────────");
+    llvm::Value *const output_end_fmt_end_2 = IR::generate_const_string(module, "     ├──────────");
+    llvm::Value *const success_fmt = builder->CreateSelect(arg_is_end, success_fmt_end, success_fmt_middle, "success_fmt");
+    llvm::Value *const fail_fmt = builder->CreateSelect(arg_is_end, fail_fmt_end, fail_fmt_middle, "fail_fmt");
+    llvm::Value *const perf_fmt = builder->CreateSelect(arg_is_end, perf_fmt_end, perf_fmt_middle, "perf_fmt");
+    llvm::Value *const output_begin_fmt = builder->CreateSelect(                      //
+        arg_is_end, output_begin_fmt_end, output_begin_fmt_middle, "output_begin_fmt" //
+    );
+    llvm::Value *const output_line_fmt = builder->CreateSelect(arg_is_end, output_line_fmt_end, output_line_fmt_middle, "output_line_fmt");
+    llvm::Value *const output_end_norm = builder->CreateSelect(arg_is_end, output_end_fmt_end, output_end_fmt_middle, "output_end_normal");
+    llvm::Value *const output_end_perf = builder->CreateSelect(                      //
+        arg_is_end, output_end_fmt_end_2, output_end_fmt_middle_2, "output_end_perf" //
+    );
+    llvm::Value *const output_end_fmt = builder->CreateSelect(arg_is_perf_test, output_end_perf, output_end_norm, "output_end_fmt");
+
+    // The failure suffix depends on the status, e.g. `failed (pre)`
+    llvm::Value *const deinit_str = IR::generate_const_string(module, " (deinit)");
+    llvm::Value *const init_str = IR::generate_const_string(module, " (init)");
+    llvm::Value *const post_str = IR::generate_const_string(module, " (post)");
+    llvm::Value *const pre_str = IR::generate_const_string(module, " (pre)");
+    llvm::Value *suffix = IR::generate_const_string(module, "");
+    suffix = builder->CreateSelect(                                                                                          //
+        builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_FAILED_DEINIT)), deinit_str, suffix, "suffix_deinit" //
+    );
+    suffix = builder->CreateSelect(                                                                                    //
+        builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_FAILED_INIT)), init_str, suffix, "suffix_init" //
+    );
+    suffix = builder->CreateSelect(                                                                                    //
+        builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_FAILED_POST)), post_str, suffix, "suffix_post" //
+    );
+    suffix = builder->CreateSelect(                                                                                 //
+        builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_FAILED_PRE)), pre_str, suffix, "suffix_pre" //
+    );
+
+    // The discard status only frees the captured output without printing anything
+    llvm::Value *const is_discard = builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_DISCARD), "is_discard");
+    builder->CreateCondBr(is_discard, discard_block, check_status_block);
+
+    // check_status_block: decide whether the test passed or failed
+    builder->SetInsertPoint(check_status_block);
+    llvm::Value *const is_success = builder->CreateICmpEQ(arg_status, builder->getInt32(TEST_STATUS_PASSED), "is_success");
+    builder->CreateCondBr(is_success, succeed_block, fail_block);
+
+    // discard_block: free the captured output silently
+    builder->SetInsertPoint(discard_block);
+    builder->CreateCall(Memory::memory_functions.at("free"), {arg_captured_output, type_id});
+    builder->CreateRetVoid();
 
     builder->SetInsertPoint(succeed_block);
-    builder->CreateCall(printf_fn, {arg_success_fmt, arg_longest_name, arg_test_name_value});
+    builder->CreateCall(printf_fn, {success_fmt, arg_longest_name, arg_test_name_value});
     builder->CreateCondBr(arg_output_always, print_output_block, check_perf_print_block);
 
     builder->SetInsertPoint(fail_block);
-    builder->CreateCall(printf_fn, {arg_fail_fmt, arg_longest_name, arg_test_name_value});
+    builder->CreateCall(printf_fn, {fail_fmt, arg_longest_name, arg_test_name_value, suffix});
     builder->CreateCondBr(arg_output_never, check_perf_print_block, print_output_block);
 
     builder->SetInsertPoint(print_output_block);
     llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i");
     IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-    llvm::Value *line_count_ptr = builder->CreateStructGEP(str_type, captured_output, 1, "line_count_ptr");
-    llvm::Value *line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_ptr, "line_count");
-    llvm::Value *line_iter_start_ptr = builder->CreateGEP(PTR_TY, line_count_ptr, builder->getInt64(1), "line_iter_start_ptr");
+    llvm::Value *const line_count_ptr = builder->CreateStructGEP(str_type, arg_captured_output, 1, "line_count_ptr");
+    llvm::Value *const line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_ptr, "line_count");
+    llvm::Value *const line_iter_start_ptr = builder->CreateGEP(PTR_TY, line_count_ptr, builder->getInt64(1), "line_iter_start_ptr");
     llvm::AllocaInst *const longest_line = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "longest_line");
     IR::aligned_store(*builder, builder->getInt64(0), longest_line);
     builder->CreateBr(find_longest_line_cond_block);
@@ -2038,11 +2138,13 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     llvm::Value *line_iter = IR::aligned_load(*builder, PTR_TY, line_iter_ptr, "line_iter");
     llvm::Value *line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
     llvm::Value *line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
-    llvm::Value *line_value_ptr = builder->CreateStructGEP(str_type, line_iter, 1, "line_value_ptr");
-    llvm::Value *visible_line_len = builder->CreateCall(visible_width_fn, {line_value_ptr, line_len}, "visible_line_len");
-    llvm::Value *curr_longest_line = IR::aligned_load(*builder, builder->getInt64Ty(), longest_line, "curr_longest_line");
-    llvm::Value *curr_line_gt_longest = builder->CreateICmpUGT(visible_line_len, curr_longest_line, "curr_line_gt_longest");
-    llvm::Value *new_longest_line = builder->CreateSelect(curr_line_gt_longest, visible_line_len, curr_longest_line, "new_longest_line");
+    llvm::Value *const line_value_ptr = builder->CreateStructGEP(str_type, line_iter, 1, "line_value_ptr");
+    llvm::Value *const visible_line_len = builder->CreateCall(visible_width_fn, {line_value_ptr, line_len}, "visible_line_len");
+    llvm::Value *const curr_longest_line = IR::aligned_load(*builder, builder->getInt64Ty(), longest_line, "curr_longest_line");
+    llvm::Value *const curr_line_gt_longest = builder->CreateICmpUGT(visible_line_len, curr_longest_line, "curr_line_gt_longest");
+    llvm::Value *const new_longest_line = builder->CreateSelect(                      //
+        curr_line_gt_longest, visible_line_len, curr_longest_line, "new_longest_line" //
+    );
     IR::aligned_store(*builder, new_longest_line, longest_line);
     llvm::Value *i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
     IR::aligned_store(*builder, i_p1, i_alloca);
@@ -2054,17 +2156,17 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
         longest_line_value, builder->getInt64(1), "longest_line_value_p1" //
     );
     llvm::Value *const min_width = builder->getInt64(9);
-    llvm::Value *longest_line_lt_min_width = builder->CreateICmpULT(longest_line_value_p1, min_width, "longest_line_lt_min_width");
+    llvm::Value *const longest_line_lt_min_width = builder->CreateICmpULT(longest_line_value_p1, min_width, "longest_line_lt_min_width");
     llvm::Value *const output_width = builder->CreateSelect(                        //
         longest_line_lt_min_width, min_width, longest_line_value_p1, "output_width" //
     );
-    builder->CreateCall(printf_fn, {arg_output_begin_fmt});
+    builder->CreateCall(printf_fn, {output_begin_fmt});
     // Now after '├─ Output ─' has been printed we need to print N '─' symbols where N is the longest line - 8, clamped at 0. The
     // "minimal" line width is 8, so that's the minimal "contianer size"
     // After the '─' symbols we need to print one '┐' symbol. The printing of the '─' symbols is done in a loop, yet another one
-    llvm::Value *longest_line_gt_8 = builder->CreateICmpUGT(longest_line_value, builder->getInt64(8), "longest_line_gt_8");
-    llvm::Value *longest_line_m8 = builder->CreateSub(longest_line_value, builder->getInt64(8), "longest_line_m8");
-    llvm::Value *m_to_print = builder->CreateSelect(longest_line_gt_8, longest_line_m8, builder->getInt64(0), "m_to_print");
+    llvm::Value *const longest_line_gt_8 = builder->CreateICmpUGT(longest_line_value, builder->getInt64(8), "longest_line_gt_8");
+    llvm::Value *const longest_line_m8 = builder->CreateSub(longest_line_value, builder->getInt64(8), "longest_line_m8");
+    llvm::Value *const m_to_print = builder->CreateSelect(longest_line_gt_8, longest_line_m8, builder->getInt64(0), "m_to_print");
     IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
     builder->CreateBr(output_begin_m_cond_block);
 
@@ -2096,19 +2198,19 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
     line_iter = IR::aligned_load(*builder, PTR_TY, line_iter_ptr, "line_iter");
     line_len_ptr = builder->CreateStructGEP(str_type, line_iter, 0, "line_len_ptr");
     line_len = IR::aligned_load(*builder, builder->getInt64Ty(), line_len_ptr, "line_len");
-    llvm::Value *line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
-    llvm::Value *line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
+    llvm::Value *const line_len_i32 = builder->CreateTrunc(line_len, builder->getInt32Ty(), "line_len_i32");
+    llvm::Value *const line_value = builder->CreateStructGEP(str_type, line_iter, 1, "line_value");
     llvm::Value *const empty_string = IR::generate_const_string(module, "");
-    llvm::Value *visible_len_print = builder->CreateCall(visible_width_fn, {line_value, line_len}, "visible_len_print");
-    llvm::Value *space_count = builder->CreateSub(output_width, visible_len_print, "space_count");
-    llvm::Value *space_count_i32 = builder->CreateTrunc(space_count, builder->getInt32Ty(), "space_count_i32");
-    builder->CreateCall(printf_fn, {arg_output_line_fmt, line_len_i32, line_value, space_count_i32, empty_string});
+    llvm::Value *const visible_len_print = builder->CreateCall(visible_width_fn, {line_value, line_len}, "visible_len_print");
+    llvm::Value *const space_count = builder->CreateSub(output_width, visible_len_print, "space_count");
+    llvm::Value *const space_count_i32 = builder->CreateTrunc(space_count, builder->getInt32Ty(), "space_count_i32");
+    builder->CreateCall(printf_fn, {output_line_fmt, line_len_i32, line_value, space_count_i32, empty_string});
     i_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "i_p1");
     IR::aligned_store(*builder, i_p1, i_alloca);
     builder->CreateBr(print_output_loop_cond_block);
 
     builder->SetInsertPoint(print_output_loop_merge_block);
-    builder->CreateCall(printf_fn, {arg_output_end_fmt});
+    builder->CreateCall(printf_fn, {output_end_fmt});
     IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
     builder->CreateBr(output_end_m_cond_block);
 
@@ -2133,60 +2235,254 @@ llvm::Function *Generator::Builtin::generate_execute_test_function(llvm::IRBuild
 
     builder->SetInsertPoint(perf_print_results_block);
     // Print the perf test result
-    llvm::Function *time_duration_fn = Module::Time::time_functions.at("duration");
-    llvm::Value *perf_test_start = IR::aligned_load(*builder, PTR_TY, perf_start_point, "start_point_value");
-    llvm::Value *perf_test_end = IR::aligned_load(*builder, PTR_TY, perf_end_point, "end_point_value");
-    llvm::Value *duration = builder->CreateCall(time_duration_fn, {perf_test_start, perf_test_end}, "perf_test_duration");
-
-    llvm::Function *time_as_unit_fn = Module::Time::time_functions.at("as_unit");
-    llvm::Value *as_unit = builder->CreateCall(time_as_unit_fn, {duration, builder->getInt32(2)}, "as_unit");
-    builder->CreateCall(printf_fn, {arg_perf_fmt, as_unit});
+    llvm::Function *const time_duration_fn = Module::Time::time_functions.at("duration");
+    llvm::Value *const duration = builder->CreateCall(time_duration_fn, {arg_perf_start, arg_perf_end}, "perf_test_duration");
+    llvm::Function *const time_as_unit_fn = Module::Time::time_functions.at("as_unit");
+    llvm::Value *const as_unit = builder->CreateCall(time_as_unit_fn, {duration, builder->getInt32(2)}, "as_unit");
+    builder->CreateCall(printf_fn, {perf_fmt, as_unit});
     builder->CreateBr(merge_block);
 
     builder->SetInsertPoint(merge_block);
-    const auto array_type = Type::get_type_from_str("str[]").value();
-    llvm::Value *type_id = builder->getInt32(array_type->get_id());
-    builder->CreateCall(Memory::memory_functions.at("free"), {captured_output, type_id});
-    llvm::Value *was_failure = builder->CreateNot(comparison_value, "was_failure");
-    builder->CreateRet(was_failure);
+    builder->CreateCall(Memory::memory_functions.at("free"), {arg_captured_output, type_id});
+    builder->CreateRetVoid();
 
-    return exec_fn;
+    return print_fn;
 }
 
-bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm::Module *module) {
-    llvm::Function *execute_test_fn = generate_execute_test_function(builder, module);
+std::optional<llvm::Value *> Generator::Builtin::emit_test_execute( //
+    llvm::IRBuilder<> *const builder,                               //
+    llvm::Module *const module,                                     //
+    llvm::Function *const execute_test_fn,                          //
+    llvm::Value *const ts_ptr,                                      //
+    llvm::Value *const ts_stack_data_ptr,                           //
+    const TestNode *const test_node,                                //
+    const std::string &test_function_name,                          //
+    const bool is_perf_test,                                        //
+    llvm::Value *const captured_out,                                //
+    llvm::Value *const perf_start_out,                              //
+    llvm::Value *const perf_end_out                                 //
+) {
+    // Get the actual test function
+    llvm::Function *const test_function = module->getFunction(test_function_name);
+    if (test_function == nullptr) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return std::nullopt;
+    }
 
-    llvm::Value *zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
-    llvm::Value *one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 1);
-    llvm::FunctionType *main_type = llvm::FunctionType::get( //
-        llvm::Type::getInt32Ty(context),                     // Return type: int
-        {},                                                  // Takes nothing
-        false                                                // no varargs
+    // Compute the test function's ID to look up its frame in ts_frames/ts_defaults
+    // This must match the ID computed in generate_test_function when the frame was registered
+    std::vector<FunctionNode::Parameter> fake_fn_parameters;
+    std::vector<std::shared_ptr<Type>> fake_fn_return_types;
+    std::vector<std::shared_ptr<Type>> fake_fn_error_types;
+    const std::optional<size_t> fake_fn_mangle_id;
+    std::optional<std::shared_ptr<Scope>> fake_fn_scope = std::make_optional(test_node->scope);
+    const FunctionNode fake_fn = FunctionNode( //
+        test_node->file_hash,                  //
+        test_node->line,                       //
+        test_node->column,                     //
+        test_node->length,                     //
+        {},                                    //
+        false,                                 //
+        FunctionNode::Visibility::INTERN,      //
+        test_function_name,                    //
+        {},                                    //
+        fake_fn_parameters,                    //
+        fake_fn_return_types,                  //
+        fake_fn_error_types,                   //
+        fake_fn_scope,                         //
+        fake_fn_mangle_id                      //
     );
-    llvm::Function *main_function = llvm::Function::Create( //
-        main_type,                                          //
-        llvm::Function::ExternalLinkage,                    //
-        "main",                                             //
-        module                                              //
+    const size_t test_fn_id = fake_fn.get_id();
+
+    // Set up the test function's frame in the TS data section
+    llvm::StructType *const test_frame_type = Module::ThreadStack::ts_frames.at(test_fn_id);
+    llvm::Value *const test_default_value = Module::ThreadStack::ts_defaults.at(test_fn_id);
+    llvm::Value *test_frame = IR::aligned_load(*builder, test_frame_type, test_default_value, "test_frame_default");
+    test_frame = builder->CreateInsertValue(test_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
+    IR::aligned_store(*builder, test_frame, ts_stack_data_ptr);
+
+    // The out parameters for the captured output and the perf time points are allocated by the caller, in a block which
+    // dominates all the blocks in which the captured output will be used
+    const bool should_fail = test_node->contains_annotation(AnnotationKind::TEST_SHOULD_FAIL);
+    return builder->CreateCall(execute_test_fn, //
+        {
+            //
+            test_function,                  // void* test_fn_ptr
+            ts_stack_data_ptr,              // void* stack
+            builder->getInt1(is_perf_test), // i1 is_perf_test
+            builder->getInt1(should_fail),  // i1 should_fail
+            captured_out,                   // ptr* out_captured
+            perf_start_out,                 // ptr* out_perf_start
+            perf_end_out                    // ptr* out_perf_end
+        },                                  //
+        "test_ret"                          //
+    );
+}
+
+void Generator::Builtin::emit_free_test_capture( //
+    llvm::IRBuilder<> *const builder,            //
+    llvm::Function *const print_test_result_fn,  //
+    llvm::Value *const longest_name_value,       //
+    llvm::Value *const captured_ptr              //
+) {
+    // Free the captured output without printing anything, by calling the `print_test_result` function with a discard status
+    builder->CreateCall(print_test_result_fn,
+        {
+            llvm::ConstantPointerNull::get(PTR_TY),                               // name_value
+            builder->getInt32(TEST_STATUS_DISCARD),                               // status
+            builder->getInt1(false),                                              // is_end
+            longest_name_value,                                                   // longest_name
+            IR::aligned_load(*builder, PTR_TY, captured_ptr, "captured_discard"), // captured
+            builder->getInt1(false),                                              // is_perf
+            builder->getInt1(false),                                              // output_always
+            builder->getInt1(false),                                              // output_never
+            llvm::ConstantPointerNull::get(PTR_TY),                               // perf_start
+            llvm::ConstantPointerNull::get(PTR_TY),                               // perf_end
+        });
+}
+
+void Generator::Builtin::emit_discard_unshown_output( //
+    llvm::IRBuilder<> *const builder,                 //
+    llvm::Function *const main_function,              //
+    llvm::Function *const print_test_result_fn,       //
+    llvm::Value *const longest_name_value,            //
+    llvm::Value *const show_post,                     //
+    llvm::Value *const body_captured_ptr,             //
+    llvm::Value *const post_captured_ptr              //
+) {
+    // The displayed output is the body's unless the post test failed (and the body passed), in which case the post test's
+    // output is shown instead. The captured output of the test which is *not* shown is freed silently
+    llvm::BasicBlock *const discard_body_block = llvm::BasicBlock::Create(context, "discard_body", main_function);
+    llvm::BasicBlock *const discard_post_block = llvm::BasicBlock::Create(context, "discard_post", main_function);
+    llvm::BasicBlock *const merge_continue_block = llvm::BasicBlock::Create(context, "merge_continue", main_function);
+    builder->CreateCondBr(show_post, discard_body_block, discard_post_block);
+
+    builder->SetInsertPoint(discard_body_block);
+    emit_free_test_capture(builder, print_test_result_fn, longest_name_value, body_captured_ptr);
+    builder->CreateBr(merge_continue_block);
+
+    builder->SetInsertPoint(discard_post_block);
+    emit_free_test_capture(builder, print_test_result_fn, longest_name_value, post_captured_ptr);
+    builder->CreateBr(merge_continue_block);
+
+    builder->SetInsertPoint(merge_continue_block);
+}
+
+llvm::Value *Generator::Builtin::emit_body_post_status( //
+    llvm::IRBuilder<> *const builder,                   //
+    llvm::Value *const body_fail,                       //
+    llvm::Value *const post_fail                        //
+) {
+    llvm::Value *const post_status = builder->CreateSelect(                                                         //
+        post_fail, builder->getInt32(TEST_STATUS_FAILED_POST), builder->getInt32(TEST_STATUS_PASSED), "post_status" //
+    );
+    return builder->CreateSelect(body_fail, builder->getInt32(TEST_STATUS_FAILED), post_status, "body_status");
+}
+
+Generator::Builtin::BodyPostOutputSelection Generator::Builtin::emit_body_post_output_selection( //
+    llvm::IRBuilder<> *const builder,                                                            //
+    llvm::Value *const show_post,                                                                //
+    llvm::Value *const body_captured_ptr,                                                        //
+    llvm::Value *const post_captured_ptr,                                                        //
+    const bool body_output_always,                                                               //
+    const bool post_output_always,                                                               //
+    const bool body_output_never,                                                                //
+    const bool post_output_never                                                                 //
+) {
+    return {
+        .captured_ptr = builder->CreateSelect(                                       //
+            show_post, post_captured_ptr, body_captured_ptr, "body_or_post_captured" //
+            ),
+        .output_always = builder->CreateSelect(                                                                          //
+            show_post, builder->getInt1(post_output_always), builder->getInt1(body_output_always), "body_or_post_always" //
+            ),
+        .output_never = builder->CreateSelect(                                                                        //
+            show_post, builder->getInt1(post_output_never), builder->getInt1(body_output_never), "body_or_post_never" //
+            ),
+    };
+}
+
+void Generator::Builtin::emit_print_or_defer_test_result( //
+    llvm::IRBuilder<> *const builder,                     //
+    llvm::Function *const print_test_result_fn,           //
+    const bool is_last,                                   //
+    llvm::Value *const name_value,                        //
+    llvm::Value *const status,                            //
+    llvm::Value *const longest_name_value,                //
+    llvm::Value *const captured,                          //
+    llvm::Value *const is_perf,                           //
+    llvm::Value *const output_always,                     //
+    llvm::Value *const output_never,                      //
+    llvm::Value *const perf_start,                        //
+    llvm::Value *const perf_end,                          //
+    llvm::Value *const failed,                            //
+    llvm::Value *const counter_alloca,                    //
+    const DeferredTestResultSlots &deferred_slots         //
+) {
+    if (is_last) {
+        // Defer the result: it is printed after the deinit test (if any) has run, its line glyph depends on the deinit test's outcome
+        IR::aligned_store(*builder, status, deferred_slots.status);
+        IR::aligned_store(*builder, captured, deferred_slots.captured);
+        IR::aligned_store(*builder, output_always, deferred_slots.output_always);
+        IR::aligned_store(*builder, output_never, deferred_slots.output_never);
+        IR::aligned_store(*builder, is_perf, deferred_slots.is_perf);
+        IR::aligned_store(*builder, perf_start, deferred_slots.perf_start);
+        IR::aligned_store(*builder, perf_end, deferred_slots.perf_end);
+        IR::aligned_store(*builder, failed, deferred_slots.failed);
+    } else {
+        // Print the result of this test inline
+        builder->CreateCall(print_test_result_fn,
+            {
+                name_value,
+                status,
+                builder->getInt1(false), // is_end
+                longest_name_value,
+                captured,
+                is_perf,
+                output_always,
+                output_never,
+                perf_start,
+                perf_end,
+            });
+        // Increment the fail counter only if the test has failed
+        llvm::Value *const counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter_alloca, "counter_val");
+        llvm::Value *const counter_p1 = builder->CreateAdd(counter_value, builder->getInt32(1), "counter_p1");
+        llvm::Value *const new_counter_value = builder->CreateSelect(failed, counter_p1, counter_value, "new_counter_value");
+        IR::aligned_store(*builder, new_counter_value, counter_alloca);
+    }
+}
+
+bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder, llvm::Module *const module) {
+    llvm::Function *const execute_test_fn = generate_execute_test_function(builder, module);
+    llvm::Function *const print_test_result_fn = generate_print_test_result_function(builder, module);
+
+    llvm::Value *const zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
+    llvm::Value *const one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 1);
+    llvm::FunctionType *const main_type = llvm::FunctionType::get( //
+        llvm::Type::getInt32Ty(context),                           // Return type: int
+        {},                                                        // Takes nothing
+        false                                                      // no varargs
+    );
+    llvm::Function *const main_function = llvm::Function::Create( //
+        main_type,                                                //
+        llvm::Function::ExternalLinkage,                          //
+        "main",                                                   //
+        module                                                    //
     );
 
     // Create the functions entry block
-    llvm::BasicBlock *entry_block = llvm::BasicBlock::Create( //
-        context,                                              //
-        "entry",                                              //
-        main_function                                         //
-    );
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", main_function);
     builder->SetInsertPoint(entry_block);
 
     if (is_target_windows()) {
         // Setting the console output to UTF-8 that the tree characters render correctly
         static constexpr unsigned int cp_utf8 = 65001;
-        llvm::FunctionType *SetConsoleOutputCP_type = llvm::FunctionType::get( //
-            llvm::Type::getInt32Ty(context),                                   // returns BOOL (i32)
-            {llvm::Type::getInt32Ty(context)},                                 // UINT
-            false                                                              // No vaargs
+        llvm::FunctionType *const SetConsoleOutputCP_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                                         // returns BOOL (i32)
+            {llvm::Type::getInt32Ty(context)},                                       // UINT
+            false                                                                    // No vaargs
         );
-        llvm::Function *SetConsoleOutputCP_fn = llvm::Function::Create(                            //
+        llvm::Function *const SetConsoleOutputCP_fn = llvm::Function::Create(                      //
             SetConsoleOutputCP_type, llvm::Function::ExternalLinkage, "SetConsoleOutputCP", module //
         );
         builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(cp_utf8)});
@@ -2194,7 +2490,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
     // Handle the case that there are no tests to run
     if (tests.empty()) {
-        llvm::Value *msg = IR::generate_const_string(module, "There are no tests to run\n");
+        llvm::Value *const msg = IR::generate_const_string(module, "There are no tests to run\n");
         builder->CreateCall(c_functions.at(PRINTF), {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
         builder->CreateUnreachable();
@@ -2202,7 +2498,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     }
 
     // Init DIMA
-    llvm::Function *dima_init_fn = Module::DIMA::dima_functions.at("init");
+    llvm::Function *const dima_init_fn = Module::DIMA::dima_functions.at("init");
     builder->CreateCall(dima_init_fn, {});
 
     // Init the TS variable
@@ -2236,11 +2532,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     }
 
     // Create the counter to count how many tests have failed
-    llvm::AllocaInst *counter = builder->CreateAlloca( //
-        llvm::Type::getInt32Ty(context),               //
-        nullptr,                                       //
-        "err_counter"                                  //
-    );
+    llvm::AllocaInst *const counter = builder->CreateAlloca(llvm::Type::getInt32Ty(context), nullptr, "err_counter");
     IR::aligned_store(*builder, zero, counter);
 
     // Sort all tests based on the relative file path string lexographically to keep a constant ordering
@@ -2259,130 +2551,501 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
     // Go through all files for all tests
     size_t i = 0;
     for (const auto &[file_hash, test_list] : sorted_tests) {
-        // Print which file we are currently at
-        llvm::Value *const success_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[32m✓ passed\033[0m\n");
-        llvm::Value *const success_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[32m✓ passed\033[0m\n");
-        llvm::Value *const fail_fmt_middle = IR::generate_const_string(module, " ├─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *const fail_fmt_end = IR::generate_const_string(module, " └─ %-*s \033[31m✗ failed\033[0m\n");
-        llvm::Value *const perf_fmt_middle = IR::generate_const_string(module, " │   └─ Test took \033[34m%lf ms\033[0m\n");
-        llvm::Value *const perf_fmt_end = IR::generate_const_string(module, "     └─ Test took \033[34m%lf ms\033[0m\n");
-        llvm::Value *const output_begin_fmt_middle = IR::generate_const_string(module, " │   ├─ Output ─");
-        llvm::Value *const output_line_fmt_middle = IR::generate_const_string(module, " │   │ %.*s%*s│\n");
-        llvm::Value *const output_end_fmt_middle = IR::generate_const_string(module, " │   └──────────");
-        llvm::Value *const output_end_fmt_middle_2 = IR::generate_const_string(module, " │   ├──────────");
-        llvm::Value *const output_begin_fmt_end = IR::generate_const_string(module, "     ├─ Output ─");
-        llvm::Value *const output_line_fmt_end = IR::generate_const_string(module, "     │ %.*s%*s│\n");
-        llvm::Value *const output_end_fmt_end = IR::generate_const_string(module, "     └──────────");
-        llvm::Value *const output_end_fmt_end_2 = IR::generate_const_string(module, "     ├──────────");
-
         const std::string file_path = std::filesystem::relative(file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *const file_name_value = IR::generate_const_string(module, (i == 0 ? "" : "\n") + file_path + ":\n");
         i++;
         builder->CreateCall(c_functions.at(PRINTF), {file_name_value});
 
-        // Find out the longest test name, to be able to align the passed / failed outputs
+        // Partition the tests of this file into the setup tests and the regular tests. At most one test with a setup annotation
+        // (`#test_init`, `#test_pre`, `#test_post` or `#test_deinit`) can exist per file, which is enforced at parse time
+        std::vector<std::pair<const TestNode *, std::string>> regular_tests;
+        const TestNode *init_test = nullptr;
+        std::string init_test_fn_name;
+        const TestNode *pre_test = nullptr;
+        std::string pre_test_fn_name;
+        const TestNode *post_test = nullptr;
+        std::string post_test_fn_name;
+        const TestNode *deinit_test = nullptr;
+        std::string deinit_test_fn_name;
+        for (const auto &[test_node, test_function_name] : test_list) {
+            if (test_node->contains_annotation(AnnotationKind::TEST_INIT)) {
+                init_test = test_node;
+                init_test_fn_name = test_function_name;
+            } else if (test_node->contains_annotation(AnnotationKind::TEST_PRE)) {
+                pre_test = test_node;
+                pre_test_fn_name = test_function_name;
+            } else if (test_node->contains_annotation(AnnotationKind::TEST_POST)) {
+                post_test = test_node;
+                post_test_fn_name = test_function_name;
+            } else if (test_node->contains_annotation(AnnotationKind::TEST_DEINIT)) {
+                deinit_test = test_node;
+                deinit_test_fn_name = test_function_name;
+            } else {
+                regular_tests.emplace_back(test_node, test_function_name);
+            }
+        }
+
+        // Find out the longest test name, to be able to align the passed / failed outputs. The pre and post tests never print their
+        // own name on a line, so they do not contribute to the alignment
         unsigned int longest_name = 0;
-        for (const auto &[test_node, _] : test_list) {
+        for (const auto &[test_node, _] : regular_tests) {
             if (test_node->name.length() > longest_name) {
                 longest_name = test_node->name.length();
             }
         }
+        if (init_test != nullptr && init_test->name.length() > longest_name) {
+            longest_name = init_test->name.length();
+        }
+        if (deinit_test != nullptr && deinit_test->name.length() > longest_name) {
+            longest_name = deinit_test->name.length();
+        }
 
-        // Run all tests and print whether they succeeded
-        size_t index = 0;
-        for (const auto &[test_node, test_function_name] : test_list) {
-            const bool is_end = index + 1 == test_list.size();
-            const bool is_perf_test = test_node->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
-            const bool should_fail = test_node->contains_annotation(AnnotationKind::TEST_SHOULD_FAIL);
-            const bool output_always = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-            const bool output_never = test_node->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
-            llvm::Value *const success_fmt = is_end ? success_fmt_end : success_fmt_middle;
-            llvm::Value *const fail_fmt = is_end ? fail_fmt_end : fail_fmt_middle;
-            llvm::Value *const perf_fmt = is_end ? perf_fmt_end : perf_fmt_middle;
-            llvm::Value *const output_begin_fmt = is_end ? output_begin_fmt_end : output_begin_fmt_middle;
-            llvm::Value *const output_line_fmt = is_end ? output_line_fmt_end : output_line_fmt_middle;
-            llvm::Value *const output_end_fmt = is_end                       //
-                ? (is_perf_test ? output_end_fmt_end_2 : output_end_fmt_end) //
-                : (is_perf_test ? output_end_fmt_middle_2 : output_end_fmt_middle);
+        // The length of the longest test name of this file as an i32 value, used for the alignment of the output box
+        llvm::Value *const longest_name_value = builder->getInt32(longest_name);
 
-            // Get the actual test function
-            llvm::Function *const test_function = module->getFunction(test_function_name);
-            if (test_function == nullptr) {
-                THROW_BASIC_ERR(ERR_GENERATING);
+        // A null pointer, used for the `name_value` and the perf arguments of the `print_test_result` calls
+        llvm::Value *const null_value = llvm::ConstantPointerNull::get(PTR_TY);
+
+        // The flags which control how the output of the failing setup tests is displayed
+        const bool init_output_always = init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+        const bool init_output_never = init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+
+        // Run the init test (if any). If it fails, no other test of this file runs at all
+        llvm::Value *init_captured = nullptr;
+        llvm::Value *init_perf_start = nullptr;
+        llvm::Value *init_perf_end = nullptr;
+        llvm::BasicBlock *init_fail_block = nullptr;
+        if (init_test != nullptr) {
+            init_captured = builder->CreateAlloca(PTR_TY, nullptr, "init_captured_out");
+            init_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "init_perf_start_out");
+            init_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "init_perf_end_out");
+            const std::optional<llvm::Value *> init_fail = emit_test_execute(           //
+                builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, init_test, //
+                init_test_fn_name, false, init_captured, init_perf_start, init_perf_end //
+            );
+            if (!init_fail.has_value()) {
                 return false;
             }
-            llvm::Value *const test_name_value = IR::generate_const_string(module, test_node->name);
+            init_fail_block = llvm::BasicBlock::Create(context, "init_fail", main_function);
+            llvm::BasicBlock *const tests_block = llvm::BasicBlock::Create(context, "tests", main_function);
+            builder->CreateCondBr(init_fail.value(), init_fail_block, tests_block);
 
-            // Compute the test function's ID to look up its frame in ts_frames/ts_defaults
-            // This must match the ID computed in generate_test_function when the frame was registered
-            std::vector<FunctionNode::Parameter> fake_fn_parameters;
-            std::vector<std::shared_ptr<Type>> fake_fn_return_types;
-            std::vector<std::shared_ptr<Type>> fake_fn_error_types;
-            const std::optional<size_t> fake_fn_mangle_id;
-            std::optional<std::shared_ptr<Scope>> fake_fn_scope = std::make_optional(test_node->scope);
-            const FunctionNode fake_fn = FunctionNode( //
-                test_node->file_hash,                  //
-                test_node->line,                       //
-                test_node->column,                     //
-                test_node->length,                     //
-                {},                                    //
-                false,                                 //
-                FunctionNode::Visibility::INTERN,      //
-                test_function_name,                    //
-                {},                                    //
-                fake_fn_parameters,                    //
-                fake_fn_return_types,                  //
-                fake_fn_error_types,                   //
-                fake_fn_scope,                         //
-                fake_fn_mangle_id                      //
-            );
-            const size_t test_fn_id = fake_fn.get_id();
-
-            // Set up the test function's frame in the TS data section
-            llvm::StructType *const test_frame_type = Module::ThreadStack::ts_frames.at(test_fn_id);
-            llvm::Value *const test_default_value = Module::ThreadStack::ts_defaults.at(test_fn_id);
-            llvm::Value *test_frame = IR::aligned_load(*builder, test_frame_type, test_default_value, "test_frame_default");
-            test_frame = builder->CreateInsertValue(test_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
-            IR::aligned_store(*builder, test_frame, ts_stack_data_ptr);
-
-            llvm::Value *test_ret = builder->CreateCall(execute_test_fn,
-                {
-                    test_function,                   // void* test_fn_ptr
-                    ts_stack_data_ptr,               // void* stack
-                    test_name_value,                 // char* test_name_value
-                    success_fmt,                     // char* success_fmt
-                    fail_fmt,                        // char* fail_fmt
-                    perf_fmt,                        // char* perf_fmt
-                    output_begin_fmt,                // char* output_begin
-                    output_line_fmt,                 // char* output_line
-                    output_end_fmt,                  // char *output_end
-                    builder->getInt32(longest_name), // i32 longest_name
-                    builder->getInt1(is_perf_test),  // i1 is_perf_test
-                    builder->getInt1(should_fail),   // i1 should_fail
-                    builder->getInt1(output_always), // i1 output_always
-                    builder->getInt1(output_never)   // i1 output_never
-                },                                   //
-                "test_ret"                           //
-            );
-
-            // Increment the fail counter only if the test has failed
-            llvm::LoadInst *counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter, "counter_val");
-            llvm::Value *counter_p1 = builder->CreateAdd(counter_value, builder->getInt32(1), "counter_p1");
-            llvm::Value *new_counter_value = builder->CreateSelect(test_ret, counter_p1, counter_value, "new_counter_value");
-            IR::aligned_store(*builder, new_counter_value, counter);
-            index++;
+            // The init test passed, so we continue with the regular tests. Its captured output is never shown, so free it silently
+            builder->SetInsertPoint(tests_block);
+            emit_free_test_capture(builder, print_test_result_fn, longest_name_value, init_captured);
         }
+
+        // Allocas which hold the result of the last regular test, so that it can be printed after the deinit test (if any) has run.
+        // The glyph of that deferred line depends on the deinit test's outcome
+        const DeferredTestResultSlots deferred_slots = {
+            builder->CreateAlloca(builder->getInt32Ty(), nullptr, "deferred_status"),
+            builder->CreateAlloca(PTR_TY, nullptr, "deferred_captured"),
+            builder->CreateAlloca(builder->getInt1Ty(), nullptr, "deferred_output_always"),
+            builder->CreateAlloca(builder->getInt1Ty(), nullptr, "deferred_output_never"),
+            builder->CreateAlloca(builder->getInt1Ty(), nullptr, "deferred_is_perf"),
+            builder->CreateAlloca(PTR_TY, nullptr, "deferred_perf_start"),
+            builder->CreateAlloca(PTR_TY, nullptr, "deferred_perf_end"),
+            builder->CreateAlloca(builder->getInt1Ty(), nullptr, "deferred_failed"),
+        };
+
+        // Run all the regular tests of this file. The first N-1 tests print their result inline, the last one is deferred until
+        // after the deinit test (if any) has run
+        const size_t regular_count = regular_tests.size();
+        for (size_t index = 0; index < regular_count; index++) {
+            const bool is_last = (index + 1 == regular_count);
+            const TestNode *const body = regular_tests[index].first;
+            const std::string &body_fn_name = regular_tests[index].second;
+            const bool body_is_perf = body->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
+            const bool body_output_always = body->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+            const bool body_output_never = body->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            const bool post_output_always = post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+            const bool post_output_never = post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            llvm::Value *const body_name_value = IR::generate_const_string(module, body->name);
+
+            // Allocas for the results of the individual tests, created in the current block so that they dominate all the blocks
+            // in which they are read
+            llvm::Value *const pre_captured = builder->CreateAlloca(PTR_TY, nullptr, "pre_captured_out");
+            llvm::Value *const pre_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "pre_perf_start_out");
+            llvm::Value *const pre_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "pre_perf_end_out");
+            llvm::Value *const body_captured = builder->CreateAlloca(PTR_TY, nullptr, "body_captured_out");
+            llvm::Value *const body_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "body_perf_start_out");
+            llvm::Value *const body_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "body_perf_end_out");
+            llvm::Value *const post_captured = builder->CreateAlloca(PTR_TY, nullptr, "post_captured_out");
+            llvm::Value *const post_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "post_perf_start_out");
+            llvm::Value *const post_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "post_perf_end_out");
+
+            if (pre_test != nullptr) {
+                // The pre test runs first. When it fails, the body and the post test are not run at all
+                const bool pre_always = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+                const bool pre_never = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+                const std::optional<llvm::Value *> pre_fail = emit_test_execute(           //
+                    builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, pre_test, //
+                    pre_test_fn_name, false, pre_captured, pre_perf_start, pre_perf_end    //
+                );
+                if (!pre_fail.has_value()) {
+                    return false;
+                }
+
+                llvm::AllocaInst *const body_fail_alloca = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "body_fail");
+                llvm::AllocaInst *const post_fail_alloca = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "post_fail");
+                llvm::BasicBlock *const skip_test_block = llvm::BasicBlock::Create(context, "skip_test", main_function);
+                llvm::BasicBlock *const run_test_block = llvm::BasicBlock::Create(context, "run_test", main_function);
+                llvm::BasicBlock *const test_merge_block = llvm::BasicBlock::Create(context, "test_merge", main_function);
+                builder->CreateCondBr(pre_fail.value(), skip_test_block, run_test_block);
+
+                // run_test_block: the pre test passed, so the actual body and the post test are run
+                builder->SetInsertPoint(run_test_block);
+                // The pre test's captured output is never shown when it passed, free it silently
+                emit_free_test_capture(builder, print_test_result_fn, longest_name_value, pre_captured);
+                const std::optional<llvm::Value *> body_fail = emit_test_execute(             //
+                    builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, body,        //
+                    body_fn_name, body_is_perf, body_captured, body_perf_start, body_perf_end //
+                );
+                if (!body_fail.has_value()) {
+                    return false;
+                }
+                IR::aligned_store(*builder, body_fail.value(), body_fail_alloca);
+                if (post_test != nullptr) {
+                    const std::optional<llvm::Value *> post_fail = emit_test_execute(           //
+                        builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, post_test, //
+                        post_test_fn_name, false, post_captured, post_perf_start, post_perf_end //
+                    );
+                    if (!post_fail.has_value()) {
+                        return false;
+                    }
+                    IR::aligned_store(*builder, post_fail.value(), post_fail_alloca);
+                    // The displayed output is the body's unless the post test failed (and the body passed), in which case the post
+                    // test's output is shown instead. The captured output of the test which is *not* shown is freed silently
+                    llvm::Value *const show_post = builder->CreateAnd(                        //
+                        builder->CreateNot(body_fail.value()), post_fail.value(), "show_post" //
+                    );
+                    emit_discard_unshown_output(                                                                                  //
+                        builder, main_function, print_test_result_fn, longest_name_value, show_post, body_captured, post_captured //
+                    );
+                } else {
+                    IR::aligned_store(*builder, builder->getInt1(false), post_fail_alloca);
+                }
+                builder->CreateBr(test_merge_block);
+
+                // skip_test_block: the pre test failed, so the body and the post test are not run at all
+                builder->SetInsertPoint(skip_test_block);
+                IR::aligned_store(*builder, builder->getInt1(false), body_fail_alloca);
+                IR::aligned_store(*builder, builder->getInt1(false), post_fail_alloca);
+                builder->CreateBr(test_merge_block);
+
+                // test_merge_block: compute the result of the whole pre/body/post sequence. The pre failure takes precedence over
+                // the body failure, which itself takes precedence over the post failure
+                builder->SetInsertPoint(test_merge_block);
+                llvm::Value *const body_fail_val = IR::aligned_load(*builder, builder->getInt1Ty(), body_fail_alloca, "body_fail_val");
+                llvm::Value *const post_fail_val = IR::aligned_load(*builder, builder->getInt1Ty(), post_fail_alloca, "post_fail_val");
+                llvm::Value *const failed = builder->CreateOr(                                               //
+                    pre_fail.value(), builder->CreateOr(body_fail_val, post_fail_val, "bp_failed"), "failed" //
+                );
+                llvm::Value *const status = builder->CreateSelect(                         //
+                    pre_fail.value(), builder->getInt32(TEST_STATUS_FAILED_PRE),           //
+                    emit_body_post_status(builder, body_fail_val, post_fail_val), "status" //
+                );
+                // The output which is shown is the body's, unless the body passed and the post test failed, in which case the
+                // post test's output is shown instead. The output flags follow the same rule
+                llvm::Value *const show_post = builder->CreateAnd(builder->CreateNot(body_fail_val), post_fail_val, "show_post");
+                const BodyPostOutputSelection body_post = emit_body_post_output_selection(                   //
+                    builder, show_post, body_captured, post_test != nullptr ? post_captured : body_captured, //
+                    body_output_always, post_output_always, body_output_never, post_output_never             //
+                );
+                // A pre failure overrides the displayed output with the pre test's output and its own flags
+                llvm::Value *const captured_alloca = builder->CreateSelect(                   //
+                    pre_fail.value(), pre_captured, body_post.captured_ptr, "captured_alloca" //
+                );
+                llvm::Value *const captured = IR::aligned_load(*builder, PTR_TY, captured_alloca, "captured");
+                llvm::Value *const output_always = builder->CreateSelect(                                    //
+                    pre_fail.value(), builder->getInt1(pre_always), body_post.output_always, "output_always" //
+                );
+                llvm::Value *const output_never = builder->CreateSelect(                                  //
+                    pre_fail.value(), builder->getInt1(pre_never), body_post.output_never, "output_never" //
+                );
+                // Only the body test can be a perf test
+                llvm::Value *const is_perf = builder->CreateSelect(                                      //
+                    pre_fail.value(), builder->getInt1(false), builder->getInt1(body_is_perf), "is_perf" //
+                );
+                llvm::Value *const perf_start = IR::aligned_load(*builder, PTR_TY, body_perf_start, "body_perf_start_val");
+                llvm::Value *const perf_end = IR::aligned_load(*builder, PTR_TY, body_perf_end, "body_perf_end_val");
+
+                // Print the result of this test inline, or defer it when it is the last regular test of the file
+                emit_print_or_defer_test_result(                                                                   //
+                    builder, print_test_result_fn, is_last, body_name_value, status, longest_name_value, captured, //
+                    is_perf, output_always, output_never, perf_start, perf_end, failed, counter, deferred_slots    //
+                );
+            } else {
+                // No pre test: run the body and the post test (if any) directly
+                const std::optional<llvm::Value *> body_fail = emit_test_execute(             //
+                    builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, body,        //
+                    body_fn_name, body_is_perf, body_captured, body_perf_start, body_perf_end //
+                );
+                if (!body_fail.has_value()) {
+                    return false;
+                }
+                llvm::Value *post_fail = builder->getInt1(false);
+                if (post_test != nullptr) {
+                    const std::optional<llvm::Value *> post_fail_maybe = emit_test_execute(     //
+                        builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, post_test, //
+                        post_test_fn_name, false, post_captured, post_perf_start, post_perf_end //
+                    );
+                    if (!post_fail_maybe.has_value()) {
+                        return false;
+                    }
+                    post_fail = post_fail_maybe.value();
+                    // The displayed output is the body's unless the post test failed (and the body passed), in which case the post
+                    // test's output is shown instead. The captured output of the test which is *not* shown is freed silently
+                    llvm::Value *const show_post = builder->CreateAnd(builder->CreateNot(body_fail.value()), post_fail, "show_post");
+                    emit_discard_unshown_output(                                                                                  //
+                        builder, main_function, print_test_result_fn, longest_name_value, show_post, body_captured, post_captured //
+                    );
+                }
+                // The body failure takes precedence over the post failure
+                llvm::Value *const failed = builder->CreateOr(body_fail.value(), post_fail, "failed");
+                llvm::Value *const status = emit_body_post_status(builder, body_fail.value(), post_fail);
+                // The output which is shown is the body's, unless the body passed and the post test failed, in which case the
+                // post test's output is shown instead. The output flags follow the same rule
+                llvm::Value *const show_post = builder->CreateAnd(builder->CreateNot(body_fail.value()), post_fail, "show_post");
+                const BodyPostOutputSelection body_post = emit_body_post_output_selection(                   //
+                    builder, show_post, body_captured, post_test != nullptr ? post_captured : body_captured, //
+                    body_output_always, post_output_always, body_output_never, post_output_never             //
+                );
+                llvm::Value *const captured = IR::aligned_load(*builder, PTR_TY, body_post.captured_ptr, "captured");
+                llvm::Value *const is_perf = builder->getInt1(body_is_perf);
+                llvm::Value *const perf_start = IR::aligned_load(*builder, PTR_TY, body_perf_start, "body_perf_start_val");
+                llvm::Value *const perf_end = IR::aligned_load(*builder, PTR_TY, body_perf_end, "body_perf_end_val");
+
+                // Print the result of this test inline, or defer it when it is the last regular test of the file
+                emit_print_or_defer_test_result(                                                                            //
+                    builder, print_test_result_fn, is_last, body_name_value, status, longest_name_value, captured, is_perf, //
+                    body_post.output_always, body_post.output_never, perf_start, perf_end, failed, counter, deferred_slots  //
+                );
+            }
+        }
+
+        // Run the deinit test (if any) and print the deferred result of the last regular test. The glyph of the deferred line
+        // depends on whether the deinit test fails: if it fails, the deferred line gets a middle glyph and the deinit failure line
+        // becomes the last line of the file, otherwise the deferred line gets the end glyph
+        llvm::BasicBlock *next_file_block = nullptr;
+        if (regular_count > 0) {
+            const TestNode *const last_test = regular_tests.back().first;
+            llvm::Value *const deferred_name_value = IR::generate_const_string(module, last_test->name);
+            llvm::Value *const deferred_status = IR::aligned_load(                        //
+                *builder, builder->getInt32Ty(), deferred_slots.status, "deferred_status" //
+            );
+            llvm::Value *const deferred_captured = IR::aligned_load(*builder, PTR_TY, deferred_slots.captured, "deferred_captured");
+            llvm::Value *const deferred_always = IR::aligned_load(                              //
+                *builder, builder->getInt1Ty(), deferred_slots.output_always, "deferred_always" //
+            );
+            llvm::Value *const deferred_output_never = IR::aligned_load(                             //
+                *builder, builder->getInt1Ty(), deferred_slots.output_never, "deferred_output_never" //
+            );
+            llvm::Value *const deferred_is_perf = IR::aligned_load(                        //
+                *builder, builder->getInt1Ty(), deferred_slots.is_perf, "deferred_is_perf" //
+            );
+            llvm::Value *const deferred_perf_start = IR::aligned_load(*builder, PTR_TY, deferred_slots.perf_start, "deferred_perf_start");
+            llvm::Value *const deferred_perf_end = IR::aligned_load(*builder, PTR_TY, deferred_slots.perf_end, "deferred_perf_end");
+            llvm::Value *const deferred_failed = IR::aligned_load(                       //
+                *builder, builder->getInt1Ty(), deferred_slots.failed, "deferred_failed" //
+            );
+
+            if (deinit_test != nullptr) {
+                const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+                const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+                llvm::Value *const deinit_captured = builder->CreateAlloca(PTR_TY, nullptr, "deinit_captured_out");
+                llvm::Value *const deinit_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_start_out");
+                llvm::Value *const deinit_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_end_out");
+                const std::optional<llvm::Value *> deinit_fail = emit_test_execute(                 //
+                    builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, deinit_test,       //
+                    deinit_test_fn_name, false, deinit_captured, deinit_perf_start, deinit_perf_end //
+                );
+                if (!deinit_fail.has_value()) {
+                    return false;
+                }
+
+                llvm::AllocaInst *const deinit_fail_alloca = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "deinit_fail");
+                IR::aligned_store(*builder, deinit_fail.value(), deinit_fail_alloca);
+                llvm::BasicBlock *const deinit_fail_block = llvm::BasicBlock::Create(context, "deinit_fail", main_function);
+                llvm::BasicBlock *const deinit_no_fail_block = llvm::BasicBlock::Create(context, "deinit_no_fail", main_function);
+                llvm::BasicBlock *const tail_merge_block = llvm::BasicBlock::Create(context, "tail_merge", main_function);
+                builder->CreateCondBr(deinit_fail.value(), deinit_fail_block, deinit_no_fail_block);
+
+                // deinit_fail_block: the deinit test failed, print the deferred last regular test with a middle glyph followed by
+                // the deinit failure line
+                builder->SetInsertPoint(deinit_fail_block);
+                builder->CreateCall(print_test_result_fn,
+                    {
+                        deferred_name_value,             // name_value
+                        deferred_status,                 // status
+                        builder->getInt1(false),         // is_end
+                        builder->getInt32(longest_name), // longest_name
+                        deferred_captured,               // captured
+                        deferred_is_perf,                // is_perf
+                        deferred_always,                 // output_always
+                        deferred_output_never,           // output_never
+                        deferred_perf_start,             // perf_start
+                        deferred_perf_end,               // perf_end
+                    });
+                llvm::Value *const deinit_test_name = IR::generate_const_string(module, deinit_test->name);
+                builder->CreateCall(print_test_result_fn,
+                    {
+                        deinit_test_name,                                                       // name_value
+                        builder->getInt32(TEST_STATUS_FAILED_DEINIT),                           // status
+                        builder->getInt1(true),                                                 // is_end
+                        builder->getInt32(longest_name),                                        // longest_name
+                        IR::aligned_load(*builder, PTR_TY, deinit_captured, "deinit_captured"), // captured
+                        builder->getInt1(false),                                                // is_perf
+                        builder->getInt1(deinit_always),                                        // output_always
+                        builder->getInt1(deinit_never),                                         // output_never
+                        null_value,                                                             // perf_start
+                        null_value,                                                             // perf_end
+                    });
+                builder->CreateBr(tail_merge_block);
+
+                // deinit_no_fail_block: the deinit test passed, print the deferred last regular test with the end glyph and free the
+                // captured output of the deinit test silently
+                builder->SetInsertPoint(deinit_no_fail_block);
+                builder->CreateCall(print_test_result_fn,
+                    {
+                        deferred_name_value,             // name_value
+                        deferred_status,                 // status
+                        builder->getInt1(true),          // is_end
+                        builder->getInt32(longest_name), // longest_name
+                        deferred_captured,               // captured
+                        deferred_is_perf,                // is_perf
+                        deferred_always,                 // output_always
+                        deferred_output_never,           // output_never
+                        deferred_perf_start,             // perf_start
+                        deferred_perf_end,               // perf_end
+                    });
+                emit_free_test_capture(builder, print_test_result_fn, longest_name_value, deinit_captured);
+                builder->CreateBr(tail_merge_block);
+
+                // tail_merge_block: increment the counter by the number of failure lines which have been printed
+                builder->SetInsertPoint(tail_merge_block);
+                llvm::Value *const deinit_fail_val = IR::aligned_load(                    //
+                    *builder, builder->getInt1Ty(), deinit_fail_alloca, "deinit_fail_val" //
+                );
+                llvm::Value *const counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter, "counter_val");
+                llvm::Value *const deferred_failed_i32 = builder->CreateZExt(deferred_failed, builder->getInt32Ty(), "deferred_failed_i32");
+                llvm::Value *const deinit_failed_i32 = builder->CreateZExt(deinit_fail_val, builder->getInt32Ty(), "deinit_failed_i32");
+                llvm::Value *const failed_lines = builder->CreateAdd(deferred_failed_i32, deinit_failed_i32, "failed_lines");
+                llvm::Value *const new_counter_value = builder->CreateAdd(counter_value, failed_lines, "new_counter_value");
+                IR::aligned_store(*builder, new_counter_value, counter);
+
+                next_file_block = llvm::BasicBlock::Create(context, "next_file", main_function);
+                builder->CreateBr(next_file_block);
+            } else {
+                // No deinit test: print the deferred last regular test with the end glyph
+                builder->CreateCall(print_test_result_fn,
+                    {
+                        deferred_name_value,             // name_value
+                        deferred_status,                 // status
+                        builder->getInt1(true),          // is_end
+                        builder->getInt32(longest_name), // longest_name
+                        deferred_captured,               // captured
+                        deferred_is_perf,                // is_perf
+                        deferred_always,                 // output_always
+                        deferred_output_never,           // output_never
+                        deferred_perf_start,             // perf_start
+                        deferred_perf_end,               // perf_end
+                    });
+                // Increment the fail counter only if the test has failed
+                llvm::Value *const counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter, "counter_val");
+                llvm::Value *const counter_p1 = builder->CreateAdd(counter_value, builder->getInt32(1), "counter_p1");
+                llvm::Value *const new_counter_value = builder->CreateSelect(       //
+                    deferred_failed, counter_p1, counter_value, "new_counter_value" //
+                );
+                IR::aligned_store(*builder, new_counter_value, counter);
+
+                next_file_block = llvm::BasicBlock::Create(context, "next_file", main_function);
+                builder->CreateBr(next_file_block);
+            }
+        } else if (deinit_test != nullptr) {
+            // No regular tests in this file: only the deinit test can still run
+            const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
+            const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            llvm::Value *deinit_captured = builder->CreateAlloca(PTR_TY, nullptr, "deinit_captured_out");
+            llvm::Value *deinit_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_start_out");
+            llvm::Value *deinit_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_end_out");
+            const std::optional<llvm::Value *> deinit_fail = emit_test_execute(                 //
+                builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, deinit_test,       //
+                deinit_test_fn_name, false, deinit_captured, deinit_perf_start, deinit_perf_end //
+            );
+            if (!deinit_fail.has_value()) {
+                return false;
+            }
+
+            next_file_block = llvm::BasicBlock::Create(context, "next_file", main_function);
+            llvm::BasicBlock *const deinit_fail_block = llvm::BasicBlock::Create(context, "deinit_fail", main_function);
+            llvm::BasicBlock *const deinit_no_fail_block = llvm::BasicBlock::Create(context, "deinit_no_fail", main_function);
+            builder->CreateCondBr(deinit_fail.value(), deinit_fail_block, deinit_no_fail_block);
+
+            // deinit_fail_block: the deinit test failed, print its failure line and increment the counter
+            builder->SetInsertPoint(deinit_fail_block);
+            builder->CreateCall(print_test_result_fn,
+                {
+                    IR::generate_const_string(module, deinit_test->name),                   // name_value
+                    builder->getInt32(TEST_STATUS_FAILED_DEINIT),                           // status
+                    builder->getInt1(true),                                                 // is_end
+                    builder->getInt32(longest_name),                                        // longest_name
+                    IR::aligned_load(*builder, PTR_TY, deinit_captured, "deinit_captured"), // captured
+                    builder->getInt1(false),                                                // is_perf
+                    builder->getInt1(deinit_always),                                        // output_always
+                    builder->getInt1(deinit_never),                                         // output_never
+                    null_value,                                                             // perf_start
+                    null_value,                                                             // perf_end
+                });
+            llvm::Value *const counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter, "counter_val");
+            llvm::Value *const counter_p1 = builder->CreateAdd(counter_value, builder->getInt32(1), "counter_p1");
+            IR::aligned_store(*builder, counter_p1, counter);
+            builder->CreateBr(next_file_block);
+
+            // deinit_no_fail_block: the deinit test passed, free its captured output silently
+            builder->SetInsertPoint(deinit_no_fail_block);
+            emit_free_test_capture(builder, print_test_result_fn, longest_name_value, deinit_captured);
+            builder->CreateBr(next_file_block);
+        } else {
+            // No regular tests and no deinit test in this file: nothing to do
+            next_file_block = llvm::BasicBlock::Create(context, "next_file", main_function);
+            builder->CreateBr(next_file_block);
+        }
+
+        // The init test failing skips all tests of this file, only its failure line is printed
+        if (init_fail_block != nullptr) {
+            builder->SetInsertPoint(init_fail_block);
+            builder->CreateCall(print_test_result_fn,
+                {
+                    IR::generate_const_string(module, init_test->name),                 // name_value
+                    builder->getInt32(TEST_STATUS_FAILED_INIT),                         // status
+                    builder->getInt1(true),                                             // is_end
+                    builder->getInt32(longest_name),                                    // longest_name
+                    IR::aligned_load(*builder, PTR_TY, init_captured, "init_captured"), // captured
+                    builder->getInt1(false),                                            // is_perf
+                    builder->getInt1(init_output_always),                               // output_always
+                    builder->getInt1(init_output_never),                                // output_never
+                    null_value,                                                         // perf_start
+                    null_value,                                                         // perf_end
+                });
+            llvm::Value *const counter_value = IR::aligned_load(*builder, builder->getInt32Ty(), counter, "counter_val");
+            llvm::Value *const counter_p1 = builder->CreateAdd(counter_value, builder->getInt32(1), "counter_p1");
+            IR::aligned_store(*builder, counter_p1, counter);
+            builder->CreateBr(next_file_block);
+        }
+
+        builder->SetInsertPoint(next_file_block);
     }
 
     // Create the comparison with zero
     llvm::Value *counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_value");
-    llvm::Value *is_zero = builder->CreateICmpEQ(counter_value, zero);
+    llvm::Value *const is_zero = builder->CreateICmpEQ(counter_value, zero);
 
     // Create basic blocks for the two paths
-    llvm::BasicBlock *current_block = builder->GetInsertBlock();
-    llvm::BasicBlock *success_block = llvm::BasicBlock::Create(context, "print_success", main_function);
-    llvm::BasicBlock *fail_block = llvm::BasicBlock::Create(context, "print_fail", main_function);
-    llvm::BasicBlock *merge_block = llvm::BasicBlock::Create(context, "merge", main_function);
+    llvm::BasicBlock *const current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *const success_block = llvm::BasicBlock::Create(context, "print_success", main_function);
+    llvm::BasicBlock *const fail_block = llvm::BasicBlock::Create(context, "print_fail", main_function);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", main_function);
 
     // Branch based on the comparison
     builder->SetInsertPoint(current_block);
@@ -2390,23 +3053,23 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *builder, llvm:
 
     // Success block
     builder->SetInsertPoint(success_block);
-    llvm::Value *success_fmt = IR::generate_const_string(module, "\n\033[32m✓ All tests passed!\033[0m\n");
+    llvm::Value *const success_fmt = IR::generate_const_string(module, "\n\033[32m✓ All tests passed!\033[0m\n");
     builder->CreateCall(c_functions.at(PRINTF), {success_fmt});
     builder->CreateBr(merge_block);
 
     // Fail block
     builder->SetInsertPoint(fail_block);
-    llvm::Value *fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d tests failed!\033[0m\n");
-    llvm::Value *one_fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d test failed!\033[0m\n");
-    llvm::Value *counter_eq_one = builder->CreateICmpEQ(counter_value, builder->getInt32(1), "counter_eq_one");
-    llvm::Value *fmt = builder->CreateSelect(counter_eq_one, one_fail_fmt, fail_fmt);
+    llvm::Value *const fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d tests failed!\033[0m\n");
+    llvm::Value *const one_fail_fmt = IR::generate_const_string(module, "\n\033[31m✗ %d test failed!\033[0m\n");
+    llvm::Value *const counter_eq_one = builder->CreateICmpEQ(counter_value, builder->getInt32(1), "counter_eq_one");
+    llvm::Value *const fmt = builder->CreateSelect(counter_eq_one, one_fail_fmt, fail_fmt);
     builder->CreateCall(c_functions.at(PRINTF), {fmt, counter_value});
     IR::aligned_store(*builder, one, counter);
     builder->CreateBr(merge_block);
 
     // Merge block and exit
     builder->SetInsertPoint(merge_block);
-    counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter);
+    counter_value = IR::aligned_load(*builder, llvm::Type::getInt32Ty(context), counter, "counter_value");
     builder->CreateCall(c_functions.at(EXIT), {counter_value});
     builder->CreateUnreachable();
     return true;
