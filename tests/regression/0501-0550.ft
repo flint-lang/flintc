@@ -1,132 +1,132 @@
-use "../../utils.ft"
+use "../utils.ft"
 
 use Core.assert
 use Core.filesystem
 use Core.system
 
 test "0501":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0501.ft";
 	test_file_ok($"{path}/{file}", "Compile with the '--test' flag!\n");
 
 test "0502":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0502.ft";
 	test_compiles($"{path}/{file}");
 
 test "0503":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0503.ft";
 	test_file_ok($"{path}/{file}", "z = 1\n");
 
 test "0504":
-	str path = "tests/regression/0501-0550/0504";
+	str path = "regression/0501-0550/0504";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "x = 15\n");
 
 // TODO:Should print a warning eventually
 test "0505":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0505.ft";
 	test_file_ok($"{path}/{file}", "d1.(x, y) = (10, 20), d2.(z, w) = (30, 40)\nfun2\n");
 
 test "0506":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0506.ft";
-	test_file_ok($"{path}/{file}", "is Crash\nType ID: 2848253534\nValue ID: 2\nCrash Message: Hehe custom message: true\n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");
+	test_file_ok($"{path}/{file}", "is Crash\nType ID: 3797881026\nValue ID: 2\nCrash Message: Hehe custom message: true\n\nis anyerror\nType ID: 2951970640\nValue ID: 0\nanyerror message: The assertion has failed\n");
 
 test "0507":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0507.ft";
 	test_file_ok($"{path}/{file}", "arr2.len = 0\n");
 
 test "0508":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0508.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0508.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0508.ft:6:1\n└─┬┤E0000│\n6 │ def print(i32 x):\n┌─┴─┘\n├─ Redefinition of function: print(i32)\n└─ First defined at: Core.print\n");
 
 test "0509":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0509.ft";
 	test_file_ok($"{path}/{file}", "lo fr\n");
 
 test "0510":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0510.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0510.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   print(\"Hello, World!\\n\");\n┌─┴─────┘\n├─ Call of undefined function 'print(str)'\n├─ Possible functions you could mean:\n│   ├─ p.print(u8) from Core.print\n│   ├─ p.print(i8) from Core.print\n│   ├─ p.print(u16) from Core.print\n│   ├─ p.print(i16) from Core.print\n│   ├─ p.print(u32) from Core.print\n│   ├─ p.print(i32) from Core.print\n│   ├─ p.print(u64) from Core.print\n│   ├─ p.print(i64) from Core.print\n│   ├─ p.print(f32) from Core.print\n│   ├─ p.print(f64) from Core.print\n│   ├─ p.print(str) from Core.print\n│   ├─ p.print(type.flint.str.lit) from Core.print\n│   └─ p.print(bool) from Core.print\n└─ You need to cast the argument to one of the supported types\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0510.ft:4:5\n└─┬┤E0000│\n3 │ def main():\n4 │ »   print(\"Hello, World!\\n\");\n┌─┴─────┘\n├─ Call of undefined function 'print(str)'\n├─ Possible functions you could mean:\n│   ├─ p.print(u8) from Core.print\n│   ├─ p.print(i8) from Core.print\n│   ├─ p.print(u16) from Core.print\n│   ├─ p.print(i16) from Core.print\n│   ├─ p.print(u32) from Core.print\n│   ├─ p.print(i32) from Core.print\n│   ├─ p.print(u64) from Core.print\n│   ├─ p.print(i64) from Core.print\n│   ├─ p.print(f32) from Core.print\n│   ├─ p.print(f64) from Core.print\n│   ├─ p.print(str) from Core.print\n│   ├─ p.print(type.flint.str.lit) from Core.print\n│   └─ p.print(bool) from Core.print\n└─ You need to cast the argument to one of the supported types\n");
 
 test "0511":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0511.ft";
 	test_test(path, file);
 
 test "0512":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0512.ft";
 	test_file_ok($"{path}/{file}", "Globals.c = 5\nGlobals.c2 = 10\nGlobals.c = 15\nGlobals.s = Hi, there\nGlobals.s = Woof\n");
 
 test "0513":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0513.ft";
 	test_file_ok($"{path}/{file}", "d.(x, y) = (10, 20)\nd.(x, y) = (30, 40)\nE3\n");
 
 test "0514":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0514.ft";
-	test_file_crash($"{path}/{file}", none, "test1\ntest\n3.574000\n3.574	false\n1\nThe given error bubbled up to the main function:\n └─ error.17598394064103171847.SomeError: \"\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "test1\ntest\n3.574000\n3.574	false\n1\nThe given error bubbled up to the main function:\n └─ error.10506970252415121806.SomeError: \"\"\n", 1);
 	
 test "0515":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0515.ft";
 	test_file_ok($"{path}/{file}", "");
 
 test "0516":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0516.ft";
 	test_file_ok($"{path}/{file}", "x = 5 + {12}\n");
 
 test "0517":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0517.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0517.ft:4:44\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data[data[i32, f32], str] something = ((1, 3.3), \"str\");\n┌─┴────────────────────────────────────────────┘\n└─ Nested groups are not allowed\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0517.ft:4:44\n└─┬┤E0000│\n3 │ def main():\n4 │ »   data[data[i32, f32], str] something = ((1, 3.3), \"str\");\n┌─┴────────────────────────────────────────────┘\n└─ Nested groups are not allowed\n");
 
 test "0518":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0518.ft";
 	test_file_ok($"{path}/{file}", "TAG: Hi there\nHello\n");
 
 test "0519":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0519.ft";
 	test_file_ok($"{path}/{file}", "is bool: false\n");
 
 test "0520":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0520.ft";
 	test_file_ok($"{path}/{file}", "is_val3\nsd.e1 is VAL1\ncd.se is VAL2\nokay that works...\ncd.sd != sd ... good!\n");
 
 test "0521":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0521.ft";
 	test_file_ok($"{path}/{file}", "Content of file 'nonexistent':\nFile 'nonexistent' could not be found\nfile_content: ''\n");
 
 test "0522":
-	str path = "tests/regression/0501-0550/0522";
+	str path = "regression/0501-0550/0522";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = 30\nres = 69\nHello, World!\nv1 = (1.2, 2.3, 3.4)\nv2 = (4.5, 6.7, 8.9)\nv3 = (5.7, 9.0, 12.299999)\nv1d = (1.2, 2.3)\nv2d = (5.6, 6.7)\nv3d = (6.8, 9.0)\nHello there!\nthis is a string literal\n");
 
 test "0523":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0523.ft";
 	test_file_ok($"{path}/{file}", "ptr = 0x", "\n");
 
 test "0524":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0524.ft";
 	test_file_ok($"{path}/{file}", "add(10, 20) = 30\n");
 
 test "0525":
-	str path = "tests/regression/0501-0550/0525";
+	str path = "regression/0501-0550/0525";
 	str file = "main.ft";
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
@@ -144,126 +144,126 @@ test "0525":
 	assert(output == "result = 30\nvec_result = (7.800000, 10.000000, 12.200001)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\n(10, 20) -> (30, 40) -> (50, 60) -> (70, 80)\ns = String 1 plus String 2\n");
 
 test "0526":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0526.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w) = (20, 10, 30, 40)\nv4 = (1.0, 2.0, 3.0, 4.0)\n");
 
 test "0527":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0527.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.0, 0.0, 3.0, 0.0)\n");
 
 test "0528":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0528.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.0, 0.0, 3.0, 0.0)\ntuple.($0, $1, $2) = (10, 2.3, hi)\n");
 
 test "0529":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0529.ft";
 	test_file_ok($"{path}/{file}", "0.0\n3.0\n2.3\n1.0e+10\n0.0\n1.5\n0.0\n1.0e-07\n0.1\n0.2\n0.3\n");
 
 test "0530":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0530.ft";
 	test_file_ok($"{path}/{file}", "(x, y, z, w, arr.len, b.has_value) = (0, 0, 30, 0, 0, false)\nv4 = (0.0, 0.0, 3.0, 0.0)\nv3 = (3.0, 5.0, 0.0)\nt1.($0, $1, $2) = (10, 2.3, hi)\nt2.($0, $1, $2) = (3.1412629, 2.313, 1234321)\n");
 
 test "0531":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0531.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0531.ft:4:31\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{1, 2, 3, 4, 5};\n┌─┴───────────────────────────────┘\n└─ Expected atmost '3' values for initializer, but more were provided\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0531.ft:4:31\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{1, 2, 3, 4, 5};\n┌─┴───────────────────────────────┘\n└─ Expected atmost '3' values for initializer, but more were provided\n");
 
 test "0532":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0532.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0532.ft:4:23\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{ x = 5 };\n┌─┴───────────────────────┘\n├─ Incorrect field initializer format detected\n└─ Expected form: .value = expression\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0532.ft:4:23\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{ x = 5 };\n┌─┴───────────────────────┘\n├─ Incorrect field initializer format detected\n└─ Expected form: .value = expression\n");
 
 test "0533":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0533.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0533.ft:11:14\n└──┬┤E0000│\n10 │ def main():\n11 │ »   Data d = Data{.x = 3};\n┌──┴──────────────┘\n└─ Field 'v' of type 'Variant' is not default-constructible\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0533.ft:11:14\n└──┬┤E0000│\n10 │ def main():\n11 │ »   Data d = Data{.x = 3};\n┌──┴──────────────┘\n└─ Field 'v' of type 'Variant' is not default-constructible\n");
 
 test "0534":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0534.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0534.ft:4:25\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{1, .y = 2};\n┌─┴─────────────────────────┘\n├─ Use of mixed field styles is not allowed\n└─ Expected all fields to be positional expressions\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0534.ft:4:25\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{1, .y = 2};\n┌─┴─────────────────────────┘\n├─ Use of mixed field styles is not allowed\n└─ Expected all fields to be positional expressions\n");
 
 test "0535":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0535.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0535.ft:4:30\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{.x = 1, 2};\n┌─┴──────────────────────────────┘\n├─ Use of mixed field styles is not allowed\n└─ Expected all fields to be named: .value = expression\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0535.ft:4:30\n└─┬┤E0000│\n3 │ def main():\n4 │ »   f32x3 v3 = f32x3{.x = 1, 2};\n┌─┴──────────────────────────────┘\n├─ Use of mixed field styles is not allowed\n└─ Expected all fields to be named: .value = expression\n");
 
 test "0536":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0536.ft";
 	test_file_ok($"{path}/{file}", "(t.$0.$0, t.$0.$1, t.$1) = (1, 3.3, str)\n");
 
 test "0537":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0537.ft";
 	test_file_ok($"{path}/{file}", "kvp.(key, value) = (100, 3.14)\nn1.(value, has_next) = (10, false)\nn1.(value, has_next) = (20, false)\nn2.(value, has_next) = (10.0, false)\nn2.(value, has_next) = (20.0, false)\n");
 
 test "0538":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0538.ft";
 	test_file_ok($"{path}/{file}", "o = .Some(100)\no = .None\n");
 
 test "0539":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0539.ft";
 	test_file_ok($"{path}/{file}", "10 -> 20 -> 30\n3.14 -> 6.9 -> 42.0\n");
 
 test "0540":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0540.ft";
 	test_file_ok($"{path}/{file}", "10 -> 20 -> 30\n3.14 -> 6.9 -> 42.0\n");
 
 test "0541":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0541.ft";
 	test_file_ok($"{path}/{file}", "10 -> 20 -> 30\n3.14 -> 6.9 -> 42.0\n");
 
 test "0542":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0542.ft";
 	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");
 
 test "0543":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0543.ft";
 	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\ni.compare_with(100) = true\n");
 
 test "0544":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0544.ft";
 	test_file_ok($"{path}/{file}", "l1.size() = 3\n10 -> 20 -> 30\nl2.size() = 3\n3.14 -> 6.9 -> 42.0\n");
 
 test "0545":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0545.ft";
 	test_file_ok($"{path}/{file}", "Test insert: prepend\narr[0] = 0\narr[1] = 1\narr[2] = 3\narr[3] = 4\n\nTest insert: middle\narr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\n\nTest insert: append\narr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\n\nTest resize: grow to 9\narr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 3\narr[4] = 4\narr[5] = 5\narr[6] = 0\narr[7] = 0\narr[8] = 0\n\nTest resize: shrink to 2\narr.len = 2\n\nTest resize: grow to 5 with 100s\narr[0] = 0\narr[1] = 1\narr[2] = 100\narr[3] = 100\narr[4] = 100\n\nTest shrink: by 2\narr[0] = 0\narr[1] = 1\narr[2] = 100\n\nTest shrink: by 0\narr[0] = 0\narr[1] = 1\narr[2] = 100\n\nTest remove: at 1\nremoved! = 1\narr[0] = 0\narr[1] = 100\n\nTest remove: at 4\nremoved.has_value = false\narr[0] = 0\narr[1] = 100\n\nTest merge: with i32[3](1) at end\nsrc.len = 0\narr[0] = 0\narr[1] = 100\narr[2] = 1\narr[3] = 1\narr[4] = 1\n\nTest merge: with i32[_]{1, 2, 3} at 0\nsrc.len = 0\narr[0] = 1\narr[1] = 2\narr[2] = 3\narr[3] = 0\narr[4] = 100\narr[5] = 1\narr[6] = 1\narr[7] = 1\n\nTest merge: with i32[_]{20, 30} at 2\nsrc.len = 0\narr[0] = 1\narr[1] = 2\narr[2] = 20\narr[3] = 30\narr[4] = 3\narr[5] = 0\narr[6] = 100\narr[7] = 1\narr[8] = 1\narr[9] = 1\n");
 
 test "0546":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0546.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0501-0550/0546.ft:20:1\n└──┬┤E0000│\n20 │ test \"pre2\":\n┌──┴─┘\n├─ The 'test_pre' test is already defined in this file\n└─ Only one '#test_init', '#test_pre', '#test_post' and '#test_deinit' test is allowed per file\n\nParse Error at tests/regression/0501-0550/0546.ft:28:1\n└──┬┤E0000│\n28 │ test \"post2\":\n┌──┴─┘\n├─ The 'test_post' test is already defined in this file\n└─ Only one '#test_init', '#test_pre', '#test_post' and '#test_deinit' test is allowed per file\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0501-0550/0546.ft:20:1\n└──┬┤E0000│\n20 │ test \"pre2\":\n┌──┴─┘\n├─ The 'test_pre' test is already defined in this file\n└─ Only one '#test_init', '#test_pre', '#test_post' and '#test_deinit' test is allowed per file\n\nParse Error at regression/0501-0550/0546.ft:28:1\n└──┬┤E0000│\n28 │ test \"post2\":\n┌──┴─┘\n├─ The 'test_post' test is already defined in this file\n└─ Only one '#test_init', '#test_pre', '#test_post' and '#test_deinit' test is allowed per file\n");
 
 test "0547":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0547.ft";
 	test_file_ok($"{path}/{file}", "Input(7)\n");
 
 test "0548":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0548.ft";
 	test_file_ok($"{path}/{file}", "I\n");
 
 test "0549":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0549.ft";
 	test_file_ok($"{path}/{file}", "Input(3)\n");
 
 test "0550":
-	str path = "tests/regression/0501-0550";
+	str path = "regression/0501-0550";
 	str file = "0550.ft";
 	test_file_ok($"{path}/{file}", "done\n");

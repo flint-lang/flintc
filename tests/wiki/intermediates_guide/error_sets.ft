@@ -1,95 +1,95 @@
-use "../../../utils.ft"
+use "../../utils.ft"
 
 test "0_declaration.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "0_declaration.ft";
 	test_file_ok($"{path}/{file}", "Hello, World!\n");
 
 test "1_throwing.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "1_throwing.ft";
 	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrorSet.Value1: \"\"\n", 1);
 
 test "2_catching.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "2_catching.ft";
 	test_file_ok($"{path}/{file}", "Error catched!\nNormal execution continues\n");
 
 test "3_refinement.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "3_refinement.ft";
 	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrSpecial.B1: \"\"\n", 1);
 
 test "4_null_set.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "4_null_set.ft";
 	test_file_ok($"{path}/{file}", "Error catched\n");
 
 test "5_signature.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "5_signature.ft";
 	test_file_ok($"{path}/{file}", "Error happened\nres = 0\n");
 
 test "6_err_variant.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "6_err_variant.ft";
 	test_file_ok($"{path}/{file}", "Is ErrArithmetic\nres = 0\n");
 
 test "7_switch_on_set.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "7_switch_on_set.ft";
 	test_file_ok($"{path}/{file}", "Is ErrArithmetic\nIs NullDivision\nres = 0\n");
 
 test "8_structure.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "8_structure.ft";
 	// Note: The type_id is different if the relative path to the file the error is defined in changes
 	// So when testing this test in 'test_minimal.ft' the id will differ
-	test_file_ok($"{path}/{file}", "type_id = 3169583248\nvalue_id = 0\nmessage = \nIs NullDivision\nres = 0\n");
+	test_file_ok($"{path}/{file}", "type_id = 3707369843\nvalue_id = 0\nmessage = \nIs NullDivision\nres = 0\n");
 
 test "9_cast_to_string.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "9_cast_to_string.ft";
 	test_file_ok($"{path}/{file}", "err = ErrArithmetic.NullDivision\nmessage = \nIs NullDivision\nres = 0\n");
 
 test "10_context.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "10_context.ft";
 	test_file_ok($"{path}/{file}", "ErrSpecial.S1: \"Special Error 1\"\nErrSpecial.S2: \"Overwritten message: true\"\n");
 
 test "11_anonymous_simple.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "11_anonymous_simple.ft";
-	test_file_ok($"{path}/{file}", "error.17756989193349715908.Crash: \"Custom Message\"\n");
+	test_file_ok($"{path}/{file}", "error.10077196044085655329.Crash: \"Custom Message\"\n");
 
 test "12_anonymous_complex.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "12_anonymous_complex.ft";
-	test_file_ok($"{path}/{file}", "error.12543703015361850365.Crash: \"Custom Message\"\nerror.12543703015361850365.CrashOther: \"\"\nerror.12543703015361850365.CrashLast: \"LAST\"\n");
+	test_file_ok($"{path}/{file}", "error.13183291091062743988.Crash: \"Custom Message\"\nerror.13183291091062743988.CrashOther: \"\"\nerror.13183291091062743988.CrashLast: \"LAST\"\n");
 
 test "13_inline_catch.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "13_inline_catch.ft";
 	test_file_ok($"{path}/{file}", "is inline thrown\n");
 
 test "14_inline_fail.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "14_inline_fail.ft";
 	test_file_fail($"{path}/{file}", "Custom Error: 2\n");
 
 #test_should_fail
 test "[f]15_infer.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "15_infer.ft";
 	test_file_ok($"{path}/{file}", "special error thrown\n");
 
 #test_should_fail
 test "[f]16_infer_catch.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "16_infer_catch.ft";
 	test_file_ok($"{path}/{file}", "doing nothing\ndoing nothing\ndoing nothing\ndoing nothing\nspecial error thrown\n");
 
 test "17_linearization.ft":
-	str path = "tests/wiki/intermediates_guide/error_sets";
+	str path = "wiki/intermediates_guide/error_sets";
 	str file = "17_linearization.ft";
 	test_file_ok($"{path}/{file}", "x = 42\nx = 20\ny = 69\ny = 20\nz = 111\nz = 40\n");

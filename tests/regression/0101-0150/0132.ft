@@ -2,10 +2,10 @@ use Core.print
 use Core.filesystem as fs
 
 def main():
-	if not fs.file_exists("tests/regression/0101-0150/0132.ft"):
-		print("File 'tests/regression/0101-0150/0132.ft' does not exst!\n");
+	if not fs.file_exists("regression/0101-0150/0132.ft"):
+		print("File 'regression/0101-0150/0132.ft' does not exst!\n");
 		return;
-	str[] lines = fs.read_lines("tests/regression/0101-0150/0132.ft");
+	str[] lines = fs.read_lines("regression/0101-0150/0132.ft");
 	for u64 i = 0; i < lines.length; i++:
 		print($"LINE_{i}:\t{lines[i]}\n");
 	bool logfile_exists = fs.file_exists("logfile");

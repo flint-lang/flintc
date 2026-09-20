@@ -1,43 +1,43 @@
-use "../utils.ft"
+use "utils.ft"
 
 test "beginners_guide/basics":
-	test_test("tests/wiki/beginners_guide", "basics.ft");
+	test_test("wiki/beginners_guide", "basics.ft");
 
 test "beginners_guide/variables_and_types.ft":
-	test_test("tests/wiki/beginners_guide", "variables_and_types.ft");
+	test_test("wiki/beginners_guide", "variables_and_types.ft");
 
 test "beginners_guide/control_flow":
-	test_test("tests/wiki/beginners_guide", "control_flow.ft");
+	test_test("wiki/beginners_guide", "control_flow.ft");
 
 test "beginners_guide/functions":
-	test_test("tests/wiki/beginners_guide", "functions.ft");
+	test_test("wiki/beginners_guide", "functions.ft");
 
 test "beginners_guide/data":
-	test_test("tests/wiki/beginners_guide", "data.ft");
+	test_test("wiki/beginners_guide", "data.ft");
 
 test "beginners_guide/arrays":
-	test_test("tests/wiki/beginners_guide", "arrays.ft");
+	test_test("wiki/beginners_guide", "arrays.ft");
 
 test "beginners_guide/imports":
-	test_test("tests/wiki/beginners_guide", "imports.ft");
+	test_test("wiki/beginners_guide", "imports.ft");
 
 test "beginners_guide/objects":
-	test_test("tests/wiki/beginners_guide", "objects.ft");
+	test_test("wiki/beginners_guide", "objects.ft");
 
 test "beginners_guide/interop":
-	test_test("tests/wiki/beginners_guide", "interop.ft");
+	test_test("wiki/beginners_guide", "interop.ft");
 
 test "beginners_guide/game_example":
-	test_test("tests/wiki/beginners_guide", "game_example.ft");
+	test_test("wiki/beginners_guide", "game_example.ft");
 
 test "intermediates_guide/optionals":
-	test_test("tests/wiki/intermediates_guide", "optionals.ft");
+	test_test("wiki/intermediates_guide", "optionals.ft");
 
 test "intermediates_guide/variants":
-	test_test("tests/wiki/intermediates_guide", "variants.ft");
+	test_test("wiki/intermediates_guide", "variants.ft");
 
 test "intermediates_guide/error_sets":
-	test_test("tests/wiki/intermediates_guide", "error_sets.ft");
+	test_test("wiki/intermediates_guide", "error_sets.ft");
 
 test "intermediates_guide/callables":
-	test_test("tests/wiki/intermediates_guide", "callables.ft");
+	test_test("wiki/intermediates_guide", "callables.ft");

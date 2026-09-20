@@ -1,55 +1,9 @@
 use Core.print
 
-use "aoc/2025/test.ft"
-use "tests/wiki.ft"
-use "tests/spec.ft"
-use "tests/regression.ft"
+use "examples.ft"
+use "wiki.ft"
+use "spec.ft"
+use "regression.ft"
 
 def main():
 	print("Please compile this test using the --test flag!\n");
-
-
-use Core.assert
-use "utils.ft"
-
-#test_performance
-test "perf":
-	str path = "tests/perf";
-	str file = "main.ft";
-	test_compiles_in(path, file, none);
-
-#test_performance
-test "fsh":
-	str path = "fsh";
-	str file = "main.ft";
-	test_compiles_in(path, file, none);
-
-#test_performance
-test "pong":
-	str path = "pong";
-	str file = "main.ft";
-	test_compiles_in(path, file, none);
-
-#test_performance
-test "pong-2.0":
-	str path = "pong-2.0";
-	str file = "main.ft";
-	Config.compile_v_static = false;
-	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
-
-#test_performance
-test "pong-3.0":
-	str path = "pong-3.0";
-	str file = "main.ft";
-	Config.compile_v_static = false;
-	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
-
-#test_performance
-test "pong-4.0":
-	str path = "pong-4.0";
-	str file = "main.ft";
-	Config.compile_v_static = false;
-	test_compiles_in(path, file, "--flags=\"-lraylib\"");
-	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;

@@ -1,26 +1,26 @@
-use "../../utils.ft"
+use "../utils.ft"
 
 test "0551":
-	str path = "tests/regression/0551-0600";
+	str path = "regression/0551-0600";
 	str file = "0551.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0551-0600/0551.ft:3:10\n└─┬┤E0000│\n3 │ def fill(void param) -> void:\n┌─┴──────────┘\n└─ Function parameters cannot be of type void\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0551.ft:3:10\n└─┬┤E0000│\n3 │ def fill(void param) -> void:\n┌─┴──────────┘\n└─ Function parameters cannot be of type void\n");
 
 test "0552":
-	str path = "tests/regression/0551-0600";
+	str path = "regression/0551-0600";
 	str file = "0552.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/regression/0551-0600/0552.ft:3:20\n└─┬┤E0000│\n3 │ def get() -> (i32, void):\n┌─┴────────────────────┘\n└─ Functions cannot return a group containing a void type\n");
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0552.ft:3:20\n└─┬┤E0000│\n3 │ def get() -> (i32, void):\n┌─┴────────────────────┘\n└─ Functions cannot return a group containing a void type\n");
 
 test "0553":
-	str path = "tests/regression/0551-0600";
+	str path = "regression/0551-0600";
 	str file = "0553.ft";
 	test_file_ok($"{path}/{file}", "read ok\n");
 
 test "0554":
-	str path = "tests/regression/0551-0600";
+	str path = "regression/0551-0600";
 	str file = "0554.ft";
 	test_file_ok($"{path}/{file}", "IN7\n");
 
 test "0555":
-	str path = "tests/regression/0551-0600";
+	str path = "regression/0551-0600";
 	str file = "0555.ft";
 	test_file_ok($"{path}/{file}", "I(7)\n");

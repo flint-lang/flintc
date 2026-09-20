@@ -2,6 +2,6 @@ use Core.print
 use Core.filesystem
 
 def main():
-	print("file 'tests/regression/0201-0250/0250.ft':\n");
-	str file_content = read_file("tests/regression/0201-0250/0250.ft");
+	print("file 'regression/0201-0250/0250.ft':\n");
+	str file_content = read_file("regression/0201-0250/0250.ft");
 	print(file_content);

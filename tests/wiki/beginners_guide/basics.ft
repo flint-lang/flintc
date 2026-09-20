@@ -1,21 +1,21 @@
-use "../../../utils.ft"
+use "../../utils.ft"
 
 test "0_hello_world.ft":
-	str path = "tests/wiki/beginners_guide/basics";
+	str path = "wiki/beginners_guide/basics";
 	str file = "0_hello_world.ft";
 	test_file_ok($"{path}/{file}", "Hello, World!\n");
 
 test "1_comments.ft":
-	str path = "tests/wiki/beginners_guide/basics";
+	str path = "wiki/beginners_guide/basics";
 	str file = "1_comments.ft";
 	test_file_ok($"{path}/{file}", "Hello, Flint!\n");
 
 test "2_wrong_indentation.ft":
-	str path = "tests/wiki/beginners_guide/basics";
+	str path = "wiki/beginners_guide/basics";
 	str file = "2_wrong_indentation.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at tests/wiki/beginners_guide/basics/2_wrong_indentation.ft:3:11\n└─┬┤E0000│\n3 │ def main():\n┌─┴───────────┘\n└─ Expected a body after the :\n");
+	test_file_fail($"{path}/{file}", "Parse Error at wiki/beginners_guide/basics/2_wrong_indentation.ft:3:11\n└─┬┤E0000│\n3 │ def main():\n┌─┴───────────┘\n└─ Expected a body after the :\n");
 
 test "3_correct_indentation.ft":
-	str path = "tests/wiki/beginners_guide/basics";
+	str path = "wiki/beginners_guide/basics";
 	str file = "3_correct_indentation.ft";
 	test_file_ok($"{path}/{file}", "This is correctly indented.\n");

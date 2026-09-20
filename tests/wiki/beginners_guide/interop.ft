@@ -1,72 +1,72 @@
-use "../../../utils.ft"
+use "../../utils.ft"
 
 use Core.assert
 use Core.system
 use Core.filesystem
 
 test "0_crash":
-	str path = "tests/wiki/beginners_guide/interop/0_crash";
+	str path = "wiki/beginners_guide/interop/0_crash";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ No '.fip' directory found\n├─ To be able to interop with extern code you need the FIP set up\n└─ For further information look at 'https://flint-lang.github.io/wiki/v0.4.1-core/beginners_guide/9_interop/2_defining.html'\n");
 
 test "1_still_crash":
-	str path = "tests/wiki/beginners_guide/interop/1_still_crash";
+	str path = "wiki/beginners_guide/interop/1_still_crash";
 	str file = "main.ft";
 	// To emulate a missing installed fip-c module we just disable the module in the `fip.toml` file
 	test_file_fail_in(path, file, "Parse Error at main.ft:1:1\n└─┬┤E0000│\n1 │ extern def hello();\n┌─┴─┘\n├─ Defined 'extern' function without the FIP running and active\n└─ Check your configs in '.fip/config/' to see if there are any problems with it\n");
 
 test "2_hello":
-	str path = "tests/wiki/beginners_guide/interop/2_hello";
+	str path = "wiki/beginners_guide/interop/2_hello";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Hello from C!\n");
 
 test "3_signature_mismatch":
-	str path = "tests/wiki/beginners_guide/interop/3_signature_mismatch";
+	str path = "wiki/beginners_guide/interop/3_signature_mismatch";
 	str file = "main.ft";
 	test_file_fail_in(1, path, file, "Parse Error at main.ft:4:1\n└─┬┤E0000│\n4 │ extern def add(i32 x, i32 y) -> i32;\n┌─┴─┘\n└─ Extern function could not be found in any FIP module\n");
 
 test "4_signature_ok":
-	str path = "tests/wiki/beginners_guide/interop/4_signature_ok";
+	str path = "wiki/beginners_guide/interop/4_signature_ok";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Hello from C!\nadd(1, 8) = 9\n");
 
 test "5_data_passing":
-	str path = "tests/wiki/beginners_guide/interop/5_data_passing";
+	str path = "wiki/beginners_guide/interop/5_data_passing";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "md.(x, y, s, i) = (10, 10, 3.2, false)\nmd.(x, y, s, i) = (12, 15, 1.6, true)\n");
 
 test "6_name_doesnt_matter":
-	str path = "tests/wiki/beginners_guide/interop/6_name_doesnt_matter";
+	str path = "wiki/beginners_guide/interop/6_name_doesnt_matter";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Generation Error at main.ft:16:1\n└──┬┤E0000│\n16 │ extern def do_something(SomeData md) -> SomeData;\n┌──┴─┘\n├─ Defined extern function 'do_something' twice\n└─ It was first defined at main.ft:15:1\n");
 
 test "7_tuples":
-	str path = "tests/wiki/beginners_guide/interop/7_tuples";
+	str path = "wiki/beginners_guide/interop/7_tuples";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "d.($0, $1, $2, $3) = (10, 10, 3.2, false)\nd.($0, $1, $2, $3) = (12, 15, 1.6, true)\n");
 
 test "8_vectors":
-	str path = "tests/wiki/beginners_guide/interop/8_vectors";
+	str path = "wiki/beginners_guide/interop/8_vectors";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "res = (13.7, 69.100006, 40.48)\n");
 
 test "9_variable_pointer":
-	str path = "tests/wiki/beginners_guide/interop/9_variable_pointer";
+	str path = "wiki/beginners_guide/interop/9_variable_pointer";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "x = 15\n");
 
 test "10_ptr_in_definition":
-	str path = "tests/wiki/beginners_guide/interop/10_ptr_in_definition";
+	str path = "wiki/beginners_guide/interop/10_ptr_in_definition";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Analyzing Error at main.ft:3:13\n└─┬┤E0000│\n3 │ def add(mut i32* lhs, i32 rhs):\n┌─┴─────────────┘\n├─ Pointer types are not allowed in non-extern functions\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");
 
 test "11_ptr_in_body":
-	str path = "tests/wiki/beginners_guide/interop/11_ptr_in_body";
+	str path = "wiki/beginners_guide/interop/11_ptr_in_body";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Analyzing Error at main.ft:4:14\n└─┬┤E0000│\n3 │ def add(i32 lhs, i32 rhs):\n4 │ »   i32* a = &lhs;\n┌─┴──────────────┘\n├─ Pointer types are not allowed in non-extern contexts\n└─ A pointer type 'T*' can only be used when defining or calling 'extern' functions\n");
 
 test "12_tags":
-	str path = "tests/wiki/beginners_guide/interop/12_tags";
+	str path = "wiki/beginners_guide/interop/12_tags";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\n");
 
@@ -74,7 +74,7 @@ test "12_tags":
 	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 
 test "13_tags_aliasing":
-	str path = "tests/wiki/beginners_guide/interop/13_tags_aliasing";
+	str path = "wiki/beginners_guide/interop/13_tags_aliasing";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\n");
 
@@ -82,7 +82,7 @@ test "13_tags_aliasing":
 	assert(c == "data MyStruct:\n	i32 x;\n	f32 y;\n	u64 z;\n\nenum MyEnum:\n	VAL1 = 0,\n	VAL2 = 1,\n	VAL3 = 2,\n	VAL4 = 4,\n	VAL5 = 8;\n\nextern def print_enum(const MyEnum e);\nextern def add_structs(mut MyStruct* s1, const MyStruct s2);\nextern def add(mut i32* lhs, mut i32 rhs);\n");
 
 test "14_multiple_tags":
-	str path = "tests/wiki/beginners_guide/interop/14_multiple_tags";
+	str path = "wiki/beginners_guide/interop/14_multiple_tags";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "s1.(x, y, z) = (-100, 40.0, 36000)\nis VAL3\nx = 32\nv3 = (30.200001, 50.400002, 70.599998)\n");
 
@@ -92,7 +92,7 @@ test "14_multiple_tags":
 	assert(ex2 == "type Vector3 f32x3\nextern def vadd(const Vector3 v1, const Vector3 v2) -> Vector3;\n");
 
 test "15_opaque_simple":
-	str path = "tests/wiki/beginners_guide/interop/15_opaque_simple";
+	str path = "wiki/beginners_guide/interop/15_opaque_simple";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value = 0x", "\ncon.len = 100\n");
 
@@ -100,7 +100,7 @@ test "15_opaque_simple":
 	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "16_opaque_comparison":
-	str path = "tests/wiki/beginners_guide/interop/16_opaque_comparison";
+	str path = "wiki/beginners_guide/interop/16_opaque_comparison";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value points to something\ncon.len = 100\ncon.value was properly freed\n");
 
@@ -108,7 +108,7 @@ test "16_opaque_comparison":
 	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "17_opaque_leak_detection":
-	str path = "tests/wiki/beginners_guide/interop/17_opaque_leak_detection";
+	str path = "wiki/beginners_guide/interop/17_opaque_leak_detection";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "c.value = null\nc.len = 0\ncon.value points to something\ncon.len = 100\nError: Leaking memory!\n");
 
@@ -116,7 +116,7 @@ test "17_opaque_leak_detection":
 	assert(c == "data Container:\n	opaque value;\n	u64 len;\n\nextern def create() -> Container;\nextern def destroy(mut Container* c);\n");
 
 test "18_opaque_low_level":
-	str path = "tests/wiki/beginners_guide/interop/18_opaque_low_level";
+	str path = "wiki/beginners_guide/interop/18_opaque_low_level";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "allocation of 100 bytes successful\nfreeing of ptr successful\nError: Leaking memory!\n");
 
@@ -124,7 +124,7 @@ test "18_opaque_low_level":
 	assert(c == "extern def malloc(mut u64 n) -> opaque;\nextern def free(mut opaque ptr);\n");
 
 test "19_opaque_low_level_fixed":
-	str path = "tests/wiki/beginners_guide/interop/19_opaque_low_level_fixed";
+	str path = "wiki/beginners_guide/interop/19_opaque_low_level_fixed";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "allocation of 100 bytes successful\nfreeing of ptr successful\n");
 
@@ -132,7 +132,7 @@ test "19_opaque_low_level_fixed":
 	assert(c == "extern def malloc(mut u64 n) -> opaque;\nextern def free(mut opaque ptr);\n");
 
 test "20_named_opaque_simple":
-	str path = "tests/wiki/beginners_guide/interop/20_named_opaque_simple";
+	str path = "wiki/beginners_guide/interop/20_named_opaque_simple";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "Creating new named opaque\nFreeing named opaque ", "\n");
 
@@ -140,6 +140,6 @@ test "20_named_opaque_simple":
 	assert(c == "opaque NamedOpaque;\nextern def create_named_opaque() -> NamedOpaque;\nextern def free_named_opaque(mut NamedOpaque* value);\n");
 
 test "21_named_opaque_type_mismatch":
-	str path = "tests/wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
+	str path = "wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Parse Error at main.ft:5:19\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame obj = create_object();\n┌─┴───────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");
