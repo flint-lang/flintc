@@ -74,11 +74,17 @@ class FunctionNode : public DefinitionNode {
         AnnotationKind::FIP_DISABLE,
     };
 
+    /// @var `consumable_annotations`
+    /// @brief The annotations consumable by this definition node
+    static const inline std::unordered_set<AnnotationKind> consumable_annotations = {
+        AnnotationKind::TEST_ENTRY,
+    };
+
     std::unordered_set<AnnotationKind> get_possible_annotations() const override {
         if (visibility == Visibility::EXTERN) {
             return consumable_extern_annotations;
         } else {
-            return {};
+            return consumable_annotations;
         }
     }
 

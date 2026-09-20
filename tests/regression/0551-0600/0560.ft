@@ -1,0 +1,9 @@
+use Core.print
+
+#test_entry
+def entry1(str[] args):
+	print("Hello, World!\n");
+
+#test_entry
+def entry2(str[] args):
+	print("Hello, World!\n");

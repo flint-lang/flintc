@@ -226,6 +226,12 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!added_function.has_value()) {
                 return false;
             }
+            added_function.value()->annotations = AnnotationNode::extract_consumable( //
+                annotation_queue, FunctionNode::consumable_annotations                //
+            );
+            if (!check_test_entry(added_function.value())) {
+                return false;
+            }
             if (added_function.value()->cpl.empty()) {
                 add_open_function({added_function.value(), body_lines});
             } else {
@@ -1945,6 +1951,32 @@ bool Parser::add_annotation(const token_slice &tokens) {
     }
 
     annotation_queue.emplace_back(kind, arguments);
+    return true;
+}
+
+bool Parser::check_test_entry(FunctionNode *const entry) {
+    if (!entry->contains_annotation(AnnotationKind::TEST_ENTRY)) {
+        return true;
+    }
+    if (entry->name == "_main") {
+        THROW_ERR(ErrTestEntryOnMain, ERR_PARSING, entry->file_hash, entry->line, entry->column, entry->length);
+        return false;
+    }
+    if (                                                                                                                           //
+        !entry->scope.has_value()                                                                                                  //
+        || !entry->cpl.empty()                                                                                                     //
+        || entry->parameters.size() != 1                                                                                           //
+        || entry->parameters.front().type->to_string() != "str[]"                                                                  //
+        || (!entry->return_types.empty() && (entry->return_types.size() > 1 || entry->return_types.front()->to_string() != "i32")) //
+    ) {
+        THROW_ERR(ErrTestEntryInvalid, ERR_PARSING, entry->file_hash, entry->line, entry->column, entry->length);
+        return false;
+    }
+    FunctionNode *expected = nullptr;
+    if (!test_entry_function.compare_exchange_strong(expected, entry)) {
+        THROW_ERR(ErrTestEntryDuplicate, ERR_PARSING, entry->file_hash, entry->line, entry->column, entry->length, expected);
+        return false;
+    }
     return true;
 }
 

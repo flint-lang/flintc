@@ -1,37 +1,37 @@
 use "utils.ft"
 
 test "regression/0001-0050":
-	test_test("regression", "0001-0050.ft");
+	test_test_ok("regression", "0001-0050.ft", none);
 
 test "regression/0051-0100":
-	test_test("regression", "0051-0100.ft");
+	test_test_ok("regression", "0051-0100.ft", none);
 
 test "regression/0101-0150":
-	test_test("regression", "0101-0150.ft");
+	test_test_ok("regression", "0101-0150.ft", none);
 
 test "regression/0151-0200":
-	test_test("regression", "0151-0200.ft");
+	test_test_ok("regression", "0151-0200.ft", none);
 
 test "[t]regression/0201-0250":
-	test_test("regression", "0201-0250.ft");
+	test_test_ok("regression", "0201-0250.ft", none);
 
 test "regression/0251-0300":
-	test_test("regression", "0251-0300.ft");
+	test_test_ok("regression", "0251-0300.ft", none);
 
 test "regression/0301-0350":
-	test_test("regression", "0301-0350.ft");
+	test_test_ok("regression", "0301-0350.ft", none);
 
 test "regression/0351-0400":
-	test_test("regression", "0351-0400.ft");
+	test_test_ok("regression", "0351-0400.ft", none);
 
 test "regression/0401-0450":
-	test_test("regression", "0401-0450.ft");
+	test_test_ok("regression", "0401-0450.ft", none);
 
 test "regression/0451-0500":
-	test_test("regression", "0451-0500.ft");
+	test_test_ok("regression", "0451-0500.ft", none);
 
 test "regression/0501-0550":
-	test_test("regression", "0501-0550.ft");
+	test_test_ok("regression", "0501-0550.ft", none);
 
 test "regression/0551-0600":
-	test_test("regression", "0551-0600.ft");
+	test_test_ok("regression", "0551-0600.ft", none);

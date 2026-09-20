@@ -281,6 +281,7 @@ class Parser {
         }
         instances.clear();
         main_function.store(nullptr, std::memory_order_release);
+        test_entry_function.store(nullptr, std::memory_order_release);
         TestNode::clear_test_names();
 
         // Clear all the other static containers that hold pointers to parser data
@@ -294,6 +295,10 @@ class Parser {
     /// @var `main_function`
     /// @brief The main function of the parsed program
     static inline std::atomic<FunctionNode *> main_function{nullptr};
+
+    /// @var `test_entry_function`
+    /// @brief The function annotated with `#test_entry`, or `nullptr` when there is none
+    static inline std::atomic<FunctionNode *> test_entry_function{nullptr};
 
     /// @var `main_file_hash`
     /// @brief The hash of the file contianing the main function
@@ -513,6 +518,17 @@ class Parser {
         std::lock_guard<std::mutex> lock(parsed_tests_mutex);
         parsed_tests.emplace_back(test_node, file_name);
     }
+
+    /// @function `check_test_entry`
+    /// @brief Validates a `#test_entry` annotated function and registers it globally
+    ///
+    /// @details The test entry function has to be a regular definition with a body, can not be generic, has to take exactly one
+    ///          `str[]` parameter and can only return `i32` or nothing (void), just like the main function. Only one `#test_entry`
+    ///          function is allowed in the entire codebase
+    ///
+    /// @param `entry` The entry function to check and register
+    /// @return `bool` Whether the given entry function is valid and was registered successfully
+    static bool check_test_entry(FunctionNode *entry);
 
     /// @function `add_open_data`
     /// @brief Adds a open data module to the list of all open data modules

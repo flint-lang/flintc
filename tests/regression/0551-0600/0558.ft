@@ -1,0 +1,5 @@
+use Core.print
+
+#test_entry
+def main(str[] args):
+	print("Hello, World!\n");

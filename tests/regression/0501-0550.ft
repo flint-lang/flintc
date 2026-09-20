@@ -58,7 +58,7 @@ test "0510":
 test "0511":
 	str path = "regression/0501-0550";
 	str file = "0511.ft";
-	test_test(path, file);
+	test_test_ok(path, file, none);
 
 test "0512":
 	str path = "regression/0501-0550";

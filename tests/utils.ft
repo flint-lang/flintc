@@ -1,6 +1,7 @@
-use Core.system
+use Core.array
 use Core.assert
 use Core.print
+use Core.system
 
 /// @brief Default values for the global configuration, needed in the places where the current global
 //         value is temporary changed, so that it resets to the correct value.
@@ -102,20 +103,47 @@ def starts_with(str string, str check) -> bool:
 		print("\n");
 	return is_ok;
 
-/// @brief Tests the given test file, a test succeeds if it's exit code is 0
+/// @brief Tests the given test file, expects the test to succeed and to have the given output
 ///
 /// @param `test_dir` The directory the test needs to be tested in
 /// @param `file_name` The test file to test
-def test_test(str test_dir, str file_name):
+/// @param `expected_output` The expected output when running the test, none if output can be anything
+def test_test_ok(str test_dir, str file_name, str? expected_output):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{test_dir}");
 	str test_file = get_path($"{normalized_path}/{file_name}");
 	str out_file = get_path($"{normalized_path}/test");
-	compile(none, test_file, str[_]{"--test", "--out", out_file}, 0, "");
+	str[] flags = str[_]{"--test", "--out", out_file};
+	if expected_output != none:
+		insert[str](flags, "--no-colors", flags.len);
+	_ = compile(none, test_file, flags, 0, "");
 	(exit_code, output) := system_command(get_path($"{normalized_path}/test"));
 	if exit_code != 0:
 		print(output);
 	assert(exit_code == 0);
+	if expected_output == none:
+		return;
+	if output != expected_output!:
+		print($"Unexpected output:\n'{output}'\n");
+		print($"Expected output:\n'{expected_output!}'\n");
+	assert(output == expected_output!);
+
+/// @brief Tests the given test file expects the test compilation to fail with the given output
+///
+/// @param `test_dir` The directory the test needs to be tested in
+/// @param `file_name` The test file to test
+/// @param `expected_output` The expected output of the failing test
+def test_test_fail(str test_dir, str file_name, str expected_output):
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{test_dir}");
+	str test_file = get_path($"{normalized_path}/{file_name}");
+	str out_file = get_path($"{normalized_path}/test");
+	str? output = compile(none, test_file, str[_]{"--test", "--out", out_file, "--no-colors"}, 1, none);
+	bool ok = starts_with(output!, expected_output);
+	if not ok:
+		print($"Unexpected output:\n'{output!}'\n");
+		print($"Expected output:\n'{expected_output}'\n");
+	assert(ok);
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is expected to have the given expected output.
@@ -123,7 +151,7 @@ def test_test(str test_dir, str file_name):
 /// @param `file` The file to compile
 /// @param `expected_output` The expected output of the compiled program
 def test_file_ok(str file, str? expected_output):
-	compile_v(none, file, str[_]{}, 0, "");
+	_ = compile_v(none, file, str[_]{}, 0, "");
 	(exit_code, output) := system_command("./main");
 	if exit_code != 0:
 		print($"Unexpected 'main' exit_code: {exit_code}\n");
@@ -144,7 +172,7 @@ def test_file_ok(str file, str? expected_output):
 /// @param `expected_output_start` The start of the expected output of the compiled program
 /// @param `expected_output_end` The end of the expected output of the compiled program
 def test_file_ok(str file, str expected_output_start, str expected_output_end):
-	compile_v(none, file, str[_]{}, 0, "");
+	_ = compile_v(none, file, str[_]{}, 0, "");
 	(exit_code, output) := system_command("./main");
 	if exit_code != 0:
 		print($"Unexpected 'main' exit_code: {exit_code}\n");
@@ -176,7 +204,7 @@ def test_file_ok(str file, str expected_output_start, str expected_output_end):
 def test_file_ok_in(str path, str file, str? expected_output):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
+	_ = compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
 	(exit_code, output) := system_command($"cd {normalized_path} && {get_path("./main")}");
 	assert(exit_code == 0);
 	if expected_output == none:
@@ -198,7 +226,7 @@ def test_file_ok_in(str path, str file, str? expected_output):
 def test_file_ok_in(str path, str file, str expected_output_start, str expected_output_end):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
+	_ = compile_v($"cd {normalized_path} && ", file, str[_]{}, 0, "");
 	(exit_code, output) := system_command($"cd {normalized_path} && {get_path("./main")}");
 	assert(exit_code == 0);
 
@@ -222,7 +250,7 @@ def test_file_ok_in(str path, str file, str expected_output_start, str expected_
 ///
 /// @param `file` The file to compile
 def test_compiles(str file):
-	compile_v(none, file, str[_]{}, 0, "");
+	_ = compile_v(none, file, str[_]{}, 0, "");
 
 /// @brief Compiles a given file and expects compilation to succeed. The compiled program
 ///        is not executed.
@@ -233,7 +261,7 @@ def test_compiles(str file):
 def test_compiles_in(str path, str file, str? flags):
 	cwd := get_cwd();
 	normalized_path := get_path($"{cwd}/{path}");
-	compile_v($"cd {normalized_path} && ", file, str[_]{flags ?? ""}, 0, "");
+	_ = compile_v($"cd {normalized_path} && ", file, str[_]{flags ?? ""}, 0, "");
 
 /// @brief Compiles a given file and expects compilation to fail with an expected output
 ///
@@ -286,7 +314,7 @@ def test_file_fail_in(u32 n, str path, str file, str expected_output):
 /// @param `expected_output` The expected output of the run program
 /// @param `expected_exit_code` The expected exit code
 def test_file_crash(str file, str? flags, str expected_output, i32 expected_exit_code):
-	compile(none, file, str[_]{flags ?? ""}, 0, "");
+	_ = compile(none, file, str[_]{flags ?? ""}, 0, "");
 	(exit_code, output) := system_command("./main");
 	if exit_code != expected_exit_code:
 		print($"exit: {expected_exit_code} but got {exit_code}\n");

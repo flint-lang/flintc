@@ -1,34 +1,34 @@
 use "utils.ft"
 
 test "variables_and_types/primitive":
-	test_test("spec/variables_and_types", "primitives.ft");
+	test_test_ok("spec/variables_and_types", "primitives.ft", none);
 
 test "variables_and_types/inferred":
-	test_test("spec/variables_and_types", "inferred.ft");
+	test_test_ok("spec/variables_and_types", "inferred.ft", none);
 
 test "variables_and_types/operators":
-	test_test("spec/variables_and_types", "operators.ft");
+	test_test_ok("spec/variables_and_types", "operators.ft", none);
 
 test "variables_and_types/strings":
-	test_test("spec/variables_and_types", "strings.ft");
+	test_test_ok("spec/variables_and_types", "strings.ft", none);
 
 test "variables_and_types/casting":
-	test_test("spec/variables_and_types", "casting.ft");
+	test_test_ok("spec/variables_and_types", "casting.ft", none);
 
 test "control_flow/primitive":
-	test_test("spec/control_flow", "if.ft");
+	test_test_ok("spec/control_flow", "if.ft", none);
 
 test "data/vectors":
-	test_test("spec/data", "vectors.ft");
+	test_test_ok("spec/data", "vectors.ft", none);
 
 // test "control_flow/loops":
-// 	test_test("spec/control_flow", "loops.ft");
+// 	test_test_ok("spec/control_flow", "loops.ft", none);
 // 
 // test "control_flow/enums":
-// 	test_test("spec/control_flow", "enums.ft");
+// 	test_test_ok("spec/control_flow", "enums.ft", none);
 // 
 // test "control_flow/switch":
-// 	test_test("spec/control_flow", "switch.ft");
+// 	test_test_ok("spec/control_flow", "switch.ft", none);
 
 test "functions/tests":
-	test_test("spec/functions", "tests.ft");
+	test_test_ok("spec/functions", "tests.ft", none);

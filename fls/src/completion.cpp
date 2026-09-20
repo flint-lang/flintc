@@ -38,6 +38,9 @@ void LspServer::add_nodes_from_namespace_to_completions( //
                 if (node->name == "_main") {
                     continue;
                 }
+                if (node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
+                    continue;
+                }
                 completions.emplace_back(node->name, CompletionItemKind::Function, "The '" + node->name + "' function", node->name, false);
                 break;
             }

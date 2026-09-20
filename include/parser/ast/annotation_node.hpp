@@ -17,6 +17,7 @@ enum class AnnotationKind {
     TEST_PRE,           // #test_pre usable on `TestNode`s
     TEST_POST,          // #test_post usable on `TestNode`s
     TEST_DEINIT,        // #test_deinit usable on `TestNode`s
+    TEST_ENTRY,         // #test_entry usable on top-level `FunctionNode`s
 };
 
 /// @var `annotation_map`
@@ -31,6 +32,7 @@ static const inline std::map<std::string_view, AnnotationKind> annotation_map = 
     {"test_pre", AnnotationKind::TEST_PRE},
     {"test_post", AnnotationKind::TEST_POST},
     {"test_deinit", AnnotationKind::TEST_DEINIT},
+    {"test_entry", AnnotationKind::TEST_ENTRY},
 };
 
 /// @var `annotation_map_rev`
@@ -45,6 +47,7 @@ static const inline std::map<AnnotationKind, std::string_view> annotation_map_re
     {AnnotationKind::TEST_PRE, "test_pre"},
     {AnnotationKind::TEST_POST, "test_post"},
     {AnnotationKind::TEST_DEINIT, "test_deinit"},
+    {AnnotationKind::TEST_ENTRY, "test_entry"},
 };
 
 /// @class `AnnotationNode`

@@ -1,43 +1,43 @@
 use "utils.ft"
 
 test "beginners_guide/basics":
-	test_test("wiki/beginners_guide", "basics.ft");
+	test_test_ok("wiki/beginners_guide", "basics.ft", none);
 
 test "beginners_guide/variables_and_types.ft":
-	test_test("wiki/beginners_guide", "variables_and_types.ft");
+	test_test_ok("wiki/beginners_guide", "variables_and_types.ft", none);
 
 test "beginners_guide/control_flow":
-	test_test("wiki/beginners_guide", "control_flow.ft");
+	test_test_ok("wiki/beginners_guide", "control_flow.ft", none);
 
 test "beginners_guide/functions":
-	test_test("wiki/beginners_guide", "functions.ft");
+	test_test_ok("wiki/beginners_guide", "functions.ft", none);
 
 test "beginners_guide/data":
-	test_test("wiki/beginners_guide", "data.ft");
+	test_test_ok("wiki/beginners_guide", "data.ft", none);
 
 test "beginners_guide/arrays":
-	test_test("wiki/beginners_guide", "arrays.ft");
+	test_test_ok("wiki/beginners_guide", "arrays.ft", none);
 
 test "beginners_guide/imports":
-	test_test("wiki/beginners_guide", "imports.ft");
+	test_test_ok("wiki/beginners_guide", "imports.ft", none);
 
 test "beginners_guide/objects":
-	test_test("wiki/beginners_guide", "objects.ft");
+	test_test_ok("wiki/beginners_guide", "objects.ft", none);
 
 test "beginners_guide/interop":
-	test_test("wiki/beginners_guide", "interop.ft");
+	test_test_ok("wiki/beginners_guide", "interop.ft", none);
 
 test "beginners_guide/game_example":
-	test_test("wiki/beginners_guide", "game_example.ft");
+	test_test_ok("wiki/beginners_guide", "game_example.ft", none);
 
 test "intermediates_guide/optionals":
-	test_test("wiki/intermediates_guide", "optionals.ft");
+	test_test_ok("wiki/intermediates_guide", "optionals.ft", none);
 
 test "intermediates_guide/variants":
-	test_test("wiki/intermediates_guide", "variants.ft");
+	test_test_ok("wiki/intermediates_guide", "variants.ft", none);
 
 test "intermediates_guide/error_sets":
-	test_test("wiki/intermediates_guide", "error_sets.ft");
+	test_test_ok("wiki/intermediates_guide", "error_sets.ft", none);
 
 test "intermediates_guide/callables":
-	test_test("wiki/intermediates_guide", "callables.ft");
+	test_test_ok("wiki/intermediates_guide", "callables.ft", none);
