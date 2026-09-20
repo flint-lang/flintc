@@ -114,10 +114,10 @@ pub fn build(b: *std.Build) !void {
         std.log.info("The 'test' build option requires a release build!", .{});
     } else if (single_build) |s| {
         const test_cmd = b.addRunArtifact(s.s);
-        test_cmd.addFileArg(b.path("examples/tests.ft"));
+        test_cmd.addFileArg(b.path("tests/tests.ft"));
         test_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
         test_cmd.addPathDir(b.getInstallPath(.bin, ""));
-        test_cmd.setCwd(b.path("examples"));
+        test_cmd.setCwd(b.path("tests"));
         test_cmd.has_side_effects = true;
         test_cmd.step.dependOn(last_step);
         test_step.dependOn(&test_cmd.step);

@@ -156,9 +156,9 @@ test "0131":
 	test_file_ok($"{path}/{file}", "");
 
 test "0132":
-	str path ="regression/0101-0150";
-	str file = "0132.ft";
-	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"regression/0101-0150/0132.ft\"):\nLINE_5:			print(\"File 'regression/0101-0150/0132.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"regression/0101-0150/0132.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		bool logfile_exists = fs.file_exists(\"logfile\");\nLINE_11:		print($\"lgofile does exist? {logfile_exists}\\n\");\nLINE_12:		fs.write_file(\"logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_13:		fs.append_file(\"logfile\", \"newlineadded\\n\");\nLINE_14:		print(\"Written file 'logfile'\\n\");\nLINE_15:		bool logfile_is_file = fs.is_file(\"logfile\");\nLINE_16:		print($\"logfile is file? {logfile_is_file}\\n\");\nlgofile does exist? true\nWritten file 'logfile'\nlogfile is file? true\n");
+	str path ="regression/0101-0150/0132";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"main.ft\"):\nLINE_5:			print(\"File 'main.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"main.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		bool logfile_exists = fs.file_exists(\"logfile\");\nLINE_11:		print($\"lgofile does exist? {logfile_exists}\\n\");\nLINE_12:		fs.write_file(\"logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_13:		fs.append_file(\"logfile\", \"newlineadded\\n\");\nLINE_14:		print(\"Written file 'logfile'\\n\");\nLINE_15:		bool logfile_is_file = fs.is_file(\"logfile\");\nLINE_16:		print($\"logfile is file? {logfile_is_file}\\n\");\nlgofile does exist? true\nWritten file 'logfile'\nlogfile is file? true\n");
 
 test "0133":
 	str path ="regression/0101-0150";
