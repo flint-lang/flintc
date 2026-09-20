@@ -1,6 +1,0 @@
-data Container:
-	opaque value;
-	u64 len;
-
-extern def create() -> Container;
-extern def destroy(mut Container* c);

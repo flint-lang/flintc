@@ -1,2 +1,1 @@
 *.ft linguist-language=TypeScript
-examples/** -linguist-documentation
