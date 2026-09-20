@@ -665,9 +665,11 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
     }
 
-    // Finalize the debug info
+    // Finalize the debug info. Guarded for the cases when no compile unit was ever created (`--test` with no tests to run / no functions)
     if (Debug::DIB != nullptr) {
-        Debug::DIB->finalize();
+        if (Debug::DCU != nullptr) {
+            Debug::DIB->finalize();
+        }
         delete Debug::DIB;
         Debug::DIB = nullptr;
     }

@@ -29,3 +29,8 @@ test "0556":
 	str path = "regression/0551-0600";
 	str file = "0556.ft";
 	test_test(path, file);
+
+test "0557":
+	str path = "regression/0551-0600";
+	str file = "0557.ft";
+	test_test(path, file);
