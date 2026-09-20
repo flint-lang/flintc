@@ -1,3 +1,11 @@
-# examples
+# tests
 
-In this directory you will find a few smaller projects built with Flint. Note that these projects are here to showcase whats possible in Flint, so you can assume that the examples will always compile with the newest version of the Flint compiler.
+This directory contains the Flint test runner. It is written entirely in Flint, and this test runner executes a lot of different end-to-end tests for all examples, all wiki examples, a lot of regression tests and more.
+
+To compile and run the test suite, just execute
+
+```sh
+flintc tests.ft --test --run
+```
+
+All tests should be green and should pass. This test suite is executed before any commit or change to the compiler, to make sure changes or additions did not break anything in the process. The regression test suite is updated for every bugfix, regression fix and feature addition.

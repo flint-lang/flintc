@@ -5,7 +5,7 @@
 </p>
 
 <p>
-An approachable programming language to make power and performance accessible without bloat, in a high level package.
+A high level language with transparency at its core.
 
 This subproject contains the performance profiling test suite for Flint
 
@@ -32,10 +32,16 @@ This subproject contains the performance profiling test suite for Flint
 
 # Introduction
 
-This subproject is all about testing the performance of Flint and comparing it to C and older versions of Flint itself. It's main purpose is to get a feeling of the performance of Flint programs and how they evolve over time. It is used to test new implementations of performance-related code (optimizations) and it is used to detect performance regressions from new implementations early.
+This subproject is all about testing the performance of Flint and comparing it to C and older versions of Flint itself. Its main purpose is to get a feeling of the performance of Flint programs and how they evolve over time. It is used to test new implementations of performance-related code (optimizations) and it is used to detect performance regressions from new implementations early.
 
 It's also essential for the more substantial features of Flint like the Thread Stack or the Flint Execution Engine, since these systems need to be as fast as possible for Flint to still be fast. If these systems are slow, everything about Flint is slow.
 
 # Usage
 
-This testing framework is being built entirely in Flint itself, so it must be compiled using the Flint compiler.
+This testing framework is being built entirely in Flint itself, so it must be compiled using the Flint compiler:
+
+```sh
+flintc main.ft --run
+```
+
+Flint does not have network capabilites yet, that's why there exists a separate `fetch.sh` which is executed by the built program to download the versions of the compiler needed for testing. This also means that this test is only able to be executed on Linux at the moment, not on Windows.
