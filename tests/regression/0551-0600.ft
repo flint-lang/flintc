@@ -50,8 +50,22 @@ test "0560":
 	str file = "0560.ft";
 	test_test_fail(path, file, "Parse Error at regression/0551-0600/0560.ft:8:1\n└─┬┤E0000│\n8 │ def entry2(str[] args):\n┌─┴─┘\n├─ The '#test_entry' function is already defined in this program\n├─ First defined at regression/0551-0600/0560.ft:4:1\n└─ Only one '#test_entry' function is allowed in the entire codebase\n");
 
-#test_should_fail
 test "0561":
 	str path = "regression/0551-0600";
 	str file = "0561.ft";
-	test_test_ok(path, file, "Hello, World!There are no tests to run\n");
+	test_test_ok(path, file, "Hello, World!\nThere are no tests to run\n");
+
+test "0562":
+	str path = "regression/0551-0600";
+	str file = "0562.ft";
+	test_test_ok(path, file, "regression/0551-0600/0562.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
+
+test "0563":
+	str path = "regression/0551-0600";
+	str file = "0563.ft";
+	test_test_ok(path, file, "--help", 1, "Usage: test [TEST]*\n\nAvailable TESTs:\n  t1    Execute test t1, skipped by default\n  t2    Execute test t2, skipped by default\n");
+
+test "0564":
+	str path = "regression/0551-0600";
+	str file = "0564.ft";
+	test_test_ok(path, file, "bogus", 1, "Unrecognized argument: bogus\nUsage: test [TEST]*\n\nAvailable TESTs:\n  t1    Execute test t1, skipped by default\n  t2    Execute test t2, skipped by default\n");

@@ -128,6 +128,29 @@ def test_test_ok(str test_dir, str file_name, str? expected_output):
 		print($"Expected output:\n'{expected_output!}'\n");
 	assert(output == expected_output!);
 
+/// @brief Tests the given test file, passes the given args to the built test binary, expects the
+///        test to have the given exit code and to have the given output
+///
+/// @param `test_dir` The directory the test needs to be tested in
+/// @param `file_name` The test file to test
+/// @param `args` The arguments to execute the test with
+/// @param `expected_exit` The expected exit code when running the test
+/// @param `expected_output` The expected output when running the test, none if output can be anything
+def test_test_ok(str test_dir, str file_name, str args, i32 expected_exit, str expected_output):
+	cwd := get_cwd();
+	normalized_path := get_path($"{cwd}/{test_dir}");
+	str test_file = get_path($"{normalized_path}/{file_name}");
+	str out_file = get_path($"{normalized_path}/test");
+	_ = compile(none, test_file, str[_]{"--test", "--out", out_file, "--no-colors"}, 0, "");
+	(exit_code, output) := system_command(get_path($"{normalized_path}/test {args}"));
+	if exit_code != expected_exit:
+		print(output);
+	assert(exit_code == expected_exit);
+	if output != expected_output:
+		print($"Unexpected output:\n'{output}'\n");
+		print($"Expected output:\n'{expected_output}'\n");
+	assert(output == expected_output);
+
 /// @brief Tests the given test file expects the test compilation to fail with the given output
 ///
 /// @param `test_dir` The directory the test needs to be tested in

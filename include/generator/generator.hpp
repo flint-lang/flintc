@@ -499,7 +499,8 @@ class Generator {
         ///
         /// @param `module` The module the forward declarations are declared inside
         /// @param `file_node` The FileNode whose construct definitions will be forward-declared in the given module
-        static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node);
+        /// @param `is_test` Whether the program is built in test mode
+        static void generate_forward_declarations(llvm::Module *module, const FileNode &file_node, const bool is_test);
 
         /// @function `generate_object_dispatch_functions`
         /// @brief Generates all object dispatch functions of every object type defined in the program
@@ -823,6 +824,23 @@ class Generator {
             llvm::IRBuilder<> *builder,                  //
             llvm::Module *module,                        //
             const std::optional<std::string> &libname    //
+        );
+
+        /// @function `generate_argv_string_array`
+        /// @brief Generates the code which converts the raw `argc` / `argv` C main arguments into a `str[]` array of strings
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `module` The LLVM Module
+        /// @param `owner_function` The function the generated code and its loop blocks are created in
+        /// @param `argc` The `i32` argc argument of the main function
+        /// @param `argv` The `ptr` argv argument of the main function
+        /// @return `llvm::Value *` The pointer to the created `str[]` array
+        static llvm::Value *generate_argv_string_array( //
+            llvm::IRBuilder<> *const builder,           //
+            llvm::Module *const module,                 //
+            llvm::Function *const owner_function,       //
+            llvm::Value *const argc,                    //
+            llvm::Value *const argv                     //
         );
 
         /// @function `generate_c_functions`

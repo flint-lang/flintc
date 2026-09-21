@@ -1,0 +1,59 @@
+use Core.assert
+use Core.print
+
+shared data G:
+	i32 c = 0;
+
+shared data Tests:
+	bool t1 = false;
+	bool t2 = false;
+
+#test_init
+test "init":
+	G.c = 10;
+
+#test_deinit
+test "deinit":
+	G.c = 0;
+
+#test_pre
+test "pre":
+	G.c++;
+
+#test_post
+test "post":
+	G.c++;
+
+test "t1":
+	if not Tests.t1:
+		return;
+	print($"G.c = {G.c}\n");
+	assert(G.c == 11);
+
+test "t2":
+	if not Tests.t2:
+		return;
+	print($"G.c = {G.c}\n");
+	assert(G.c == 13);
+
+def print_help() -> i32:
+	print("Usage: test [TEST]*\n");
+	print("\n");
+	print("Available TESTs:\n");
+	print("  t1    Execute test t1, skipped by default\n");
+	print("  t2    Execute test t2, skipped by default\n");
+	return 1;
+
+#test_entry
+def entry(str[] args) -> i32:
+	for u64 i = 1; i < args.len; i++:
+		const str arg = args[i];
+		if arg == "--help":
+			return print_help();
+		else if arg == "t1":
+			Tests.t1 = true;
+		else if arg == "t2":
+			Tests.t2 = true;
+		else:
+			print($"Unrecognized argument: {arg}\n");
+			return print_help();

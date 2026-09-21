@@ -508,7 +508,7 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
 
     // Forward declare all functions from all files
     for (const auto &file : Parser::instances) {
-        IR::generate_forward_declarations(module.get(), *file.file_node_ptr);
+        IR::generate_forward_declarations(module.get(), *file.file_node_ptr, is_test);
     }
     // Create global variables for each file's shared data fields
     shared_globals.clear();
@@ -535,6 +535,9 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         }
         if (!function_node->scope.has_value()) {
             // Don't generate declaration-only functions
+            continue;
+        }
+        if ((!is_test || libname.has_value()) && function_node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
             continue;
         }
         if (!Function::generate_function_setup(module.get(), function_node)) {
@@ -778,6 +781,9 @@ bool Generator::generate_file_ir(             //
                 // Skip un-specialized generic templates, only their specializations get forward-declared
                 continue;
             }
+            if ((!is_test || libname.has_value()) && function_node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
+                continue;
+            }
             llvm::FunctionType *function_type = Function::generate_function_type(module, function_node);
             std::string function_name = function_node->file_hash.to_string() + "." + function_node->name;
             if (function_node->mangle_id.has_value()) {
@@ -822,6 +828,9 @@ bool Generator::generate_file_ir(             //
                     continue;
                 }
                 if (function_node->is_generic_template()) {
+                    continue;
+                }
+                if ((!is_test || libname.has_value()) && function_node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
                     continue;
                 }
                 if (!Function::generate_function_body(function_node, file.imported_core_modules)) {

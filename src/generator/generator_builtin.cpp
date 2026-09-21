@@ -882,59 +882,9 @@ bool Generator::Builtin::generate_builtin_main( //
         argc->setName("argc");
         llvm::Argument *const argv = main_function->args().begin() + 1;
         argv->setName("argv");
-        // Now get the string type
-        llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-        const llvm::DataLayout &data_layout = module->getDataLayout();
-        const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
-        llvm::Value *const arr_len = builder->CreateAdd(                                                //
-            builder->getInt64(str_size),                                                                //
-            builder->CreateMul(builder->CreateSExt(argc, builder->getInt64Ty()), builder->getInt64(8)), //
-            "arr_len"                                                                                   //
-        );
-        llvm::Value *const arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
-        // Store 1 in the dimensionality of the array
-        llvm::Value *const dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
-        IR::aligned_store(*builder, builder->getInt64(1), dim_ptr);
-        // Store the argc in the value field of the array
-        llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
-        IR::aligned_store(*builder, builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
 
-        // Create the arg_i running variable for the loop
-        llvm::AllocaInst *const arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
-        IR::aligned_store(*builder, builder->getInt32(0), arg_i);
+        llvm::Value *const arr_ptr = generate_argv_string_array(builder, module, main_function, argc, argv);
 
-        llvm::BasicBlock *const current_block = builder->GetInsertBlock();
-        llvm::BasicBlock *const arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", main_function);
-        llvm::BasicBlock *const arg_save_loop_body_block = llvm::BasicBlock::Create(context, "arg_save_loop_body", main_function);
-        llvm::BasicBlock *const arg_save_loop_exit_block = llvm::BasicBlock::Create(context, "arg_save_loop_exit", main_function);
-        builder->SetInsertPoint(current_block);
-        builder->CreateBr(arg_save_loop_cond_block);
-
-        builder->SetInsertPoint(arg_save_loop_cond_block);
-        llvm::Value *const arg_i_val = IR::aligned_load(*builder, builder->getInt32Ty(), arg_i, "arg_i_val");
-        builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
-
-        builder->SetInsertPoint(arg_save_loop_body_block);
-        llvm::Value *const argv_element_ptr = builder->CreateGEP(    //
-            PTR_TY,                                                  //
-            argv,                                                    //
-            {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
-            "argv_element_ptr"                                       //
-        );
-        llvm::Value *const argv_element = IR::aligned_load(*builder, PTR_TY, argv_element_ptr, "argv_element");
-        llvm::Value *const arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
-        llvm::Value *const created_str = builder->CreateCall(                                               //
-            Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
-        );
-        llvm::Value *const arg_ptr = builder->CreateGEP(                                      //
-            PTR_TY, len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
-        );
-        IR::aligned_store(*builder, created_str, arg_ptr);
-        IR::aligned_store(*builder, builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
-
-        builder->CreateBr(arg_save_loop_cond_block);
-
-        builder->SetInsertPoint(arg_save_loop_exit_block);
         // Now store the array in the first argument field of the main function
         if (main_function_has_ret) {
             main_frame = builder->CreateInsertValue(main_frame, arr_ptr, {2}, "main_frame_args_added");
@@ -1018,6 +968,68 @@ bool Generator::Builtin::generate_builtin_main( //
     builder->CreateCall(c_functions.at(EXIT), {exit_value});
     builder->CreateUnreachable();
     return true;
+}
+
+llvm::Value *Generator::Builtin::generate_argv_string_array( //
+    llvm::IRBuilder<> *const builder,                        //
+    llvm::Module *const module,                              //
+    llvm::Function *const owner_function,                    //
+    llvm::Value *const argc,                                 //
+    llvm::Value *const argv                                  //
+) {
+    // Now get the string type
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    const llvm::DataLayout &data_layout = module->getDataLayout();
+    const unsigned int str_size = data_layout.getTypeAllocSize(str_type) + 8;
+    llvm::Value *const arr_len = builder->CreateAdd(                                                //
+        builder->getInt64(str_size),                                                                //
+        builder->CreateMul(builder->CreateSExt(argc, builder->getInt64Ty()), builder->getInt64(8)), //
+        "arr_len"                                                                                   //
+    );
+    llvm::Value *const arr_ptr = builder->CreateCall(c_functions.at(MALLOC), {arr_len}, "arr_ptr");
+    // Store 1 in the dimensionality of the array
+    llvm::Value *const dim_ptr = builder->CreateStructGEP(str_type, arr_ptr, 0, "dim_ptr");
+    IR::aligned_store(*builder, builder->getInt64(1), dim_ptr);
+    // Store the argc in the value field of the array
+    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, arr_ptr, 1, "len_ptr");
+    IR::aligned_store(*builder, builder->CreateSExt(argc, builder->getInt64Ty()), len_ptr);
+
+    // Create the arg_i running variable for the loop
+    llvm::AllocaInst *const arg_i = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "arg_i");
+    IR::aligned_store(*builder, builder->getInt32(0), arg_i);
+
+    llvm::BasicBlock *const current_block = builder->GetInsertBlock();
+    llvm::BasicBlock *const arg_save_loop_cond_block = llvm::BasicBlock::Create(context, "arg_save_loop_cond", owner_function);
+    llvm::BasicBlock *const arg_save_loop_body_block = llvm::BasicBlock::Create(context, "arg_save_loop_body", owner_function);
+    llvm::BasicBlock *const arg_save_loop_exit_block = llvm::BasicBlock::Create(context, "arg_save_loop_exit", owner_function);
+    builder->SetInsertPoint(current_block);
+    builder->CreateBr(arg_save_loop_cond_block);
+
+    builder->SetInsertPoint(arg_save_loop_cond_block);
+    llvm::Value *const arg_i_val = IR::aligned_load(*builder, builder->getInt32Ty(), arg_i, "arg_i_val");
+    builder->CreateCondBr(builder->CreateICmpSLT(arg_i_val, argc), arg_save_loop_body_block, arg_save_loop_exit_block);
+
+    builder->SetInsertPoint(arg_save_loop_body_block);
+    llvm::Value *const argv_element_ptr = builder->CreateGEP(    //
+        PTR_TY,                                                  //
+        argv,                                                    //
+        {builder->CreateSExt(arg_i_val, builder->getInt64Ty())}, //
+        "argv_element_ptr"                                       //
+    );
+    llvm::Value *const argv_element = IR::aligned_load(*builder, PTR_TY, argv_element_ptr, "argv_element");
+    llvm::Value *const arg_length = builder->CreateCall(c_functions.at(STRLEN), {argv_element}, "arg_length");
+    llvm::Value *const created_str = builder->CreateCall(                                               //
+        Module::String::string_manip_functions.at("init_str"), {argv_element, arg_length}, "arg_string" //
+    );
+    llvm::Value *const arg_ptr = builder->CreateGEP(                                      //
+        PTR_TY, len_ptr, {builder->CreateAdd(arg_i_val, builder->getInt32(1))}, "arg_ptr" //
+    );
+    IR::aligned_store(*builder, created_str, arg_ptr);
+    IR::aligned_store(*builder, builder->CreateAdd(arg_i_val, builder->getInt32(1)), arg_i);
+    builder->CreateBr(arg_save_loop_cond_block);
+
+    builder->SetInsertPoint(arg_save_loop_exit_block);
+    return arr_ptr;
 }
 
 void Generator::Builtin::generate_c_functions(llvm::Module *module) {
@@ -2458,9 +2470,18 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
 
     llvm::Value *const zero = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 0);
     llvm::Value *const one = llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), 1);
+
+    // A '#test_entry' function (if present) is called with the raw command line arguments before any test runs, so the generated
+    // main function has to take the `argc`/`argv` C arguments in that case
+    FunctionNode *const test_entry = Parser::test_entry_function.load();
+    const bool has_test_entry = test_entry != nullptr;
+    std::vector<llvm::Type *> main_arg_types;
+    if (has_test_entry) {
+        main_arg_types = {llvm::Type::getInt32Ty(context), PTR_TY};
+    }
     llvm::FunctionType *const main_type = llvm::FunctionType::get( //
         llvm::Type::getInt32Ty(context),                           // Return type: int
-        {},                                                        // Takes nothing
+        main_arg_types,                                            // (int argc, char *argv[]) when a test entry exists, otherwise nothing
         false                                                      // no varargs
     );
     llvm::Function *const main_function = llvm::Function::Create( //
@@ -2488,8 +2509,8 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
         builder->CreateCall(SetConsoleOutputCP_fn, {builder->getInt32(cp_utf8)});
     }
 
-    // Handle the case that there are no tests to run
-    if (tests.empty()) {
+    // Handle the case that there are no tests to run. Execute the `#test_entry` function anyway, if present
+    if (!has_test_entry && tests.empty()) {
         llvm::Value *const msg = IR::generate_const_string(module, "There are no tests to run\n");
         builder->CreateCall(c_functions.at(PRINTF), {msg});
         builder->CreateCall(c_functions.at(EXIT), {zero});
@@ -2529,6 +2550,107 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
     // Initialize all global variables by evaluating the rhs expressions of all global variables
     if (!init_global_variables(main_function, builder, ts_stack_data_ptr, ts_ptr)) {
         return false;
+    }
+
+    // If a '#test_entry' function is present, parse the raw command line arguments into a `str[]` array and run the entry function
+    // before executing any test. Its output is *not* captured and when it fails not a single test is run at all
+    if (has_test_entry) {
+        llvm::Argument *const argc = main_function->args().begin();
+        argc->setName("argc");
+        llvm::Argument *const argv = main_function->args().begin() + 1;
+        argv->setName("argv");
+        llvm::Value *const args_array = generate_argv_string_array(builder, module, main_function, argc, argv);
+
+        // Look up the generated entry function
+        std::string entry_function_name = test_entry->file_hash.to_string() + "." + test_entry->name;
+        if (test_entry->mangle_id.has_value()) {
+            entry_function_name += "." + std::to_string(test_entry->mangle_id.value());
+        }
+        llvm::Function *const entry_function = module->getFunction(entry_function_name);
+        if (entry_function == nullptr) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
+        }
+
+        // Set up the entry function's frame in the TS data section, just like the test runner does for the test functions
+        const size_t entry_fn_id = test_entry->get_id();
+        llvm::StructType *const entry_frame_type = Module::ThreadStack::ts_frames.at(entry_fn_id);
+        llvm::Value *const entry_default_value = Module::ThreadStack::ts_defaults.at(entry_fn_id);
+        llvm::Value *entry_frame = IR::aligned_load(*builder, entry_frame_type, entry_default_value, "entry_frame_default");
+        entry_frame = builder->CreateInsertValue(entry_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
+        if (test_entry->return_types.empty()) {
+            entry_frame = builder->CreateInsertValue(entry_frame, args_array, {1}, "entry_frame_args_added");
+        } else {
+            entry_frame = builder->CreateInsertValue(entry_frame, args_array, {2}, "entry_frame_args_added");
+        }
+        IR::aligned_store(*builder, entry_frame, ts_stack_data_ptr);
+
+        // Call the entry function which returns an `i1` error flag like every flint function
+        llvm::CallInst *const entry_call = builder->CreateCall(entry_function, {ts_stack_data_ptr});
+        if (OPTIMIZE_MODE != OptimizeMode::DEBUG && !is_target_windows()) {
+            entry_call->addParamAttr(0, llvm::Attribute::InReg);
+            entry_call->setCallingConv(llvm::CallingConv::Tail);
+            entry_call->setTailCall();
+        }
+
+        // Branch on the error flag to check whether the entry function threw an error
+        llvm::BasicBlock *const entry_current_block = builder->GetInsertBlock();
+        llvm::BasicBlock *const entry_error_block = llvm::BasicBlock::Create(context, "test_entry_error", main_function);
+        llvm::BasicBlock *const entry_ok_block = llvm::BasicBlock::Create(context, "test_entry_ok", main_function);
+        builder->SetInsertPoint(entry_current_block);
+        builder->CreateCondBr(entry_call, entry_error_block, entry_ok_block);
+
+        // The entry function threw an error, print it and exit without running any test
+        builder->SetInsertPoint(entry_error_block);
+        llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
+        llvm::Value *const err_val_ptr = builder->CreateStructGEP(                         //
+            ts_fn_ty, ts_stack_data_ptr, Module::ThreadStack::FUNCTION::ERR, "err_val_ptr" //
+        );
+        llvm::Value *const err_val = IR::aligned_load(*builder, type_map.at("type.flint.err"), err_val_ptr, "err_val");
+        llvm::Value *const type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
+        llvm::Value *const value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
+        llvm::Value *const message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
+        llvm::Function *const get_err_type_str_fn = Error::error_functions.at("get_err_type_str");
+        llvm::Function *const get_err_val_str_fn = Error::error_functions.at("get_err_val_str");
+        llvm::Value *const err_type_str = builder->CreateCall(get_err_type_str_fn, {type_id}, "err_type_str");
+        llvm::Value *const err_val_str = builder->CreateCall(get_err_val_str_fn, {type_id, value_id}, "err_val_str");
+        llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+        llvm::Value *const message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
+        llvm::Value *const message_begin_ptr = IR::generate_const_string(                         //
+            module, "The given error bubbled up to the test entry function:\n └─ %s.%s: \"%s\"\n" //
+        );
+        builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, err_type_str, err_val_str, message});
+        builder->CreateCall(c_functions.at(FREE), {message_ptr});
+        builder->CreateCall(c_functions.at(EXIT), {one});
+        builder->CreateUnreachable();
+
+        // The entry function ran without throwing. When it returns an `i32` exit code, exit with it when it is non-zero
+        builder->SetInsertPoint(entry_ok_block);
+        if (!test_entry->return_types.empty()) {
+            llvm::Value *const entry_exit_code_ptr = builder->CreateStructGEP( //
+                entry_frame_type, ts_stack_data_ptr, 1, "entry_exit_code_ptr"  //
+            );
+            llvm::Value *const entry_exit_code = IR::aligned_load(*builder, builder->getInt32Ty(), entry_exit_code_ptr, "entry_exit_code");
+            llvm::BasicBlock *const entry_code_ok_block = llvm::BasicBlock::Create(context, "test_entry_code_ok", main_function);
+            llvm::BasicBlock *const entry_code_fail_block = llvm::BasicBlock::Create(context, "test_entry_code_fail", main_function);
+            builder->CreateCondBr(builder->CreateICmpEQ(entry_exit_code, zero), entry_code_ok_block, entry_code_fail_block);
+
+            // The entry function returned a non-zero exit code, exit with it without running any test
+            builder->SetInsertPoint(entry_code_fail_block);
+            builder->CreateCall(c_functions.at(EXIT), {entry_exit_code});
+            builder->CreateUnreachable();
+
+            builder->SetInsertPoint(entry_code_ok_block);
+        }
+
+        // The entry function ran successfully and no tests exist, so there is nothing left to run
+        if (tests.empty()) {
+            llvm::Value *const msg = IR::generate_const_string(module, "There are no tests to run\n");
+            builder->CreateCall(c_functions.at(PRINTF), {msg});
+            builder->CreateCall(c_functions.at(EXIT), {zero});
+            builder->CreateUnreachable();
+            return true;
+        }
     }
 
     // Create the counter to count how many tests have failed
