@@ -5141,8 +5141,8 @@ llvm::Value *Generator::Expression::generate_type_cast( //
     }
     if (from_type->get_variation() == Type::Variation::ERROR_SET || from_type->to_string() == "anyerror") {
         if (to_type_str == "str") {
-            llvm::Function *get_err_str_fn = Error::error_functions.at("get_err_str");
-            return builder.CreateCall(get_err_str_fn, {expr}, "err_to_str");
+            llvm::Function *get_str_fn = Error::error_functions.at("get_str");
+            return builder.CreateCall(get_str_fn, {expr}, "err_to_str");
         }
     }
     if (from_type->get_variation() == Type::Variation::POINTER && to_type->get_variation() == Type::Variation::OPAQUE) {

@@ -2816,9 +2816,9 @@ class Generator {
         /// @attention The functions are nullpointers until the `generate_error_functions` function is called
         /// @attention The map is not being cleared after the program module has been generated
         static inline std::unordered_map<std::string_view, llvm::Function *> error_functions = {
-            {"get_err_type_str", nullptr},
-            {"get_err_val_str", nullptr},
-            {"get_err_str", nullptr},
+            {"get_type_str", nullptr},
+            {"get_val_str", nullptr},
+            {"get_str", nullptr},
         };
 
         /// @function `generate_error_functions`
@@ -2826,28 +2826,28 @@ class Generator {
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
-        static void generate_error_functions(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_error_functions(llvm::IRBuilder<> *const builder, llvm::Module *const module);
 
-        /// @function `generate_get_err_type_str_function`
-        /// @brief Generates the `get_err_type_str` function used to resolve error types
+        /// @function `generate_get_type_str_function`
+        /// @brief Generates the `get_type_str` function used to resolve error types
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
-        static void generate_get_err_type_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_get_type_str_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
 
-        /// @function `generate_get_err_val_str_function`
-        /// @brief Generates the `get_err_val_str` function used to resolve error values
+        /// @function `generate_get_val_str_function`
+        /// @brief Generates the `get_val_str` function used to resolve error values
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
-        static void generate_get_err_val_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_get_val_str_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
 
-        /// @function `generate_get_err_str_function`
-        /// @brief Generates the `get_err_str` function used to cast whole errors to strings (resulting in a `ErrType.ErrVal` string)
+        /// @function `generate_get_str_function`
+        /// @brief Generates the `get_str` function used to cast whole errors to strings (resulting in a `ErrType.ErrVal` string)
         ///
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
-        static void generate_get_err_str_function(llvm::IRBuilder<> *builder, llvm::Module *module);
+        static void generate_get_str_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
     };
 
     /// @class `Memory`
