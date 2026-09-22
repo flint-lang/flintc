@@ -63,12 +63,12 @@ test "11_persistent_accumulator.ft":
 test "12_err_bubble_up.ft":
 	str path = "wiki/intermediates_guide/callables";
 	str file = "12_err_bubble_up.ft";
-	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬────────────────────────── Location ──────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/12_err_bubble_up.ft:6:5     origin  ┤\n    └ _main      wiki/intermediates_guide/callables/12_err_bubble_up.ft:11:5            ┘\n", 1);
 
 test "13_specifying_err_set.ft":
 	str path = "wiki/intermediates_guide/callables";
 	str file = "13_specifying_err_set.ft";
-	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nThe given error bubbled up to the main function:\n └─ ErrAssert.AssertionFailed: \"The assertion has failed\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬──────────────────────────── Location ────────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/13_specifying_err_set.ft:6:5    origin  ┤\n    └ _main      wiki/intermediates_guide/callables/13_specifying_err_set.ft:11:5           ┘\n", 1);
 
 test "14_catching_callables.ft":
 	str path = "wiki/intermediates_guide/callables";

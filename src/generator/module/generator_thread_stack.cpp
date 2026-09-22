@@ -29,9 +29,11 @@
  *
  *     typedef struct thread_stack_t {
  *         uint64_t capacity;           // The remaining capacity of the Thread Stack before it's "frame buffer" is full
- *         function_t *stack_ptr;       // The pointer to the next free memory to put the next call frame at
  *         uint32_t thread_id;          // The ID of this thread
  *         uint32_t flags;              // The flags described above (ts_flags_e)
+ *         trace_chunk_t *trace_ptr;    // The tail chunk of the error trace list (see `generator_error.cpp` for more information)
+ *         function_t *stack_ptr;       // The pointer to the next free memory to put the next call frame at
+ *         trace_chunk_t trace_chunk0;  // The first chunk for the error tracing, embedded in the TS header to reduce allocation count
  *         char stack_data[];           // The actual stack data of the thread stack
  *     } thread_stack_t;
  *
@@ -44,11 +46,13 @@ void Generator::Module::ThreadStack::generate_types() {
     if (type_map.find("type.ts.stack") == type_map.end()) {
         type_map["type.ts.stack"] = IR::create_struct_type("type.ts.stack",
             {
-                llvm::Type::getInt64Ty(context),                        // u64 capacity
-                llvm::Type::getInt32Ty(context),                        // u32 thread_id
-                llvm::Type::getInt32Ty(context),                        // u32 flags
-                PTR_TY,                                                 // ptr stack_ptr
-                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0) // char stack_data[]
+                llvm::Type::getInt64Ty(context),                         // u64 capacity
+                llvm::Type::getInt32Ty(context),                         // u32 thread_id
+                llvm::Type::getInt32Ty(context),                         // u32 flags
+                PTR_TY,                                                  // ptr trace_ptr
+                type_map.at("type.trace.chunk"),                         // trace_chunk_t trace_chunk0
+                PTR_TY,                                                  // ptr stack_ptr
+                llvm::ArrayType::get(llvm::Type::getInt8Ty(context), 0), // char stack_data[]
             } //
         );
     }

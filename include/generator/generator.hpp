@@ -277,6 +277,17 @@ class Generator {
         /// @var `dest`
         /// @brief Optional destination pointer for expressions that write directly (e.g. fixed array initializers)
         llvm::Value *dest = nullptr;
+
+        /// @var `function_name_ptr`
+        /// @brief A pointer to the constant string in the global section containing the name of the function currently being generated
+        llvm::Value *function_name_ptr = nullptr;
+
+        /// @var `catch_scopes`
+        /// @brief A stack of all currently active (generated) catch statements.
+        ///
+        /// The first value of the pair is the scope of the catch body, the second value is the error trace depth the thread stack had right
+        /// before the call of the caught function
+        std::vector<std::pair<const Scope *, llvm::Value *>> catch_scopes;
     };
 
     /// @var `type_map`
@@ -395,6 +406,10 @@ class Generator {
     /// function has thrown an error, and the second value of the pair is the error value of the function itself, e.g. the pointer to the
     /// "next" TS frame. The second value of the pair needs to be struct GEPd still with the `type.ts.function` type to get the error ptr
     static inline std::pair<llvm::Value *, llvm::Value *> last_err_values;
+
+    /// @var `last_err_base`
+    /// @brief The alloca that holds the error trace depth of the thread stack right before the call which the next catch statement handles
+    static inline llvm::Value *last_err_base = nullptr;
 
     /// @var `enum_name_arrays_map`
     /// @brief A map containing all references to all enum name arrays which map each enum value to it's string name, the key is the type
@@ -2063,12 +2078,15 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
+        /// @param `call_pos` The call node as an AST node, carries the file hash, line and column of the call site which are read from it
+        /// directly when creating the trace entry of an auto-generated rethrow
         /// @param `is_reference` Whether the result of the call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the call
         static group_mapping generate_call( //
             llvm::IRBuilder<> &builder,     //
             GenerationContext &ctx,         //
             const CallNodeBase *call_node,  //
+            const ASTNode *call_pos,        //
             const bool is_reference = false //
         );
 
@@ -2146,6 +2164,8 @@ class Generator {
         /// @param `garbage` The collected garbage of the arguments of the call
         /// @param `args` The arguments the builtin call is called with
         /// @param `call_node` The call node to generate
+        /// @param `call_pos` The call node as an AST node, carries the file hash, line and column of the call site which are read from it
+        /// directly when creating the trace entry of an auto-generated rethrow
         /// @param `function_name` The name of the called builtin funciton
         /// @param `module_name` The name of the Core module the called builtin function comes from
         /// @param `fn_overloads` The list of overloads for that Core module function being called
@@ -2156,6 +2176,7 @@ class Generator {
             garbage_type &garbage,                  //
             std::vector<llvm::Value *> &args,       //
             const CallNodeBase *call_node,          //
+            const ASTNode *call_pos,                //
             const std::string &function_name,       //
             const std::string &module_name,         //
             const overloads &fn_overloads           //
@@ -2167,12 +2188,15 @@ class Generator {
         /// @param `builder` The LLVM IRBuilder
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node to generate
+        /// @param `call_pos` The call node as an AST node, carries the file hash, line and column of the call site which are read from it
+        /// directly when creating the trace entry of an auto-generated rethrow
         /// @param `is_reference` Whether the result of the callable call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the callable call
         static group_mapping generate_callable_call( //
             llvm::IRBuilder<> &builder,              //
             GenerationContext &ctx,                  //
             const CallableCallNodeBase *call_node,   //
+            const ASTNode *call_pos,                 //
             const bool is_reference = false          //
         );
 
@@ -2184,6 +2208,8 @@ class Generator {
         /// @param `garbage` A list of all accumulated temporary variables that need cleanup
         /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
         /// @param `call_node` The call node to generate
+        /// @param `call_pos` The call node as an AST node, carries the file hash, line and column of the call site which are read from it
+        /// directly when creating the trace entry of an auto-generated rethrow
         /// @param `is_reference` Whether the result of the instance call should be a reference
         /// @return `group_mapping` The value(s) containing the result of the instance call
         static group_mapping generate_instance_call( //
@@ -2192,6 +2218,7 @@ class Generator {
             garbage_type &garbage,                   //
             const unsigned int expr_depth,           //
             const InstanceCallNodeBase *call_node,   //
+            const ASTNode *call_pos,                 //
             const bool is_reference = false          //
         );
 
@@ -2215,11 +2242,14 @@ class Generator {
         /// @param `ctx` The context of the expression generation
         /// @param `call_node` The call node which is used to generate the rethrow from
         /// @param `function_name` The name of the called function
-        static void generate_rethrow(        //
-            llvm::IRBuilder<> &builder,      //
-            GenerationContext &ctx,          //
-            const CallNodeBase *call_node,   //
-            const std::string &function_name //
+        /// @param `call_pos` The call node as an AST node, carries the file hash, line and column of the call site which are read from it
+        /// directly when creating the trace entry of the rethrow
+        static void generate_rethrow(         //
+            llvm::IRBuilder<> &builder,       //
+            GenerationContext &ctx,           //
+            const CallNodeBase *call_node,    //
+            const std::string &function_name, //
+            const ASTNode *call_pos           //
         );
 
         /// @function `generate_group_expression`
@@ -2819,6 +2849,29 @@ class Generator {
             {"get_type_str", nullptr},
             {"get_val_str", nullptr},
             {"get_str", nullptr},
+            {"trace_add", nullptr},
+            {"trace_free", nullptr},
+            {"trace_print", nullptr},
+        };
+
+        /// @struct `Trace`
+        /// @brief Simple struct containing const expressions of the IDs of fields of a trace entry
+        struct Trace {
+            static constexpr uint8_t FILE_PATH = 0;
+            static constexpr uint8_t FN_NAME = 1;
+            static constexpr uint8_t LINE = 2;
+            static constexpr uint8_t COLUMN = 3;
+            static constexpr uint8_t IS_RETHROW = 4;
+        };
+
+        /// @struct `Chunk`
+        /// @brief Simple struct containing const expressions of the IDs of fields of a trace chunk
+        struct Chunk {
+            static constexpr inline uint8_t PREV = 0;
+            static constexpr inline uint8_t USED = 1;
+            static constexpr inline uint8_t ENTRIES = 2;
+            static constexpr inline uint8_t NEXT = 3;
+            static constexpr inline uint8_t ENTRY_COUNT = 16;
         };
 
         /// @function `generate_error_functions`
@@ -2827,6 +2880,19 @@ class Generator {
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
         static void generate_error_functions(llvm::IRBuilder<> *const builder, llvm::Module *const module);
+
+        /// @function `generate_types`
+        /// @brief Generates the struct types for the error trace, namely the `type.trace.entry` and the `type.trace.chunk` types
+        static void generate_types();
+
+        /// @function `generate_load_trace_depth`
+        /// @brief Emits the instructions to load the current total length of the error trace of the given thread stack, which is
+        /// stored in the `used` field of the active tail chunk
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `ts_ptr` The pointer to the `type.ts.stack` thread stack struct
+        /// @return `llvm::Value *` The current total number of trace entries in the trace list
+        static llvm::Value *generate_load_trace_depth(llvm::IRBuilder<> &builder, llvm::Value *const ts_ptr);
 
         /// @function `generate_get_type_str_function`
         /// @brief Generates the `get_type_str` function used to resolve error types
@@ -2848,6 +2914,27 @@ class Generator {
         /// @param `builder` The IRBuilder
         /// @param `module` The module in which the functions are generated in
         static void generate_get_str_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
+
+        /// @function `generate_trace_add_function`
+        /// @brief Generates the `trace_add` function used to add a new trace entry in the error trace list
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        static void generate_trace_add_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
+
+        /// @function `generate_trace_free_function`
+        /// @brief Generates the `trace_free` function used to free the error trace list
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        static void generate_trace_free_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
+
+        /// @function `generate_trace_print_function`
+        /// @brief Generates the `trace_print` function used to print the error trace list
+        ///
+        /// @param `builder` The IRBuilder
+        /// @param `module` The module in which the function is generated in
+        static void generate_trace_print_function(llvm::IRBuilder<> *const builder, llvm::Module *const module);
     };
 
     /// @class `Memory`
@@ -5161,8 +5248,10 @@ class Generator {
                 static constexpr inline size_t CAPACITY = 0;
                 static constexpr inline size_t THREAD_ID = 1;
                 static constexpr inline size_t FLAGS = 2;
-                static constexpr inline size_t STACK_PTR = 3;
-                static constexpr inline size_t STACK_DATA = 4;
+                static constexpr inline size_t TRACE_PTR = 3;
+                static constexpr inline size_t TRACE_CHUNK0 = 4;
+                static constexpr inline size_t STACK_PTR = 5;
+                static constexpr inline size_t STACK_DATA = 6;
 
                 /// @enum `FLAG`
                 /// @brief The possible flags the FLAGS field could contain. Note that the FLAGS value is not a packed enum, it's just a

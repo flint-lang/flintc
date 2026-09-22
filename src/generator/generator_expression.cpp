@@ -29,6 +29,8 @@
 #include "llvm/IR/DerivedTypes.h"
 
 #include <llvm/IR/Instructions.h>
+
+#include <filesystem>
 #include <stack>
 #include <string>
 #include <variant>
@@ -64,11 +66,11 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::CALL: {
             const auto *node = expression_node->as<CallNodeExpression>();
-            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(node), is_reference);
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(node), node, is_reference);
         }
         case ExpressionNode::Variation::CALLABLE_CALL: {
             const auto *node = expression_node->as<CallableCallNodeExpression>();
-            return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node), is_reference);
+            return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node), node, is_reference);
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression_node->as<DataAccessNode>();
@@ -104,7 +106,9 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         }
         case ExpressionNode::Variation::INSTANCE_CALL: {
             const auto *node = expression_node->as<InstanceCallNodeExpression>();
-            return generate_instance_call(builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node), is_reference);
+            return generate_instance_call(                                                                             //
+                builder, ctx, garbage, expr_depth, static_cast<const InstanceCallNodeBase *>(node), node, is_reference //
+            );
         }
         case ExpressionNode::Variation::LITERAL: {
             const auto *node = expression_node->as<LiteralNode>();
@@ -1633,6 +1637,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::IRBuilder<> &builder,                                //
     GenerationContext &ctx,                                    //
     const CallNodeBase *call_node,                             //
+    const ASTNode *call_pos,                                   //
     const bool is_reference                                    //
 ) {
     const bool is_core_function = call_node->function->visibility == FunctionNode::Visibility::CORE;
@@ -1671,7 +1676,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
                 break;
             }
         }
-        return generate_builtin_call(builder, ctx, garbage, args, call_node, function_name, module_name, ov);
+        return generate_builtin_call(builder, ctx, garbage, args, call_node, call_pos, function_name, module_name, ov);
     } else if (call_node->function->visibility == FunctionNode::Visibility::EXTERN) {
         return generate_extern_call(builder, ctx, call_node, args);
     } else {
@@ -1723,6 +1728,16 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Call the actual function by passing the stack frame pointer to it
     const std::string &function_name = call_node->function->name;
+    // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
+    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
+    if (call_node->has_catch) {
+        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
+        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
+        last_err_base = trace_base_alloca;
+    } else {
+        last_err_base = nullptr;
+    }
     llvm::CallInst *call = builder.CreateCall(                       //
         func_decl,                                                   //
         {next_stack_frame},                                          //
@@ -1749,7 +1764,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, ctx, call_node, call_node->function->name);
+        generate_rethrow(builder, ctx, call_node, call_node->function->name, call_pos);
     }
 
     // Add the call instruction to the list of unresolved functions only if it was a module-intern call
@@ -2070,6 +2085,7 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
     garbage_type &garbage,                                             //
     std::vector<llvm::Value *> &args,                                  //
     const CallNodeBase *call_node,                                     //
+    const ASTNode *call_pos,                                           //
     const std::string &function_name,                                  //
     const std::string &module_name,                                    //
     const overloads &fn_overloads                                      //
@@ -2438,12 +2454,17 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
         return std::nullopt;
     }
 
+    // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
+    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
+    if (call_node->has_catch) {
+        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
+        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
+        last_err_base = trace_base_alloca;
+    } else {
+        last_err_base = nullptr;
+    }
     // Create the call instruction using the original declaration
-    // llvm::dbgs() << "func_decl[\"" << function_name << "\"]: ";
-    // func_decl->getFunctionType()->dump();
-    // for (const auto &arg : args) {
-    //     arg->dump();
-    // }
     llvm::CallInst *call = builder.CreateCall(                       //
         func_decl,                                                   //
         args,                                                        //
@@ -2487,7 +2508,7 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, ctx, call_node, call_node->function->name);
+        generate_rethrow(builder, ctx, call_node, call_node->function->name, call_pos);
     }
 
     // Extract all the return values from the call (everything except the error return)
@@ -2508,6 +2529,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     llvm::IRBuilder<> &builder,                                         //
     GenerationContext &ctx,                                             //
     const CallableCallNodeBase *call_node,                              //
+    const ASTNode *call_pos,                                            //
     const bool is_reference                                             //
 ) {
     // First we prepare all the arguments
@@ -2589,6 +2611,16 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // We can do a small trick here. Because the function types of *all* Flint functions are exactly the same, we can just take the type of
     // the current function we are in
     const llvm::FunctionCallee fn_to_call = llvm::FunctionCallee(ctx.parent->getFunctionType(), fn_ptr);
+    // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
+    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
+    if (call_node->has_catch) {
+        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
+        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
+        last_err_base = trace_base_alloca;
+    } else {
+        last_err_base = nullptr;
+    }
     llvm::CallInst *const call = builder.CreateCall(fn_to_call, {callable_frame}, fn_name + std::to_string(call_node->call_id) + "_call");
     call->setMetadata("comment", llvm::MDNode::get(context, llvm::MDString::get(context, "Call of function '" + fn_name + "'")));
     if (!is_target_windows()) {
@@ -2611,7 +2643,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
 
     // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
     if (!call_node->has_catch) {
-        generate_rethrow(builder, ctx, call_node, fn_name);
+        generate_rethrow(builder, ctx, call_node, fn_name, call_pos);
     }
 
     // Extract all the return values from the call
@@ -2654,6 +2686,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
     garbage_type &garbage,                                              //
     const unsigned int expr_depth,                                      //
     const InstanceCallNodeBase *call_node,                              //
+    const ASTNode *call_pos,                                            //
     const bool is_reference                                             //
 ) {
     switch (call_node->instance_variable->type->get_variation()) {
@@ -2727,6 +2760,18 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
                 arg_ptr = builder.CreateGEP(arg_value->getType(), arg_ptr, builder.getInt32(1), "arg_ptr_" + std::to_string(i + 1));
             }
 
+            // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this
+            // state on exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code
+            // is generated. Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left
+            // behind
+            if (call_node->has_catch) {
+                llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
+                IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")),
+                    trace_base_alloca);
+                last_err_base = trace_base_alloca;
+            } else {
+                last_err_base = nullptr;
+            }
             // Call dispatch function in execute mode to actually call the targetted function
             llvm::CallInst *call = builder.CreateCall(                         //
                 dispatch_fn,                                                   //
@@ -2756,7 +2801,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
 
             // Check if the call has a catch block following. If not, create an automatic re-throwing of the error value
             if (!call_node->has_catch) {
-                generate_rethrow(builder, ctx, call_node, call_node->function->name);
+                generate_rethrow(builder, ctx, call_node, call_node->function->name, call_pos);
             }
 
             // Extract all the return values from the call
@@ -2786,7 +2831,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
         case Type::Variation::FUNC:
             [[fallthrough]];
         case Type::Variation::OBJECT:
-            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), is_reference);
+            return generate_call(builder, ctx, static_cast<const CallNodeBase *>(call_node), call_pos, is_reference);
     }
 }
 
@@ -2824,8 +2869,9 @@ llvm::Value *Generator::Expression::generate_function_reference( //
 void Generator::Expression::generate_rethrow( //
     llvm::IRBuilder<> &builder,               //
     GenerationContext &ctx,                   //
-    const CallNodeBase *call_node,            //              const std::string &function_name //
-    const std::string &function_name          //
+    const CallNodeBase *call_node,            //
+    const std::string &function_name,         //
+    const ASTNode *call_pos                   //
 ) {
     // Create basic block for the catch block
     llvm::BasicBlock *current_block = builder.GetInsertBlock();
@@ -2872,6 +2918,15 @@ void Generator::Expression::generate_rethrow( //
             type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
         );
         IR::aligned_store(builder, err_val, error_ptr);
+        if (ctx.function_name_ptr != nullptr) {
+            llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
+            llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+            const std::string rethrow_path_str = std::filesystem::relative(call_pos->file_hash.path, std::filesystem::current_path());
+            llvm::Value *const rethrow_path = IR::generate_const_string(ctx.parent->getParent(), rethrow_path_str);
+            builder.CreateCall(trace_add_fn,                                                                                         //
+                {ts_root, rethrow_path, ctx.function_name_ptr, builder.getInt32(call_pos->line), builder.getInt32(call_pos->column)} //
+            );
+        }
         builder.CreateRet(builder.getInt1(true));
     }
 
@@ -6034,6 +6089,11 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             builder.CreateCondBr(call_had_error, catch_expr_block, catch_expr_merge_block);
 
             builder.SetInsertPoint(catch_expr_block);
+            // Load the error trace depth right before the call of the caught error, before the catch expression body is generated (the
+            // body may itself generate nested calls with catches, which would overwrite `last_err_base`)
+            llvm::Value *const catch_expr_trace_base = IR::aligned_load(              //
+                builder, builder.getInt64Ty(), last_err_base, "catch_expr_trace_base" //
+            );
             const group_mapping rhs_value = generate_expression(builder, ctx, garbage, expr_depth, bin_op_node->right);
             if (!rhs_value.has_value()) {
                 return std::nullopt;
@@ -6044,6 +6104,12 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
                 return std::nullopt;
             }
             rhs = rhs_value.value().front();
+            // Restore the error trace to the state it had before the caught function was called, freeing the trace entries of the handled
+            // error. If the catch expression body ends in a rethrow this block is unreachable, so the trace of an unhandled error is never
+            // truncated here
+            llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+            llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+            builder.CreateCall(trace_free_fn, {ts_root, catch_expr_trace_base});
             builder.CreateBr(catch_expr_merge_block);
 
             builder.SetInsertPoint(catch_expr_merge_block);

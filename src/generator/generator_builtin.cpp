@@ -76,6 +76,8 @@ bool Generator::Builtin::init_global_variables( //
         .imported_core_modules = {},
         .short_circuit_block = std::nullopt,
         .dest = nullptr,
+        .function_name_ptr = nullptr,
+        .catch_scopes = {},
     };
     for (const auto &file : Parser::instances) {
         const Namespace *ns = file.file_node_ptr->file_namespace.get();
@@ -734,6 +736,15 @@ bool Generator::Builtin::generate_builtin_main( //
             ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
         );
         IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+        llvm::StructType *const trace_chunk_ty = type_map.at("type.trace.chunk");
+        llvm::Value *const ts_trace_chunk0_ptr = builder->CreateStructGEP(             //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::TRACE_CHUNK0, "ts_trace_chunk0" //
+        );
+        llvm::Value *const ts_trace_ptr_ptr = builder->CreateStructGEP(              //
+            ts_ty, ts_ptr, Module::ThreadStack::STACK::TRACE_PTR, "ts_trace_ptr_ptr" //
+        );
+        IR::aligned_store(*builder, ts_trace_chunk0_ptr, ts_trace_ptr_ptr);
+        IR::aligned_store(*builder, IR::get_default_value_of_type(trace_chunk_ty), ts_trace_chunk0_ptr);
         builder->CreateBr(ret_block);
 
         builder->SetInsertPoint(ret_block);
@@ -760,7 +771,7 @@ bool Generator::Builtin::generate_builtin_main( //
         llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
             ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
         );
-        if (!init_global_variables(globals_init_fn, builder, ts_stack_data_ptr, ts_ptr)) {
+        if (!init_global_variables(globals_init_fn, builder, ts_ptr, ts_stack_data_ptr)) {
             return false;
         }
         builder->CreateRet(builder->getInt1(false));
@@ -947,16 +958,9 @@ bool Generator::Builtin::generate_builtin_main( //
     llvm::Value *const type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
     llvm::Value *const value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
     llvm::Value *const message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
-    llvm::Function *const get_type_str_fn = Error::error_functions.at("get_type_str");
-    llvm::Function *const get_val_str_fn = Error::error_functions.at("get_val_str");
-    llvm::Value *const err_type_str = builder->CreateCall(get_type_str_fn, {type_id}, "err_type_str");
-    llvm::Value *const err_val_str = builder->CreateCall(get_val_str_fn, {type_id, value_id}, "err_val_str");
-    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-    llvm::Value *const message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
-    llvm::Value *const message_begin_ptr = IR::generate_const_string(                   //
-        module, "The given error bubbled up to the main function:\n └─ %s.%s: \"%s\"\n" //
-    );
-    builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, err_type_str, err_val_str, message});
+    // Print the error output including the whole error trace, and free the error message afterwards
+    llvm::Function *const trace_print_fn = Error::error_functions.at("trace_print");
+    builder->CreateCall(trace_print_fn, {ts_ptr, type_id, value_id, message_ptr});
     // Free the error message
     builder->CreateCall(c_functions.at(FREE), {message_ptr});
     builder->CreateBr(merge_block);
@@ -2313,6 +2317,11 @@ std::optional<llvm::Value *> Generator::Builtin::emit_test_execute( //
     test_frame = builder->CreateInsertValue(test_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
     IR::aligned_store(*builder, test_frame, ts_stack_data_ptr);
 
+    // Reset the error trace before running any part of the test, so that no trace entries of a previous (failing) test leak into this one
+    // and the auto-generated rethrow entries of this test start from an empty list
+    llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+    builder->CreateCall(trace_free_fn, {ts_ptr, builder->getInt64(0)});
+
     // The out parameters for the captured output and the perf time points are allocated by the caller, in a block which
     // dominates all the blocks in which the captured output will be used
     const bool should_fail = test_node->contains_annotation(AnnotationKind::TEST_SHOULD_FAIL);
@@ -2546,9 +2555,18 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
         ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
     );
     IR::aligned_store(*builder, ts_stack_data_ptr, ts_stack_ptr_ptr);
+    llvm::StructType *const trace_chunk_ty = type_map.at("type.trace.chunk");
+    llvm::Value *const ts_trace_chunk0_ptr = builder->CreateStructGEP(             //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::TRACE_CHUNK0, "ts_trace_chunk0" //
+    );
+    IR::aligned_store(*builder, IR::get_default_value_of_type(trace_chunk_ty), ts_trace_chunk0_ptr);
+    llvm::Value *const ts_trace_ptr_ptr = builder->CreateStructGEP(              //
+        ts_ty, ts_ptr, Module::ThreadStack::STACK::TRACE_PTR, "ts_trace_ptr_ptr" //
+    );
+    IR::aligned_store(*builder, ts_trace_chunk0_ptr, ts_trace_ptr_ptr);
 
     // Initialize all global variables by evaluating the rhs expressions of all global variables
-    if (!init_global_variables(main_function, builder, ts_stack_data_ptr, ts_ptr)) {
+    if (!init_global_variables(main_function, builder, ts_ptr, ts_stack_data_ptr)) {
         return false;
     }
 
@@ -2610,16 +2628,9 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
         llvm::Value *const type_id = builder->CreateExtractValue(err_val, {0}, "type_id");
         llvm::Value *const value_id = builder->CreateExtractValue(err_val, {1}, "value_id");
         llvm::Value *const message_ptr = builder->CreateExtractValue(err_val, {2}, "message_ptr");
-        llvm::Function *const get_type_str_fn = Error::error_functions.at("get_type_str");
-        llvm::Function *const get_val_str_fn = Error::error_functions.at("get_val_str");
-        llvm::Value *const err_type_str = builder->CreateCall(get_type_str_fn, {type_id}, "err_type_str");
-        llvm::Value *const err_val_str = builder->CreateCall(get_val_str_fn, {type_id, value_id}, "err_val_str");
-        llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-        llvm::Value *const message = builder->CreateStructGEP(str_type, message_ptr, 1, "message");
-        llvm::Value *const message_begin_ptr = IR::generate_const_string(                         //
-            module, "The given error bubbled up to the test entry function:\n └─ %s.%s: \"%s\"\n" //
-        );
-        builder->CreateCall(c_functions.at(PRINTF), {message_begin_ptr, err_type_str, err_val_str, message});
+        // Print the error output including the whole error trace of the test entry function, and free the error message afterwards
+        llvm::Function *const trace_print_fn = Error::error_functions.at("trace_print");
+        builder->CreateCall(trace_print_fn, {ts_ptr, type_id, value_id, message_ptr});
         builder->CreateCall(c_functions.at(FREE), {message_ptr});
         builder->CreateCall(c_functions.at(EXIT), {one});
         builder->CreateUnreachable();

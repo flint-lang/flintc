@@ -483,6 +483,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
     // Force the addition of the 'type.flint.err' struct type before continuing with generation of the builtin functions
     IR::get_type(module.get(), std::make_shared<ErrorSetType>(nullptr));
 
+    // Generate error types before TS types as the TS contains an error trace chunk
+    Error::generate_types();
+    Module::ThreadStack::generate_types();
+
     // Generate all the internal helper functions
     Module::String::generate_string_manip_functions(builder.get(), module.get());
     Module::TypeCast::generate_typecast_functions(builder.get(), module.get());
@@ -498,7 +502,6 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         // The `system` module is *always* required when building a program with the `--test` flag because of capturing stdout of tests
         Module::System::generate_system_functions(nullptr, module.get(), true);
     }
-    Module::ThreadStack::generate_types();
 
     if (PRINT_IR_FILE) {
         std::cout << " -------- MAIN -------- \n"

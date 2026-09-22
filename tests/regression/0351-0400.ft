@@ -115,7 +115,7 @@ test "0372":
 test "0373":
 	str path = "regression/0351-0400";
 	str file = "0373.ft";
-	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ MyError.ERR_2: \"\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "Runtime Error: MyError.ERR_2\n  │ » \n  └─┬───── Name ─────┬───────────── Location ─────────────┬─ Info ──┐\n    ├ throw_my_error   regression/0351-0400/0373.ft:10:12   origin  ┤\n    └ _main            regression/0351-0400/0373.ft:15:5            ┘\n", 1);
 
 test "0374":
 	str path = "regression/0351-0400";
@@ -240,7 +240,7 @@ test "0397":
 test "0398":
 	str path = "regression/0351-0400";
 	str file = "0398.ft";
-	test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3063511752\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nThe given error bubbled up to the main function:\n └─ ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3063511752\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nRuntime Error: ErrFn.AssertionFailed\n  │ » Special Assertion in 'myfn' function failed\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ myfn       regression/0351-0400/0398.ft:9:9     origin  ┤\n    └ _main      regression/0351-0400/0398.ft:21:13           ┘\n", 1);
 
 test "0399":
 	str path = "regression/0351-0400";

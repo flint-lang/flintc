@@ -178,7 +178,7 @@ test "0085":
 test "0086":
 	str path ="regression/0051-0100";
 	str file = "0086.ft";
-	test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nThe given error bubbled up to the main function:\n └─ ErrArithmetic.ErrZeroDivision: \"Tried to divide 10 by 0!\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nRuntime Error: ErrArithmetic.ErrZeroDivision\n  │ » Tried to divide 10 by 0!\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ div        regression/0051-0100/0086.ft:8:9     origin  ┤\n    └ _main      regression/0051-0100/0086.ft:16:9            ┘\n", 1);
 
 test "0087":
 	str path ="regression/0051-0100";

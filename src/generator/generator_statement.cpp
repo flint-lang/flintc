@@ -27,6 +27,7 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -39,6 +40,7 @@ bool Generator::Statement::generate_statement(      //
         auto *diloc = llvm::DILocation::get(context, statement->line, statement->column, sp);
         builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
     }
+
     switch (statement->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
             const auto *node = statement->as<ArrayAssignmentNode>();
@@ -53,12 +55,22 @@ bool Generator::Statement::generate_statement(      //
             const auto &break_scope = last_break_scopes.back();
             // A break is always at the end of the scope
             ctx.scope_segment = UINT32_MAX;
+            // Remember the outermost catch body which is left by this break, if any. Its trace base restores the error trace to the state
+            // it had before the caught error. Only the outermost one matters, because it contains all other catch bodies
+            llvm::Value *catch_trace_base = nullptr;
             while (ctx.scope != break_scope) {
                 // Generate the end of scope of all nested scopes we are in, like nested if statements for example
                 if (!generate_end_of_scope(builder, ctx)) {
                     return false;
                 }
                 ctx.scope_segment = ctx.scope->parent_scope_segment;
+                // The scopes get walked from the innermost to the outermost one, so the last matching catch scope found is the outermost
+                // catch body which is left by this break
+                for (const auto &[catch_scope, catch_base] : ctx.catch_scopes) {
+                    if (catch_scope == ctx.scope.get()) {
+                        catch_trace_base = catch_base;
+                    }
+                }
                 ASSERT(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
@@ -70,18 +82,25 @@ bool Generator::Statement::generate_statement(      //
                     return false;
                 }
             }
+            // Leaving a catch body through a break frees the trace entries of the handled error, so that a loop which repeatedly handles
+            // errors does not grow the trace list endlessly
+            if (catch_trace_base != nullptr) {
+                llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+                llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+                builder.CreateCall(trace_free_fn, {ts_root, catch_trace_base});
+            }
             builder.CreateBr(last_merge_blocks.back());
             ctx.scope = old_scope;
             return true;
         }
         case StatementNode::Variation::CALL: {
             const auto *node = statement->as<CallNodeStatement>();
-            group_mapping gm = Expression::generate_call(builder, ctx, static_cast<const CallNodeBase *>(node));
+            group_mapping gm = Expression::generate_call(builder, ctx, static_cast<const CallNodeBase *>(node), node);
             return gm.has_value();
         }
         case StatementNode::Variation::CALLABLE_CALL: {
             const auto *node = statement->as<CallableCallNodeStatement>();
-            group_mapping gm = Expression::generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node));
+            group_mapping gm = Expression::generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node), node);
             return gm.has_value();
         }
         case StatementNode::Variation::CATCH: {
@@ -93,12 +112,22 @@ bool Generator::Statement::generate_statement(      //
             const auto &loop_scope = last_loop_scopes.back();
             // A continue is always at the end of the scope
             ctx.scope_segment = UINT32_MAX;
+            // Remember the outermost catch body which is left by this continue, if any. Its trace base restores the error trace to the
+            // state it had before the caught error. Only the outermost one matters, because it contains all other catch bodies
+            llvm::Value *catch_trace_base = nullptr;
             while (ctx.scope != loop_scope) {
                 // Generate the end of scope of all nested scopes we are in, like nested if statements for example
                 if (!generate_end_of_scope(builder, ctx)) {
                     return false;
                 }
                 ctx.scope_segment = ctx.scope->parent_scope_segment;
+                // The scopes get walked from the innermost to the outermost one, so the last matching catch scope found is the
+                // outermost catch body which is left by this continue
+                for (const auto &[catch_scope, catch_base] : ctx.catch_scopes) {
+                    if (catch_scope == ctx.scope.get()) {
+                        catch_trace_base = catch_base;
+                    }
+                }
                 ASSERT(ctx.scope->parent_scope != nullptr);
                 ctx.scope = ctx.scope->parent_scope;
             }
@@ -106,6 +135,13 @@ bool Generator::Statement::generate_statement(      //
             ctx.scope = loop_scope;
             if (!generate_end_of_scope(builder, ctx)) {
                 return false;
+            }
+            // Leaving a catch body through a continue frees the trace entries of the handled error, so that a loop which repeatedly
+            // handles errors does not grow the trace list endlessly
+            if (catch_trace_base != nullptr) {
+                llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+                llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+                builder.CreateCall(trace_free_fn, {ts_root, catch_trace_base});
             }
             builder.CreateBr(last_looparound_blocks.back());
             ctx.scope = old_scope;
@@ -155,8 +191,8 @@ bool Generator::Statement::generate_statement(      //
         case StatementNode::Variation::INSTANCE_CALL: {
             const auto *node = statement->as<InstanceCallNodeStatement>();
             Expression::garbage_type garbage;
-            group_mapping gm = Expression::generate_instance_call(                        //
-                builder, ctx, garbage, 0, static_cast<const InstanceCallNodeBase *>(node) //
+            group_mapping gm = Expression::generate_instance_call(                              //
+                builder, ctx, garbage, 0, static_cast<const InstanceCallNodeBase *>(node), node //
             );
             if (!clear_garbage(builder, garbage)) {
                 THROW_BASIC_ERR(ERR_GENERATING);
@@ -185,7 +221,7 @@ bool Generator::Statement::generate_statement(      //
             return generate_while_loop(builder, ctx, node);
         }
     }
-    __builtin_unreachable();
+    UNREACHABLE();
 }
 
 bool Generator::Statement::clear_garbage(                                                                         //
@@ -467,6 +503,15 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
     }
     ctx.scope = old_scope;
 
+    // Restore the trace entries to the state of the function entry to not leak or free any entries of the parent, for example when calling
+    // a function inside the catch block of the function which called this function
+    if (const auto trace_depth_it = ctx.allocations.find("flint.trace.depth"); trace_depth_it != ctx.allocations.end()) {
+        llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        llvm::Value *const entry_depth = IR::aligned_load(builder, builder.getInt64Ty(), trace_depth_it->second, "fn_trace_depth");
+        builder.CreateCall(trace_free_fn, {ts_root, entry_depth});
+    }
+
     // Generate the return instruction and return 'false' (no error)
     builder.CreateRet(builder.getInt1(false));
     return true;
@@ -484,6 +529,19 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
     llvm::Value *err_value = expr_result.value().front();
     // Store the error value in the error field of the current function
     IR::aligned_store(builder, err_value, error_ptr);
+
+    // Add a trace entry for the thrown error to the error trace of the thread stack. The file path and the name of the function the entry
+    // is created in are baked into the generated code as constant strings (relative to the working directory, like the paths of the test
+    // output), so the whole entry can be created without any heap allocation
+    if (ctx.function_name_ptr != nullptr) {
+        llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
+        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        const std::string throw_path_str = std::filesystem::relative(throw_node->file_hash.path, std::filesystem::current_path());
+        llvm::Value *const throw_path = IR::generate_const_string(ctx.parent->getParent(), throw_path_str);
+        builder.CreateCall(trace_add_fn,                                                                                           //
+            {ts_root, throw_path, ctx.function_name_ptr, builder.getInt32(throw_node->line), builder.getInt32(throw_node->column)} //
+        );
+    }
 
     // If the thrown value is not a producer, then the error slot of the current function now shares the message memory with the source
     // value. Clone the message so that the end-of-scope cleanup can free the error of this function independently of the source value
@@ -1522,6 +1580,13 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     ctx.scope = catch_node->scope;
     builder.SetInsertPoint(catch_block);
 
+    // Load the error trace depth the thread stack had right before the call of the caught function. It is loaded at the very start of
+    // the catch block (before the body is generated, which may itself contain nested calls with catches), so it is independent of any
+    // `last_err_base` changes made while generating the catch body. The depth is pushed onto the active catch scopes, so that leaving
+    // the catch body through a break of a continue can restore the trace as well
+    llvm::Value *const catch_trace_base = IR::aligned_load(builder, builder.getInt64Ty(), last_err_base, "catch_trace_base");
+    ctx.catch_scopes.emplace_back(catch_node->scope.get(), catch_trace_base);
+
     // Load the error value
     llvm::Value *const stack_frame = last_err_values.second;
     llvm::Value *const err_ptr = builder.CreateStructGEP(                                           //
@@ -1589,8 +1654,14 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     // If the catch block has its own blocks, we actually dont need to check the catch block but the second last block in the function
     // (the last one is the merge block)
     if (builder.GetInsertBlock()->getTerminator() == nullptr) {
+        // Leaving the catch body through the fall-through frees the trace entries of the handled error and restores the trace to the state
+        // it had before the caught function was called
+        llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
+        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        builder.CreateCall(trace_free_fn, {ts_root, ctx.catch_scopes.back().second});
         builder.CreateBr(merge_block);
     }
+    ctx.catch_scopes.pop_back();
 
     // Now add the merge block to the end of the function
     merge_block->insertInto(ctx.parent);

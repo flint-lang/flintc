@@ -8,7 +8,7 @@ test "0_declaration.ft":
 test "1_throwing.ft":
 	str path = "wiki/intermediates_guide/error_sets";
 	str file = "1_throwing.ft";
-	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrorSet.Value1: \"\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "Runtime Error: ErrorSet.Value1\n  │ » \n  └─┬── Name ──┬─────────────────────── Location ───────────────────────┬─ Info ──┐\n    ├ fail       wiki/intermediates_guide/error_sets/1_throwing.ft:7:5    origin  ┤\n    └ _main      wiki/intermediates_guide/error_sets/1_throwing.ft:10:5           ┘\n", 1);
 
 test "2_catching.ft":
 	str path = "wiki/intermediates_guide/error_sets";
@@ -18,7 +18,7 @@ test "2_catching.ft":
 test "3_refinement.ft":
 	str path = "wiki/intermediates_guide/error_sets";
 	str file = "3_refinement.ft";
-	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrSpecial.B1: \"\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "Runtime Error: ErrSpecial.B1\n  │ » \n  └─┬── Name ──┬──────────────────────── Location ────────────────────────┬─ Info ──┐\n    └ _main      wiki/intermediates_guide/error_sets/3_refinement.ft:8:5            ┘\n", 1);
 
 test "4_null_set.ft":
 	str path = "wiki/intermediates_guide/error_sets";

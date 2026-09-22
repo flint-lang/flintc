@@ -228,7 +228,7 @@ test "0495":
 test "0496":
 	str path = "regression/0451-0500";
 	str file = "0496.ft";
-	test_file_crash($"{path}/{file}", none, "The given error bubbled up to the main function:\n └─ ErrSpecial.B1: \"\"\n", 1);
+	test_file_crash($"{path}/{file}", none, "Runtime Error: ErrSpecial.B1\n  │ » \n  └─┬── Name ──┬──────────── Location ────────────┬─ Info ──┐\n    └ _main      regression/0451-0500/0496.ft:8:5           ┘\n", 1);
 
 test "0497":
 	str path = "regression/0451-0500";
