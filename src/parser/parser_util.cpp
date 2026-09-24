@@ -2001,5 +2001,5 @@ std::optional<size_t> Parser::get_size_from_expr(const std::unique_ptr<Expressio
         return std::nullopt;
     }
     const APInt &size = std::get<LitInt>(lit->value).value;
-    return size.to_iN<size_t>();
+    return size.to_iN<size_t>(file_hash, PosTriple{.line = expr->line, .column = expr->column, .length = expr->length});
 }

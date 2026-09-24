@@ -1,6 +1,7 @@
 #pragma once
 
 #include "assert.hpp"
+#include "error/error.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -52,18 +53,22 @@ class APInt {
     /// @brief Converts the arbitrary integer to fit into an unsigned integer value of type T
     ///
     /// @tparam `T` The type of the result, like `uint8_t`, `uint32_t` etc.
+    /// @param `hash` The hash of the file in which to convert the literal to an unsigned number
+    /// @param `pos` The position at which the literal is defined at
     /// @return `std::optional<T>` The result value, nullopt if the integer is too big to fit into the result type or if it's negative
-    template <typename T> std::optional<T> to_uN() const {
+    template <typename T> std::optional<T> to_uN(const Hash &hash, const PosTriple &pos) const {
+        const size_t N = sizeof(T) * 8;
         if (is_negative) {
+            THROW_ERR(ErrLitIntTooSmall, ERR_GENERATING, hash, pos, N, "0", false);
             return std::nullopt;
         }
-        const size_t N = sizeof(T) * 8;
 
         // Generate max value string for unsigned N-bit integer (2^N - 1)
-        std::string max_value = get_max_unsigned_value(N);
+        const std::string max_value = get_max_unsigned_value(N);
 
         // Check if this APInt is bigger than the max value
         if (is_bigger_than(max_value)) {
+            THROW_ERR(ErrLitIntTooLarge, ERR_GENERATING, hash, pos, N, max_value, false);
             return std::nullopt;
         }
 
@@ -82,15 +87,18 @@ class APInt {
     /// @brief Converts the arbitrary integer to fit into a signed integer value of type T
     ///
     /// @tparam `T` The type of the result, like `int8_t`, `int32_t` etc.
+    /// @param `hash` The hash of the file in which to convert the literal to an unsigned number
+    /// @param `pos` The position at which the literal is defined at
     /// @return `std::optional<T>` The result value, nullopt if the integer is too big or too small to fit into the result type
-    template <typename T> std::optional<T> to_iN() const {
+    template <typename T> std::optional<T> to_iN(const Hash &hash, const PosTriple &pos) const {
         const size_t N = sizeof(T) * 8;
         if (is_negative) {
             // Generate min value string for signed N-bit integer (-2^(N-1))
-            std::string min_value = get_min_signed_value(N);
+            const std::string min_value = get_min_signed_value(N);
 
             // Check if this APInt is smaller than the min value
             if (is_smaller_than(min_value)) {
+                THROW_ERR(ErrLitIntTooSmall, ERR_GENERATING, hash, pos, N, min_value, true);
                 return std::nullopt;
             }
 
@@ -105,10 +113,11 @@ class APInt {
             return -result;
         } else {
             // Generate max value string for signed N-bit integer (2^(N-1) - 1)
-            std::string max_value = get_max_signed_value(N);
+            const std::string max_value = get_max_signed_value(N);
 
             // Check if this APInt is bigger than the max value
             if (is_bigger_than(max_value)) {
+                THROW_ERR(ErrLitIntTooLarge, ERR_GENERATING, hash, pos, N, max_value, true);
                 return std::nullopt;
             }
 

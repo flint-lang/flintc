@@ -188,70 +188,59 @@ Generator::group_mapping Generator::Expression::generate_literal( //
     const unsigned int expr_depth,                                //
     const LiteralNode *literal_node                               //
 ) {
+    const PosTriple pos = {
+        .line = literal_node->line,
+        .column = literal_node->column,
+        .length = literal_node->length,
+    };
     if (std::holds_alternative<LitInt>(literal_node->value)) {
         const APInt lit_int = std::get<LitInt>(literal_node->value).value;
         const std::string lit_type = literal_node->type->to_string();
         if (lit_type == "u8") {
-            const std::optional<uint8_t> lit_val = lit_int.to_uN<uint8_t>();
+            const std::optional<uint8_t> lit_val = lit_int.to_uN<uint8_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an u8, maybe it's too big or negative?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
         } else if (lit_type == "u16") {
-            const std::optional<uint16_t> lit_val = lit_int.to_uN<uint16_t>();
+            const std::optional<uint16_t> lit_val = lit_int.to_uN<uint16_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an u16, maybe it's too big or negative?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), false)};
         } else if (lit_type == "u32") {
-            const std::optional<uint32_t> lit_val = lit_int.to_uN<uint32_t>();
+            const std::optional<uint32_t> lit_val = lit_int.to_uN<uint32_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an u32, maybe it's too big or negative?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), false)};
         } else if (lit_type == "u64") {
-            const std::optional<uint64_t> lit_val = lit_int.to_uN<uint64_t>();
+            const std::optional<uint64_t> lit_val = lit_int.to_uN<uint64_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an u64, maybe it's too big or negative?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), false)};
         } else if (lit_type == "i8") {
-            const std::optional<int8_t> lit_val = lit_int.to_iN<int8_t>();
+            const std::optional<int8_t> lit_val = lit_int.to_iN<int8_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an i8, maybe it's too big or too small?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
         } else if (lit_type == "i16") {
-            const std::optional<int16_t> lit_val = lit_int.to_iN<int16_t>();
+            const std::optional<int16_t> lit_val = lit_int.to_iN<int16_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an i16, maybe it's too big or too small?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), true)};
         } else if (lit_type == "i32") {
-            const std::optional<int32_t> lit_val = lit_int.to_iN<int32_t>();
+            const std::optional<int32_t> lit_val = lit_int.to_iN<int32_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an i32, maybe it's too big or too small?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), true)};
         } else if (lit_type == "i64") {
-            const std::optional<int64_t> lit_val = lit_int.to_iN<int64_t>();
+            const std::optional<int64_t> lit_val = lit_int.to_iN<int64_t>(literal_node->file_hash, pos);
             if (!lit_val.has_value()) {
-                // Could not convert the literal to an i64, maybe it's too big or too small?
-                THROW_BASIC_ERR(ERR_GENERATING);
                 return std::nullopt;
             }
             return std::vector<llvm::Value *>{

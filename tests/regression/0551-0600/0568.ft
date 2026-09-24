@@ -1,0 +1,5 @@
+use Core.print
+
+def main():
+	u8 v = 300;
+	print($"v = {i32(v)}\n");

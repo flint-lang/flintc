@@ -84,3 +84,13 @@ test "0567":
 	str path = "regression/0551-0600";
 	str file = "0567.ft";
 	test_file_ok($"{path}/{file}", "n1.next!.value = 20\n");
+
+test "0568":
+	str path = "regression/0551-0600";
+	str file = "0568.ft";
+	test_file_fail($"{path}/{file}", "Generation Error at regression/0551-0600/0568.ft:4:12\n└─┬┤E0000│\n3 │ def main():\n4 │ »   u8 v = 300;\n┌─┴────────────┘\n├─ Integer literal is too large to fit into target type 'u8'\n└─ The largest allowed value is '255'\n");
+
+test "0569":
+	str path = "regression/0551-0600";
+	str file = "0569.ft";
+	test_file_fail($"{path}/{file}", "Generation Error at regression/0551-0600/0569.ft:4:12\n└─┬┤E0000│\n3 │ def main():\n4 │ »   u8 v = -300;\n┌─┴────────────┘\n├─ Integer literal is too small to fit into target type 'u8'\n└─ The smallest allowed value is '0'\n");
