@@ -1,0 +1,27 @@
+use Core.assert
+use Core.print
+
+shared data State:
+	u32 id = 0;
+	u32 ok = 0;
+
+#test_pre
+test "pre":
+	assert(State.id == State.ok);
+	State.id++;
+
+#test_post
+test "post":
+	State.ok++;
+
+test "test1":
+	print($"State.(id, ok) = ({State.id}, {State.ok})\n");
+	assert(true);
+
+test "test2":
+	print($"State.(id, ok) = ({State.id}, {State.ok})\n");
+	assert(false);
+
+test "test3":
+	print($"State.(id, ok) = ({State.id}, {State.ok})\n");
+	assert(false);

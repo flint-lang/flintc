@@ -2826,7 +2826,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                 llvm::BasicBlock *const test_merge_block = llvm::BasicBlock::Create(context, "test_merge", main_function);
                 builder->CreateCondBr(pre_fail.value(), skip_test_block, run_test_block);
 
-                // run_test_block: the pre test passed, so the actual body and the post test are run
+                // run_test_block: the pre test passed, so the actual body is run. The post test only runs when the body passed
                 builder->SetInsertPoint(run_test_block);
                 // The pre test's captured output is never shown when it passed, free it silently
                 emit_free_test_capture(builder, print_test_result_fn, longest_name_value, pre_captured);
@@ -2839,6 +2839,14 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                 }
                 IR::aligned_store(*builder, body_fail.value(), body_fail_alloca);
                 if (post_test != nullptr) {
+                    // The post test only runs when the body test passed. When the body fails, the post test is not run at all
+                    llvm::BasicBlock *const run_post_block = llvm::BasicBlock::Create(context, "run_post", main_function);
+                    llvm::BasicBlock *const skip_post_block = llvm::BasicBlock::Create(context, "skip_post", main_function);
+                    llvm::BasicBlock *const post_merge_block = llvm::BasicBlock::Create(context, "post_merge", main_function);
+                    builder->CreateCondBr(body_fail.value(), skip_post_block, run_post_block);
+
+                    // run_post_block: the body test passed, run the post test
+                    builder->SetInsertPoint(run_post_block);
                     const std::optional<llvm::Value *> post_fail = emit_test_execute(           //
                         builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, post_test, //
                         post_test_fn_name, false, post_captured, post_perf_start, post_perf_end //
@@ -2855,6 +2863,14 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                     emit_discard_unshown_output(                                                                                  //
                         builder, main_function, print_test_result_fn, longest_name_value, show_post, body_captured, post_captured //
                     );
+                    builder->CreateBr(post_merge_block);
+
+                    // skip_post_block: the body test failed, the post test is not run at all
+                    builder->SetInsertPoint(skip_post_block);
+                    IR::aligned_store(*builder, builder->getInt1(false), post_fail_alloca);
+                    builder->CreateBr(post_merge_block);
+
+                    builder->SetInsertPoint(post_merge_block);
                 } else {
                     IR::aligned_store(*builder, builder->getInt1(false), post_fail_alloca);
                 }
@@ -2909,7 +2925,7 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                     is_perf, output_always, output_never, perf_start, perf_end, failed, counter, deferred_slots    //
                 );
             } else {
-                // No pre test: run the body and the post test (if any) directly
+                // No pre test: run the body first. The post test (if any) only runs when the body passed
                 const std::optional<llvm::Value *> body_fail = emit_test_execute(             //
                     builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, body,        //
                     body_fn_name, body_is_perf, body_captured, body_perf_start, body_perf_end //
@@ -2919,6 +2935,16 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                 }
                 llvm::Value *post_fail = builder->getInt1(false);
                 if (post_test != nullptr) {
+                    // The post test only runs when the body test passed. When the body fails, the post test is not run at all
+                    llvm::AllocaInst *const post_fail_alloca = builder->CreateAlloca(builder->getInt1Ty(), nullptr, "post_fail");
+                    IR::aligned_store(*builder, builder->getInt1(false), post_fail_alloca);
+                    llvm::BasicBlock *const run_post_block = llvm::BasicBlock::Create(context, "run_post", main_function);
+                    llvm::BasicBlock *const skip_post_block = llvm::BasicBlock::Create(context, "skip_post", main_function);
+                    llvm::BasicBlock *const post_merge_block = llvm::BasicBlock::Create(context, "post_merge", main_function);
+                    builder->CreateCondBr(body_fail.value(), skip_post_block, run_post_block);
+
+                    // run_post_block: the body test passed, run the post test
+                    builder->SetInsertPoint(run_post_block);
                     const std::optional<llvm::Value *> post_fail_maybe = emit_test_execute(     //
                         builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, post_test, //
                         post_test_fn_name, false, post_captured, post_perf_start, post_perf_end //
@@ -2926,13 +2952,23 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
                     if (!post_fail_maybe.has_value()) {
                         return false;
                     }
-                    post_fail = post_fail_maybe.value();
-                    // The displayed output is the body's unless the post test failed (and the body passed), in which case the post
-                    // test's output is shown instead. The captured output of the test which is *not* shown is freed silently
-                    llvm::Value *const show_post = builder->CreateAnd(builder->CreateNot(body_fail.value()), post_fail, "show_post");
+                    IR::aligned_store(*builder, post_fail_maybe.value(), post_fail_alloca);
+                    // The displayed output is the body's unless the post test failed, in which case the post test's output is shown
+                    // instead. The captured output of the test which is *not* shown is freed silently
+                    llvm::Value *const show_post = builder->CreateAnd(                              //
+                        builder->CreateNot(body_fail.value()), post_fail_maybe.value(), "show_post" //
+                    );
                     emit_discard_unshown_output(                                                                                  //
                         builder, main_function, print_test_result_fn, longest_name_value, show_post, body_captured, post_captured //
                     );
+                    builder->CreateBr(post_merge_block);
+
+                    // skip_post_block: the body test failed, the post test is not run at all
+                    builder->SetInsertPoint(skip_post_block);
+                    builder->CreateBr(post_merge_block);
+
+                    builder->SetInsertPoint(post_merge_block);
+                    post_fail = IR::aligned_load(*builder, builder->getInt1Ty(), post_fail_alloca, "post_fail_val");
                 }
                 // The body failure takes precedence over the post failure
                 llvm::Value *const failed = builder->CreateOr(body_fail.value(), post_fail, "failed");

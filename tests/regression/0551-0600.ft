@@ -69,3 +69,8 @@ test "0564":
 	str path = "regression/0551-0600";
 	str file = "0564.ft";
 	test_test_ok(path, file, "bogus", 1, "Unrecognized argument: bogus\nUsage: test [TEST]*\n\nAvailable TESTs:\n  t1    Execute test t1, skipped by default\n  t2    Execute test t2, skipped by default\n");
+
+test "0565":
+	str path = "regression/0551-0600";
+	str file = "0565.ft";
+	test_test_ok(path, file, "", 1, "regression/0551-0600/0565.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[31m✗ failed (pre)\x1b[0m\n     ├─ Output ─┐\n     └──────────┘\n\n\x1b[31m✗ 2 tests failed!\x1b[0m\n");
