@@ -1,0 +1,10 @@
+use Core.print
+
+data Node:
+    i32 value;
+    Node? next;
+
+def main():
+	n0 := Node{ .value = 20 };
+    n1 := Node{ .value = 10, .next = n0 };
+    print($"n1.next!.value = {n1.next!.value}\n");

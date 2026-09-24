@@ -79,3 +79,8 @@ test "0566":
 	str path = "regression/0551-0600";
 	str file = "0566.ft";
 	test_test_ok(path, file, "", 1, "regression/0551-0600/0566.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[32m✓ passed\x1b[0m\n\n\x1b[31m✗ 1 test failed!\x1b[0m\n");
+
+test "0567":
+	str path = "regression/0551-0600";
+	str file = "0567.ft";
+	test_file_ok($"{path}/{file}", "n1.next!.value = 20\n");
