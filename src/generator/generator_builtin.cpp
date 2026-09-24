@@ -2740,8 +2740,9 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
         llvm::Value *const null_value = llvm::ConstantPointerNull::get(PTR_TY);
 
         // The flags which control how the output of the failing setup tests is displayed
-        const bool init_output_always = init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-        const bool init_output_never = init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+        const bool init_output_always = init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+        const bool init_output_never =
+            init_test != nullptr && init_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
 
         // Run the init test (if any). If it fails, no other test of this file runs at all
         llvm::Value *init_captured = nullptr;
@@ -2789,10 +2790,12 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
             const TestNode *const body = regular_tests[index].first;
             const std::string &body_fn_name = regular_tests[index].second;
             const bool body_is_perf = body->contains_annotation(AnnotationKind::TEST_PERFORMANCE);
-            const bool body_output_always = body->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-            const bool body_output_never = body->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
-            const bool post_output_always = post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-            const bool post_output_never = post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            const bool body_output_always = body->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+            const bool body_output_never = body->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
+            const bool post_output_always =
+                post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+            const bool post_output_never =
+                post_test != nullptr && post_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
             llvm::Value *const body_name_value = IR::generate_const_string(module, body->name);
 
             // Allocas for the results of the individual tests, created in the current block so that they dominate all the blocks
@@ -2809,8 +2812,8 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
 
             if (pre_test != nullptr) {
                 // The pre test runs first. When it fails, the body and the post test are not run at all
-                const bool pre_always = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-                const bool pre_never = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+                const bool pre_always = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+                const bool pre_never = pre_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
                 const std::optional<llvm::Value *> pre_fail = emit_test_execute(           //
                     builder, module, execute_test_fn, ts_ptr, ts_stack_data_ptr, pre_test, //
                     pre_test_fn_name, false, pre_captured, pre_perf_start, pre_perf_end    //
@@ -3020,8 +3023,8 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
             );
 
             if (deinit_test != nullptr) {
-                const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-                const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+                const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+                const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
                 llvm::Value *const deinit_captured = builder->CreateAlloca(PTR_TY, nullptr, "deinit_captured_out");
                 llvm::Value *const deinit_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_start_out");
                 llvm::Value *const deinit_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_end_out");
@@ -3133,8 +3136,8 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
             }
         } else if (deinit_test != nullptr) {
             // No regular tests in this file: only the deinit test can still run
-            const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_ALWAYS);
-            const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_NEVER);
+            const bool deinit_always = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS);
+            const bool deinit_never = deinit_test->contains_annotation(AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE);
             llvm::Value *deinit_captured = builder->CreateAlloca(PTR_TY, nullptr, "deinit_captured_out");
             llvm::Value *deinit_perf_start = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_start_out");
             llvm::Value *deinit_perf_end = builder->CreateAlloca(PTR_TY, nullptr, "deinit_perf_end_out");

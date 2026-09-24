@@ -2,7 +2,7 @@ use Core.assert
 use Core.print
 use Core.system
 
-#test_output_always
+#test_output_show_on_success
 test "Always printing output":
 	print("Wahooo\n");
 	print("Wololololo\n");

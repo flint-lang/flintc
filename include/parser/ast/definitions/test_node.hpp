@@ -31,8 +31,8 @@ class TestNode : public DefinitionNode {
     /// @var `consumable_annotations`
     /// @brief The annotations consumable by this definition node
     static const inline std::unordered_set<AnnotationKind> consumable_annotations = {
-        AnnotationKind::TEST_OUTPUT_ALWAYS,
-        AnnotationKind::TEST_OUTPUT_NEVER,
+        AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS,
+        AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE,
         AnnotationKind::TEST_PERFORMANCE,
         AnnotationKind::TEST_SHOULD_FAIL,
         AnnotationKind::TEST_INIT,

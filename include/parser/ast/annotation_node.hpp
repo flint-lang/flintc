@@ -8,24 +8,24 @@
 /// @enum `AnnotationKind`
 /// @brief An enum of all possible annotation kinds there are
 enum class AnnotationKind {
-    FIP_DISABLE,        // #fip_disable usable on extern `FunctionNode`s
-    TEST_OUTPUT_ALWAYS, // #test_output_always usable on `TestNode`s
-    TEST_OUTPUT_NEVER,  // #test_output_never usable on `TestNode`s
-    TEST_PERFORMANCE,   // #test_performance usable on `TestNode`s
-    TEST_SHOULD_FAIL,   // #test_should_fail usable on `TestNode`s
-    TEST_INIT,          // #test_init usable on `TestNode`s
-    TEST_PRE,           // #test_pre usable on `TestNode`s
-    TEST_POST,          // #test_post usable on `TestNode`s
-    TEST_DEINIT,        // #test_deinit usable on `TestNode`s
-    TEST_ENTRY,         // #test_entry usable on top-level `FunctionNode`s
+    FIP_DISABLE,                   // #fip_disable usable on extern `FunctionNode`s
+    TEST_OUTPUT_SHOW_ON_SUCCESS,   // #test_output_show_on_success usable on `TestNode`s
+    TEST_OUTPUT_SILENT_ON_FAILURE, // #test_output_silent_on_failure usable on `TestNode`s
+    TEST_PERFORMANCE,              // #test_performance usable on `TestNode`s
+    TEST_SHOULD_FAIL,              // #test_should_fail usable on `TestNode`s
+    TEST_INIT,                     // #test_init usable on `TestNode`s
+    TEST_PRE,                      // #test_pre usable on `TestNode`s
+    TEST_POST,                     // #test_post usable on `TestNode`s
+    TEST_DEINIT,                   // #test_deinit usable on `TestNode`s
+    TEST_ENTRY,                    // #test_entry usable on top-level `FunctionNode`s
 };
 
 /// @var `annotation_map`
 /// @brief A map mapping strings to the correnct annotaiton kind enum
 static const inline std::map<std::string_view, AnnotationKind> annotation_map = {
     {"fip_disable", AnnotationKind::FIP_DISABLE},
-    {"test_output_always", AnnotationKind::TEST_OUTPUT_ALWAYS},
-    {"test_output_never", AnnotationKind::TEST_OUTPUT_NEVER},
+    {"test_output_show_on_success", AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS},
+    {"test_output_silent_on_failure", AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE},
     {"test_performance", AnnotationKind::TEST_PERFORMANCE},
     {"test_should_fail", AnnotationKind::TEST_SHOULD_FAIL},
     {"test_init", AnnotationKind::TEST_INIT},
@@ -39,8 +39,8 @@ static const inline std::map<std::string_view, AnnotationKind> annotation_map = 
 /// @brief The reverse of the `annotation_map`, mapping the annotation kind enums to the strings views
 static const inline std::map<AnnotationKind, std::string_view> annotation_map_rev = {
     {AnnotationKind::FIP_DISABLE, "fip_disable"},
-    {AnnotationKind::TEST_OUTPUT_ALWAYS, "test_output_always"},
-    {AnnotationKind::TEST_OUTPUT_NEVER, "test_output_never"},
+    {AnnotationKind::TEST_OUTPUT_SHOW_ON_SUCCESS, "test_output_show_on_success"},
+    {AnnotationKind::TEST_OUTPUT_SILENT_ON_FAILURE, "test_output_silent_on_failure"},
     {AnnotationKind::TEST_PERFORMANCE, "test_performance"},
     {AnnotationKind::TEST_SHOULD_FAIL, "test_should_fail"},
     {AnnotationKind::TEST_INIT, "test_init"},
