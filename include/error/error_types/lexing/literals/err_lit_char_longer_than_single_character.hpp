@@ -23,6 +23,13 @@ class ErrLitCharLongerThanSingleCharacter : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected end of u8 literal but got '" + text + "'";
+        return d;
+    }
+
   private:
     std::string text;
 };

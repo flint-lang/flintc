@@ -24,6 +24,13 @@ class ErrUnexpectedTokenNumber : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Expected number after '.' but got " + std::string(1, text);
+        return d;
+    }
+
   private:
     char text;
 };

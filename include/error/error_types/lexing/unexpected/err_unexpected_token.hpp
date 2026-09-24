@@ -22,6 +22,13 @@ class ErrUnexpectedToken : public BaseError {
         return oss.str();
     }
 
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Unknown character '" + text + "'";
+        return d;
+    }
+
   private:
     std::string text;
 };

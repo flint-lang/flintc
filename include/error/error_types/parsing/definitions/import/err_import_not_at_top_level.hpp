@@ -14,8 +14,8 @@ class ErrImportNotAtTopLevel : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "The use clausel was not at the top level."
-            << "\n -- Expected " << YELLOW << get_token_string(tokens, {TOK_INDENT}) << DEFAULT << " but got " << YELLOW
+        oss << BaseError::to_string() << "├─ The use clause was not at the top level\n";
+        oss << "└─ Expected " << YELLOW << get_token_string(tokens, {TOK_INDENT}) << DEFAULT << " but got " << YELLOW
             << get_token_string(tokens, {}) << DEFAULT;
         return oss.str();
     }

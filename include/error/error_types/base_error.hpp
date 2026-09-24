@@ -14,8 +14,8 @@
 /// @brief The base class which represents all possible error types in flint
 class BaseError {
   public:
-    [[nodiscard]] virtual std::string to_string() const;
-    [[nodiscard]] virtual Diagnostic to_diagnostic() const;
+    [[nodiscard]] virtual std::string to_string() const = 0;
+    [[nodiscard]] virtual Diagnostic to_diagnostic() const = 0;
 
     // destructor
     virtual ~BaseError() = default;

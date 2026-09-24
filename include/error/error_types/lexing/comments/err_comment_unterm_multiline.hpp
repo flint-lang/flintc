@@ -18,4 +18,11 @@ class ErrCommentUnterminatedMultiline : public BaseError {
         oss << BaseError::to_string() << "└─ Multiline comment not terminated anywhere";
         return oss.str();
     }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Multiline comment not terminated anywhere";
+        return d;
+    }
 };

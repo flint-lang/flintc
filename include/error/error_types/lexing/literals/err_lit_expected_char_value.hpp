@@ -17,8 +17,15 @@ class ErrLitExpectedCharValue : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Unknown character '" << text << "' when expecting char value";
+        oss << BaseError::to_string() << "└─ Unknown character '" << text << "' when expecting char value";
         return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Unknown character '" + text + "' when expecting char value";
+        return d;
     }
 
   private:

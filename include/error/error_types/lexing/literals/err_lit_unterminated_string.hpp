@@ -15,7 +15,14 @@ class ErrLitUnterminatedString : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "The string literal was opened but never closed!";
+        oss << BaseError::to_string() << "└─ The string literal was opened but never closed!";
         return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "The string literal was opened but never closed!";
+        return d;
     }
 };

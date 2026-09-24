@@ -17,8 +17,15 @@ class ErrUnexpectedTokenPipe : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "Unknown character '" << text << "' when expecting '>' for the pipe";
+        oss << BaseError::to_string() << "└─ Unknown character '" << text << "' when expecting '>' for the pipe";
         return oss.str();
+    }
+
+    [[nodiscard]]
+    Diagnostic to_diagnostic() const override {
+        Diagnostic d = BaseError::to_diagnostic();
+        d.message = "Unknown character '" + std::string(1, text) + "' when expecting '>' for the pipe";
+        return d;
     }
 
   private:
