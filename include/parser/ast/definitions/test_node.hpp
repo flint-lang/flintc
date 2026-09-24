@@ -38,6 +38,7 @@ class TestNode : public DefinitionNode {
         AnnotationKind::TEST_INIT,
         AnnotationKind::TEST_PRE,
         AnnotationKind::TEST_POST,
+        AnnotationKind::TEST_POST_ALWAYS,
         AnnotationKind::TEST_DEINIT,
     };
 

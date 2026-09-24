@@ -11,6 +11,7 @@ test "pre":
 	State.id++;
 
 #test_post
+#test_post_always
 test "post":
 	State.ok++;
 
