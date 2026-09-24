@@ -143,3 +143,58 @@ test "21_named_opaque_type_mismatch":
 	str path = "wiki/beginners_guide/interop/21_named_opaque_type_mismatch";
 	str file = "main.ft";
 	test_file_fail_in(path, file, "Parse Error at main.ft:5:19\n└─┬┤E0000│\n3 │ def main():\n5 │ »   GLFrame obj = create_object();\n┌─┴───────────────────┘\n└─ Type mismatch of expression\n    ├─ Expected: GLFrame\n    └─ But got:  GLObject\n");
+
+test "22_export_empty":
+	str path = "wiki/beginners_guide/interop/22_export_empty";
+	str file = "main.ft";
+	_ = compile($"cd {path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	assert(file_exists(get_path($"{path}/mylib.o")));
+	str header_file = read_file(get_path($"{path}/mylib.h"));
+	assert(header_file == "");
+
+test "23_export_nonempty":
+	str path = "wiki/beginners_guide/interop/23_export_nonempty";
+	str file = "main.ft";
+	_ = compile($"cd {path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	assert(file_exists(get_path($"{path}/mylib.o")));
+	str header_file = read_file(get_path($"{path}/mylib.h"));
+	assert(header_file == "#pragma once\n\n#include <stdbool.h>\n#include <stdint.h>\n\n#ifndef FLINT_OPT\n#define FLINT_OPT(T) struct { bool has_value; T value; }\n#endif\n\n/// @brief Returns 'false' on failure and 'true' if everything was OK\nextern bool mylib_init(void) asm(\"flint.init.mylib\");\n\nint32_t mylib_add(const int32_t x, const int32_t y) asm(\"Z5OgXomk.add.export\");\n");
+
+test "24_export_compile_fail":
+	str path = "wiki/beginners_guide/interop/24_export_compile_fail";
+	str file = "main.ft";
+	_ = compile($"cd {path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	assert(file_exists(get_path($"{path}/mylib.o")));
+	str header_file = read_file(get_path($"{path}/mylib.h"));
+	assert(header_file == "#pragma once\n\n#include <stdbool.h>\n#include <stdint.h>\n\n#ifndef FLINT_OPT\n#define FLINT_OPT(T) struct { bool has_value; T value; }\n#endif\n\n/// @brief Returns 'false' on failure and 'true' if everything was OK\nextern bool mylib_init(void) asm(\"flint.init.mylib\");\n\nint32_t mylib_add(const int32_t x, const int32_t y) asm(\"Z5OgXomk.add.export\");\n");
+	(exit_code, output) := system_command($"cd {path} && clang mylib.c mylib.o -o main");
+	assert(exit_code == 1);
+	assert(output == "/usr/bin/ld: mylib.o: In Funktion »flint.dima.init.mylib«:\nmain:(.text.flint.dima.init.mylib+0x7): undefinierter Verweis auf »TD1zR4xj.dima.head.data.TimeStamp«\n/usr/bin/ld: main:(.text.flint.dima.init.mylib+0x69): undefinierter Verweis auf »TD1zR4xj.dima.head.data.TimeStamp«\n/usr/bin/ld: main:(.text.flint.dima.init.mylib+0xc4): undefinierter Verweis auf »TD1zR4xj.dima.head.data.Duration«\n/usr/bin/ld: mylib.o: In Funktion »flint.clone«:\nmain:(.text.flint.clone+0x19b): undefinierter Verweis auf »TD1zR4xj.dima.head.data.Duration«\n/usr/bin/ld: main:(.text.flint.clone+0x1a0): undefinierter Verweis auf »flint.dima.allocate«\n/usr/bin/ld: main:(.text.flint.clone+0x1cc): undefinierter Verweis auf »TD1zR4xj.dima.head.data.TimeStamp«\n/usr/bin/ld: main:(.text.flint.clone+0x1d1): undefinierter Verweis auf »flint.dima.allocate«\n/usr/bin/ld: mylib.o: In Funktion »flint.error.get_str«:\nmain:(.text.flint.error.get_str+0x51): undefinierter Verweis auf »flint.string.create_str«\n/usr/bin/ld: mylib.o: In Funktion »Z5OgXomk.add.0«:\n/home/zweiler1/env/flint/flintc/tests/wiki/beginners_guide/interop/24_export_compile_fail/main.ft:4:(.text.Z5OgXomk.add.0+0x74): undefinierter Verweis auf »flint.arithmetic.i32_safe_add«\nclang: error: linker command failed with exit code 1 (use -v to see invocation)\n");
+
+test "25_export_exec_fail":
+	str path = "wiki/beginners_guide/interop/25_export_exec_fail";
+	str file = "main.ft";
+	_ = compile($"cd {path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	assert(file_exists(get_path($"{path}/mylib.o")));
+	str header_file = read_file(get_path($"{path}/mylib.h"));
+	assert(header_file == "#pragma once\n\n#include <stdbool.h>\n#include <stdint.h>\n\n#ifndef FLINT_OPT\n#define FLINT_OPT(T) struct { bool has_value; T value; }\n#endif\n\n/// @brief Returns 'false' on failure and 'true' if everything was OK\nextern bool mylib_init(void) asm(\"flint.init.mylib\");\n\nint32_t mylib_add(const int32_t x, const int32_t y) asm(\"Z5OgXomk.add.export\");\n");
+	(exit_code, output) := system_command($"cd {path} && clang mylib.c mylib.o -o main -L$(flintc --print-libbuiltins-path) -lbuiltins");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command($"cd {path} && ./main");
+	assert(exit_code == 139);
+	assert(output == "");
+
+test "26_export_exec_success":
+	str path = "wiki/beginners_guide/interop/26_export_exec_success";
+	str file = "main.ft";
+	_ = compile($"cd {path} && ", file, str[_]{"--lib", "mylib"}, 0, "");
+	assert(file_exists(get_path($"{path}/mylib.o")));
+	str header_file = read_file(get_path($"{path}/mylib.h"));
+	assert(header_file == "#pragma once\n\n#include <stdbool.h>\n#include <stdint.h>\n\n#ifndef FLINT_OPT\n#define FLINT_OPT(T) struct { bool has_value; T value; }\n#endif\n\n/// @brief Returns 'false' on failure and 'true' if everything was OK\nextern bool mylib_init(void) asm(\"flint.init.mylib\");\n\nint32_t mylib_add(const int32_t x, const int32_t y) asm(\"Z5OgXomk.add.export\");\n");
+	(exit_code, output) := system_command($"cd {path} && clang mylib.c mylib.o -o main -L$(flintc --print-libbuiltins-path) -lbuiltins");
+	assert(exit_code == 0);
+	assert(output == "");
+	(exit_code, output) = system_command($"cd {path} && ./main");
+	assert(exit_code == 0);
+	assert(output == "result = 30\n");

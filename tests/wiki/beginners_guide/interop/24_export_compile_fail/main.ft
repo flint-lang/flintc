@@ -1,0 +1,7 @@
+use Core.print
+
+export def add(i32 x, i32 y) -> i32:
+	return x + y;
+
+def main():
+	print($"add(10, 20) = {add(10, 20)}\n");
