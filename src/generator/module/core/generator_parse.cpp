@@ -140,7 +140,7 @@ void Generator::Module::Parse::generate_parse_int_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `i64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const errno_val = IR::aligned_load(*builder, builder->getInt32Ty(), errno_ptr);
     llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
@@ -310,7 +310,7 @@ void Generator::Module::Parse::generate_parse_uint_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `u64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const errno_val = IR::aligned_load(*builder, builder->getInt32Ty(), errno_ptr);
     llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     if (bit_width < 64) {
         builder->CreateCondBr(is_range_error, errno_fail_block, parse_ok_block);
@@ -463,7 +463,7 @@ void Generator::Module::Parse::generate_parse_f32_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f32`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const errno_val = IR::aligned_load(*builder, builder->getInt32Ty(), errno_ptr);
     llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 
@@ -581,7 +581,7 @@ void Generator::Module::Parse::generate_parse_f64_function( //
 
     // Check if errno had an error, e.g. if the input was outside the range of an `f64`
     builder->SetInsertPoint(errno_check_block);
-    llvm::Value *const errno_val = builder->CreateLoad(builder->getInt32Ty(), errno_ptr);
+    llvm::Value *const errno_val = IR::aligned_load(*builder, builder->getInt32Ty(), errno_ptr);
     llvm::Value *const is_range_error = builder->CreateICmpEQ(errno_val, builder->getInt32(ERANGE));
     builder->CreateCondBr(is_range_error, errno_fail_block, exit_block);
 

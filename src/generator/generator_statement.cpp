@@ -536,7 +536,7 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
     if (ctx.function_name_ptr != nullptr) {
         llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
         llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
-        const std::string throw_path_str = std::filesystem::relative(throw_node->file_hash.path, std::filesystem::current_path());
+        const std::string throw_path_str = std::filesystem::relative(throw_node->file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *const throw_path = IR::generate_const_string(ctx.parent->getParent(), throw_path_str);
         builder.CreateCall(trace_add_fn,                                                                                           //
             {ts_root, throw_path, ctx.function_name_ptr, builder.getInt32(throw_node->line), builder.getInt32(throw_node->column)} //

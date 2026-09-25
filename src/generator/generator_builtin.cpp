@@ -218,12 +218,20 @@ llvm::Value *Generator::Builtin::convert_extern_arg_to_internal( //
     std::vector<llvm::Value *> &ext_pieces                       //
 ) {
     if (type->get_variation() == Type::Variation::VECTOR) {
+        // Windows passes vectors larger than 8 bytes as a pointer to a caller-managed copy (see `IR::get_extern_type`).
+        // Load the internal vector straight from that copy; the C header emits the same layout as a plain struct of scalars.
+        const IR::TypeStorageInfo extern_vec_info = IR::get_type(module, type, true);
+        if (is_target_windows() && extern_vec_info.type != nullptr && extern_vec_info.type->isPointerTy()) {
+            llvm::Value *const vec_ptr = pop_external_piece(ext_pieces);
+            llvm::Value *const cast_ptr = builder->CreateBitCast(vec_ptr, PTR_TY, "vec_arg_ptr");
+            const IR::TypeStorageInfo internal_vec_info = IR::get_type(module, type, false);
+            return IR::aligned_load(*builder, internal_vec_info.type, cast_ptr, "vec_arg");
+        }
         return reconstruct_internal_vector(module, builder, type, ext_pieces);
     }
     if (type->to_string() == "str") {
-        // The extern ABI passes a `char *` whereas the frame stores the full string struct pointer. Weld the incoming C string
-        // into a Flint `str`: `init_str(char_ptr, strlen(char_ptr))` returns the heap `str *` we store in the (pointer-typed) frame
-        // field.
+        // The extern ABI passes a `char *` whereas the frame stores the full string struct pointer. Weld the incoming C string into a Flint
+        // `str`: `init_str(char_ptr, strlen(char_ptr))` returns the heap `str *` we store in the (pointer-typed) frame field.
         llvm::Value *const char_ptr = pop_external_piece(ext_pieces);
         llvm::Function *const init_str_fn = Module::String::string_manip_functions.at("init_str");
         llvm::Function *const strlen_fn = c_functions.at(STRLEN);
@@ -243,7 +251,7 @@ llvm::Value *Generator::Builtin::convert_extern_arg_to_internal( //
             // layout as the (naturally laid out) struct.
             llvm::AllocaInst *const slot = builder->CreateAlloca(opt_info.type, nullptr, "opt_pack");
             llvm::Value *const cast_reg = builder->CreateBitCast(slot, PTR_TY);
-            builder->CreateStore(pop_external_piece(ext_pieces), cast_reg);
+            IR::aligned_store(*builder, pop_external_piece(ext_pieces), cast_reg);
             return IR::aligned_load(*builder, opt_info.type, slot, "opt_rebuilt");
         }
         // 16-byte optional: two external pieces `(i8, payload)`.
@@ -436,7 +444,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
     // Load the current TS pointer from the global variable
     llvm::GlobalVariable *const ts_global = module->getGlobalVariable("flint.ts.global");
     ASSERT(ts_global != nullptr);
-    llvm::Value *const ts_ptr = builder->CreateLoad(PTR_TY, ts_global, "ts_ptr");
+    llvm::Value *const ts_ptr = IR::aligned_load(*builder, PTR_TY, ts_global, "ts_ptr");
 
     // Replicate the thread-stack allocation bookkeeping (mirrors `init_global_variables` / `generate_builtin_main`)
     llvm::StructType *const ts_ty = type_map.at("type.ts.stack");
@@ -594,7 +602,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
                 llvm::Value *const dst = builder->CreateCall(c_functions.at(CFunction::MALLOC), {malloc_size}, "ret_str");
                 builder->CreateMemCpy(dst, type_align, src_chars, type_align, str_len);
                 llvm::Value *const term_ptr = builder->CreateGEP(llvm::Type::getInt8Ty(context), dst, {str_len}, "ret_str_term");
-                builder->CreateStore(builder->getInt8(0), term_ptr);
+                IR::aligned_store(*builder, builder->getInt8(0), term_ptr);
                 builder->CreateCall(c_functions.at(CFunction::FREE), {str_ptr});
                 extern_ret = dst;
             } else if (ret_type->get_variation() == Type::Variation::OPTIONAL) {
@@ -605,7 +613,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
                 if (ret_size <= 8) {
                     const std::string slot_name = fn->file_hash.to_string() + "_ret_opt_pack";
                     llvm::AllocaInst *const slot = builder->CreateAlloca(ret_info.type, nullptr, slot_name);
-                    builder->CreateStore(internal_ret, slot);
+                    IR::aligned_store(*builder, internal_ret, slot);
                     extern_ret = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), slot, "ret_0_opt_packed");
                 } else {
                     // Larger optionals (64-bit or pointer payloads) are left on the direct aggregate path.
@@ -884,7 +892,7 @@ bool Generator::Builtin::generate_builtin_main( //
     llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");
 
     // Insert the pointer to the thread stack in the main function's frame
-    llvm::Value *const ts_ptr = builder->CreateLoad(PTR_TY, ts_global, "ts_ptr");
+    llvm::Value *const ts_ptr = IR::aligned_load(*builder, PTR_TY, ts_global, "ts_ptr");
     main_frame = builder->CreateInsertValue(main_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
 
     // If the user-defined main function has args, we first put those args into an array of strings
@@ -1745,20 +1753,20 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     builder->SetInsertPoint(entry);
     llvm::AllocaInst *idx_alloc = builder->CreateAlloca(i64_type, nullptr, "i");
     llvm::AllocaInst *count_alloc = builder->CreateAlloca(i64_type, nullptr, "count");
-    builder->CreateStore(llvm::ConstantInt::get(i64_type, 0), idx_alloc);
-    builder->CreateStore(llvm::ConstantInt::get(i64_type, 0), count_alloc);
+    IR::aligned_store(*builder, llvm::ConstantInt::get(i64_type, 0), idx_alloc);
+    IR::aligned_store(*builder, llvm::ConstantInt::get(i64_type, 0), count_alloc);
     builder->CreateBr(loop_cond);
 
     // loop_cond: if i < len -> load_char else ret
     builder->SetInsertPoint(loop_cond);
-    llvm::Value *i_val = builder->CreateLoad(i64_type, idx_alloc, "i_val");
+    llvm::Value *i_val = IR::aligned_load(*builder, i64_type, idx_alloc, "i_val");
     llvm::Value *loop_cond_val = builder->CreateICmpULT(i_val, arg_len, "loopcond");
     builder->CreateCondBr(loop_cond_val, load_char, ret_block);
 
     // load_char: ch = str[i]; if ESC -> handle_esc else ascii_case
     builder->SetInsertPoint(load_char);
     llvm::Value *char_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, i_val, "char_ptr");
-    llvm::Value *char_byte = builder->CreateLoad(i8_type, char_ptr, "ch");
+    llvm::Value *char_byte = IR::aligned_load(*builder, i8_type, char_ptr, "ch");
     llvm::Value *esc_val = llvm::ConstantInt::get(i8_type, 27);
     llvm::Value *is_esc = builder->CreateICmpEQ(char_byte, esc_val, "is_esc");
     builder->CreateCondBr(is_esc, handle_esc, ascii_case);
@@ -1772,7 +1780,7 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     // handle_esc_after: check if next char == '[' -> csi_loop else inc_and_back
     builder->SetInsertPoint(handle_esc_after);
     llvm::Value *next_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, i_p1, "next_ptr");
-    llvm::Value *next_byte = builder->CreateLoad(i8_type, next_ptr, "next_byte");
+    llvm::Value *next_byte = IR::aligned_load(*builder, i8_type, next_ptr, "next_byte");
     llvm::Value *bracket_val = llvm::ConstantInt::get(i8_type, '[');
     llvm::Value *is_bracket = builder->CreateICmpEQ(next_byte, bracket_val, "is_bracket");
     builder->CreateCondBr(is_bracket, csi_loop, inc_and_back);
@@ -1781,19 +1789,19 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     builder->SetInsertPoint(csi_loop);
     llvm::AllocaInst *j_alloc = builder->CreateAlloca(i64_type, nullptr, "j");
     llvm::Value *j_init = builder->CreateAdd(i_val, llvm::ConstantInt::get(i64_type, 2), "j_init");
-    builder->CreateStore(j_init, j_alloc);
+    IR::aligned_store(*builder, j_init, j_alloc);
     builder->CreateBr(csi_check);
 
     // csi_check: if j < len -> csi_continue else csi_exit
     builder->SetInsertPoint(csi_check);
-    llvm::Value *j_val = builder->CreateLoad(i64_type, j_alloc, "j_val");
+    llvm::Value *j_val = IR::aligned_load(*builder, i64_type, j_alloc, "j_val");
     llvm::Value *j_in_bounds = builder->CreateICmpULT(j_val, arg_len, "j_in_bounds");
     builder->CreateCondBr(j_in_bounds, csi_continue, csi_exit);
 
     // csi_continue: load byte; if final (0x40..0x7E) -> csi_exit else csi_non_final
     builder->SetInsertPoint(csi_continue);
     llvm::Value *csi_ptr = builder->CreateInBoundsGEP(i8_type, arg_str, j_val, "csi_ptr");
-    llvm::Value *csi_byte = builder->CreateLoad(i8_type, csi_ptr, "csi_byte");
+    llvm::Value *csi_byte = IR::aligned_load(*builder, i8_type, csi_ptr, "csi_byte");
     llvm::Value *csi_byte_u = builder->CreateZExt(csi_byte, builder->getInt32Ty(), "csi_byte_u");
     llvm::Value *ge40 = builder->CreateICmpUGE(csi_byte_u, llvm::ConstantInt::get(builder->getInt32Ty(), 0x40), "ge40");
     llvm::Value *le7E = builder->CreateICmpULE(csi_byte_u, llvm::ConstantInt::get(builder->getInt32Ty(), 0x7E), "le7E");
@@ -1803,14 +1811,14 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     // csi_non_final: j = j + 1; store; branch to csi_check
     builder->SetInsertPoint(csi_non_final);
     llvm::Value *j_next = builder->CreateAdd(j_val, llvm::ConstantInt::get(i64_type, 1), "j_next");
-    builder->CreateStore(j_next, j_alloc);
+    IR::aligned_store(*builder, j_next, j_alloc);
     builder->CreateBr(csi_check);
 
     // csi_exit: set i := j + 1; continue outer loop
     builder->SetInsertPoint(csi_exit);
-    llvm::Value *j_final = builder->CreateLoad(i64_type, j_alloc, "j_final");
+    llvm::Value *j_final = IR::aligned_load(*builder, i64_type, j_alloc, "j_final");
     llvm::Value *i_after_csi = builder->CreateAdd(j_final, llvm::ConstantInt::get(i64_type, 1), "i_after_csi");
-    builder->CreateStore(i_after_csi, idx_alloc);
+    IR::aligned_store(*builder, i_after_csi, idx_alloc);
     builder->CreateBr(loop_cond);
 
     // ascii_case: if (ch & 0x80) == 0 -> inc_and_back else non_ascii_case
@@ -1847,27 +1855,27 @@ llvm::Function *Generator::Builtin::generate_visible_width_function(llvm::IRBuil
     llvm::Value *advance_final = builder->CreateSelect(is_2, advance2, adv_tmp2, "advance_final");
 
     // increment visible-count by 1
-    llvm::Value *cnt_now = builder->CreateLoad(i64_type, count_alloc, "cnt_now");
+    llvm::Value *cnt_now = IR::aligned_load(*builder, i64_type, count_alloc, "cnt_now");
     llvm::Value *cnt_inc = builder->CreateAdd(cnt_now, builder->getInt64(1), "cnt_inc");
-    builder->CreateStore(cnt_inc, count_alloc);
+    IR::aligned_store(*builder, cnt_inc, count_alloc);
 
     // i = i + advance_final
     llvm::Value *i_new = builder->CreateAdd(i_val, advance_final, "i_new");
-    builder->CreateStore(i_new, idx_alloc);
+    IR::aligned_store(*builder, i_new, idx_alloc);
     builder->CreateBr(loop_cond);
 
     // inc_and_back: ascii path: count++, i++
     builder->SetInsertPoint(inc_and_back);
-    llvm::Value *cnt = builder->CreateLoad(i64_type, count_alloc, "cnt");
+    llvm::Value *cnt = IR::aligned_load(*builder, i64_type, count_alloc, "cnt");
     llvm::Value *cntp = builder->CreateAdd(cnt, builder->getInt64(1), "cntp");
-    builder->CreateStore(cntp, count_alloc);
+    IR::aligned_store(*builder, cntp, count_alloc);
     llvm::Value *i_next = builder->CreateAdd(i_val, builder->getInt64(1), "i_next");
-    builder->CreateStore(i_next, idx_alloc);
+    IR::aligned_store(*builder, i_next, idx_alloc);
     builder->CreateBr(loop_cond);
 
     // ret: return count
     builder->SetInsertPoint(ret_block);
-    llvm::Value *final_cnt = builder->CreateLoad(i64_type, count_alloc, "final_cnt");
+    llvm::Value *final_cnt = IR::aligned_load(*builder, i64_type, count_alloc, "final_cnt");
     builder->CreateRet(final_cnt);
 
     return visible_width_fn;

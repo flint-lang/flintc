@@ -169,16 +169,16 @@ void Generator::Module::Time::generate_time_init_function( //
     llvm::BasicBlock *const exit_block = llvm::BasicBlock::Create(context, "exit", init_fn);
 
     builder->SetInsertPoint(entry);
-    llvm::Value *const is_initialized = builder->CreateLoad(llvm::Type::getInt1Ty(context), init_global);
+    llvm::Value *const is_initialized = IR::aligned_load(*builder, llvm::Type::getInt1Ty(context), init_global);
     builder->CreateCondBr(is_initialized, exit_block, init_block);
 
     builder->SetInsertPoint(init_block);
     llvm::Function *const qpf_fn = time_platform_functions["QueryPerformanceFrequency"];
     llvm::Value *const freq_alloca = builder->CreateAlloca(llvm::Type::getInt64Ty(context));
     builder->CreateCall(qpf_fn, {freq_alloca});
-    llvm::Value *const freq_value = builder->CreateLoad(llvm::Type::getInt64Ty(context), freq_alloca);
-    builder->CreateStore(freq_value, freq_global);
-    builder->CreateStore(llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1), init_global);
+    llvm::Value *const freq_value = IR::aligned_load(*builder, llvm::Type::getInt64Ty(context), freq_alloca);
+    IR::aligned_store(*builder, freq_value, freq_global);
+    IR::aligned_store(*builder, llvm::ConstantInt::get(llvm::Type::getInt1Ty(context), 1), init_global);
     builder->CreateBr(exit_block);
 
     builder->SetInsertPoint(exit_block);

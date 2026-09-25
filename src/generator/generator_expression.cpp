@@ -783,7 +783,7 @@ void Generator::Expression::convert_data_type_to_ext( //
             return;
         }
         // Vectors are struct/vector values which need to be spilled to memory first
-        builder.CreateStore(value, arg_ptr);
+        IR::aligned_store(builder, value, arg_ptr);
         args.emplace_back(arg_ptr);
         return;
     }
@@ -2910,7 +2910,8 @@ void Generator::Expression::generate_rethrow( //
         if (ctx.function_name_ptr != nullptr) {
             llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
             llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
-            const std::string rethrow_path_str = std::filesystem::relative(call_pos->file_hash.path, std::filesystem::current_path());
+            const std::string rethrow_path_str =
+                std::filesystem::relative(call_pos->file_hash.path, std::filesystem::current_path()).string();
             llvm::Value *const rethrow_path = IR::generate_const_string(ctx.parent->getParent(), rethrow_path_str);
             builder.CreateCall(trace_add_fn,                                                                                         //
                 {ts_root, rethrow_path, ctx.function_name_ptr, builder.getInt32(call_pos->line), builder.getInt32(call_pos->column)} //

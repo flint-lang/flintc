@@ -16,6 +16,7 @@
 #undef ERROR
 #undef OPTIONAL
 #undef OPAQUE
+#undef INTERFACE
 #undef interface
 #pragma GCC diagnostic pop
 
