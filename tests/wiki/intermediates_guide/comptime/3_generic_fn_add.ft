@@ -1,0 +1,14 @@
+use Core.print
+
+def add[type T](T x, T y) -> T:
+	return x + y;
+
+def main():
+	i32 res1 = add[i32](10, 20);
+	print($"res1 = {res1}\n");
+
+	f32 res2 = add[f32](3.14, 4.5);
+	print($"res2 = {res2}\n");
+
+	str res3 = add[str]("Hello", ", there!");
+	print($"res3 = {res3}\n");

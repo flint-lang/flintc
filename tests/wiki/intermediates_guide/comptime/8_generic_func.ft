@@ -1,0 +1,23 @@
+use Core.print
+
+data Vec2[type T]:
+	T x;
+	T y;
+
+func Move[type T] requires(Vec2[T] pos):
+	def by(Vec2[T] other):
+		pos.(x, y) += other.(x, y);
+
+	def to(Vec2[T] other):
+		pos.(x, y) = other.(x, y);
+
+def main():
+	v2 := Vec2[i32]{ 10, 20 };
+	diff := Vec2[i32]{ 5, 5 };
+	print($"v2.(x, y) = {v2.(x, y)}\n");
+
+	Move.by[i32](v2, diff);
+	print($"v2.(x, y) = {v2.(x, y)}\n");
+
+	Move.to[i32](v2, diff);
+	print($"v2.(x, y) = {v2.(x, y)}\n");

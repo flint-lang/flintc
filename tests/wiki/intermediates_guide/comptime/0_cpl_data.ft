@@ -1,0 +1,9 @@
+use Core.print
+
+data Node[type T]:
+	T value;
+	Node[T]? next;
+
+def main():
+	n := Node[i32]{ .value = 10, .next = Node[i32]{.value = 20} };
+	print($"n.next!.value = {n.next!.value}\n");

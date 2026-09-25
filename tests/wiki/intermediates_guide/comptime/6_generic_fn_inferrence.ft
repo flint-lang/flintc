@@ -1,0 +1,19 @@
+use Core.array
+use Core.print
+
+def append[type T](mut T[] arr, T value):
+	insert[_](arr, value, arr.len);
+
+def print[type T](T[] arr):
+	print("[");
+	for (i, elem) in arr:
+		if i > 0:
+			print(", ");
+		print(str(elem));
+	print("]\n");
+
+def main():
+	i32[] arr = i32[_]{1, 2, 3, 4};
+	append[_](arr, 5);
+	append[_](arr, 6);
+	print[_](arr);

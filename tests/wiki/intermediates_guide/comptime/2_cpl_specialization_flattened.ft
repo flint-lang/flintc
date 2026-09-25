@@ -1,0 +1,16 @@
+use Core.print
+
+data Node__i32:
+	i32 value;
+	Node__i32? next;
+
+data Node__f32:
+	f32 value;
+	Node__f32? next;
+
+def main():
+	n1 := Node__i32{ .value = 10, .next = Node__i32{.value = 20} };
+	print($"n1.next!.value = {n1.next!.value}\n");
+
+	n2 := Node__f32{ .value = 4.23, .next = Node__f32{.value = 72.34} };
+	print($"n2.next!.value = {n2.next!.value}\n");

@@ -41,3 +41,6 @@ test "intermediates_guide/error_sets":
 
 test "intermediates_guide/callables":
 	test_test_ok("wiki/intermediates_guide", "callables.ft", none);
+
+test "intermediates_guide/comptime":
+	test_test_ok("wiki/intermediates_guide", "comptime.ft", none);

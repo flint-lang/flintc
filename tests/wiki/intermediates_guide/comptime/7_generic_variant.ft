@@ -1,0 +1,12 @@
+use Core.print
+
+variant Option[type T]:
+	Ok(T),
+	None(void);
+
+def main():
+	Option[i32] maybe = Option[i32].Ok(100);
+	print($"maybe!(Option[i32].Ok) = {maybe!(Option[i32].Ok)}\n");
+
+	maybe = Option[i32].None;
+	print($"maybe == Option[i32].None = {maybe == Option[i32].None}\n");

@@ -1,0 +1,8 @@
+use Core.print
+
+def foo[type T](T x) -> T:
+	ahahsdl := alsdfba(T);
+
+def main():
+	print("Hello, World!\n");
+	i32 res = foo[i32](10);
