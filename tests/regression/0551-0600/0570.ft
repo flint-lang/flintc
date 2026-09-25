@@ -1,0 +1,18 @@
+use Core.print
+
+interface IComparable[type T]:
+	def compare_with(T value) -> bool;
+
+data Data[type T]:
+	T x;
+
+object Object[type T] implements(IComparable[T]):
+	data: Data[T] d;
+
+	def compare_with(T value) -> bool:
+		return d.x == value;
+
+def main():
+	o := Object[i32]{Data[i32]{100}};
+	print($"o.compare_with(10)  = {o.compare_with(10)}\n");
+	print($"o.compare_with(100) = {o.compare_with(100)}\n");

@@ -133,7 +133,8 @@ class FunctionNode : public DefinitionNode {
         const bool emit_spaces = true                 //
     ) const {
         std::ostringstream oss;
-        const auto dot_idx = std::find(name.begin(), name.end(), '.');
+        const size_t dot_offset = specialization.has_value() ? 2 : 0;
+        const auto dot_idx = std::find(name.begin() + dot_offset, name.end(), '.');
         if (dot_idx == name.end()) {
             oss << name;
         } else {
@@ -143,7 +144,7 @@ class FunctionNode : public DefinitionNode {
             }
             oss << name.substr(dot_dist + 1);
         }
-        if (!cpl.empty()) {
+        if (is_generic_template()) {
             oss << "[";
             for (size_t i = 0; i < cpl.size(); i++) {
                 if (i > 0) {

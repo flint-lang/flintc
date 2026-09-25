@@ -94,3 +94,8 @@ test "0569":
 	str path = "regression/0551-0600";
 	str file = "0569.ft";
 	test_file_fail($"{path}/{file}", "Generation Error at regression/0551-0600/0569.ft:4:12\n└─┬┤E0000│\n3 │ def main():\n4 │ »   u8 v = -300;\n┌─┴────────────┘\n├─ Integer literal is too small to fit into target type 'u8'\n└─ The smallest allowed value is '0'\n");
+
+test "0570":
+	str path = "regression/0551-0600";
+	str file = "0570.ft";
+	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");

@@ -888,6 +888,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
             }
             if (interface_type.value().type->get_variation() != Type::Variation::INTERFACE  //
                 && interface_type.value().type->get_variation() != Type::Variation::UNKNOWN //
+                && interface_type.value().type->get_variation() != Type::Variation::GENERIC //
             ) {
                 THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, file_hash,
                     PosTriple{

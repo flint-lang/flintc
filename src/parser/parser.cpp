@@ -634,18 +634,31 @@ bool Parser::resolve_all_unknown_types() {
                 case DefinitionNode::Variation::OBJECT: {
                     auto *const object = definition->as<ObjectNode>();
                     for (auto &interface : object->interfaces) {
-                        if (interface.type->get_variation() == Type::Variation::UNKNOWN) {
-                            const UnknownType *unknown_type = interface.type->as<UnknownType>();
-                            const auto type = file_namespace->get_type_from_str(unknown_type->type_str);
-                            if (!type.has_value()) {
-                                THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, interface.pos);
-                                return false;
+                        switch (interface.type->get_variation()) {
+                            case Type::Variation::INTERFACE:
+                                // All ok
+                                break;
+                            case Type::Variation::UNKNOWN: {
+                                const UnknownType *unknown_type = interface.type->as<UnknownType>();
+                                const auto type = file_namespace->get_type_from_str(unknown_type->type_str);
+                                if (!type.has_value()) {
+                                    THROW_ERR(ErrDefObjectImplementedTypeUnknown, ERR_PARSING, parser.file_hash, interface.pos);
+                                    return false;
+                                }
+                                if (type.value()->get_variation() == Type::Variation::INTERFACE) {
+                                    interface.type = type.value();
+                                    break;
+                                }
+                                [[fallthrough]];
                             }
-                            interface.type = type.value();
-                        }
-                        if (interface.type->get_variation() != Type::Variation::INTERFACE) {
-                            THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, interface.pos);
-                            return false;
+                            case Type::Variation::GENERIC:
+                                if (!object->cpl.empty()) {
+                                    break;
+                                }
+                                [[fallthrough]];
+                            default:
+                                THROW_ERR(ErrDefObjectImplementedTypeNotInterface, ERR_PARSING, parser.file_hash, interface.pos);
+                                return false;
                         }
                     }
                     break;
@@ -1252,13 +1265,11 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             if (src->name.size() <= interface_node->name.size()) {
                 continue;
             }
-            const std::string src_member_name = src->name.substr(interface_node->name.size() + 1);
-            const auto dot_index = src->name.find('.');
-            const std::string src_name_part = dot_index == std::string::npos ? src->name : src->name.substr(dot_index + 1);
-            const std::string src_member_sig = src_member_name + src->get_signature_string().substr(src_name_part.size());
+            const std::string src_sig = src->get_signature_string(0, false, true, false);
             bool added = false;
             for (const auto &dest : object->functions) {
-                if (src_member_sig == dest->get_signature_string(1)) {
+                const std::string dest_sig = dest->get_signature_string(1, false, true, false);
+                if (src_sig == dest_sig) {
                     ASSERT(interface.mapping.find(src) == interface.mapping.end());
                     interface.mapping[src] = dest;
                     added = true;
@@ -1270,7 +1281,7 @@ bool Parser::parse_open_object(Parser &parser, ObjectNode *object, std::vector<L
             }
             for (const auto &func_component : object->func_components) {
                 for (const auto &dest : func_component->functions) {
-                    if (src_member_sig == dest->get_signature_string(func_component->required_data.size())) {
+                    if (src_sig == dest->get_signature_string(func_component->required_data.size(), false, true, false)) {
                         ASSERT(interface.mapping.find(src) == interface.mapping.end());
                         interface.mapping[src] = dest;
                         added = true;
