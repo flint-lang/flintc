@@ -115,7 +115,7 @@ pub fn build(b: *std.Build) !void {
     } else if (single_build) |s| {
         const test_cmd = b.addRunArtifact(s.s);
         test_cmd.addFileArg(b.path("tests/tests.ft"));
-        test_cmd.addArgs(&[_][]const u8{ "--test", "--run" });
+        test_cmd.addArgs(&[_][]const u8{ "--test", "--run", "--rebuild-core" });
         test_cmd.addPathDir(b.getInstallPath(.bin, ""));
         test_cmd.setCwd(b.path("tests"));
         test_cmd.has_side_effects = true;
