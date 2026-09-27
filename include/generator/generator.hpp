@@ -288,6 +288,13 @@ class Generator {
         /// The first value of the pair is the scope of the catch body, the second value is the error trace depth the thread stack had right
         /// before the call of the caught function
         std::vector<std::pair<const Scope *, llvm::Value *>> catch_scopes;
+
+        /// @var `entry_trace_depth`
+        /// @brief The error trace depth the thread stack had when the function was entered, as a plain `i64` value.
+        ///
+        /// It never changes for the rest of the function, so it is kept as an SSA value of the entry block (which dominates the whole
+        /// function) instead of an alloca. `nullptr` in functions which do not restore the trace on return
+        llvm::Value *entry_trace_depth = nullptr;
     };
 
     /// @var `type_map`
@@ -408,7 +415,8 @@ class Generator {
     static inline std::pair<llvm::Value *, llvm::Value *> last_err_values;
 
     /// @var `last_err_base`
-    /// @brief The alloca that holds the error trace depth of the thread stack right before the call which the next catch statement handles
+    /// @brief The error trace depth of the thread stack right before the call which the next catch statement handles, as a plain `i64`
+    /// value
     static inline llvm::Value *last_err_base = nullptr;
 
     /// @var `enum_name_arrays_map`

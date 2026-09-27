@@ -505,11 +505,10 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
     // Restore the trace entries to the state of the function entry to not leak or free any entries of the parent, for example when calling
     // a function inside the catch block of the function which called this function
-    if (const auto trace_depth_it = ctx.allocations.find("flint.trace.depth"); trace_depth_it != ctx.allocations.end()) {
+    if (ctx.entry_trace_depth != nullptr) {
         llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
         llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
-        llvm::Value *const entry_depth = IR::aligned_load(builder, builder.getInt64Ty(), trace_depth_it->second, "fn_trace_depth");
-        builder.CreateCall(trace_free_fn, {ts_root, entry_depth});
+        builder.CreateCall(trace_free_fn, {ts_root, ctx.entry_trace_depth});
     }
 
     // Generate the return instruction and return 'false' (no error)
@@ -1580,12 +1579,12 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     ctx.scope = catch_node->scope;
     builder.SetInsertPoint(catch_block);
 
-    // Load the error trace depth the thread stack had right before the call of the caught function. It is loaded at the very start of
+    // The error trace depth the thread stack had right before the call of the caught function. It is taken at the very start of
     // the catch block (before the body is generated, which may itself contain nested calls with catches), so it is independent of any
     // `last_err_base` changes made while generating the catch body. The depth is pushed onto the active catch scopes, so that leaving
     // the catch body through a break of a continue can restore the trace as well
-    llvm::Value *const catch_trace_base = IR::aligned_load(builder, builder.getInt64Ty(), last_err_base, "catch_trace_base");
-    ctx.catch_scopes.emplace_back(catch_node->scope.get(), catch_trace_base);
+    ASSERT(last_err_base != nullptr);
+    ctx.catch_scopes.emplace_back(catch_node->scope.get(), last_err_base);
 
     // Load the error value
     llvm::Value *const stack_frame = last_err_values.second;

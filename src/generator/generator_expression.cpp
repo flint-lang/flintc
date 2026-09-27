@@ -1714,12 +1714,11 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // Call the actual function by passing the stack frame pointer to it
     const std::string &function_name = call_node->function->name;
     // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
-    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // exit. The value is read once here and used as a plain SSA value at the very start of the catch statement, before any other code is
+    // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
-        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
-        last_err_base = trace_base_alloca;
+        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2440,12 +2439,11 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
     }
 
     // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
-    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // exit. The value is read once here and used as a plain SSA value at the very start of the catch statement, before any other code is
+    // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
-        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
-        last_err_base = trace_base_alloca;
+        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2597,12 +2595,11 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // the current function we are in
     const llvm::FunctionCallee fn_to_call = llvm::FunctionCallee(ctx.parent->getFunctionType(), fn_ptr);
     // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this state on
-    // exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code is generated.
+    // exit. The value is read once here and used as a plain SSA value at the very start of the catch statement, before any other code is
+    // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
-        IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")), trace_base_alloca);
-        last_err_base = trace_base_alloca;
+        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2746,14 +2743,12 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             }
 
             // Save the current error trace depth before the call, so that a potential catch statement can restore the trace to this
-            // state on exit. The value is stored in an alloca and read at the very start of the catch statement, before any other code
-            // is generated. Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left
+            // state on exit. The value is read once here and used as a plain SSA value at the very start of the catch statement, before any
+            // other code is generated. The catch block is only reachable through the branch emitted below, so this value dominates it
+            // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left
             // behind
             if (call_node->has_catch) {
-                llvm::Value *const trace_base_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "trace_base_depth");
-                IR::aligned_store(builder, Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root")),
-                    trace_base_alloca);
-                last_err_base = trace_base_alloca;
+                last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
             } else {
                 last_err_base = nullptr;
             }
@@ -6075,11 +6070,10 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             builder.CreateCondBr(call_had_error, catch_expr_block, catch_expr_merge_block);
 
             builder.SetInsertPoint(catch_expr_block);
-            // Load the error trace depth right before the call of the caught error, before the catch expression body is generated (the
+            // The error trace depth right before the call of the caught error, taken before the catch expression body is generated (the
             // body may itself generate nested calls with catches, which would overwrite `last_err_base`)
-            llvm::Value *const catch_expr_trace_base = IR::aligned_load(              //
-                builder, builder.getInt64Ty(), last_err_base, "catch_expr_trace_base" //
-            );
+            ASSERT(last_err_base != nullptr);
+            llvm::Value *const catch_expr_trace_base = last_err_base;
             const group_mapping rhs_value = generate_expression(builder, ctx, garbage, expr_depth, bin_op_node->right);
             if (!rhs_value.has_value()) {
                 return std::nullopt;

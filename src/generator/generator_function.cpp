@@ -207,11 +207,9 @@ bool Generator::Function::generate_function_body(                               
 
     // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
     // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
-    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself
-    llvm::Value *const trace_depth_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "flint.trace.depth");
-    fn_ctx.allocations.emplace("flint.trace.depth", trace_depth_alloca);
+    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
+    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
     llvm::Value *const entry_trace_depth = Error::generate_load_trace_depth(builder, fn_ctx.allocations.at("flint.stack.root"));
-    IR::aligned_store(builder, entry_trace_depth, trace_depth_alloca);
 
     // Generate all instructions of the functions body. The name of the function is baked into the generated code as a global constant
     // string, so that every trace entry created in this function can register the name of the function it was created in
@@ -227,6 +225,7 @@ bool Generator::Function::generate_function_body(                               
         .dest = nullptr,
         .function_name_ptr = function_name_ptr,
         .catch_scopes = {},
+        .entry_trace_depth = entry_trace_depth,
     };
     if (!Statement::generate_body(builder, ctx)) {
         return false;
@@ -325,11 +324,9 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
 
     // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
     // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
-    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself
-    llvm::Value *const trace_depth_alloca = builder.CreateAlloca(builder.getInt64Ty(), nullptr, "flint.trace.depth");
-    allocations.emplace("flint.trace.depth", trace_depth_alloca);
+    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
+    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
     llvm::Value *const entry_trace_depth = Error::generate_load_trace_depth(builder, allocations.at("flint.stack.root"));
-    IR::aligned_store(builder, entry_trace_depth, trace_depth_alloca);
 
     // Normally generate the tests body. The name of the test function is baked into the generated code as a global constant string, so
     // that every trace entry created in this test can register the name of the function it was created in
@@ -345,6 +342,7 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         .dest = nullptr,
         .function_name_ptr = function_name_ptr,
         .catch_scopes = {},
+        .entry_trace_depth = entry_trace_depth,
     };
     if (!Statement::generate_body(builder, ctx)) {
         return std::nullopt;
