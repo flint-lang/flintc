@@ -5396,6 +5396,37 @@ class Generator {
                 llvm::Value *const remaining,    //
                 llvm::Type *const frame_type     //
             );
+
+            /// @function `store_default_frame_into`
+            /// @brief Copies the default frame of a to-be-called function into the next free spot of the thread stack and patches the
+            ///        function header and the parameter slots inside it.
+            ///
+            /// Instead of building the callee's frame as one big aggregate SSA value (load default frame -> insertvalue for every argument
+            /// -> store), which forces LLVM to materialize the whole struct in a temporary slot of the native stack and thus bloats the
+            /// hardware stack on every (recursive) call, the default frame is copied straight into the assigned slot with a plain
+            /// `memcpy`,a pure memory-to-memory copy without any intermediate aggregate value, and the arguments are then stored directly
+            /// into their struct fields.
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The module in which the frame struct type and the default frame global live
+            /// @param `frame_ptr` The pointer to the slot in the thread stack the frame will be copied into
+            /// @param `ts_ptr` The pointer to the root of the thread stack
+            /// @param `frame_type` The struct type of the function frame
+            /// @param `default_frame` The global default frame which gets copied into the thread stack
+            /// @param `fn_ret_count` The amount of return values of the function, shifting the start of the parameter slots
+            /// @param `fn_args` The argument values to store into the parameter slots
+            /// @param `name` A name prefix used for the generated instructions
+            static void store_default_frame_into(          //
+                llvm::IRBuilder<> &builder,                //
+                llvm::Module *const module,                //
+                llvm::Value *const frame_ptr,              //
+                llvm::Value *const ts_ptr,                 //
+                llvm::StructType *const frame_type,        //
+                llvm::GlobalVariable *const default_frame, //
+                const size_t fn_ret_count,                 //
+                const std::vector<llvm::Value *> &fn_args, //
+                const std::string &name                    //
+            );
         };
 
         /// @class `TypeCast`

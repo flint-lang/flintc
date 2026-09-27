@@ -91,3 +91,31 @@ void Generator::Module::ThreadStack::generate_capacity_check( //
 
     builder.SetInsertPoint(ok_block);
 }
+
+void Generator::Module::ThreadStack::store_default_frame_into( //
+    llvm::IRBuilder<> &builder,                                //
+    llvm::Module *const module,                                //
+    llvm::Value *const frame_ptr,                              //
+    llvm::Value *const ts_ptr,                                 //
+    llvm::StructType *const frame_type,                        //
+    llvm::GlobalVariable *const default_frame,                 //
+    const size_t fn_ret_count,                                 //
+    const std::vector<llvm::Value *> &fn_args,                 //
+    const std::string &name                                    //
+) {
+    const unsigned int frame_alignment = Allocation::calculate_type_alignment(frame_type);
+    const size_t frame_size = Allocation::get_type_size(module, frame_type);
+    builder.CreateMemCpy(                                                                                                  //
+        frame_ptr, llvm::Align(frame_alignment), default_frame, llvm::Align(frame_alignment), builder.getInt64(frame_size) //
+    );
+
+    llvm::Value *const ts_ptr_slot = builder.CreateConstInBoundsGEP2_32(frame_type, frame_ptr, 0, FUNCTION::THREAD_STACK, name + "_ts_ptr");
+    IR::aligned_store(builder, ts_ptr, ts_ptr_slot);
+
+    for (size_t i = 0; i < fn_args.size(); i++) {
+        llvm::Value *const arg_slot = builder.CreateStructGEP(                              //
+            frame_type, frame_ptr, i + fn_ret_count + 1, name + "_arg_" + std::to_string(i) //
+        );
+        IR::aligned_store(builder, fn_args[i], arg_slot);
+    }
+}

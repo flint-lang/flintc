@@ -1691,14 +1691,11 @@ Generator::group_mapping Generator::Expression::generate_call( //
     llvm::Value *const remaining = ctx.allocations.at("flint.stack.remaining");
     Module::ThreadStack::generate_capacity_check(builder, ctx.parent, remaining, called_fn_type);
 
-    // Load the default frame of the to-be-called function
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
-    llvm::Value *fn_frame = IR::aligned_load(builder, called_fn_type, called_fn_default, call_node->function->name + "_default_frame");
-    // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
     llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
-    fn_frame = builder.CreateInsertValue(fn_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
-    // Insert all arguments into the loaded default-value
     const size_t fn_ret_count = call_node->function->return_types.size();
+    std::vector<llvm::Value *> call_frame_args;
+    call_frame_args.reserve(args.size());
     for (size_t i = 0; i < args.size(); i++) {
         const std::shared_ptr<Type> &param_type = call_node->function->parameters.at(i).type;
         llvm::Value *arg_value = args[i];
@@ -1707,13 +1704,12 @@ Generator::group_mapping Generator::Expression::generate_call( //
             llvm::Type *const param_ty = param_type_info.is_complex ? PTR_TY : param_type_info.type;
             arg_value = IR::aligned_load(builder, param_ty, arg_value);
         }
-        // arg_value->dump();
-        fn_frame = builder.CreateInsertValue(                                                                                      //
-            fn_frame, arg_value, i + fn_ret_count + 1, call_node->function->name + "_frame_arg_" + std::to_string(i) + "_inserted" //
-        );
+        call_frame_args.push_back(arg_value);
     }
-    // Store the function frame in the next free spot in the TS
-    IR::aligned_store(builder, fn_frame, next_stack_frame);
+    Module::ThreadStack::store_default_frame_into(                                  //
+        builder, ctx.parent->getParent(), next_stack_frame, ts_ptr, called_fn_type, //
+        called_fn_default, fn_ret_count, call_frame_args, call_node->function->name //
+    );
 
     // Call the actual function by passing the stack frame pointer to it
     const std::string &function_name = call_node->function->name;
@@ -2847,11 +2843,10 @@ llvm::Value *Generator::Expression::generate_function_reference( //
     llvm::Function *const fn_ptr = Function::function_contexts.at(referenced_fn_id).function;
     IR::aligned_store(builder, fn_ptr, callable_frame);
     // Store the rest of the function frame in the space after that
-    llvm::Value *const default_fn_frame = IR::aligned_load(                                                //
-        builder, called_fn_type, called_fn_default, ref_node->referenced_function->name + "_default_frame" //
-    );
     llvm::Value *const fn_frame = builder.CreateGEP(PTR_TY, callable_frame, builder.getInt32(1), "fn_frame");
-    IR::aligned_store(builder, default_fn_frame, fn_frame);
+    const llvm::Align alignment = llvm::Align(Allocation::calculate_type_alignment(called_fn_type));
+    llvm::Value *const fn_size = builder.getInt64(Allocation::get_type_size(ctx.parent->getParent(), called_fn_type));
+    builder.CreateMemCpy(fn_frame, alignment, called_fn_default, alignment, fn_size);
     return callable_frame;
 }
 

@@ -477,12 +477,7 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
     Module::ThreadStack::generate_capacity_check(*builder, wrapper, remaining, called_fn_type);
 
-    // Load the default frame of the to-be-called function and store the TS pointer in it
-    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
-    llvm::Value *fn_frame = IR::aligned_load(*builder, called_fn_type, called_fn_default, fn->name + "_default_frame");
-    fn_frame = builder->CreateInsertValue(fn_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
-
-    // Convert the C ABI arguments into their internal representation and insert them into the frame. Return values occupy the TS frame
+    // Convert the C ABI arguments into their internal representation and store them into the frame. Return values occupy the TS frame
     // fields `1..ret_count`, so the first parameter starts at field `ret_count + 1`. When the wrapper returns through an sret pointer its
     // first C argument is that hidden return pointer and must be skipped.
     const size_t fn_ret_count = fn->return_types.size();
@@ -490,6 +485,8 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
     for (unsigned int k = (has_sret_return ? 1u : 0u); k < c_abi_type->getNumParams(); k++) {
         ext_args.emplace_back(wrapper->getArg(k));
     }
+    std::vector<llvm::Value *> call_frame_args;
+    call_frame_args.reserve(fn->parameters.size());
     for (size_t i = 0; i < fn->parameters.size(); i++) {
         const auto &param = fn->parameters.at(i);
         llvm::Value *const internal_arg = convert_extern_arg_to_internal(module, builder, param.type, ext_args);
@@ -497,12 +494,14 @@ bool Generator::Builtin::generate_exported_function_wrapper( //
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return false;
         }
-        fn_frame = builder->CreateInsertValue(                                                         //
-            fn_frame, internal_arg, i + fn_ret_count + 1, fn->name + "_frame_arg_" + std::to_string(i) //
-        );
+        call_frame_args.emplace_back(internal_arg);
     }
     ASSERT(ext_args.empty());
-    IR::aligned_store(*builder, fn_frame, next_stack_frame);
+
+    llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
+    Module::ThreadStack::store_default_frame_into(                                                                             //
+        *builder, module, next_stack_frame, ts_ptr, called_fn_type, called_fn_default, fn_ret_count, call_frame_args, fn->name //
+    );
 
     // Call the internal Flint function (<hash>.<name>) with the stack frame pointer
     std::string internal_name = fn->file_hash.to_string() + "." + fn->name;
@@ -888,14 +887,13 @@ bool Generator::Builtin::generate_builtin_main( //
     // Store the default-value of the main function in the TS data section
     const size_t main_fn_id = Parser::main_function.load()->get_id();
     llvm::StructType *const main_frame_type = Module::ThreadStack::ts_frames.at(main_fn_id);
-    llvm::Value *const main_default_value = Module::ThreadStack::ts_defaults.at(main_fn_id);
-    llvm::Value *main_frame = IR::aligned_load(*builder, main_frame_type, main_default_value, "main_frame_default");
+    llvm::GlobalVariable *const main_default_value = Module::ThreadStack::ts_defaults.at(main_fn_id);
 
-    // Insert the pointer to the thread stack in the main function's frame
+    // The pointer to the thread stack in the main function's frame
     llvm::Value *const ts_ptr = IR::aligned_load(*builder, PTR_TY, ts_global, "ts_ptr");
-    main_frame = builder->CreateInsertValue(main_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
 
     // If the user-defined main function has args, we first put those args into an array of strings
+    std::vector<llvm::Value *> main_frame_args;
     if (main_function_has_args) {
         llvm::Argument *const argc = main_function->args().begin();
         argc->setName("argc");
@@ -905,11 +903,7 @@ bool Generator::Builtin::generate_builtin_main( //
         llvm::Value *const arr_ptr = generate_argv_string_array(builder, module, main_function, argc, argv);
 
         // Now store the array in the first argument field of the main function
-        if (main_function_has_ret) {
-            main_frame = builder->CreateInsertValue(main_frame, arr_ptr, {2}, "main_frame_args_added");
-        } else {
-            main_frame = builder->CreateInsertValue(main_frame, arr_ptr, {1}, "main_frame_args_added");
-        }
+        main_frame_args.emplace_back(arr_ptr);
     }
 
     llvm::BasicBlock *current_block = builder->GetInsertBlock();
@@ -930,7 +924,10 @@ bool Generator::Builtin::generate_builtin_main( //
     llvm::Value *const ts_stack_data_ptr = builder->CreateStructGEP(               //
         ts_ty, ts_ptr, Module::ThreadStack::STACK::STACK_DATA, "ts_stack_data_ptr" //
     );
-    IR::aligned_store(*builder, main_frame, ts_stack_data_ptr);
+    Module::ThreadStack::store_default_frame_into(                                        //
+        *builder, module, ts_stack_data_ptr, ts_ptr, main_frame_type, main_default_value, //
+        (main_function_has_ret ? 1 : 0), main_frame_args, "main"                          //
+    );
 
     // Call the user-defined main function by passing the pointer to the first TS frame, e.g. the data section, to it
     llvm::CallInst *const main_call = builder->CreateCall(custom_main_function, {ts_stack_data_ptr});
@@ -2320,10 +2317,10 @@ std::optional<llvm::Value *> Generator::Builtin::emit_test_execute( //
 
     // Set up the test function's frame in the TS data section
     llvm::StructType *const test_frame_type = Module::ThreadStack::ts_frames.at(test_fn_id);
-    llvm::Value *const test_default_value = Module::ThreadStack::ts_defaults.at(test_fn_id);
-    llvm::Value *test_frame = IR::aligned_load(*builder, test_frame_type, test_default_value, "test_frame_default");
-    test_frame = builder->CreateInsertValue(test_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
-    IR::aligned_store(*builder, test_frame, ts_stack_data_ptr);
+    llvm::GlobalVariable *const test_default_value = Module::ThreadStack::ts_defaults.at(test_fn_id);
+    Module::ThreadStack::store_default_frame_into(                                                      //
+        *builder, module, ts_stack_data_ptr, ts_ptr, test_frame_type, test_default_value, 0, {}, "test" //
+    );
 
     // Reset the error trace before running any part of the test, so that no trace entries of a previous (failing) test leak into this one
     // and the auto-generated rethrow entries of this test start from an empty list
@@ -2601,15 +2598,11 @@ bool Generator::Builtin::generate_builtin_test(llvm::IRBuilder<> *const builder,
         // Set up the entry function's frame in the TS data section, just like the test runner does for the test functions
         const size_t entry_fn_id = test_entry->get_id();
         llvm::StructType *const entry_frame_type = Module::ThreadStack::ts_frames.at(entry_fn_id);
-        llvm::Value *const entry_default_value = Module::ThreadStack::ts_defaults.at(entry_fn_id);
-        llvm::Value *entry_frame = IR::aligned_load(*builder, entry_frame_type, entry_default_value, "entry_frame_default");
-        entry_frame = builder->CreateInsertValue(entry_frame, ts_ptr, {0, Module::ThreadStack::FUNCTION::THREAD_STACK});
-        if (test_entry->return_types.empty()) {
-            entry_frame = builder->CreateInsertValue(entry_frame, args_array, {1}, "entry_frame_args_added");
-        } else {
-            entry_frame = builder->CreateInsertValue(entry_frame, args_array, {2}, "entry_frame_args_added");
-        }
-        IR::aligned_store(*builder, entry_frame, ts_stack_data_ptr);
+        llvm::GlobalVariable *const entry_default_value = Module::ThreadStack::ts_defaults.at(entry_fn_id);
+        Module::ThreadStack::store_default_frame_into(                                  //
+            *builder, module, ts_stack_data_ptr, ts_ptr, entry_frame_type,              //
+            entry_default_value, test_entry->return_types.size(), {args_array}, "entry" //
+        );
 
         // Call the entry function which returns an `i1` error flag like every flint function
         llvm::CallInst *const entry_call = builder->CreateCall(entry_function, {ts_stack_data_ptr});

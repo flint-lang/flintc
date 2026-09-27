@@ -281,8 +281,9 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
                 // Store the default function frame in the TS
                 llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
                 llvm::GlobalVariable *const default_frame = Module::ThreadStack::ts_defaults.at(fn_id);
-                llvm::Value *const loaded_default = IR::aligned_load(builder, called_fn_frame_ty, default_frame, "default_frame");
-                IR::aligned_store(builder, loaded_default, arg_stack);
+                const llvm::Align fn_alignment = llvm::Align(Allocation::calculate_type_alignment(called_fn_frame_ty));
+                llvm::Value *const fn_size = builder.getInt64(Allocation::get_type_size(module, called_fn_frame_ty));
+                builder.CreateMemCpy(arg_stack, fn_alignment, default_frame, fn_alignment, fn_size);
                 const uint32_t field_id = 1 + function_node->return_types.size() + func->required_data.size();
                 const uint32_t safe_field_id = std::min(field_id, called_fn_frame_ty->getNumElements() - 1);
                 llvm::Value *const arg_start_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, safe_field_id, "arg_start_ptr");
@@ -299,8 +300,9 @@ void Generator::IR::generate_object_dispatch_functions(llvm::Module *module) {
             // Store the default function frame in the TS
             llvm::StructType *const called_fn_frame_ty = Module::ThreadStack::ts_frames.at(fn_id);
             llvm::GlobalVariable *const default_frame = Module::ThreadStack::ts_defaults.at(fn_id);
-            llvm::Value *const loaded_default = IR::aligned_load(builder, called_fn_frame_ty, default_frame, "default_frame");
-            IR::aligned_store(builder, loaded_default, arg_stack);
+            const llvm::Align fn_alignment = llvm::Align(Allocation::calculate_type_alignment(called_fn_frame_ty));
+            llvm::Value *const fn_size = builder.getInt64(Allocation::get_type_size(module, called_fn_frame_ty));
+            builder.CreateMemCpy(arg_stack, fn_alignment, default_frame, fn_alignment, fn_size);
             const uint32_t field_id = 1 + function_node->return_types.size() + 1;
             const uint32_t safe_field_id = std::min(field_id, called_fn_frame_ty->getNumElements() - 1);
             llvm::Value *const arg_start_ptr = builder.CreateStructGEP(called_fn_frame_ty, arg_stack, safe_field_id, "arg_start_ptr");
