@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0351":
 	str path = "regression/0351-0400";
 	str file = "0351.ft";
@@ -86,6 +88,10 @@ test "0367":
 	test_file_ok($"{path}/{file}", "arr[0] = 0\narr[1] = 1\narr[2] = 2\narr[3] = 5\narr[4] = 4\narr[5] = 3\narr[6] = 6\narr[7] = 7\narr[8] = 8\narr[9] = 9\n");
 
 test "0368":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	str path = "regression/0351-0400/0368";
 	str file = "main.ft";
 	Config.compile_v_static = false;
@@ -113,9 +119,13 @@ test "0372":
 	test_file_fail($"{path}/{file}", "Analyzing Error at regression/0351-0400/0372.ft:10:13\n└──┬┤E0000│\n8  │ def main():\n10 │ »   i32 x = i32(v1);\n┌──┴─────────────┘\n└─ Cannot cast value\n    ├─ From Vec3\n    └─ To   i32\n");
 
 test "0373":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0351-0400";
 	str file = "0373.ft";
-	test_file_crash($"{path}/{file}", none, "Runtime Error: MyError.ERR_2\n  │ » \n  └─┬───── Name ─────┬───────────── Location ─────────────┬─ Info ──┐\n    ├ throw_my_error   regression/0351-0400/0373.ft:10:12   origin  ┤\n    └ _main            regression/0351-0400/0373.ft:15:5            ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "Runtime Error: MyError.ERR_2\n  │ » \n  └─┬───── Name ─────┬───────────── Location ─────────────┬─ Info ──┐\n    ├ throw_my_error   regression\\0351-0400\\0373.ft:10:12   origin  ┤\n    └ _main            regression\\0351-0400\\0373.ft:15:5            ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "Runtime Error: MyError.ERR_2\n  │ » \n  └─┬───── Name ─────┬───────────── Location ─────────────┬─ Info ──┐\n    ├ throw_my_error   regression/0351-0400/0373.ft:10:12   origin  ┤\n    └ _main            regression/0351-0400/0373.ft:15:5            ┘\n", 1);
 
 test "0374":
 	str path = "regression/0351-0400";
@@ -238,9 +248,13 @@ test "0397":
 	test_compiles($"{path}/{file}");
 
 test "0398":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0351-0400";
 	str file = "0398.ft";
-	test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3063511752\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nRuntime Error: ErrFn.AssertionFailed\n  │ » Special Assertion in 'myfn' function failed\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ myfn       regression/0351-0400/0398.ft:9:9     origin  ┤\n    └ _main      regression/0351-0400/0398.ft:21:13           ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3063511752\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nRuntime Error: ErrFn.AssertionFailed\n  │ » Special Assertion in 'myfn' function failed\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ myfn       regression\\0351-0400\\0398.ft:9:9     origin  ┤\n    └ _main      regression\\0351-0400\\0398.ft:21:13           ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "ErrFn:\n - type_id: 3063511752\n - value_id: 0\n - message: Special Assertion in 'myfn' function failed\n\nerror is ErrFn.AssertionFailed: \"Special Assertion in 'myfn' function failed\"\n\nRuntime Error: ErrFn.AssertionFailed\n  │ » Special Assertion in 'myfn' function failed\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ myfn       regression/0351-0400/0398.ft:9:9     origin  ┤\n    └ _main      regression/0351-0400/0398.ft:21:13           ┘\n", 1);
 
 test "0399":
 	str path = "regression/0351-0400";

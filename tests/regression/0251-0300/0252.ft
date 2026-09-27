@@ -8,5 +8,5 @@ def main():
 	str[] lines = fs.read_lines("regression/0251-0300/0252.ft");
 	for u64 i = 0; i < lines.length; i++:
 		print($"LINE_{i}:\t{lines[i]}\n");
-	fs.write_file("/tmp/logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
+	fs.write_file("./logfile", "wolololololasdjkf\nsdfsafd\n\tsdf\n");
 	print("Written file 'logfile'\n");

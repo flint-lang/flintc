@@ -2,6 +2,8 @@ use "utils.ft"
 
 use "examples/aoc/2025/test.ft"
 
+use Core.filesystem
+
 #test_performance
 test "perf":
 	str path = "examples/perf";
@@ -22,6 +24,10 @@ test "pong":
 
 #test_performance
 test "pong-2.0":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	str path = "examples/pong-2.0";
 	str file = "main.ft";
 	Config.compile_v_static = false;
@@ -30,6 +36,10 @@ test "pong-2.0":
 
 #test_performance
 test "pong-3.0":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	str path = "examples/pong-3.0";
 	str file = "main.ft";
 	Config.compile_v_static = false;
@@ -38,6 +48,10 @@ test "pong-3.0":
 
 #test_performance
 test "pong-4.0":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	str path = "examples/pong-4.0";
 	str file = "main.ft";
 	Config.compile_v_static = false;

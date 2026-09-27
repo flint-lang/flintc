@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0401":
 	str path = "regression/0401-0450";
 	str file = "0401.ft";
@@ -51,9 +53,13 @@ test "0410":
 	test_file_fail($"{path}/{file}", "Parse Error at regression/0401-0450/0410.ft:3:39\n└─┬┤E0000│\n3 │ def get_tuple(i32 a, f32 b, str c) -> data[i32, f32, str]:\n┌─┴───────────────────────────────────────┘\n├─ Functions cannot return a tuple type directly\n└─ If you want to return multiple values, change the return type to '(i32, f32, str)'\n");
 
 test "0411":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0401-0450";
 	str file = "0411.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at regression/0401-0450/0411.ft:20:1\n└──┬┤E0000│\n20 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression/0401-0450/0411.ft:19:1\n");
+	if is_windows:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0401-0450/0411.ft:20:1\n└──┬┤E0000│\n20 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression\\0401-0450\\0411.ft:19:1\n");
+	else:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0401-0450/0411.ft:20:1\n└──┬┤E0000│\n20 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression/0401-0450/0411.ft:19:1\n");
 
 test "0412":
 	str path = "regression/0401-0450";

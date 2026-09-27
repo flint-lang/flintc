@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0251":
 	str path = "regression/0251-0300/0251";
 	str file = "main.ft";
@@ -8,7 +10,7 @@ test "0251":
 test "0252":
 	str path = "regression/0251-0300";
 	str file = "0252.ft";
-	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"regression/0251-0300/0252.ft\"):\nLINE_5:			print(\"File 'regression/0251-0300/0252.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"regression/0251-0300/0252.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		fs.write_file(\"/tmp/logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_11:		print(\"Written file 'logfile'\\n\");\nWritten file 'logfile'\n");
+	test_file_ok($"{path}/{file}", "LINE_0:	use Core.print\nLINE_1:	use Core.filesystem as fs\nLINE_2:	\nLINE_3:	def main():\nLINE_4:		if not fs.file_exists(\"regression/0251-0300/0252.ft\"):\nLINE_5:			print(\"File 'regression/0251-0300/0252.ft' does not exst!\\n\");\nLINE_6:			return;\nLINE_7:		str[] lines = fs.read_lines(\"regression/0251-0300/0252.ft\");\nLINE_8:		for u64 i = 0; i < lines.length; i++:\nLINE_9:			print($\"LINE_{i}:\\t{lines[i]}\\n\");\nLINE_10:		fs.write_file(\"./logfile\", \"wolololololasdjkf\\nsdfsafd\\n\\tsdf\\n\");\nLINE_11:		print(\"Written file 'logfile'\\n\");\nWritten file 'logfile'\n");
 
 test "0253":
 	str path = "regression/0251-0300";
@@ -19,7 +21,7 @@ test "0254":
 	str path = "regression/0251-0300";
 	str file = "0254.ft";
 	test_file_ok($"{path}/{file}", "int3 = (8, 8, 8)\n");
-	
+
 test "0255":
 	str path = "regression/0251-0300";
 	str file = "0255.ft";
@@ -152,9 +154,13 @@ test "0280":
 	test_file_ok($"{path}/{file}", "Hello, World!\nHello, World 2!\n");
 
 test "0281":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0251-0300";
 	str file = "0281.ft";
-	test_file_ok($"{path}/{file}", "cwd = ", "/flintc/tests\n");
+	if is_windows:
+		test_file_ok($"{path}/{file}", "cwd = ", "\\flintc\\tests\n");
+	else:
+		test_file_ok($"{path}/{file}", "cwd = ", "/flintc/tests\n");
 
 test "0282":
 	str path = "regression/0251-0300/0282";

@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0151":
 	str path ="regression/0151-0200/0151";
 	str file = "main.ft";
@@ -126,9 +128,13 @@ test "0175":
 	test_file_ok($"{path}/{file}", "27.0 ** 0.333333 = 3.0\nsin(0.5236) = 0.500001\n");
 
 test "0176":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0151-0200";
 	str file = "0176.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at regression/0151-0200/0176.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression/0151-0200/0176.ft:20:1\n");
+	if is_windows:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0151-0200/0176.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression\\0151-0200\\0176.ft:20:1\n");
+	else:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0151-0200/0176.ft:21:1\n└──┬┤E0000│\n21 │ def IsWindowReady() -> bool:\n┌──┴─┘\n├─ Redefinition of function: IsWindowReady()\n└─ First defined at: regression/0151-0200/0176.ft:20:1\n");
 
 test "0177":
 	str path ="regression/0151-0200";
@@ -152,6 +158,10 @@ test "0180":
 	test_file_fail($"{path}/{file}", "Custom Error: 2\n");
 
 test "0181":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work Windows yet
+		return;
 	str path ="regression/0151-0200/0181";
 	str file = "main.ft";
 	Config.compile_v_static = false;

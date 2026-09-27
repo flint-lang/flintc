@@ -1,9 +1,15 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0101":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0101-0150";
 	str file = "0101.ft";
-	test_file_crash($"{path}/{file}", none, "unwrapped = 69\nBad optional access occurred\n", 134);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "unwrapped = 69\nBad optional access occurred\n", -1073740791);
+	else:
+		test_file_crash($"{path}/{file}", none, "unwrapped = 69\nBad optional access occurred\n", 134);
 
 test "0102":
 	str path ="regression/0101-0150";
@@ -131,9 +137,13 @@ test "0126":
 	test_file_ok($"{path}/{file}", "arr[0] = 'Hi There'\narr[1] = 'Hi'\narr[2] = 'Hi'\narr[3] = 'Hi there 2'\narr[4] = 'Hi'\narr[5] = 'Hi'\narr[6] = 'Hi'\narr[7] = 'Hi'\narr[8] = 'Hi'\nHi There");
 
 test "0127":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0101-0150";
 	str file = "0127.ft";
-	test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\nErrAssert id = ErrAssert.AssertionFailed\nvalue = Hello There\nval = Hello There, Too\nvalue = Hello There, Too\nexit_code = 127\noutput = ", "\n");
+	if is_windows:
+		test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\nErrAssert id = ErrAssert.AssertionFailed\nvalue = Hello There\nval = Hello There, Too\nvalue = Hello There, Too\nexit_code = 1\noutput = Der Befehl \"wololo\" ist entweder falsch geschrieben oder\nkonnte nicht gefunden werden.\n\n");
+	else:
+		test_file_ok($"{path}/{file}", "catched first value: ErrAssert.AssertionFailed\ncatched second value: ErrAssert.AssertionFailed\nErrAssert id = ErrAssert.AssertionFailed\nvalue = Hello There\nval = Hello There, Too\nvalue = Hello There, Too\nexit_code = 127\noutput = ", "\n");
 
 test "0128":
 	str path ="regression/0101-0150";

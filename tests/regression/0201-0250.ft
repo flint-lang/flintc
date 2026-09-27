@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0201":
 	str path ="regression/0201-0250";
 	str file = "0201.ft";
@@ -60,12 +62,15 @@ test "0212":
 	str file = "0212.ft";
 	test_file_ok($"{path}/{file}", "vec3 = (30, 42, 54)\n");
 
-#test_should_fail
-test "[win]0213":
-	// TODO: Windows-specific test
+test "0213":
+	const bool is_windows = not file_exists("/tmp");
+	if not is_windows:
+		// Windows-specific test
+		return;
 	str path ="regression/0201-0250";
 	str file = "0213.ft";
-	test_file_ok($"{path}/{file}", "x = 1, y = 2\n");
+	test_file_ok($"{path}/{file}", "cwd = C:\\Users\\zweiler1\\Desktop\\flintc\\tests\nAPPDATA = C:\\Users\\zweiler1\\AppData\\Roaming\n\nset_env(\"APPDATA\", \"wololo\", false)\nnew APPDATA: C:\\Users\\zweiler1\\AppData\\Roaming\n\nset_env(\"APPDATA\", \"wololo\", true)\nnew APPDATA: wololo\n");
+
 
 test "0214":
 	str path ="regression/0201-0250";
@@ -138,6 +143,10 @@ test "0227":
 	test_file_ok($"{path}/{file}", "d[0] = Data(.x = 0, .y = 1, .z = 2\nd[1] = Data(.x = 0, .y = 1, .z = 2\nd[2] = Data(.x = 0, .y = 1, .z = 2\nd[3] = Data(.x = 0, .y = 1, .z = 2\nd[4] = Data(.x = 0, .y = 1, .z = 2\n");
 
 test "0228":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work Windows yet
+		return;
 	str path ="regression/0201-0250/0228";
 	str file = "main.ft";
 	test_compiles_in(path, file, "--flags=-lraylib");

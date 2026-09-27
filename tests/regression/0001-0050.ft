@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0001":
 	str path ="regression/0001-0050";
 	str file = "0001.ft";
@@ -31,9 +33,13 @@ test "0006":
 	test_file_ok($"{path}/{file}", "d.(x, y, z) = (10, 20, 30)\nd.(x, y, z) = (20, 30, 40)\n");
 
 test "0007":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0001-0050";
 	str file = "0007.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at regression/0001-0050/0007.ft:8:1\n└─┬┤E0000│\n8 │ def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:\n┌─┴─┘\n├─ Redefinition of function: add_vectors(f32x3, f32x3)\n└─ First defined at: regression/0001-0050/0007.ft:4:1\n\nParse Error at regression/0001-0050/0007.ft:12:1\n└──┬┤E0000│\n12 │ def foo(i32 x, i32 y) -> i32:\n┌──┴─┘\n├─ Redefinition of function: foo(i32, i32)\n└─ First defined at: regression/0001-0050/0007.ft:5:1\n\nParse Error at regression/0001-0050/0007.ft:15:1\n└──┬┤E0000│\n15 │ def bar() -> i32:\n┌──┴─┘\n├─ Redefinition of function: bar()\n└─ First defined at: regression/0001-0050/0007.ft:6:1\n");
+	if is_windows:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0001-0050/0007.ft:8:1\n└─┬┤E0000│\n8 │ def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:\n┌─┴─┘\n├─ Redefinition of function: add_vectors(f32x3, f32x3)\n└─ First defined at: regression\\0001-0050\\0007.ft:4:1\n\nParse Error at regression/0001-0050/0007.ft:12:1\n└──┬┤E0000│\n12 │ def foo(i32 x, i32 y) -> i32:\n┌──┴─┘\n├─ Redefinition of function: foo(i32, i32)\n└─ First defined at: regression\\0001-0050\\0007.ft:5:1\n\nParse Error at regression/0001-0050/0007.ft:15:1\n└──┬┤E0000│\n15 │ def bar() -> i32:\n┌──┴─┘\n├─ Redefinition of function: bar()\n└─ First defined at: regression\\0001-0050\\0007.ft:6:1\n");
+	else:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0001-0050/0007.ft:8:1\n└─┬┤E0000│\n8 │ def add_vectors(mut f32x3 v1, f32x3 v2) -> f32x3:\n┌─┴─┘\n├─ Redefinition of function: add_vectors(f32x3, f32x3)\n└─ First defined at: regression/0001-0050/0007.ft:4:1\n\nParse Error at regression/0001-0050/0007.ft:12:1\n└──┬┤E0000│\n12 │ def foo(i32 x, i32 y) -> i32:\n┌──┴─┘\n├─ Redefinition of function: foo(i32, i32)\n└─ First defined at: regression/0001-0050/0007.ft:5:1\n\nParse Error at regression/0001-0050/0007.ft:15:1\n└──┬┤E0000│\n15 │ def bar() -> i32:\n┌──┴─┘\n├─ Redefinition of function: bar()\n└─ First defined at: regression/0001-0050/0007.ft:6:1\n");
 
 test "0008":
 	str path ="regression/0001-0050";
@@ -65,11 +71,14 @@ test "0013":
 	str file = "0013.ft";
 	test_file_ok($"{path}/{file}", "d = (10, 20, 30)\nd.x = 10\n");
 
-// TODO: FAILS
 test "0014":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0001-0050";
 	str file = "0014.ft";
-	test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", 134);
+	if is_windows:
+		test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", -1073741571);
+	else:
+		test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", 134);
 
 test "0015":
 	str path ="regression/0001-0050";

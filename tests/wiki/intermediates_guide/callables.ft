@@ -1,5 +1,7 @@
 use "../../utils.ft"
 
+use Core.filesystem
+
 test "0_omitting_return_type.ft":
 	str path = "wiki/intermediates_guide/callables";
 	str file = "0_omitting_return_type.ft";
@@ -61,14 +63,22 @@ test "11_persistent_accumulator.ft":
 	test_file_ok($"{path}/{file}", "applying '10' to accumulator results in: 10\napplying '9' to accumulator results in: 1\napplying '8' to accumulator results in: 8\napplying '7' to accumulator results in: 1\nresult = 1\n");
 
 test "12_err_bubble_up.ft":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "wiki/intermediates_guide/callables";
 	str file = "12_err_bubble_up.ft";
-	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬────────────────────────── Location ──────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/12_err_bubble_up.ft:6:5     origin  ┤\n    └ _main      wiki/intermediates_guide/callables/12_err_bubble_up.ft:11:5            ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬────────────────────────── Location ──────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki\\intermediates_guide\\callables\\12_err_bubble_up.ft:6:5     origin  ┤\n    └ _main      wiki\\intermediates_guide\\callables\\12_err_bubble_up.ft:11:5            ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬────────────────────────── Location ──────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/12_err_bubble_up.ft:6:5     origin  ┤\n    └ _main      wiki/intermediates_guide/callables/12_err_bubble_up.ft:11:5            ┘\n", 1);
 
 test "13_specifying_err_set.ft":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "wiki/intermediates_guide/callables";
 	str file = "13_specifying_err_set.ft";
-	test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬──────────────────────────── Location ────────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/13_specifying_err_set.ft:6:5    origin  ┤\n    └ _main      wiki/intermediates_guide/callables/13_specifying_err_set.ft:11:5           ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬──────────────────────────── Location ────────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki\\intermediates_guide\\callables\\13_specifying_err_set.ft:6:5    origin  ┤\n    └ _main      wiki\\intermediates_guide\\callables\\13_specifying_err_set.ft:11:5           ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "fail = false\nfail = true\nRuntime Error: ErrAssert.AssertionFailed\n  │ » The assertion has failed\n  └─┬── Name ──┬──────────────────────────── Location ────────────────────────────┬─ Info ──┐\n    ├ may_fail   wiki/intermediates_guide/callables/13_specifying_err_set.ft:6:5    origin  ┤\n    └ _main      wiki/intermediates_guide/callables/13_specifying_err_set.ft:11:5           ┘\n", 1);
 
 test "14_catching_callables.ft":
 	str path = "wiki/intermediates_guide/callables";

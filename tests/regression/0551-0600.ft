@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0551":
 	str path = "regression/0551-0600";
 	str file = "0551.ft";
@@ -26,9 +28,13 @@ test "0555":
 	test_file_ok($"{path}/{file}", "I(7)\n");
 
 test "0556":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0551-0600";
 	str file = "0556.ft";
-	test_test_ok(path, file, "regression/0551-0600/0556.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
+	if is_windows:
+		test_test_ok(path, file, "regression\\0551-0600\\0556.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
+	else:
+		test_test_ok(path, file, "regression/0551-0600/0556.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
 
 test "0557":
 	str path = "regression/0551-0600";
@@ -46,9 +52,13 @@ test "0559":
 	test_test_fail(path, file, "Parse Error at regression/0551-0600/0559.ft:4:1\n└─┬┤E0000│\n4 │ def entry():\n┌─┴─┘\n├─ Invalid definition of the '#test_entry' function\n└─ The '#test_entry' function has to take one 'str[]' parameter and can only return 'i32' or nothing (void)\n");
 
 test "0560":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0551-0600";
 	str file = "0560.ft";
-	test_test_fail(path, file, "Parse Error at regression/0551-0600/0560.ft:8:1\n└─┬┤E0000│\n8 │ def entry2(str[] args):\n┌─┴─┘\n├─ The '#test_entry' function is already defined in this program\n├─ First defined at regression/0551-0600/0560.ft:4:1\n└─ Only one '#test_entry' function is allowed in the entire codebase\n");
+	if is_windows:
+		test_test_fail(path, file, "Parse Error at regression/0551-0600/0560.ft:8:1\n└─┬┤E0000│\n8 │ def entry2(str[] args):\n┌─┴─┘\n├─ The '#test_entry' function is already defined in this program\n├─ First defined at regression\\0551-0600\\0560.ft:4:1\n└─ Only one '#test_entry' function is allowed in the entire codebase\n");
+	else:
+		test_test_fail(path, file, "Parse Error at regression/0551-0600/0560.ft:8:1\n└─┬┤E0000│\n8 │ def entry2(str[] args):\n┌─┴─┘\n├─ The '#test_entry' function is already defined in this program\n├─ First defined at regression/0551-0600/0560.ft:4:1\n└─ Only one '#test_entry' function is allowed in the entire codebase\n");
 
 test "0561":
 	str path = "regression/0551-0600";
@@ -56,9 +66,13 @@ test "0561":
 	test_test_ok(path, file, "Hello, World!\nThere are no tests to run\n");
 
 test "0562":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0551-0600";
 	str file = "0562.ft";
-	test_test_ok(path, file, "regression/0551-0600/0562.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
+	if is_windows:
+		test_test_ok(path, file, "regression\\0551-0600\\0562.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
+	else:
+		test_test_ok(path, file, "regression/0551-0600/0562.ft:\n ├─ t1     \x1b[32m✓ passed\x1b[0m\n └─ t2     \x1b[32m✓ passed\x1b[0m\n\n\x1b[32m✓ All tests passed!\x1b[0m\n");
 
 test "0563":
 	str path = "regression/0551-0600";
@@ -71,14 +85,22 @@ test "0564":
 	test_test_ok(path, file, "bogus", 1, "Unrecognized argument: bogus\nUsage: test [TEST]*\n\nAvailable TESTs:\n  t1    Execute test t1, skipped by default\n  t2    Execute test t2, skipped by default\n");
 
 test "0565":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0551-0600";
 	str file = "0565.ft";
-	test_test_ok(path, file, "", 1, "regression/0551-0600/0565.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[31m✗ failed (pre)\x1b[0m\n     ├─ Output ─┐\n     └──────────┘\n\n\x1b[31m✗ 2 tests failed!\x1b[0m\n");
+	if is_windows:
+		test_test_ok(path, file, "", 1, "regression\\0551-0600\\0565.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[31m✗ failed (pre)\x1b[0m\n     ├─ Output ─┐\n     └──────────┘\n\n\x1b[31m✗ 2 tests failed!\x1b[0m\n");
+	else:
+		test_test_ok(path, file, "", 1, "regression/0551-0600/0565.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[31m✗ failed (pre)\x1b[0m\n     ├─ Output ─┐\n     └──────────┘\n\n\x1b[31m✗ 2 tests failed!\x1b[0m\n");
 
 test "0566":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0551-0600";
 	str file = "0566.ft";
-	test_test_ok(path, file, "", 1, "regression/0551-0600/0566.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[32m✓ passed\x1b[0m\n\n\x1b[31m✗ 1 test failed!\x1b[0m\n");
+	if is_windows:
+		test_test_ok(path, file, "", 1, "regression\\0551-0600\\0566.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[32m✓ passed\x1b[0m\n\n\x1b[31m✗ 1 test failed!\x1b[0m\n");
+	else:
+		test_test_ok(path, file, "", 1, "regression/0551-0600/0566.ft:\n ├─ test1 \x1b[32m✓ passed\x1b[0m\n ├─ test2 \x1b[31m✗ failed\x1b[0m\n │   ├─ Output ────────────────┐\n │   │ State.(id, ok) = (2, 1) │\n │   └─────────────────────────┘\n └─ test3 \x1b[32m✓ passed\x1b[0m\n\n\x1b[31m✗ 1 test failed!\x1b[0m\n");
 
 test "0567":
 	str path = "regression/0551-0600";

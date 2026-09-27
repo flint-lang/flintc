@@ -1,5 +1,7 @@
 use "utils.ft"
 
+use Core.filesystem
+
 test "beginners_guide/basics":
 	test_test_ok("wiki/beginners_guide", "basics.ft", none);
 
@@ -28,6 +30,10 @@ test "beginners_guide/interop":
 	test_test_ok("wiki/beginners_guide", "interop.ft", none);
 
 test "beginners_guide/game_example":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	test_test_ok("wiki/beginners_guide", "game_example.ft", none);
 
 test "intermediates_guide/optionals":

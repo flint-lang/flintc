@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 
 void hello() {
     printf("Hello from C!\n");

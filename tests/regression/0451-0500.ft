@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0451":
 	str path = "regression/0451-0500";
 	str file = "0451.ft";
@@ -71,9 +73,13 @@ test "0464":
 	test_file_ok($"{path}/{file}", "Hello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\nHello, World!\n");
 
 test "0465":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0451-0500";
 	str file = "0465.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0465.ft:2:1\n└─┬┤E0000│\n2 │ use Core.assert as c\n┌─┴─┘\n├─ The import alias 'c' is already taken\n└─ First used at: regression/0451-0500/0465.ft:1:1\n");
+	if is_windows:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0465.ft:2:1\n└─┬┤E0000│\n2 │ use Core.assert as c\n┌─┴─┘\n├─ The import alias 'c' is already taken\n└─ First used at: regression\\0451-0500\\0465.ft:1:1\n");
+	else:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0465.ft:2:1\n└─┬┤E0000│\n2 │ use Core.assert as c\n┌─┴─┘\n├─ The import alias 'c' is already taken\n└─ First used at: regression/0451-0500/0465.ft:1:1\n");
 
 test "0466":
 	str path = "regression/0451-0500";
@@ -86,11 +92,21 @@ test "0467":
 	test_file_ok($"{path}/{file}", "");
 
 test "0468":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Raylib does not work on Windows yet
+		return;
 	str path = "regression/0451-0500/0468";
 	str file = "main.ft";
-	test_compiles_in(path, file, "--flags=-lraylib");
+	Config.compile_v_static = false;
+	test_compiles_in(path, file, "--flags=\"-lraylib\"");
+	Config.compile_v_static = DefaultConfig.COMPILE_V_STATIC;
 
 test "0469":
+	const bool is_windows = not file_exists("/tmp");
+	if is_windows:
+		// Linux-specific environment variable test
+		return;
 	str path = "regression/0451-0500";
 	str file = "0469.ft";
 	test_file_ok($"{path}/{file}", "$HOME = /home/zweiler1\n$NEW_ENV_VARIABLE = env_value\nEnvironemnt variable 'UNUSED_ENV_VARIABLE' not available: ErrEnv.VarNotFound\n$UNUSED_ENV_VARIABLE = \n");
@@ -141,9 +157,13 @@ test "0478":
 	test_file_fail($"{path}/{file}", "Analyzing Error at regression/0451-0500/0478.ft:8:5\n└─┬┤E0000│\n3 │ def main():\n8 │ »   i32[0] a2 = i32[_]{};\n┌─┴─────┘\n└─ Stored fixed arrays cannot be empty\n");
 
 test "0479":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0451-0500";
 	str file = "0479.ft";
-	test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0479.ft:13:1\n└──┬┤E0000│\n13 │ object Entity:\n┌──┴─┘\n├─ Redefinition of type: Entity\n└─ First defined at: regression/0451-0500/0479.ft:3:1\n");
+	if is_windows:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0479.ft:13:1\n└──┬┤E0000│\n13 │ object Entity:\n┌──┴─┘\n├─ Redefinition of type: Entity\n└─ First defined at: regression\\0451-0500\\0479.ft:3:1\n");
+	else:
+		test_file_fail($"{path}/{file}", "Parse Error at regression/0451-0500/0479.ft:13:1\n└──┬┤E0000│\n13 │ object Entity:\n┌──┴─┘\n├─ Redefinition of type: Entity\n└─ First defined at: regression/0451-0500/0479.ft:3:1\n");
 
 test "0480":
 	str path = "regression/0451-0500";
@@ -226,9 +246,13 @@ test "0495":
 	test_file_ok($"{path}/{file}", "c() = 0\nc() = 1\nc() = 2\ncounter() = 0\ncounter() = 0\n");
 
 test "0496":
+	const bool is_windows = not file_exists("/tmp");
 	str path = "regression/0451-0500";
 	str file = "0496.ft";
-	test_file_crash($"{path}/{file}", none, "Runtime Error: ErrSpecial.B1\n  │ » \n  └─┬── Name ──┬──────────── Location ────────────┬─ Info ──┐\n    └ _main      regression/0451-0500/0496.ft:8:5           ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "Runtime Error: ErrSpecial.B1\n  │ » \n  └─┬── Name ──┬──────────── Location ────────────┬─ Info ──┐\n    └ _main      regression\\0451-0500\\0496.ft:8:5           ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "Runtime Error: ErrSpecial.B1\n  │ » \n  └─┬── Name ──┬──────────── Location ────────────┬─ Info ──┐\n    └ _main      regression/0451-0500/0496.ft:8:5           ┘\n", 1);
 
 test "0497":
 	str path = "regression/0451-0500";

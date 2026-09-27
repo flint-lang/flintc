@@ -1,5 +1,7 @@
 use "../utils.ft"
 
+use Core.filesystem
+
 test "0051":
 	str path ="regression/0051-0100";
 	str file = "0051.ft";
@@ -176,9 +178,13 @@ test "0085":
 	test_file_ok($"{path}/{file}", "dir = Direction.LEFT\n");
 
 test "0086":
+	const bool is_windows = not file_exists("/tmp");
 	str path ="regression/0051-0100";
 	str file = "0086.ft";
-	test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nRuntime Error: ErrArithmetic.ErrZeroDivision\n  │ » Tried to divide 10 by 0!\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ div        regression/0051-0100/0086.ft:8:9     origin  ┤\n    └ _main      regression/0051-0100/0086.ft:16:9            ┘\n", 1);
+	if is_windows:
+		test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nRuntime Error: ErrArithmetic.ErrZeroDivision\n  │ » Tried to divide 10 by 0!\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ div        regression\\0051-0100\\0086.ft:8:9     origin  ┤\n    └ _main      regression\\0051-0100\\0086.ft:16:9            ┘\n", 1);
+	else:
+		test_file_crash($"{path}/{file}", none, "Caught error 'ErrArithmetic.ErrZeroDivision': \"Tried to divide 10 by 0!\"\nRuntime Error: ErrArithmetic.ErrZeroDivision\n  │ » Tried to divide 10 by 0!\n  └─┬── Name ──┬───────────── Location ─────────────┬─ Info ──┐\n    ├ div        regression/0051-0100/0086.ft:8:9     origin  ┤\n    └ _main      regression/0051-0100/0086.ft:16:9            ┘\n", 1);
 
 test "0087":
 	str path ="regression/0051-0100";
