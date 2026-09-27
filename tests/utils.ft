@@ -117,7 +117,7 @@ def test_test_ok(str test_dir, str file_name, str? expected_output):
 	if expected_output != none:
 		insert[str](flags, "--no-colors", flags.len);
 	_ = compile(none, test_file, flags, 0, "");
-	(exit_code, output) := system_command(get_path($"{normalized_path}/test"));
+	(exit_code, output) := system_command(out_file);
 	if exit_code != 0:
 		print(output);
 	assert(exit_code == 0);
@@ -142,7 +142,7 @@ def test_test_ok(str test_dir, str file_name, str args, i32 expected_exit, str e
 	str test_file = get_path($"{normalized_path}/{file_name}");
 	str out_file = get_path($"{normalized_path}/test");
 	_ = compile(none, test_file, str[_]{"--test", "--out", out_file, "--no-colors"}, 0, "");
-	(exit_code, output) := system_command(get_path($"{normalized_path}/test {args}"));
+	(exit_code, output) := system_command($"{out_file} {args}");
 	if exit_code != expected_exit:
 		print(output);
 	assert(exit_code == expected_exit);

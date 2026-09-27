@@ -50,7 +50,7 @@ void Generator::Module::System::generate_system_command_function( //
     //     int exit_code;
     //     str *output;
     // } CommandResult;
-    // static CommandResult system_command(str * command) {
+    // static CommandResult system_command(str *const command) {
     //     CommandResult result = {-1, NULL};
     //     const size_t BUFFER_SIZE = 4096;
     //     char buffer[BUFFER_SIZE];
@@ -59,7 +59,13 @@ void Generator::Module::System::generate_system_command_function( //
     //     result.output = create_str(0);
     //
     //     // Create command with stderr redirection
-    //     str *full_command = add_str_lit(command, " 2>&1", 5);
+    //     str *full_command = NULL;
+    //     if (is_target_windows()) {
+    //         full_command = add_lit_str("(", 1, command);
+    //         append_lit(&full_command, ") 2>&1", 6);
+    //     } else {
+    //         full_command = add_str_lit(command, " 2>&1", 5);
+    //     }
     //     char *c_command = (char *)full_command->value;
     //     FILE *pipe = popen(c_command, "r");
     //     free(full_command);
@@ -90,6 +96,7 @@ void Generator::Module::System::generate_system_command_function( //
     llvm::Function *const strlen_fn = c_functions.at(STRLEN);
     llvm::Function *const pclose_fn = c_functions.at(PCLOSE);
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
+    llvm::Function *const add_lit_str_fn = String::string_manip_functions.at("add_lit_str");
     llvm::Function *const add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
     llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *const normalize_crlf_fn = String::string_manip_functions.at("normalize_crlf");
@@ -232,11 +239,22 @@ void Generator::Module::System::generate_system_command_function( //
         builder->SetInsertPoint(replace_slash_merge_block);
     }
 
-    // Create command with stderr redirection: full_command = add_str_lit(command, " 2>&1", 5)
-    llvm::Value *const redirect_str = IR::generate_const_string(module, " 2>&1");
-    llvm::Value *const full_command = builder->CreateCall(                                   //
-        add_str_lit_fn, {command_to_use, redirect_str, builder->getInt64(5)}, "full_command" //
-    );
+    // Create command with stderr redirection
+    llvm::Value *full_command = nullptr;
+    if (is_target_windows()) {
+        llvm::AllocaInst *const full_command_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "full_command_alloca");
+        llvm::Value *const lparen_str = IR::generate_const_string(module, "(");
+        llvm::Value *const lparen_prepended = builder->CreateCall(                                 //
+            add_lit_str_fn, {lparen_str, builder->getInt64(1), command_to_use}, "lparen_prepended" //
+        );
+        IR::aligned_store(*builder, lparen_prepended, full_command_alloca);
+        llvm::Value *const redirect_str = IR::generate_const_string(module, ") 2>&1");
+        builder->CreateCall(append_lit_fn, {full_command_alloca, redirect_str, builder->getInt64(6)});
+        full_command = IR::aligned_load(*builder, PTR_TY, full_command_alloca, "full_command");
+    } else {
+        llvm::Value *const redirect_str = IR::generate_const_string(module, " 2>&1");
+        full_command = builder->CreateCall(add_str_lit_fn, {command_to_use, redirect_str, builder->getInt64(5)}, "full_command");
+    }
 
     // Get C string: c_command = (char *)full_command->value
     llvm::Value *const c_command = builder->CreateStructGEP(str_type, full_command, 1, "c_command");
