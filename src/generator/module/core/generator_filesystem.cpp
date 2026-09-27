@@ -1,4 +1,5 @@
 #include "generator/generator.hpp"
+#include "llvm/IR/Constants.h"
 
 static const Hash hash(std::string("filesystem"));
 static const std::string prefix = hash.to_string() + ".filesystem.";
@@ -23,7 +24,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
 ) {
     // THE C IMPLEMENTATION:
     // str *read_file(const str *path) {
-    //     char *c_path = (char *(path->value;
+    //     char *c_path = (char *)(path->value);
     //     // Open the file for reading in binary mode
     //     FILE *file = fopen(c_path, "rb");
     //     // Get the file size
@@ -49,6 +50,15 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     //         free(content);
     //         return NULL; // File read error
     //     }
+    //     size_t dest = 0;
+    //     size_t src = 0;
+    //     while (src < file_size) {
+    //         const char c = content->value[src++];
+    //         if (c != '\r' || src == file_size || content->value[src] != '\n') {
+    //             content->value[dest++] = c;
+    //         }
+    //     }
+    //     content->len = dest;
     //     return content;
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
@@ -98,8 +108,14 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::BasicBlock *const ftell_error_block = llvm::BasicBlock::Create(context, "ftell_error", read_file_fn);
     llvm::BasicBlock *const seek_set_ok_block = llvm::BasicBlock::Create(context, "seek_set_ok", read_file_fn);
     llvm::BasicBlock *const seek_set_error_block = llvm::BasicBlock::Create(context, "seek_set_error", read_file_fn);
-    llvm::BasicBlock *const read_ok_block = llvm::BasicBlock::Create(context, "read_ok", read_file_fn);
     llvm::BasicBlock *const read_error_block = llvm::BasicBlock::Create(context, "read_error", read_file_fn);
+    llvm::BasicBlock *const read_ok_block = llvm::BasicBlock::Create(context, "read_ok", read_file_fn);
+    llvm::BasicBlock *const while_cond_block = llvm::BasicBlock::Create(context, "while_cond", read_file_fn);
+    llvm::BasicBlock *const while_body_block = llvm::BasicBlock::Create(context, "while_body", read_file_fn);
+    llvm::BasicBlock *const c_eq_cr_block = llvm::BasicBlock::Create(context, "c_eq_cr", read_file_fn);
+    llvm::BasicBlock *const src_ne_size_block = llvm::BasicBlock::Create(context, "src_ne_size", read_file_fn);
+    llvm::BasicBlock *const copy_block = llvm::BasicBlock::Create(context, "copy", read_file_fn);
+    llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", read_file_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
@@ -233,14 +249,55 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Value *const ret_read_val = IR::aligned_load(*builder, function_result_type, ret_read_alloc, "ret_read_val");
     builder->CreateRet(ret_read_val);
 
-    // Success - return content
     builder->SetInsertPoint(read_ok_block);
-    llvm::AllocaInst *const ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
-    llvm::Value *const ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
-    IR::aligned_store(*builder, builder->getInt32(0), ret_err_ptr);
-    llvm::Value *const ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    IR::aligned_store(*builder, content, ret_val_ptr);
-    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
+    llvm::AllocaInst *const src = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "src_alloca");
+    llvm::AllocaInst *const dest = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "dest_alloca");
+    IR::aligned_store(*builder, builder->getInt64(0), src);
+    IR::aligned_store(*builder, builder->getInt64(0), dest);
+    builder->CreateBr(while_cond_block);
+
+    {
+        builder->SetInsertPoint(while_cond_block);
+        llvm::Value *const src_val = IR::aligned_load(*builder, builder->getInt64Ty(), src, "src_val");
+        llvm::Value *const src_lt_file_size = builder->CreateICmpULT(src_val, file_size, "src_lt_file_size");
+        builder->CreateCondBr(src_lt_file_size, while_body_block, ret_block);
+
+        builder->SetInsertPoint(while_body_block);
+        llvm::Value *const c_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, src_val, "c_ptr");
+        llvm::Value *const c_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_ptr, "c_val");
+        llvm::Value *const src_p1 = builder->CreateAdd(src_val, builder->getInt64(1), "src_p1");
+        IR::aligned_store(*builder, src_p1, src);
+        llvm::Value *const c_eq_cr = builder->CreateICmpEQ(c_val, builder->getInt8('\r'), "c_eq_cr");
+        builder->CreateCondBr(c_eq_cr, c_eq_cr_block, copy_block);
+
+        builder->SetInsertPoint(c_eq_cr_block);
+        llvm::Value *const src_ne_size = builder->CreateICmpNE(src_p1, file_size, "src_ne_size");
+        builder->CreateCondBr(src_ne_size, src_ne_size_block, copy_block);
+
+        builder->SetInsertPoint(src_ne_size_block);
+        llvm::Value *const c_p1_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, src_p1, "c_p1_ptr");
+        llvm::Value *const c_p1_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_p1_ptr, "c_p1_val");
+        llvm::Value *const c_p1_eq_lf = builder->CreateICmpEQ(c_p1_val, builder->getInt8('\n'), "c_p1_eq_lf");
+        builder->CreateCondBr(c_p1_eq_lf, while_cond_block, copy_block);
+
+        builder->SetInsertPoint(copy_block);
+        llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
+        llvm::Value *const c_dest_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, dest_val, "c_dest_ptr");
+        IR::aligned_store(*builder, c_val, c_dest_ptr);
+        llvm::Value *const dest_p1 = builder->CreateAdd(dest_val, builder->getInt64(1), "dest_p1");
+        IR::aligned_store(*builder, dest_p1, dest);
+        builder->CreateBr(while_cond_block);
+    }
+
+    builder->SetInsertPoint(ret_block);
+    llvm::Value *const content_len_ptr = builder->CreateStructGEP(str_type, content, 0, "content_len_ptr");
+    llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
+    IR::aligned_store(*builder, dest_val, content_len_ptr);
+    llvm::Value *const null_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, dest_val, "null_ptr");
+    IR::aligned_store(*builder, builder->getInt8(0), null_ptr);
+    llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
+    ret_val = builder->CreateInsertValue(ret_val, builder->getInt32(0), 0);
+    ret_val = builder->CreateInsertValue(ret_val, content, 1, "ret_val");
     builder->CreateRet(ret_val);
 }
 
@@ -250,76 +307,80 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const bool only_declarations                                  //
 ) {
     // THE C IMPLEMENTATION:
-    // str *read_lines(const str *path) {
+    // str *read_lines(const str *path) {                                                               B0 [entry]
     //     char *c_path = (char *)path->value;
-    //     // Open the file for reading
     //     FILE *file = fopen(c_path, "r");
-    //     if (!file) {
-    //         return NULL; // File open error
-    //     }
-    //     // First pass: Count the number of lines
+    //     if (file == NULL) {                                                                          B1
+    //         return NULL;
+    //     }                                                                                            B2
+    //
+    //     // Count the number of lines
     //     size_t line_count = 0;
     //     int ch;
     //     bool_t in_line = FALSE;
-    //     while ((ch = fgetc(file)) != EOF) {
-    //         if (ch == '\n') {
+    //     while ((ch = fgetc(file)) != EOF) {                                                          B3 [cond], B4 [body]
+    //         if (ch == '\n') {                                                                        B5
     //             line_count++;
     //             in_line = FALSE;
-    //         } else if (!in_line) {
+    //         } else if (!in_line) {                                                                   B6 [cond], B7
     //             in_line = TRUE;
     //         }
-    //     }
-    //     // Handle the case where the last line doesn't end with a newline
-    //     if (in_line) {
+    //     }                                                                                            B8 [merge]
+    //     // Does not end with a new line
+    //     if (in_line) {                                                                               B9
     //         line_count++;
-    //     }
-    //     // Reset file pointer to beginning
+    //     }                                                                                            B10
     //     rewind(file);
-    //     // Create the array of strings
-    //     size_t lengths[1] = {line_count};
-    //     str *lines_array = create_arr(1, sizeof(str *), lengths);
-    //     if (!lines_array) {
+    //     str *lines_array = create_arr(1, sizeof(str *), &line_count);
+    //     if (lines_array == NULL) {                                                                   B11
     //         fclose(file);
     //         return NULL;
-    //     }
+    //     }                                                                                            B12
+    //
     //     // Initialize array with NULL pointers
     //     str *null_ptr = NULL;
-    //     fill_arr_inline(lines_array, sizeof(str *), &null_ptr);
+    //     fill_arr(                                       //
+    //         (char*)((size_t *)lines_array->value) + 1), // char* data
+    //         1,                                          // size_t dim
+    //         (size_t *)lines_array->value,               // size_t* dim_lengths
+    //         sizeof(void *),                             // size_t value_size
+    //         &null_ptr,                                  // void* value
+    //         0                                           // int32_t type_id
+    //     );
+    //
     //     // Read lines and populate the array
     //     size_t line_idx = 0;
-    //     char buffer[4096]; // Buffer for reading lines
-    //     size_t idx[1];     // For accessing array elements
-    //     while (fgets(buffer, sizeof(buffer), file)) {
+    //     char buffer[4096];
+    //     while (fgets(buffer, sizeof(buffer), file)) {                                                B13 [cond], B14 [body]
     //         size_t len = strlen(buffer);
-    //         // Remove trailing newline if present
-    //         if (len > 0 && buffer[len - 1] == '\n') {
+    //         // Remove trailing newline and carry linefeed if present
+    //         if (len > 0 && buffer[len - 1] == '\n') {                                                B15, B16
     //             buffer[--len] = '\0';
-    //         }
-    //         // Create str for this line
-    //         str *line = init_str(buffer, len);
-    //         if (!line) {
-    //             // Clean up on error
-    //             for (size_t i = 0; i < line_idx; i++) {
-    //                 idx[0] = i;
-    //                 str *line_str = *(str **)access_arr(lines_array, sizeof(str *), idx);
-    //                 free(line_str);
+    //             if (len > 0 && buffer[len - 1] == '\r') {                                            B17, B18
+    //                 buffer[--len] = '\0';
     //             }
+    //         }                                                                                        B19
+    //         size_t *dim_lengths = (size_t *)lines_array->value;
+    //         char *data = (char *)(dim_lengths + 1);
+    //         str *line = init_str(buffer, len);
+    //         if (line == NULL) {                                                                      B20
+    //             for (size_t i = 0; i < line_idx; i++) {                                              B21 [cond], B22 [body]
+    //                 str *line_str = *(str **)access_arr(sizeof(str *), data, 1, dim_lengths, &i);
+    //                 free(line_str);
+    //             }                                                                                    B23 [merge]
     //             free(lines_array);
     //             fclose(file);
     //             return NULL;
-    //         }
-    //         // Store in array
-    //         idx[0] = line_idx;
-    //         str **elem_ptr = (str **)access_arr(lines_array, sizeof(str *), idx);
+    //         }                                                                                        B24
+    //         str **elem_ptr = (str **)access_arr(sizeof(str *), data, 1, dim_lengths, &line_idx);
     //         *elem_ptr = line;
     //         line_idx++;
-    //     }
-    //     // Check if we read fewer lines than expected (e.g., due to errors)
-    //     if (line_idx < line_count) {
-    //         // Adjust the array size (this is a simplification - in real code you might want to reallocate)
+    //     }                                                                                            B25 [merge]
+    //     // Check if we read fewer lines than expected and adjust array length
+    //     if (line_idx < line_count) {                                                                 B26
     //         size_t *dim_lengths = (size_t *)lines_array->value;
-    //         dim_lengths[0] = line_idx;
-    //     }
+    //         *dim_lengths = line_idx;
+    //     }                                                                                            B27
     //     fclose(file);
     //     return lines_array;
     // }
@@ -331,8 +392,6 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     llvm::Function *const fgets_fn = c_functions.at(FGETS);
     llvm::Function *const rewind_fn = c_functions.at(REWIND);
     llvm::Function *const strlen_fn = c_functions.at(STRLEN);
-
-    // Get string and array utility functions
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const init_str_fn = String::string_manip_functions.at("init_str");
     llvm::Function *const create_arr_fn = Array::array_manip_functions.at("create_arr");
@@ -349,422 +408,275 @@ void Generator::Module::FileSystem::generate_read_lines_function( //
     const unsigned int TooLarge = 5;
     const std::string TooLargeMessage(ErrFSValues.at(TooLarge - ErrIOCount).second);
 
-    // Define return type - str[] (array of strings)
-    const std::shared_ptr<Type> result_type_ptr = Type::get_type_from_str("str[]").value();
-    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, result_type_ptr, true);
+    llvm::StructType *const function_result_type = IR::add_and_or_get_type(module, Type::get_primitive_type("str"), true);
     llvm::FunctionType *const read_lines_type = llvm::FunctionType::get(function_result_type, {PTR_TY}, false);
-    llvm::Function *const read_lines_fn =
-        llvm::Function::Create(read_lines_type, llvm::Function::ExternalLinkage, prefix + "read_lines", module);
+    llvm::Function *const read_lines_fn = llvm::Function::Create(                       //
+        read_lines_type, llvm::Function::ExternalLinkage, prefix + "read_lines", module //
+    );
     fs_functions["read_lines"] = read_lines_fn;
     if (only_declarations) {
         return;
     }
 
-    // Get the path parameter
-    llvm::Argument *const path_arg = read_lines_fn->arg_begin();
-    path_arg->setName("path");
+    llvm::Argument *const arg_path = read_lines_fn->arg_begin();
+    arg_path->setName("path");
 
     // Create basic blocks
-    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", read_lines_fn);
-    llvm::BasicBlock *const file_ok_block = llvm::BasicBlock::Create(context, "file_ok", read_lines_fn);
-    llvm::BasicBlock *const file_fail_block = llvm::BasicBlock::Create(context, "file_fail", read_lines_fn);
-    llvm::BasicBlock *const count_lines_loop = llvm::BasicBlock::Create(context, "count_lines_loop", read_lines_fn);
-    llvm::BasicBlock *const count_lines_end = llvm::BasicBlock::Create(context, "count_lines_end", read_lines_fn);
-    llvm::BasicBlock *const check_last_line = llvm::BasicBlock::Create(context, "check_last_line", read_lines_fn);
-    llvm::BasicBlock *const inc_line_count = llvm::BasicBlock::Create(context, "inc_line_count", read_lines_fn);
-    llvm::BasicBlock *const array_create_ok = llvm::BasicBlock::Create(context, "array_create_ok", read_lines_fn);
-    llvm::BasicBlock *const array_create_fail = llvm::BasicBlock::Create(context, "array_create_fail", read_lines_fn);
-    llvm::BasicBlock *const read_lines_loop = llvm::BasicBlock::Create(context, "read_lines_loop", read_lines_fn);
-    llvm::BasicBlock *const read_line_body = llvm::BasicBlock::Create(context, "read_line_body", read_lines_fn);
-    llvm::BasicBlock *const check_newline = llvm::BasicBlock::Create(context, "check_newline", read_lines_fn);
-    llvm::BasicBlock *const remove_newline = llvm::BasicBlock::Create(context, "remove_newline", read_lines_fn);
-    llvm::BasicBlock *const after_newline_check = llvm::BasicBlock::Create(context, "after_newline_check", read_lines_fn);
-    llvm::BasicBlock *const init_str_fail = llvm::BasicBlock::Create(context, "init_str_fail", read_lines_fn);
-    llvm::BasicBlock *const cleanup_loop = llvm::BasicBlock::Create(context, "cleanup_loop", read_lines_fn);
-    llvm::BasicBlock *const cleanup_body = llvm::BasicBlock::Create(context, "cleanup_body", read_lines_fn);
-    llvm::BasicBlock *const cleanup_end = llvm::BasicBlock::Create(context, "cleanup_end", read_lines_fn);
-    llvm::BasicBlock *const store_line = llvm::BasicBlock::Create(context, "store_line", read_lines_fn);
-    llvm::BasicBlock *const size_check = llvm::BasicBlock::Create(context, "size_check", read_lines_fn);
-    llvm::BasicBlock *const adjust_size = llvm::BasicBlock::Create(context, "adjust_size", read_lines_fn);
-    llvm::BasicBlock *const return_result = llvm::BasicBlock::Create(context, "return_result", read_lines_fn);
+    llvm::BasicBlock *const b0_entry = llvm::BasicBlock::Create(context, "B0_entry", read_lines_fn);
+    llvm::BasicBlock *const b1 = llvm::BasicBlock::Create(context, "B1", read_lines_fn);
+    llvm::BasicBlock *const b2 = llvm::BasicBlock::Create(context, "B2", read_lines_fn);
+    llvm::BasicBlock *const b3_cond = llvm::BasicBlock::Create(context, "B3_cond", read_lines_fn);
+    llvm::BasicBlock *const b4_body = llvm::BasicBlock::Create(context, "B4_body", read_lines_fn);
+    llvm::BasicBlock *const b5 = llvm::BasicBlock::Create(context, "B5", read_lines_fn);
+    llvm::BasicBlock *const b6_if = llvm::BasicBlock::Create(context, "B6_if", read_lines_fn);
+    llvm::BasicBlock *const b7 = llvm::BasicBlock::Create(context, "B7", read_lines_fn);
+    llvm::BasicBlock *const b8_merge = llvm::BasicBlock::Create(context, "B8_merge", read_lines_fn);
+    llvm::BasicBlock *const b9 = llvm::BasicBlock::Create(context, "B9", read_lines_fn);
+    llvm::BasicBlock *const b10 = llvm::BasicBlock::Create(context, "B10", read_lines_fn);
+    llvm::BasicBlock *const b11 = llvm::BasicBlock::Create(context, "B11", read_lines_fn);
+    llvm::BasicBlock *const b12 = llvm::BasicBlock::Create(context, "B12", read_lines_fn);
+    llvm::BasicBlock *const b13_cond = llvm::BasicBlock::Create(context, "B13_cond", read_lines_fn);
+    llvm::BasicBlock *const b14_body = llvm::BasicBlock::Create(context, "B14_body", read_lines_fn);
+    llvm::BasicBlock *const b15 = llvm::BasicBlock::Create(context, "B15", read_lines_fn);
+    llvm::BasicBlock *const b16 = llvm::BasicBlock::Create(context, "B16", read_lines_fn);
+    llvm::BasicBlock *const b17 = llvm::BasicBlock::Create(context, "B17", read_lines_fn);
+    llvm::BasicBlock *const b18 = llvm::BasicBlock::Create(context, "B18", read_lines_fn);
+    llvm::BasicBlock *const b19 = llvm::BasicBlock::Create(context, "B19", read_lines_fn);
+    llvm::BasicBlock *const b20 = llvm::BasicBlock::Create(context, "B20", read_lines_fn);
+    llvm::BasicBlock *const b21_cond = llvm::BasicBlock::Create(context, "B21_cond", read_lines_fn);
+    llvm::BasicBlock *const b22_body = llvm::BasicBlock::Create(context, "B22_body", read_lines_fn);
+    llvm::BasicBlock *const b23_merge = llvm::BasicBlock::Create(context, "B23_merge", read_lines_fn);
+    llvm::BasicBlock *const b24 = llvm::BasicBlock::Create(context, "B24", read_lines_fn);
+    llvm::BasicBlock *const b25_merge = llvm::BasicBlock::Create(context, "B25_merge", read_lines_fn);
+    llvm::BasicBlock *const b26 = llvm::BasicBlock::Create(context, "B26", read_lines_fn);
+    llvm::BasicBlock *const b27 = llvm::BasicBlock::Create(context, "B27", read_lines_fn);
 
-    // Set insertion point to entry block
-    builder->SetInsertPoint(entry_block);
-
-    // Get the C string from the value
-    llvm::Value *const c_path = builder->CreateStructGEP(str_type, path_arg, 1, "c_path");
-
-    // Create "r" string constant for fopen mode
+    builder->SetInsertPoint(b0_entry);
+    llvm::Value *const ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
+    llvm::Value *const null_ptr = llvm::ConstantPointerNull::get(PTR_TY);
+    llvm::Value *const c_path = builder->CreateStructGEP(str_type, arg_path, 1, "b0_c_path");
     llvm::Value *const mode_str = IR::generate_const_string(module, "r");
+    llvm::Value *const file_ptr = builder->CreateCall(fopen_fn, {c_path, mode_str}, "b0_file_ptr");
+    llvm::Value *const file_ptr_eq_null = builder->CreateICmpEQ(file_ptr, null_ptr, "b0_file_ptr_eq_null");
+    builder->CreateCondBr(file_ptr_eq_null, b1, b2);
 
-    // Open file: file = fopen(c_path, "r")
-    llvm::Value *const file = builder->CreateCall(fopen_fn, {c_path, mode_str}, "file");
-
-    // Check if file is NULL
-    llvm::Value *const file_null = builder->CreateIsNull(file, "file_null");
-    builder->CreateCondBr(file_null, file_fail_block, file_ok_block);
-
-    // Handle file open failure, throw ErrIO.NotFound
-    builder->SetInsertPoint(file_fail_block);
-    llvm::AllocaInst *const ret_file_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_file_fail_alloc");
-    llvm::Value *const ret_file_fail_err_ptr = builder->CreateStructGEP(      //
-        function_result_type, ret_file_fail_alloc, 0, "ret_file_fail_err_ptr" //
-    );
-    llvm::Value *err_value = IR::generate_err_value(*builder, module, ErrFS, NotFound, NotFoundMessage);
-    IR::aligned_store(*builder, err_value, ret_file_fail_err_ptr);
-    llvm::Value *const ret_file_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_file_fail_empty_str");
-    llvm::Value *const ret_file_fail_val_ptr = builder->CreateStructGEP(      //
-        function_result_type, ret_file_fail_alloc, 1, "ret_file_fail_val_ptr" //
-    );
-    IR::aligned_store(*builder, ret_file_fail_empty_str, ret_file_fail_val_ptr);
-    llvm::Value *const ret_file_fail_val = IR::aligned_load(*builder, function_result_type, ret_file_fail_alloc, "ret_file_fail_val");
-    builder->CreateRet(ret_file_fail_val);
-
-    // Continue with successful file open - count lines
-    builder->SetInsertPoint(file_ok_block);
-
-    // Initialize line counting variables
-    llvm::AllocaInst *const line_count_var = builder->CreateAlloca(builder->getInt64Ty(), 0, "line_count_var");
-    IR::aligned_store(*builder, builder->getInt64(0), line_count_var);
-
-    llvm::AllocaInst *const in_line_var = builder->CreateAlloca(builder->getInt1Ty(), 0, "in_line_var");
-    IR::aligned_store(*builder, builder->getFalse(), in_line_var);
-
-    llvm::AllocaInst *const ch_var = builder->CreateAlloca(builder->getInt32Ty(), 0, "ch_var");
-
-    // Start line counting loop
-    builder->CreateBr(count_lines_loop);
-
-    // Line counting loop header
-    builder->SetInsertPoint(count_lines_loop);
-    llvm::Value *const ch = builder->CreateCall(fgetc_fn, {file}, "ch");
-    IR::aligned_store(*builder, ch, ch_var);
-
-    // Check if we hit EOF
-    llvm::Value *const is_eof = builder->CreateICmpEQ(ch, builder->getInt32(-1), "is_eof");
-    builder->CreateCondBr(is_eof, check_last_line, count_lines_end);
-
-    // Line counting loop body
-    builder->SetInsertPoint(count_lines_end);
-
-    // Check if character is newline
-    llvm::Value *const is_newline = builder->CreateICmpEQ(ch, builder->getInt32('\n'), "is_newline");
-
-    // If newline, increment line count and reset in_line
-    llvm::Value *const current_line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "current_line_count");
-    llvm::Value *const incremented_count = builder->CreateAdd(current_line_count, builder->getInt64(1), "incremented_count");
-
-    // Use select for conditional stores
-    llvm::Value *const current_in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_var, "current_in_line");
-    llvm::Value *const new_line_count = builder->CreateSelect(is_newline, incremented_count, current_line_count, "new_line_count");
-    IR::aligned_store(*builder, new_line_count, line_count_var);
-
-    llvm::Value *new_in_line;
-    if (is_newline->getType()->isIntegerTy(1)) {
-        // If is_newline is already i1, use it directly with not operation
-        new_in_line = builder->CreateSelect(                                                                       //
-            is_newline, builder->getFalse(), builder->CreateOr(current_in_line, builder->getTrue()), "new_in_line" //
-        );
-    } else {
-        // Convert is_newline to i1 type
-        llvm::Value *is_newline_i1 = builder->CreateICmpNE(is_newline, builder->getInt32(0), "is_newline_i1");
-        new_in_line = builder->CreateSelect(                                                                          //
-            is_newline_i1, builder->getFalse(), builder->CreateOr(current_in_line, builder->getTrue()), "new_in_line" //
-        );
+    {
+        builder->SetInsertPoint(b1);
+        llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
+        llvm::Value *const err_value = IR::generate_err_value(*builder, module, ErrFS, NotFound, NotFoundMessage);
+        ret_val = builder->CreateInsertValue(ret_val, err_value, 0);
+        llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "b1_empty_str");
+        ret_val = builder->CreateInsertValue(ret_val, empty_str, 1, "b1_ret_val");
+        builder->CreateRet(ret_val);
     }
-    IR::aligned_store(*builder, new_in_line, in_line_var);
 
-    // Continue the loop
-    builder->CreateBr(count_lines_loop);
+    builder->SetInsertPoint(b2);
+    llvm::AllocaInst *const line_count_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "line_count_alloca");
+    llvm::AllocaInst *const ch_alloca = builder->CreateAlloca(builder->getInt32Ty(), 0, nullptr, "ch_alloca");
+    llvm::AllocaInst *const in_line_alloca = builder->CreateAlloca(builder->getInt1Ty(), 0, nullptr, "in_line_alloca");
+    IR::aligned_store(*builder, builder->getInt64(0), line_count_alloca);
+    IR::aligned_store(*builder, builder->getInt1(false), in_line_alloca);
+    builder->CreateBr(b3_cond);
 
-    // Check if last line needs to be counted
-    builder->SetInsertPoint(check_last_line);
-    llvm::Value *const final_in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_var, "final_in_line");
-    builder->CreateCondBr(final_in_line, inc_line_count, array_create_ok);
+    {
+        builder->SetInsertPoint(b3_cond);
+        llvm::Value *const ch_val = builder->CreateCall(fgetc_fn, {file_ptr}, "b3_ch_val");
+        IR::aligned_store(*builder, ch_val, ch_alloca);
+        llvm::Value *const eof = builder->getInt32(-1);
+        llvm::Value *const ch_eq_eof = builder->CreateICmpEQ(ch_val, eof, "ch_eq_eof");
+        builder->CreateCondBr(ch_eq_eof, b8_merge, b4_body);
 
-    // Increment line count for the last line
-    builder->SetInsertPoint(inc_line_count);
-    llvm::Value *const final_line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "final_line_count");
-    llvm::Value *const final_incremented_count = builder->CreateAdd(final_line_count, builder->getInt64(1), "final_incremented_count");
-    IR::aligned_store(*builder, final_incremented_count, line_count_var);
-    builder->CreateBr(array_create_ok);
+        builder->SetInsertPoint(b4_body);
+        llvm::Value *const ch_eq_eol = builder->CreateICmpEQ(ch_val, builder->getInt32('\n'), "ch_eq_eol");
+        builder->CreateCondBr(ch_eq_eol, b5, b6_if);
 
-    // Create array of strings
-    builder->SetInsertPoint(array_create_ok);
+        builder->SetInsertPoint(b5);
+        llvm::Value *const line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_alloca, "b5_line_count");
+        llvm::Value *const line_count_p1 = builder->CreateAdd(line_count, builder->getInt64(1), "b5_line_count_p1");
+        IR::aligned_store(*builder, line_count_p1, line_count_alloca);
+        IR::aligned_store(*builder, builder->getInt1(false), in_line_alloca);
+        builder->CreateBr(b3_cond);
 
-    // Rewind file to beginning
-    builder->CreateCall(rewind_fn, {file});
+        builder->SetInsertPoint(b6_if);
+        llvm::Value *const in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_alloca, "b6_in_line");
+        builder->CreateCondBr(in_line, b3_cond, b7);
 
-    // Create array with 1 dimension of size line_count
-    llvm::Value *const final_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "final_count");
+        builder->SetInsertPoint(b7);
+        IR::aligned_store(*builder, builder->getInt1(true), in_line_alloca);
+        builder->CreateBr(b3_cond);
+    }
 
-    // Create an array for the dimension lengths
-    llvm::AllocaInst *const lengths_alloca = builder->CreateAlloca(builder->getInt64Ty(), builder->getInt32(1), "lengths_alloca");
-    IR::aligned_store(*builder, final_count, lengths_alloca);
+    builder->SetInsertPoint(b8_merge);
+    llvm::Value *const in_line = IR::aligned_load(*builder, builder->getInt1Ty(), in_line_alloca, "b8_in_line");
+    builder->CreateCondBr(in_line, b9, b10);
 
-    // Create the array of strings
-    llvm::Value *const lines_array = builder->CreateCall(create_arr_fn,
-        {
-            builder->getInt64(1),              // 1 dimension
-            builder->getInt64(sizeof(void *)), // Size of str pointer
-            lengths_alloca                     // Array of dimension lengths
-        },                                     //
-        "lines_array"                          //
+    {
+        builder->SetInsertPoint(b9);
+        llvm::Value *const line_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_alloca, "b9_line_count");
+        llvm::Value *const line_count_p1 = builder->CreateAdd(line_count, builder->getInt64(1), "b9_line_count_p1");
+        IR::aligned_store(*builder, line_count_p1, line_count_alloca);
+        builder->CreateBr(b10);
+    }
+
+    builder->SetInsertPoint(b10);
+    builder->CreateCall(rewind_fn, {file_ptr});
+    llvm::Value *const lines_array = builder->CreateCall(                                     //
+        create_arr_fn, {builder->getInt64(1), ptr_size, line_count_alloca}, "b10_lines_array" //
     );
+    llvm::Value *const lines_array_null = builder->CreateICmpEQ(lines_array, null_ptr, "b10_lines_array_null");
+    builder->CreateCondBr(lines_array_null, b11, b12);
 
-    // Check if array creation was successful
-    llvm::Value *const array_null = builder->CreateIsNull(lines_array, "array_null");
-    builder->CreateCondBr(array_null, array_create_fail, read_lines_loop);
+    {
+        builder->SetInsertPoint(b11);
+        builder->CreateCall(fclose_fn, {file_ptr});
+        llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
+        llvm::Value *const err_value = IR::generate_err_value(*builder, module, ErrFS, TooLarge, TooLargeMessage);
+        ret_val = builder->CreateInsertValue(ret_val, err_value, 0);
+        llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "b11_empty_str");
+        ret_val = builder->CreateInsertValue(ret_val, empty_str, 1, "b11_ret_val");
+        builder->CreateRet(ret_val);
+    }
 
-    // Handle array creation failure, throw ErrFS.TooLarge
-    builder->SetInsertPoint(array_create_fail);
-    builder->CreateCall(fclose_fn, {file});
-    llvm::AllocaInst *const ret_array_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_array_fail_alloc");
-    llvm::Value *const ret_array_fail_err_ptr =
-        builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 0, "ret_array_fail_err_ptr");
-    err_value = IR::generate_err_value(*builder, module, ErrFS, TooLarge, TooLargeMessage);
-    IR::aligned_store(*builder, err_value, ret_array_fail_err_ptr);
-    llvm::Value *const ret_array_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_array_fail_empty_str");
-    llvm::Value *const ret_array_fail_val_ptr =
-        builder->CreateStructGEP(function_result_type, ret_array_fail_alloc, 1, "ret_array_fail_val_ptr");
-    IR::aligned_store(*builder, ret_array_fail_empty_str, ret_array_fail_val_ptr);
-    llvm::Value *const ret_array_fail_val = IR::aligned_load(*builder, function_result_type, ret_array_fail_alloc, "ret_array_fail_val");
-    builder->CreateRet(ret_array_fail_val);
-
-    // Initialize array with NULL pointers
-    builder->SetInsertPoint(read_lines_loop);
-
-    // Create a NULL str pointer to fill array
-    llvm::AllocaInst *const null_str_ptr = builder->CreateAlloca(PTR_TY, 0, "null_str_ptr");
-    IR::aligned_store(*builder, llvm::ConstantPointerNull::get(PTR_TY), null_str_ptr);
-
-    // Extract the data pointer from the str*: data = (char*)(str->value + str->len * sizeof(size_t))
-    llvm::Value *const fill_arr_len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "fill_arr_len_ptr");
-    llvm::Value *const fill_arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), fill_arr_len_ptr, "fill_arr_dim");
-    llvm::Value *const fill_arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "fill_arr_dim_lengths");
-    llvm::Value *const fill_arr_data = builder->CreateBitCast(                                                 //
-        builder->CreateGEP(builder->getInt64Ty(), fill_arr_dim_lengths, fill_arr_dim, "fill_arr_data"), PTR_TY //
-    );
-
-    // Fill array with NULL pointers using new fill_arr signature
+    builder->SetInsertPoint(b12);
+    llvm::AllocaInst *const null_ptr_alloca = builder->CreateAlloca(PTR_TY, 0, nullptr, "null_ptr_alloca");
+    IR::aligned_store(*builder, null_ptr, null_ptr_alloca);
+    llvm::Value *const arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "b12_arr_dim_lengths");
+    llvm::Value *const arr_data = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, builder->getInt64(1), "b12_arr_data");
     builder->CreateCall(fill_arr_fn,
         {
-            fill_arr_data,                     // char* data
-            fill_arr_dim,                      // size_t dim
-            fill_arr_dim_lengths,              // size_t* dim_lengths
-            builder->getInt64(sizeof(void *)), // size_t value_size
-            null_str_ptr,                      // void* value
-            builder->getInt32(0)               // i32 type_id
+            arr_data,             // char* data
+            builder->getInt64(1), // size_t dim
+            arr_dim_lengths,      // size_t* dim_lengths
+            ptr_size,             // size_t value_size
+            null_ptr_alloca,      // void* value
+            builder->getInt32(0)  // i32 type_id
         });
+    llvm::AllocaInst *const line_idx_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "line_idx_alloca");
+    IR::aligned_store(*builder, builder->getInt64(0), line_idx_alloca);
+    llvm::AllocaInst *const buffer_alloca = builder->CreateAlloca(builder->getInt8Ty(), builder->getInt32(4096), "buffer_alloca");
+    builder->CreateBr(b13_cond);
 
-    // Allocate buffer for reading lines (4096 bytes)
-    llvm::AllocaInst *const buffer = builder->CreateAlloca(builder->getInt8Ty(), builder->getInt32(4096), "buffer");
+    {
+        builder->SetInsertPoint(b13_cond);
+        llvm::Value *const fgets_ret = builder->CreateCall(                               //
+            fgets_fn, {buffer_alloca, builder->getInt32(4096), file_ptr}, "b13_fgets_ret" //
+        );
+        llvm::Value *const fgets_ret_eq_null = builder->CreateICmpEQ(fgets_ret, null_ptr, "fgets_ret_eq_null");
+        builder->CreateCondBr(fgets_ret_eq_null, b25_merge, b14_body);
 
-    // Create an array for accessing array elements (1 index)
-    llvm::AllocaInst *const idx_alloca = builder->CreateAlloca(builder->getInt64Ty(), builder->getInt32(1), "idx_alloca");
+        builder->SetInsertPoint(b14_body);
+        llvm::Value *const len = builder->CreateCall(strlen_fn, {buffer_alloca}, "b14_len");
+        llvm::Value *const len_gt_0 = builder->CreateICmpUGT(len, builder->getInt64(0), "b14_len_gt_0");
+        builder->CreateCondBr(len_gt_0, b15, b19);
 
-    // Initialize line index
-    llvm::AllocaInst *const line_idx_var = builder->CreateAlloca(builder->getInt64Ty(), 0, "line_idx_var");
-    IR::aligned_store(*builder, builder->getInt64(0), line_idx_var);
+        builder->SetInsertPoint(b15);
+        llvm::Value *const len_m1 = builder->CreateSub(len, builder->getInt64(1), "b15_len_m1");
+        llvm::Value *const buffer_at_len_m1_ptr = builder->CreateGEP(               //
+            builder->getInt8Ty(), buffer_alloca, len_m1, "b15_buffer_at_len_m1_ptr" //
+        );
+        llvm::Value *const buffer_at_len_m1 = IR::aligned_load(                          //
+            *builder, builder->getInt8Ty(), buffer_at_len_m1_ptr, "b15_buffer_at_len_m1" //
+        );
+        llvm::Value *const buffer_at_len_m1_eq_lf = builder->CreateICmpEQ(         //
+            buffer_at_len_m1, builder->getInt8('\n'), "b15_buffer_at_len_m1_eq_lf" //
+        );
+        builder->CreateCondBr(buffer_at_len_m1_eq_lf, b16, b19);
 
-    // Start reading lines
-    builder->CreateBr(read_line_body);
+        builder->SetInsertPoint(b16);
+        IR::aligned_store(*builder, builder->getInt8(0), buffer_at_len_m1_ptr);
+        llvm::Value *const len_m1_gt_0 = builder->CreateICmpUGT(len_m1, builder->getInt64(0), "b16_len_m1_gt_0");
+        builder->CreateCondBr(len_m1_gt_0, b17, b19);
 
-    // Read lines loop
-    builder->SetInsertPoint(read_line_body);
+        builder->SetInsertPoint(b17);
+        llvm::Value *const len_m2 = builder->CreateSub(len_m1, builder->getInt64(1), "b17_len_m2");
+        llvm::Value *const buffer_at_len_m2_ptr = builder->CreateGEP(               //
+            builder->getInt8Ty(), buffer_alloca, len_m2, "b17_buffer_at_len_m2_ptr" //
+        );
+        llvm::Value *const buffer_at_len_m2 = IR::aligned_load(                          //
+            *builder, builder->getInt8Ty(), buffer_at_len_m2_ptr, "b17_buffer_at_len_m2" //
+        );
+        llvm::Value *const buffer_at_len_m2_eq_cr = builder->CreateICmpEQ(         //
+            buffer_at_len_m2, builder->getInt8('\r'), "b17_buffer_at_len_m2_eq_cr" //
+        );
+        builder->CreateCondBr(buffer_at_len_m2_eq_cr, b18, b19);
 
-    // Call fgets(buffer, 4096, file)
-    llvm::Value *const fgets_result = builder->CreateCall(fgets_fn, {buffer, builder->getInt32(4096), file}, "fgets_result");
+        builder->SetInsertPoint(b18);
+        IR::aligned_store(*builder, builder->getInt8(0), buffer_at_len_m2_ptr);
+        builder->CreateBr(b19);
 
-    // Check if fgets returned NULL (EOF or error)
-    llvm::Value *const fgets_null = builder->CreateIsNull(fgets_result, "fgets_null");
-    builder->CreateCondBr(fgets_null, size_check, check_newline);
+        builder->SetInsertPoint(b19);
+        llvm::PHINode *const real_len = builder->CreatePHI(builder->getInt64Ty(), 5, "b19_real_len");
+        real_len->addIncoming(len, b14_body);
+        real_len->addIncoming(len, b15);
+        real_len->addIncoming(len_m1, b16);
+        real_len->addIncoming(len_m1, b17);
+        real_len->addIncoming(len_m2, b18);
+        llvm::Value *const line_idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_alloca, "b19_line_idx_value");
+        llvm::Value *const dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "b19_dim_lengths");
+        llvm::Value *const data = builder->CreateGEP(builder->getInt64Ty(), dim_lengths, builder->getInt32(1), "b19_data");
+        llvm::Value *const line = builder->CreateCall(init_str_fn, {buffer_alloca, real_len}, "b19_line");
+        llvm::Value *const line_eq_null = builder->CreateICmpEQ(line, null_ptr, "b19_line_eq_null");
+        builder->CreateCondBr(line_eq_null, b20, b24);
 
-    // Check for newline and remove it
-    builder->SetInsertPoint(check_newline);
+        {
+            builder->SetInsertPoint(b20);
+            llvm::AllocaInst *const i_alloca = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "i_alloca");
+            IR::aligned_store(*builder, builder->getInt64(0), i_alloca);
+            builder->CreateBr(b21_cond);
 
-    // Get line length: strlen(buffer)
-    llvm::Value *const line_len = builder->CreateCall(strlen_fn, {buffer}, "line_len");
+            builder->SetInsertPoint(b21_cond);
+            llvm::Value *const i_value = IR::aligned_load(*builder, builder->getInt64Ty(), i_alloca, "b21_i_value");
+            llvm::Value *const i_lt_line_idx = builder->CreateICmpULT(i_value, line_idx_value, "b21_i_lt_line_idx");
+            builder->CreateCondBr(i_lt_line_idx, b22_body, b23_merge);
 
-    // Check if line ends with newline
-    llvm::Value *const has_newline = builder->CreateICmpNE(line_len, builder->getInt64(0), "has_len");
-    builder->CreateCondBr(has_newline, remove_newline, after_newline_check);
+            builder->SetInsertPoint(b22_body);
+            llvm::Value *const line_str_ptr = builder->CreateCall(                                               //
+                access_arr_fn, {ptr_size, data, builder->getInt64(1), dim_lengths, i_alloca}, "b22_line_str_ptr" //
+            );
+            llvm::Value *const line_str = IR::aligned_load(*builder, PTR_TY, line_str_ptr, "b22_line_str");
+            builder->CreateCall(free_fn, {line_str});
+            llvm::Value *const i_value_p1 = builder->CreateAdd(i_value, builder->getInt64(1), "b22_i_value_p1");
+            IR::aligned_store(*builder, i_value_p1, i_alloca);
+            builder->CreateBr(b21_cond);
 
-    // Remove trailing newline
-    builder->SetInsertPoint(remove_newline);
+            builder->SetInsertPoint(b23_merge);
+            builder->CreateCall(free_fn, {lines_array});
+            builder->CreateCall(fclose_fn, {file_ptr});
+            llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
+            llvm::Value *const err_value = IR::generate_err_value(*builder, module, ErrFS, TooLarge, TooLargeMessage);
+            ret_val = builder->CreateInsertValue(ret_val, err_value, 0);
+            llvm::Value *const empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "b23_empty_str");
+            ret_val = builder->CreateInsertValue(ret_val, empty_str, 1, "b23_ret_val");
+            builder->CreateRet(ret_val);
+        }
 
-    // Get last character index: len - 1
-    llvm::Value *const last_idx = builder->CreateSub(line_len, builder->getInt64(1), "last_idx");
+        builder->SetInsertPoint(b24);
+        llvm::Value *const elem_ptr = builder->CreateCall(                                                      //
+            access_arr_fn, {ptr_size, data, builder->getInt64(1), dim_lengths, line_idx_alloca}, "b24_elem_ptr" //
+        );
+        IR::aligned_store(*builder, line, elem_ptr);
+        llvm::Value *const line_idx_p1 = builder->CreateAdd(line_idx_value, builder->getInt64(1), "b24_line_idx_p1");
+        IR::aligned_store(*builder, line_idx_p1, line_idx_alloca);
+        builder->CreateBr(b13_cond);
+    }
 
-    // Get pointer to last character
-    llvm::Value *const last_char_ptr = builder->CreateGEP(builder->getInt8Ty(), buffer, last_idx, "last_char_ptr");
+    builder->SetInsertPoint(b25_merge);
+    llvm::Value *const line_idx_value = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_alloca, "b25_line_idx_value");
+    llvm::Value *const line_count_value = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_alloca, "b25_line_count_value");
+    llvm::Value *const line_idx_lt_line_count = builder->CreateICmpULT(line_idx_value, line_count_value, "b25_line_idx_lt_line_count");
+    builder->CreateCondBr(line_idx_lt_line_count, b26, b27);
 
-    // Load the last character
-    llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_ptr, "last_char");
+    builder->SetInsertPoint(b26);
+    IR::aligned_store(*builder, line_idx_value, arr_dim_lengths);
+    builder->CreateBr(b27);
 
-    // Check if last character is newline
-    llvm::Value *const is_last_newline = builder->CreateICmpEQ(last_char, builder->getInt8('\n'), "is_last_newline");
-
-    // If newline, create new length by decrementing
-    llvm::Value *const new_len =
-        builder->CreateSelect(is_last_newline, builder->CreateSub(line_len, builder->getInt64(1)), line_len, "new_len");
-
-    // If newline, replace it with null terminator
-    IR::aligned_store(*builder, builder->CreateSelect(is_last_newline, builder->getInt8(0), last_char), last_char_ptr);
-
-    // Continue with or without newline
-    builder->CreateBr(after_newline_check);
-
-    // Create string for the line
-    builder->SetInsertPoint(after_newline_check);
-
-    // Use final line length (after potential newline removal)
-    llvm::PHINode *const final_len = builder->CreatePHI(builder->getInt64Ty(), 2, "final_len");
-    final_len->addIncoming(line_len, check_newline);
-    final_len->addIncoming(new_len, remove_newline);
-
-    // Create string from buffer: init_str(buffer, len)
-    llvm::Value *const line_str = builder->CreateCall(init_str_fn, {buffer, final_len}, "line_str");
-
-    // Check if string creation was successful
-    llvm::Value *const line_null = builder->CreateIsNull(line_str, "line_null");
-    builder->CreateCondBr(line_null, init_str_fail, store_line);
-
-    // Handle string creation failure - clean up previous lines
-    builder->SetInsertPoint(init_str_fail);
-
-    // Load current line index
-    llvm::Value *const cleanup_line_idx = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "cleanup_line_idx");
-
-    // Initialize loop counter for cleanup
-    llvm::AllocaInst *const cleanup_i = builder->CreateAlloca(builder->getInt64Ty(), 0, "cleanup_i");
-    IR::aligned_store(*builder, builder->getInt64(0), cleanup_i);
-
-    // Start cleanup loop
-    builder->CreateBr(cleanup_loop);
-
-    // Cleanup loop header
-    builder->SetInsertPoint(cleanup_loop);
-    llvm::Value *const i = IR::aligned_load(*builder, builder->getInt64Ty(), cleanup_i, "i");
-    llvm::Value *const cleanup_done = builder->CreateICmpUGE(i, cleanup_line_idx, "cleanup_done");
-    builder->CreateCondBr(cleanup_done, cleanup_end, cleanup_body);
-
-    // Cleanup loop body
-    builder->SetInsertPoint(cleanup_body);
-
-    // Store index for array access
-    IR::aligned_store(*builder, i, idx_alloca);
-
-    // Access array element: access_arr(lines_array, sizeof(str*), idx)
-    llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, lines_array, 0, "len_ptr");
-    llvm::Value *const arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");
-    llvm::Value *const arr_dim_lengths = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths");
-    llvm::Value *const arr_access_data = builder->CreateBitCast(                                       //
-        builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths, arr_dim, "arr_access_data"), PTR_TY //
-    );
-    llvm::Value *const elem_ptr = builder->CreateCall(                                                                        //
-        access_arr_fn, {builder->getInt64(sizeof(void *)), arr_access_data, arr_dim, arr_dim_lengths, idx_alloca}, "elem_ptr" //
-    );
-
-    // Load the string pointer
-    llvm::Value *const elem_str_ptr = IR::aligned_load(*builder, PTR_TY, elem_ptr, "elem_str_ptr");
-
-    // Free the string
-    builder->CreateCall(free_fn, {elem_str_ptr});
-
-    // Increment cleanup counter
-    llvm::Value *const next_i = builder->CreateAdd(i, builder->getInt64(1), "next_i");
-    IR::aligned_store(*builder, next_i, cleanup_i);
-
-    // Continue cleanup loop
-    builder->CreateBr(cleanup_loop);
-
-    // Cleanup finished, free array and return NULL
-    builder->SetInsertPoint(cleanup_end);
-    builder->CreateCall(free_fn, {lines_array});
-    builder->CreateCall(fclose_fn, {file});
-
-    // Throw error ErrFS.TooLarge
-    llvm::AllocaInst *const ret_init_fail_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_init_fail_alloc");
-    llvm::Value *const ret_init_fail_err_ptr = builder->CreateStructGEP(      //
-        function_result_type, ret_init_fail_alloc, 0, "ret_init_fail_err_ptr" //
-    );
-    err_value = IR::generate_err_value(*builder, module, ErrFS, TooLarge, TooLargeMessage);
-    IR::aligned_store(*builder, err_value, ret_init_fail_err_ptr);
-    llvm::Value *const ret_init_fail_empty_str = builder->CreateCall(create_str_fn, {builder->getInt64(0)}, "ret_init_fail_empty_str");
-    llvm::Value *const ret_init_fail_val_ptr = builder->CreateStructGEP(      //
-        function_result_type, ret_init_fail_alloc, 1, "ret_init_fail_val_ptr" //
-    );
-    IR::aligned_store(*builder, ret_init_fail_empty_str, ret_init_fail_val_ptr);
-    llvm::Value *const ret_init_fail_val = IR::aligned_load(*builder, function_result_type, ret_init_fail_alloc, "ret_init_fail_val");
-    builder->CreateRet(ret_init_fail_val);
-
-    // Store line in array
-    builder->SetInsertPoint(store_line);
-
-    // Get current line index
-    llvm::Value *const current_idx = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "current_idx");
-
-    // Store index for array access
-    IR::aligned_store(*builder, current_idx, idx_alloca);
-
-    // Access array element: access_arr(lines_array, sizeof(str*), idx)
-    llvm::Value *const len_ptr_2 = builder->CreateStructGEP(str_type, lines_array, 0, "len_ptr_2");
-    llvm::Value *const arr_dim_2 = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr_2, "arr_dim_2");
-    llvm::Value *const arr_dim_lengths_2 = builder->CreateStructGEP(str_type, lines_array, 1, "arr_dim_lengths_2");
-    llvm::Value *const arr_data_2 = builder->CreateGEP(builder->getInt64Ty(), arr_dim_lengths_2, arr_dim_2, "arr_data_2");
-    llvm::Value *const line_elem_ptr = builder->CreateCall(                                                                       //
-        access_arr_fn, {builder->getInt64(sizeof(void *)), arr_data_2, arr_dim_2, arr_dim_lengths_2, idx_alloca}, "line_elem_ptr" //
-    );
-
-    // Store the string pointer in the array
-    IR::aligned_store(*builder, line_str, line_elem_ptr);
-
-    // Increment line index
-    llvm::Value *const next_line_idx = builder->CreateAdd(current_idx, builder->getInt64(1), "next_line_idx");
-    IR::aligned_store(*builder, next_line_idx, line_idx_var);
-
-    // Continue reading next line
-    builder->CreateBr(read_line_body);
-
-    // Check if we read the expected number of lines
-    builder->SetInsertPoint(size_check);
-
-    // Get final line count
-    llvm::Value *const expected_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_count_var, "expected_count");
-    llvm::Value *const actual_count = IR::aligned_load(*builder, builder->getInt64Ty(), line_idx_var, "actual_count");
-
-    // Check if actual count is less than expected
-    llvm::Value *const count_mismatch = builder->CreateICmpULT(actual_count, expected_count, "count_mismatch");
-    builder->CreateCondBr(count_mismatch, adjust_size, return_result);
-
-    // Adjust array size if needed
-    builder->SetInsertPoint(adjust_size);
-
-    // Get pointer to dimension lengths in array (first element of array->value)
-    llvm::Value *const array_value_ptr = builder->CreateStructGEP(str_type, lines_array, 1, "array_value_ptr");
-    llvm::Value *const dim_lengths = IR::aligned_load(*builder, PTR_TY, array_value_ptr, "dim_lengths");
-    llvm::Value *const dim_lengths_cast = builder->CreateBitCast(dim_lengths, PTR_TY, "dim_lengths_cast");
-
-    // Update first dimension length
-    llvm::Value *const dim_first = builder->CreateGEP(builder->getInt64Ty(), dim_lengths_cast, builder->getInt32(0), "dim_first");
-    IR::aligned_store(*builder, actual_count, dim_first);
-
-    // Return array
-    builder->CreateBr(return_result);
-
-    // Return the array of lines
-    builder->SetInsertPoint(return_result);
-    builder->CreateCall(fclose_fn, {file});
-
-    llvm::AllocaInst *const ret_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_alloc");
-    llvm::Value *const ret_err_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 0, "ret_err_ptr");
+    builder->SetInsertPoint(b27);
+    builder->CreateCall(fclose_fn, {file_ptr});
+    llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
     llvm::StructType *const err_type = type_map.at("type.flint.err");
     llvm::Value *const err_struct = IR::get_default_value_of_type(err_type);
-    IR::aligned_store(*builder, err_struct, ret_err_ptr);
-    llvm::Value *const ret_val_ptr = builder->CreateStructGEP(function_result_type, ret_alloc, 1, "ret_val_ptr");
-    IR::aligned_store(*builder, lines_array, ret_val_ptr);
-    llvm::Value *const ret_val = IR::aligned_load(*builder, function_result_type, ret_alloc, "ret_val");
+    ret_val = builder->CreateInsertValue(ret_val, err_struct, 0);
+    ret_val = builder->CreateInsertValue(ret_val, lines_array, 1);
     builder->CreateRet(ret_val);
 }
 

@@ -239,7 +239,7 @@ static void header_emit_functions(const std::string &lib, std::ofstream &out, co
 
 bool Generator::generate_header(const std::filesystem::path &libname) {
     const std::string header_path = libname.string() + ".h";
-    std::ofstream header(header_path);
+    std::ofstream header(header_path, std::ios::binary);
 
     std::vector<const FunctionNode *> exported;
     for (const auto &instance : Parser::instances) {
