@@ -425,7 +425,7 @@ std::optional<std::vector<std::string>> Linker::get_windows_msvc_args( //
     }
 
     // Link against the builtins library
-    args.push_back("libbuiltins.lib");
+    args.push_back("builtins.lib");
     args.push_back("kernel32.lib");
     // Universal C Runtime
     args.push_back("legacy_stdio_definitions.lib");

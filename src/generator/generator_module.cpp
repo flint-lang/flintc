@@ -238,9 +238,16 @@ bool Generator::Module::generate_modules() {
     }
 
     // Create the static .a file from all `.o` files
-    Profiler::start_task("Creating static library libbuiltins.a");
-    bool merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins");
-    Profiler::end_task("Creating static library libbuiltins.a");
+    bool merge_success;
+    if (COMPILATION_TARGET == Target::WINDOWS_MSVC) {
+        Profiler::start_task("Creating static library builtins.lib");
+        merge_success = Linker::create_static_library(libs, cache_path / "builtins");
+        Profiler::end_task("Creating static library builtins.lib");
+    } else {
+        Profiler::start_task("Creating static library libbuiltins.a");
+        merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins");
+        Profiler::end_task("Creating static library libbuiltins.a");
+    }
     return merge_success;
 }
 

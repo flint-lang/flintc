@@ -84,7 +84,7 @@ void Generator::Module::DIMA::generate_heads(llvm::Module *module) {
         const std::string head_var_str = data_node->file_hash.to_string() + ".dima.head.data." + data_node->name;
         const std::string heads_key = data_node->file_hash.to_string() + "." + data_node->name;
 
-        // Core module types already have their DIMA heads defined in the builtins library (libbuiltins.lib).
+        // Core module types already have their DIMA heads defined in the builtins library (libbuiltins.a).
         // Create only an external reference (declaration) to avoid duplicate symbol errors on Windows
         if (core_head_names.find(head_var_str) != core_head_names.end()) {
             llvm::GlobalVariable *existing_head = module->getGlobalVariable(head_var_str);
