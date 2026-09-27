@@ -80,17 +80,19 @@ void Generator::Module::System::generate_system_command_function( //
     //     int status = pclose(pipe);
     //     result.exit_code = status & 0xFF;
     //
+    //     normalize_crlf(result.output);
     //     return result;
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
-    llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
-    llvm::Function *const add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
-    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
     llvm::Function *const free_fn = c_functions.at(FREE);
     llvm::Function *const popen_fn = c_functions.at(POPEN);
     llvm::Function *const fgets_fn = c_functions.at(FGETS);
     llvm::Function *const strlen_fn = c_functions.at(STRLEN);
     llvm::Function *const pclose_fn = c_functions.at(PCLOSE);
+    llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
+    llvm::Function *const add_str_lit_fn = String::string_manip_functions.at("add_str_lit");
+    llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
+    llvm::Function *const normalize_crlf_fn = String::string_manip_functions.at("normalize_crlf");
 
     const unsigned int ErrSystem = hash.get_type_id_from_str("ErrSystem");
     const std::vector<error_value> &ErrSystemValues = std::get<2>(core_module_error_sets.at("system").at(0));
@@ -313,6 +315,9 @@ void Generator::Module::System::generate_system_command_function( //
         exit_code = builder->CreateAnd(shifted_status, builder->getInt32(0xFF), "exit_code");
     }
     IR::aligned_store(*builder, exit_code, exit_code_ptr);
+
+    llvm::Value *const output = IR::aligned_load(*builder, PTR_TY, output_ptr, "output");
+    builder->CreateCall(normalize_crlf_fn, {output});
 
     // Return the result struct
     llvm::Value *const result_ret = IR::aligned_load(*builder, function_result_type, result_struct, "result_ret");
@@ -848,6 +853,7 @@ void Generator::Module::System::generate_end_capture_function( //
     //     fclose(capture_file);
     //     capture_file = NULL;
     //
+    //     normalize_crlf(captured)
     //     return captured;
     // }
     llvm::Function *const fflush_fn = c_functions.at(FFLUSH);
@@ -860,6 +866,7 @@ void Generator::Module::System::generate_end_capture_function( //
 
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const append_lit_fn = String::string_manip_functions.at("append_lit");
+    llvm::Function *const normalize_crlf_fn = String::string_manip_functions.at("normalize_crlf");
 
     llvm::GlobalVariable *stdout_gv = nullptr;
     llvm::GlobalVariable *stderr_gv = nullptr;
@@ -973,6 +980,7 @@ void Generator::Module::System::generate_end_capture_function( //
     builder->CreateCall(fclose_fn, {capture_file});
     IR::aligned_store(*builder, null_ptr, capture_file_gv);
     captured = IR::aligned_load(*builder, PTR_TY, captured_alloca, "captured_ret");
+    builder->CreateCall(normalize_crlf_fn, {captured});
     builder->CreateRet(captured);
 }
 
@@ -1024,6 +1032,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     //             str **element_ptr = access_arr(                      //
     //                 output_array, sizeof(fclib_str_t *), &output_id  //
     //             );
+    //             normalize_crlf(line_string);
     //             *element_ptr = line_string;
     //             line_start = i + 1;
     //             output_id++;
@@ -1047,6 +1056,7 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     llvm::Function *const access_arr_fn = Array::array_manip_functions.at("access_arr");
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
     llvm::Function *const get_str_slice_fn = String::string_manip_functions.at("get_str_slice");
+    llvm::Function *const normalize_crlf_fn = String::string_manip_functions.at("normalize_crlf");
 
     llvm::GlobalVariable *const capture_file_gv = system_variables.at("capture_file");
 
@@ -1201,14 +1211,16 @@ void Generator::Module::System::generate_end_capture_lines_function( //
     builder->CreateBr(line_select_block);
 
     builder->SetInsertPoint(slice_line_block);
-    llvm::Value *const slice_line_string =
-        builder->CreateCall(get_str_slice_fn, {captured_buffer, line_start, assign_i}, "slice_line_string");
+    llvm::Value *const slice_line_string = builder->CreateCall(                        //
+        get_str_slice_fn, {captured_buffer, line_start, assign_i}, "slice_line_string" //
+    );
     builder->CreateBr(line_select_block);
 
     builder->SetInsertPoint(line_select_block);
     llvm::PHINode *const line_string = builder->CreatePHI(PTR_TY, 2, "line_string");
     line_string->addIncoming(empty_line_string, empty_line_block);
     line_string->addIncoming(slice_line_string, slice_line_block);
+    builder->CreateCall(normalize_crlf_fn, {line_string});
     llvm::Value *const ptr_size = builder->getInt64(Allocation::get_type_size(module, PTR_TY));
     llvm::Value *const len_ptr = builder->CreateStructGEP(str_type, output_array, 0, "len_ptr");
     llvm::Value *const arr_dim = IR::aligned_load(*builder, builder->getInt64Ty(), len_ptr, "arr_dim");

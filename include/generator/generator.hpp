@@ -4815,6 +4815,7 @@ class Generator {
                 {"add_str_lit", nullptr},
                 {"add_lit_str", nullptr},
                 {"get_str_slice", nullptr},
+                {"normalize_crlf", nullptr},
             };
 
             /// @function `generate_access_str_at_function`
@@ -4823,7 +4824,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `access_str_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_access_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_access_str_at_function( //
+                llvm::IRBuilder<> *const builder,        //
+                llvm::Module *const module,              //
+                const bool only_declarations             //
+            );
 
             /// @function `generate_assign_str_at_function`
             /// @brief Generates the builtin hidden `assign_str_at` function
@@ -4831,7 +4836,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `assign_str_at` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_assign_str_at_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_assign_str_at_function( //
+                llvm::IRBuilder<> *const builder,        //
+                llvm::Module *const module,              //
+                const bool only_declarations             //
+            );
 
             /// @function `generate_create_str_function`
             /// @brief Generates the builtin hidden `create_str` function
@@ -4839,7 +4848,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `create_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_create_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_create_str_function( //
+                llvm::IRBuilder<> *const builder,     //
+                llvm::Module *const module,           //
+                const bool only_declarations          //
+            );
 
             /// @function `generate_init_str_function`
             /// @brief Generates the builtin hidden `init_str` function
@@ -4847,7 +4860,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `init_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_init_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_init_str_function( //
+                llvm::IRBuilder<> *const builder,   //
+                llvm::Module *const module,         //
+                const bool only_declarations        //
+            );
 
             /// @function `generate_compare_str_function`
             /// @brief Generates the builtin `compare_str` function
@@ -4855,7 +4872,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `compare_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_compare_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_compare_str_function( //
+                llvm::IRBuilder<> *const builder,      //
+                llvm::Module *const module,            //
+                const bool only_declarations           //
+            );
 
             /// @function `generate_assign_str_function`
             /// @brief Generates the builtin hidden `assign_str` function
@@ -4863,7 +4884,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `assign_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_assign_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_assign_str_function( //
+                llvm::IRBuilder<> *const builder,     //
+                llvm::Module *const module,           //
+                const bool only_declarations          //
+            );
 
             /// @function `generate_assign_lit_function`
             /// @brief Generates the builtin hidden `assign_lit` function
@@ -4871,7 +4896,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `assign_lit` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_assign_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_assign_lit_function( //
+                llvm::IRBuilder<> *const builder,     //
+                llvm::Module *const module,           //
+                const bool only_declarations          //
+            );
 
             /// @function `generate_append_str_function`
             /// @brief Generates the builtin hidden `append_str` function
@@ -4879,7 +4908,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `append_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_append_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_append_str_function( //
+                llvm::IRBuilder<> *const builder,     //
+                llvm::Module *const module,           //
+                const bool only_declarations          //
+            );
 
             /// @function `generate_append_lit_function`
             /// @brief Generates the builtin hidden `append_lit` function
@@ -4887,7 +4920,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `append_lit` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_append_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_append_lit_function( //
+                llvm::IRBuilder<> *const builder,     //
+                llvm::Module *const module,           //
+                const bool only_declarations          //
+            );
 
             /// @function `generate_add_str_str_functiion`
             /// @brief Generates the builtin hidden `add_str_str` function
@@ -4895,7 +4932,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `add_str_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_add_str_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_add_str_str_function( //
+                llvm::IRBuilder<> *const builder,      //
+                llvm::Module *const module,            //
+                const bool only_declarations           //
+            );
 
             /// @function `generate_add_str_lit_function`
             /// @brief Generates the builtin hidden `add_str_lit` function
@@ -4903,7 +4944,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `add_str_lit` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_add_str_lit_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_add_str_lit_function( //
+                llvm::IRBuilder<> *const builder,      //
+                llvm::Module *const module,            //
+                const bool only_declarations           //
+            );
 
             /// @function `generate_add_lit_str_function`
             /// @brief Generates the builtin hidden `add_lit_str` function
@@ -4911,7 +4956,11 @@ class Generator {
             /// @param `builder` The LLVM IRBuilder
             /// @param `module` The LLVM Module the `add_lit_str` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_add_lit_str_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_add_lit_str_function( //
+                llvm::IRBuilder<> *const builder,      //
+                llvm::Module *const module,            //
+                const bool only_declarations           //
+            );
 
             /// @function `generate_get_str_slice_function`
             /// @brief Gneerates the builtin hidden `get_str_slice` function
@@ -4919,7 +4968,23 @@ class Generator {
             /// @brief `builder` The LLVM IRBuilder
             /// @brief `module` The LLVM Module the `get_str_slice` function will be generated in
             /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
-            static void generate_get_str_slice_function(llvm::IRBuilder<> *builder, llvm::Module *module, const bool only_declarations);
+            static void generate_get_str_slice_function( //
+                llvm::IRBuilder<> *const builder,        //
+                llvm::Module *const module,              //
+                const bool only_declarations             //
+            );
+
+            /// @function `generate_normalize_crlf_function`
+            /// @brief Generates the builtin hidden `normalize_crlf` function
+            ///
+            /// @param `builder` The LLVM IRBuilder
+            /// @param `module` The LLVM Module the `normalize_crlf` function will be generated in
+            /// @param `only_declarations` Whether to actually generate the function or to only generate the declaration for it
+            static void generate_normalize_crlf_function( //
+                llvm::IRBuilder<> *const builder,         //
+                llvm::Module *const module,               //
+                const bool only_declarations              //
+            );
 
             /// @function `generate_string_manip_functions`
             /// @brief Generates all the builtin hidden string manipulation functions
@@ -4928,8 +4993,8 @@ class Generator {
             /// @param `module` The LLVM Module the string manipulation functions will be generated in
             /// @param `only_declarations` Whether to actually generate the functions or to only generate the declarations for them
             static void generate_string_manip_functions( //
-                llvm::IRBuilder<> *builder,              //
-                llvm::Module *module,                    //
+                llvm::IRBuilder<> *const builder,        //
+                llvm::Module *const module,              //
                 const bool only_declarations = true      //
             );
 

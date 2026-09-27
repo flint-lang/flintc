@@ -50,15 +50,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     //         free(content);
     //         return NULL; // File read error
     //     }
-    //     size_t dest = 0;
-    //     size_t src = 0;
-    //     while (src < file_size) {
-    //         const char c = content->value[src++];
-    //         if (c != '\r' || src == file_size || content->value[src] != '\n') {
-    //             content->value[dest++] = c;
-    //         }
-    //     }
-    //     content->len = dest;
+    //     normalize_crlf(content);
     //     return content;
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
@@ -69,6 +61,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::Function *const ftell_fn = c_functions.at(FTELL);
     llvm::Function *const fread_fn = c_functions.at(FREAD);
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
+    llvm::Function *const normalize_crlf_fn = String::string_manip_functions.at("normalize_crlf");
 
     const unsigned int ErrIO = hash.get_type_id_from_str("ErrIO");
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
@@ -110,12 +103,6 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     llvm::BasicBlock *const seek_set_error_block = llvm::BasicBlock::Create(context, "seek_set_error", read_file_fn);
     llvm::BasicBlock *const read_error_block = llvm::BasicBlock::Create(context, "read_error", read_file_fn);
     llvm::BasicBlock *const read_ok_block = llvm::BasicBlock::Create(context, "read_ok", read_file_fn);
-    llvm::BasicBlock *const while_cond_block = llvm::BasicBlock::Create(context, "while_cond", read_file_fn);
-    llvm::BasicBlock *const while_body_block = llvm::BasicBlock::Create(context, "while_body", read_file_fn);
-    llvm::BasicBlock *const c_eq_cr_block = llvm::BasicBlock::Create(context, "c_eq_cr", read_file_fn);
-    llvm::BasicBlock *const src_ne_size_block = llvm::BasicBlock::Create(context, "src_ne_size", read_file_fn);
-    llvm::BasicBlock *const copy_block = llvm::BasicBlock::Create(context, "copy", read_file_fn);
-    llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", read_file_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
@@ -250,51 +237,7 @@ void Generator::Module::FileSystem::generate_read_file_function( //
     builder->CreateRet(ret_read_val);
 
     builder->SetInsertPoint(read_ok_block);
-    llvm::AllocaInst *const src = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "src_alloca");
-    llvm::AllocaInst *const dest = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "dest_alloca");
-    IR::aligned_store(*builder, builder->getInt64(0), src);
-    IR::aligned_store(*builder, builder->getInt64(0), dest);
-    builder->CreateBr(while_cond_block);
-
-    {
-        builder->SetInsertPoint(while_cond_block);
-        llvm::Value *const src_val = IR::aligned_load(*builder, builder->getInt64Ty(), src, "src_val");
-        llvm::Value *const src_lt_file_size = builder->CreateICmpULT(src_val, file_size, "src_lt_file_size");
-        builder->CreateCondBr(src_lt_file_size, while_body_block, ret_block);
-
-        builder->SetInsertPoint(while_body_block);
-        llvm::Value *const c_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, src_val, "c_ptr");
-        llvm::Value *const c_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_ptr, "c_val");
-        llvm::Value *const src_p1 = builder->CreateAdd(src_val, builder->getInt64(1), "src_p1");
-        IR::aligned_store(*builder, src_p1, src);
-        llvm::Value *const c_eq_cr = builder->CreateICmpEQ(c_val, builder->getInt8('\r'), "c_eq_cr");
-        builder->CreateCondBr(c_eq_cr, c_eq_cr_block, copy_block);
-
-        builder->SetInsertPoint(c_eq_cr_block);
-        llvm::Value *const src_ne_size = builder->CreateICmpNE(src_p1, file_size, "src_ne_size");
-        builder->CreateCondBr(src_ne_size, src_ne_size_block, copy_block);
-
-        builder->SetInsertPoint(src_ne_size_block);
-        llvm::Value *const c_p1_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, src_p1, "c_p1_ptr");
-        llvm::Value *const c_p1_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_p1_ptr, "c_p1_val");
-        llvm::Value *const c_p1_eq_lf = builder->CreateICmpEQ(c_p1_val, builder->getInt8('\n'), "c_p1_eq_lf");
-        builder->CreateCondBr(c_p1_eq_lf, while_cond_block, copy_block);
-
-        builder->SetInsertPoint(copy_block);
-        llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
-        llvm::Value *const c_dest_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, dest_val, "c_dest_ptr");
-        IR::aligned_store(*builder, c_val, c_dest_ptr);
-        llvm::Value *const dest_p1 = builder->CreateAdd(dest_val, builder->getInt64(1), "dest_p1");
-        IR::aligned_store(*builder, dest_p1, dest);
-        builder->CreateBr(while_cond_block);
-    }
-
-    builder->SetInsertPoint(ret_block);
-    llvm::Value *const content_len_ptr = builder->CreateStructGEP(str_type, content, 0, "content_len_ptr");
-    llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
-    IR::aligned_store(*builder, dest_val, content_len_ptr);
-    llvm::Value *const null_ptr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, dest_val, "null_ptr");
-    IR::aligned_store(*builder, builder->getInt8(0), null_ptr);
+    builder->CreateCall(normalize_crlf_fn, {content});
     llvm::Value *ret_val = llvm::ConstantAggregateZero::get(function_result_type);
     ret_val = builder->CreateInsertValue(ret_val, builder->getInt32(0), 0);
     ret_val = builder->CreateInsertValue(ret_val, content, 1, "ret_val");

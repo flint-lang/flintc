@@ -1186,9 +1186,101 @@ void Generator::Module::String::generate_get_str_slice_function( //
     builder->CreateRet(result);
 }
 
+void Generator::Module::String::generate_normalize_crlf_function( //
+    llvm::IRBuilder<> *const builder,                             //
+    llvm::Module *const module,                                   //
+    const bool only_declarations                                  //
+) {
+    // THE C IMPLEMENTATION:
+    // void read_file(str *const string) {
+    //     const size_t len = string->len;
+    //     size_t dest = 0;
+    //     size_t src = 0;
+    //     while (src < len) {
+    //         const char c = string->value[src++];
+    //         if (c != '\r' || src == len || string->value[src] != '\n') {
+    //             string->value[dest++] = c;
+    //         }
+    //     }
+    //     string->len = dest;
+    //     return content;
+    // }
+    llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::FunctionType *const normalize_crlf_type = llvm::FunctionType::get(llvm::Type::getVoidTy(context), {PTR_TY}, false);
+    llvm::Function *const normalize_crlf_fn = llvm::Function::Create(                           //
+        normalize_crlf_type, llvm::Function::ExternalLinkage, prefix + "normalize_crlf", module //
+    );
+    string_manip_functions["normalize_crlf"] = normalize_crlf_fn;
+    if (only_declarations) {
+        return;
+    }
+
+    // Get the path parameter
+    llvm::Argument *const arg_string = normalize_crlf_fn->arg_begin();
+    arg_string->setName("string");
+
+    llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", normalize_crlf_fn);
+    llvm::BasicBlock *const while_cond_block = llvm::BasicBlock::Create(context, "while_cond", normalize_crlf_fn);
+    llvm::BasicBlock *const while_body_block = llvm::BasicBlock::Create(context, "while_body", normalize_crlf_fn);
+    llvm::BasicBlock *const c_eq_cr_block = llvm::BasicBlock::Create(context, "c_eq_cr", normalize_crlf_fn);
+    llvm::BasicBlock *const src_ne_size_block = llvm::BasicBlock::Create(context, "src_ne_size", normalize_crlf_fn);
+    llvm::BasicBlock *const copy_block = llvm::BasicBlock::Create(context, "copy", normalize_crlf_fn);
+    llvm::BasicBlock *const ret_block = llvm::BasicBlock::Create(context, "ret", normalize_crlf_fn);
+
+    builder->SetInsertPoint(entry_block);
+    llvm::AllocaInst *const src = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "src_alloca");
+    llvm::AllocaInst *const dest = builder->CreateAlloca(builder->getInt64Ty(), 0, nullptr, "dest_alloca");
+    llvm::Value *const string_len_ptr = builder->CreateStructGEP(str_type, arg_string, 0, "string_len_ptr");
+    llvm::Value *const string_len = IR::aligned_load(*builder, builder->getInt64Ty(), string_len_ptr, "string_len");
+    llvm::Value *const string_value_ptr = builder->CreateStructGEP(str_type, arg_string, 1, "string_value_ptr");
+    IR::aligned_store(*builder, builder->getInt64(0), src);
+    IR::aligned_store(*builder, builder->getInt64(0), dest);
+    builder->CreateBr(while_cond_block);
+
+    {
+        builder->SetInsertPoint(while_cond_block);
+        llvm::Value *const src_val = IR::aligned_load(*builder, builder->getInt64Ty(), src, "src_val");
+        llvm::Value *const src_lt_string_len = builder->CreateICmpULT(src_val, string_len, "src_lt_string_len");
+        builder->CreateCondBr(src_lt_string_len, while_body_block, ret_block);
+
+        builder->SetInsertPoint(while_body_block);
+        llvm::Value *const c_ptr = builder->CreateGEP(builder->getInt8Ty(), string_value_ptr, src_val, "c_ptr");
+        llvm::Value *const c_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_ptr, "c_val");
+        llvm::Value *const src_p1 = builder->CreateAdd(src_val, builder->getInt64(1), "src_p1");
+        IR::aligned_store(*builder, src_p1, src);
+        llvm::Value *const c_eq_cr = builder->CreateICmpEQ(c_val, builder->getInt8('\r'), "c_eq_cr");
+        builder->CreateCondBr(c_eq_cr, c_eq_cr_block, copy_block);
+
+        builder->SetInsertPoint(c_eq_cr_block);
+        llvm::Value *const src_ne_string_len = builder->CreateICmpNE(src_p1, string_len, "src_ne_string_len");
+        builder->CreateCondBr(src_ne_string_len, src_ne_size_block, copy_block);
+
+        builder->SetInsertPoint(src_ne_size_block);
+        llvm::Value *const c_p1_ptr = builder->CreateGEP(builder->getInt8Ty(), string_value_ptr, src_p1, "c_p1_ptr");
+        llvm::Value *const c_p1_val = IR::aligned_load(*builder, builder->getInt8Ty(), c_p1_ptr, "c_p1_val");
+        llvm::Value *const c_p1_eq_lf = builder->CreateICmpEQ(c_p1_val, builder->getInt8('\n'), "c_p1_eq_lf");
+        builder->CreateCondBr(c_p1_eq_lf, while_cond_block, copy_block);
+
+        builder->SetInsertPoint(copy_block);
+        llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
+        llvm::Value *const c_dest_ptr = builder->CreateGEP(builder->getInt8Ty(), string_value_ptr, dest_val, "c_dest_ptr");
+        IR::aligned_store(*builder, c_val, c_dest_ptr);
+        llvm::Value *const dest_p1 = builder->CreateAdd(dest_val, builder->getInt64(1), "dest_p1");
+        IR::aligned_store(*builder, dest_p1, dest);
+        builder->CreateBr(while_cond_block);
+    }
+
+    builder->SetInsertPoint(ret_block);
+    llvm::Value *const dest_val = IR::aligned_load(*builder, builder->getInt64Ty(), dest, "dest_val");
+    IR::aligned_store(*builder, dest_val, string_len_ptr);
+    llvm::Value *const null_ptr = builder->CreateGEP(builder->getInt8Ty(), string_value_ptr, dest_val, "null_ptr");
+    IR::aligned_store(*builder, builder->getInt8(0), null_ptr);
+    builder->CreateRetVoid();
+}
+
 void Generator::Module::String::generate_string_manip_functions( //
-    llvm::IRBuilder<> *builder,                                  //
-    llvm::Module *module,                                        //
+    llvm::IRBuilder<> *const builder,                            //
+    llvm::Module *const module,                                  //
     const bool only_declarations                                 //
 ) {
     generate_access_str_at_function(builder, module, only_declarations);
@@ -1204,6 +1296,7 @@ void Generator::Module::String::generate_string_manip_functions( //
     generate_add_str_lit_function(builder, module, only_declarations);
     generate_add_lit_str_function(builder, module, only_declarations);
     generate_get_str_slice_function(builder, module, only_declarations);
+    generate_normalize_crlf_function(builder, module, only_declarations);
 }
 
 llvm::Value *Generator::Module::String::generate_string_declaration( //
