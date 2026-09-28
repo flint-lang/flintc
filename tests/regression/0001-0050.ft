@@ -76,7 +76,7 @@ test "0014":
 	str path ="regression/0001-0050";
 	str file = "0014.ft";
 	if is_windows:
-		test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", -1073741571);
+		test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", -1073740791);
 	else:
 		test_file_crash($"{path}/{file}", "--optimize fast", "Stack overflow detected\n", 134);
 

@@ -1399,8 +1399,7 @@ void Generator::Module::String::generate_string_assignment( //
 
 std::optional<llvm::Value *> Generator::Module::String::generate_string_addition(                                 //
     llvm::IRBuilder<> &builder,                                                                                   //
-    const std::shared_ptr<Scope> scope,                                                                           //
-    const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
+    const GenerationContext &ctx,                                                                                 //
     std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
     const unsigned int expr_depth,                                                                                //
     llvm::Value *lhs,                                                                                             //
@@ -1421,8 +1420,10 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 return std::nullopt;
             }
             const auto *str_var = lhs_expr->as<VariableNode>();
-            const unsigned int variable_decl_scope = scope->variables.at(str_var->name).scope_id;
-            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + str_var->name);
+            const unsigned int variable_decl_scope = ctx.scope->variables.at(str_var->name).scope_id;
+            llvm::Value *const variable_alloca = Allocation::get(                              //
+                builder, ctx, "s" + std::to_string(variable_decl_scope) + "::" + str_var->name //
+            );
             builder.CreateCall(append_str_fn, {variable_alloca, rhs});
             return lhs;
         } else {
@@ -1470,8 +1471,10 @@ std::optional<llvm::Value *> Generator::Module::String::generate_string_addition
                 return std::nullopt;
             }
             const auto *lhs_var = lhs_expr->as<VariableNode>();
-            const unsigned int variable_decl_scope = scope->variables.at(lhs_var->name).scope_id;
-            llvm::Value *const variable_alloca = allocations.at("s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name);
+            const unsigned int variable_decl_scope = ctx.scope->variables.at(lhs_var->name).scope_id;
+            llvm::Value *const variable_alloca = Allocation::get(                              //
+                builder, ctx, "s" + std::to_string(variable_decl_scope) + "::" + lhs_var->name //
+            );
             builder.CreateCall(append_lit_fn, {variable_alloca, rhs, builder.getInt64(std::get<LitStr>(rhs_lit->value).value.length())});
             return lhs;
         } else {

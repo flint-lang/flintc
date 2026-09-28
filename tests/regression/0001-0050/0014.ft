@@ -1,6 +1,12 @@
 use Core.print
 
 def crash(i32 x) -> i32:
+	// Locals so that the stack grows faster (to get the stack-overflow on Windows)
+	i64x4 l0;
+	i64x4 l1;
+	i64x4 l2;
+	i64x4 l3;
+	i64x4 l4;
 	return x + crash(x + 1);
 
 def main():

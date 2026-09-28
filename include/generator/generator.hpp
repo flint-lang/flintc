@@ -243,6 +243,165 @@ class Generator {
         {CFunction::CLOSE, nullptr},
     };
 
+    /// @struct `AllocationInfo`
+    /// @brief Structure containing all information to re-generate element pointers. Originally the allocation system pre-generated all
+    /// allocations into all local variables at the top of the function in its entry point and used these element pointers throughout the
+    /// function. But this leads to excessive hardware stack usage, because in between the element pointer creation at the entry point of
+    /// the function and its actual use were function calls, leading to LLVM materializing the element pointers into hardware stack
+    /// allocations. To prevent this, the new allocation system re-generates all element pointers over and over again when it actually needs
+    /// them. This leads to the "lifetime" of these element pointers being greatly reduced and thus LLVM is able to inline the element
+    /// pointers as raw offsets into the code directly, reducing hardware stack usage and speeding up execution as well.
+    struct AllocationInfo {
+        /// @enum `Base`
+        /// @brief What the address of the slot is rooted in
+        enum class Base {
+            /// The entry is `value` itself, e.g. an incoming argument or a global address
+            VALUE,
+
+            /// The GEP is rooted at the "flint.stack" entry, e.g. a variable, return value or index array of the current frame
+            FRAME,
+
+            /// The GEP is rooted at the "flint.stack.next" entry, e.g. the error field of the frame a call writes its values into
+            NEXT_FRAME,
+
+            /// The GEP is rooted at another named allocation, e.g. a switch match binding into the variant of its switcher variable
+            SLOT,
+
+            /// The GEP is rooted at the plain pointer in `value`, e.g. the current element of an enhanced for loop
+            POINTER,
+        };
+
+        /// @var `base`
+        /// @brief What the address of the slot is rooted in
+        Base base = Base::FRAME;
+
+        /// @var `base_name`
+        /// @brief The name of the allocation the GEP is rooted at, only used when `base` is `Base::Slot`
+        std::string base_name;
+
+        /// @var `value`
+        /// @brief The plain value of the allocation, only used when `base` is `Base::Value` or `Base::Pointer`
+        llvm::Value *value = nullptr;
+
+        /// @var `container`
+        /// @brief The type the index applies to. If this is `nullptr` the root itself is the address, which is how aliases are described
+        llvm::Type *container = nullptr;
+
+        /// @var `index`
+        /// @brief The constant index of the slot within `container`
+        unsigned index = 0;
+
+        /// @var `index_value`
+        /// @brief The dynamic index of the slot within `container`. Takes precedence over `index` if it is set
+        llvm::Value *index_value = nullptr;
+
+        /// @var `type`
+        /// @brief The type of the slot itself
+        llvm::Type *type = nullptr;
+
+        /// @function `plain_value`
+        /// @brief Creates the description of an allocation which is a plain value, e.g. a global or the frame pointer
+        [[nodiscard]] static AllocationInfo plain_value(llvm::Value *const val, llvm::Type *const ty = nullptr) {
+            return {
+                .base = Base::VALUE,    //
+                .base_name = {},        //
+                .value = val,           //
+                .container = nullptr,   //
+                .index = 0,             //
+                .index_value = nullptr, //
+                .type = ty,             //
+            };
+        }
+
+        /// @function `frame_field`
+        /// @brief Creates the description of a field within the frame of the current function
+        [[nodiscard]] static AllocationInfo frame_field( //
+            llvm::Type *const container_type,            //
+            const unsigned field_index,                  //
+            llvm::Type *const ty = nullptr               //
+        ) {
+            return {
+                .base = Base::FRAME,         //
+                .base_name = {},             //
+                .value = nullptr,            //
+                .container = container_type, //
+                .index = field_index,        //
+                .index_value = nullptr,      //
+                .type = ty,                  //
+            };
+        }
+
+        /// @function `next_frame_field`
+        /// @brief Creates the description of a field within the frame a call writes its values into
+        [[nodiscard]] static AllocationInfo next_frame_field( //
+            llvm::Type *const container_type,                 //
+            const unsigned field_index,                       //
+            llvm::Type *const ty = nullptr                    //
+        ) {
+            return {
+                .base = Base::NEXT_FRAME,    //
+                .base_name = {},             //
+                .value = nullptr,            //
+                .container = container_type, //
+                .index = field_index,        //
+                .index_value = nullptr,      //
+                .type = ty,                  //
+            };
+        }
+
+        /// @function `slot_field`
+        /// @brief Creates the description of a field within another named allocation
+        [[nodiscard]] static AllocationInfo slot_field( //
+            std::string root_name,                      //
+            llvm::Type *const container_type,           //
+            const unsigned field_index,                 //
+            llvm::Type *const ty = nullptr              //
+        ) {
+            return {
+                .base = Base::SLOT,                //
+                .base_name = std::move(root_name), //
+                .value = nullptr,                  //
+                .container = container_type,       //
+                .index = field_index,              //
+                .index_value = nullptr,            //
+                .type = ty,                        //
+            };
+        }
+
+        /// @function `slot_alias`
+        /// @brief Creates the description of an allocation which is the address of another named allocation
+        [[nodiscard]] static AllocationInfo slot_alias(std::string root_name, llvm::Type *const ty = nullptr) {
+            return {
+                .base = Base::SLOT,                //
+                .base_name = std::move(root_name), //
+                .value = nullptr,                  //
+                .container = nullptr,              //
+                .index = 0,                        //
+                .index_value = nullptr,            //
+                .type = ty,                        //
+            };
+        }
+
+        /// @function `element`
+        /// @brief Creates the description of an element of the container a plain pointer points to
+        [[nodiscard]] static AllocationInfo element( //
+            llvm::Value *const ptr,                  //
+            llvm::Type *const container_type,        //
+            llvm::Value *const elem_index,           //
+            llvm::Type *const ty = nullptr           //
+        ) {
+            return {
+                .base = Base::POINTER,       //
+                .base_name = {},             //
+                .value = ptr,                //
+                .container = container_type, //
+                .index = 0,                  //
+                .index_value = elem_index,   //
+                .type = ty,                  //
+            };
+        }
+    };
+
     /// @struct `GenerationContext`
     /// @brief The context of the Generation
     struct GenerationContext {
@@ -263,8 +422,8 @@ class Generator {
         unsigned int scope_segment;
 
         /// @var `allocations`
-        /// @brief The map of all allocations (from the preallocation system) to track the AllocaInst instructions
-        std::unordered_map<std::string, llvm::Value *const> allocations;
+        /// @brief The map of all allocations of the function frame
+        std::unordered_map<std::string, AllocationInfo> allocations;
 
         /// @var `imported_core_modules`
         /// @brief The list of imported core modules
@@ -1201,19 +1360,31 @@ class Generator {
         // The constructor is deleted to make this class non-initializable
         Allocation() = delete;
 
+        /// @function `get`
+        /// @brief Generates the address of the allocation with the given name at the current insert point
+        ///
+        /// The allocation map only stores descriptions of the slots, so every call emits the instructions needed to reach the slot again.
+        /// The instructions are emitted at the current insert point and therefore live exactly as long as the value they produce is used,
+        /// instead of from the entry block of the function.
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the generation, holding the allocations of the function frame
+        /// @param `name` The name of the allocation, where in the key all information like scope ID, call ID, name, etc is encoded
+        /// @return `llvm::Value *` The address of the slot of the allocation
+        [[nodiscard]] static llvm::Value *get(llvm::IRBuilder<> &builder, const GenerationContext &ctx, const std::string &name);
+
         /// @function `generate_function_allocations`
-        /// @brief Generates all allocations of the given function recursively. Adds all "allocation" pointers to the allocations map
+        /// @brief Generates all allocations of the given function recursively. Adds all "allocation" descriptions to the allocations map
         ///
         /// This function is meant to be called at the start of the generate_function function. This function goes through all
-        /// statements and expressions recursively down the scope and enters every sub-scope too and generates all allocations of all
-        /// function variables at the start of the function. This function also crates a struct type for each function for the Thread Stack
+        /// statements and expressions recursively down the scope and enters every sub-scope too and collects all allocations of all
+        /// function variables. This function also crates a struct type for each function for the Thread Stack
         /// system.
         ///
         /// @param `builder` The LLVM IRBuilder
         /// @param `parent` The Function the allocations are generated in
-        /// @param `function` The Function whose struct type is created and the allocation map is filled with it's struct GEPs
+        /// @param `function` The Function whose struct type is created and the allocation map is filled with its frame slots
         /// @param `allocations` The map of allocations, where in the key all information like scope ID, call ID, name, etc is encoded
-        /// @param `imported_core_modules` The list of imported core modules
         /// @return `std::optional<llvm::StructType *>` The generated struct type of the function, if everything was successful
         ///
         /// @attention The allocations map will be modified (new entries are added), but it will not be cleared. If you want a clear
@@ -1222,7 +1393,7 @@ class Generator {
             llvm::IRBuilder<> &builder,                                                       //
             llvm::Function *parent,                                                           //
             const FunctionNode *function,                                                     //
-            std::unordered_map<std::string, llvm::Value *const> &allocations                  //
+            std::unordered_map<std::string, AllocationInfo> &allocations                      //
         );
 
         /// @function `generate_allocations`
@@ -1466,9 +1637,9 @@ class Generator {
             llvm::StructType *function_type;
 
             /// @var `allocations`
-            /// @brief The map of all "allocations" of the function, being struct GEPs into the function frame in the setup block, needed
-            /// for the generation of the function body
-            std::unordered_map<std::string, llvm::Value *const> allocations;
+            /// @brief The map of all "allocations" of the function, describing the slots of its frame, needed for the generation of the
+            /// function body
+            std::unordered_map<std::string, AllocationInfo> allocations;
         };
 
         /// @var `function_allocations`
@@ -3197,32 +3368,26 @@ class Generator {
         /// @brief Emits debug info (dbg.declare) for all local variables in the given scope tree
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the debug info is emitted in
-        /// @param `scope` The scope tree to walk for declarations
-        /// @param `allocations` The map of all allocation GEPs
+        /// @param `ctx` The context needed for the debug infor generation
         /// @param `hash_key` The hash of the file for looking up DIFile info
-        static void generate_variable_debug_info(                                   //
-            llvm::IRBuilder<> &builder,                                             //
-            llvm::Function *parent,                                                 //
-            const std::shared_ptr<Scope> scope,                                     //
-            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const Hash &hash_key                                                    //
+        static void generate_variable_debug_info( //
+            llvm::IRBuilder<> &builder,           //
+            const GenerationContext &ctx,         //
+            const Hash &hash_key                  //
         );
 
         /// @function `generate_parameter_debug_info`
         /// @brief Emits debug info (dbg.value) for all function parameters
         ///
         /// @param `builder` The LLVM IRBuilder
-        /// @param `parent` The function the debug info is emitted in
+        /// @param `ctx` The context of the debug generation
         /// @param `function_node` The FunctionNode (contains parameter list and scope id)
-        /// @param `allocations` The map of all allocation GEPs
         /// @param `hash_key` The hash of the file for looking up DIFile info
-        static void generate_parameter_debug_info(                                  //
-            llvm::IRBuilder<> &builder,                                             //
-            llvm::Function *parent,                                                 //
-            const FunctionNode *function_node,                                      //
-            const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-            const Hash &hash_key                                                    //
+        static void generate_parameter_debug_info( //
+            llvm::IRBuilder<> &builder,            //
+            const GenerationContext &ctx,          //
+            const FunctionNode *function_node,     //
+            const Hash &hash_key                   //
         );
     };
 
@@ -5038,7 +5203,7 @@ class Generator {
             ///
             /// @param `builder` The LLVM IRBuilder
             /// @param `scope` The scope the string addition is placed in
-            /// @param `allocations` The map of all allocations (from the preallocation system) to track the AllocaInst instructions
+            /// @param `ctx` The context of the generation, holding the allocations of the function frame
             /// @param `garbage` A list of all accumulated temporary variables that need cleanup
             /// @param `expr_depth` The depth of expressions (starts at 0, increases by 1 by every layer)
             /// @param `lhs` The lhs value from llvm
@@ -5049,8 +5214,7 @@ class Generator {
             /// @return `std::optional<llvm::Value *>` The result of the string addition, nullopt if the addition failed
             static std::optional<llvm::Value *> generate_string_addition(                                                     //
                 llvm::IRBuilder<> &builder,                                                                                   //
-                const std::shared_ptr<Scope> scope,                                                                           //
-                const std::unordered_map<std::string, llvm::Value *const> &allocations,                                       //
+                const GenerationContext &ctx,                                                                                 //
                 std::unordered_map<unsigned int, std::vector<std::pair<std::shared_ptr<Type>, llvm::Value *const>>> &garbage, //
                 const unsigned int expr_depth,                                                                                //
                 llvm::Value *lhs,                                                                                             //

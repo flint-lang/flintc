@@ -391,7 +391,7 @@ Generator::group_mapping Generator::Expression::generate_literal( //
         llvm::Value *slot = scratchspace;
         if (variant.variant_type->is_freeable()) {
             const std::string variant_slot_name = "flint.variant.literal." + std::to_string(reinterpret_cast<std::uintptr_t>(literal_node));
-            slot = ctx.allocations.at(variant_slot_name);
+            slot = Allocation::get(builder, ctx, variant_slot_name);
         }
         llvm::Value *tag_ptr = builder.CreateStructGEP(variant_ty, slot, 0, "tag_ptr");
         llvm::Value *tag_idx = builder.getInt8(tag_index.value());
@@ -435,7 +435,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_variable( //
         return std::nullopt;
     }
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
-    llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    llvm::Value *const variable = Allocation::get(builder, ctx, "s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
 
     // If a reference is requested we return the variable allocation directly
     if (is_reference) {
@@ -1683,16 +1683,16 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // current stack pointer, increment it by the current function's frame size, and then load the default frame of the to-be-called
     // function, insert our arguments into it, store it on the incremented TS, call the function and load the returned value(s)
     // The "next" stack frame already has been computed in the allocation system
-    llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
+    llvm::Value *const next_stack_frame = Allocation::get(builder, ctx, "flint.stack.next");
     const size_t called_fn_id = call_node->function->get_id();
     llvm::StructType *const called_fn_type = Module::ThreadStack::ts_frames.at(called_fn_id);
 
     // Check if there is enough space left on the TS
-    llvm::Value *const remaining = ctx.allocations.at("flint.stack.remaining");
+    llvm::Value *const remaining = Allocation::get(builder, ctx, "flint.stack.remaining");
     Module::ThreadStack::generate_capacity_check(builder, ctx.parent, remaining, called_fn_type);
 
     llvm::GlobalVariable *const called_fn_default = Module::ThreadStack::ts_defaults.at(called_fn_id);
-    llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+    llvm::Value *const ts_ptr = Allocation::get(builder, ctx, "flint.stack.root");
     const size_t fn_ret_count = call_node->function->return_types.size();
     std::vector<llvm::Value *> call_frame_args;
     call_frame_args.reserve(args.size());
@@ -1718,7 +1718,7 @@ Generator::group_mapping Generator::Expression::generate_call( //
     // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
+        last_err_base = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2443,7 +2443,7 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
     // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
+        last_err_base = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2476,13 +2476,13 @@ Generator::group_mapping Generator::Expression::generate_builtin_call( //
 
     // Extract and store error value
     llvm::Value *err_val = builder.CreateExtractValue(call, 0, function_name + std::to_string(call_node->call_id) + "_err_val");
-    llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
-        type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+    llvm::Value *error_ptr = builder.CreateStructGEP(                                                                     //
+        type_map.at("type.ts.function"), Allocation::get(builder, ctx, "flint.stack"), Module::ThreadStack::FUNCTION::ERR //
     );
     IR::aligned_store(builder, err_val, error_ptr);
     llvm::Value *err_id = builder.CreateExtractValue(err_val, 0, "err_id");
     llvm::Value *fn_failed = builder.CreateICmpNE(err_id, builder.getInt32(0), "fn_" + function_name + "_failed");
-    last_err_values = {fn_failed, ctx.allocations.at("flint.stack")};
+    last_err_values = {fn_failed, Allocation::get(builder, ctx, "flint.stack")};
 
     // Clear all garbage of temporary parameters
     if (!Statement::clear_garbage(builder, garbage)) {
@@ -2529,19 +2529,19 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // Then we are loading the pointer to the allocated stack frame from the callable variable's allocation
     const unsigned int callable_scope_id = ctx.scope->variables.at(fn_name).scope_id;
     const std::string callable_var_str = "s" + std::to_string(callable_scope_id) + "::" + fn_name;
-    llvm::Value *const callable_alloca = ctx.allocations.at(callable_var_str);
+    llvm::Value *const callable_alloca = Allocation::get(builder, ctx, callable_var_str);
     llvm::Value *const callable_value = IR::aligned_load(builder, PTR_TY, callable_alloca, "callable_value");
 
     // Get the pointer to the callable frame
     llvm::Value *const callable_frame = builder.CreateGEP(PTR_TY, callable_value, builder.getInt32(1), "callable_frame");
     // Insert the pointer to the thread stack in the function's frame, the value is loaded in the setup section
-    llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+    llvm::Value *const ts_ptr = Allocation::get(builder, ctx, "flint.stack.root");
     IR::aligned_store(builder, ts_ptr, callable_frame);
     // Store the next frame in the TS
     llvm::Value *const next_ts_ptr = builder.CreateStructGEP(                                       //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr" //
     );
-    IR::aligned_store(builder, ctx.allocations.at("flint.stack.next"), next_ts_ptr);
+    IR::aligned_store(builder, Allocation::get(builder, ctx, "flint.stack.next"), next_ts_ptr);
     // Store the IS_CALLABLE flag in the flags section of the TS root
     llvm::Value *const ts_flags_ptr = builder.CreateStructGEP(                                  //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
@@ -2599,7 +2599,7 @@ Generator::group_mapping Generator::Expression::generate_callable_call( //
     // generated. The catch block is only reachable through the branch emitted below, so this value dominates it
     // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left behind
     if (call_node->has_catch) {
-        last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
+        last_err_base = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
     } else {
         last_err_base = nullptr;
     }
@@ -2696,7 +2696,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // TODO: Either add it here or in the dispatch function, a capacity check of the TS
 
             // Set up the frame by calling the dispatch function in setup-mode
-            llvm::Value *const next_stack_frame = ctx.allocations.at("flint.stack.next");
+            llvm::Value *const next_stack_frame = Allocation::get(builder, ctx, "flint.stack.next");
             const InterfaceType *interface_type = call_node->instance_variable->type->as<InterfaceType>();
             llvm::StructType *const interface_ty = type_map.at(interface_type->get_type_string());
             llvm::Value *const fn_id = builder.getInt64(call_node->function->get_id());
@@ -2721,7 +2721,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             }
 
             // Store the pointer to the thread stack in the function's frame, the value is loaded in the setup section
-            llvm::Value *const ts_ptr = ctx.allocations.at("flint.stack.root");
+            llvm::Value *const ts_ptr = Allocation::get(builder, ctx, "flint.stack.root");
             llvm::StructType *const ts_fn_ty = type_map.at("type.ts.function");
             llvm::Value *const ts_ptr_ptr = builder.CreateStructGEP(                              //
                 ts_fn_ty, next_stack_frame, Module::ThreadStack::FUNCTION::THREAD_STACK, "ts_ptr" //
@@ -2748,7 +2748,7 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // Non-catch calls reset `last_err_base` to nullptr, so that no stale value from an earlier call is left
             // behind
             if (call_node->has_catch) {
-                last_err_base = Error::generate_load_trace_depth(builder, ctx.allocations.at("flint.stack.root"));
+                last_err_base = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
             } else {
                 last_err_base = nullptr;
             }
@@ -2893,13 +2893,13 @@ void Generator::Expression::generate_rethrow( //
                 llvm::MDString::get(context, "Load err val of call '" + function_name + "::" + std::to_string(call_node->call_id) + "'")));
 
         // Store the error value in the error field of the current function
-        llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
-            type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+        llvm::Value *error_ptr = builder.CreateStructGEP(                                                                     //
+            type_map.at("type.ts.function"), Allocation::get(builder, ctx, "flint.stack"), Module::ThreadStack::FUNCTION::ERR //
         );
         IR::aligned_store(builder, err_val, error_ptr);
         if (ctx.function_name_ptr != nullptr) {
             llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
-            llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+            llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
             const std::string rethrow_path_str =
                 std::filesystem::relative(call_pos->file_hash.path, std::filesystem::current_path()).string();
             llvm::Value *const rethrow_path = IR::generate_const_string(ctx.parent->getParent(), rethrow_path_str);
@@ -3187,7 +3187,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
     }
-    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *const var_alloca = Allocation::get(builder, ctx, switcher_var_str);
 
     // Get the current block
     llvm::BasicBlock *const pred_block = builder.GetInsertBlock();
@@ -3226,8 +3226,7 @@ Generator::group_mapping Generator::Expression::generate_optional_switch_express
         if (branch.matches.front()->get_variation() == ExpressionNode::Variation::SWITCH_MATCH) {
             const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
             const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name.value();
-            llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
-            ctx.allocations.emplace(var_str, real_value_reference);
+            ctx.allocations.emplace(var_str, AllocationInfo::slot_field(switcher_var_str, opt_struct_type, 1));
             value_block_idx = i;
         }
         ctx.scope = branch.scope;
@@ -3312,7 +3311,6 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         switch_value = IR::aligned_load(builder, variant_struct_type, switch_value, "loaded_rhs");
     }
     switch_value = builder.CreateExtractValue(switch_value, {0}, "variant_flag");
-    llvm::Value *const var_alloca = ctx.allocations.at(switcher_var_str);
 
     // First pass: create all branch blocks and detect default case
     for (size_t i = 0; i < switch_expression->branches.size(); i++) {
@@ -3338,8 +3336,7 @@ Generator::group_mapping Generator::Expression::generate_variant_switch_expressi
         if (match_node->name.has_value()) {
             // Add a reference to the 'value' of the variant to the block the switch expression takes place in
             const std::string var_str = "s" + std::to_string(branch.scope->scope_id) + "::" + match_node->name.value();
-            llvm::Value *real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
-            ctx.allocations.emplace(var_str, real_value_reference);
+            ctx.allocations.emplace(var_str, AllocationInfo::slot_field(switcher_var_str, variant_struct_type, 1));
         }
         ctx.scope = branch.scope;
 
@@ -3585,7 +3582,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_inline_array_initia
         llvm::Value *index_i64 = generate_type_cast(builder, ctx, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
-    llvm::Value *const length_array = ctx.allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
+    llvm::Value *const length_array = Allocation::get(builder, ctx, "arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
         llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
         IR::aligned_store(builder, length_expressions.at(i), array_element_ptr);
@@ -3685,7 +3682,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_initializer( 
         llvm::Value *index_i64 = generate_type_cast(builder, ctx, result.value().front(), expr->type, Type::get_primitive_type("u64"));
         length_expressions.emplace_back(index_i64);
     }
-    llvm::Value *const length_array = ctx.allocations.at("arr::idx::" + std::to_string(length_expressions.size()));
+    llvm::Value *const length_array = Allocation::get(builder, ctx, "arr::idx::" + std::to_string(length_expressions.size()));
     for (size_t i = 0; i < length_expressions.size(); i++) {
         llvm::Value *array_element_ptr = builder.CreateGEP(builder.getInt64Ty(), length_array, builder.getInt64(i));
         IR::aligned_store(builder, length_expressions.at(i), array_element_ptr);
@@ -3912,7 +3909,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_array_access( //
         }
     }
     const size_t idx_size = indexing_expressions.size() * (static_cast<size_t>(is_slice) + 1);
-    llvm::Value *const temp_array_indices = ctx.allocations.at("arr::idx::" + std::to_string(idx_size));
+    llvm::Value *const temp_array_indices = Allocation::get(builder, ctx, "arr::idx::" + std::to_string(idx_size));
     // Save all the indices in the temp array
     for (size_t i = 0; i < index_expressions.size(); i++) {
         if (!is_slice) {
@@ -4422,7 +4419,7 @@ Generator::group_mapping Generator::Expression::generate_variant_extraction( //
 ) {
     const auto *variable_node = extraction->base_expr->as<VariableNode>();
     const unsigned int variable_decl_scope = ctx.scope->variables.at(variable_node->name).scope_id;
-    llvm::Value *const variable = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
+    llvm::Value *const variable = Allocation::get(builder, ctx, "s" + std::to_string(variable_decl_scope) + "::" + variable_node->name);
     const auto *result_type_ptr = extraction->type->as<OptionalType>();
     const std::shared_ptr<Type> &extract_type_ptr = result_type_ptr->base_type;
     llvm::Type *const element_type = IR::get_type(ctx.parent->getParent(), extract_type_ptr).type;
@@ -5719,7 +5716,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             } else if (type_str == "str") {
                 check_for_string_lit_garbage();
                 return Module::String::generate_string_addition(builder, //
-                    ctx.scope, ctx.allocations,                          //
+                    ctx,                                                 //
                     garbage, expr_depth + 1,                             //
                     lhs, bin_op_node->left,                              //
                     rhs, bin_op_node->right,                             //
@@ -6088,7 +6085,7 @@ std::optional<llvm::Value *> Generator::Expression::generate_binary_op_scalar( /
             // error. If the catch expression body ends in a rethrow this block is unreachable, so the trace of an unhandled error is never
             // truncated here
             llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
-            llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+            llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
             builder.CreateCall(trace_free_fn, {ts_root, catch_expr_trace_base});
             builder.CreateBr(catch_expr_merge_block);
 

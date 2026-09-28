@@ -20,12 +20,12 @@ bool Generator::Builtin::init_global_variables( //
 ) {
     // Build a scope and allocations map for the shared data globals so generate_expression can resolve them
     std::shared_ptr<Scope> init_scope = std::make_shared<Scope>();
-    std::unordered_map<std::string, llvm::Value *const> allocations;
+    std::unordered_map<std::string, AllocationInfo> allocations;
     for (const auto &file : Parser::instances) {
         const Namespace *ns = file.file_node_ptr->file_namespace.get();
         for (const auto &global : ns->public_symbols.globals) {
             init_scope->variables[global.first] = global.second;
-            allocations.emplace("s0::" + global.first, shared_globals.at(global.first));
+            allocations.emplace("s0::" + global.first, AllocationInfo::plain_value(shared_globals.at(global.first)));
         }
     }
     if (allocations.empty()) {
@@ -42,30 +42,32 @@ bool Generator::Builtin::init_global_variables( //
     );
     IR::aligned_store(*builder, pseudo_frame, ts_stack_data_ptr);
 
-    allocations.emplace("flint.stack.root", ts_ptr);
-    allocations.emplace("flint.stack", ts_stack_data_ptr);
+    // The thread stack values of the global initializers live in a pseudo frame of `type.ts.function`, so they are stored as they are
+    // instead of being regenerated like they are in a function frame.
+    allocations.emplace("flint.stack.root", AllocationInfo::plain_value(ts_ptr));
+    allocations.emplace("flint.stack", AllocationInfo::plain_value(ts_stack_data_ptr));
     llvm::Value *next_stack_frame = builder->CreateGEP(ts_fn_ty, ts_stack_data_ptr, builder->getInt32(1), "global_init_next_frame");
-    allocations.emplace("flint.stack.persistence_flags", next_stack_frame);
+    allocations.emplace("flint.stack.persistence_flags", AllocationInfo::plain_value(next_stack_frame));
     llvm::Value *const ts_flags_ptr = builder->CreateStructGEP(                                 //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::FLAGS, "ts_flags_ptr" //
     );
     llvm::Value *const ts_flags = IR::aligned_load(*builder, builder->getInt32Ty(), ts_flags_ptr, "ts_flags");
     llvm::Value *const is_callable_flag = builder->getInt32(Module::ThreadStack::STACK::FLAG::TS_FLAG_CALLABLE);
     llvm::Value *const is_callable = builder->CreateICmpEQ(ts_flags, is_callable_flag, "is_callable");
-    allocations.emplace("flint.stack.is_callable", is_callable);
+    allocations.emplace("flint.stack.is_callable", AllocationInfo::plain_value(is_callable));
     llvm::Value *const ts_stack_ptr_ptr = builder->CreateStructGEP(                                     //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::STACK_PTR, "ts_stack_ptr_ptr" //
     );
     llvm::Value *const ts_stack_ptr = IR::aligned_load(*builder, PTR_TY, ts_stack_ptr_ptr, "ts_stack_ptr");
     next_stack_frame = builder->CreateSelect(is_callable, ts_stack_ptr, next_stack_frame, "real_next_stack_frame");
-    allocations.emplace("flint.stack.next", next_stack_frame);
+    allocations.emplace("flint.stack.next", AllocationInfo::plain_value(next_stack_frame));
     llvm::Value *const ts_capacity_ptr = builder->CreateStructGEP(                                    //
         type_map.at("type.ts.stack"), ts_ptr, Module::ThreadStack::STACK::CAPACITY, "ts_capacity_ptr" //
     );
     llvm::Value *const ts_capacity = IR::aligned_load(*builder, builder->getInt64Ty(), ts_capacity_ptr, "ts_capacity");
     const size_t pseudo_frame_size = Allocation::get_type_size(function->getParent(), type_map.at("type.ts.function"));
     llvm::Value *const remaining = builder->CreateSub(ts_capacity, builder->getInt64(pseudo_frame_size), "flint_stack_remaining");
-    allocations.emplace("flint.stack.remaining", remaining);
+    allocations.emplace("flint.stack.remaining", AllocationInfo::plain_value(remaining));
 
     GenerationContext ctx{
         .stack_type = nullptr,
@@ -119,7 +121,7 @@ bool Generator::Builtin::init_global_variables( //
                         init_val = builder->CreateCall(init_str_fn, {init_val, builder->getInt64(str_val.length())}, "init_str_value");
                     }
                 }
-                IR::aligned_store(*builder, init_val, gvar_it->second);
+                IR::aligned_store(*builder, init_val, Allocation::get(*builder, ctx, gvar_it->first));
             }
         }
     }

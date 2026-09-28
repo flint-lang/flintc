@@ -86,7 +86,7 @@ bool Generator::Statement::generate_statement(      //
             // errors does not grow the trace list endlessly
             if (catch_trace_base != nullptr) {
                 llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
-                llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+                llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
                 builder.CreateCall(trace_free_fn, {ts_root, catch_trace_base});
             }
             builder.CreateBr(last_merge_blocks.back());
@@ -140,7 +140,7 @@ bool Generator::Statement::generate_statement(      //
             // handles errors does not grow the trace list endlessly
             if (catch_trace_base != nullptr) {
                 llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
-                llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+                llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
                 builder.CreateCall(trace_free_fn, {ts_root, catch_trace_base});
             }
             builder.CreateBr(last_looparound_blocks.back());
@@ -339,7 +339,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
             merge_block = llvm::BasicBlock::Create(context, "end_of_scope_" + std::to_string(ctx.scope->scope_id) + "_merge");
             builder.SetInsertPoint(prev_block);
             if (has_persistents) {
-                llvm::Value *const is_callable = ctx.allocations.at("flint.stack.is_callable");
+                llvm::Value *const is_callable = Allocation::get(builder, ctx, "flint.stack.is_callable");
                 builder.CreateCondBr(is_callable, end_of_scope_block, end_of_scope_persistent_block);
             } else {
                 builder.CreateBr(end_of_scope_block);
@@ -359,7 +359,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
         }
         // Free the variable by simply calling the `memory.free` function
         const std::string alloca_name = "s" + std::to_string(variable.scope_id) + "::" + var_name;
-        llvm::Value *const alloca = ctx.allocations.at(alloca_name);
+        llvm::Value *const alloca = Allocation::get(builder, ctx, alloca_name);
         llvm::Value *variable_value = alloca;
         const IR::TypeStorageInfo &variable_type_info = IR::get_type(ctx.parent->getParent(), var_type);
         const bool var_is_array = var_type->get_variation() == Type::Variation::ARRAY && !var_type->as<ArrayType>()->sizes.has_value();
@@ -399,7 +399,7 @@ bool Generator::Statement::generate_end_of_scope(llvm::IRBuilder<> &builder, Gen
 
 bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ReturnNode *return_node) {
     // Get the return type of the function
-    llvm::Value *stack_ptr = ctx.allocations.at("flint.stack");
+    llvm::Value *stack_ptr = Allocation::get(builder, ctx, "flint.stack");
 
     // First, always store the error code (0 for no error)
     llvm::Value *error_ptr = builder.CreateStructGEP(                                               //
@@ -428,7 +428,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
         // Then, save all values of the return_value in the return struct
         if (return_value.value().size() == 1) {
-            llvm::Value *value_ptr = ctx.allocations.at("flint.ret.0");
+            llvm::Value *value_ptr = Allocation::get(builder, ctx, "flint.ret.0");
             if (return_node->return_value.value()->type->is_freeable()                                              //
                 && return_node->return_value.value()->type->get_variation() != Type::Variation::DATA                //
                 && return_node->return_value.value()->get_variation() == ExpressionNode::Variation::VARIABLE        //
@@ -459,7 +459,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
                 exprs = &return_node->return_value.value()->as<GroupExpressionNode>()->expressions;
             }
             for (size_t i = 0; i < return_value.value().size(); i++) {
-                llvm::Value *value_ptr = ctx.allocations.at("flint.ret." + std::to_string(i));
+                llvm::Value *value_ptr = Allocation::get(builder, ctx, "flint.ret." + std::to_string(i));
                 // If this return value is a variable, is freeable and is a function parameter then we clone it into the return value
                 if (exprs != nullptr                                                               //
                     && exprs->at(i)->type->is_freeable()                                           //
@@ -507,7 +507,7 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
     // a function inside the catch block of the function which called this function
     if (ctx.entry_trace_depth != nullptr) {
         llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
-        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
         builder.CreateCall(trace_free_fn, {ts_root, ctx.entry_trace_depth});
     }
 
@@ -518,8 +518,8 @@ bool Generator::Statement::generate_return_statement(llvm::IRBuilder<> &builder,
 
 bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, GenerationContext &ctx, const ThrowNode *throw_node) {
     // Pointer to the error value of the current function
-    llvm::Value *error_ptr = builder.CreateStructGEP(                                                          //
-        type_map.at("type.ts.function"), ctx.allocations.at("flint.stack"), Module::ThreadStack::FUNCTION::ERR //
+    llvm::Value *error_ptr = builder.CreateStructGEP(                                                                     //
+        type_map.at("type.ts.function"), Allocation::get(builder, ctx, "flint.stack"), Module::ThreadStack::FUNCTION::ERR //
     );
 
     // Generate the expression right of the throw statement, it has to be an error set
@@ -534,7 +534,7 @@ bool Generator::Statement::generate_throw_statement(llvm::IRBuilder<> &builder, 
     // output), so the whole entry can be created without any heap allocation
     if (ctx.function_name_ptr != nullptr) {
         llvm::Function *const trace_add_fn = Error::error_functions.at("trace_add");
-        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
         const std::string throw_path_str = std::filesystem::relative(throw_node->file_hash.path, std::filesystem::current_path()).string();
         llvm::Value *const throw_path = IR::generate_const_string(ctx.parent->getParent(), throw_path_str);
         builder.CreateCall(trace_add_fn,                                                                                           //
@@ -1074,29 +1074,25 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
         element_type = builder.getInt8Ty();
     }
 
-    llvm::Value *tuple_alloca = nullptr;
+    std::string tuple_alloca_name;
     llvm::Type *tuple_type = nullptr;
-    llvm::Value *index_alloca = nullptr;
+    std::string index_alloca_name;
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         const unsigned int scope_id = for_node->definition_scope->scope_id;
-        const std::string tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
-        tuple_alloca = ctx.allocations.at(tuple_alloca_name);
+        tuple_alloca_name = "s" + std::to_string(scope_id) + "::" + std::get<std::string>(for_node->iterators);
         const auto tuple_var = for_node->definition_scope->variables.at(std::get<std::string>(for_node->iterators));
         tuple_type = IR::get_type(ctx.parent->getParent(), tuple_var.type).type;
-        llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
+        llvm::Value *idx_ptr = builder.CreateStructGEP(tuple_type, Allocation::get(builder, ctx, tuple_alloca_name), 0, "idx_ptr");
         IR::aligned_store(builder, builder.getInt64(0), idx_ptr);
     } else {
         const auto iterators = std::get<std::pair<std::optional<std::string>, std::optional<std::string>>>(for_node->iterators);
         const unsigned int scope_id = for_node->definition_scope->scope_id;
         if (iterators.first.has_value()) {
-            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.first.value();
-            index_alloca = ctx.allocations.at(index_alloca_name);
-            IR::aligned_store(builder, builder.getInt64(0), index_alloca);
+            index_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.first.value();
         } else {
-            const std::string index_alloca_name = "s" + std::to_string(scope_id) + "::IDX";
-            index_alloca = ctx.allocations.at(index_alloca_name);
-            IR::aligned_store(builder, builder.getInt64(0), index_alloca);
+            index_alloca_name = "s" + std::to_string(scope_id) + "::IDX";
         }
+        IR::aligned_store(builder, builder.getInt64(0), Allocation::get(builder, ctx, index_alloca_name));
         // The second element will be handled later
     }
     builder.CreateBr(for_blocks[0]);
@@ -1111,10 +1107,10 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     llvm::Value *current_index = nullptr;
     llvm::Value *idx_ptr = nullptr;
     if (std::holds_alternative<std::string>(for_node->iterators)) {
-        idx_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 0, "idx_ptr");
+        idx_ptr = builder.CreateStructGEP(tuple_type, Allocation::get(builder, ctx, tuple_alloca_name), 0, "idx_ptr");
         current_index = IR::aligned_load(builder, builder.getInt64Ty(), idx_ptr, "current_index");
     } else {
-        current_index = IR::aligned_load(builder, builder.getInt64Ty(), index_alloca, "current_index");
+        current_index = IR::aligned_load(builder, builder.getInt64Ty(), Allocation::get(builder, ctx, index_alloca_name), "current_index");
     }
     // Then check if the index is still smaller than the length and branch accordingly
     llvm::Value *in_range = builder.CreateICmpULT(current_index, length, "in_range");
@@ -1137,7 +1133,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     }
     // We need to store the element in the tuple / in the element alloca
     if (std::holds_alternative<std::string>(for_node->iterators)) {
-        llvm::Value *elem_ptr = builder.CreateStructGEP(tuple_type, tuple_alloca, 1, "elem_ptr");
+        llvm::Value *elem_ptr = builder.CreateStructGEP(tuple_type, Allocation::get(builder, ctx, tuple_alloca_name), 1, "elem_ptr");
         IR::aligned_store(builder, current_element, elem_ptr);
     } else {
         // If we have a elem variable the elem variable is actually just the iterable element itself
@@ -1146,13 +1142,13 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
             const unsigned int scope_id = for_node->definition_scope->scope_id;
             const std::string element_alloca_name = "s" + std::to_string(scope_id) + "::" + iterators.second.value();
             if (is_range) {
-                llvm::Value *const element_alloca = ctx.allocations.at(element_alloca_name);
+                llvm::Value *const element_alloca = Allocation::get(builder, ctx, element_alloca_name);
                 IR::aligned_store(builder, current_element, element_alloca);
             } else {
-                // For non-range, replace the old nullptr alloca with the new alloca
+                // The element variable is the element of the iterable itself, so it can only be described by the pointer to it
                 ASSERT(ctx.allocations.find(element_alloca_name) == ctx.allocations.end());
                 ctx.allocations.erase(element_alloca_name);
-                ctx.allocations.emplace(element_alloca_name, current_element_ptr);
+                ctx.allocations.emplace(element_alloca_name, AllocationInfo::element(value_ptr, element_type, current_index));
             }
         }
     }
@@ -1176,7 +1172,7 @@ bool Generator::Statement::generate_enh_for_loop(llvm::IRBuilder<> &builder, Gen
     if (std::holds_alternative<std::string>(for_node->iterators)) {
         IR::aligned_store(builder, new_index, idx_ptr);
     } else {
-        IR::aligned_store(builder, new_index, index_alloca);
+        IR::aligned_store(builder, new_index, Allocation::get(builder, ctx, index_alloca_name));
     }
     // Branch back to the loop's condition to finish the loop
     builder.SetCurrentDebugLocation(loop_dbg_location);
@@ -1235,14 +1231,10 @@ bool Generator::Statement::generate_optional_switch_statement( //
             const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
             const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
             llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
-            // if (switch_value->getType()->isPointerTy()) {
-            //     switch_value = IR::aligned_load(builder, opt_struct_type, switch_value, "loaded_rhs");
-            // }
-            llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+
             if (match_node->name.has_value()) {
                 const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name.value();
-                llvm::Value *real_value_reference = builder.CreateStructGEP(opt_struct_type, var_alloca, 1, "value_reference");
-                ctx.allocations.emplace(var_str, real_value_reference);
+                ctx.allocations.emplace(var_str, AllocationInfo::slot_field(switcher_var_str, opt_struct_type, 1));
             }
             value_block_idx = i;
         }
@@ -1269,7 +1261,7 @@ bool Generator::Statement::generate_optional_switch_statement( //
     const unsigned int switcher_scope_id = ctx.scope->variables.at(switcher_var_node->name).scope_id;
     const std::string switcher_var_str = "s" + std::to_string(switcher_scope_id) + "::" + switcher_var_node->name;
     llvm::StructType *opt_struct_type = IR::add_and_or_get_type(ctx.parent->getParent(), switch_statement->switcher->type, false);
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
+    llvm::Value *var_alloca = Allocation::get(builder, ctx, switcher_var_str);
     // We just check for the "has_value" field and branch to our blocks depending on that field's value
     llvm::Value *const has_value_ptr = builder.CreateStructGEP(opt_struct_type, var_alloca, 0, "has_value_ptr");
     llvm::Value *const has_value_i8 = IR::aligned_load(builder, builder.getInt8Ty(), has_value_ptr, "has_value_i8");
@@ -1323,7 +1315,6 @@ bool Generator::Statement::generate_variant_switch_statement( //
     if (switch_value->getType()->isPointerTy()) {
         switch_value = IR::aligned_load(builder, variant_struct_type, switch_value, "loaded_rhs");
     }
-    llvm::Value *var_alloca = ctx.allocations.at(switcher_var_str);
 
     for (size_t i = 0; i < switch_statement->branches.size(); i++) {
         const auto &branch = switch_statement->branches[i];
@@ -1345,16 +1336,14 @@ bool Generator::Statement::generate_variant_switch_statement( //
         const auto *match_node = branch.matches.front()->as<SwitchMatchNode>();
         if (match_node->name.has_value()) {
             const std::string var_str = "s" + std::to_string(branch.body->parent_scope->scope_id) + "::" + match_node->name.value();
-            llvm::Value *real_value_reference = nullptr;
             if (variant_type->is_err_variant) {
-                real_value_reference = var_alloca;
                 if (match_node->type->to_string() == "anyerror") {
                     default_block = branch_blocks[i];
                 }
+                ctx.allocations.emplace(var_str, AllocationInfo::slot_alias(switcher_var_str));
             } else {
-                real_value_reference = builder.CreateStructGEP(variant_struct_type, var_alloca, 1, "value_reference");
+                ctx.allocations.emplace(var_str, AllocationInfo::slot_field(switcher_var_str, variant_struct_type, 1));
             }
-            ctx.allocations.emplace(var_str, real_value_reference);
         }
 
         ctx.scope = branch.body;
@@ -1603,7 +1592,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
     if (catch_node->var_name.has_value()) {
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::" + catch_node->var_name.value();
-        ctx.allocations.insert({err_alloca_name, err_ptr});
+        ctx.allocations.insert({err_alloca_name, AllocationInfo::plain_value(err_ptr)});
 
         // Emit debug info for the catch variable if in debug mode
         if (OPTIMIZE_MODE == OptimizeMode::DEBUG) {
@@ -1640,7 +1629,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         const auto *switch_statement = catch_node->scope->body.front()->as<SwitchStatement>();
         // Add the error variable to the list of allocations (temporarily)
         err_alloca_name = "s" + std::to_string(catch_node->scope->scope_id) + "::flint.value_err";
-        ctx.allocations.insert({err_alloca_name, err_ptr});
+        ctx.allocations.insert({err_alloca_name, AllocationInfo::plain_value(err_ptr)});
         if (!generate_variant_switch_statement(builder, ctx, switch_statement, err_ptr)) {
             THROW_BASIC_ERR(ERR_GENERATING);
             return false;
@@ -1656,7 +1645,7 @@ bool Generator::Statement::generate_catch_statement(llvm::IRBuilder<> &builder, 
         // Leaving the catch body through the fall-through frees the trace entries of the handled error and restores the trace to the state
         // it had before the caught function was called
         llvm::Function *const trace_free_fn = Error::error_functions.at("trace_free");
-        llvm::Value *const ts_root = ctx.allocations.at("flint.stack.root");
+        llvm::Value *const ts_root = Allocation::get(builder, ctx, "flint.stack.root");
         builder.CreateCall(trace_free_fn, {ts_root, ctx.catch_scopes.back().second});
         builder.CreateBr(merge_block);
     }
@@ -1712,7 +1701,7 @@ bool Generator::Statement::generate_group_declaration( //
         }
         // Store the expression result in an variable
         const std::string variable_name = "s" + std::to_string(ctx.scope->scope_id) + "::" + variable.second;
-        llvm::Value *const variable_alloca = ctx.allocations.at(variable_name);
+        llvm::Value *const variable_alloca = Allocation::get(builder, ctx, variable_name);
         IR::aligned_store(builder, elem_value, variable_alloca);
         elem_idx++;
     }
@@ -1731,7 +1720,7 @@ bool Generator::Statement::generate_declaration( //
     llvm::BasicBlock *declaration_block = nullptr;
     llvm::BasicBlock *decl_finished_block = nullptr;
     llvm::BasicBlock *merge_block = nullptr;
-    llvm::Value *const is_callable = ctx.allocations.at("flint.stack.is_callable");
+    llvm::Value *const is_callable = Allocation::get(builder, ctx, "flint.stack.is_callable");
     if (declaration_node->is_persistent) {
         llvm::BasicBlock *current_block = builder.GetInsertBlock();
         is_callable_block = llvm::BasicBlock::Create(context, "pers_decl_is_callable_" + declaration_node->name, ctx.parent);
@@ -1745,7 +1734,7 @@ bool Generator::Statement::generate_declaration( //
 
         // Check if the persistent variable has already been initialized
         builder.SetInsertPoint(is_callable_block);
-        llvm::Value *const persistence_flags = ctx.allocations.at("flint.stack.persistence_flags");
+        llvm::Value *const persistence_flags = Allocation::get(builder, ctx, "flint.stack.persistence_flags");
         llvm::Value *const persistence_id = builder.getInt64(declaration_node->persistence_id);
         llvm::Value *is_init_ptr = builder.CreateGEP(builder.getInt8Ty(), persistence_flags, persistence_id, "is_init_ptr");
         llvm::Value *const is_initialized = IR::aligned_load(builder, builder.getInt8Ty(), is_init_ptr, "is_initialized");
@@ -1754,15 +1743,18 @@ bool Generator::Statement::generate_declaration( //
 
         // The decl finished block essentially just stores a '1' in the is_init_ptr field
         builder.SetInsertPoint(decl_finished_block);
-        is_init_ptr = builder.CreateGEP(builder.getInt8Ty(), persistence_flags, persistence_id, "is_init_ptr");
-        IR::aligned_store(builder, builder.getInt8(1), is_init_ptr);
+        llvm::Value *const persistence_flags_finished = Allocation::get(builder, ctx, "flint.stack.persistence_flags");
+        llvm::Value *is_init_ptr_finished = builder.CreateGEP(                             //
+            builder.getInt8Ty(), persistence_flags_finished, persistence_id, "is_init_ptr" //
+        );
+        IR::aligned_store(builder, builder.getInt8(1), is_init_ptr_finished);
         builder.CreateBr(merge_block);
 
         builder.SetInsertPoint(declaration_block);
     }
     const unsigned int scope_id = ctx.scope->variables.at(declaration_node->name).scope_id;
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
-    llvm::Value *const alloca = ctx.allocations.at(var_name);
+    llvm::Value *const alloca = Allocation::get(builder, ctx, var_name);
 
     llvm::Value *expression;
     if (declaration_node->initializer.has_value()) {
@@ -2095,7 +2087,7 @@ bool Generator::Statement::generate_assignment(llvm::IRBuilder<> &builder, Gener
     // Get the allocation of the lhs
     const std::shared_ptr<Type> &variable_type = ctx.scope->variables.at(assignment_node->name).type;
     const unsigned int variable_decl_scope = ctx.scope->variables.at(assignment_node->name).scope_id;
-    llvm::Value *const lhs = ctx.allocations.at("s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
+    llvm::Value *const lhs = Allocation::get(builder, ctx, "s" + std::to_string(variable_decl_scope) + "::" + assignment_node->name);
 
     // If its a group type we have to handle it differently than when its a single value
     if (assignment_node->expression->type->get_variation() == Type::Variation::GROUP) {
@@ -2541,7 +2533,9 @@ bool Generator::Statement::generate_array_assignment( //
     }
 
     // Store all the results of the index expressions in the indices array
-    llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(array_assignment->indexing_expressions.size()));
+    llvm::Value *const indices = Allocation::get(                                                  //
+        builder, ctx, "arr::idx::" + std::to_string(array_assignment->indexing_expressions.size()) //
+    );
     for (size_t i = 0; i < idx_expressions.size(); i++) {
         llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(i), "idx_ptr_" + std::to_string(i));
         IR::aligned_store(builder, idx_expressions[i], idx_ptr);
@@ -2679,7 +2673,7 @@ bool Generator::Statement::generate_grouped_array_assignment( //
         }
 
         // Store all the results of the index expressions in the indices array
-        llvm::Value *const indices = ctx.allocations.at("arr::idx::" + std::to_string(idx_expressions.value().size()));
+        llvm::Value *const indices = Allocation::get(builder, ctx, "arr::idx::" + std::to_string(idx_expressions.value().size()));
         for (size_t j = 0; j < idx_expressions.value().size(); j++) {
             llvm::Value *idx_ptr = builder.CreateGEP(builder.getInt64Ty(), indices, builder.getInt64(j), "idx_ptr_" + std::to_string(j));
             IR::aligned_store(builder, idx_expressions.value().at(j), idx_ptr);
@@ -2741,7 +2735,7 @@ bool Generator::Statement::generate_unary_op_statement( //
     const auto *var_node = unary_op->operand->as<VariableNode>();
     const unsigned int scope_id = ctx.scope->variables.at(var_node->name).scope_id;
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + var_node->name;
-    llvm::Value *const alloca = ctx.allocations.at(var_name);
+    llvm::Value *const alloca = Allocation::get(builder, ctx, var_name);
 
     llvm::LoadInst *var_value = IR::aligned_load(builder,           //
         IR::get_type(ctx.parent->getParent(), var_node->type).type, //

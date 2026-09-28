@@ -1039,14 +1039,12 @@ llvm::DIType *Generator::Debug::get_or_create_debug_type(llvm::Module *const mod
     return di_type;
 }
 
-void Generator::Debug::generate_variable_debug_info(                        //
-    llvm::IRBuilder<> &builder,                                             //
-    llvm::Function *parent,                                                 //
-    const std::shared_ptr<Scope> scope,                                     //
-    const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const Hash &hash_key                                                    //
+void Generator::Debug::generate_variable_debug_info( //
+    llvm::IRBuilder<> &builder,                      //
+    const GenerationContext &ctx,                    //
+    const Hash &hash_key                             //
 ) {
-    llvm::DISubprogram *const sp = parent->getSubprogram();
+    llvm::DISubprogram *const sp = ctx.parent->getSubprogram();
     if (sp == nullptr || DIB == nullptr) {
         return;
     }
@@ -1055,13 +1053,13 @@ void Generator::Debug::generate_variable_debug_info(                        //
         return;
     }
 
-    for (const auto &stmt : scope->body) {
+    for (const auto &stmt : ctx.scope->body) {
         switch (stmt->get_variation()) {
             case StatementNode::Variation::DECLARATION: {
                 const auto *decl = stmt->as<DeclarationNode>();
-                const std::string alloca_name = "s" + std::to_string(scope->scope_id) + "::" + decl->name;
-                llvm::Value *const alloca = allocations.at(alloca_name);
-                llvm::DIType *const debug_type = get_or_create_debug_type(parent->getParent(), decl->type);
+                const std::string alloca_name = "s" + std::to_string(ctx.scope->scope_id) + "::" + decl->name;
+                llvm::Value *const alloca = Allocation::get(builder, ctx, alloca_name);
+                llvm::DIType *const debug_type = get_or_create_debug_type(ctx.parent->getParent(), decl->type);
                 llvm::DILocalVariable *const var = DIB->createAutoVariable(sp, decl->name, file_meta, decl->line, debug_type, true);
                 llvm::DILocation *const diloc = llvm::DILocation::get(Generator::context, sp->getLine(), 0, sp);
                 llvm::DIExpression *const expr = DIB->createExpression({llvm::dwarf::DW_OP_deref});
@@ -1072,7 +1070,9 @@ void Generator::Debug::generate_variable_debug_info(                        //
                 const auto *node = stmt->as<IfNode>();
                 const IfNode *if_node = node;
                 while (if_node != nullptr) {
-                    generate_variable_debug_info(builder, parent, if_node->then_scope, allocations, hash_key);
+                    GenerationContext local_ctx = ctx;
+                    local_ctx.scope = if_node->then_scope;
+                    generate_variable_debug_info(builder, local_ctx, hash_key);
                     if (!if_node->else_scope.has_value()) {
                         break;
                     }
@@ -1080,50 +1080,61 @@ void Generator::Debug::generate_variable_debug_info(                        //
                         if_node = std::get<std::unique_ptr<IfNode>>(if_node->else_scope.value()).get();
                         continue;
                     }
-                    generate_variable_debug_info(                                      //
-                        builder, parent,                                               //
-                        std::get<std::shared_ptr<Scope>>(if_node->else_scope.value()), //
-                        allocations, hash_key                                          //
-                    );
+                    local_ctx.scope = std::get<std::shared_ptr<Scope>>(if_node->else_scope.value());
+                    generate_variable_debug_info(builder, local_ctx, hash_key);
                     break;
                 }
                 break;
             }
             case StatementNode::Variation::WHILE: {
                 const auto *node = stmt->as<WhileNode>();
-                generate_variable_debug_info(builder, parent, node->scope, allocations, hash_key);
+                GenerationContext local_ctx = ctx;
+                local_ctx.scope = node->scope;
+                generate_variable_debug_info(builder, local_ctx, hash_key);
                 break;
             }
             case StatementNode::Variation::DO_WHILE: {
                 const auto *node = stmt->as<DoWhileNode>();
-                generate_variable_debug_info(builder, parent, node->scope, allocations, hash_key);
+                GenerationContext local_ctx = ctx;
+                local_ctx.scope = node->scope;
+                generate_variable_debug_info(builder, local_ctx, hash_key);
                 break;
             }
             case StatementNode::Variation::FOR_LOOP: {
                 const auto *node = stmt->as<ForLoopNode>();
+                GenerationContext local_ctx = ctx;
                 if (node->definition_scope != nullptr) {
-                    generate_variable_debug_info(builder, parent, node->definition_scope, allocations, hash_key);
+                    local_ctx.scope = node->definition_scope;
+                    generate_variable_debug_info(builder, local_ctx, hash_key);
                 }
-                generate_variable_debug_info(builder, parent, node->body, allocations, hash_key);
+                local_ctx.scope = node->body;
+                generate_variable_debug_info(builder, local_ctx, hash_key);
                 break;
             }
             case StatementNode::Variation::ENHANCED_FOR_LOOP: {
                 const auto *node = stmt->as<EnhForLoopNode>();
+                GenerationContext local_ctx = ctx;
                 if (node->definition_scope != nullptr) {
-                    generate_variable_debug_info(builder, parent, node->definition_scope, allocations, hash_key);
+                    local_ctx.scope = node->definition_scope;
+                    generate_variable_debug_info(builder, local_ctx, hash_key);
                 }
-                generate_variable_debug_info(builder, parent, node->body, allocations, hash_key);
+                local_ctx.scope = node->body;
+                generate_variable_debug_info(builder, local_ctx, hash_key);
                 break;
             }
             case StatementNode::Variation::CATCH: {
                 const auto *node = stmt->as<CatchNode>();
-                generate_variable_debug_info(builder, parent, node->scope, allocations, hash_key);
+                GenerationContext local_ctx = ctx;
+                local_ctx.scope = node->scope;
+                generate_variable_debug_info(builder, local_ctx, hash_key);
                 break;
             }
             case StatementNode::Variation::SWITCH: {
                 const auto *node = stmt->as<SwitchStatement>();
+                GenerationContext local_ctx = ctx;
                 for (const auto &branch : node->branches) {
-                    generate_variable_debug_info(builder, parent, branch.body, allocations, hash_key);
+                    local_ctx.scope = branch.body;
+                    generate_variable_debug_info(builder, local_ctx, hash_key);
                 }
                 break;
             }
@@ -1133,14 +1144,13 @@ void Generator::Debug::generate_variable_debug_info(                        //
     }
 }
 
-void Generator::Debug::generate_parameter_debug_info(                       //
-    llvm::IRBuilder<> &builder,                                             //
-    llvm::Function *parent,                                                 //
-    const FunctionNode *function_node,                                      //
-    const std::unordered_map<std::string, llvm::Value *const> &allocations, //
-    const Hash &hash_key                                                    //
+void Generator::Debug::generate_parameter_debug_info( //
+    llvm::IRBuilder<> &builder,                       //
+    const GenerationContext &ctx,                     //
+    const FunctionNode *function_node,                //
+    const Hash &hash_key                              //
 ) {
-    llvm::DISubprogram *const sp = parent->getSubprogram();
+    llvm::DISubprogram *const sp = ctx.parent->getSubprogram();
     if (sp == nullptr || DIB == nullptr) {
         return;
     }
@@ -1152,8 +1162,8 @@ void Generator::Debug::generate_parameter_debug_info(                       //
     for (size_t i = 0; i < function_node->parameters.size(); i++) {
         const auto &[param_type, param_name, param_mutable] = function_node->parameters.at(i);
         const std::string alloca_name = "s" + std::to_string(function_node->scope.value()->scope_id) + "::" + param_name;
-        llvm::Value *const alloca = allocations.at(alloca_name);
-        llvm::DIType *const debug_type = get_or_create_debug_type(parent->getParent(), param_type);
+        llvm::Value *const alloca = Allocation::get(builder, ctx, alloca_name);
+        llvm::DIType *const debug_type = get_or_create_debug_type(ctx.parent->getParent(), param_type);
         llvm::DILocalVariable *const var = DIB->createParameterVariable(            //
             sp, param_name, i + 1, file_meta, function_node->line, debug_type, true //
         );

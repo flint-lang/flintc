@@ -137,15 +137,15 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
 
     // Create all the functions allocations (declarations, etc.) at the beginning, before the actual function body
     // The key is a combination of the scope id and the variable name, e.g. 1::var1, 2::var2
-    // Because of the thread stack, these "allocations" are now fixed pointer offsets (GEPs) into the function structure, nothing more and
-    // nothing less
-    std::unordered_map<std::string, llvm::Value *const> allocations;
+    // These "allocations" are now descriptions of the fixed pointer offsets (GEPs) into the function structure instead of being element
+    // pointers directly
+    std::unordered_map<std::string, AllocationInfo> allocations;
     // Inject all global variables into the allocations map
     for (const auto &var : function_node->scope.value()->variables) {
         if (!var.second.is_global) {
             continue;
         }
-        allocations.emplace("s0::" + var.first, shared_globals.at(var.first));
+        allocations.emplace("s0::" + var.first, AllocationInfo::plain_value(shared_globals.at(var.first)));
     }
     const auto fn_ty = Allocation::generate_function_allocations(builder, function, function_node, allocations);
     if (!fn_ty.has_value()) {
@@ -198,19 +198,6 @@ bool Generator::Function::generate_function_body(                               
         builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
     }
 
-    // Emit debug info for all local variables and parameters at the start of the entry block
-    if (Debug::DIB != nullptr && function_node->scope.has_value()) {
-        const Hash &hash = function_node->file_hash;
-        Debug::generate_variable_debug_info(builder, function, function_node->scope.value(), fn_ctx.allocations, hash);
-        Debug::generate_parameter_debug_info(builder, function, function_node, fn_ctx.allocations, hash);
-    }
-
-    // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
-    // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
-    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
-    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
-    llvm::Value *const entry_trace_depth = Error::generate_load_trace_depth(builder, fn_ctx.allocations.at("flint.stack.root"));
-
     // Generate all instructions of the functions body. The name of the function is baked into the generated code as a global constant
     // string, so that every trace entry created in this function can register the name of the function it was created in
     llvm::Value *const function_name_ptr = IR::generate_const_string(function->getParent(), function_node->name);
@@ -225,8 +212,20 @@ bool Generator::Function::generate_function_body(                               
         .dest = nullptr,
         .function_name_ptr = function_name_ptr,
         .catch_scopes = {},
-        .entry_trace_depth = entry_trace_depth,
     };
+    // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
+    // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
+    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
+    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
+    ctx.entry_trace_depth = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
+
+    // Emit debug info for all local variables and parameters at the start of the entry block
+    if (Debug::DIB != nullptr && function_node->scope.has_value()) {
+        const Hash &hash = function_node->file_hash;
+        Debug::generate_variable_debug_info(builder, ctx, hash);
+        Debug::generate_parameter_debug_info(builder, ctx, function_node, hash);
+    }
+
     if (!Statement::generate_body(builder, ctx)) {
         return false;
     }
@@ -296,13 +295,13 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         fake_fn_scope,                    //
         fake_fn_mangle_id                 //
     );
-    std::unordered_map<std::string, llvm::Value *const> allocations;
+    std::unordered_map<std::string, AllocationInfo> allocations;
     // Inject all global variables into the allocations map
     for (const auto &var : test_node->scope->variables) {
         if (!var.second.is_global) {
             continue;
         }
-        allocations.emplace("s0::" + var.first, shared_globals.at(var.first));
+        allocations.emplace("s0::" + var.first, AllocationInfo::plain_value(shared_globals.at(var.first)));
     }
     const auto fn_ty = Allocation::generate_function_allocations(builder, test_function, &fake_fn, allocations);
     if (!fn_ty.has_value()) {
@@ -314,19 +313,6 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
             context, test_node->line, test_node->column, sp);
         builder.SetCurrentDebugLocation(llvm::DebugLoc(diloc));
     }
-
-    // Emit debug info for all local variables and parameters in the test function
-    if (Debug::DIB != nullptr && test_node->scope != nullptr) {
-        const Hash &hash = test_node->file_hash;
-        Debug::generate_variable_debug_info(builder, test_function, test_node->scope, allocations, hash);
-        Debug::generate_parameter_debug_info(builder, test_function, &fake_fn, allocations, hash);
-    }
-
-    // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
-    // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
-    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
-    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
-    llvm::Value *const entry_trace_depth = Error::generate_load_trace_depth(builder, allocations.at("flint.stack.root"));
 
     // Normally generate the tests body. The name of the test function is baked into the generated code as a global constant string, so
     // that every trace entry created in this test can register the name of the function it was created in
@@ -342,8 +328,20 @@ std::optional<llvm::Function *> Generator::Function::generate_test_function(    
         .dest = nullptr,
         .function_name_ptr = function_name_ptr,
         .catch_scopes = {},
-        .entry_trace_depth = entry_trace_depth,
     };
+    // Save the current error trace depth of the thread stack, so that every normal return of this function can restore the trace to the
+    // state the function was entered in. This prevents the trace entries of errors which were handled inside the function from leaking
+    // to the caller. Unhandled errors (throw paths) do not truncate the trace, they return 'true' on the throw statement itself.
+    // The depth is read once here and never changes afterwards, so it is kept as a plain SSA value in the context instead of an alloca
+    ctx.entry_trace_depth = Error::generate_load_trace_depth(builder, Allocation::get(builder, ctx, "flint.stack.root"));
+
+    // Emit debug info for all local variables and parameters in the test function
+    if (Debug::DIB != nullptr && test_node->scope != nullptr) {
+        const Hash &hash = test_node->file_hash;
+        Debug::generate_variable_debug_info(builder, ctx, hash);
+        Debug::generate_parameter_debug_info(builder, ctx, &fake_fn, hash);
+    }
+
     if (!Statement::generate_body(builder, ctx)) {
         return std::nullopt;
     }
