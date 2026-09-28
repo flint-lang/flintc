@@ -3,7 +3,7 @@ set -e
 
 if [ $# -ne 1 ]; then
   echo "Usage: $0 <version>"
-  echo "Example: $0 0.4.1"
+  echo "Example: $0 0.4.2"
   exit 1
 fi
 

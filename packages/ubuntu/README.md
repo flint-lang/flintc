@@ -12,7 +12,7 @@ to enter the shell and the docker container.
 ./prepare-source.sh $VERSION
 ```
 
-where `$VERSION` needs to be replaced with the Flint version like `0.4.1`. A new directory `flintc-0.4.1` will be created. You then need to cwd into that directory to build the package
+where `$VERSION` needs to be replaced with the Flint version like `0.4.2`. A new directory `flintc-0.4.2` will be created. You then need to cwd into that directory to build the package
 
 ```sh
 cd flintc-$VERSION

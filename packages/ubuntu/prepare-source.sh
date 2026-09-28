@@ -5,13 +5,13 @@
 # Usage:
 #   ./prepare-source.sh <version>
 # Example:
-#   ./prepare-source.sh 0.4.1
+#   ./prepare-source.sh 0.4.2
 
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <version>"
-  echo "Example: $0 0.4.1"
+  echo "Example: $0 0.4.2"
   exit 1
 fi
 
