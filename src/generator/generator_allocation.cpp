@@ -578,16 +578,13 @@ bool Generator::Allocation::generate_declaration_allocations(             //
     std::vector<std::pair<std::string, llvm::Type *const>> &struct_types, //
     const DeclarationNode *declaration_node                               //
 ) {
-    CallNodeExpression *call_node_expr = nullptr;
-    if (declaration_node->initializer.has_value()) {
-        call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.value().get());
-        if (call_node_expr == nullptr) {
-            if (!generate_expression_allocations(                                                      //
-                    builder, parent, scope, struct_types, declaration_node->initializer.value().get()) //
-            ) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
+    CallNodeExpression *call_node_expr = dynamic_cast<CallNodeExpression *>(declaration_node->initializer.get());
+    if (call_node_expr == nullptr) {
+        if (!generate_expression_allocations(                                              //
+                builder, parent, scope, struct_types, declaration_node->initializer.get()) //
+        ) {
+            THROW_BASIC_ERR(ERR_GENERATING);
+            return false;
         }
     }
     if (call_node_expr != nullptr) {

@@ -2098,8 +2098,13 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             THROW_ERR(ErrStmtMissingInitializerOfFreeable, ERR_PARSING, file_hash, tokens);
             return std::nullopt;
         }
-
-        std::optional<std::unique_ptr<ExpressionNode>> expr = std::nullopt;
+        if (!declared_type->is_default_constructible()) {
+            THROW_ERR(ErrTypeNotDefaultConstructible, ERR_PARSING, file_hash, get_pos_triple(tokens), declared_type);
+            return std::nullopt;
+        }
+        std::optional<std::unique_ptr<ExpressionNode>> expr = declared_type->get_default_value( //
+            declared_type, file_hash, get_pos_triple(tokens), scope->scope_id                   //
+        );
         if (!scope->add_variable(name,
                 Scope::Variable{
                     .type = declared_type,
@@ -2116,11 +2121,12 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                     .column = std::next(lhs_tokens.first)->column,
                 }) //
         ) {
-            THROW_ERR(ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column,
-                name);
+            THROW_ERR(                                                                                                                   //
+                ErrVarRedefinition, ERR_PARSING, file_hash, std::next(lhs_tokens.first)->line, std::next(lhs_tokens.first)->column, name //
+            );
             return std::nullopt;
         }
-        return DeclarationNode(file_hash, tokens, declared_type, name, is_persistent, expr);
+        return DeclarationNode(file_hash, tokens, declared_type, name, is_persistent, expr.value());
     }
 
     // Case 2 & 3: Declaration with RHS - create expression if not provided
@@ -2216,7 +2222,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
         return std::nullopt;
     }
 
-    return DeclarationNode(file_hash, tokens, final_type, name, is_persistent, rhs);
+    return DeclarationNode(file_hash, tokens, final_type, name, is_persistent, rhs.value());
 }
 
 std::optional<UnaryOpStatement> Parser::create_unary_op_statement(std::shared_ptr<Scope> &scope, const token_slice &tokens) {

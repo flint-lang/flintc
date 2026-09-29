@@ -1231,9 +1231,9 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_stmt( //
         }
         case StatementNode::Variation::DECLARATION: {
             const auto *node = stmt->as<DeclarationNode>();
-            if (node->initializer.has_value() && node->initializer.value()->contains_pos(line, col)) {
+            if (node->initializer->contains_pos(line, col)) {
                 // The hover info is in the initializer expression part
-                return find_node_in_expr(node->initializer.value().get(), scope, line, col);
+                return find_node_in_expr(node->initializer.get(), scope, line, col);
             }
             // The hover info is outside the initializer part. If the declaration is inferred then it's only able to be the variable
             // name. If it is not inferred, then we could hover over the type. We return the type of the declaration either way.

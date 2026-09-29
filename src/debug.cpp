@@ -1311,15 +1311,10 @@ namespace Debug {
             }
             std::cout << decl.type->to_string() << " ";
             std::cout << decl.name << "' to be";
-
-            if (!decl.initializer.has_value()) {
-                std::cout << " its default value" << std::endl;
-                return;
-            }
             std::cout << std::endl;
 
             TreeBits expr_bits = bits.child(indent_lvl + 1, true);
-            print_expression(indent_lvl + 1, expr_bits, decl.initializer.value());
+            print_expression(indent_lvl + 1, expr_bits, decl.initializer);
         }
 
         void print_data_field_assignment(unsigned int indent_lvl, TreeBits &bits, const DataFieldAssignmentNode &assignment) {

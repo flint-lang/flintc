@@ -311,17 +311,15 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
         }
         case StatementNode::Variation::DECLARATION: {
             auto *node = statement.as<DeclarationNode>();
-            if (node->initializer.has_value()) {
-                if (!analyze_expression(local_ctx, node->initializer.value())) {
-                    return false;
-                }
-                if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, node->initializer.value())) {
-                    THROW_ERR(                                                                                                            //
-                        ErrExprTypeMismatch, ERR_ANALYZING, node->initializer.value()->file_hash, node->initializer.value()->line,        //
-                        node->initializer.value()->column, node->initializer.value()->length, node->type, node->initializer.value()->type //
-                    );
-                    return false;
-                }
+            if (!analyze_expression(local_ctx, node->initializer)) {
+                return false;
+            }
+            if (!Analyzer::Castability::check_castability(local_ctx.parser, node->type, node->initializer)) {
+                THROW_ERR(                                                                                     //
+                    ErrExprTypeMismatch, ERR_ANALYZING, node->initializer->file_hash, node->initializer->line, //
+                    node->initializer->column, node->initializer->length, node->type, node->initializer->type  //
+                );
+                return false;
             }
             if (!analyze_type(local_ctx, node->type)) {
                 return false;

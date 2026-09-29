@@ -1756,35 +1756,55 @@ bool Generator::Statement::generate_declaration( //
     const std::string var_name = "s" + std::to_string(scope_id) + "::" + declaration_node->name;
     llvm::Value *const alloca = Allocation::get(builder, ctx, var_name);
 
-    llvm::Value *expression;
-    if (declaration_node->initializer.has_value()) {
-        const auto init_variation = declaration_node->initializer.value()->get_variation();
-        const bool is_const_array_init =                                         //
-            declaration_node->type->get_variation() == Type::Variation::ARRAY && //
-            declaration_node->type->as<ArrayType>()->sizes.has_value() &&        //
-            (init_variation == ExpressionNode::Variation::ARRAY_INITIALIZER ||   //
-                init_variation == ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER);
-        if (is_const_array_init) {
-            ctx.dest = alloca;
+    const auto init_variation = declaration_node->initializer->get_variation();
+    const bool is_const_array_init =                                         //
+        declaration_node->type->get_variation() == Type::Variation::ARRAY && //
+        declaration_node->type->as<ArrayType>()->sizes.has_value() &&        //
+        (init_variation == ExpressionNode::Variation::ARRAY_INITIALIZER ||   //
+            init_variation == ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER);
+    if (is_const_array_init) {
+        ctx.dest = alloca;
+    }
+    const bool is_reference = declaration_node->type->get_variation() == Type::Variation::ERROR_SET //
+        || declaration_node->type->get_variation() == Type::Variation::VARIANT;
+    Expression::garbage_type garbage;
+    auto expr_val = Expression::generate_expression(                                //
+        builder, ctx, garbage, 0, declaration_node->initializer.get(), is_reference //
+    );
+    if (!expr_val.has_value()) {
+        return false;
+    }
+    ctx.dest = nullptr;
+    if (is_const_array_init) {
+        if (garbage.count(0) > 0) {
+            garbage.at(0).clear();
         }
-        const bool is_reference = declaration_node->type->get_variation() == Type::Variation::ERROR_SET //
-            || declaration_node->type->get_variation() == Type::Variation::VARIANT;
-        Expression::garbage_type garbage;
-        auto expr_val = Expression::generate_expression(                                        //
-            builder, ctx, garbage, 0, declaration_node->initializer.value().get(), is_reference //
-        );
-        if (!expr_val.has_value()) {
+        if (!clear_garbage(builder, garbage)) {
+            THROW_BASIC_ERR(ERR_GENERATING);
             return false;
         }
-        ctx.dest = nullptr;
-        if (is_const_array_init) {
-            if (garbage.count(0) > 0) {
-                garbage.at(0).clear();
-            }
-            if (!clear_garbage(builder, garbage)) {
-                THROW_BASIC_ERR(ERR_GENERATING);
-                return false;
-            }
+        if (declaration_node->is_persistent) {
+            builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+            decl_finished_block->moveAfter(builder.GetInsertBlock());
+            merge_block->moveAfter(decl_finished_block);
+            builder.SetInsertPoint(merge_block);
+        }
+        return true;
+    }
+    // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
+    if (garbage.count(0) > 0) {
+        garbage.at(0).clear();
+    }
+    if (!clear_garbage(builder, garbage)) {
+        THROW_BASIC_ERR(ERR_GENERATING);
+        return false;
+    }
+    switch (declaration_node->type->get_variation()) {
+        default:
+            break;
+        case Type::Variation::TUPLE: {
+            ASSERT(expr_val.value().size() == 1);
+            IR::aligned_store(builder, expr_val.value().front(), alloca);
             if (declaration_node->is_persistent) {
                 builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
                 decl_finished_block->moveAfter(builder.GetInsertBlock());
@@ -1793,120 +1813,88 @@ bool Generator::Statement::generate_declaration( //
             }
             return true;
         }
-        // Delete all level-0 garbage, as thats the "garbage" thats saved on the variables
-        if (garbage.count(0) > 0) {
-            garbage.at(0).clear();
-        }
-        if (!clear_garbage(builder, garbage)) {
-            THROW_BASIC_ERR(ERR_GENERATING);
-            return false;
-        }
-        switch (declaration_node->type->get_variation()) {
-            default:
+        case Type::Variation::OPTIONAL: {
+            if (declaration_node->initializer->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+                const auto *typecast_node = declaration_node->initializer->as<TypeCastNode>();
+                if (typecast_node->expr->type->to_string() == "void?") {
+                    break;
+                }
+            }
+            // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
+            // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
+            // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead
+            // to a double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just
+            // checking whether the LLVM type of the expression's type matches our expected optional type
+            llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
+            const bool types_match = expr_val.value().front()->getType() == var_type;
+            if (types_match) {
                 break;
-            case Type::Variation::TUPLE: {
-                ASSERT(expr_val.value().size() == 1);
-                IR::aligned_store(builder, expr_val.value().front(), alloca);
-                if (declaration_node->is_persistent) {
-                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
-                    decl_finished_block->moveAfter(builder.GetInsertBlock());
-                    merge_block->moveAfter(decl_finished_block);
-                    builder.SetInsertPoint(merge_block);
-                }
-                return true;
             }
-            case Type::Variation::OPTIONAL: {
-                if (declaration_node->initializer.value()->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
-                    const auto *typecast_node = declaration_node->initializer.value()->as<TypeCastNode>();
-                    if (typecast_node->expr->type->to_string() == "void?") {
-                        break;
-                    }
-                }
-                // We do not execute this branch if the rhs is a 'none' literal, as this would cause problems (zero-initializer of T? being
-                // stored on the 'value' property of the optional struct, leading to the byte next to the struct being overwritten, e.g. UB)
-                // Furthermore, if the RHS already is the correct optional type we also do not execute this branch as this would also lead
-                // to a double-store of the optional value. Luckily, we can detect whether the RHS is already a complete optional by just
-                // checking whether the LLVM type of the expression's type matches our expected optional type
-                llvm::StructType *var_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
-                const bool types_match = expr_val.value().front()->getType() == var_type;
-                if (types_match) {
-                    break;
-                }
-                // Get the pointer to the i1 element of the optional variable and set it to 1
-                llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
-                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(1), var_has_value_ptr);
-                store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
-                llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "_value_ptr");
-                store = IR::aligned_store(builder, expr_val.value().front(), var_value_ptr);
-                store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
-                if (declaration_node->is_persistent) {
-                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
-                    decl_finished_block->moveAfter(builder.GetInsertBlock());
-                    merge_block->moveAfter(decl_finished_block);
-                    builder.SetInsertPoint(merge_block);
-                }
-                return true;
+            // Get the pointer to the i1 element of the optional variable and set it to 1
+            llvm::Value *var_has_value_ptr = builder.CreateStructGEP(var_type, alloca, 0, declaration_node->name + "_has_value_ptr");
+            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(1), var_has_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context, "Set 'has_value' property of optional '" + declaration_node->name + "' to 1")));
+            llvm::Value *var_value_ptr = builder.CreateStructGEP(var_type, alloca, 1, declaration_node->name + "_value_ptr");
+            store = IR::aligned_store(builder, expr_val.value().front(), var_value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context, llvm::MDString::get(context, "Store result of expr in var '" + declaration_node->name + "'")));
+            if (declaration_node->is_persistent) {
+                builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                decl_finished_block->moveAfter(builder.GetInsertBlock());
+                merge_block->moveAfter(decl_finished_block);
+                builder.SetInsertPoint(merge_block);
             }
-            case Type::Variation::VARIANT: {
-                const auto *var_type = declaration_node->type->as<VariantType>();
-                // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of
-                // the variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to
-                // do anything if the typecast is a nullptr
-                if (declaration_node->initializer.value()->get_variation() != ExpressionNode::Variation::TYPE_CAST) {
-                    break;
-                }
-                const auto *typecast_node = declaration_node->initializer.value()->as<TypeCastNode>();
-                // First, we need to get the ID of the type within the variant
-                std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
-                if (!index.has_value()) {
-                    // Rhs has wrong type
-                    THROW_BASIC_ERR(ERR_GENERATING);
-                    return false;
-                }
-                llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
-                llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, alloca, 0, declaration_node->name + "_flag_ptr");
-                llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(index.value()), flag_ptr);
-                store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context,
-                            "Set 'flag' property of variant '" + declaration_node->name + "' to '" + std::to_string(index.value()) +
-                                "' for type '" + typecast_node->expr->type->to_string() + "'")));
-                llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, alloca, 1, declaration_node->name + "_value_ptr");
-                store = IR::aligned_store(builder, expr_val.value().front(), value_ptr);
-                store->setMetadata("comment",
-                    llvm::MDNode::get(context,
-                        llvm::MDString::get(context, "Store actual variant value in var '" + declaration_node->name + "'")));
-                if (declaration_node->is_persistent) {
-                    builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
-                    decl_finished_block->moveAfter(builder.GetInsertBlock());
-                    merge_block->moveAfter(decl_finished_block);
-                    builder.SetInsertPoint(merge_block);
-                }
-                return true;
-            }
+            return true;
         }
-        expression = expr_val.value().front();
-    } else {
-        expression = IR::get_default_value_of_type(builder, ctx.parent->getParent(), declaration_node->type);
+        case Type::Variation::VARIANT: {
+            const auto *var_type = declaration_node->type->as<VariantType>();
+            // We first check of which type the rhs really is. If it's a typecast, then we know it's one of the "inner" variations of
+            // the variant, if it's a variant directly then we can store the variant in the variable as is. This means we dont need to
+            // do anything if the typecast is a nullptr
+            if (declaration_node->initializer->get_variation() != ExpressionNode::Variation::TYPE_CAST) {
+                break;
+            }
+            const auto *typecast_node = declaration_node->initializer->as<TypeCastNode>();
+            // First, we need to get the ID of the type within the variant
+            std::optional<unsigned int> index = var_type->get_idx_of_type(typecast_node->expr->type);
+            if (!index.has_value()) {
+                // Rhs has wrong type
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return false;
+            }
+            llvm::StructType *variant_type = IR::add_and_or_get_type(ctx.parent->getParent(), declaration_node->type, false);
+            llvm::Value *flag_ptr = builder.CreateStructGEP(variant_type, alloca, 0, declaration_node->name + "_flag_ptr");
+            llvm::StoreInst *store = IR::aligned_store(builder, builder.getInt8(index.value()), flag_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context,
+                        "Set 'flag' property of variant '" + declaration_node->name + "' to '" + std::to_string(index.value()) +
+                            "' for type '" + typecast_node->expr->type->to_string() + "'")));
+            llvm::Value *value_ptr = builder.CreateStructGEP(variant_type, alloca, 1, declaration_node->name + "_value_ptr");
+            store = IR::aligned_store(builder, expr_val.value().front(), value_ptr);
+            store->setMetadata("comment",
+                llvm::MDNode::get(context,
+                    llvm::MDString::get(context, "Store actual variant value in var '" + declaration_node->name + "'")));
+            if (declaration_node->is_persistent) {
+                builder.CreateCondBr(is_callable, decl_finished_block, merge_block);
+                decl_finished_block->moveAfter(builder.GetInsertBlock());
+                merge_block->moveAfter(decl_finished_block);
+                builder.SetInsertPoint(merge_block);
+            }
+            return true;
+        }
     }
+    llvm::Value *expression = expr_val.value().front();
 
     if (declaration_node->type->to_string() == "str") {
-        std::optional<const ExpressionNode *> initializer;
-        if (declaration_node->initializer.has_value()) {
-            initializer = declaration_node->initializer.value().get();
-        } else {
-            initializer = std::nullopt;
-        }
-        expression = Module::String::generate_string_declaration(builder, expression, initializer);
+        expression = Module::String::generate_string_declaration(builder, expression, declaration_node->initializer.get());
     }
-    if (declaration_node->type->is_freeable() && declaration_node->initializer.has_value()) {
-        const std::shared_ptr<Type> initializer_type = declaration_node->initializer.value()->type;
+    if (declaration_node->type->is_freeable()) {
+        const std::shared_ptr<Type> initializer_type = declaration_node->initializer->type;
         const bool is_optional = initializer_type->get_variation() == Type::Variation::OPTIONAL;
-        if (!declaration_node->initializer.value()->is_producer()) {
+        if (!declaration_node->initializer->is_producer()) {
             // If it's a producer then it does not need to be cloned and can be stored directly, however if it's not a producer then we need
             // to clone it
             const std::shared_ptr<Type> lhs_type = declaration_node->type;
