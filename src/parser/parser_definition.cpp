@@ -733,7 +733,8 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
         function_body_lines.front().offset = 0;
         added_function.value()->tokens = partition_body(function_body_lines, function_body_lines.front().tokens.first);
         if (added_function.value()->cpl.empty()) {
-            add_open_function({added_function.value(), function_body_lines});
+            added_function.value()->scope.value()->lines = function_body_lines;
+            add_open_function(added_function.value());
         } else {
             // The body of a generic function inside a func component is only parsed once it gets specialized
             added_function.value()->body_lines = function_body_lines;
@@ -1006,7 +1007,8 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
         body_lines.front().offset = 0;
         added_function.value()->tokens = partition_body(body_lines, body_lines.front().tokens.first);
         if (added_function.value()->cpl.empty()) {
-            add_open_function({added_function.value(), body_lines});
+            added_function.value()->scope.value()->lines = body_lines;
+            add_open_function(added_function.value());
         } else {
             // The body of a generic function inside an object is only parsed once it gets specialized
             added_function.value()->body_lines = body_lines;

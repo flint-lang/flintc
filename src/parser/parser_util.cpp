@@ -201,7 +201,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             if (!added_function.has_value()) {
                 return false;
             }
-            add_open_function({added_function.value(), {}});
+            add_open_function(added_function.value());
             break;
         }
         case DefTrie::Pattern::OPAQUE: {
@@ -233,7 +233,8 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                 return false;
             }
             if (added_function.value()->cpl.empty()) {
-                add_open_function({added_function.value(), body_lines});
+                added_function.value()->scope.value()->lines = body_lines;
+                add_open_function(added_function.value());
             } else {
                 added_function.value()->body_lines = body_lines;
             }
@@ -246,7 +247,8 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             }
             test_node.value().tokens = partition_body(body_lines, body_lines.front().tokens.first);
             TestNode *added_test = file_node_ptr->add_test(test_node.value());
-            add_open_test({added_test, body_lines});
+            added_test->scope->lines = body_lines;
+            add_open_test(added_test);
             add_parsed_test(added_test, file_name);
             break;
         }
@@ -668,27 +670,26 @@ void Parser::substitute_type_aliases(std::shared_ptr<Type> &type_to_resolve) {
 }
 
 std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
-    const Context &ctx,                                            //
-    std::shared_ptr<Scope> &scope,                                 //
-    const token_slice &tokens,                                     //
+    Context &ctx,                                                  //
     const Namespace *call_namespace,                               //
     const bool is_typed_call                                       //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_base");
     using types = std::vector<std::shared_ptr<Type>>;
-    ASSERT(tokens.first->token == TOK_TYPE || tokens.first->token == TOK_IDENTIFIER);
-    std::optional<uint2> arg_range = Matcher::balanced_range_extraction(        //
-        tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+    token_slice tokens_mut = ctx.tokens;
+    ASSERT(tokens_mut.first->token == TOK_TYPE || tokens_mut.first->token == TOK_IDENTIFIER);
+    std::optional<uint2> arg_range = Matcher::balanced_range_extraction(            //
+        tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
     if (is_typed_call) {
-        ASSERT(tokens.first->token == TOK_TYPE);
-        [[maybe_unused]] const auto &type_var = tokens.first->type->get_variation();
+        ASSERT(tokens_mut.first->token == TOK_TYPE);
+        [[maybe_unused]] const auto &type_var = tokens_mut.first->type->get_variation();
         ASSERT(type_var == Type::Variation::FUNC || type_var == Type::Variation::OBJECT);
-        ASSERT((tokens.first + 1)->token == TOK_DOT);
-        ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
+        ASSERT((tokens_mut.first + 1)->token == TOK_DOT);
+        ASSERT((tokens_mut.first + 2)->token == TOK_IDENTIFIER);
     }
     if (!arg_range.has_value()) {
-        THROW_ERR(ErrExprCallMissingClosingParen, ERR_PARSING, file_hash, tokens);
+        THROW_ERR(ErrExprCallMissingClosingParen, ERR_PARSING, file_hash, tokens_mut);
         return std::nullopt;
     }
     // remove the '(' and ')' tokens from the arg_range
@@ -702,8 +703,8 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         // if the args contain at least one comma, it is known that multiple arguments are passed. If not, only one is
         // passed. But the comma must be present at the top-level and not within one of the balanced range groups or inside of array
         // accesses or generics, for example
-        const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                               //
-            tokens, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::balancer_left, Matcher::balancer_right //
+        const auto match_ranges = Matcher::get_match_ranges_in_range_outside_group(                                   //
+            tokens_mut, Matcher::token(TOK_COMMA), arg_range.value(), Matcher::balancer_left, Matcher::balancer_right //
         );
         Context local_ctx = ctx;
         local_ctx.level = ContextLevel::UNKNOWN;
@@ -711,13 +712,14 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
             for (auto match = match_ranges.begin();; ++match) {
                 token_slice argument_tokens;
                 if (match == match_ranges.begin()) {
-                    argument_tokens = {tokens.first + arg_range.value().first, tokens.first + match->first};
+                    argument_tokens = {tokens_mut.first + arg_range.value().first, tokens_mut.first + match->first};
                 } else if (match == match_ranges.end()) {
-                    argument_tokens = {tokens.first + (match - 1)->second, tokens.first + arg_range.value().second};
+                    argument_tokens = {tokens_mut.first + (match - 1)->second, tokens_mut.first + arg_range.value().second};
                 } else {
-                    argument_tokens = {tokens.first + (match - 1)->second, tokens.first + match->first};
+                    argument_tokens = {tokens_mut.first + (match - 1)->second, tokens_mut.first + match->first};
                 }
-                auto expression = create_expression(local_ctx, scope, argument_tokens);
+                local_ctx.tokens = argument_tokens;
+                auto expression = create_expression(local_ctx);
                 if (!expression.has_value()) {
                     return std::nullopt;
                 }
@@ -727,8 +729,9 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                 }
             }
         } else {
-            token_slice argument_tokens = {tokens.first + arg_range.value().first, tokens.first + arg_range.value().second};
-            auto expression = create_expression(local_ctx, scope, argument_tokens);
+            const token_slice argument_tokens = {tokens_mut.first + arg_range.value().first, tokens_mut.first + arg_range.value().second};
+            local_ctx.tokens = argument_tokens;
+            auto expression = create_expression(local_ctx);
             if (!expression.has_value()) {
                 return std::nullopt;
             }
@@ -759,11 +762,11 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     // follow the same syntax.
     // The pattern `identifier.identifier` does neither match type-calls like FuncType.call since that's `type.identifier` or aliased calls,
     // as these are `alias.identifier`, so this means that this pattern is unique to instance calls
-    const bool is_instance_call = tokens.first->token == TOK_IDENTIFIER //
-        && (tokens.first + 1)->token == TOK_DOT                         //
-        && (tokens.first + 2)->token == TOK_IDENTIFIER;
+    const bool is_instance_call = tokens_mut.first->token == TOK_IDENTIFIER //
+        && (tokens_mut.first + 1)->token == TOK_DOT                         //
+        && (tokens_mut.first + 2)->token == TOK_IDENTIFIER;
     std::optional<std::unique_ptr<ExpressionNode>> instance_variable = std::nullopt;
-    auto tok = tokens.first;
+    auto tok = tokens_mut.first;
     if (is_instance_call || is_typed_call) {
         tok++;
         ASSERT(tok->token == TOK_DOT);
@@ -772,15 +775,15 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
 
     // It's definitely a call
     ASSERT(tok->token == TOK_IDENTIFIER);
-    const std::string function_name = is_typed_call                       //
-        ? tokens.first->type->to_string() + "." + std::string(tok->lexme) //
+    const std::string function_name = is_typed_call                           //
+        ? tokens_mut.first->type->to_string() + "." + std::string(tok->lexme) //
         : std::string(tok->lexme);
 
     tok++;
     std::vector<std::shared_ptr<Type>> cvl;
     if (tok->token == TOK_LEFT_BRACKET) {
-        const auto &bracket_range = Matcher::get_next_match_range(                     //
-            {std::next(tok), tokens.second - 1}, Matcher::continue_until_right_bracket //
+        const auto &bracket_range = Matcher::get_next_match_range(                         //
+            {std::next(tok), tokens_mut.second - 1}, Matcher::continue_until_right_bracket //
         );
         if (!bracket_range.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
@@ -829,7 +832,8 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     std::vector<std::pair<FunctionNode *, size_t>> functions;
     std::unordered_set<const FuncNode *> func_nodes;
     if (is_instance_call) {
-        std::optional<std::unique_ptr<ExpressionNode>> variable_node = create_variable(scope, {tokens.first, tokens.first + 1});
+        Context var_ctx = ctx.swap_tokens({tokens_mut.first, tokens_mut.first + 1});
+        std::optional<std::unique_ptr<ExpressionNode>> variable_node = create_variable(var_ctx);
         if (!variable_node.has_value()) {
             return std::nullopt;
         }
@@ -837,7 +841,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         const auto &var_type = variable_node.value()->type;
         switch (var_type->get_variation()) {
             default:
-                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
+                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens_mut);
                 return std::nullopt;
             case Type::Variation::OBJECT: {
                 const ObjectNode *object_node = var_type->as<ObjectType>()->object_node;
@@ -922,7 +926,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     if (functions.empty()) {
         // Check if the called function is a callable by looking in this scope for a variable wihth the same name as the called function
         std::vector<std::pair<std::string, Scope::Variable>> potential_callables;
-        for (const auto &[variable_name, variable] : scope->get_all_variables()) {
+        for (const auto &[variable_name, variable] : ctx.scope->get_all_variables()) {
             if (variable_name != function_name) {
                 continue;
             }
@@ -985,7 +989,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         }
     }
     if (functions.empty()) {
-        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens, function_name, argument_types);
+        THROW_ERR(ErrExprCallOfUndefinedFunction, ERR_PARSING, file_hash, tokens_mut, function_name, argument_types);
         return std::nullopt;
     }
     if (functions.size() > 1) {
@@ -1011,7 +1015,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         }
 
         if (exact_function == nullptr) {
-            THROW_ERR(ErrExprCallAmbiguous, ERR_PARSING, file_hash, tokens, functions);
+            THROW_ERR(ErrExprCallAmbiguous, ERR_PARSING, file_hash, tokens_mut, functions);
             return std::nullopt;
         }
         functions.clear();
@@ -1026,14 +1030,14 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         ASSERT(instance_variable.has_value());
         switch (instance_variable.value()->type->get_variation()) {
             default:
-                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens);
+                THROW_ERR(ErrExprCallOnWrongInstanceType, ERR_PARSING, file_hash, tokens_mut);
                 return std::nullopt;
             case Type::Variation::OBJECT: {
                 if (func_nodes.empty()) {
                     // It's an instance call of a free-floating object function
                     std::unique_ptr<ExpressionNode> object_variable = std::make_unique<VariableNode>( //
                         file_hash,                                                                    //
-                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),                  //
+                        get_pos_triple(token_slice{tokens_mut.first, tokens_mut.first + 1}),          //
                         instance_variable.value()->as<VariableNode>()->name,                          //
                         instance_variable.value()->type,                                              //
                         instance_variable.value()->is_const                                           //
@@ -1062,14 +1066,14 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                     ASSERT(idx != object_node->data_components.size());
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         file_hash,                                                              //
-                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
+                        get_pos_triple(token_slice{tokens_mut.first, tokens_mut.first + 1}),    //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
                         instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
-                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),             //
+                        get_pos_triple(token_slice{tokens_mut.first, tokens_mut.first + 1}),     //
                         base_expr,                                                               //
                         std::nullopt,                                                            // Object fields have no name
                         idx,               // The index of the data in the object struct
@@ -1088,14 +1092,14 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                     const auto &required_data_type = func_node->required_data.at(i - 1).type;
                     std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
                         file_hash,                                                              //
-                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),            //
+                        get_pos_triple(token_slice{tokens_mut.first, tokens_mut.first + 1}),    //
                         instance_variable.value()->as<VariableNode>()->name,                    //
                         instance_variable.value()->type,                                        //
                         instance_variable.value()->is_const                                     //
                     );
                     std::unique_ptr<ExpressionNode> argument = std::make_unique<DataAccessNode>( //
                         file_hash,                                                               //
-                        get_pos_triple(token_slice{tokens.first, tokens.first + 1}),             //
+                        get_pos_triple(token_slice{tokens_mut.first, tokens_mut.first + 1}),     //
                         base_expr,                                                               //
                         std::nullopt,                                                            // Func fields have no name
                         i - 1,                                                                   // The index of the data in the func struct
@@ -1128,7 +1132,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         // Also, we check here if the variable is immutable but the function expects an mutable reference instead
         if (arguments[i].second) {
             // Its a complex data type, so its a reference
-            tok = tokens.first + arg_range->first;
+            tok = tokens_mut.first + arg_range->first;
             // Now we need to get until the token where the error happened, e.g. the ith argument
             size_t depth = 0;
             size_t arg_id = i - arg_start_id;
@@ -1147,7 +1151,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
             }
             if (arguments[i].first->get_variation() == ExpressionNode::Variation::VARIABLE) {
                 const auto *variable_node = arguments[i].first->as<VariableNode>();
-                if (!scope->variables.at(variable_node->name).is_mutable && parameters[i].is_mutable) {
+                if (!ctx.scope->variables.at(variable_node->name).is_mutable && parameters[i].is_mutable) {
                     THROW_ERR(ErrVarMutatingConst, ERR_PARSING, file_hash, tok->line, tok->column, variable_node->name);
                     return std::nullopt;
                 }
@@ -1156,11 +1160,11 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     }
 
     // Check if the targetted function inside the func component is virtual, it cannot be called directly in this case
-    if (is_typed_call                                                   //
-        && tokens.first->type->get_variation() == Type::Variation::FUNC //
-        && !function->scope.has_value()                                 //
+    if (is_typed_call                                                       //
+        && tokens_mut.first->type->get_variation() == Type::Variation::FUNC //
+        && !function->scope.has_value()                                     //
     ) {
-        THROW_ERR(ErrExprCallOfVirtualFunction, ERR_PARSING, file_hash, tokens);
+        THROW_ERR(ErrExprCallOfVirtualFunction, ERR_PARSING, file_hash, tokens_mut);
         return std::nullopt;
     }
 
@@ -1186,18 +1190,14 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     };
 }
 
-std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
-    const Context &ctx,                                                   //
-    std::shared_ptr<Scope> &scope,                                        //
-    const token_slice &tokens                                             //
-) {
+std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_unary_op_base");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     remove_trailing_garbage(tokens_mut);
     // For an unary operator to work, the tokens now must have at least two tokens
-    size_t tokens_size = get_slice_size(tokens_mut);
+    const size_t tokens_size = get_slice_size(tokens_mut);
     if (tokens_size < 2) {
-        THROW_ERR(ErrExprUnaryOpMissingExpr, ERR_PARSING, file_hash, tokens);
+        THROW_ERR(ErrExprUnaryOpMissingExpr, ERR_PARSING, file_hash, ctx.tokens);
         return std::nullopt;
     }
 
@@ -1226,7 +1226,8 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
     Token operator_token = operator_tokens.first->token;
 
     // All other tokens now are the expression
-    auto expression = create_expression(ctx, scope, tokens_mut);
+    Context expr_ctx = ctx.swap_tokens(tokens_mut);
+    auto expression = create_expression(expr_ctx);
     if (!expression.has_value()) {
         return std::nullopt;
     }
@@ -1237,18 +1238,13 @@ std::optional<Parser::CreateUnaryOpBaseRet> Parser::create_unary_op_base( //
     };
 }
 
-std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base( //
-    const Context &ctx,                                                           //
-    std::shared_ptr<Scope> &scope,                                                //
-    const token_slice &tokens,                                                    //
-    const bool has_inbetween_operator                                             //
-) {
+std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base(Context &ctx, const bool has_inbetween_operator) {
     PROFILE_CUMULATIVE("Parser::creaet_field_access_base");
     // We actually start at the end of the tokens and first check if it's a named access or an unnamed access, like a tuple access and
     // then everything to the left of the `.` is considered the base expression on which we then access the field
     std::string field_name = "";
     unsigned int field_id = 0;
-    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    token_slice base_expr_tokens = {ctx.tokens.first, ctx.tokens.second - 1};
 
     if (base_expr_tokens.second->token == TOK_IDENTIFIER) {
         field_name = base_expr_tokens.second->lexme;
@@ -1279,7 +1275,8 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     }
 
     // Now everything left in the `base_expr_tokens` is our base expression, so we can parse it accordingly
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(base_ctx);
     if (!base_expr.has_value()) {
         return std::nullopt;
     }
@@ -1292,7 +1289,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
     // If the base expresion is of type `str`, the only valid access is its `length` variable
     if (base_type->to_string() == "str") {
         if (field_name != "length" && field_name != "len") {
-            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, ctx.tokens, field_name, base_type,
                 std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
                     {"length", Type::get_primitive_type("u64")},
                     {"len", Type::get_primitive_type("u64")},
@@ -1312,7 +1309,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
         case Type::Variation::ARRAY: {
             const auto *array_type = base_type->as<ArrayType>();
             if (field_name != "length" && field_name != "len") {
-                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type,
+                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, ctx.tokens, field_name, base_type,
                     std::vector<std::pair<std::string, std::shared_ptr<Type>>>{
                         {"length", Type::get_primitive_type("u64")},
                         {"len", Type::get_primitive_type("u64")},
@@ -1354,7 +1351,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 field_id++;
             }
             if (data_node->fields.size() == field_id) {
-                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, base_type, std::nullopt);
+                THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, ctx.tokens, field_name, base_type, std::nullopt);
                 return std::nullopt;
             }
             const std::shared_ptr<Type> field_type = data_node->fields.at(field_id).type;
@@ -1371,10 +1368,10 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             // The base variable has the "name" of the captured parent object type but the "type" of the child object (for the "self"
             // parameter)
             VariableNode *base_var = base_expr.value()->as<VariableNode>();
-            const auto captured_object_it = scope->captured_object_identifiers.find(base_var->name);
-            if (captured_object_it == scope->captured_object_identifiers.end()) {
+            const auto captured_object_it = ctx.scope->captured_object_identifiers.find(base_var->name);
+            if (captured_object_it == ctx.scope->captured_object_identifiers.end()) {
                 // Not a parent accessor — regular object variable, can't resolve field access
-                THROW_ERR(ErrExprFieldAccessOnObject, ERR_PARSING, file_hash, tokens);
+                THROW_ERR(ErrExprFieldAccessOnObject, ERR_PARSING, file_hash, ctx.tokens);
                 return std::nullopt;
             }
             const std::shared_ptr<Type> captured_object_type = captured_object_it->second;
@@ -1402,7 +1399,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
                 }
                 UNREACHABLE();
             }
-            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, tokens, field_name, captured_object_type, possible_fields);
+            THROW_ERR(ErrExprFieldNonexistent, ERR_PARSING, file_hash, ctx.tokens, field_name, captured_object_type, possible_fields);
             return std::nullopt;
         }
         case Type::Variation::PRIMITIVE:
@@ -1439,7 +1436,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             if (field_name == "") {
                 field_name = "$" + std::to_string(field_id);
             }
-            auto access = create_vector_type_access(tokens, base_type, field_name);
+            auto access = create_vector_type_access(ctx.tokens, base_type, field_name);
             if (!access.has_value()) {
                 return std::nullopt;
             }
@@ -1476,7 +1473,7 @@ std::optional<Parser::CreateFieldAccessBaseRet> Parser::create_field_access_base
             }
             break;
     }
-    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
+    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, ctx.tokens, base_type);
     return std::nullopt;
 }
 
@@ -1611,18 +1608,13 @@ std::optional<std::pair<std::string, unsigned int>> Parser::create_vector_type_a
     }
 }
 
-std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_base( //
-    const Context &ctx,                                                               //
-    std::shared_ptr<Scope> &scope,                                                    //
-    const token_slice &tokens,                                                        //
-    const bool has_inbetween_operator                                                 //
-) {
+std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_base(Context &ctx, const bool has_inbetween_operator) {
     PROFILE_CUMULATIVE("Parser::create_grouped_access_base");
     // We start at the end of the token slice and move towards the front, and split the token slice in half to get the base expression
     // tokens and all tokens forming the grouped access `.(..)`
-    ASSERT((tokens.second - 1)->token == TOK_RIGHT_PAREN);
-    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
-    token_slice access_tokens = {tokens.second - 1, tokens.second - 1};
+    ASSERT((ctx.tokens.second - 1)->token == TOK_RIGHT_PAREN);
+    token_slice base_expr_tokens = {ctx.tokens.first, ctx.tokens.second - 1};
+    token_slice access_tokens = {ctx.tokens.second - 1, ctx.tokens.second - 1};
     unsigned int depth = 0;
     for (; base_expr_tokens.second != base_expr_tokens.first;) {
         if (base_expr_tokens.second->token == TOK_RIGHT_PAREN) {
@@ -1648,7 +1640,8 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
 
     // Okay we now can parse the base expression beforehand, to be able to check it's type and decide whether a grouped access is
     // allowed at all
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(base_ctx);
     if (!base_expr.has_value()) {
         return std::nullopt;
     }
@@ -1665,7 +1658,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         // Its a grouped enum access, like `EnumType.(VAL1, VAL2, VAL3)`
         // All other types other than enums are not supported yet
         if (type->get_variation() != Type::Variation::ENUM) {
-            THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
+            THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, ctx.tokens, base_type);
             return std::nullopt;
         }
         const auto *enum_type = type->as<EnumType>();
@@ -1700,7 +1693,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
         }
         LitValue lit_value = LitEnum{.enum_type = type, .values = values};
         return CreateGroupedAccessBaseRet{
-            .alternative_expression = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type),
+            .alternative_expression = std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, type),
             .base_expr = nullptr,
             .field_names = {},
             .field_ids = {},
@@ -1757,7 +1750,7 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             std::vector<std::shared_ptr<Type>> field_types;
             std::vector<unsigned int> field_ids;
             for (const auto &field_name : field_names) {
-                auto access = create_vector_type_access(tokens, base_type, field_name);
+                auto access = create_vector_type_access(ctx.tokens, base_type, field_name);
                 if (!access.has_value()) {
                     return std::nullopt;
                 }
@@ -1799,27 +1792,22 @@ std::optional<Parser::CreateGroupedAccessBaseRet> Parser::create_grouped_access_
             };
         }
     }
-    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_type);
+    THROW_ERR(ErrExprFieldAccessNotAllowedOnType, ERR_PARSING, file_hash, ctx.tokens, base_type);
     return std::nullopt;
 }
 
-std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base( //
-    const Context &ctx,                                                           //
-    std::shared_ptr<Scope> &scope,                                                //
-    const token_slice &tokens,                                                    //
-    const bool has_inbetween_operator                                             //
-) {
+std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base(Context &ctx, const bool has_inbetween_operator) {
     PROFILE_CUMULATIVE("Parser::create_array_access_base");
     // Array accesses happen at the end of the expression, so we extract indexing expressions etc from left to right and then parse the
     // base expression last. The last token should be a ] symbol
-    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
+    ASSERT(std::prev(ctx.tokens.second)->token == TOK_RIGHT_BRACKET);
     // Then we search in a balanced way for the [ symbol and count how many , symbols we came across at depth 1. This is the number of
     // indexing expressions in the tokens. Then, when we know the "bounds" of the array access we can parse the base expression and the
     // indexing expressions respectively
-    token_slice base_expr_tokens = tokens;
-    token_slice indexing_tokens = {tokens.second - 2, tokens.second - 1};
+    token_slice base_expr_tokens = ctx.tokens;
+    token_slice indexing_tokens = {ctx.tokens.second - 2, ctx.tokens.second - 1};
     uint32_t depth = 1;
-    bool continue_cond = indexing_tokens.first != tokens.first;
+    bool continue_cond = indexing_tokens.first != ctx.tokens.first;
     while (continue_cond) {
         switch (indexing_tokens.first->token) {
             default:
@@ -1834,12 +1822,12 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
                 }
                 break;
         }
-        continue_cond &= indexing_tokens.first != tokens.first;
+        continue_cond &= indexing_tokens.first != ctx.tokens.first;
         if (continue_cond) {
             indexing_tokens.first--;
         }
     }
-    if (indexing_tokens.first == tokens.first) {
+    if (indexing_tokens.first == ctx.tokens.first) {
         // No [ symbol found, this should not be possible because then the matcher should not have matched an array access
         UNREACHABLE();
         return std::nullopt;
@@ -1857,7 +1845,8 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
 
     // Parse the base expression first before parsing the indexing expressions
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(base_ctx);
     if (!base_expr.has_value()) {
         return std::nullopt;
     }
@@ -1866,7 +1855,7 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
         base_type = base_type->as<OptionalType>()->base_type;
     }
     if (base_type->get_variation() != Type::Variation::ARRAY && base_type->to_string() != "str") {
-        THROW_ERR(ErrExprArrayAccessNotAllowedOnType, ERR_PARSING, file_hash, tokens, base_expr.value()->type);
+        THROW_ERR(ErrExprArrayAccessNotAllowedOnType, ERR_PARSING, file_hash, ctx.tokens, base_expr.value()->type);
         return std::nullopt;
     }
     const bool base_is_str = base_type->to_string() == "str";
@@ -1877,7 +1866,8 @@ std::optional<Parser::CreateArrayAccessBaseRet> Parser::create_array_access_base
     }
 
     // Now parse the indexing expressions
-    auto indexing_expressions = create_group_expressions(_ctx_, scope, indexing_tokens);
+    Context group_ctx = ctx.swap_tokens(indexing_tokens);
+    auto indexing_expressions = create_group_expressions(group_ctx);
     if (!indexing_expressions.has_value()) {
         return std::nullopt;
     }

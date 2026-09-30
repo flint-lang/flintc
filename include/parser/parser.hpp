@@ -158,6 +158,24 @@ class Parser {
         return source_code_lines;
     }
 
+    /// @function `collapse_types_in_lines`
+    /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
+    /// single type token instead. The lines address their owner list via relative `offset`/`len` pairs, so deleting tokens from one line
+    /// never invalidates the positions of the following lines
+    ///
+    /// @param `cpl` The comptime parameter list of the definition we are collapsing the types in
+    /// @param `lines` The lines to refine
+    /// @param `source` A reference to the source token vector directly to enable direct modification
+    /// @return `bool` Whether collapsing the types was successfull
+    ///
+    /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
+    /// @note Also replaces all type aliases with their aliased types
+    [[nodiscard]] bool collapse_types_in_lines(                    //
+        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
+        std::vector<Line> &lines,                                  //
+        token_list &source                                         //
+    );
+
     /// @function `resolve_imports`
     /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
     /// also checks for multiple definitions of the same symbol in multiple imported files and prints that it has defined at multiple places
@@ -181,12 +199,6 @@ class Parser {
     ///
     /// @note Also substitutes all unknown types if the unknown type is an aliased type
     static bool resolve_all_unknown_types();
-
-    /// @function `get_open_functions`
-    /// @brief Returns all open functions whose bodies have not been parsed yet
-    ///
-    /// @return `std::vector<FunctionNode *>` A list of all open functions
-    std::vector<FunctionNode *> get_open_functions();
 
     /// @function `get_all_errors`
     /// @brief Collects and returns all error types from all files
@@ -257,13 +269,12 @@ class Parser {
     [[nodiscard]] static bool parse_all_open_objects(const bool parse_parallel);
 
     /// @function `parse_open_function`
-    /// @brief Parses a single open function body
+    /// @brief Parses a single open function's body
     ///
     /// @param `parser` The parser instance in which the function is defined in
     /// @param `function` The function definition to parse
-    /// @param `body` The body of the function to parse
     /// @return `bool` Whether the function was able to be parsed
-    [[nodiscard]] static bool parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body);
+    [[nodiscard]] static bool parse_open_function(Parser &parser, FunctionNode *function);
 
     /// @function `parse_all_open_functions`
     /// @brief Parses all still open function bodies
@@ -280,9 +291,8 @@ class Parser {
     ///
     /// @param `parser` The parser instance in which the test is defined in
     /// @param `test` The test definition to parse
-    /// @param `body` The body of the test to parse
     /// @return `bool` Whether the test was able to be parsed
-    [[nodiscard]] static bool parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body);
+    [[nodiscard]] static bool parse_open_test(Parser &parser, TestNode *test);
 
     /// @function `parse_all_open_tests`
     /// @brief Parses all still open test bodies
@@ -340,7 +350,7 @@ class Parser {
 
     /// @var `open_functions_list`
     /// @brief The list of all open functions, which will be parsed in the second phase of the parser
-    std::vector<std::pair<FunctionNode *, std::vector<Line>>> open_functions_list{};
+    std::vector<FunctionNode *> open_functions_list{};
 
     /// @var `file_node_ptr`
     /// @brief The file node this parser is currently parsing
@@ -504,7 +514,7 @@ class Parser {
 
     /// @var `open_tests_list`
     /// @brief The lsit of all open tests, which will be parsed in the second phase of the parser
-    std::vector<std::pair<TestNode *, std::vector<Line>>> open_tests_list{};
+    std::vector<TestNode *> open_tests_list{};
 
     /// @var `imported_files`
     /// @brief The list of all files the file that is currently parsed can seee / has imported
@@ -560,8 +570,8 @@ class Parser {
     /// @brief Adds a open data module to the list of all open data modules
     ///
     /// @param `open_data` A pointer to the open data module to add to the list
-    void add_open_data(DataNode *open_data) {
-        open_data_list.push_back(std::move(open_data));
+    void add_open_data(DataNode *const open_data) {
+        open_data_list.push_back(open_data);
     }
 
     /// @function `add_open_object`
@@ -580,14 +590,12 @@ class Parser {
     /// @function `add_open_function`
     /// @brief Adds a open function to the list of all open functions
     ///
-    /// @param `open_function` A rvalue reference to the OpenFunction to add to the list
-    ///
-    /// @attention This function takes ownership of the `open_function` parameter
-    void add_open_function(std::pair<FunctionNode *, std::vector<Line>> &&open_function) {
-        if (!open_function.second.empty()) {
-            open_function.first->end_line = open_function.second.back().tokens.second->line;
+    /// @param `open_function` A pointer to the open function to add to the list
+    void add_open_function(FunctionNode *const open_function) {
+        if (open_function->scope.has_value() && !open_function->scope.value()->lines.empty()) {
+            open_function->end_line = open_function->scope.value()->lines.back().tokens.second->line;
         }
-        open_functions_list.push_back(std::move(open_function));
+        open_functions_list.push_back(open_function);
     }
 
     /// @function `get_next_open_data`
@@ -597,10 +605,10 @@ class Parser {
     /// left
     std::optional<DataNode *> get_next_open_data() {
         while (!open_data_list.empty()) {
-            DataNode *od = std::move(open_data_list.back());
+            DataNode *data = std::move(open_data_list.back());
             open_data_list.pop_back();
-            if (od->cpl.empty()) {
-                return od;
+            if (data->cpl.empty()) {
+                return data;
             }
         }
         return std::nullopt;
@@ -615,48 +623,44 @@ class Parser {
         if (open_object_list.empty()) {
             return std::nullopt;
         }
-        std::pair<ObjectNode *, std::vector<Line>> oe = std::move(open_object_list.back());
+        std::pair<ObjectNode *, std::vector<Line>> obj = std::move(open_object_list.back());
         open_object_list.pop_back();
-        return oe;
+        return obj;
     }
 
     /// @function `get_next_open_function`
     /// @brief Returns the next open function to parse
     ///
-    /// @return `std::optional<std::pair<FunctionNode *, std::vector<Line>>>` The next Open Function to parse. Returns a nullopt if there
-    /// are no open functions left
-    std::optional<std::pair<FunctionNode *, std::vector<Line>>> get_next_open_function() {
+    /// @return `std::optional<FunctionNode *>` The next Open Function to parse. Returns a nullopt if there are no open functions left
+    std::optional<FunctionNode *> get_next_open_function() {
         if (open_functions_list.empty()) {
             return std::nullopt;
         }
-        std::pair<FunctionNode *, std::vector<Line>> of = std::move(open_functions_list.back());
+        FunctionNode *fn = std::move(open_functions_list.back());
         open_functions_list.pop_back();
-        return of;
+        return fn;
     }
 
     /// @function `add_open_test`
     /// @brief Adds a open test to the list of all open tests
     ///
-    /// @param `open_test` A rvalue reference to the OpenTest to add to the list
-    ///
-    /// @attention This function takes ownership of the `open_test` parameter
-    void add_open_test(std::pair<TestNode *, std::vector<Line>> &&open_test) {
-        if (!open_test.second.empty()) {
-            open_test.first->end_line = open_test.second.back().tokens.second->line;
+    /// @param `open_function` A pointer to the open function to add to the list
+    void add_open_test(TestNode *const open_test) {
+        if (!open_test->scope->lines.empty()) {
+            open_test->end_line = open_test->scope->lines.back().tokens.second->line;
         }
-        open_tests_list.push_back(std::move(open_test));
+        open_tests_list.push_back(open_test);
     }
 
     /// @function `get_next_open_test`
     /// @brief Returns the next open test to parse
     ///
-    /// @return `std::optional<std::pair<TestNode *, std::vector<Line>>>` The next Open Test to parse. Returns a nullopt if there are no
-    /// open tests left
-    std::optional<std::pair<TestNode *, std::vector<Line>>> get_next_open_test() {
+    /// @return `std::optional<TestNode *>` The next Open Test to parse. Returns a nullopt if there are no open tests left
+    std::optional<TestNode *> get_next_open_test() {
         if (open_tests_list.empty()) {
             return std::nullopt;
         }
-        std::pair<TestNode *, std::vector<Line>> ot = std::move(open_tests_list.back());
+        TestNode *ot = std::move(open_tests_list.back());
         open_tests_list.pop_back();
         return ot;
     }
@@ -749,24 +753,6 @@ class Parser {
         token_list &source,                                        //
         const std::size_t region_start,                            //
         std::size_t &region_len                                    //
-    );
-
-    /// @function `collapse_types_in_lines`
-    /// @brief Refines all given lines. Refinement means that all tabs within a line are removed and that all type tokens are collapsed to a
-    /// single type token instead. The lines address their owner list via relative `offset`/`len` pairs, so deleting tokens from one line
-    /// never invalidates the positions of the following lines
-    ///
-    /// @param `cpl` The comptime parameter list of the definition we are collapsing the types in
-    /// @param `lines` The lines to refine
-    /// @param `source` A reference to the source token vector directly to enable direct modification
-    /// @return `bool` Whether collapsing the types was successfull
-    ///
-    /// @note Also replaces all `identifier` tokens with an `TOK_ALIAS` if the identifier matches the import alias
-    /// @note Also replaces all type aliases with their aliased types
-    [[nodiscard]] bool collapse_types_in_lines(                    //
-        const std::vector<DefinitionNode::ComptimeParameter> &cpl, //
-        std::vector<Line> &lines,                                  //
-        token_list &source                                         //
     );
 
     /// @function `substitute_type_aliases`
@@ -1247,14 +1233,12 @@ class Parser {
     ///
     /// @param `ctx` The parsing context
     /// @param `scope_segment` The segment of the current scope we are in
-    /// @param `condition_line` The list of tokens representing the end of the scope and the condition
     /// @param `body` The list of tokens representing the loop body
     /// @return `std::optional<std::unique_ptr<DoWhileNode>>` An optional unique pointer to the created DoWhileNode
     std::optional<std::unique_ptr<DoWhileNode>> create_do_while_loop( //
         Context &ctx,                                                 //
         const unsigned int scope_segment,                             //
-        const token_slice &condition_line,                            //
-        const std::vector<Line> &body                                 //
+        std::vector<Line> &body                                       //
     );
 
     /// @function `create_while_loop`
@@ -1267,7 +1251,7 @@ class Parser {
     std::optional<std::unique_ptr<WhileNode>> create_while_loop( //
         Context &ctx,                                            //
         const unsigned int scope_segment,                        //
-        const std::vector<Line> &body                            //
+        std::vector<Line> &body                                  //
     );
 
     /// @function `create_for_loop`
@@ -1280,7 +1264,7 @@ class Parser {
     std::optional<std::unique_ptr<ForLoopNode>> create_for_loop( //
         Context &ctx,                                            //
         const unsigned int scope_segment,                        //
-        const std::vector<Line> &body                            //
+        std::vector<Line> &body                                  //
     );
 
     /// @function `create_enh_for_loop`
@@ -1293,7 +1277,7 @@ class Parser {
     std::optional<std::unique_ptr<EnhForLoopNode>> create_enh_for_loop( //
         Context &ctx,                                                   //
         const unsigned int scope_segment,                               //
-        const std::vector<Line> &body                                   //
+        std::vector<Line> &body                                         //
     );
 
     /// @function `create_switch_branch_body`
@@ -1485,7 +1469,7 @@ class Parser {
     std::optional<std::unique_ptr<CatchNode>> create_catch(     //
         Context &ctx,                                           //
         const unsigned int scope_segment,                       //
-        const std::vector<Line> &body,                          //
+        std::vector<Line> &body,                                //
         std::vector<std::unique_ptr<StatementNode>> &statements //
     );
 
@@ -1665,8 +1649,6 @@ class Parser {
     ///
     /// @param `ctx` The parsing context
     /// @param `scope_segment` The segment of the current scope we are in
-    /// @param `definition` The token list containing all the definition tokens
-    /// @param `body` The token list containing all body tokens
     /// @param `statements` A reference to the list of all currently parserd statements
     /// @return `std::optional<std::unique_ptr<StatementNode>>` An optional unique pointer to the created StatementNode
     ///
@@ -1677,18 +1659,15 @@ class Parser {
     std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
         Context &ctx,                                                      //
         const unsigned int scope_segment,                                  //
-        std::vector<Line>::const_iterator &line_it,                        //
-        const std::vector<Line> &body,                                     //
         std::vector<std::unique_ptr<StatementNode>> &statements            //
     );
 
     /// @function `create_body`
-    /// @brief Creates a body containing of multiple statement nodes from a list of tokens
+    /// @brief Creates a body containing of multiple statement nodes. Creates the body from the lines present in the scope of the context.
     ///
     /// @param `ctx` The parsing context
-    /// @param `body` The token list containing all the body tokens
     /// @return `std::optional<std::vectro<std::unique_ptr<StatementNode>>>` The list of StatementNodes parsed from the body tokens.
-    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Context &ctx, const std::vector<Line> &body);
+    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Context &ctx);
 
     /**************************************************************************************************************************************
      * @region `Statement` END

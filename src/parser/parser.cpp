@@ -677,7 +677,7 @@ bool Parser::resolve_all_unknown_types() {
             }
         }
         // Resolve the parameter and return types of all functions
-        for (FunctionNode *function : parser.get_open_functions()) {
+        for (FunctionNode *function : parser.open_functions_list) {
             for (auto &param : function->parameters) {
                 if (!file_namespace->resolve_type(param.type)) {
                     return false;
@@ -708,15 +708,6 @@ bool Parser::resolve_all_unknown_types() {
         }
     }
     return true;
-}
-
-std::vector<FunctionNode *> Parser::get_open_functions() {
-    PROFILE_CUMULATIVE("Parser::get_open_functions");
-    std::vector<FunctionNode *> open_function_list;
-    for (auto &open_function : open_functions_list) {
-        open_function_list.emplace_back(std::get<0>(open_function));
-    }
-    return open_function_list;
 }
 
 std::vector<const ErrorNode *> Parser::get_all_errors() {
@@ -1343,7 +1334,7 @@ bool Parser::parse_all_open_objects(const bool parse_parallel) {
     return result;
 }
 
-bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::vector<Line> body) {
+bool Parser::parse_open_function(Parser &parser, FunctionNode *function) {
     PROFILE_SCOPE("Process Open Function '" + function->name + "'");
     if (function->visibility == FunctionNode::Visibility::EXTERN) {
         // Check whether the FIP provides the searched for function in any of it's modules. We only print the error that the function
@@ -1357,12 +1348,10 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         }
         return true;
     }
-    if (!parser.collapse_types_in_lines(function->cpl, body, function->tokens)) {
-        return false;
-    }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << YELLOW << "[Debug Info] Printing refined body tokens of function: " << DEFAULT << function->name << std::endl;
+        const auto &body = function->scope.value()->lines;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
     }
     // Inject shared data globals into the function scope
@@ -1381,7 +1370,7 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         .scope = scope,
         .tokens = {},
     };
-    auto body_statements = parser.create_body(ctx, body);
+    auto body_statements = parser.create_body(ctx);
     if (!body_statements.has_value()) {
         return false;
     }
@@ -1395,22 +1384,35 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
 
     // Collect all open functions
     Profiler::start_task("Collect all open functions");
-    std::vector<std::tuple<Parser &, FunctionNode *, std::vector<Line>>> open_functions;
+    std::vector<std::pair<Parser &, FunctionNode *>> open_functions;
     for (auto &parser : Parser::instances) {
         if (only_file.has_value() && parser.file_hash.value != only_file.value().value) {
             // Skip all functions of all files other than the provided `only_file`
             continue;
         }
         while (auto next = parser.get_next_open_function()) {
-            auto &[function, body] = next.value();
-            open_functions.emplace_back(parser, function, body);
+            open_functions.emplace_back(parser, next.value());
         }
     }
     Profiler::end_task("Collect all open functions");
 
+    Profiler::start_task("Collapse all types in function bodies");
+    for (auto &[parser, function] : open_functions) {
+        if (function->visibility == FunctionNode::Visibility::EXTERN) {
+            continue;
+        }
+        if (!function->scope.has_value()) {
+            continue;
+        }
+        if (!parser.collapse_types_in_lines(function->cpl, function->scope.value()->lines, function->tokens)) {
+            return false;
+        }
+    }
+    Profiler::end_task("Collapse all types in function bodies");
+
     // Go through all open functions and call all values for the anonymous error set of that function
     Profiler::start_task("Create all anonymous error sets");
-    for (const auto &[parser, function, body] : open_functions) {
+    for (const auto &[parser, function] : open_functions) {
         if (function->visibility == FunctionNode::Visibility::EXTERN) {
             continue;
         }
@@ -1418,7 +1420,7 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
             continue;
         }
         std::vector<std::string> err_values;
-        for (const auto &line : body) {
+        for (const auto &line : function->scope.value()->lines) {
             const auto &next_range = Matcher::get_next_match_range(line.tokens, Matcher::anonymous_error);
             if (!next_range.has_value()) {
                 continue;
@@ -1454,9 +1456,9 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
         // Enqueue tasks in the global thread pool
         std::vector<std::future<bool>> futures;
         // Iterate through all open functions
-        for (auto &[parser, function, body] : open_functions) {
+        for (auto &[parser, function] : open_functions) {
             // Enqueue a task for each function
-            futures.emplace_back(thread_pool.enqueue(parse_open_function, std::ref(parser), function, body));
+            futures.emplace_back(thread_pool.enqueue(parse_open_function, std::ref(parser), function));
         }
         // Collect results from all tasks
         for (auto &future : futures) {
@@ -1464,21 +1466,22 @@ bool Parser::parse_all_open_functions(const bool parse_parallel, const std::opti
         }
     } else {
         // Process functions sequentially
-        for (auto &[parser, function, body] : open_functions) {
-            result = result && parse_open_function(parser, function, body);
+        for (auto &[parser, function] : open_functions) {
+            result = result && parse_open_function(parser, function);
         }
     }
     return result;
 }
 
-bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> body) {
+bool Parser::parse_open_test(Parser &parser, TestNode *test) {
     PROFILE_SCOPE("Process Open Test '" + test->name + "'");
-    if (!parser.collapse_types_in_lines(test->cpl, body, test->tokens)) {
+    if (!parser.collapse_types_in_lines(test->cpl, test->scope->lines, test->tokens)) {
         return false;
     }
     if (DEBUG_MODE && PRINT_BODY_TOKENS) {
         // Debug print the definition line as well as the body lines vector as one continuous print, like when printing the token lists
         std::cout << YELLOW << "[Debug Info] Printing refined body tokens of test: " << DEFAULT << test->name << std::endl;
+        const auto &body = test->scope->lines;
         Debug::print_token_context_vector({body.front().tokens.first, body.back().tokens.second}, "DEFINITION");
     }
     // Inject shared data globals into the test scope
@@ -1495,7 +1498,7 @@ bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> b
         .scope = test->scope,
         .tokens = {},
     };
-    auto body_statements = parser.create_body(ctx, body);
+    auto body_statements = parser.create_body(ctx);
     if (!body_statements.has_value()) {
         return false;
     }
@@ -1508,11 +1511,10 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
 
     // Collect all open tests
     Profiler::start_task("Collect all open tests");
-    std::vector<std::tuple<Parser &, TestNode *, std::vector<Line>>> open_tests;
+    std::vector<std::pair<Parser &, TestNode *>> open_tests;
     for (auto &parser : Parser::instances) {
         while (auto next = parser.get_next_open_test()) {
-            auto &[test, body] = next.value();
-            open_tests.emplace_back(parser, test, body);
+            open_tests.emplace_back(parser, next.value());
         }
     }
     Profiler::end_task("Collect all open tests");
@@ -1522,9 +1524,9 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         // Enqueue tasks in the global thread pool
         std::vector<std::future<bool>> futures;
         // Iterate through all open tests
-        for (auto &[parser, test, body] : open_tests) {
+        for (auto &[parser, test] : open_tests) {
             // Enqueue a task for each test
-            futures.emplace_back(thread_pool.enqueue(parse_open_test, std::ref(parser), test, body));
+            futures.emplace_back(thread_pool.enqueue(parse_open_test, std::ref(parser), test));
         }
         // Collect results from all tasks
         for (auto &future : futures) {
@@ -1532,8 +1534,8 @@ bool Parser::parse_all_open_tests(const bool parse_parallel) {
         }
     } else {
         // Process tests sequentially
-        for (auto &[parser, test, body] : open_tests) {
-            result = result && parse_open_test(parser, test, body);
+        for (auto &[parser, test] : open_tests) {
+            result = result && parse_open_test(parser, test);
         }
     }
     return result;

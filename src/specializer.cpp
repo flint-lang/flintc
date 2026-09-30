@@ -275,8 +275,8 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
     );
     // The specialized body is re-parsed from the template's own body copy, so carry the tokens and body lines over to the new node
     new_node.tokens = definition->tokens;
-    new_node.body_lines = definition->body_lines;
-    Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
+    new_node.scope.value()->lines = definition->body_lines;
+    Line::update_tokens(new_node.scope.value()->lines, new_node.tokens.begin());
     const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
     if (!added_fn.has_value()) {
         return std::nullopt;
@@ -299,7 +299,10 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
             continue;
         }
         found_parser = true;
-        if (!Parser::parse_open_function(parser, added_fn.value(), added_fn.value()->body_lines)) {
+        if (!parser.collapse_types_in_lines(added_fn.value()->cpl, added_fn.value()->scope.value()->lines, added_fn.value()->tokens)) {
+            return std::nullopt;
+        }
+        if (!Parser::parse_open_function(parser, added_fn.value())) {
             return std::nullopt;
         }
     }
@@ -774,8 +777,8 @@ bool Specializer::specialize_object(              //
         );
         // The specialized body is re-parsed from the template's own body copy, so carry the tokens and body lines over to the new node
         new_node.tokens = function->tokens;
-        new_node.body_lines = function->body_lines;
-        Line::update_tokens(new_node.body_lines, new_node.tokens.begin());
+        new_node.scope.value()->lines = function->body_lines;
+        Line::update_tokens(new_node.scope.value()->lines, new_node.tokens.begin());
         const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
         if (!added_fn.has_value()) {
             return false;
@@ -799,7 +802,10 @@ bool Specializer::specialize_object(              //
             return false;
         }
         for (FunctionNode *const function : node->functions) {
-            if (!Parser::parse_open_function(parser, function, function->body_lines)) {
+            if (!parser.collapse_types_in_lines(function->cpl, function->scope.value()->lines, function->tokens)) {
+                return false;
+            }
+            if (!Parser::parse_open_function(parser, function)) {
                 return false;
             }
         }
