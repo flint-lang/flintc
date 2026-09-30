@@ -396,30 +396,29 @@ bool Parser::compare_apfloats(const Token operation, const APFloat &lhs_float, c
     }
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shared_ptr<Scope> &scope, const token_slice &tokens) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_variable");
-    for (auto tok = tokens.first; tok != tokens.second; tok++) {
+    for (auto tok = ctx.tokens.first; tok != ctx.tokens.second; tok++) {
         if (tok->token != TOK_IDENTIFIER) {
             continue;
         }
         const std::string name(tok->lexme);
-        if (scope->variables.find(name) != scope->variables.end()) {
-            return std::make_unique<VariableNode>(                                                                             //
-                file_hash, get_pos_triple(tokens), name, scope->variables.at(name).type, !scope->variables.at(name).is_mutable //
-            );
+        if (ctx.scope->variables.find(name) != ctx.scope->variables.end()) {
+            const auto &variable = ctx.scope->variables.at(name);
+            return std::make_unique<VariableNode>(file_hash, get_pos_triple(ctx.tokens), name, variable.type, !variable.is_mutable);
         }
-        if (scope->captured_object_identifiers.find(name) == scope->captured_object_identifiers.end()) {
+        if (ctx.scope->captured_object_identifiers.find(name) == ctx.scope->captured_object_identifiers.end()) {
             THROW_ERR(ErrVarNotDeclared, ERR_PARSING, file_hash, tok->line, tok->column, name);
             return std::nullopt;
         }
-        const auto &captured_type = scope->captured_object_identifiers.at(name);
+        const auto &captured_type = ctx.scope->captured_object_identifiers.at(name);
         switch (captured_type->get_variation()) {
             default:
                 UNREACHABLE();
                 return std::nullopt;
             case Type::Variation::DATA: {
-                ASSERT(scope->variables.find("self") != scope->variables.end());
-                const auto &self = scope->variables.at("self");
+                ASSERT(ctx.scope->variables.find("self") != ctx.scope->variables.end());
+                const auto &self = ctx.scope->variables.at("self");
                 ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
                 const ObjectNode *object_node = self.type->as<ObjectType>()->object_node;
                 const DataNode *required_data_node = captured_type->as<DataType>()->data_node;
@@ -435,11 +434,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                     THROW_BASIC_ERR(ERR_PARSING);
                     return std::nullopt;
                 }
-                std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>( //
-                    file_hash, get_pos_triple(tokens), "self", self.type, !self.is_mutable  //
+                std::unique_ptr<ExpressionNode> base_expr = std::make_unique<VariableNode>(    //
+                    file_hash, get_pos_triple(ctx.tokens), "self", self.type, !self.is_mutable //
                 );
                 std::unique_ptr<ExpressionNode> access = std::make_unique<DataAccessNode>( //
-                    file_hash, get_pos_triple(tokens),                                     //
+                    file_hash, get_pos_triple(ctx.tokens),                                 //
                     base_expr,                                                             //
                     std::nullopt,                                                          // Object fields have no name
                     idx,                                                                   // The index of the data in the object struct
@@ -448,34 +447,31 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(std::shar
                 return std::move(access);
             }
             case Type::Variation::OBJECT:
-                ASSERT(scope->variables.find("self") != scope->variables.end());
-                const auto &self = scope->variables.at("self");
+                ASSERT(ctx.scope->variables.find("self") != ctx.scope->variables.end());
+                const auto &self = ctx.scope->variables.at("self");
                 ASSERT(self.type->get_variation() == Type::Variation::OBJECT);
                 // Store the name of the parent accessor in the variable, it will be changed to `self` later in the
                 // `create_field_access_base` function. We do this in order to be able to tell which parent was accessed in the
                 // `create_field_access_base` function.
-                return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens), name, self.type, !self.is_mutable);
+                return std::make_unique<VariableNode>(file_hash, get_pos_triple(ctx.tokens), name, self.type, !self.is_mutable);
         }
     }
     return std::nullopt;
 }
 
-std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
-    const Context &ctx,                                              //
-    std::shared_ptr<Scope> &scope,                                   //
-    const token_slice &tokens                                        //
-) {
+std::optional<UnaryOpExpression> Parser::create_unary_op_expression(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_unary_op_expression");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     remove_surrounding_paren(tokens_mut);
-    auto unary_op_values = create_unary_op_base(ctx, scope, tokens_mut);
+    Context base_ctx = ctx.swap_tokens(tokens_mut);
+    auto unary_op_values = create_unary_op_base(base_ctx);
     if (!unary_op_values.has_value()) {
         return std::nullopt;
     }
     Token operation = unary_op_values.value().operation;
     std::unique_ptr<ExpressionNode> &base_expr = unary_op_values.value().base_expr;
     bool is_left = unary_op_values.value().is_left;
-    UnaryOpExpression un_op(file_hash, get_pos_triple(tokens), operation, base_expr, is_left);
+    UnaryOpExpression un_op(file_hash, get_pos_triple(ctx.tokens), operation, base_expr, is_left);
     if (operation == TOK_EXCLAMATION) {
         if (is_left) {
             // The ! operator is only allowed on the right of the expression
@@ -524,35 +520,32 @@ std::optional<UnaryOpExpression> Parser::create_unary_op_expression( //
     return un_op;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( //
-    const Context &ctx,                                                        //
-    std::shared_ptr<Scope> &scope,                                             //
-    const token_slice &tokens                                                  //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_anonymous_error");
-    ASSERT(tokens.first->token == TOK_ERROR);
-    ASSERT(std::next(tokens.first)->token == TOK_DOT);
-    ASSERT((tokens.first + 2)->token == TOK_IDENTIFIER);
+    ASSERT(ctx.tokens.first->token == TOK_ERROR);
+    ASSERT(std::next(ctx.tokens.first)->token == TOK_DOT);
+    ASSERT((ctx.tokens.first + 2)->token == TOK_IDENTIFIER);
     std::string err_type_name = "error.";
-    if (std::holds_alternative<FunctionNode *>(scope->function)) {
-        err_type_name += std::to_string(std::get<FunctionNode *>(scope->function)->get_id());
+    if (std::holds_alternative<FunctionNode *>(ctx.scope->function)) {
+        err_type_name += std::to_string(std::get<FunctionNode *>(ctx.scope->function)->get_id());
     } else {
-        err_type_name += "test." + std::to_string(std::get<TestNode *>(scope->function)->test_id);
+        err_type_name += "test." + std::to_string(std::get<TestNode *>(ctx.scope->function)->test_id);
     }
     const auto error_type = file_node_ptr->file_namespace->get_type_from_str(err_type_name).value();
-    const std::string err_value((tokens.first + 2)->lexme);
+    const std::string err_value((ctx.tokens.first + 2)->lexme);
     std::optional<std::unique_ptr<ExpressionNode>> message;
-    if (tokens.first + 3 != tokens.second) {
-        ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
-        ASSERT((tokens.first + 3)->token == TOK_LEFT_PAREN);
-        ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_PAREN);
-        if (tokens.first + 4 == tokens.second - 1) {
+    if (ctx.tokens.first + 3 != ctx.tokens.second) {
+        ASSERT(std::prev(ctx.tokens.second)->token == TOK_RIGHT_PAREN);
+        ASSERT((ctx.tokens.first + 3)->token == TOK_LEFT_PAREN);
+        ASSERT(std::prev(ctx.tokens.second)->token == TOK_RIGHT_PAREN);
+        if (ctx.tokens.first + 4 == ctx.tokens.second - 1) {
             // Empty expression between parenthesis of throwing the error
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        const token_slice message_tokens = {tokens.first + 4, tokens.second - 1};
-        message = create_expression(ctx, scope, message_tokens, Type::get_primitive_type("str"));
+        const token_slice message_tokens = {ctx.tokens.first + 4, ctx.tokens.second - 1};
+        Context expr_ctx = ctx.swap_tokens(message_tokens);
+        message = create_expression(expr_ctx, Type::get_primitive_type("str"));
         if (!message.has_value()) {
             return std::nullopt;
         }
@@ -562,7 +555,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_anonymous_error( /
         .value = err_value,
         .message = std::move(message),
     };
-    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), literal, error_type);
+    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), literal, error_type);
 }
 
 std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
@@ -730,21 +723,16 @@ std::optional<LiteralNode> Parser::create_literal(const token_slice &tokens) {
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolation( //
-    const Context &ctx,                                                             //
-    std::shared_ptr<Scope> &scope,                                                  //
-    const std::string &interpol_string,                                             //
-    const token_slice &tokens                                                       //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolation(Context &ctx, const std::string &interpol_string) {
     PROFILE_CUMULATIVE("Parser::create_string_interpolation");
     // First, get all balanced ranges of { } symbols which are not leaded by a \\ symbol
-    const auto &tok = std::prev(tokens.second);
+    const auto &tok = std::prev(ctx.tokens.second);
     std::vector<uint2> ranges = Matcher::balanced_ranges_vec(interpol_string, "([^\\\\]|^)\\{", "[^\\\\]\\}");
     std::vector<std::variant<std::unique_ptr<ExpressionNode>, std::unique_ptr<LiteralNode>>> interpol_content;
     // If the ranges are empty, the interpolation does not contain any groups
     if (ranges.empty()) {
         LitValue lit_value = LitStr{.value = interpol_string};
-        const auto pos_triple = get_pos_triple(tokens);
+        const auto pos_triple = get_pos_triple(ctx.tokens);
         interpol_content.emplace_back(std::make_unique<LiteralNode>(file_hash, pos_triple, lit_value, Type::get_primitive_type("str")));
         return std::make_unique<StringInterpolationNode>(file_hash, pos_triple, interpol_content);
     }
@@ -789,7 +777,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             token.column += tok->column + it->first + 1;
         }
         token_slice expr_slice = {expr_tokens.begin(), expr_tokens.end()};
-        if (!collapse_types_in_slice(scope->get_cpl(), expr_slice, expr_tokens)) {
+        if (!collapse_types_in_slice(ctx.scope->get_cpl(), expr_slice, expr_tokens)) {
             return std::nullopt;
         }
         // `collapse_types_in_slice` may invalidate the end iterator when deleting tokens
@@ -797,7 +785,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
         if (expr_tokens.back().token == TOK_EOF) {
             expr_slice.second--;
         }
-        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(ctx, scope, expr_slice);
+        Context expr_ctx = ctx.swap_tokens(expr_slice);
+        std::optional<std::unique_ptr<ExpressionNode>> expr = create_expression(expr_ctx);
         if (!expr.has_value()) {
             return std::nullopt;
         }
@@ -863,8 +852,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
             // Non-literal expression: flush accumulated strings first
             if (has_accumulated) {
                 LitValue str_val = LitStr{accumulated_string};
-                auto lit_node = std::make_unique<LiteralNode>(                                                 //
-                    file_hash, get_pos_triple(tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
+                auto lit_node = std::make_unique<LiteralNode>(                                                     //
+                    file_hash, get_pos_triple(ctx.tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
                 );
                 optimized_content.emplace_back(std::move(lit_node));
                 accumulated_string.clear();
@@ -878,8 +867,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     // Flush any remaining accumulated strings
     if (has_accumulated) {
         LitValue str_val = LitStr{accumulated_string};
-        auto lit_node = std::make_unique<LiteralNode>(                                                 //
-            file_hash, get_pos_triple(tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
+        auto lit_node = std::make_unique<LiteralNode>(                                                     //
+            file_hash, get_pos_triple(ctx.tokens), str_val, Type::get_primitive_type("type.flint.str.lit") //
         );
         optimized_content.emplace_back(std::move(lit_node));
     }
@@ -892,7 +881,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
                 return expr;
             } else {
                 // Interpolating only a single expression like `$"{val}"` is not allowed, you should use `str(val)` instead
-                THROW_ERR(ErrExprInterpolationOnlyOneExpr, ERR_PARSING, file_hash, tokens);
+                THROW_ERR(ErrExprInterpolationOnlyOneExpr, ERR_PARSING, file_hash, ctx.tokens);
                 return std::nullopt;
             }
         } else {
@@ -904,24 +893,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_string_interpolati
     }
 
     // Otherwise, return string interpolation with optimized content
-    return std::make_unique<StringInterpolationNode>(file_hash, get_pos_triple(tokens), optimized_content);
+    return std::make_unique<StringInterpolationNode>(file_hash, get_pos_triple(ctx.tokens), optimized_content);
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( //
-    const Context &ctx,                                                        //
-    std::shared_ptr<Scope> &scope,                                             //
-    const token_slice &tokens,                                                 //
+    Context &ctx,                                                              //
     const std::optional<Namespace *> &alias,                                   //
     const bool is_func_component_call                                          //
 ) {
     PROFILE_CUMULATIVE("Parser::create_call_expression");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     remove_surrounding_paren(tokens_mut);
     std::optional<CreateCallBaseRet> ret = std::nullopt;
+    Context call_ctx = ctx.swap_tokens(tokens_mut);
     if (alias.has_value()) {
-        ret = create_call_base(ctx, scope, tokens_mut, alias.value(), is_func_component_call);
+        ret = create_call_base(call_ctx, alias.value(), is_func_component_call);
     } else {
-        ret = create_call_base(ctx, scope, tokens_mut, file_node_ptr->file_namespace.get(), is_func_component_call);
+        ret = create_call_base(call_ctx, file_node_ptr->file_namespace.get(), is_func_component_call);
     }
     if (!ret.has_value()) {
         return std::nullopt;
@@ -929,51 +917,37 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
     if (ret->instance_variable.has_value()) {
         ASSERT(ret->instance_variable.value()->get_variation() == ExpressionNode::Variation::VARIABLE);
         const VariableNode *instance_var = ret->instance_variable.value()->as<VariableNode>();
-        if (scope->variables.find(instance_var->name) == scope->variables.end()) {
+        if (ctx.scope->variables.find(instance_var->name) == ctx.scope->variables.end()) {
             // Instance call on nonexistent instance variable
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        if (!scope->variables.at(instance_var->name).is_mutable && !ret->function->is_const) {
-            // Instance calls on constant instance variables are not allowed
-            THROW_ERR(ErrExprCallOnConstInstance, ERR_PARSING, file_hash, tokens.first->line, tokens.first->column, instance_var->name);
+        if (!ctx.scope->variables.at(instance_var->name).is_mutable && !ret->function->is_const) {
+            THROW_ERR(                                                                                                                   //
+                ErrExprCallOnConstInstance, ERR_PARSING, file_hash, ctx.tokens.first->line, ctx.tokens.first->column, instance_var->name //
+            );
             return std::nullopt;
         }
         std::unique_ptr<InstanceCallNodeExpression> instance_call_node = std::make_unique<InstanceCallNodeExpression>( //
-            file_hash,                                                                                                 //
-            get_pos_triple(tokens),                                                                                    //
-            ret->function,                                                                                             //
-            ret->args,                                                                                                 //
-            ret->function->error_types,                                                                                //
-            ret->type,                                                                                                 //
-            ret->instance_variable.value()                                                                             //
+            file_hash, get_pos_triple(ctx.tokens),                                                                     //
+            ret->function, ret->args, ret->function->error_types, ret->type, ret->instance_variable.value()            //
         );
-        instance_call_node->scope_id = scope->scope_id;
+        instance_call_node->scope_id = ctx.scope->scope_id;
         last_parsed_call = instance_call_node.get();
         return std::move(instance_call_node);
     } else if (ret->callable.has_value()) {
-        const auto &error_types = scope->variables.at(ret->callable.value()).type->as<FnType>()->error_types;
+        const auto &error_types = ctx.scope->variables.at(ret->callable.value()).type->as<FnType>()->error_types;
         std::unique_ptr<CallableCallNodeExpression> callable_call_node = std::make_unique<CallableCallNodeExpression>( //
-            file_hash,                                                                                                 //
-            get_pos_triple(tokens),                                                                                    //
-            ret->args,                                                                                                 //
-            error_types,                                                                                               //
-            ret->type,                                                                                                 //
-            ret->callable.value()                                                                                      //
+            file_hash, get_pos_triple(ctx.tokens), ret->args, error_types, ret->type, ret->callable.value()            //
         );
-        callable_call_node->scope_id = scope->scope_id;
+        callable_call_node->scope_id = ctx.scope->scope_id;
         last_parsed_call = callable_call_node.get();
         return std::move(callable_call_node);
     } else {
-        std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>( //
-            file_hash,                                                                               //
-            get_pos_triple(tokens),                                                                  //
-            ret->function,                                                                           //
-            ret->args,                                                                               //
-            ret->function->error_types,                                                              //
-            ret->type                                                                                //
+        std::unique_ptr<CallNodeExpression> simple_call_node = std::make_unique<CallNodeExpression>(               //
+            file_hash, get_pos_triple(ctx.tokens), ret->function, ret->args, ret->function->error_types, ret->type //
         );
-        simple_call_node->scope_id = scope->scope_id;
+        simple_call_node->scope_id = ctx.scope->scope_id;
         last_parsed_call = simple_call_node.get();
         return std::move(simple_call_node);
     }
@@ -1044,13 +1018,9 @@ std::optional<std::unique_ptr<FunctionReferenceNode>> Parser::create_function_re
     return std::make_unique<FunctionReferenceNode>(file_hash, get_pos_triple(tokens), referenced_function);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
-    const Context &ctx,                                                    //
-    std::shared_ptr<Scope> &scope,                                         //
-    const token_slice &tokens                                              //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_initializer");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     remove_surrounding_paren(tokens_mut);
     const auto type_token = tokens_mut.first;
     tokens_mut.first++;
@@ -1272,7 +1242,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
             arg_tokens.first++;
         }
 
-        std::optional<std::unique_ptr<ExpressionNode>> field_value = create_expression(ctx, scope, arg_tokens, field_type);
+        Context expr_ctx = ctx.swap_tokens(arg_tokens);
+        std::optional<std::unique_ptr<ExpressionNode>> field_value = create_expression(expr_ctx, field_type);
         if (!field_value.has_value()) {
             return std::nullopt;
         }
@@ -1316,12 +1287,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 if (!data_field.type->is_default_constructible() && !data_field.initializer.has_value()) {
                     THROW_ERR(                                                                  //
                         ErrExprInitializerFieldNotDefaultConstructible, ERR_PARSING, file_hash, //
-                        get_pos_triple(tokens), data_field.name, data_field.type                //
+                        get_pos_triple(ctx.tokens), data_field.name, data_field.type            //
                     );
                     return std::nullopt;
                 }
                 if (data_field.initializer.has_value()) {
-                    auto cloned_field = data_field.initializer.value()->clone(scope->scope_id);
+                    auto cloned_field = data_field.initializer.value()->clone(ctx.scope->scope_id);
                     if (!Analyzer::Castability::check_castability(*this, data_field.type, cloned_field)) {
                         return std::nullopt;
                     }
@@ -1332,7 +1303,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 } else {
                     fields.emplace_back(InitializerNode::Field{
                         .name = data_field.name,
-                        .value = data_field.type->get_default_value(data_field.type, file_hash, pos, scope->scope_id).value(),
+                        .value = data_field.type->get_default_value(data_field.type, file_hash, pos, ctx.scope->scope_id).value(),
                     });
                 }
             }
@@ -1358,13 +1329,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 if (!data_type->is_default_constructible()) {
                     THROW_ERR(                                                                  //
                         ErrExprInitializerFieldNotDefaultConstructible, ERR_PARSING, file_hash, //
-                        get_pos_triple(tokens), data_accessor, data_type                        //
+                        get_pos_triple(ctx.tokens), data_accessor, data_type                    //
                     );
                     return std::nullopt;
                 }
                 fields.emplace_back(InitializerNode::Field{
                     .name = data_accessor,
-                    .value = data_type->get_default_value(data_type, file_hash, pos, scope->scope_id).value(),
+                    .value = data_type->get_default_value(data_type, file_hash, pos, ctx.scope->scope_id).value(),
                 });
             }
             break;
@@ -1390,13 +1361,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                 if (!type->is_default_constructible()) {
                     THROW_ERR(                                                                  //
                         ErrExprInitializerFieldNotDefaultConstructible, ERR_PARSING, file_hash, //
-                        get_pos_triple(tokens), field_name, type                                //
+                        get_pos_triple(ctx.tokens), field_name, type                            //
                     );
                     return std::nullopt;
                 }
                 fields.emplace_back(InitializerNode::Field{
                     .name = field_name,
-                    .value = type->get_default_value(type, file_hash, pos, scope->scope_id).value(),
+                    .value = type->get_default_value(type, file_hash, pos, ctx.scope->scope_id).value(),
                 });
             }
             break;
@@ -1425,25 +1396,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_initializer( //
                     lit = LitInt{.value = APInt("0")};
                 }
                 std::unique_ptr<ExpressionNode> literal_expr = std::make_unique<LiteralNode>( //
-                    file_hash, get_pos_triple(tokens), lit, vector_type->base_type, false     //
+                    file_hash, get_pos_triple(ctx.tokens), lit, vector_type->base_type, false //
                 );
                 fields.emplace_back(InitializerNode::Field{.name = new_field_name, .value = std::move(literal_expr)});
             }
             break;
         }
     }
-    return std::make_unique<InitializerNode>(file_hash, get_pos_triple(tokens), type_token->type, fields);
+    return std::make_unique<InitializerNode>(file_hash, get_pos_triple(ctx.tokens), type_token->type, fields);
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
-    const Context &ctx,                                                  //
-    std::shared_ptr<Scope> &scope,                                       //
-    const token_slice &tokens                                            //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_type_cast");
-    ASSERT(tokens.first->token == TOK_TYPE);
-    ASSERT(std::next(tokens.first)->token == TOK_LEFT_PAREN);
-    token_slice tokens_mut = tokens;
+    ASSERT(ctx.tokens.first->token == TOK_TYPE);
+    ASSERT(std::next(ctx.tokens.first)->token == TOK_LEFT_PAREN);
+    token_slice tokens_mut = ctx.tokens;
     std::optional<uint2> expr_range = Matcher::balanced_range_extraction(           //
         tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
     );
@@ -1457,11 +1424,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     ASSERT(expr_range.value().second > expr_range.value().first);
 
     // Get the type the expression needs to be converted to
-    const std::shared_ptr<Type> to_type = tokens.first->type;
+    const std::shared_ptr<Type> to_type = ctx.tokens.first->type;
 
     // Create the expression
-    token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
-    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(ctx, scope, expr_tokens);
+    const token_slice expr_tokens = {tokens_mut.first + expr_range.value().first, tokens_mut.first + expr_range.value().second};
+    Context expr_ctx = ctx.swap_tokens(expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> expression = create_expression(expr_ctx);
     if (!expression.has_value()) {
         return std::nullopt;
     }
@@ -1470,16 +1438,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_type_cast( //
     if (expression.value()->type == to_type) {
         return expression;
     }
-    return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), to_type, expression.value());
+    return std::make_unique<TypeCastNode>(file_hash, get_pos_triple(ctx.tokens), to_type, expression.value());
 }
 
-std::optional<GroupExpressionNode> Parser::create_group_expression( //
-    const Context &ctx,                                             //
-    std::shared_ptr<Scope> &scope,                                  //
-    const token_slice &tokens                                       //
-) {
+std::optional<GroupExpressionNode> Parser::create_group_expression(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_group_expression");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     // First, remove all trailing garbage from the expression tokens
     remove_trailing_garbage(tokens_mut);
     // Now, the first and the last token must be open and closing parenthesis respectively
@@ -1523,8 +1487,9 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
     // Parse all expressions in the group
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
     for (const uint2 &match_range : match_ranges) {
-        token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
-        auto expr = create_expression(ctx, scope, expression_tokens);
+        const token_slice expression_tokens = {tokens_mut.first + match_range.first, tokens_mut.first + match_range.second};
+        Context expr_ctx = ctx.swap_tokens(expression_tokens);
+        auto expr = create_expression(expr_ctx);
         if (!expr.has_value()) {
             return std::nullopt;
         }
@@ -1535,8 +1500,8 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
     for (unsigned int i = 0; i < expressions.size(); i++) {
         const std::string type_str = expressions[i]->type->to_string();
         if (type_str == "type.flint.str.lit") {
-            expressions[i] = std::make_unique<TypeCastNode>(                                       //
-                file_hash, get_pos_triple(tokens), Type::get_primitive_type("str"), expressions[i] //
+            expressions[i] = std::make_unique<TypeCastNode>(                                           //
+                file_hash, get_pos_triple(ctx.tokens), Type::get_primitive_type("str"), expressions[i] //
             );
         } else if (expressions[i]->type->get_variation() == Type::Variation::GROUP) {
             // Nested groups are not allowed
@@ -1546,22 +1511,19 @@ std::optional<GroupExpressionNode> Parser::create_group_expression( //
             return std::nullopt;
         }
     }
-    return GroupExpressionNode(file_hash, get_pos_triple(tokens), expressions);
+    return GroupExpressionNode(file_hash, get_pos_triple(ctx.tokens), expressions);
 }
 
-std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions( //
-    const Context &ctx,                                                                       //
-    std::shared_ptr<Scope> &scope,                                                            //
-    const token_slice &tokens                                                                 //
-) {
+std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group_expressions(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_group_expressions");
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     std::vector<std::unique_ptr<ExpressionNode>> expressions;
     while (tokens_mut.first != tokens_mut.second) {
         std::optional<uint2> next_expr_range = Matcher::get_next_match_range(tokens_mut, Matcher::until_comma);
         if (!next_expr_range.has_value()) {
             // The last expression
-            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(ctx, scope, tokens_mut);
+            Context expr_ctx = ctx.swap_tokens(tokens_mut);
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(expr_ctx);
             tokens_mut.first = tokens_mut.second;
             if (!indexing_expression.has_value()) {
                 return std::nullopt;
@@ -1569,9 +1531,8 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
             expressions.emplace_back(std::move(indexing_expression.value()));
         } else {
             // Not the last expression
-            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(   //
-                ctx, scope, {tokens_mut.first, tokens_mut.first + next_expr_range.value().second - 1} //
-            );
+            Context expr_ctx = ctx.swap_tokens({tokens_mut.first, tokens_mut.first + next_expr_range.value().second - 1});
+            std::optional<std::unique_ptr<ExpressionNode>> indexing_expression = create_expression(expr_ctx);
             tokens_mut.first += next_expr_range.value().second;
             if (!indexing_expression.has_value()) {
                 return std::nullopt;
@@ -1582,37 +1543,35 @@ std::optional<std::vector<std::unique_ptr<ExpressionNode>>> Parser::create_group
     return expressions;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( //
-    const Context &ctx,                                                         //
-    std::shared_ptr<Scope> &scope,                                              //
-    const token_slice &tokens                                                   //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_range_expression");
     // A range expression consists of an lhs and an rhs, for now the lhs and rhs "expressions" consist of one token each, being a literal
     // token, but range expressions will be able to consist of any expression as the lsh and rhs in the future, but this day is not today
     const std::vector<uint2> &ranges = Matcher::get_match_ranges_in_range_outside_group( //
-        tokens,                                                                          //
+        ctx.tokens,                                                                      //
         Matcher::token(TOK_RANGE),                                                       //
-        {0, std::distance(tokens.first, tokens.second)},                                 //
+        {0, std::distance(ctx.tokens.first, ctx.tokens.second)},                         //
         Matcher::token(TOK_LEFT_PAREN),                                                  //
         Matcher::token(TOK_RIGHT_PAREN)                                                  //
     );
     ASSERT(ranges.size() == 1);
     const uint2 &range = ranges.front();
-    const token_slice lhs_tokens = {tokens.first, tokens.first + range.first};
+    const token_slice lhs_tokens = {ctx.tokens.first, ctx.tokens.first + range.first};
     const bool is_open_low = lhs_tokens.first == lhs_tokens.second;
     std::optional<std::unique_ptr<ExpressionNode>> lhs_expr;
     if (!is_open_low) {
-        lhs_expr = create_expression(ctx, scope, lhs_tokens);
+        Context lhs_ctx = ctx.swap_tokens(lhs_tokens);
+        lhs_expr = create_expression(lhs_ctx);
         if (!lhs_expr.has_value()) {
             return std::nullopt;
         }
     }
-    const token_slice rhs_tokens = {tokens.first + range.second, tokens.second};
+    const token_slice rhs_tokens = {ctx.tokens.first + range.second, ctx.tokens.second};
     const bool is_open_up = rhs_tokens.first == rhs_tokens.second;
     std::optional<std::unique_ptr<ExpressionNode>> rhs_expr;
     if (!is_open_up) {
-        rhs_expr = create_expression(ctx, scope, rhs_tokens);
+        Context rhs_ctx = ctx.swap_tokens(rhs_tokens);
+        rhs_expr = create_expression(rhs_ctx);
         if (!rhs_expr.has_value()) {
             return std::nullopt;
         }
@@ -1623,22 +1582,22 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
         ASSERT(!lhs_expr.has_value());
         ASSERT(!rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
-        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lhs_zero, u64_ty);
+        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lhs_zero, u64_ty);
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
-        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), rhs_max, u64_ty);
-        return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(tokens), lhs_expr.value(), rhs_expr.value());
+        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), rhs_max, u64_ty);
+        return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(ctx.tokens), lhs_expr.value(), rhs_expr.value());
     } else if (is_open_low) {
         // Its a range expression which begins at 0, because '0..5' and '..5' are the same
         ASSERT(!lhs_expr.has_value());
         ASSERT(rhs_expr.has_value());
         LitValue lhs_zero = LitInt{.value = APInt("0")};
-        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lhs_zero, u64_ty);
+        lhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lhs_zero, u64_ty);
     } else if (is_open_up) {
         // Its an open ended range expression
         ASSERT(lhs_expr.has_value());
         ASSERT(!rhs_expr.has_value());
         LitValue rhs_max = LitInt{.value = APInt(std::to_string(UINT64_MAX))};
-        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), rhs_max, u64_ty);
+        rhs_expr = std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), rhs_max, u64_ty);
     }
     // Normalize the bounds to a u64 type so that the range expression can be constructed with equal bound types. The actual validation of
     // the bounds happens in the analyzer
@@ -1681,23 +1640,18 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_range_expression( 
             return std::nullopt;
         }
     }
-    return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(tokens), lhs_expr.value(), rhs_expr.value());
+    return std::make_unique<RangeExpressionNode>(file_hash, get_pos_triple(ctx.tokens), lhs_expr.value(), rhs_expr.value());
 }
 
-std::optional<DataAccessNode> Parser::create_data_access( //
-    const Context &ctx,                                   //
-    std::shared_ptr<Scope> &scope,                        //
-    const token_slice &tokens                             //
-) {
+std::optional<DataAccessNode> Parser::create_data_access(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_data_access");
-    token_slice tokens_mut = tokens;
-    auto field_access_base = create_field_access_base(ctx, scope, tokens_mut);
+    auto field_access_base = create_field_access_base(ctx);
     if (!field_access_base.has_value()) {
         return std::nullopt;
     }
     return DataAccessNode(                    //
         file_hash,                            //
-        get_pos_triple(tokens),               //
+        get_pos_triple(ctx.tokens),           //
         field_access_base.value().base_expr,  //
         field_access_base.value().field_name, //
         field_access_base.value().field_id,   //
@@ -1705,14 +1659,9 @@ std::optional<DataAccessNode> Parser::create_data_access( //
     );
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_access( //
-    const Context &ctx,                                                            //
-    std::shared_ptr<Scope> &scope,                                                 //
-    const token_slice &tokens                                                      //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_access(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_grouped_data_access");
-    token_slice tokens_mut = tokens;
-    auto grouped_field_access_base = create_grouped_access_base(ctx, scope, tokens_mut);
+    auto grouped_field_access_base = create_grouped_access_base(ctx);
     if (!grouped_field_access_base.has_value()) {
         return std::nullopt;
     }
@@ -1721,7 +1670,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_acces
     }
     return std::make_unique<GroupedDataAccessNode>(    //
         file_hash,                                     //
-        get_pos_triple(tokens),                        //
+        get_pos_triple(ctx.tokens),                    //
         grouped_field_access_base.value().base_expr,   //
         grouped_field_access_base.value().field_names, //
         grouped_field_access_base.value().field_ids,   //
@@ -1729,22 +1678,17 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_grouped_data_acces
     );
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer( //
-    const Context &ctx,                                                          //
-    std::shared_ptr<Scope> &scope,                                               //
-    const token_slice &tokens                                                    //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_array_initializer");
-    token_list toks = clone_from_slice(tokens);
-    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction( //
-        tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET)    //
+    std::optional<uint2> length_expression_range = Matcher::balanced_range_extraction(  //
+        ctx.tokens, Matcher::token(TOK_LEFT_BRACKET), Matcher::token(TOK_RIGHT_BRACKET) //
     );
     if (!length_expression_range.has_value()) {
         // If there are no length expressions, check if the first token is an array type token in which the sizes are comptime-known
-        if (tokens.first->token != TOK_TYPE || tokens.first->type->get_variation() != Type::Variation::ARRAY) {
+        if (ctx.tokens.first->token != TOK_TYPE || ctx.tokens.first->type->get_variation() != Type::Variation::ARRAY) {
             return std::nullopt;
         }
-        const std::shared_ptr<Type> &array_type = tokens.first->type;
+        const std::shared_ptr<Type> &array_type = ctx.tokens.first->type;
         const ArrayType *arr_type = array_type->as<ArrayType>();
         if (!arr_type->sizes.has_value()) {
             return std::nullopt;
@@ -1755,11 +1699,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
         const std::shared_ptr<Type> u64_ty = Type::get_primitive_type("u64");
         for (const size_t len : arr_type->sizes.value()) {
             LitValue value = LitInt{.value = APInt(std::to_string(len))};
-            length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), value, u64_ty));
+            length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), value, u64_ty));
         }
 
         // Get the initializer values inside the tokens {...} to inline-initialize the array or (...) for a single initializer
-        token_slice initializer_tokens = {tokens.first + 1, tokens.second};
+        token_slice initializer_tokens = {ctx.tokens.first + 1, ctx.tokens.second};
         remove_surrounding_paren(initializer_tokens);
         if (initializer_tokens.first->token == TOK_LEFT_BRACE) {
             // Skip the {
@@ -1778,7 +1722,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
                 initializer_tokens.second--;
             }
             // Create the initializer values
-            auto exprs = create_group_expressions(ctx, scope, initializer_tokens);
+            Context expr_ctx = ctx.swap_tokens(initializer_tokens);
+            auto exprs = create_group_expressions(expr_ctx);
             if (!exprs.has_value()) {
                 return std::nullopt;
             }
@@ -1797,8 +1742,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
                 return std::nullopt;
             }
 
-            return std::make_unique<InlineArrayInitializerNode>(                                 //
-                file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
+            return std::make_unique<InlineArrayInitializerNode>(                                     //
+                file_hash, get_pos_triple(ctx.tokens), array_type, length_expressions, exprs.value() //
             );
         }
 
@@ -1809,24 +1754,27 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
                 THROW_ERR(ErrExprArrayNeedsInitializer, ERR_GENERATING, file_hash, get_pos_triple(initializer_tokens), arr_type->type);
                 return std::nullopt;
             }
-            initializer = arr_type->type->get_default_value(arr_type->type, file_hash, get_pos_triple(initializer_tokens), scope->scope_id);
+            initializer = arr_type->type->get_default_value(                                       //
+                arr_type->type, file_hash, get_pos_triple(initializer_tokens), ctx.scope->scope_id //
+            );
         } else {
-            initializer = create_expression(ctx, scope, initializer_tokens);
+            Context expr_ctx = ctx.swap_tokens(initializer_tokens);
+            initializer = create_expression(expr_ctx);
         }
         if (!initializer.has_value()) {
             return std::nullopt;
         }
 
-        return std::make_unique<ArrayInitializerNode>(                                             //
-            file_hash, get_pos_triple(tokens), array_type, length_expressions, initializer.value() //
+        return std::make_unique<ArrayInitializerNode>(                                                 //
+            file_hash, get_pos_triple(ctx.tokens), array_type, length_expressions, initializer.value() //
         );
     }
 
     // Get the element type of the array
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     token_slice type_tokens = {tokens_mut.first, tokens_mut.first + length_expression_range.value().first};
     tokens_mut.first += length_expression_range.value().first;
-    const auto &element_type = file_node_ptr->file_namespace->get_type(type_tokens, scope->get_cpl());
+    const auto &element_type = file_node_ptr->file_namespace->get_type(type_tokens, ctx.scope->get_cpl());
     if (!element_type.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -1837,8 +1785,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     }
 
     // Get the initializer tokens (...) and remove the surrounding parenthesis
-    token_slice initializer_tokens = {tokens.first + length_expression_range.value().second, tokens_mut.second};
-    tokens_mut.second = tokens.first + length_expression_range.value().second;
+    token_slice initializer_tokens = {ctx.tokens.first + length_expression_range.value().second, tokens_mut.second};
+    tokens_mut.second = ctx.tokens.first + length_expression_range.value().second;
     remove_surrounding_paren(initializer_tokens);
     if (initializer_tokens.first->token == TOK_LEFT_BRACE) {
         // Brace initializer { expr, expr, ... } with inline array initialization
@@ -1856,7 +1804,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
         if (std::prev(initializer_tokens.second)->token == TOK_COMMA) {
             initializer_tokens.second--;
         }
-        auto exprs = create_group_expressions(ctx, scope, initializer_tokens);
+        Context group_ctx = ctx.swap_tokens(initializer_tokens);
+        auto exprs = create_group_expressions(group_ctx);
         if (!exprs.has_value()) {
             return std::nullopt;
         }
@@ -1893,11 +1842,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
                 default_idx = length_expressions.size();
                 // Placeholder literal, value will be filled in after inference
                 LitValue temp = LitInt{.value = APInt("0")};
-                length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), temp, u64_ty));
+                length_expressions.emplace_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), temp, u64_ty));
                 continue;
             }
 
-            auto expr = create_expression(ctx, scope, dim_tokens);
+            Context expr_ctx = ctx.swap_tokens(dim_tokens);
+            auto expr = create_expression(expr_ctx);
             if (!expr.has_value()) {
                 return std::nullopt;
             }
@@ -1941,19 +1891,20 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             array_type = file_node_ptr->file_namespace->get_type_from_str(array_type->to_string()).value();
         }
 
-        return std::make_unique<InlineArrayInitializerNode>(                                 //
-            file_hash, get_pos_triple(tokens), array_type, length_expressions, exprs.value() //
+        return std::make_unique<InlineArrayInitializerNode>(                                     //
+            file_hash, get_pos_triple(ctx.tokens), array_type, length_expressions, exprs.value() //
         );
     }
 
     // Now we can create the initializer expression
     std::optional<std::unique_ptr<ExpressionNode>> initializer;
     if (std::next(initializer_tokens.first) == initializer_tokens.second && initializer_tokens.first->token == TOK_UNDERSCORE) {
-        initializer = element_type.value().type->get_default_value(                       //
-            element_type.value().type, file_hash, get_pos_triple(tokens), scope->scope_id //
+        initializer = element_type.value().type->get_default_value(                               //
+            element_type.value().type, file_hash, get_pos_triple(ctx.tokens), ctx.scope->scope_id //
         );
     } else {
-        initializer = create_expression(ctx, scope, initializer_tokens);
+        Context expr_ctx = ctx.swap_tokens(initializer_tokens);
+        initializer = create_expression(expr_ctx);
     }
     if (!initializer.has_value()) {
         return std::nullopt;
@@ -1966,7 +1917,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
     ASSERT(std::prev(tokens_mut.second)->token == TOK_RIGHT_BRACKET);
     tokens_mut.second--;
     // Now, everything left in the `tokens_mut` vector should be the length expressions [...]
-    auto length_expressions = create_group_expressions(ctx, scope, tokens_mut);
+    Context group_ctx = ctx.swap_tokens(tokens_mut);
+    auto length_expressions = create_group_expressions(group_ctx);
     if (!length_expressions.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -2004,26 +1956,21 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_array_initializer(
             return std::nullopt;
         }
     }
-    return std::make_unique<ArrayInitializerNode>(                                                                    //
-        file_hash, get_pos_triple(tokens), actual_array_type.value(), length_expressions.value(), initializer.value() //
+    return std::make_unique<ArrayInitializerNode>(                                                                        //
+        file_hash, get_pos_triple(ctx.tokens), actual_array_type.value(), length_expressions.value(), initializer.value() //
     );
 }
 
-std::optional<ArrayAccessNode> Parser::create_array_access( //
-    const Context &ctx,                                     //
-    std::shared_ptr<Scope> &scope,                          //
-    const token_slice &tokens                               //
-) {
+std::optional<ArrayAccessNode> Parser::create_array_access(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_array_access");
     // The array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an opening
     // bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the base
     // expression.
-    token_list toks = clone_from_slice(tokens);
-    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
-    token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
-    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    ASSERT(std::prev(ctx.tokens.second)->token == TOK_RIGHT_BRACKET);
+    token_slice indexing_tokens = {ctx.tokens.second - 1, ctx.tokens.second - 1};
+    token_slice base_expr_tokens = {ctx.tokens.first, ctx.tokens.second - 1};
     unsigned int depth = 0;
-    for (; base_expr_tokens.second != tokens.first;) {
+    for (; base_expr_tokens.second != ctx.tokens.first;) {
         // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to
         // get both ranges
         if (base_expr_tokens.second->token == TOK_RIGHT_BRACKET) {
@@ -2040,7 +1987,8 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         base_expr_tokens.second--;
     }
     // First we parse the base expression, it's type must be an array type (or string type)
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(base_ctx);
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -2052,9 +2000,8 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         return std::nullopt;
     }
     // Now we can parse the indexing expression(s)
-    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions( //
-        ctx, scope, indexing_tokens                                                                              //
-    );
+    Context group_ctx = ctx.swap_tokens(indexing_tokens);
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(group_ctx);
     if (!indexing_expressions.has_value()) {
         return std::nullopt;
     }
@@ -2064,12 +2011,12 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
             return std::nullopt;
         }
         if (indexing_expressions.value().front()->get_variation() == ExpressionNode::Variation::RANGE_EXPRESSION) {
-            return ArrayAccessNode(                                                                                                 //
-                file_hash, get_pos_triple(tokens), base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value() //
+            return ArrayAccessNode(                                                                                                     //
+                file_hash, get_pos_triple(ctx.tokens), base_expr.value(), Type::get_primitive_type("str"), indexing_expressions.value() //
             );
         } else {
-            return ArrayAccessNode(                                                                                                //
-                file_hash, get_pos_triple(tokens), base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value() //
+            return ArrayAccessNode(                                                                                                    //
+                file_hash, get_pos_triple(ctx.tokens), base_expr.value(), Type::get_primitive_type("u8"), indexing_expressions.value() //
             );
         }
     }
@@ -2089,31 +2036,27 @@ std::optional<ArrayAccessNode> Parser::create_array_access( //
         }
     }
     if (dimensionality == 0) {
-        return ArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), array_type->type, indexing_expressions.value());
+        return ArrayAccessNode(file_hash, get_pos_triple(ctx.tokens), base_expr.value(), array_type->type, indexing_expressions.value());
     } else {
         // TODO: Known Sizes
         std::shared_ptr<Type> new_arr_type = std::make_shared<ArrayType>(dimensionality, array_type->type, std::nullopt);
         if (!file_node_ptr->file_namespace->add_type(new_arr_type)) {
             new_arr_type = file_node_ptr->file_namespace->get_type_from_str(new_arr_type->to_string()).value();
         }
-        return ArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), new_arr_type, indexing_expressions.value());
+        return ArrayAccessNode(file_hash, get_pos_triple(ctx.tokens), base_expr.value(), new_arr_type, indexing_expressions.value());
     }
 }
 
-std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
-    const Context &ctx,                                                    //
-    std::shared_ptr<Scope> &scope,                                         //
-    const token_slice &tokens                                              //
-) {
+std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_grouped_array_access");
     // The grouped array access must end with a closing bracket token. Then, everything from that closing bracket to the left until an
     // opening bracket is considered the indexing expressions. Everything that comes before that initial opening bracket is considered the
     // base expression.
-    ASSERT(std::prev(tokens.second)->token == TOK_RIGHT_BRACKET);
-    token_slice indexing_tokens = {tokens.second - 1, tokens.second - 1};
-    token_slice base_expr_tokens = {tokens.first, tokens.second - 1};
+    ASSERT(std::prev(ctx.tokens.second)->token == TOK_RIGHT_BRACKET);
+    token_slice indexing_tokens = {ctx.tokens.second - 1, ctx.tokens.second - 1};
+    token_slice base_expr_tokens = {ctx.tokens.first, ctx.tokens.second - 1};
     unsigned int depth = 0;
-    for (; base_expr_tokens.second != tokens.first;) {
+    for (; base_expr_tokens.second != ctx.tokens.first;) {
         // We can decrement the 'indexing_tokens' begin as well as the 'base_expr_tokens' end at the same time, needing only one loop to
         // get both ranges
         if (base_expr_tokens.second->token == TOK_RIGHT_BRACKET) {
@@ -2133,7 +2076,8 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     base_expr_tokens.second--;
     ASSERT(base_expr_tokens.second->token == TOK_DOT);
     // First we parse the base expression, it's type must be an array type (or string type)
-    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(ctx, scope, base_expr_tokens);
+    Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+    std::optional<std::unique_ptr<ExpressionNode>> base_expr = create_expression(base_ctx);
     if (!base_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -2145,9 +2089,8 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
         return std::nullopt;
     }
     // Now we can parse the indexing expression(s)
-    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions( //
-        ctx, scope, indexing_tokens                                                                              //
-    );
+    Context group_ctx = ctx.swap_tokens(indexing_tokens);
+    std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(group_ctx);
     if (!indexing_expressions.has_value()) {
         return std::nullopt;
     }
@@ -2167,18 +2110,14 @@ std::optional<GroupedArrayAccessNode> Parser::create_grouped_array_access( //
     if (!Type::add_type(ret_ty)) {
         ret_ty = Type::get_type_from_str(ret_ty->to_string()).value();
     }
-    return GroupedArrayAccessNode(file_hash, get_pos_triple(tokens), base_expr.value(), ret_ty, indexing_expressions.value());
+    return GroupedArrayAccessNode(file_hash, get_pos_triple(ctx.tokens), base_expr.value(), ret_ty, indexing_expressions.value());
 }
 
-std::optional<OptionalChainNode> Parser::create_optional_chain( //
-    const Context &ctx,                                         //
-    std::shared_ptr<Scope> &scope,                              //
-    const token_slice &tokens                                   //
-) {
+std::optional<OptionalChainNode> Parser::create_optional_chain(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_optional_chain");
     // First, we need to find the `?` token, everything left to that token is our base expression
-    auto iterator = tokens.second - 1;
-    while (iterator != tokens.first) {
+    auto iterator = ctx.tokens.second - 1;
+    while (iterator != ctx.tokens.first) {
         if (iterator->token == TOK_QUESTION) {
             break;
         }
@@ -2186,9 +2125,7 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
     }
     // If the iterator is the beginning this means that no `?` token is present in the list of tokens, this means something in the
     // matcher went wrong, not here in the parser
-    ASSERT(iterator != tokens.first);
-    // Everything to the left of the iterator is the base expression and can be parsed as such
-    const token_slice base_expr_tokens = {tokens.first, iterator};
+    ASSERT(iterator != ctx.tokens.first);
 
     // Move past the `?` token
     iterator++;
@@ -2197,51 +2134,49 @@ std::optional<OptionalChainNode> Parser::create_optional_chain( //
     // Now we need to check what the rhs of the optional chain is
     // TODO: Change the 'is_toplevel_chain_node' to something else, to detect whether it actually *is* the top level
     if (iterator->token == TOK_LEFT_BRACKET) {
-        auto array_access_base = create_array_access_base(ctx, scope, tokens, true);
+        auto array_access_base = create_array_access_base(ctx, true);
         if (!array_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         operation = ChainArrayAccess{std::move(array_access_base.value().indexing_exprs)};
-        return OptionalChainNode(                                                   //
-            file_hash, get_pos_triple(tokens), array_access_base.value().base_expr, //
-            true, operation, array_access_base.value().result_type                  //
+        return OptionalChainNode(                                                       //
+            file_hash, get_pos_triple(ctx.tokens), array_access_base.value().base_expr, //
+            true, operation, array_access_base.value().result_type                      //
         );
     } else if (iterator->token == TOK_DOT) {
-        auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
+        auto field_access_base = create_field_access_base(ctx, true);
         if (!field_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         operation = ChainFieldAccess{field_access_base.value().field_name, field_access_base.value().field_id};
-        return OptionalChainNode(                                                                                                         //
-            file_hash, get_pos_triple(tokens), field_access_base.value().base_expr, true, operation, field_access_base.value().field_type //
+        return OptionalChainNode(                                                       //
+            file_hash, get_pos_triple(ctx.tokens), field_access_base.value().base_expr, //
+            true, operation, field_access_base.value().field_type                       //
         );
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( //
-    const Context &ctx,                                                        //
-    std::shared_ptr<Scope> &scope,                                             //
-    const token_slice &tokens                                                  //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_optional_unwrap");
     // We first need to get the last exclamation operator as our separator for the base expression
-    auto iterator = tokens.second - 1;
-    while (iterator != tokens.first) {
+    auto iterator = ctx.tokens.second - 1;
+    while (iterator != ctx.tokens.first) {
         if (iterator->token == TOK_EXCLAMATION) {
             break;
         }
         --iterator;
     }
-    ASSERT(iterator != tokens.first);
+    ASSERT(iterator != ctx.tokens.first);
     ASSERT(iterator->token == TOK_EXCLAMATION);
-    const token_slice base_expr_tokens = {tokens.first, iterator};
+    const token_slice base_expr_tokens = {ctx.tokens.first, iterator};
     // If nothing follows after the optional unwrap node we can return it directly
-    if (iterator == tokens.second - 1) {
-        auto base_expr = create_expression(ctx, scope, base_expr_tokens);
+    if (iterator == ctx.tokens.second - 1) {
+        Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+        auto base_expr = create_expression(base_ctx);
         if (!base_expr.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -2250,14 +2185,15 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(tokens), base_expr.value());
+        return std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(ctx.tokens), base_expr.value());
     }
     // Skip the `!`
     ++iterator;
 
     if (iterator->token == TOK_LEFT_BRACKET) {
         // It's an array access. First we need to make sure that the base expression is an array or string type
-        auto base_expr = create_expression(ctx, scope, base_expr_tokens);
+        Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+        auto base_expr = create_expression(base_ctx);
         if (!base_expr.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -2281,14 +2217,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
         }
 
         // The last token should be a right bracket and everything in between are the indexing expressions
-        if (std::prev(tokens.second)->token != TOK_RIGHT_BRACKET) {
+        if (std::prev(ctx.tokens.second)->token != TOK_RIGHT_BRACKET) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        token_slice indexing_tokens = {std::next(iterator), std::prev(tokens.second)};
-        std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions( //
-            ctx, scope, indexing_tokens                                                                              //
-        );
+        const token_slice indexing_tokens = {std::next(iterator), std::prev(ctx.tokens.second)};
+        Context group_ctx = ctx.swap_tokens(indexing_tokens);
+        std::optional<std::vector<std::unique_ptr<ExpressionNode>>> indexing_expressions = create_group_expressions(group_ctx);
         if (!indexing_expressions.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -2298,62 +2233,59 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_optional_unwrap( /
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>( //
-            file_hash, get_pos_triple(tokens), base_expr.value()                           //
+            file_hash, get_pos_triple(ctx.tokens), base_expr.value()                       //
         );
-        return std::make_unique<ArrayAccessNode>(                                                    //
-            file_hash, get_pos_triple(tokens), opt_unwrap, result_type, indexing_expressions.value() //
+        return std::make_unique<ArrayAccessNode>(                                                        //
+            file_hash, get_pos_triple(ctx.tokens), opt_unwrap, result_type, indexing_expressions.value() //
         );
     } else if (iterator->token == TOK_DOT && (iterator + 1)->token == TOK_LEFT_PAREN) {
         // It's a grouped field access
-        auto grouped_access_base = create_grouped_access_base(ctx, scope, tokens, true);
+        auto grouped_access_base = create_grouped_access_base(ctx, true);
         if (!grouped_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         auto &base_expr = grouped_access_base.value().base_expr;
         std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>( //
-            file_hash, get_pos_triple(tokens), base_expr                                   //
+            file_hash, get_pos_triple(ctx.tokens), base_expr                               //
         );
         const auto &field_names = grouped_access_base.value().field_names;
         const auto &field_ids = grouped_access_base.value().field_ids;
         const auto &field_types = grouped_access_base.value().field_types;
-        return std::make_unique<GroupedDataAccessNode>(file_hash, get_pos_triple(tokens), opt_unwrap, field_names, field_ids, field_types);
+        return std::make_unique<GroupedDataAccessNode>(                                            //
+            file_hash, get_pos_triple(ctx.tokens), opt_unwrap, field_names, field_ids, field_types //
+        );
     } else if (iterator->token == TOK_DOT) {
         // It's a field access
-        auto field_access_base = create_field_access_base(ctx, scope, tokens, true);
+        auto field_access_base = create_field_access_base(ctx, true);
         if (!field_access_base.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
         auto &base_expr = field_access_base.value().base_expr;
-        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(tokens), base_expr);
+        std::unique_ptr<ExpressionNode> opt_unwrap = std::make_unique<OptionalUnwrapNode>(file_hash, get_pos_triple(ctx.tokens), base_expr);
         const auto &field_name = field_access_base.value().field_name;
         const auto &field_id = field_access_base.value().field_id;
         const auto &field_type = field_access_base.value().field_type;
-        return std::make_unique<DataAccessNode>(file_hash, get_pos_triple(tokens), opt_unwrap, field_name, field_id, field_type);
+        return std::make_unique<DataAccessNode>(file_hash, get_pos_triple(ctx.tokens), opt_unwrap, field_name, field_id, field_type);
     }
     THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
     return std::nullopt;
 }
 
-std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
-    const Context &ctx,                                                 //
-    std::shared_ptr<Scope> &scope,                                      //
-    const token_slice &tokens                                           //
-) {
+std::optional<VariantExtractionNode> Parser::create_variant_extraction(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_variant_extraction");
-    token_list toks = clone_from_slice(tokens);
     // We first need to get the last question operator as our separator for the base expression
-    auto iterator = tokens.second - 1;
-    while (iterator != tokens.first) {
+    auto iterator = ctx.tokens.second - 1;
+    while (iterator != ctx.tokens.first) {
         if (iterator->token == TOK_QUESTION) {
             break;
         }
         --iterator;
     }
-    ASSERT(iterator != tokens.first);
+    ASSERT(iterator != ctx.tokens.first);
     ASSERT(iterator->token == TOK_QUESTION);
-    const token_slice base_expr_tokens = {tokens.first, iterator};
+    const token_slice base_expr_tokens = {ctx.tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
     ++iterator;
     ASSERT(iterator->token == TOK_LEFT_PAREN);
@@ -2363,7 +2295,8 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
     }
     ASSERT(end_it->token == TOK_RIGHT_PAREN);
     const token_slice type_tokens = {iterator, end_it};
-    auto type_expr = create_expression(ctx, scope, type_tokens);
+    Context type_ctx = ctx.swap_tokens(type_tokens);
+    auto type_expr = create_expression(type_ctx);
     if (!type_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -2392,8 +2325,9 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
     type_expr.value().reset();
 
     // If nothing follows after the variant extraction node we can return its result wrapped in an optional directly
-    if (iterator == tokens.second - 1) {
-        auto base_expr = create_expression(ctx, scope, base_expr_tokens);
+    if (iterator == ctx.tokens.second - 1) {
+        Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+        auto base_expr = create_expression(base_ctx);
         if (!base_expr.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -2419,7 +2353,9 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return VariantExtractionNode(file_hash, get_pos_triple(tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value());
+        return VariantExtractionNode(                                                                             //
+            file_hash, get_pos_triple(ctx.tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value() //
+        );
     }
     // Skip the `)`
     ++iterator;
@@ -2435,23 +2371,19 @@ std::optional<VariantExtractionNode> Parser::create_variant_extraction( //
     return std::nullopt;
 }
 
-std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
-    const Context &ctx,                                                       //
-    std::shared_ptr<Scope> &scope,                                            //
-    const token_slice &tokens                                                 //
-) {
+std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_variant_unwrap");
     // We first need to get the last exclamation operator as our separator for the base expression
-    auto iterator = tokens.second - 1;
-    while (iterator != tokens.first) {
+    auto iterator = ctx.tokens.second - 1;
+    while (iterator != ctx.tokens.first) {
         if (iterator->token == TOK_EXCLAMATION) {
             break;
         }
         --iterator;
     }
-    ASSERT(iterator != tokens.first);
+    ASSERT(iterator != ctx.tokens.first);
     ASSERT(iterator->token == TOK_EXCLAMATION);
-    const token_slice base_expr_tokens = {tokens.first, iterator};
+    const token_slice base_expr_tokens = {ctx.tokens.first, iterator};
     // Next should follow an open paren containing a type token or a tag literal followed by a closing paren
     ++iterator;
     ASSERT(iterator->token == TOK_LEFT_PAREN);
@@ -2461,7 +2393,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
     }
     ASSERT(end_it->token == TOK_RIGHT_PAREN);
     const token_slice type_tokens = {iterator, end_it};
-    auto type_expr = create_expression(ctx, scope, type_tokens);
+    Context type_ctx = ctx.swap_tokens(type_tokens);
+    auto type_expr = create_expression(type_ctx);
     if (!type_expr.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -2490,8 +2423,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
     type_expr.value().reset();
 
     // If nothing follows after the variant unwrap node we can return it directly
-    if (iterator == tokens.second - 1) {
-        auto base_expr = create_expression(ctx, scope, base_expr_tokens);
+    if (iterator == ctx.tokens.second - 1) {
+        Context base_ctx = ctx.swap_tokens(base_expr_tokens);
+        auto base_expr = create_expression(base_ctx);
         if (!base_expr.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
@@ -2512,8 +2446,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
             THROW_BASIC_ERR(ERR_PARSING);
             return std::nullopt;
         }
-        return std::make_unique<VariantUnwrapNode>(                                                           //
-            file_hash, get_pos_triple(tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value() //
+        return std::make_unique<VariantUnwrapNode>(                                                               //
+            file_hash, get_pos_triple(ctx.tokens), base_expr.value(), unwrap_tag_and_type.second, type_id.value() //
         );
     }
     // Skip the `)`
@@ -2531,15 +2465,13 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variant_unwrap( //
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( //
-    const Context &ctx,                                                         //
-    std::shared_ptr<Scope> &scope,                                              //
-    const token_slice &tokens,                                                  //
+    Context &ctx,                                                               //
     const std::optional<std::shared_ptr<Type>> &expected_type                   //
 ) {
-    token_slice tokens_mut = tokens;
+    token_slice tokens_mut = ctx.tokens;
     token_list toks;
     if (DEBUG_MODE) {
-        toks = clone_from_slice(tokens);
+        toks = clone_from_slice(ctx.tokens);
     }
     ASSERT(tokens_mut.first != tokens_mut.second); // Assert that tokens is not empty
     if (!Matcher::tokens_match(tokens_mut, Matcher::group_expression)) {
@@ -2589,6 +2521,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
     }
 
+    Context expr_ctx = ctx.swap_tokens(tokens_mut);
     switch (pattern.value()) {
         case ExprTrie::Pattern::LITERAL: {
             std::optional<LiteralNode> lit = create_literal(tokens_mut);
@@ -2598,7 +2531,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::make_unique<LiteralNode>(std::move(lit.value()));
         }
         case ExprTrie::Pattern::VARIABLE:
-            return create_variable(scope, tokens_mut);
+            return create_variable(expr_ctx);
         case ExprTrie::Pattern::DEFAULT: {
             const PosTriple &pos = get_pos_triple(tokens_mut);
             if (!expected_type.has_value()) {
@@ -2609,12 +2542,12 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                 THROW_ERR(ErrTypeNotDefaultConstructible, ERR_PARSING, file_hash, pos, expected_type.value());
                 return std::nullopt;
             }
-            return expected_type.value()->get_default_value(expected_type.value(), file_hash, pos, scope->scope_id);
+            return expected_type.value()->get_default_value(expected_type.value(), file_hash, pos, ctx.scope->scope_id);
         }
         case ExprTrie::Pattern::TYPE:
-            return std::make_unique<TypeNode>(file_hash, get_pos_triple(tokens), tokens_mut.first->type);
+            return std::make_unique<TypeNode>(file_hash, get_pos_triple(ctx.tokens), tokens_mut.first->type);
         case ExprTrie::Pattern::RANGE: {
-            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
+            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(expr_ctx);
             if (!range.has_value()) {
                 return std::nullopt;
             }
@@ -2630,7 +2563,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         case ExprTrie::Pattern::STRING_INTERPOLATION: {
             ASSERT(tokens_mut.first->token == TOK_DOLLAR && std::prev(tokens_mut.second)->token == TOK_STR_VALUE);
             std::optional<std::unique_ptr<ExpressionNode>> interpol = create_string_interpolation( //
-                ctx, scope, std::string(std::prev(tokens_mut.second)->lexme), tokens_mut           //
+                expr_ctx, std::string(std::prev(tokens_mut.second)->lexme)                         //
             );
             if (!interpol.has_value()) {
                 return std::nullopt;
@@ -2638,11 +2571,11 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return std::move(interpol.value());
         }
         case ExprTrie::Pattern::ALIASED_FUNCTION_CALL: {
-            const auto range = Matcher::balanced_range_extraction(                      //
-                tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
+            const auto range = Matcher::balanced_range_extraction(                          //
+                ctx.tokens, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
             );
             ASSERT(range.has_value());
-            ASSERT(range.value().second == std::distance(tokens.first, tokens.second));
+            ASSERT(range.value().second == std::distance(ctx.tokens.first, ctx.tokens.second));
             if (tokens_mut.first->token == TOK_TYPE) {
                 // It's some form of "alias" on a base type
                 switch (tokens_mut.first->type->get_variation()) {
@@ -2661,25 +2594,24 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                             THROW_BASIC_ERR(ERR_PARSING);
                             return std::nullopt;
                         }
-                        token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
-                        auto message = create_expression(                                                       //
-                            ctx, scope, message_tokens, file_node_ptr->file_namespace->get_type_from_str("str") //
-                        );
+                        const token_slice message_tokens = {tokens_mut.first + 4, tokens_mut.first + range.value().second - 1};
+                        Context msg_ctx = ctx.swap_tokens(message_tokens);
+                        auto message = create_expression(msg_ctx, file_node_ptr->file_namespace->get_type_from_str("str"));
                         if (!message.has_value()) {
                             return std::nullopt;
                         }
                         const std::shared_ptr<Type> lit_type = tokens_mut.first->type;
                         LitValue lit_value = LitError{.error_type = lit_type, .value = value, .message = std::move(message.value())};
-                        return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, lit_type);
+                        return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, lit_type);
                     }
                     case Type::Variation::FUNC: {
                         const auto *func_node = tokens_mut.first->type->as<FuncType>()->func_node;
                         std::optional<std::unique_ptr<ExpressionNode>> call_node = std::nullopt;
                         if (func_node->file_hash.to_string() != file_hash.to_string()) {
                             auto *func_namespace = Resolver::get_namespace_from_hash(func_node->file_hash);
-                            call_node = create_call_expression(ctx, scope, tokens_mut, func_namespace, true);
+                            call_node = create_call_expression(expr_ctx, func_namespace, true);
                         } else {
-                            call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt, true);
+                            call_node = create_call_expression(expr_ctx, std::nullopt, true);
                         }
                         if (!call_node.has_value()) {
                             return std::nullopt;
@@ -2729,7 +2661,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                                     THROW_BASIC_ERR(ERR_PARSING);
                                     return std::nullopt;
                                 }
-                                expr = create_expression(ctx, scope, {tag_it, tag_it + expr_range.value().second}, variation_type.value());
+                                expr_ctx.tokens = {tag_it, tag_it + expr_range.value().second};
+                                expr = create_expression(expr_ctx, variation_type.value());
                                 if (!expr.has_value()) {
                                     return std::nullopt;
                                 }
@@ -2739,7 +2672,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                                 .variation_tag = tag,
                                 .expr = std::move(expr),
                             };
-                            return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
+                            return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, type);
                         }
                         break;
                     }
@@ -2752,41 +2685,42 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             // Then a dot should follow
             ASSERT(tokens_mut.first->token == TOK_DOT);
             tokens_mut.first++;
-            auto call_node = create_call_expression(ctx, scope, tokens_mut, alias_namespace);
+            expr_ctx.tokens = tokens_mut;
+            auto call_node = create_call_expression(expr_ctx, alias_namespace);
             if (!call_node.has_value()) {
                 return std::nullopt;
             }
             return std::move(call_node.value());
         }
         case ExprTrie::Pattern::FUNCTION_CALL: {
-            auto call_node = create_call_expression(ctx, scope, tokens_mut, std::nullopt);
+            auto call_node = create_call_expression(expr_ctx, std::nullopt);
             if (!call_node.has_value()) {
                 return std::nullopt;
             }
             return call_node;
         }
         case ExprTrie::Pattern::GROUP: {
-            std::optional<GroupExpressionNode> group = create_group_expression(ctx, scope, tokens_mut);
+            std::optional<GroupExpressionNode> group = create_group_expression(expr_ctx);
             if (!group.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<GroupExpressionNode>(std::move(group.value()));
         }
         case ExprTrie::Pattern::INITIALIZER: {
-            return create_initializer(ctx, scope, tokens_mut);
+            return create_initializer(expr_ctx);
         }
         case ExprTrie::Pattern::TYPE_CAST: {
             if (tokens_mut.first->type->get_variation() == Type::Variation::ARRAY) {
                 // It's an array initializer
-                return create_array_initializer(ctx, scope, tokens);
+                return create_array_initializer(expr_ctx);
             }
             // It's a regular type-cast (only primitive types can be cast and primitive types have no initializer)
-            return create_type_cast(ctx, scope, tokens_mut);
+            return create_type_cast(expr_ctx);
         }
         case ExprTrie::Pattern::ANONYMOUS_ERROR:
-            return create_anonymous_error(ctx, scope, tokens_mut);
+            return create_anonymous_error(expr_ctx);
         case ExprTrie::Pattern::UNARY_OP: {
-            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(ctx, scope, tokens_mut);
+            std::optional<UnaryOpExpression> unary_op = create_unary_op_expression(expr_ctx);
             if (!unary_op.has_value()) {
                 return std::nullopt;
             }
@@ -2827,7 +2761,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::make_unique<VariableNode>(file_hash, get_pos_triple(tokens_mut), mangled_name, field->type, false);
                     }
                     ASSERT(field->initializer.has_value());
-                    return field->initializer.value()->clone(scope->scope_id);
+                    return field->initializer.value()->clone(ctx.scope->scope_id);
                 }
                 case Type::Variation::ENUM: {
                     const auto *enum_type = type->as<EnumType>();
@@ -2848,7 +2782,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitEnum{.enum_type = type, .values = std::vector<std::string>{value}};
-                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, type);
                 }
                 case Type::Variation::ERROR_SET: {
                     const auto *error_type = type->as<ErrorSetType>();
@@ -2862,7 +2796,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitError{.error_type = type, .value = value, .message = std::nullopt};
-                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, type);
                 }
                 case Type::Variation::VARIANT: {
                     const auto *variant_type = type->as<VariantType>();
@@ -2883,7 +2817,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
                         return std::nullopt;
                     }
                     LitValue lit_value = LitVariantTag{.variant_type = type, .variation_tag = tag};
-                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(tokens), lit_value, type);
+                    return std::make_unique<LiteralNode>(file_hash, get_pos_triple(ctx.tokens), lit_value, type);
                 }
             }
         }
@@ -2891,60 +2825,60 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
             return create_function_reference(tokens_mut);
         }
         case ExprTrie::Pattern::OPTIONAL_CHAIN: {
-            std::optional<OptionalChainNode> chain = create_optional_chain(ctx, scope, tokens_mut);
+            std::optional<OptionalChainNode> chain = create_optional_chain(expr_ctx);
             if (!chain.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<OptionalChainNode>(std::move(chain.value()));
         }
         case ExprTrie::Pattern::DATA_ACCESS: {
-            std::optional<DataAccessNode> data_access = create_data_access(ctx, scope, tokens_mut);
+            std::optional<DataAccessNode> data_access = create_data_access(expr_ctx);
             if (!data_access.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<DataAccessNode>(std::move(data_access.value()));
         }
         case ExprTrie::Pattern::GROUPED_DATA_ACCESS:
-            return create_grouped_data_access(ctx, scope, tokens_mut);
+            return create_grouped_data_access(expr_ctx);
         case ExprTrie::Pattern::ARRAY_INITIALIZER:
-            return create_array_initializer(ctx, scope, tokens_mut);
+            return create_array_initializer(expr_ctx);
         case ExprTrie::Pattern::ARRAY_ACCESS: {
-            std::optional<ArrayAccessNode> access = create_array_access(ctx, scope, tokens_mut);
+            std::optional<ArrayAccessNode> access = create_array_access(expr_ctx);
             if (!access.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<ArrayAccessNode>(std::move(access.value()));
         }
         case ExprTrie::Pattern::GROUPED_ARRAY_ACCESS: {
-            std::optional<GroupedArrayAccessNode> access = create_grouped_array_access(ctx, scope, tokens_mut);
+            std::optional<GroupedArrayAccessNode> access = create_grouped_array_access(expr_ctx);
             if (!access.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<GroupedArrayAccessNode>(std::move(access.value()));
         }
         case ExprTrie::Pattern::OPTIONAL_UNWRAP: {
-            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(ctx, scope, tokens_mut);
+            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_optional_unwrap(expr_ctx);
             if (!unwrap.has_value()) {
                 return std::nullopt;
             }
             return std::move(unwrap.value());
         }
         case ExprTrie::Pattern::VARIANT_EXTRACTION: {
-            std::optional<VariantExtractionNode> extraction = create_variant_extraction(ctx, scope, tokens_mut);
+            std::optional<VariantExtractionNode> extraction = create_variant_extraction(expr_ctx);
             if (!extraction.has_value()) {
                 return std::nullopt;
             }
             return std::make_unique<VariantExtractionNode>(std::move(extraction.value()));
         }
         case ExprTrie::Pattern::VARIANT_UNWRAP: {
-            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(ctx, scope, tokens_mut);
+            std::optional<std::unique_ptr<ExpressionNode>> unwrap = create_variant_unwrap(expr_ctx);
             if (!unwrap.has_value()) {
                 return std::nullopt;
             }
             return std::move(unwrap.value());
         }
         case ExprTrie::Pattern::RANGE_EXPRESSION: {
-            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(ctx, scope, tokens_mut);
+            std::optional<std::unique_ptr<ExpressionNode>> range = create_range_expression(expr_ctx);
             if (!range.has_value()) {
                 return std::nullopt;
             }
@@ -3004,8 +2938,8 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Extract the left and right parts of the expression
-    token_slice lhs_tokens = {tokens_mut.first, tokens_mut.first + pivot_pos};
-    token_slice rhs_tokens = {tokens_mut.first + pivot_pos + 1, tokens_mut.second};
+    const token_slice lhs_tokens = {tokens_mut.first, tokens_mut.first + pivot_pos};
+    const token_slice rhs_tokens = {tokens_mut.first + pivot_pos + 1, tokens_mut.second};
     if (lhs_tokens.first == lhs_tokens.second) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -3016,12 +2950,14 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     }
 
     // Recursively parse both sides
-    auto lhs = create_pivot_expression(ctx, scope, lhs_tokens, expected_type);
+    Context lhs_ctx = ctx.swap_tokens(lhs_tokens);
+    auto lhs = create_pivot_expression(lhs_ctx, expected_type);
     if (!lhs.has_value()) {
         return std::nullopt;
     }
 
-    auto rhs = create_pivot_expression(ctx, scope, rhs_tokens, expected_type);
+    Context rhs_ctx = ctx.swap_tokens(rhs_tokens);
+    auto rhs = create_pivot_expression(rhs_ctx, expected_type);
     if (!rhs.has_value()) {
         return std::nullopt;
     }
@@ -3030,7 +2966,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
     // type mismatches are reported as parse errors, exactly as they were before the castability checks were moved into the analyzer
     const std::string lhs_type_str = lhs.value()->type->to_string();
     const std::string rhs_type_str = rhs.value()->type->to_string();
-    const PosTriple binop_pos = get_pos_triple(tokens);
+    const PosTriple binop_pos = get_pos_triple(ctx.tokens);
     switch (Analyzer::Castability::match_binop_operands(*this, pivot_token, lhs.value(), rhs.value())) {
         case Analyzer::Castability::BinopMatchResult::OK:
             break;
@@ -3055,12 +2991,6 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
         }
     }
 
-    // Check for const folding, and return the folded value if const folding was able to be applied
-    std::optional<std::unique_ptr<ExpressionNode>> folded_result = check_const_folding(lhs.value(), pivot_token, rhs.value());
-    if (folded_result.has_value()) {
-        return std::move(folded_result.value());
-    }
-
     // Check it the binary operator is a `catch` keyword, if so the lhs should be a function call. We then set it's "has_catch" field to
     // true
     if (pivot_token == TOK_CATCH) {
@@ -3083,34 +3013,33 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_pivot_expression( 
 
     // Create the binary operator node
     if (Matcher::token_match(pivot_token, Matcher::relational_binop)) {
-        return std::make_unique<BinaryOpNode>(                                                                         //
-            file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool") //
+        return std::make_unique<BinaryOpNode>(                                                                             //
+            file_hash, get_pos_triple(ctx.tokens), pivot_token, lhs.value(), rhs.value(), Type::get_primitive_type("bool") //
         );
     }
     // The optional default operator `??` has the base type of its lhs optional as its own type, otherwise its type would
     // remain that of the optional which the analyzer would have to fix up later
     if (pivot_token == TOK_OPT_DEFAULT && lhs.value()->type->get_variation() == Type::Variation::OPTIONAL) {
-        return std::make_unique<BinaryOpNode>(                                        //
-            file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), //
-            lhs.value()->type->as<OptionalType>()->base_type                          //
+        return std::make_unique<BinaryOpNode>(                                            //
+            file_hash, get_pos_triple(ctx.tokens), pivot_token, lhs.value(), rhs.value(), //
+            lhs.value()->type->as<OptionalType>()->base_type                              //
         );
     }
-    return std::make_unique<BinaryOpNode>(                                                          //
-        file_hash, get_pos_triple(tokens), pivot_token, lhs.value(), rhs.value(), lhs.value()->type //
+    return std::make_unique<BinaryOpNode>(                                                              //
+        file_hash, get_pos_triple(ctx.tokens), pivot_token, lhs.value(), rhs.value(), lhs.value()->type //
     );
 }
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
-    const Context &ctx,                                                   //
-    std::shared_ptr<Scope> &scope,                                        //
-    const token_slice &tokens,                                            //
+    Context &ctx,                                                         //
     const std::optional<std::shared_ptr<Type>> &expected_type             //
 ) {
-    token_slice expr_tokens = tokens;
+    token_slice expr_tokens = ctx.tokens;
     remove_trailing_garbage(expr_tokens);
 
     // Parse expression using precedence levels
-    auto expression = create_pivot_expression(ctx, scope, expr_tokens, expected_type);
+    Context expr_ctx = ctx.swap_tokens(expr_tokens);
+    auto expression = create_pivot_expression(expr_ctx, expected_type);
     if (!expression.has_value()) {
         return std::nullopt;
     }
@@ -3120,9 +3049,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
         switch (expected_type.value()->get_variation()) {
             default: {
                 if (!Analyzer::Castability::check_castability(*this, expected_type.value(), expression.value(), true)) {
-                    THROW_ERR(                                                               //
-                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
-                        expected_type.value(), expression.value()->type                      //
+                    THROW_ERR(                                                                   //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens), //
+                        expected_type.value(), expression.value()->type                          //
                     );
                     return std::nullopt;
                 }
@@ -3131,9 +3060,9 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
             case Type::Variation::ERROR_SET: {
                 const auto *target_error_type = expected_type.value()->as<ErrorSetType>();
                 if (expression.value()->type->get_variation() != Type::Variation::ERROR_SET) {
-                    THROW_ERR(                                                               //
-                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
-                        expected_type.value(), expression.value()->type                      //
+                    THROW_ERR(                                                                   //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens), //
+                        expected_type.value(), expression.value()->type                          //
                     );
                     return std::nullopt;
                 }
@@ -3150,21 +3079,23 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_expression( //
                     parent_node = parent_node.value()->get_parent_node();
                 }
                 if (!is_castable) {
-                    THROW_ERR(                                                               //
-                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(tokens), //
-                        expected_type.value(), expression.value()->type                      //
+                    THROW_ERR(                                                                   //
+                        ErrExprTypeMismatch, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens), //
+                        expected_type.value(), expression.value()->type                          //
                     );
                     return std::nullopt;
                 }
-                expression = std::make_unique<TypeCastNode>(file_hash, get_pos_triple(tokens), expected_type.value(), expression.value());
+                expression = std::make_unique<TypeCastNode>(                                         //
+                    file_hash, get_pos_triple(ctx.tokens), expected_type.value(), expression.value() //
+                );
                 break;
             }
         }
     }
 
     expression.value()->file_hash = file_hash;
-    expression.value()->line = tokens.first->line;
-    expression.value()->column = tokens.first->column;
+    expression.value()->line = ctx.tokens.first->line;
+    expression.value()->column = ctx.tokens.first->column;
     expression.value()->length = expr_tokens.second->column - expr_tokens.first->column;
     return expression;
 }

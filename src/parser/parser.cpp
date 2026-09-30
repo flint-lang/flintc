@@ -969,8 +969,10 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
     PROFILE_SCOPE("Process Open Data Module '" + data->name + "'");
     // Go through al default values of the data's fields and parse them
     std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
-    const Context data_context = Context{
+    Context data_context = Context{
         .level = data->is_const ? ContextLevel::CONST_DATA : ContextLevel::INTERNAL,
+        .scope = data_scope,
+        .tokens = {},
     };
     for (auto &field : data->fields) {
         if (!field.initializer_tokens.has_value()) {
@@ -983,7 +985,8 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
         if (!parser.collapse_types_in_slice(data->cpl, initializer_slice, initializer_tokens)) {
             return false;
         }
-        field.initializer = parser.create_expression(data_context, data_scope, initializer_slice);
+        Context field_ctx = data_context.swap_tokens(initializer_slice);
+        field.initializer = parser.create_expression(field_ctx);
         if (!field.initializer.has_value()) {
             return false;
         }
@@ -1373,7 +1376,12 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function, std::ve
         scope->add_variable(name, variable);
     }
     // Create the body and add the body statements to the created scope
-    auto body_statements = parser.create_body(scope, body);
+    Context ctx = Context{
+        .level = ContextLevel::INTERNAL,
+        .scope = scope,
+        .tokens = {},
+    };
+    auto body_statements = parser.create_body(ctx, body);
     if (!body_statements.has_value()) {
         return false;
     }
@@ -1482,7 +1490,12 @@ bool Parser::parse_open_test(Parser &parser, TestNode *test, std::vector<Line> b
         test->scope->add_variable(name, variable);
     }
     // Create the body and add the body statements to the created scope
-    auto body_statements = parser.create_body(test->scope, body);
+    Context ctx = Context{
+        .level = ContextLevel::INTERNAL,
+        .scope = test->scope,
+        .tokens = {},
+    };
+    auto body_statements = parser.create_body(ctx, body);
     if (!body_statements.has_value()) {
         return false;
     }
