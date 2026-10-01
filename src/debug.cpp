@@ -1,5 +1,10 @@
 #include "debug.hpp"
 
+#include "evaluator/value/bool_value.hpp"
+#include "evaluator/value/char_value.hpp"
+#include "evaluator/value/float_value.hpp"
+#include "evaluator/value/int_value.hpp"
+#include "evaluator/value/str_value.hpp"
 #include "globals.hpp"
 #include "lexer/lexer_utils.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
@@ -477,6 +482,43 @@ namespace Debug {
             }
         }
 
+        void print_comptime(unsigned int indent_lvl, TreeBits &bits, const ComptimeNode &comptime) {
+            Local::print_header(indent_lvl, bits, "Comptime Value ");
+            switch (comptime.value->get_variation()) {
+                case Value::Variation::BOOL: {
+                    auto *const value = comptime.value->as<BoolValue>();
+                    std::cout << "[bool->" << comptime.type->to_string() << "]: ";
+                    if (value->value) {
+                        std::cout << "true";
+                    } else {
+                        std::cout << "false";
+                    }
+                    std::cout << std::endl;
+                    break;
+                }
+                case Value::Variation::CHAR: {
+                    auto *const value = comptime.value->as<CharValue>();
+                    std::cout << "[char->" << comptime.type->to_string() << "]: '" << std::string(1, value->value) << "'" << std::endl;
+                    break;
+                }
+                case Value::Variation::FLOAT: {
+                    auto *const value = comptime.value->as<FloatValue>();
+                    std::cout << "[float->" << comptime.type->to_string() << "]: " << value->value.to_string() << std::endl;
+                    break;
+                }
+                case Value::Variation::INT: {
+                    auto *const value = comptime.value->as<IntValue>();
+                    std::cout << "[int->" << comptime.type->to_string() << "]: " << value->value.to_string() << std::endl;
+                    break;
+                }
+                case Value::Variation::STR: {
+                    auto *const value = comptime.value->as<StrValue>();
+                    std::cout << "[str->" << comptime.type->to_string() << "]: \"" << value->value << "\"" << std::endl;
+                    break;
+                }
+            }
+        }
+
         void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call) {
             Local::print_header(indent_lvl, bits, "Instance Call ");
             ASSERT(call.instance_variable->get_variation() == ExpressionNode::Variation::VARIABLE);
@@ -890,6 +932,11 @@ namespace Debug {
                 case ExpressionNode::Variation::CALLABLE_CALL: {
                     const auto *node = expr->as<CallableCallNodeExpression>();
                     print_callable_call(indent_lvl, bits, *static_cast<const CallableCallNodeBase *>(node));
+                    break;
+                }
+                case ExpressionNode::Variation::COMPTIME: {
+                    const auto *node = expr->as<ComptimeNode>();
+                    print_comptime(indent_lvl, bits, *node);
                     break;
                 }
                 case ExpressionNode::Variation::DATA_ACCESS: {

@@ -234,6 +234,7 @@ class Matcher {
         {TOK_UNDERSCORE, std::make_shared<TokenTypeMatcher>(TOK_UNDERSCORE)},
         {TOK_ANNOTATION, std::make_shared<TokenTypeMatcher>(TOK_ANNOTATION)},
         {TOK_DOLLAR, std::make_shared<TokenTypeMatcher>(TOK_DOLLAR)},
+        {TOK_AT, std::make_shared<TokenTypeMatcher>(TOK_AT)},
 
         // dual character tokens
         {TOK_ARROW, std::make_shared<TokenTypeMatcher>(TOK_ARROW)},
@@ -880,7 +881,7 @@ class Matcher {
         continue_until_right_paren                                                                                       //
     });
     static const inline PatternPtr function_call = sequence({
-        token(TOK_IDENTIFIER),                                                       //
+        optional(token(TOK_AT)), token(TOK_IDENTIFIER),                              //
         optional(sequence({token(TOK_LEFT_BRACKET), continue_until_right_bracket})), //
         token(TOK_LEFT_PAREN), continue_until_right_paren                            //
     });

@@ -1,5 +1,6 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "evaluator/evaluator.hpp"
 #include "lexer/lexer.hpp"
 #include "lexer/token.hpp"
 #include "lexer/token_context.hpp"
@@ -14,6 +15,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/callable_call_node_expression.hpp"
+#include "parser/ast/expressions/comptime_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
 #include "parser/ast/expressions/initializer_node.hpp"
@@ -41,360 +43,9 @@
 #include "parser/type/vector_type.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <variant>
-
-std::optional<std::unique_ptr<ExpressionNode>> Parser::check_const_folding( //
-    std::unique_ptr<ExpressionNode> &lhs,                                   //
-    const Token operation,                                                  //
-    std::unique_ptr<ExpressionNode> &rhs                                    //
-) {
-    PROFILE_CUMULATIVE("Parser::check_const_folding");
-    // Currently, only literals can be const folded
-    const bool is_lhs_not_lit = lhs->get_variation() != ExpressionNode::Variation::LITERAL;
-    const bool is_rhs_not_lit = rhs->get_variation() != ExpressionNode::Variation::LITERAL;
-    if (is_lhs_not_lit || is_rhs_not_lit) {
-        return std::nullopt;
-    }
-
-    // Add the two literals together
-    const auto *lhs_lit = lhs->as<LiteralNode>();
-    const auto *rhs_lit = rhs->as<LiteralNode>();
-    std::optional<std::unique_ptr<LiteralNode>> result = fold_literals(lhs_lit, operation, rhs_lit);
-    if (!result.has_value()) {
-        return std::nullopt;
-    }
-
-    // Make sure to actually erase the lhs and rhs pointers to prevent memory leaks
-    lhs.reset();
-    rhs.reset();
-    return result;
-}
-
-std::optional<std::unique_ptr<LiteralNode>> Parser::fold_literals( //
-    const LiteralNode *lhs,                                        //
-    const Token operation,                                         //
-    const LiteralNode *rhs                                         //
-) {
-    PROFILE_CUMULATIVE("Parser::fold_literals");
-    const auto pos_triple = PosTriple{
-        .line = lhs->line,
-        .column = lhs->column,
-        .length = (rhs->column - lhs->column) + rhs->length,
-    };
-    switch (operation) {
-        default:
-            // Unsupported folding operation of literals
-            break;
-        case TOK_PLUS:
-            if (std::holds_alternative<LitInt>(lhs->value)) {
-                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    rhs_float += lhs_int;
-                    LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    rhs_int += lhs_int;
-                    LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
-                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float += rhs_float;
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float += rhs_int;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitStr>(lhs->value)) {
-                const std::string new_lit = std::get<LitStr>(lhs->value).value + std::get<LitStr>(rhs->value).value;
-                LitValue lit_value = LitStr{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitU8>(lhs->value)) {
-                const char new_lit = std::get<LitU8>(lhs->value).value + std::get<LitU8>(rhs->value).value;
-                LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_MINUS:
-            if (std::holds_alternative<LitInt>(lhs->value)) {
-                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    rhs_float -= lhs_int;
-                    LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    rhs_int -= lhs_int;
-                    LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
-                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float -= rhs_float;
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float -= rhs_int;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitU8>(lhs->value)) {
-                const char new_lit = std::get<LitU8>(lhs->value).value - std::get<LitU8>(rhs->value).value;
-                LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_MULT:
-            if (std::holds_alternative<LitInt>(lhs->value)) {
-                const APInt lhs_int = std::get<LitInt>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    rhs_float *= lhs_int;
-                    LitValue lit_value = LitFloat{.value = rhs_float};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    rhs_int *= lhs_int;
-                    LitValue lit_value = LitInt{.value = rhs_int};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
-                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float *= rhs_float;
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float *= rhs_int;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitU8>(lhs->value)) {
-                const char new_lit = std::get<LitU8>(lhs->value).value * std::get<LitU8>(rhs->value).value;
-                LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_DIV:
-            if (std::holds_alternative<LitInt>(lhs->value)) {
-                APInt lhs_int = std::get<LitInt>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    APFloat lhs_float = APFloat(lhs_int);
-                    lhs_float /= rhs_float;
-                    LitValue lit_value = LitFloat{.value = lhs_float};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_int /= rhs_int;
-                    LitValue lit_value = LitInt{.value = lhs_int};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
-                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float /= rhs_float;
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float /= rhs_int;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitU8>(lhs->value)) {
-                const char new_lit = std::get<LitU8>(lhs->value).value / std::get<LitU8>(rhs->value).value;
-                LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>( //
-                    lhs->file_hash, pos_triple,       //
-                    lit_value, rhs->type, true        //
-                );
-            }
-            break;
-        case TOK_POW:
-            if (std::holds_alternative<LitInt>(lhs->value)) {
-                APInt lhs_int = std::get<LitInt>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    APFloat lhs_float = APFloat(lhs_int);
-                    lhs_float ^= rhs_float;
-                    LitValue lit_value = LitFloat{.value = lhs_float};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_int ^= rhs_int;
-                    LitValue lit_value = LitInt{.value = lhs_int};
-                    return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-            } else if (std::holds_alternative<LitFloat>(lhs->value)) {
-                APFloat lhs_float = std::get<LitFloat>(lhs->value).value;
-                if (std::holds_alternative<LitFloat>(rhs->value)) {
-                    const APFloat rhs_float = std::get<LitFloat>(rhs->value).value;
-                    lhs_float ^= rhs_float;
-                } else if (std::holds_alternative<LitInt>(rhs->value)) {
-                    const APInt rhs_int = std::get<LitInt>(rhs->value).value;
-                    lhs_float ^= rhs_int;
-                } else {
-                    THROW_BASIC_ERR(ERR_PARSING);
-                    return std::nullopt;
-                }
-                LitValue lit_value = LitFloat{.value = lhs_float};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            } else if (std::holds_alternative<LitU8>(lhs->value)) {
-                const char new_lit = static_cast<char>(std::pow(std::get<LitU8>(lhs->value).value, std::get<LitU8>(rhs->value).value));
-                LitValue lit_value = LitU8{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_AND:
-            if (std::holds_alternative<LitBool>(lhs->value)) {
-                const bool new_lit = std::get<LitBool>(lhs->value).value && std::get<LitBool>(rhs->value).value;
-                LitValue lit_value = LitBool{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_OR:
-            if (std::holds_alternative<LitBool>(lhs->value)) {
-                const bool new_lit = std::get<LitBool>(lhs->value).value || std::get<LitBool>(rhs->value).value;
-                LitValue lit_value = LitBool{.value = new_lit};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, rhs->type, true);
-            }
-            break;
-        case TOK_EQUAL_EQUAL:
-        case TOK_NOT_EQUAL:
-        case TOK_LESS:
-        case TOK_LESS_EQUAL:
-        case TOK_GREATER:
-        case TOK_GREATER_EQUAL: {
-            // String comparisons (both `str` and `type.flint.str.lit` literals are stored as LitStr)
-            if (std::holds_alternative<LitStr>(lhs->value) && std::holds_alternative<LitStr>(rhs->value)) {
-                const std::string &lhs_str = std::get<LitStr>(lhs->value).value;
-                const std::string &rhs_str = std::get<LitStr>(rhs->value).value;
-                bool result = false;
-                switch (operation) {
-                    case TOK_EQUAL_EQUAL:
-                        result = lhs_str == rhs_str;
-                        break;
-                    case TOK_NOT_EQUAL:
-                        result = lhs_str != rhs_str;
-                        break;
-                    case TOK_LESS:
-                        result = lhs_str < rhs_str;
-                        break;
-                    case TOK_LESS_EQUAL:
-                        result = lhs_str <= rhs_str;
-                        break;
-                    case TOK_GREATER:
-                        result = lhs_str > rhs_str;
-                        break;
-                    case TOK_GREATER_EQUAL:
-                        result = lhs_str >= rhs_str;
-                        break;
-                    default:
-                        UNREACHABLE();
-                }
-                LitValue lit_value = LitBool{.value = result};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
-            }
-
-            // Boolean equality, only `==` and `!=` are meaningful for booleans
-            if (std::holds_alternative<LitBool>(lhs->value) && std::holds_alternative<LitBool>(rhs->value) &&
-                (operation == TOK_EQUAL_EQUAL || operation == TOK_NOT_EQUAL)) {
-                const bool lhs_bool = std::get<LitBool>(lhs->value).value;
-                const bool rhs_bool = std::get<LitBool>(rhs->value).value;
-                LitValue lit_value = LitBool{.value = operation == TOK_EQUAL_EQUAL ? lhs_bool == rhs_bool : lhs_bool != rhs_bool};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
-            }
-
-            // Numeric comparisons (int, float and u8, in any combination)
-            const std::optional<APFloat> lhs_float = lit_value_to_apfloat(lhs->value);
-            const std::optional<APFloat> rhs_float = lit_value_to_apfloat(rhs->value);
-            if (lhs_float.has_value() && rhs_float.has_value()) {
-                LitValue lit_value = LitBool{.value = compare_apfloats(operation, lhs_float.value(), rhs_float.value())};
-                return std::make_unique<LiteralNode>(lhs->file_hash, pos_triple, lit_value, Type::get_primitive_type("bool"), true);
-            }
-            break;
-        }
-    }
-    return std::nullopt;
-}
-
-std::optional<APFloat> Parser::lit_value_to_apfloat(const LitValue &value) {
-    PROFILE_CUMULATIVE("Parser::lit_value_to_apfloat");
-    if (std::holds_alternative<LitInt>(value)) {
-        return APFloat(std::get<LitInt>(value).value);
-    }
-    if (std::holds_alternative<LitFloat>(value)) {
-        return std::get<LitFloat>(value).value;
-    }
-    if (std::holds_alternative<LitU8>(value)) {
-        const unsigned int u8_value = static_cast<unsigned int>(static_cast<unsigned char>(std::get<LitU8>(value).value));
-        return APFloat(APInt(std::to_string(u8_value)));
-    }
-    return std::nullopt;
-}
-
-bool Parser::compare_apfloats(const Token operation, const APFloat &lhs_float, const APFloat &rhs_float) {
-    PROFILE_CUMULATIVE("Parser::compare_apfloats");
-    // Compare via the sign of `lhs_float - rhs_float` instead of the digit vectors, so that different spellings of the same value (e.g. `1`
-    // and `1.0`, or `1.5` and `1.50`) compare equal. The sign flag on a zero result is ignored since APFloat's subtraction can produce a
-    // "negative zero" when the operands are equal
-    const APFloat diff = lhs_float - rhs_float;
-    const bool is_zero = diff.digits.size() == 1 && diff.digits[0] == 0;
-    const bool is_less = !is_zero && diff.is_negative;
-    switch (operation) {
-        case TOK_EQUAL_EQUAL:
-            return is_zero;
-        case TOK_NOT_EQUAL:
-            return !is_zero;
-        case TOK_LESS:
-            return is_less;
-        case TOK_LESS_EQUAL:
-            return is_less || is_zero;
-        case TOK_GREATER:
-            return !is_zero && !is_less;
-        case TOK_GREATER_EQUAL:
-            return is_zero || !is_less;
-        default:
-            UNREACHABLE();
-    }
-}
 
 std::optional<std::unique_ptr<ExpressionNode>> Parser::create_variable(Context &ctx) {
     PROFILE_CUMULATIVE("Parser::create_variable");
@@ -948,8 +599,25 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
             file_hash, get_pos_triple(ctx.tokens), ret->function, ret->args, ret->function->error_types, ret->type //
         );
         simple_call_node->scope_id = ctx.scope->scope_id;
-        last_parsed_call = simple_call_node.get();
-        return std::move(simple_call_node);
+        if (ret->is_comptime) {
+            last_parsed_call = std::nullopt;
+            if (!Evaluator::eval_expr(*this, ctx.env, simple_call_node.get())) {
+                THROW_BASIC_ERR(ERR_EVAL);
+                return std::nullopt;
+            }
+            ASSERT(!ret->function->return_types.empty());
+            std::shared_ptr<Type> return_type = ret->function->return_types.front();
+            if (ret->function->return_types.size() > 1) {
+                return_type = std::make_shared<GroupType>(ret->function->return_types);
+                if (!file_node_ptr->file_namespace->add_type(return_type)) {
+                    return_type = file_node_ptr->file_namespace->get_type_from_str(return_type->to_string()).value();
+                }
+            }
+            return std::make_unique<ComptimeNode>(file_hash, get_pos_triple(ctx.tokens), ctx.env.result.value(), return_type);
+        } else {
+            last_parsed_call = simple_call_node.get();
+            return std::move(simple_call_node);
+        }
     }
 }
 

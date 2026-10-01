@@ -1,5 +1,10 @@
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "evaluator/value/bool_value.hpp"
+#include "evaluator/value/char_value.hpp"
+#include "evaluator/value/float_value.hpp"
+#include "evaluator/value/int_value.hpp"
+#include "evaluator/value/str_value.hpp"
 #include "generator/generator.hpp"
 
 #include "globals.hpp"
@@ -71,6 +76,10 @@ Generator::group_mapping Generator::Expression::generate_expression( //
         case ExpressionNode::Variation::CALLABLE_CALL: {
             const auto *node = expression_node->as<CallableCallNodeExpression>();
             return generate_callable_call(builder, ctx, static_cast<const CallableCallNodeBase *>(node), node, is_reference);
+        }
+        case ExpressionNode::Variation::COMPTIME: {
+            const auto *node = expression_node->as<ComptimeNode>();
+            return generate_comptime_value(builder, ctx, garbage, expr_depth, node);
         }
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression_node->as<DataAccessNode>();
@@ -2916,6 +2925,122 @@ void Generator::Expression::generate_rethrow( //
     }
 
     builder.SetInsertPoint(merge_block);
+}
+
+Generator::group_mapping Generator::Expression::generate_comptime_value( //
+    llvm::IRBuilder<> &builder,                                          //
+    GenerationContext &ctx,                                              //
+    garbage_type &garbage,                                               //
+    const unsigned int expr_depth,                                       //
+    const ComptimeNode *const comptime_node                              //
+) {
+    const PosTriple pos = {
+        .line = comptime_node->line,
+        .column = comptime_node->column,
+        .length = comptime_node->length,
+    };
+    switch (comptime_node->value->get_variation()) {
+        case Value::Variation::BOOL:
+            return std::vector<llvm::Value *>{builder.getInt1(comptime_node->value->as<BoolValue>()->value)};
+        case Value::Variation::CHAR:
+            return std::vector<llvm::Value *>{builder.getInt8(comptime_node->value->as<CharValue>()->value)};
+        case Value::Variation::FLOAT: {
+            const APFloat lit_float = comptime_node->value->as<FloatValue>()->value;
+            const std::string lit_type = comptime_node->type->to_string();
+            if (lit_type == "f32") {
+                const double lit_val = lit_float.to_fN<double>();
+                return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getFloatTy(context), lit_val)};
+            } else if (lit_type == "f64") {
+                const double lit_val = lit_float.to_fN<double>();
+                return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), lit_val)};
+            } else if (lit_type == "u8" || lit_type == "u16" || lit_type == "u32" || lit_type == "u64" //
+                || lit_type == "i8" || lit_type == "i16" || lit_type == "i32" || lit_type == "i64"     //
+            ) {
+                const APInt lit_int = lit_float.to_apint();
+                const ComptimeNode tmp_value(comptime_node->file_hash, pos, std::make_shared<IntValue>(lit_int), comptime_node->type);
+                return generate_comptime_value(builder, ctx, garbage, expr_depth, &tmp_value);
+            } else if (lit_type == "float") {
+                // Compile-time type of literal which was not resolved to be a different type
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            break;
+        }
+        case Value::Variation::INT: {
+            const APInt lit_int = comptime_node->value->as<IntValue>()->value;
+            const std::string lit_type = comptime_node->type->to_string();
+            if (lit_type == "u8") {
+                const std::optional<uint8_t> lit_val = lit_int.to_uN<uint8_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), false)};
+            } else if (lit_type == "u16") {
+                const std::optional<uint16_t> lit_val = lit_int.to_uN<uint16_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), false)};
+            } else if (lit_type == "u32") {
+                const std::optional<uint32_t> lit_val = lit_int.to_uN<uint32_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), false)};
+            } else if (lit_type == "u64") {
+                const std::optional<uint64_t> lit_val = lit_int.to_uN<uint64_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), false)};
+            } else if (lit_type == "i8") {
+                const std::optional<int8_t> lit_val = lit_int.to_iN<int8_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt8Ty(context), lit_val.value(), true)};
+            } else if (lit_type == "i16") {
+                const std::optional<int16_t> lit_val = lit_int.to_iN<int16_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt16Ty(context), lit_val.value(), true)};
+            } else if (lit_type == "i32") {
+                const std::optional<int32_t> lit_val = lit_int.to_iN<int32_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{llvm::ConstantInt::get(llvm::Type::getInt32Ty(context), lit_val.value(), true)};
+            } else if (lit_type == "i64") {
+                const std::optional<int64_t> lit_val = lit_int.to_iN<int64_t>(comptime_node->file_hash, pos);
+                if (!lit_val.has_value()) {
+                    return std::nullopt;
+                }
+                return std::vector<llvm::Value *>{
+                    llvm::ConstantInt::get(llvm::Type::getInt64Ty(context), lit_val.value(), true) //
+                };
+            } else if (lit_type == "f32") {
+                const APFloat lit_float = APFloat(lit_int);
+                const double lit_val = lit_float.to_fN<double>();
+                return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getFloatTy(context), lit_val)};
+            } else if (lit_type == "f64") {
+                const APFloat lit_float = APFloat(lit_int);
+                const double lit_val = lit_float.to_fN<double>();
+                return std::vector<llvm::Value *>{llvm::ConstantFP::get(llvm::Type::getDoubleTy(context), lit_val)};
+            } else if (lit_type == "int") {
+                // Compile-time type of literal which was not resolved to be a different type
+                THROW_BASIC_ERR(ERR_GENERATING);
+                return std::nullopt;
+            }
+            break;
+        }
+        case Value::Variation::STR: {
+            const std::string &str = comptime_node->value->as<StrValue>()->value;
+            return std::vector<llvm::Value *>{IR::generate_const_string(ctx.parent->getParent(), str)};
+        }
+    }
+    UNREACHABLE();
+    return std::nullopt;
 }
 
 Generator::group_mapping Generator::Expression::generate_group_expression( //

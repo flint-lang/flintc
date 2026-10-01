@@ -121,3 +121,8 @@ test "0570":
 	str path = "regression/0551-0600";
 	str file = "0570.ft";
 	test_file_ok($"{path}/{file}", "o.compare_with(10)  = false\no.compare_with(100) = true\n");
+
+test "0571":
+	str path = "regression/0551-0600";
+	str file = "0571.ft";
+	test_file_ok($"{path}/{file}", "r1 = 40\nr2 = 60\nr3 = 100\n");

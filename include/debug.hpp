@@ -16,6 +16,7 @@
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/comptime_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
@@ -167,6 +168,7 @@ namespace Debug {
         void print_string_interpolation(unsigned int indent_lvl, TreeBits &bits, const StringInterpolationNode &interpol);
         void print_call(unsigned int indent_lvl, TreeBits &bits, const CallNodeBase &call);
         void print_callable_call(unsigned int indent_lvl, TreeBits &bits, const CallableCallNodeBase &call);
+        void print_comptime(unsigned int indent_lvl, TreeBits &bits, const ComptimeNode &comptime);
         void print_instance_call(unsigned int indent_lvl, TreeBits &bits, const InstanceCallNodeBase &call);
         void print_function_reference(unsigned int indent_lvl, TreeBits &bits, const FunctionReferenceNode &ref);
         void print_binary_op(unsigned int indent_lvl, TreeBits &bits, const BinaryOpNode &bin);

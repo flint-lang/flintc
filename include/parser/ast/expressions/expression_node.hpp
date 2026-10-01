@@ -42,6 +42,7 @@ class ExpressionNode : public ASTNode {
         BINARY_OP,
         CALL,
         CALLABLE_CALL,
+        COMPTIME,
         DATA_ACCESS,
         GROUP_EXPRESSION,
         GROUPED_ARRAY_ACCESS,

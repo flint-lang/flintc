@@ -22,6 +22,7 @@ enum Token {
     TOK_UNDERSCORE,
     TOK_ANNOTATION,
     TOK_DOLLAR,
+    TOK_AT,
 
     // dual character tokens
     TOK_ARROW,

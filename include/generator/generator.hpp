@@ -8,6 +8,7 @@
 #include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/array_initializer_node.hpp"
 #include "parser/ast/expressions/binary_op_node.hpp"
+#include "parser/ast/expressions/comptime_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/function_reference_node.hpp"
@@ -2429,6 +2430,22 @@ class Generator {
             const CallNodeBase *call_node,    //
             const std::string &function_name, //
             const ASTNode *call_pos           //
+        );
+
+        /// @function `generate_comptime_value`
+        /// @brief Generates the value of the given ComptimeNode
+        ///
+        /// @param `builder` The LLVM IRBuilder
+        /// @param `ctx` The context of the expression generation
+        /// @param `comptime_node` The comptime node to generate
+        /// @param `is_reference` Whether the result of the comptime node should be a reference
+        /// @return `group_mapping` The value(s) containing the result of the comptime node
+        static group_mapping generate_comptime_value( //
+            llvm::IRBuilder<> &builder,               //
+            GenerationContext &ctx,                   //
+            garbage_type &garbage,                    //
+            const unsigned int expr_depth,            //
+            const ComptimeNode *const comptime_node   //
         );
 
         /// @function `generate_group_expression`

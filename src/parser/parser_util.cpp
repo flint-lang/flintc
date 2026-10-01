@@ -677,6 +677,10 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
     PROFILE_CUMULATIVE("Parser::create_call_base");
     using types = std::vector<std::shared_ptr<Type>>;
     token_slice tokens_mut = ctx.tokens;
+    const bool is_comptime = ctx.tokens.first->token == TOK_AT;
+    if (is_comptime) {
+        tokens_mut.first++;
+    }
     ASSERT(tokens_mut.first->token == TOK_TYPE || tokens_mut.first->token == TOK_IDENTIFIER);
     std::optional<uint2> arg_range = Matcher::balanced_range_extraction(            //
         tokens_mut, Matcher::token(TOK_LEFT_PAREN), Matcher::token(TOK_RIGHT_PAREN) //
@@ -985,6 +989,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                 .function = nullptr,
                 .instance_variable = std::nullopt,
                 .callable = potential_callables.front().first,
+                .is_comptime = is_comptime,
             };
         }
     }
@@ -1187,6 +1192,7 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
         .function = function,
         .instance_variable = std::move(instance_variable),
         .callable = std::nullopt,
+        .is_comptime = is_comptime,
     };
 }
 

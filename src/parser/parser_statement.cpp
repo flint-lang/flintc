@@ -2,6 +2,8 @@
 
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "evaluator/evaluator.hpp"
+#include "evaluator/value/bool_value.hpp"
 #include "lexer/token.hpp"
 #include "matcher/matcher.hpp"
 #include "matcher/scoped_stmt_trie.hpp"
@@ -243,9 +245,11 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     }
     unsigned int end_line = this_if_pair.second.back().tokens.second->line;
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(this_if_pair.second));
-    Context body_ctx = ctx.swap_scope(body_scope);
-    if (!parse_scope(body_ctx)) {
-        return std::nullopt;
+    if (ctx.level != ContextLevel::COMPTIME) {
+        Context body_ctx = ctx.swap_scope(body_scope);
+        if (!parse_scope(body_ctx)) {
+            return std::nullopt;
+        }
     }
     std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> else_scope = std::nullopt;
 
@@ -265,9 +269,11 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
                 return std::nullopt;
             }
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(ctx.scope, std::move(if_chain.front().second));
-            Context else_ctx = ctx.swap_scope(else_scope_ptr);
-            if (!parse_scope(else_ctx)) {
-                return std::nullopt;
+            if (ctx.level != ContextLevel::COMPTIME) {
+                Context else_ctx = ctx.swap_scope(else_scope_ptr);
+                if (!parse_scope(else_ctx)) {
+                    return std::nullopt;
+                }
             }
             else_scope = std::move(else_scope_ptr);
         }
@@ -289,6 +295,63 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     }
     auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
     if_node->end_line = end_line;
+    if (ctx.level == ContextLevel::COMPTIME) {
+        if (!Evaluator::eval_expr(*this, ctx.env, if_node->condition.get())) {
+            THROW_BASIC_ERR(ERR_EVAL);
+            return std::nullopt;
+        }
+        if (!ctx.env.result.has_value()) {
+            THROW_BASIC_ERR(ERR_EVAL);
+            return std::nullopt;
+        }
+        ASSERT(ctx.env.result.value()->get_variation() == Value::Variation::BOOL);
+        if (ctx.env.result.value()->as<BoolValue>()->value) {
+            // The 'if' condition evaluates to 'true', so we evaluate only this scope
+            if (!Evaluator::eval_scope(*this, ctx.env, if_node->then_scope)) {
+                THROW_BASIC_ERR(ERR_EVAL);
+                return std::nullopt;
+            }
+            return if_node;
+        }
+        ctx.env.done = false;
+        ctx.env.result = std::nullopt;
+        // The 'if' condition evaluated to 'false', so we evaluate the condition of the next if in the chain, until we either evaluated all
+        // conditions and all conditions result to 'false', or we reached the 'else' branch and just evaluate that one
+        // We use a pointer instead of a reference here so that we do not overwrite the actual else_scope in the if node but instead just
+        // the local variable pointer when re-assigning when recursing into deeper levels.
+        std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> *else_branch = &if_node->else_scope;
+        while (else_branch->has_value()) {
+            if (std::holds_alternative<std::shared_ptr<Scope>>(else_branch->value())) {
+                auto &else_branch_scope = std::get<std::shared_ptr<Scope>>(else_branch->value());
+                if (!Evaluator::eval_scope(*this, ctx.env, else_branch_scope)) {
+                    THROW_BASIC_ERR(ERR_EVAL);
+                    return std::nullopt;
+                }
+                break;
+            }
+
+            auto &else_if = std::get<std::unique_ptr<IfNode>>(else_branch->value());
+            if (!Evaluator::eval_expr(*this, ctx.env, else_if->condition.get())) {
+                THROW_BASIC_ERR(ERR_EVAL);
+                return std::nullopt;
+            }
+            if (!ctx.env.result.has_value()) {
+                THROW_BASIC_ERR(ERR_EVAL);
+                return std::nullopt;
+            }
+            ASSERT(ctx.env.result.value()->get_variation() == Value::Variation::BOOL);
+            if (ctx.env.result.value()->as<BoolValue>()->value) {
+                if (!Evaluator::eval_scope(*this, ctx.env, else_if->then_scope)) {
+                    THROW_BASIC_ERR(ERR_EVAL);
+                    return std::nullopt;
+                }
+                return if_node;
+            }
+            else_branch = &else_if->else_scope;
+            ctx.env.done = false;
+            ctx.env.result = std::nullopt;
+        }
+    }
     return if_node;
 }
 
@@ -2821,6 +2884,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
                 return std::nullopt;
             }
             statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
+            if (ctx.level == ContextLevel::COMPTIME) {
+                if (!Evaluator::eval_stmt(*this, ctx.env, statement_node.value().get())) {
+                    ctx.env.result = std::nullopt;
+                }
+                ctx.env.done = true;
+            }
             break;
         }
         case StmtTrie::Pattern::THROW: {
@@ -3029,7 +3098,133 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Co
 }
 
 bool Parser::parse_scope(Context &ctx) {
+    for (auto &stmt : ctx.scope->body) {
+        if (ctx.level == ContextLevel::COMPTIME) {
+            ctx.env.done = false;
+            ctx.env.result = std::nullopt;
+            if (!Evaluator::eval_stmt(*this, ctx.env, stmt.get())) {
+                return false;
+            }
+            if (ctx.env.done) {
+                return true;
+            }
+            continue;
+        }
+        // Second pass after comptime, finish parsing all nested scopes
+        switch (stmt->get_variation()) {
+            case StatementNode::Variation::ARRAY_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::ASSIGNMENT:
+                break;
+            case StatementNode::Variation::BREAK:
+                break;
+            case StatementNode::Variation::CALL:
+                break;
+            case StatementNode::Variation::CALLABLE_CALL:
+                break;
+            case StatementNode::Variation::CATCH: {
+                auto *const node = stmt->as<CatchNode>();
+                Context catch_ctx = ctx.swap_scope(node->scope);
+                if (!parse_scope(catch_ctx)) {
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::CONTINUE:
+                break;
+            case StatementNode::Variation::DATA_FIELD_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::DECLARATION:
+                break;
+            case StatementNode::Variation::DO_WHILE: {
+                auto *const node = stmt->as<DoWhileNode>();
+                Context while_ctx = ctx.swap_scope(node->scope);
+                if (!parse_scope(while_ctx)) {
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::ENHANCED_FOR_LOOP: {
+                auto *const node = stmt->as<EnhForLoopNode>();
+                Context for_ctx = ctx.swap_scope(node->body);
+                if (!parse_scope(for_ctx)) {
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::FOR_LOOP: {
+                auto *const node = stmt->as<ForLoopNode>();
+                Context for_ctx = ctx.swap_scope(node->body);
+                if (!parse_scope(for_ctx)) {
+                    return false;
+                }
+                break;
+            }
+            case StatementNode::Variation::GROUP_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::GROUP_DECLARATION:
+                break;
+            case StatementNode::Variation::GROUPED_ARRAY_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::GROUPED_DATA_FIELD_ASSIGNMENT:
+                break;
+            case StatementNode::Variation::IF: {
+                auto *const node = stmt->as<IfNode>();
+                Context then_ctx = ctx.swap_scope(node->then_scope);
+                if (!parse_scope(then_ctx)) {
+                    return false;
+                }
+                std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> *else_scope = &node->else_scope;
+                while (else_scope != nullptr) {
+                    if (!else_scope->has_value()) {
+                        break;
+                    }
+                    Context else_ctx = ctx;
+                    if (std::holds_alternative<std::unique_ptr<IfNode>>(else_scope->value())) {
+                        auto &else_if = std::get<std::unique_ptr<IfNode>>(else_scope->value());
+                        else_ctx.scope = else_if->then_scope;
+                        else_scope = &else_if->else_scope;
+                    } else {
+                        else_ctx.scope = std::get<std::shared_ptr<Scope>>(else_scope->value());
+                        else_scope = nullptr;
+                    }
+                    if (!parse_scope(else_ctx)) {
+                        return false;
+                    }
+                }
+                break;
+            }
+            case StatementNode::Variation::INSTANCE_CALL:
+                break;
+            case StatementNode::Variation::RETURN:
+                break;
+            case StatementNode::Variation::SWITCH: {
+                auto *const node = stmt->as<SwitchStatement>();
+                for (auto &branch : node->branches) {
+                    Context branch_ctx = ctx.swap_scope(branch.body);
+                    if (!parse_scope(branch_ctx)) {
+                        return false;
+                    }
+                }
+                break;
+            }
+            case StatementNode::Variation::THROW:
+                break;
+            case StatementNode::Variation::UNARY_OP:
+                break;
+            case StatementNode::Variation::WHILE: {
+                auto *const node = stmt->as<WhileNode>();
+                Context while_ctx = ctx.swap_scope(node->scope);
+                if (!parse_scope(while_ctx)) {
+                    return false;
+                }
+                break;
+            }
+        }
+    }
     while (!ctx.scope->lines.empty()) {
+        ctx.env.done = false;
+        ctx.env.result = std::nullopt;
         Context statement_ctx = ctx.swap_tokens(ctx.scope->lines.front().tokens);
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
         const bool is_scoped = std::prev(statement_ctx.tokens.second)->token == TOK_COLON;
@@ -3045,6 +3240,9 @@ bool Parser::parse_scope(Context &ctx) {
             return false;
         }
         ctx.scope->body.emplace_back(std::move(next_statement.value()));
+        if (ctx.level == ContextLevel::COMPTIME && ctx.env.done) {
+            return true;
+        }
     }
 
     return true;

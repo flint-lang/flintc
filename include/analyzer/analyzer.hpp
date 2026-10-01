@@ -19,6 +19,7 @@ enum class ContextLevel {
     EXTERNAL,
     CONST_DATA,
     UNKNOWN,
+    COMPTIME,
 };
 
 /// @class `Analyzer`
@@ -244,7 +245,7 @@ class Analyzer {
     /// @param `ctx` The context of the analyzation
     /// @param `ast` The definition node to analyze
     /// @return `bool` Whether the definition was analyzed successfully
-    static bool analyze_definition(const Context &ctx, std::unique_ptr<DefinitionNode> &ast);
+    static bool analyze_definition(Context &ctx, std::unique_ptr<DefinitionNode> &ast);
 
     /// @function `analyze_scope`
     /// @brief Analyzes the given scope for semantic correctness
@@ -252,7 +253,7 @@ class Analyzer {
     /// @param `ctx` The context of the analyzation
     /// @param `scope` The scope to analyze
     /// @return `bool` Whether the scope was analyzed successfully
-    static bool analyze_scope(const Context &ctx, Scope &scope);
+    static bool analyze_scope(Context &ctx, Scope &scope);
 
     /// @function `analyze_statement`
     /// @brief Analyzes the given statement node for semantic correctness
@@ -260,7 +261,7 @@ class Analyzer {
     /// @param `ctx` The context of the analyzation
     /// @param `statement` The statement node to analyze
     /// @return `bool` Whether the statement was analyzed successfully
-    static bool analyze_statement(const Context &ctx, StatementNode &statement);
+    static bool analyze_statement(Context &ctx, StatementNode &statement);
 
     /// @function `analyze_binop`
     /// @brief Analyzes the given binop node for semantic correctness
@@ -268,7 +269,7 @@ class Analyzer {
     /// @param `ctx` The context of the analyzation
     /// @param `expr` The binop expression node to analyze
     /// @return `bool` Whether the binop expression was analyzed successfully
-    static bool analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<ExpressionNode> &expr);
+    static bool analyze_binop(Analyzer::Context &ctx, std::unique_ptr<ExpressionNode> &expr);
 
     /// @function `analyze_expression`
     /// @brief Analyzes the given expression node for semantic correctness
@@ -278,7 +279,7 @@ class Analyzer {
     /// @param `expected_type` The expected type of the expression. If possible, applies implicit type conversion to get this type
     /// @return `bool` Whether the expression was analyzed successfully
     static bool analyze_expression(                                              //
-        const Context &ctx,                                                      //
+        Context &ctx,                                                            //
         std::unique_ptr<ExpressionNode> &expr,                                   //
         const std::optional<std::shared_ptr<Type>> &expected_type = std::nullopt //
     );

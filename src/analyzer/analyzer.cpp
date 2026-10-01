@@ -1,6 +1,7 @@
 #include "analyzer/analyzer.hpp"
 
 #include "error/error.hpp"
+#include "evaluator/evaluator.hpp"
 #include "parser/ast/definitions/function_node.hpp"
 #include "parser/ast/definitions/test_node.hpp"
 #include "parser/ast/expressions/array_access_node.hpp"
@@ -8,6 +9,7 @@
 #include "parser/ast/expressions/binary_op_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/callable_call_node_expression.hpp"
+#include "parser/ast/expressions/comptime_node.hpp"
 #include "parser/ast/expressions/data_access_node.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/ast/expressions/group_expression_node.hpp"
@@ -79,7 +81,7 @@ bool Analyzer::analyze_file(Parser &parser) {
     return true;
 }
 
-bool Analyzer::analyze_definition(const Context &ctx, std::unique_ptr<DefinitionNode> &definition) {
+bool Analyzer::analyze_definition(Context &ctx, std::unique_ptr<DefinitionNode> &definition) {
     switch (definition->get_variation()) {
         case DefinitionNode::Variation::DATA: {
             auto *node = definition->as<DataNode>();
@@ -184,7 +186,7 @@ bool Analyzer::analyze_definition(const Context &ctx, std::unique_ptr<Definition
     return true;
 }
 
-bool Analyzer::analyze_scope(const Context &ctx, Scope &scope) {
+bool Analyzer::analyze_scope(Context &ctx, Scope &scope) {
     for (auto &statement : scope.body) {
         if (!analyze_statement(ctx, *statement)) {
             return false;
@@ -193,7 +195,7 @@ bool Analyzer::analyze_scope(const Context &ctx, Scope &scope) {
     return true;
 }
 
-bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
+bool Analyzer::analyze_statement(Context &ctx, StatementNode &statement) {
     Context local_ctx = ctx;
     local_ctx.line = statement.line;
     local_ctx.column = statement.column;
@@ -575,7 +577,7 @@ bool Analyzer::analyze_statement(const Context &ctx, StatementNode &statement) {
     return true;
 }
 
-bool Analyzer::analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<ExpressionNode> &expr) {
+bool Analyzer::analyze_binop(Context &ctx, std::unique_ptr<ExpressionNode> &expr) {
     auto *const node = expr->as<BinaryOpNode>();
     if (!Analyzer::analyze_expression(ctx, node->left)) {
         return false;
@@ -611,12 +613,12 @@ bool Analyzer::analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<Expre
         }
     }
 
-    // Check for const folding, and return the folded value if const folding was able to be applied
-    std::optional<std::unique_ptr<ExpressionNode>> folded_result = ctx.parser.check_const_folding( //
-        node->left, node->operator_token, node->right                                              //
-    );
-    if (folded_result.has_value()) {
-        expr = std::move(folded_result.value());
+    // Check if binop can be compile-time evaluated
+    Env env;
+    if (Evaluator::eval_binop(ctx.parser, env, node) && env.result.has_value()) {
+        expr = std::make_unique<ComptimeNode>(                                                                 //
+            node->file_hash, PosTriple{node->line, node->column, node->length}, env.result.value(), expr->type //
+        );
         return true;
     }
 
@@ -670,7 +672,7 @@ bool Analyzer::analyze_binop(const Analyzer::Context &ctx, std::unique_ptr<Expre
 }
 
 bool Analyzer::analyze_expression(                            //
-    const Context &ctx,                                       //
+    Context &ctx,                                             //
     std::unique_ptr<ExpressionNode> &expr,                    //
     const std::optional<std::shared_ptr<Type>> &expected_type //
 ) {
@@ -779,6 +781,13 @@ bool Analyzer::analyze_expression(                            //
                 if (!analyze_expression(local_ctx, arg.first)) {
                     return false;
                 }
+            }
+            break;
+        }
+        case ExpressionNode::Variation::COMPTIME: {
+            auto *node = expr->as<ComptimeNode>();
+            if (expected_type.has_value()) {
+                node->type = expected_type.value();
             }
             break;
         }

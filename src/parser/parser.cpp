@@ -960,7 +960,9 @@ bool Parser::parse_open_data_component(Parser &parser, DataNode *data) {
     PROFILE_SCOPE("Process Open Data Module '" + data->name + "'");
     // Go through al default values of the data's fields and parse them
     std::shared_ptr<Scope> data_scope = std::make_shared<Scope>();
+    Env env;
     Context data_context = Context{
+        .env = env,
         .level = data->is_const ? ContextLevel::CONST_DATA : ContextLevel::INTERNAL,
         .scope = data_scope,
         .tokens = {},
@@ -1365,7 +1367,9 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function) {
         scope->add_variable(name, variable);
     }
     // Create the body and add the body statements to the created scope
+    Env env;
     Context ctx = Context{
+        .env = env,
         .level = ContextLevel::INTERNAL,
         .scope = scope,
         .tokens = {},
@@ -1491,7 +1495,9 @@ bool Parser::parse_open_test(Parser &parser, TestNode *test) {
         test->scope->add_variable(name, variable);
     }
     // Create the body and add the body statements to the created scope
+    Env env;
     Context ctx = Context{
+        .env = env,
         .level = ContextLevel::INTERNAL,
         .scope = test->scope,
         .tokens = {},

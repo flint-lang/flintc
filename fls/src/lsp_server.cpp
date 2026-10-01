@@ -908,6 +908,9 @@ std::optional<LspServer::PositionInfo> LspServer::find_node_in_expr( //
             const auto &var = scope->variables.at(node->callable_variable);
             return LocalVariable{node->callable_variable, var.type, var.file_hash, var.line, var.column};
         }
+        case ExpressionNode::Variation::COMPTIME:
+            ASSERT(false, "COMPTIME case not implemented yet");
+            return std::nullopt;
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expr->as<DataAccessNode>();
             if (node->base_expr->contains_pos(line, col)) {

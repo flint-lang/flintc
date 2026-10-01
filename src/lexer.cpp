@@ -189,6 +189,9 @@ bool Lexer::scan_token() {
         case '$':
             add_token(TOK_DOLLAR);
             break;
+        case '@':
+            add_token(TOK_AT);
+            break;
         case '^':
             add_token(TOK_BIT_XOR);
             break;

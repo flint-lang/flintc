@@ -711,6 +711,8 @@ bool Generator::Allocation::generate_expression_allocations(              //
             }
             break;
         }
+        case ExpressionNode::Variation::COMPTIME:
+            break;
         case ExpressionNode::Variation::DATA_ACCESS: {
             const auto *node = expression->as<DataAccessNode>();
             if (!generate_expression_allocations(builder, parent, scope, struct_types, node->base_expr.get())) {
