@@ -1416,18 +1416,13 @@ class Parser {
     ///
     /// @param `ctx` The parsing context
     /// @param `body` The list of tokens representing the catch blocks body
-    /// @param `statements` The vector of unique pointers to the created statement nodes
     /// @return `std::optional<std::unique_ptr<CatchNode>>` An optional unique pointer to the created CatchNode
     ///
     /// @note This function parses the catch block definition and creates a CatchNode with the parsed statements. It also sets the
     /// 'has_catch' property of the last parsed call node.
     /// @note All other statements to the left of the catch statement are added to the statements list before parsing and adding the
     /// catch node itself. This is why the reference to the statements list has to be provided.
-    std::optional<std::unique_ptr<CatchNode>> create_catch(     //
-        Context &ctx,                                           //
-        std::vector<Line> &body,                                //
-        std::vector<std::unique_ptr<StatementNode>> &statements //
-    );
+    std::optional<std::unique_ptr<CatchNode>> create_catch(Context &ctx, std::vector<Line> &body);
 
     /// @function `create_group_assignment`
     /// @brief Creates an GroupAssignmentNode from the given list of tokens
@@ -1593,17 +1588,14 @@ class Parser {
     /// errors and returns nullopt if the scoped statement cannot be parsed.
     /// @note If the scoped statement is a catch statement, all other statements left of it are added to the statements list before
     /// parsing and adding the catch node itself. This is why the reference to the statements list has to be provided.
-    std::optional<std::unique_ptr<StatementNode>> create_scoped_statement( //
-        Context &ctx,                                                      //
-        std::vector<std::unique_ptr<StatementNode>> &statements            //
-    );
+    std::optional<std::unique_ptr<StatementNode>> create_scoped_statement(Context &ctx);
 
-    /// @function `create_body`
-    /// @brief Creates a body containing of multiple statement nodes. Creates the body from the lines present in the scope of the context.
+    /// @function `parse_scope`
+    /// @brief Parses a given scope from the Context, and puts all parsed statements into the body of the scope of the passed-in context
     ///
     /// @param `ctx` The parsing context
-    /// @return `std::optional<std::vectro<std::unique_ptr<StatementNode>>>` The list of StatementNodes parsed from the body tokens.
-    std::optional<std::vector<std::unique_ptr<StatementNode>>> create_body(Context &ctx);
+    /// @return `bool` Whether parsing the body of the scope was successfull
+    [[nodiscard]] bool parse_scope(Context &ctx);
 
     /**************************************************************************************************************************************
      * @region `Statement` END

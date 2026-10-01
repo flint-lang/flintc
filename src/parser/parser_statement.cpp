@@ -244,11 +244,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     unsigned int end_line = this_if_pair.second.back().tokens.second->line;
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(this_if_pair.second));
     Context body_ctx = ctx.swap_scope(body_scope);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return std::nullopt;
     }
-    body_scope->body = std::move(body_statements.value());
     std::optional<std::variant<std::unique_ptr<IfNode>, std::shared_ptr<Scope>>> else_scope = std::nullopt;
 
     // Check if the chain contains any values (more if blocks in the chain) and parse them accordingly
@@ -268,11 +266,9 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
             }
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(ctx.scope, std::move(if_chain.front().second));
             Context else_ctx = ctx.swap_scope(else_scope_ptr);
-            auto else_body_statements = create_body(else_ctx);
-            if (!else_body_statements.has_value()) {
+            if (!parse_scope(else_ctx)) {
                 return std::nullopt;
             }
-            else_scope_ptr->body = std::move(else_body_statements.value());
             else_scope = std::move(else_scope_ptr);
         }
     }
@@ -325,11 +321,9 @@ std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop(Context
 
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return std::nullopt;
     }
-    body_scope->body = std::move(body_statements.value());
     std::unique_ptr<DoWhileNode> do_while_node = std::make_unique<DoWhileNode>(file_hash, ctx.tokens, condition.value(), body_scope);
     return do_while_node;
 }
@@ -363,11 +357,9 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Context &ctx
 
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return std::nullopt;
     }
-    body_scope->body = std::move(body_statements.value());
     std::unique_ptr<WhileNode> while_node = std::make_unique<WhileNode>(file_hash, ctx.tokens, condition.value(), body_scope);
     return while_node;
 }
@@ -433,11 +425,9 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop(Context &ctx
     // Parse the for loops body
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return std::nullopt;
     }
-    body_scope->body = std::move(body_statements.value());
 
     // Parse the looparound statement. The looparound statement is actually part of the body is the last statement of the body
     const token_slice looparound_tokens = {ctx.tokens.first + condition_range.second, ctx.tokens.first + expressions_range.value().second};
@@ -613,15 +603,10 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop(Conte
     // Now create the body scope and parse the body
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return std::nullopt;
     }
-    body_scope->body = std::move(body_statements.value());
-
-    auto enh_for_node = std::make_unique<EnhForLoopNode>(                                //
-        file_hash, ctx.tokens, iterators, iterable.value(), definition_scope, body_scope //
-    );
+    auto enh_for_node = std::make_unique<EnhForLoopNode>(file_hash, ctx.tokens, iterators, iterable.value(), definition_scope, body_scope);
     return enh_for_node;
 }
 
@@ -688,11 +673,9 @@ bool Parser::create_switch_branch_body(                              //
     const std::vector<Line> body_lines(body_start, line_it);
     branch_body->lines = body_lines;
     Context body_ctx = ctx.swap_scope(branch_body);
-    auto body_statements = create_body(body_ctx);
-    if (!body_statements.has_value()) {
+    if (!parse_scope(body_ctx)) {
         return false;
     }
-    branch_body->body = std::move(body_statements.value());
     s_branches.emplace_back(match_expressions, branch_body);
     return true;
 }
@@ -1375,11 +1358,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement(Co
     return whole_statement;
 }
 
-std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
-    Context &ctx,                                               //
-    std::vector<Line> &body,                                    //
-    std::vector<std::unique_ptr<StatementNode>> &statements     //
-) {
+std::optional<std::unique_ptr<CatchNode>> Parser::create_catch(Context &ctx, std::vector<Line> &body) {
     // First, extract everything left of the 'catch' statement and parse it as a normal (unscoped) statement
     std::optional<token_list::iterator> catch_id = std::nullopt;
     for (auto it = ctx.tokens.first; it != ctx.tokens.second; ++it) {
@@ -1401,7 +1380,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     if (!lhs.has_value()) {
         return std::nullopt;
     }
-    statements.emplace_back(std::move(lhs.value()));
+    ctx.scope->body.emplace_back(std::move(lhs.value()));
     // Get the last parsed call and set the 'has_catch' property of the call node
     if (!last_parsed_call.has_value()) {
         THROW_ERR(ErrStmtDanglingCatch, ERR_PARSING, file_hash, ctx.tokens);
@@ -1455,11 +1434,9 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
             );
         }
         Context body_ctx = ctx.swap_scope(body_scope);
-        auto body_statements = create_body(body_ctx);
-        if (!body_statements.has_value()) {
+        if (!parse_scope(body_ctx)) {
             return std::nullopt;
         }
-        body_scope->body = std::move(body_statements.value());
     } else {
         // Implicit switch on the "error variable"
         if (catch_base_call->error_types.size() == 1) {
@@ -2928,10 +2905,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
     return statement_node;
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
-    Context &ctx,                                                              //
-    std::vector<std::unique_ptr<StatementNode>> &statements                    //
-) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Context &ctx) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
     auto &body = ctx.scope->lines;
     const token_slice definition = body.front().tokens;
@@ -3029,7 +3003,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::CATCH: {
-            std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(definition_ctx, scoped_body.value(), statements);
+            std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(definition_ctx, scoped_body.value());
             if (!catch_node.has_value()) {
                 return std::nullopt;
             }
@@ -3054,26 +3028,24 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
     return statement_node;
 }
 
-std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Context &ctx) {
-    std::vector<std::unique_ptr<StatementNode>> body_statements;
-
+bool Parser::parse_scope(Context &ctx) {
     while (!ctx.scope->lines.empty()) {
         Context statement_ctx = ctx.swap_tokens(ctx.scope->lines.front().tokens);
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
         const bool is_scoped = std::prev(statement_ctx.tokens.second)->token == TOK_COLON;
         if (is_scoped) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
-            next_statement = create_scoped_statement(statement_ctx, body_statements);
+            next_statement = create_scoped_statement(statement_ctx);
             ctx.scope->current_scope_segment++;
         } else {
             next_statement = create_statement(statement_ctx);
             ctx.scope->lines.erase(ctx.scope->lines.begin());
         }
         if (!next_statement.has_value()) {
-            return std::nullopt;
+            return false;
         }
-        body_statements.emplace_back(std::move(next_statement.value()));
+        ctx.scope->body.emplace_back(std::move(next_statement.value()));
     }
 
-    return body_statements;
+    return true;
 }

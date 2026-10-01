@@ -1370,11 +1370,9 @@ bool Parser::parse_open_function(Parser &parser, FunctionNode *function) {
         .scope = scope,
         .tokens = {},
     };
-    auto body_statements = parser.create_body(ctx);
-    if (!body_statements.has_value()) {
+    if (!parser.parse_scope(ctx)) {
         return false;
     }
-    scope->body = std::move(body_statements.value());
     scope->count_persistent_locals(function->persistent_count);
     return true;
 }
@@ -1498,12 +1496,7 @@ bool Parser::parse_open_test(Parser &parser, TestNode *test) {
         .scope = test->scope,
         .tokens = {},
     };
-    auto body_statements = parser.create_body(ctx);
-    if (!body_statements.has_value()) {
-        return false;
-    }
-    test->scope->body = std::move(body_statements.value());
-    return true;
+    return parser.parse_scope(ctx);
 }
 
 bool Parser::parse_all_open_tests(const bool parse_parallel) {
