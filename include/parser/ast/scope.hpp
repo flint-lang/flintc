@@ -1,5 +1,6 @@
 #pragma once
 
+#include "linearizer/line.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
 #include "parser/type/type.hpp"
@@ -19,9 +20,17 @@ class Scope {
   public:
     Scope() = default;
 
-    explicit Scope(std::shared_ptr<Scope> parent, const unsigned int parent_scope_segment) :
+    explicit Scope(std::shared_ptr<Scope> parent) :
         parent_scope(parent),
-        parent_scope_segment(parent_scope_segment) {
+        parent_scope_segment(parent->current_scope_segment) {
+        function = parent_scope->function;
+        clone_variables(parent);
+    }
+
+    explicit Scope(std::shared_ptr<Scope> parent, std::vector<Line> &&lines) :
+        lines(std::move(lines)),
+        parent_scope(parent),
+        parent_scope_segment(parent->current_scope_segment) {
         function = parent_scope->function;
         clone_variables(parent);
     }
@@ -183,9 +192,17 @@ class Scope {
     /// @brief All the body statements of this scopes body
     std::vector<std::unique_ptr<StatementNode>> body;
 
+    /// @var `lines`
+    /// @brief All the not-yet-parsed lines of this scope
+    std::vector<Line> lines;
+
     /// @var `parent_scope`
     /// @brief The parent scope of this scope
     std::shared_ptr<Scope> parent_scope{nullptr};
+
+    /// @var `current_scope_segment`
+    /// @brief The current scope segment the parser is at. Needed for on-demand parsing to store where work was left off
+    unsigned int current_scope_segment{0};
 
     /// @var `parent_scope_segment`
     /// @brief The scope segment of the parent scope after which this scope started

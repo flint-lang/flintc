@@ -195,11 +195,7 @@ std::optional<ReturnNode> Parser::create_return(Context &ctx, std::optional<std:
     return ReturnNode(file_hash, ctx.tokens, expr);
 }
 
-std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
-    Context &ctx,                                                    //
-    const unsigned int scope_segment,                                //
-    std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain //
-) {
+std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vector<std::pair<token_slice, std::vector<Line>>> &if_chain) {
     PROFILE_CUMULATIVE("Parser::create_if");
     ASSERT(!if_chain.empty());
     std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
@@ -246,7 +242,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
         return std::nullopt;
     }
     unsigned int end_line = this_if_pair.second.back().tokens.second->line;
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, scope_segment, std::move(this_if_pair.second));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(this_if_pair.second));
     Context body_ctx = ctx.swap_scope(body_scope);
     auto body_statements = create_body(body_ctx);
     if (!body_statements.has_value()) {
@@ -259,7 +255,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     if (!if_chain.empty()) {
         if (Matcher::tokens_contain(if_chain.front().first, Matcher::token(TOK_IF))) {
             // 'else if'
-            else_scope = create_if(ctx, scope_segment, if_chain);
+            else_scope = create_if(ctx, if_chain);
             if (!else_scope.has_value()) {
                 return std::nullopt;
             }
@@ -270,7 +266,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
                 THROW_ERR(ErrStmtDanglingElse, ERR_PARSING, file_hash, if_chain.at(1).first);
                 return std::nullopt;
             }
-            std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(ctx.scope, scope_segment, std::move(if_chain.front().second));
+            std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(ctx.scope, std::move(if_chain.front().second));
             Context else_ctx = ctx.swap_scope(else_scope_ptr);
             auto else_body_statements = create_body(else_ctx);
             if (!else_body_statements.has_value()) {
@@ -300,11 +296,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(            //
     return if_node;
 }
 
-std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
-    Context &ctx,                                                         //
-    const unsigned int scope_segment,                                     //
-    std::vector<Line> &body                                               //
-) {
+std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop(Context &ctx, std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_do_while_loop");
     token_slice condition_tokens = ctx.tokens;
     // Remove everything in front of the expression (\n, \t, else, if)
@@ -331,7 +323,7 @@ std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
         return std::nullopt;
     }
 
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, scope_segment, std::move(body));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
     auto body_statements = create_body(body_ctx);
     if (!body_statements.has_value()) {
@@ -342,11 +334,7 @@ std::optional<std::unique_ptr<DoWhileNode>> Parser::create_do_while_loop( //
     return do_while_node;
 }
 
-std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
-    Context &ctx,                                                    //
-    const unsigned int scope_segment,                                //
-    std::vector<Line> &body                                          //
-) {
+std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop(Context &ctx, std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_while_loop");
     token_slice condition_tokens = ctx.tokens;
     // Remove everything in front of the expression (\n, \t, else, if)
@@ -373,7 +361,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
         return std::nullopt;
     }
 
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, scope_segment, std::move(body));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
     auto body_statements = create_body(body_ctx);
     if (!body_statements.has_value()) {
@@ -384,11 +372,7 @@ std::optional<std::unique_ptr<WhileNode>> Parser::create_while_loop( //
     return while_node;
 }
 
-std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
-    Context &ctx,                                                    //
-    const unsigned int scope_segment,                                //
-    std::vector<Line> &body                                          //
-) {
+std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop(Context &ctx, std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_for_loop");
     std::optional<std::unique_ptr<StatementNode>> initializer;
     std::optional<std::unique_ptr<ExpressionNode>> condition;
@@ -416,7 +400,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     }
 
     // Parse the actual expressions / statements. Note that only non-scoped statements are valid within the for loops definition
-    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(ctx.scope, scope_segment);
+    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(ctx.scope);
     uint2 &initializer_range = expression_ranges.at(0);
     // "remove" everything including the 'for' keyword from the initializer statement
     // otherwise the for loop would create itself recursively
@@ -429,7 +413,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     // Parse the initializer statement
     const token_slice initializer_tokens = {ctx.tokens.first + initializer_range.first, ctx.tokens.first + initializer_range.second};
     Context initializer_ctx = ctx.swap_tokens(initializer_tokens).swap_scope(definition_scope);
-    initializer = create_statement(initializer_ctx, scope_segment);
+    initializer = create_statement(initializer_ctx);
     if (!initializer.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -447,7 +431,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     }
 
     // Parse the for loops body
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, scope_segment, std::move(body));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
     auto body_statements = create_body(body_ctx);
     if (!body_statements.has_value()) {
@@ -458,7 +442,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     // Parse the looparound statement. The looparound statement is actually part of the body is the last statement of the body
     const token_slice looparound_tokens = {ctx.tokens.first + condition_range.second, ctx.tokens.first + expressions_range.value().second};
     Context looparound_ctx = ctx.swap_tokens(looparound_tokens).swap_scope(body_scope);
-    looparound = create_statement(looparound_ctx, scope_segment);
+    looparound = create_statement(looparound_ctx);
     if (!looparound.has_value()) {
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
@@ -470,11 +454,7 @@ std::optional<std::unique_ptr<ForLoopNode>> Parser::create_for_loop( //
     return for_node;
 }
 
-std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
-    Context &ctx,                                                           //
-    const unsigned int scope_segment,                                       //
-    std::vector<Line> &body                                                 //
-) {
+std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop(Context &ctx, std::vector<Line> &body) {
     PROFILE_CUMULATIVE("Parser::create_enh_for_loop");
     token_slice definition_mut = ctx.tokens;
     remove_trailing_garbage(definition_mut);
@@ -513,7 +493,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     definition_mut.first++;
 
     // Create the definition scope
-    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(ctx.scope, scope_segment);
+    std::shared_ptr<Scope> definition_scope = std::make_shared<Scope>(ctx.scope);
 
     // The rest of the definition is the iterable expression
     Context iterable_ctx = ctx.swap_tokens(definition_mut).swap_scope(definition_scope);
@@ -562,7 +542,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
                 Scope::Variable{
                     .type = tuple_type,
                     .scope_id = definition_scope->scope_id,
-                    .scope_segment = scope_segment,
+                    .scope_segment = definition_scope->current_scope_segment,
                     .is_mutable = false,
                     .is_persistent = false,
                     .is_fn_param = true,
@@ -590,7 +570,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
                     Scope::Variable{
                         .type = index_type,
                         .scope_id = definition_scope->scope_id,
-                        .scope_segment = scope_segment,
+                        .scope_segment = definition_scope->current_scope_segment,
                         .is_mutable = false,
                         .is_persistent = false,
                         .is_fn_param = false,
@@ -612,7 +592,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
                     Scope::Variable{
                         .type = element_type,
                         .scope_id = definition_scope->scope_id,
-                        .scope_segment = scope_segment,
+                        .scope_segment = definition_scope->current_scope_segment,
                         .is_mutable = true,
                         .is_persistent = false,
                         .is_fn_param = false,
@@ -631,7 +611,7 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
     }
 
     // Now create the body scope and parse the body
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, scope_segment, std::move(body));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(definition_scope, std::move(body));
     Context body_ctx = ctx.swap_scope(body_scope);
     auto body_statements = create_body(body_ctx);
     if (!body_statements.has_value()) {
@@ -647,7 +627,6 @@ std::optional<std::unique_ptr<EnhForLoopNode>> Parser::create_enh_for_loop( //
 
 bool Parser::create_switch_branch_body(                              //
     Context &ctx,                                                    //
-    const unsigned int scope_segment,                                //
     std::vector<std::unique_ptr<ExpressionNode>> &match_expressions, //
     std::vector<SSwitchBranch> &s_branches,                          //
     std::vector<ESwitchBranch> &e_branches,                          //
@@ -674,7 +653,7 @@ bool Parser::create_switch_branch_body(                              //
     }
     // Check if the colon is the last symbol in this line. If it is, a body follows. If after the colon something is written the
     // "body" is a single statement written directly after the colon.
-    std::shared_ptr<Scope> branch_body = std::make_shared<Scope>(ctx.scope, scope_segment);
+    std::shared_ptr<Scope> branch_body = std::make_shared<Scope>(ctx.scope);
     if (ctx.tokens.first + match_range.second != ctx.tokens.second) {
         // A single statement follows, this means that the line needs to end with a semicolon
         const token_slice statement_tokens = {ctx.tokens.first + match_range.second, ctx.tokens.second};
@@ -683,7 +662,7 @@ bool Parser::create_switch_branch_body(                              //
             return false;
         }
         Context stmt_ctx = ctx.swap_tokens(statement_tokens).swap_scope(branch_body);
-        auto statement = create_statement(stmt_ctx, scope_segment);
+        auto statement = create_statement(stmt_ctx);
         if (!statement.has_value()) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
@@ -720,7 +699,6 @@ bool Parser::create_switch_branch_body(                              //
 
 bool Parser::create_switch_branches(            //
     Context &ctx,                               //
-    const unsigned int scope_segment,           //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -775,9 +753,7 @@ bool Parser::create_switch_branches(            //
             }
         }
         Context branch_ctx = ctx.swap_tokens(tokens);
-        if (!create_switch_branch_body(                                                                                       //
-                branch_ctx, scope_segment, matches, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
-        ) {
+        if (!create_switch_branch_body(branch_ctx, matches, s_branches, e_branches, line_it, body, match_range.value(), is_statement)) {
             return false;
         }
     }
@@ -786,7 +762,6 @@ bool Parser::create_switch_branches(            //
 
 bool Parser::create_enum_switch_branches(       //
     Context &ctx,                               //
-    const unsigned int scope_segment,           //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -895,9 +870,8 @@ bool Parser::create_enum_switch_branches(       //
             }
         }
         Context branch_ctx = ctx.swap_tokens(tokens);
-        if (!create_switch_branch_body(                                               //
-                branch_ctx, scope_segment, match_expressions, s_branches, e_branches, //
-                line_it, body, match_range.value(), is_statement)                     //
+        if (!create_switch_branch_body(                                                                                  //
+                branch_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
         ) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
@@ -915,7 +889,6 @@ bool Parser::create_enum_switch_branches(       //
 
 bool Parser::create_error_switch_branches(      //
     Context &ctx,                               //
-    const unsigned int scope_segment,           //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -1003,8 +976,8 @@ bool Parser::create_error_switch_branches(      //
             }
         }
         Context body_ctx = ctx.swap_tokens(tokens);
-        if (!create_switch_branch_body(                                                                                               //
-                body_ctx, scope_segment, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
+        if (!create_switch_branch_body(                                                                                //
+                body_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
         ) {
             THROW_BASIC_ERR(ERR_PARSING);
             return false;
@@ -1023,7 +996,6 @@ bool Parser::create_error_switch_branches(      //
 
 bool Parser::create_optional_switch_branches(   //
     Context &ctx,                               //
-    const unsigned int scope_segment,           //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -1059,9 +1031,8 @@ bool Parser::create_optional_switch_branches(   //
             LitValue lit_value = LitOptional{};
             match_expressions.push_back(std::make_unique<LiteralNode>(file_hash, get_pos_triple(match_tokens), lit_value, switcher_type));
             Context branch_ctx = ctx.swap_tokens(tokens);
-            if (!create_switch_branch_body(                                               //
-                    branch_ctx, scope_segment, match_expressions, s_branches, e_branches, //
-                    line_it, body, match_range.value(), is_statement)                     //
+            if (!create_switch_branch_body(                                                                                  //
+                    branch_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
             ) {
                 THROW_BASIC_ERR(ERR_PARSING);
                 return false;
@@ -1079,14 +1050,14 @@ bool Parser::create_optional_switch_branches(   //
             match_expressions.push_back(                                                                                           //
                 std::make_unique<SwitchMatchNode>(file_hash, get_pos_triple(match_tokens), optional_type->base_type, match_str, 1) //
             );
-            std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(ctx.scope, scope_segment);
+            std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(ctx.scope);
             const unsigned int scope_id = branch_scope->scope_id;
             const std::string var_name(match_tokens.first->lexme);
             if (!branch_scope->add_variable(var_name,
                     {
                         .type = optional_type->base_type,
                         .scope_id = scope_id,
-                        .scope_segment = scope_segment,
+                        .scope_segment = branch_scope->current_scope_segment,
                         .is_mutable = is_mutable,
                         .is_persistent = false,
                         .is_fn_param = true,
@@ -1098,9 +1069,8 @@ bool Parser::create_optional_switch_branches(   //
                 return false;
             }
             Context branch_ctx = ctx.swap_tokens(tokens).swap_scope(branch_scope);
-            if (!create_switch_branch_body(                                               //
-                    branch_ctx, scope_segment, match_expressions, s_branches, e_branches, //
-                    line_it, body, match_range.value(), is_statement)                     //
+            if (!create_switch_branch_body(                                                                                  //
+                    branch_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
             ) {
                 return false;
             }
@@ -1115,7 +1085,6 @@ bool Parser::create_optional_switch_branches(   //
 
 bool Parser::create_variant_switch_branches(    //
     Context &ctx,                               //
-    const unsigned int scope_segment,           //
     std::vector<SSwitchBranch> &s_branches,     //
     std::vector<ESwitchBranch> &e_branches,     //
     const std::vector<Line> &body,              //
@@ -1158,9 +1127,8 @@ bool Parser::create_variant_switch_branches(    //
                 }
                 match_expressions.push_back(std::make_unique<SwitchDefaultNode>(file_hash, get_pos_triple(match_tokens), switcher_type));
                 Context branch_ctx = ctx.swap_tokens(tokens);
-                if (!create_switch_branch_body(                                               //
-                        branch_ctx, scope_segment, match_expressions, s_branches, e_branches, //
-                        line_it, body, match_range.value(), is_statement)                     //
+                if (!create_switch_branch_body(                                                                                  //
+                        branch_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
                 ) {
                     THROW_BASIC_ERR(ERR_PARSING);
                     return false;
@@ -1244,13 +1212,13 @@ bool Parser::create_variant_switch_branches(    //
         match_expressions.push_back(                                                                                       //
             std::make_unique<SwitchMatchNode>(file_hash, get_pos_triple(match_tokens), access_type, access_name, type_idx) //
         );
-        std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(ctx.scope, scope_segment);
+        std::shared_ptr<Scope> branch_scope = std::make_shared<Scope>(ctx.scope);
         if (access_name.has_value()) {
             if (!branch_scope->add_variable(access_name.value(),
                     {
                         .type = access_type,
                         .scope_id = branch_scope->scope_id,
-                        .scope_segment = scope_segment,
+                        .scope_segment = branch_scope->current_scope_segment,
                         .is_mutable = is_mutable,
                         .is_persistent = false,
                         .is_fn_param = true,
@@ -1263,9 +1231,8 @@ bool Parser::create_variant_switch_branches(    //
             }
         }
         Context branch_ctx = ctx.swap_tokens(tokens).swap_scope(branch_scope);
-        if (!create_switch_branch_body(                                               //
-                branch_ctx, scope_segment, match_expressions, s_branches, e_branches, //
-                line_it, body, match_range.value(), is_statement)                     //
+        if (!create_switch_branch_body(                                                                                  //
+                branch_ctx, match_expressions, s_branches, e_branches, line_it, body, match_range.value(), is_statement) //
         ) {
             return false;
         }
@@ -1280,11 +1247,7 @@ bool Parser::create_variant_switch_branches(    //
     return true;
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( //
-    Context &ctx,                                                              //
-    const unsigned int scope_segment,                                          //
-    const std::vector<Line> &body                                              //
-) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement(Context &ctx, const std::vector<Line> &body) {
     // First, check if the definition starts with a switch token. If it starts with a switch token it's a switch statement, otherwise
     // it's a switch expression
     token_slice switcher_tokens = ctx.tokens;
@@ -1308,15 +1271,13 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     }
     switch (switcher.value()->type->get_variation()) {
         default:
-            if (!create_switch_branches(ctx, scope_segment, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
+            if (!create_switch_branches(ctx, s_branches, e_branches, body, switcher.value()->type, is_statement)) {
                 return std::nullopt;
             }
             break;
         case Type::Variation::ENUM: {
             const auto *type = switcher.value()->type->as<EnumType>();
-            if (!create_enum_switch_branches(                                                                                //
-                    ctx, scope_segment, s_branches, e_branches, body, switcher.value()->type, type->enum_node, is_statement) //
-            ) {
+            if (!create_enum_switch_branches(ctx, s_branches, e_branches, body, switcher.value()->type, type->enum_node, is_statement)) {
                 return std::nullopt;
             }
             break;
@@ -1324,9 +1285,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
         case Type::Variation::ERROR_SET: {
             const auto *type = switcher.value()->type->as<ErrorSetType>();
             const ErrorNode *error_node = type->error_node;
-            if (!create_error_switch_branches(                                                                          //
-                    ctx, scope_segment, s_branches, e_branches, body, switcher.value()->type, error_node, is_statement) //
-            ) {
+            if (!create_error_switch_branches(ctx, s_branches, e_branches, body, switcher.value()->type, error_node, is_statement)) {
                 return std::nullopt;
             }
             break;
@@ -1338,9 +1297,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             }
             const auto *var_node = switcher.value()->as<VariableNode>();
             const bool is_mutable = ctx.scope->variables.at(var_node->name).is_mutable;
-            if (!create_optional_switch_branches(                                                                       //
-                    ctx, scope_segment, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable) //
-            ) {
+            if (!create_optional_switch_branches(ctx, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
                 return std::nullopt;
             }
             break;
@@ -1352,9 +1309,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
             }
             const auto *var_node = switcher.value()->as<VariableNode>();
             const bool is_mutable = ctx.scope->variables.at(var_node->name).is_mutable;
-            if (!create_variant_switch_branches(                                                                        //
-                    ctx, scope_segment, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable) //
-            ) {
+            if (!create_variant_switch_branches(ctx, s_branches, e_branches, body, switcher.value()->type, is_statement, is_mutable)) {
                 return std::nullopt;
             }
             break;
@@ -1413,7 +1368,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
     const token_slice lhs_tokens = {ctx.tokens.first, switcher_tokens.first - 1};
     ASSERT(lhs_tokens.second->token == TOK_SWITCH);
     Context stmt_ctx = ctx.swap_tokens(lhs_tokens);
-    auto whole_statement = create_statement(stmt_ctx, scope_segment, std::move(switch_expr));
+    auto whole_statement = create_statement(stmt_ctx, std::move(switch_expr));
     if (!whole_statement.has_value()) {
         return std::nullopt;
     }
@@ -1422,7 +1377,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_switch_statement( /
 
 std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
     Context &ctx,                                               //
-    const unsigned int scope_segment,                           //
     std::vector<Line> &body,                                    //
     std::vector<std::unique_ptr<StatementNode>> &statements     //
 ) {
@@ -1443,7 +1397,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
 
     const token_slice left_of_catch = {ctx.tokens.first, catch_id.value()};
     Context lhs_ctx = ctx.swap_tokens(left_of_catch);
-    std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(lhs_ctx, scope_segment);
+    std::optional<std::unique_ptr<StatementNode>> lhs = create_statement(lhs_ctx);
     if (!lhs.has_value()) {
         return std::nullopt;
     }
@@ -1466,7 +1420,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         }
     }
 
-    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, scope_segment, std::move(body));
+    std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(body));
     if (err_var.has_value()) {
         // Get all the possible error types of the call and give the error value a type depending on them
         const auto &error_types = catch_base_call->error_types;
@@ -1484,7 +1438,7 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
                 Scope::Variable{
                     .type = err_variable_type,
                     .scope_id = body_scope->scope_id,
-                    .scope_segment = scope_segment,
+                    .scope_segment = body_scope->current_scope_segment,
                     .is_mutable = false,
                     .is_persistent = false,
                     .is_fn_param = false,
@@ -1520,14 +1474,20 @@ std::optional<std::unique_ptr<CatchNode>> Parser::create_catch( //
         if (!file_node_ptr->file_namespace->add_type(switcher_type)) {
             switcher_type = file_node_ptr->file_namespace->get_type_from_str(switcher_type->to_string()).value();
         }
-        if (!body_scope->add_variable("flint.value_err", {switcher_type, body_scope->scope_id, scope_segment, false, false, false})) {
+        if (!body_scope->add_variable("flint.value_err",
+                Scope::Variable{
+                    .type = switcher_type,
+                    .scope_id = body_scope->scope_id,
+                    .scope_segment = body_scope->current_scope_segment,
+                    .is_mutable = false,
+                    .is_persistent = false,
+                    .is_fn_param = false,
+                })) {
             UNREACHABLE();
             return std::nullopt;
         }
         Context body_ctx = ctx.swap_scope(body_scope);
-        if (!create_variant_switch_branches(                                                                    //
-                body_ctx, scope_segment, s_branches, e_branches, body_scope->lines, switcher_type, true, false) //
-        ) {
+        if (!create_variant_switch_branches(body_ctx, s_branches, e_branches, body_scope->lines, switcher_type, true, false)) {
             return std::nullopt;
         }
         std::unique_ptr<ExpressionNode> dummy_switcher = std::make_unique<VariableNode>(      //
@@ -1839,11 +1799,7 @@ std::optional<AssignmentNode> Parser::create_assignment_shorthand( //
     return std::nullopt;
 }
 
-std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
-    Context &ctx,                                                     //
-    const unsigned int scope_segment,                                 //
-    std::optional<std::unique_ptr<ExpressionNode>> &rhs               //
-) {
+std::optional<GroupDeclarationNode> Parser::create_group_declaration(Context &ctx, std::optional<std::unique_ptr<ExpressionNode>> &rhs) {
     token_slice tokens_mut = ctx.tokens;
     std::optional<GroupDeclarationNode> declaration = std::nullopt;
     std::vector<std::pair<std::shared_ptr<Type>, std::string>> variables;
@@ -1912,7 +1868,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                         Scope::Variable{
                             .type = types.at(i),
                             .scope_id = ctx.scope->scope_id,
-                            .scope_segment = scope_segment,
+                            .scope_segment = ctx.scope->current_scope_segment,
                             .is_mutable = true,
                             .is_persistent = false,
                             .is_fn_param = false,
@@ -1946,7 +1902,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                         Scope::Variable{
                             .type = vector_type->base_type,
                             .scope_id = ctx.scope->scope_id,
-                            .scope_segment = scope_segment,
+                            .scope_segment = ctx.scope->current_scope_segment,
                             .is_mutable = true,
                             .is_persistent = false,
                             .is_fn_param = false,
@@ -2002,7 +1958,7 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
                         Scope::Variable{
                             .type = tuple_type->types[i],
                             .scope_id = ctx.scope->scope_id,
-                            .scope_segment = scope_segment,
+                            .scope_segment = ctx.scope->current_scope_segment,
                             .is_mutable = true,
                             .is_persistent = false,
                             .is_fn_param = false,
@@ -2047,7 +2003,6 @@ std::optional<GroupDeclarationNode> Parser::create_group_declaration( //
 
 std::optional<DeclarationNode> Parser::create_declaration( //
     Context &ctx,                                          //
-    const unsigned int scope_segment,                      //
     const bool is_inferred,                                //
     const bool has_rhs,                                    //
     std::optional<std::unique_ptr<ExpressionNode>> &rhs    //
@@ -2126,7 +2081,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
                 Scope::Variable{
                     .type = declared_type,
                     .scope_id = ctx.scope->scope_id,
-                    .scope_segment = scope_segment,
+                    .scope_segment = ctx.scope->current_scope_segment,
                     .is_mutable = is_mutable,
                     .is_persistent = is_persistent,
                     .is_fn_param = false,
@@ -2223,7 +2178,7 @@ std::optional<DeclarationNode> Parser::create_declaration( //
             Scope::Variable{
                 .type = final_type,
                 .scope_id = ctx.scope->scope_id,
-                .scope_segment = scope_segment,
+                .scope_segment = ctx.scope->current_scope_segment,
                 .is_mutable = is_mutable,
                 .is_persistent = is_persistent,
                 .is_fn_param = false,
@@ -2739,11 +2694,7 @@ std::optional<GroupedArrayAssignmentNode> Parser::create_grouped_array_assignmen
     );
 }
 
-std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
-    Context &ctx,                                                       //
-    const unsigned int scope_segment,                                   //
-    std::optional<std::unique_ptr<ExpressionNode>> rhs                  //
-) {
+std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &ctx, std::optional<std::unique_ptr<ExpressionNode>> rhs) {
     const std::optional<StmtTrie::Pattern> pattern = StmtTrie::match(ctx.tokens);
     if (!pattern.has_value()) {
         THROW_ERR(ErrStmtNotRecognizable, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens));
@@ -2753,7 +2704,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
     switch (pattern.value()) {
         case StmtTrie::Pattern::GROUP_DECLARATION_INFERRED: {
-            std::optional<GroupDeclarationNode> group_decl = create_group_declaration(ctx, scope_segment, rhs);
+            std::optional<GroupDeclarationNode> group_decl = create_group_declaration(ctx, rhs);
             if (!group_decl.has_value()) {
                 return std::nullopt;
             }
@@ -2761,7 +2712,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             break;
         }
         case StmtTrie::Pattern::DECLARATION_EXPLICIT: {
-            std::optional<DeclarationNode> decl = create_declaration(ctx, scope_segment, false, true, rhs);
+            std::optional<DeclarationNode> decl = create_declaration(ctx, false, true, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
             }
@@ -2769,7 +2720,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             break;
         }
         case StmtTrie::Pattern::DECLARATION_INFERRED: {
-            std::optional<DeclarationNode> decl = create_declaration(ctx, scope_segment, true, true, rhs);
+            std::optional<DeclarationNode> decl = create_declaration(ctx, true, true, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
             }
@@ -2777,7 +2728,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
             break;
         }
         case StmtTrie::Pattern::DECLARATION_WITHOUT_INITIALIZER: {
-            std::optional<DeclarationNode> decl = create_declaration(ctx, scope_segment, false, false, rhs);
+            std::optional<DeclarationNode> decl = create_declaration(ctx, false, false, rhs);
             if (!decl.has_value()) {
                 return std::nullopt;
             }
@@ -2979,7 +2930,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement( //
 
 std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( //
     Context &ctx,                                                              //
-    const unsigned int scope_segment,                                          //
     std::vector<std::unique_ptr<StatementNode>> &statements                    //
 ) {
     std::optional<std::unique_ptr<StatementNode>> statement_node = std::nullopt;
@@ -3037,7 +2987,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
                 if_chain.emplace_back(next_definition, std::move(scoped_body.value()));
             }
 
-            std::optional<std::unique_ptr<IfNode>> if_node = create_if(definition_ctx, scope_segment, if_chain);
+            std::optional<std::unique_ptr<IfNode>> if_node = create_if(definition_ctx, if_chain);
             if (!if_node.has_value()) {
                 return std::nullopt;
             }
@@ -3045,7 +2995,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::FOR: {
-            std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(definition_ctx, scope_segment, scoped_body.value());
+            std::optional<std::unique_ptr<ForLoopNode>> for_loop = create_for_loop(definition_ctx, scoped_body.value());
             if (!for_loop.has_value()) {
                 return std::nullopt;
             }
@@ -3053,9 +3003,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::ENH_FOR: {
-            std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop( //
-                definition_ctx, scope_segment, scoped_body.value()                             //
-            );
+            std::optional<std::unique_ptr<EnhForLoopNode>> enh_for_loop = create_enh_for_loop(definition_ctx, scoped_body.value());
             if (!enh_for_loop.has_value()) {
                 return std::nullopt;
             }
@@ -3063,7 +3011,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::WHILE: {
-            std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(definition_ctx, scope_segment, scoped_body.value());
+            std::optional<std::unique_ptr<WhileNode>> while_loop = create_while_loop(definition_ctx, scoped_body.value());
             if (!while_loop.has_value()) {
                 return std::nullopt;
             }
@@ -3073,9 +3021,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
         case ScopedStmtTrie::Pattern::DO_WHILE: {
             definition_ctx.tokens = body.front().tokens;
             body.erase(body.begin());
-            std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop( //
-                definition_ctx, scope_segment, scoped_body.value()                            //
-            );
+            std::optional<std::unique_ptr<DoWhileNode>> do_while_loop = create_do_while_loop(definition_ctx, scoped_body.value());
             if (!do_while_loop.has_value()) {
                 return std::nullopt;
             }
@@ -3083,9 +3029,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::CATCH: {
-            std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch( //
-                definition_ctx, scope_segment, scoped_body.value(), statements   //
-            );
+            std::optional<std::unique_ptr<CatchNode>> catch_node = create_catch(definition_ctx, scoped_body.value(), statements);
             if (!catch_node.has_value()) {
                 return std::nullopt;
             }
@@ -3093,7 +3037,7 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
             break;
         }
         case ScopedStmtTrie::Pattern::SWITCH: {
-            statement_node = create_switch_statement(definition_ctx, scope_segment, scoped_body.value());
+            statement_node = create_switch_statement(definition_ctx, scoped_body.value());
             if (!statement_node.has_value()) {
                 return std::nullopt;
             }
@@ -3112,7 +3056,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement( /
 
 std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(Context &ctx) {
     std::vector<std::unique_ptr<StatementNode>> body_statements;
-    unsigned int scope_segment = 0;
 
     while (!ctx.scope->lines.empty()) {
         Context statement_ctx = ctx.swap_tokens(ctx.scope->lines.front().tokens);
@@ -3120,10 +3063,10 @@ std::optional<std::vector<std::unique_ptr<StatementNode>>> Parser::create_body(C
         const bool is_scoped = std::prev(statement_ctx.tokens.second)->token == TOK_COLON;
         if (is_scoped) {
             // --- SCOPED STATEMENT (IF, LOOPS, CATCH-BLOCK, SWITCH) ---
-            next_statement = create_scoped_statement(statement_ctx, scope_segment, body_statements);
-            scope_segment++;
+            next_statement = create_scoped_statement(statement_ctx, body_statements);
+            ctx.scope->current_scope_segment++;
         } else {
-            next_statement = create_statement(statement_ctx, scope_segment);
+            next_statement = create_statement(statement_ctx);
             ctx.scope->lines.erase(ctx.scope->lines.begin());
         }
         if (!next_statement.has_value()) {
