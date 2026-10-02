@@ -171,7 +171,7 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
             break;
         case StatementNode::Variation::RETURN: {
             const auto *node = stmt->as<ReturnNode>();
-            env.done = true;
+            env.mode = Env::Mode::RETURN;
             env.result = std::nullopt;
             if (node->return_value.has_value()) {
                 return eval_expr(parser, env, node->return_value.value().get(), Mode::RVALUE);

@@ -203,11 +203,14 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     std::pair<token_slice, std::vector<Line>> this_if_pair = if_chain.front();
     if_chain.erase(if_chain.begin());
 
+    bool is_comptime = false;
     bool has_if = false;
     bool has_else = false;
     // Remove everything in front of the expression (\n, \t, else, if)
     for (auto it = this_if_pair.first.first; it != this_if_pair.first.second; ++it) {
-        if (it->token == TOK_ELSE) {
+        if (it->token == TOK_AT) {
+            is_comptime = true;
+        } else if (it->token == TOK_ELSE) {
             has_else = true;
         } else if (it->token == TOK_IF) {
             has_if = true;
@@ -245,7 +248,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     }
     unsigned int end_line = this_if_pair.second.back().tokens.second->line;
     std::shared_ptr<Scope> body_scope = std::make_shared<Scope>(ctx.scope, std::move(this_if_pair.second));
-    if (ctx.level != ContextLevel::COMPTIME) {
+    if (!is_comptime && ctx.level != ContextLevel::COMPTIME) {
         Context body_ctx = ctx.swap_scope(body_scope);
         if (!parse_scope(body_ctx)) {
             return std::nullopt;
@@ -269,7 +272,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
                 return std::nullopt;
             }
             std::shared_ptr<Scope> else_scope_ptr = std::make_shared<Scope>(ctx.scope, std::move(if_chain.front().second));
-            if (ctx.level != ContextLevel::COMPTIME) {
+            if (!is_comptime && ctx.level != ContextLevel::COMPTIME) {
                 Context else_ctx = ctx.swap_scope(else_scope_ptr);
                 if (!parse_scope(else_ctx)) {
                     return std::nullopt;
@@ -295,7 +298,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     }
     auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
     if_node->end_line = end_line;
-    if (ctx.level == ContextLevel::COMPTIME) {
+    if (is_comptime || ctx.level == ContextLevel::COMPTIME) {
         if (!Evaluator::eval_expr(*this, ctx.env, if_node->condition.get(), Evaluator::Mode::RVALUE)) {
             THROW_BASIC_ERR(ERR_EVAL);
             return std::nullopt;
@@ -306,14 +309,30 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
         }
         ASSERT(ctx.env.result.value()->get_variation() == Value::Variation::BOOL);
         if (ctx.env.result.value()->as<BoolValue>()->value) {
-            // The 'if' condition evaluates to 'true', so we evaluate only this scope
-            if (!Evaluator::eval_scope(*this, ctx.env, if_node->then_scope)) {
-                THROW_BASIC_ERR(ERR_EVAL);
-                return std::nullopt;
+            // The 'if' condition evaluates to 'true', so we either parse or evaluate this scope
+            if (ctx.level == ContextLevel::COMPTIME) {
+                if (!Evaluator::eval_scope(*this, ctx.env, if_node->then_scope)) {
+                    THROW_BASIC_ERR(ERR_EVAL);
+                    return std::nullopt;
+                }
+            } else {
+                Context if_ctx = ctx.swap_scope(if_node->then_scope);
+                if (!parse_scope(if_ctx)) {
+                    return std::nullopt;
+                }
+                for (auto &[var_name, variable] : if_node->then_scope->variables) {
+                    variable.scope_id = ctx.scope->scope_id;
+                    variable.scope_segment = ctx.scope->current_scope_segment;
+                    ctx.scope->add_variable(var_name, variable);
+                }
+                for (auto &stmt : if_node->then_scope->body) {
+                    ctx.scope->body.emplace_back(std::move(stmt));
+                }
+                ctx.env.mode = Env::Mode::IF;
             }
             return if_node;
         }
-        ctx.env.done = false;
+        ctx.env.mode = Env::Mode::EVAL;
         ctx.env.result = std::nullopt;
         // The 'if' condition evaluated to 'false', so we evaluate the condition of the next if in the chain, until we either evaluated all
         // conditions and all conditions result to 'false', or we reached the 'else' branch and just evaluate that one
@@ -323,9 +342,26 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
         while (else_branch->has_value()) {
             if (std::holds_alternative<std::shared_ptr<Scope>>(else_branch->value())) {
                 auto &else_branch_scope = std::get<std::shared_ptr<Scope>>(else_branch->value());
-                if (!Evaluator::eval_scope(*this, ctx.env, else_branch_scope)) {
-                    THROW_BASIC_ERR(ERR_EVAL);
-                    return std::nullopt;
+                if (ctx.level == ContextLevel::COMPTIME) {
+                    if (!Evaluator::eval_scope(*this, ctx.env, else_branch_scope)) {
+                        THROW_BASIC_ERR(ERR_EVAL);
+                        return std::nullopt;
+                    }
+                } else {
+                    Context if_ctx = ctx.swap_scope(else_branch_scope);
+                    if (!parse_scope(if_ctx)) {
+                        return std::nullopt;
+                    }
+                    ctx.env.mode = Env::Mode::IF;
+                    for (auto &[var_name, variable] : else_branch_scope->variables) {
+                        variable.scope_id = ctx.scope->scope_id;
+                        variable.scope_segment = ctx.scope->current_scope_segment;
+                        ctx.scope->add_variable(var_name, variable);
+                    }
+                    for (auto &stmt : else_branch_scope->body) {
+                        ctx.scope->body.emplace_back(std::move(stmt));
+                    }
+                    ctx.env.mode = Env::Mode::IF;
                 }
                 break;
             }
@@ -341,15 +377,35 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
             }
             ASSERT(ctx.env.result.value()->get_variation() == Value::Variation::BOOL);
             if (ctx.env.result.value()->as<BoolValue>()->value) {
-                if (!Evaluator::eval_scope(*this, ctx.env, else_if->then_scope)) {
-                    THROW_BASIC_ERR(ERR_EVAL);
-                    return std::nullopt;
+                if (ctx.level == ContextLevel::COMPTIME) {
+                    if (!Evaluator::eval_scope(*this, ctx.env, else_if->then_scope)) {
+                        THROW_BASIC_ERR(ERR_EVAL);
+                        return std::nullopt;
+                    }
+                } else {
+                    Context if_ctx = ctx.swap_scope(else_if->then_scope);
+                    if (!parse_scope(if_ctx)) {
+                        return std::nullopt;
+                    }
+                    ctx.env.mode = Env::Mode::IF;
+                    for (auto &[var_name, variable] : else_if->then_scope->variables) {
+                        variable.scope_id = ctx.scope->scope_id;
+                        variable.scope_segment = ctx.scope->current_scope_segment;
+                        ctx.scope->add_variable(var_name, variable);
+                    }
+                    for (auto &stmt : else_if->then_scope->body) {
+                        ctx.scope->body.emplace_back(std::move(stmt));
+                    }
+                    ctx.env.mode = Env::Mode::IF;
                 }
                 return if_node;
             }
             else_branch = &else_if->else_scope;
-            ctx.env.done = false;
+            ctx.env.mode = Env::Mode::EVAL;
             ctx.env.result = std::nullopt;
+        }
+        if (is_comptime) {
+            ctx.env.mode = Env::Mode::IF;
         }
     }
     return if_node;
@@ -3090,12 +3146,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_scoped_statement(Co
 bool Parser::parse_scope(Context &ctx) {
     for (auto &stmt : ctx.scope->body) {
         if (ctx.level == ContextLevel::COMPTIME) {
-            ctx.env.done = false;
+            ctx.env.mode = Env::Mode::EVAL;
             ctx.env.result = std::nullopt;
             if (!Evaluator::eval_stmt(*this, ctx.env, stmt.get())) {
                 return false;
             }
-            if (ctx.env.done) {
+            if (ctx.env.mode == Env::Mode::RETURN) {
                 return true;
             }
             continue;
@@ -3213,7 +3269,7 @@ bool Parser::parse_scope(Context &ctx) {
         }
     }
     while (!ctx.scope->lines.empty()) {
-        ctx.env.done = false;
+        ctx.env.mode = Env::Mode::EVAL;
         ctx.env.result = std::nullopt;
         Context statement_ctx = ctx.swap_tokens(ctx.scope->lines.front().tokens);
         std::optional<std::unique_ptr<StatementNode>> next_statement = std::nullopt;
@@ -3233,8 +3289,11 @@ bool Parser::parse_scope(Context &ctx) {
             THROW_BASIC_ERR(ERR_EVAL);
             return false;
         }
-        ctx.scope->body.emplace_back(std::move(next_statement.value()));
-        if (ctx.level == ContextLevel::COMPTIME && ctx.env.done) {
+        if (ctx.env.mode != Env::Mode::IF) {
+            // Don't add the comptime-only if as the statements of the correctly evaluated body were already inlined into the scope
+            ctx.scope->body.emplace_back(std::move(next_statement.value()));
+        }
+        if (ctx.level == ContextLevel::COMPTIME && ctx.env.mode == Env::Mode::RETURN) {
             return true;
         }
     }

@@ -1,0 +1,10 @@
+use Core.print
+
+def main():
+	@if false:
+		print("Not in executable\n");
+	@if true:
+		print("Inlined in executable\n");
+		i32 x = 10;
+	print($"x = {x}\n");
+	print("Present\n");

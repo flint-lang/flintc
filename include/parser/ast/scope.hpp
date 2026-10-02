@@ -144,7 +144,7 @@ class Scope {
     /// @return `bool` Whether the cloning was successful
     bool clone_variables(const std::shared_ptr<Scope> other);
 
-    /// @function `add_variable_type`
+    /// @function `add_variable`
     /// @brief Adds the given variable and its type to the list of variable types
     ///
     /// @param `var_name` The name of the added variable

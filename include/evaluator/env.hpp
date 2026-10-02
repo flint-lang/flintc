@@ -6,6 +6,22 @@
 /// @struct `Env`
 /// @brief The compile-time environment when evaluating a function call
 struct Env {
+    /// @enum `Mode`
+    /// @brief The current mode of the environment evaluation
+    enum class Mode {
+        // The regular evaluation mode, so just continue evaluating
+        EVAL,
+        // The mode the evaluator switches to after a return statement is parsed, to notify that the current call needs to end
+        RETURN,
+        // The mode the evaluator switches to after successfully evaluating a compile-time-only if statement to notify the "outside" that
+        // the scope of the if needs to be inlined into the outer scope
+        IF,
+        // The mode the evaluator switches to when reaching a 'break' statement to break out of the loop / switch it is currently in
+        BREAK,
+        // The mode the evaluator switches to when reaching a 'continue' statement to continue to the next iteration of a loop
+        CONTINUE,
+    };
+
     /// @var `lvalue_stack`
     /// @brief A stack of all lvalue references needed for the evaluator
     std::stack<std::shared_ptr<Value> *> lvalue_stack{};
@@ -14,9 +30,9 @@ struct Env {
     /// @brief The result of evaluating something at comptime
     std::optional<std::shared_ptr<Value>> result{std::nullopt};
 
-    /// @var `done`
-    /// @brief Whether evaluation is done (either through an error or because of a present result)
-    bool done{false};
+    /// @var `mode`
+    /// @brief The current mode of the evaluation environment
+    Mode mode{Mode::EVAL};
 
     /// @function `declare`
     /// @brief Binds a comptime value to a name in this environment

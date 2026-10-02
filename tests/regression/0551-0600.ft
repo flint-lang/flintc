@@ -131,3 +131,8 @@ test "0572":
 	str path = "regression/0551-0600";
 	str file = "0572.ft";
 	test_file_ok($"{path}/{file}", "r1 = 40\nr2 = 60\nr3 = 100\n");
+
+test "0573":
+	str path = "regression/0551-0600";
+	str file = "0573.ft";
+	test_file_ok($"{path}/{file}", "Inlined in executable\nx = 10\nPresent\n");
