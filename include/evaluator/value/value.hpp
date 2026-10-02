@@ -16,6 +16,7 @@ class Value {
     /// @enum `Variation`
     /// @brief A enum describing which value variations exist
     enum class Variation {
+        ARRAY,
         BOOL,
         CHAR,
         FLOAT,

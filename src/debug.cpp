@@ -485,6 +485,9 @@ namespace Debug {
         void print_comptime(unsigned int indent_lvl, TreeBits &bits, const ComptimeNode &comptime) {
             Local::print_header(indent_lvl, bits, "Comptime Value ");
             switch (comptime.value->get_variation()) {
+                case Value::Variation::ARRAY:
+                    std::cout << comptime.type->to_string() << ": Array value not shown here" << std::endl;
+                    break;
                 case Value::Variation::BOOL: {
                     auto *const value = comptime.value->as<BoolValue>();
                     std::cout << "[bool->" << comptime.type->to_string() << "]: ";

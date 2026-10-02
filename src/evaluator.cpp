@@ -1,10 +1,12 @@
 #include "evaluator/evaluator.hpp"
 
+#include "evaluator/value/array_value.hpp"
 #include "evaluator/value/bool_value.hpp"
 #include "evaluator/value/char_value.hpp"
 #include "evaluator/value/float_value.hpp"
 #include "evaluator/value/int_value.hpp"
 #include "evaluator/value/str_value.hpp"
+#include "parser/ast/expressions/array_access_node.hpp"
 #include "parser/ast/expressions/call_node_expression.hpp"
 #include "parser/ast/expressions/comptime_node.hpp"
 #include "parser/ast/expressions/variable_node.hpp"
@@ -12,7 +14,10 @@
 #include "parser/ast/statements/declaration_node.hpp"
 #include "parser/ast/statements/return_node.hpp"
 #include "parser/ast/statements/statement_node.hpp"
+
+#include "types.hpp"
 #include <cstddef>
+#include <memory>
 #include <variant>
 
 std::pair<std::optional<std::shared_ptr<Value>>, bool> Evaluator::eval_function( //
@@ -49,14 +54,48 @@ bool Evaluator::eval_scope(Parser &parser, Env &env, std::shared_ptr<Scope> &sco
 bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
     switch (stmt->get_variation()) {
         case StatementNode::Variation::ARRAY_ASSIGNMENT: {
-            [[maybe_unused]] auto *const node = stmt->as<ArrayAssignmentNode>();
-            // TODO: How to "assign" into an lhs reference at all?
-
+            auto *const node = stmt->as<ArrayAssignmentNode>();
+            std::vector<size_t> indices;
+            for (const auto &index_expr : node->indexing_expressions) {
+                if (!eval_expr(parser, env, index_expr.get(), Mode::RVALUE)) {
+                    return false;
+                }
+                if (!env.result.has_value()) {
+                    return false;
+                }
+                ASSERT(env.result.value()->get_variation() == Value::Variation::INT);
+                const PosTriple expr_pos = PosTriple{
+                    .line = index_expr->line,
+                    .column = index_expr->column,
+                    .length = index_expr->length,
+                };
+                indices.emplace_back(env.result.value()->as<IntValue>()->value.to_uN<size_t>(index_expr->file_hash, expr_pos).value());
+            }
+            if (!eval_expr(parser, env, node->expression.get(), Evaluator::Mode::RVALUE)) {
+                return false;
+            }
+            if (!env.result.has_value()) {
+                return false;
+            }
+            const std::shared_ptr<Value> rhs_value = env.result.value();
+            env.result = std::nullopt;
+            if (!eval_expr(parser, env, node->base_expr.get(), Evaluator::Mode::RVALUE)) {
+                return false;
+            }
+            if (!env.result.has_value()) {
+                return false;
+            }
+            ArrayValue *base = env.result.value()->as<ArrayValue>();
+            std::optional<std::shared_ptr<Value> *> target = base->get_value_at(indices);
+            if (!target.has_value()) {
+                return false;
+            }
+            *(target.value()) = rhs_value;
             break;
         }
         case StatementNode::Variation::ASSIGNMENT: {
             auto *const node = stmt->as<AssignmentNode>();
-            if (!eval_expr(parser, env, node->expression.get()) || !env.result.has_value()) {
+            if (!eval_expr(parser, env, node->expression.get(), Mode::RVALUE) || !env.result.has_value()) {
                 return false;
             }
             env.assign(node->name, env.result.value());
@@ -77,7 +116,7 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
             break;
         case StatementNode::Variation::DECLARATION: {
             auto *const node = stmt->as<DeclarationNode>();
-            if (!eval_expr(parser, env, node->initializer.get()) || !env.result.has_value()) {
+            if (!eval_expr(parser, env, node->initializer.get(), Mode::RVALUE) || !env.result.has_value()) {
                 return false;
             }
             env.declare(node->name, env.result.value());
@@ -99,7 +138,7 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
             break;
         case StatementNode::Variation::IF: {
             auto *const node = stmt->as<IfNode>();
-            if (!eval_expr(parser, env, node->condition.get()) || !env.result.has_value()) {
+            if (!eval_expr(parser, env, node->condition.get(), Mode::RVALUE) || !env.result.has_value()) {
                 return false;
             }
             ASSERT(env.result.value()->get_variation() == Value::Variation::BOOL);
@@ -116,7 +155,7 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
                 }
 
                 auto &else_if = std::get<std::unique_ptr<IfNode>>(else_scope->value());
-                if (!eval_expr(parser, env, else_if->condition.get()) || !env.result.has_value()) {
+                if (!eval_expr(parser, env, else_if->condition.get(), Mode::RVALUE) || !env.result.has_value()) {
                     return false;
                 }
                 ASSERT(env.result.value()->get_variation() == Value::Variation::BOOL);
@@ -135,7 +174,7 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
             env.done = true;
             env.result = std::nullopt;
             if (node->return_value.has_value()) {
-                return eval_expr(parser, env, node->return_value.value().get());
+                return eval_expr(parser, env, node->return_value.value().get(), Mode::RVALUE);
             }
             break;
         }
@@ -151,20 +190,83 @@ bool Evaluator::eval_stmt(Parser &parser, Env &env, StatementNode *const stmt) {
     return true;
 }
 
-bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr) {
+bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr, const Mode mode) {
     switch (expr->get_variation()) {
-        case ExpressionNode::Variation::ARRAY_ACCESS:
+        case ExpressionNode::Variation::ARRAY_ACCESS: {
+            auto *const node = expr->as<ArrayAccessNode>();
+            std::vector<size_t> indices;
+            for (const auto &index_expr : node->indexing_expressions) {
+                if (!eval_expr(parser, env, index_expr.get(), Mode::RVALUE)) {
+                    return false;
+                }
+                if (!env.result.has_value()) {
+                    return false;
+                }
+                ASSERT(env.result.value()->get_variation() == Value::Variation::INT);
+                const PosTriple expr_pos = PosTriple{
+                    .line = index_expr->line,
+                    .column = index_expr->column,
+                    .length = index_expr->length,
+                };
+                indices.emplace_back(env.result.value()->as<IntValue>()->value.to_uN<size_t>(index_expr->file_hash, expr_pos).value());
+            }
+            env.result = std::nullopt;
+            if (!eval_expr(parser, env, node->base_expr.get(), Evaluator::Mode::RVALUE)) {
+                return false;
+            }
+            if (!env.result.has_value()) {
+                return false;
+            }
+            ArrayValue *base = env.result.value()->as<ArrayValue>();
+            std::optional<std::shared_ptr<Value> *> target = base->get_value_at(indices);
+            if (!target.has_value()) {
+                return false;
+            }
+            env.result = *target.value();
             break;
-        case ExpressionNode::Variation::ARRAY_INITIALIZER:
+        }
+        case ExpressionNode::Variation::ARRAY_INITIALIZER: {
+            ASSERT(mode == Mode::RVALUE);
+            auto *const node = expr->as<ArrayInitializerNode>();
+            std::vector<size_t> sizes;
+            for (const auto &length_expr : node->length_expressions) {
+                if (!eval_expr(parser, env, length_expr.get(), Mode::RVALUE)) {
+                    return false;
+                }
+                if (!env.result.has_value()) {
+                    return false;
+                }
+                ASSERT(env.result.value()->get_variation() == Value::Variation::INT);
+                const PosTriple expr_pos = PosTriple{
+                    .line = length_expr->line,
+                    .column = length_expr->column,
+                    .length = length_expr->length,
+                };
+                sizes.emplace_back(env.result.value()->as<IntValue>()->value.to_uN<size_t>(length_expr->file_hash, expr_pos).value());
+            }
+            if (!eval_expr(parser, env, node->initializer_value.get(), Mode::RVALUE)) {
+                return false;
+            }
+            if (!env.result.has_value()) {
+                return false;
+            }
+            std::shared_ptr<Type> array_type = std::make_shared<ArrayType>(sizes.size(), node->element_type, sizes);
+            if (!parser.file_node_ptr->file_namespace->add_type(array_type)) {
+                array_type = parser.file_node_ptr->file_namespace->get_type_from_str(array_type->to_string()).value();
+            }
+            env.result = make_shared<ArrayValue>(env.result.value(), array_type);
             break;
+        }
         case ExpressionNode::Variation::BINARY_OP:
+            ASSERT(mode == Mode::RVALUE);
             return eval_binop(parser, env, expr->as<BinaryOpNode>());
         case ExpressionNode::Variation::CALL: {
+            ASSERT(mode == Mode::RVALUE);
+            // TODO: Once complex comptime values (like data) exist the arguments need to be RLVALUEs
             auto *const node = expr->as<CallNodeExpression>();
             std::vector<std::shared_ptr<Value>> args;
             for (size_t i = 0; i < node->arguments.size(); i++) {
-                const bool evaluated = eval_expr(parser, env, node->arguments.at(i).first.get());
-                if (!evaluated) {
+                if (!eval_expr(parser, env, node->arguments.at(i).first.get(), Mode::RVALUE)) {
                     return false;
                 }
                 if (!env.result.has_value()) {
@@ -185,6 +287,7 @@ bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr) 
         case ExpressionNode::Variation::CALLABLE_CALL:
             break;
         case ExpressionNode::Variation::COMPTIME: {
+            ASSERT(mode == Mode::RVALUE);
             env.result = expr->as<ComptimeNode>()->value;
             return true;
         }
@@ -200,11 +303,14 @@ bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr) 
             break;
         case ExpressionNode::Variation::INITIALIZER:
             break;
-        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER:
+        case ExpressionNode::Variation::INLINE_ARRAY_INITIALIZER: {
+            UNREACHABLE();
             break;
+        }
         case ExpressionNode::Variation::INSTANCE_CALL:
             break;
         case ExpressionNode::Variation::LITERAL:
+            ASSERT(mode == Mode::RVALUE);
             return eval_literal(env, expr->as<LiteralNode>());
         case ExpressionNode::Variation::OPTIONAL_CHAIN:
             break;
@@ -221,14 +327,30 @@ bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr) 
         case ExpressionNode::Variation::SWITCH_MATCH:
             break;
         case ExpressionNode::Variation::TYPE_CAST:
-            break;
+            return eval_expr(parser, env, expr->as<TypeCastNode>()->expr.get(), mode);
         case ExpressionNode::Variation::TYPE:
             break;
         case ExpressionNode::Variation::UNARY_OP:
             break;
-        case ExpressionNode::Variation::VARIABLE:
-            env.result = env.lookup(expr->as<VariableNode>()->name);
+        case ExpressionNode::Variation::VARIABLE: {
+            std::optional<std::shared_ptr<Value> *> addr = env.lookup(expr->as<VariableNode>()->name);
+            if (!addr.has_value()) {
+                return false;
+            }
+            switch (mode) {
+                case Mode::RVALUE:
+                    env.result = *addr.value();
+                    break;
+                case Mode::LVALUE:
+                    env.lvalue_stack.emplace(addr.value());
+                    break;
+                case Mode::RLVALUE:
+                    env.result = *addr.value();
+                    env.lvalue_stack.emplace(addr.value());
+                    break;
+            }
             return true;
+        }
         case ExpressionNode::Variation::VARIANT_EXTRACTION:
             break;
         case ExpressionNode::Variation::VARIANT_UNWRAP:
@@ -238,11 +360,11 @@ bool Evaluator::eval_expr(Parser &parser, Env &env, ExpressionNode *const expr) 
 }
 
 bool Evaluator::eval_binop(Parser &parser, Env &env, BinaryOpNode *const binop) {
-    const bool lhs_evaluated = eval_expr(parser, env, binop->left.get());
+    const bool lhs_evaluated = eval_expr(parser, env, binop->left.get(), Mode::RVALUE);
     const auto lhs = env.result;
     env.result = std::nullopt;
 
-    const bool rhs_evaluated = eval_expr(parser, env, binop->right.get());
+    const bool rhs_evaluated = eval_expr(parser, env, binop->right.get(), Mode::RVALUE);
     const auto rhs = env.result;
     env.result = std::nullopt;
 

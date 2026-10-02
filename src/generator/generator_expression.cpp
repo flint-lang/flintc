@@ -2940,6 +2940,9 @@ Generator::group_mapping Generator::Expression::generate_comptime_value( //
         .length = comptime_node->length,
     };
     switch (comptime_node->value->get_variation()) {
+        case Value::Variation::ARRAY:
+            UNREACHABLE();
+            break;
         case Value::Variation::BOOL:
             return std::vector<llvm::Value *>{builder.getInt1(comptime_node->value->as<BoolValue>()->value)};
         case Value::Variation::CHAR:

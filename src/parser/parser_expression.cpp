@@ -601,7 +601,7 @@ std::optional<std::unique_ptr<ExpressionNode>> Parser::create_call_expression( /
         simple_call_node->scope_id = ctx.scope->scope_id;
         if (ret->is_comptime) {
             last_parsed_call = std::nullopt;
-            if (!Evaluator::eval_expr(*this, ctx.env, simple_call_node.get())) {
+            if (!Evaluator::eval_expr(*this, ctx.env, simple_call_node.get(), Evaluator::Mode::RVALUE)) {
                 THROW_BASIC_ERR(ERR_EVAL);
                 return std::nullopt;
             }

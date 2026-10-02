@@ -296,7 +296,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
     auto if_node = std::make_unique<IfNode>(file_hash, this_if_pair.first, condition.value(), body_scope, else_scope);
     if_node->end_line = end_line;
     if (ctx.level == ContextLevel::COMPTIME) {
-        if (!Evaluator::eval_expr(*this, ctx.env, if_node->condition.get())) {
+        if (!Evaluator::eval_expr(*this, ctx.env, if_node->condition.get(), Evaluator::Mode::RVALUE)) {
             THROW_BASIC_ERR(ERR_EVAL);
             return std::nullopt;
         }
@@ -331,7 +331,7 @@ std::optional<std::unique_ptr<IfNode>> Parser::create_if(Context &ctx, std::vect
             }
 
             auto &else_if = std::get<std::unique_ptr<IfNode>>(else_branch->value());
-            if (!Evaluator::eval_expr(*this, ctx.env, else_if->condition.get())) {
+            if (!Evaluator::eval_expr(*this, ctx.env, else_if->condition.get(), Evaluator::Mode::RVALUE)) {
                 THROW_BASIC_ERR(ERR_EVAL);
                 return std::nullopt;
             }
@@ -2850,7 +2850,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
         case StmtTrie::Pattern::GROUPED_ARRAY_ASSIGNMENT_SHORTHAND: {
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             return std::nullopt;
-            break;
         }
         case StmtTrie::Pattern::ASSIGNMENT: {
             std::optional<AssignmentNode> assign = create_assignment(ctx, rhs);
@@ -2884,12 +2883,6 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
                 return std::nullopt;
             }
             statement_node = std::make_unique<ReturnNode>(std::move(return_node.value()));
-            if (ctx.level == ContextLevel::COMPTIME) {
-                if (!Evaluator::eval_stmt(*this, ctx.env, statement_node.value().get())) {
-                    ctx.env.result = std::nullopt;
-                }
-                ctx.env.done = true;
-            }
             break;
         }
         case StmtTrie::Pattern::THROW: {
@@ -2943,10 +2936,9 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
             }
             break;
         }
-        case StmtTrie::Pattern::FUNCTION_CALL: {
+        case StmtTrie::Pattern::FUNCTION_CALL:
             statement_node = create_call_statement(ctx, std::nullopt);
             break;
-        }
         case StmtTrie::Pattern::UNARY_OP: {
             std::optional<UnaryOpStatement> unary_op = create_unary_op_statement(ctx);
             if (!unary_op.has_value()) {
@@ -2955,14 +2947,12 @@ std::optional<std::unique_ptr<StatementNode>> Parser::create_statement(Context &
             statement_node = std::make_unique<UnaryOpStatement>(std::move(unary_op.value()));
             break;
         }
-        case StmtTrie::Pattern::BREAK: {
+        case StmtTrie::Pattern::BREAK:
             statement_node = std::make_unique<BreakNode>(file_hash, ctx.tokens);
             break;
-        }
-        case StmtTrie::Pattern::CONTINUE: {
+        case StmtTrie::Pattern::CONTINUE:
             statement_node = std::make_unique<ContinueNode>(file_hash, ctx.tokens);
             break;
-        }
     }
     if (!statement_node.has_value()) {
         return std::nullopt;
@@ -3237,6 +3227,10 @@ bool Parser::parse_scope(Context &ctx) {
             ctx.scope->lines.erase(ctx.scope->lines.begin());
         }
         if (!next_statement.has_value()) {
+            return false;
+        }
+        if (ctx.level == ContextLevel::COMPTIME && !is_scoped && !Evaluator::eval_stmt(*this, ctx.env, next_statement.value().get())) {
+            THROW_BASIC_ERR(ERR_EVAL);
             return false;
         }
         ctx.scope->body.emplace_back(std::move(next_statement.value()));

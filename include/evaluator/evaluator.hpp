@@ -22,6 +22,20 @@ class Evaluator {
   public:
     Evaluator() = delete;
 
+    /// @enum `Mode`
+    /// @brief The evaluation mode, needed for expression evaluation
+    enum class Mode {
+        // When evaluating the expression the result is an rvalue, e.g. an explicit value. In this mode the result of the expression is
+        // *stored* in the `env.result` field
+        RVALUE,
+        // When evaluating the expression the result is an lvalue, e.g. an *address*. When this mode is active the result *address* (not
+        // loading the result) is pushed onto the `env.lvalue_stack` field
+        LVALUE,
+        // When evaluating the expression the result is both an rvalue and an lvalue, so the value is both loaded and stored in `env.result`
+        // and its address is stored in the `env.lvalue_stack` as well
+        RLVALUE,
+    };
+
     /// @function `eval_function`
     /// @brief Evaluates the given function and returns the compile-time value resulting from it
     ///
@@ -62,8 +76,9 @@ class Evaluator {
     /// @param `parser` The parser instance in which to evaluate the given expression. Needed for on-demand parsing
     /// @param `env` The environment of the evaluation containing variables etc
     /// @param `expr` The expression to evaluate
+    /// @param `mode` The mode in which to evaluate the expression
     /// @return `bool` Whether the expression was fully evaluated or failed
-    [[nodiscard]] static bool eval_expr(Parser &parser, Env &env, ExpressionNode *const expr);
+    [[nodiscard]] static bool eval_expr(Parser &parser, Env &env, ExpressionNode *const expr, const Mode mode);
 
     /// @function `eval_binop`
     /// @brief Evaluates the given binary operator expression and returns the compile-time value resulting from it
