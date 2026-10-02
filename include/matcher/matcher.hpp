@@ -526,6 +526,16 @@ class Matcher {
         return std::make_shared<LookbehindMatcher<true>>(pattern, matcher);
     }
 
+    /// @function `may_be_preceded_by`
+    /// @brief Returns the pattern which may be preceded by the given pattern
+    ///
+    /// @param `pattern` The pattern that may preced
+    /// @param `matcher` The pattern that should actually be matched
+    /// @return `PatternPtr` The created pattern
+    static inline PatternPtr may_be_preceded_by(PatternPtr pattern, PatternPtr matcher) {
+        return one_of({sequence({pattern, matcher}), matcher});
+    }
+
     /// @function `not_p`
     /// @brief Returns the pattern to not match the given pattern
     ///
@@ -595,99 +605,14 @@ class Matcher {
     }
 
   public:
-    // --- Symbols ---
-    static const inline PatternPtr symbol_single = one_of({
-        token(TOK_LEFT_PAREN),
-        token(TOK_RIGHT_PAREN),
-        token(TOK_LEFT_BRACKET),
-        token(TOK_RIGHT_BRACKET),
-        token(TOK_LEFT_BRACE),
-        token(TOK_RIGHT_BRACE),
-        token(TOK_COMMA),
-        token(TOK_DOT),
-        token(TOK_SEMICOLON),
-        token(TOK_COLON),
-        token(TOK_QUESTION),
-        token(TOK_EXCLAMATION),
-        token(TOK_UNDERSCORE),
-        token(TOK_ANNOTATION),
-        token(TOK_DOLLAR),
-    });
-    static const inline PatternPtr symbol_dual = one_of({
-        token(TOK_ARROW),
-        token(TOK_PIPE),
-        token(TOK_REFERENCE),
-        token(TOK_OPT_DEFAULT),
-    });
-    static const inline PatternPtr symbol_arithmetic = one_of({
-        token(TOK_PLUS),
-        token(TOK_MINUS),
-        token(TOK_MULT),
-        token(TOK_DIV),
-        token(TOK_MOD),
-        token(TOK_POW),
-    });
-    static const inline PatternPtr symbol_assign = one_of({
-        token(TOK_INCREMENT),
-        token(TOK_DECREMENT),
-        token(TOK_PLUS_EQUALS),
-        token(TOK_MINUS_EQUALS),
-        token(TOK_MULT_EQUALS),
-        token(TOK_DIV_EQUALS),
-        token(TOK_COLON_EQUAL),
-        token(TOK_EQUAL),
-    });
-    static const inline PatternPtr symbol_relational = one_of({
-        token(TOK_EQUAL_EQUAL),
-        token(TOK_NOT_EQUAL),
-        token(TOK_LESS),
-        token(TOK_LESS_EQUAL),
-        token(TOK_GREATER),
-        token(TOK_GREATER_EQUAL),
-    });
-    static const inline PatternPtr symbol_bitwise = one_of({
-        token(TOK_SHIFT_LEFT),
-        token(TOK_SHIFT_RIGHT),
-        token(TOK_BIT_AND),
-        token(TOK_BIT_OR),
-        token(TOK_BIT_XOR),
-        token(TOK_BIT_NEG),
-    });
-    static const inline PatternPtr symbol = one_of({
-        symbol_single,
-        symbol_dual,
-        symbol_arithmetic,
-        symbol_assign,
-        symbol_relational,
-        symbol_bitwise,
-    });
-
     // --- Keywords ---
-    static const inline PatternPtr keyword_relational = one_of({TOK_AND, TOK_OR, TOK_NOT});
-    static const inline PatternPtr keyword_branching = one_of({TOK_IF, TOK_ELSE, TOK_SWITCH});
-    static const inline PatternPtr keyword_looping = one_of({TOK_FOR, TOK_WHILE, TOK_IN, TOK_BREAK, TOK_CONTINUE});
-    static const inline PatternPtr keyword_function = one_of({TOK_DEF, TOK_RETURN, TOK_FN, TOK_BP});
-    static const inline PatternPtr keyword_error = one_of({TOK_ERROR, TOK_THROW, TOK_CATCH});
-    static const inline PatternPtr keyword_variant = one_of({TOK_VARIANT, TOK_ENUM});
-    static const inline PatternPtr keyword_import = one_of({TOK_USE, TOK_AS});
-    static const inline PatternPtr keyword_data = one_of({TOK_DATA, TOK_SHARED});
-    static const inline PatternPtr keyword_func = one_of({TOK_INTERFACE, TOK_FUNC, TOK_REQUIRES});
-    static const inline PatternPtr keyword_object = one_of({TOK_OBJECT, TOK_IMPLEMENTS});
-    static const inline PatternPtr keyword_threading = one_of({TOK_SPAWN, TOK_SYNC, TOK_LOCK});
-    static const inline PatternPtr keyword_modifiers = one_of({TOK_CONST, TOK_MUT, TOK_PERSISTENT});
-    static const inline PatternPtr keyword_test = token(TOK_TEST);
-    static const inline PatternPtr keyword = one_of({
-        keyword_function,
-        keyword_error,
-        keyword_variant,
-        keyword_import,
-        keyword_data,
-        keyword_func,
-        keyword_object,
-        keyword_threading,
-        keyword_modifiers,
-        keyword_test,
-    });
+    static const inline PatternPtr keyword_if = may_be_preceded_by(token(TOK_AT), token(TOK_IF));
+    static const inline PatternPtr keyword_else = may_be_preceded_by(token(TOK_AT), token(TOK_ELSE));
+    static const inline PatternPtr keyword_switch = may_be_preceded_by(token(TOK_AT), token(TOK_SWITCH));
+    static const inline PatternPtr keyword_for = may_be_preceded_by(token(TOK_AT), token(TOK_FOR));
+    static const inline PatternPtr keyword_do = may_be_preceded_by(token(TOK_AT), token(TOK_DO));
+    static const inline PatternPtr keyword_while = may_be_preceded_by(token(TOK_AT), token(TOK_WHILE));
+    static const inline PatternPtr keyword_def = may_be_preceded_by(token(TOK_AT), token(TOK_DEF));
 
     // --- UNTILS ---
     static const inline PatternPtr balancer_left = one_of({TOK_LEFT_PAREN, TOK_LEFT_BRACKET, TOK_LEFT_BRACE});
@@ -975,9 +900,9 @@ class Matcher {
     static const inline PatternPtr array_assignment_shorthand = sequence({array_access, assignment_shorthand_operator});
     static const inline PatternPtr grouped_array_assignment = sequence({grouped_array_access, token(TOK_EQUAL)});
     static const inline PatternPtr grouped_array_assignment_shorthand = sequence({grouped_array_access, assignment_shorthand_operator});
-    static const inline PatternPtr for_loop = sequence({token(TOK_FOR), until_semicolon, until_semicolon, until_colon});
+    static const inline PatternPtr for_loop = sequence({keyword_for, until_semicolon, until_semicolon, until_colon});
     static const inline PatternPtr enhanced_for_loop = sequence({
-        token(TOK_FOR),
+        keyword_for,
         one_of({
             sequence({
                 token(TOK_LEFT_PAREN),                    //
@@ -990,16 +915,16 @@ class Matcher {
         }),                                               //
         token(TOK_IN), until_colon                        //
     });
-    static const inline PatternPtr while_loop = sequence({token(TOK_WHILE), until_colon});
-    static const inline PatternPtr do_while_loop = sequence({token(TOK_DO), token(TOK_COLON)});
-    static const inline PatternPtr if_statement = sequence({token(TOK_IF), until_colon});
-    static const inline PatternPtr else_if_statement = sequence({token(TOK_ELSE), token(TOK_IF), until_colon});
-    static const inline PatternPtr else_statement = sequence({token(TOK_ELSE), until_colon});
+    static const inline PatternPtr while_loop = sequence({keyword_while, until_colon});
+    static const inline PatternPtr do_while_loop = sequence({keyword_do, token(TOK_COLON)});
+    static const inline PatternPtr if_statement = sequence({keyword_if, until_colon});
+    static const inline PatternPtr else_if_statement = sequence({keyword_else, token(TOK_IF), until_colon});
+    static const inline PatternPtr else_statement = sequence({keyword_else, until_colon});
     static const inline PatternPtr return_statement = sequence({token(TOK_RETURN), optional(one_of({until_semicolon, until_colon}))});
     static const inline PatternPtr throw_statement = sequence({token(TOK_THROW), until_semicolon});
     static const inline PatternPtr break_statement = sequence({token(TOK_BREAK), token(TOK_SEMICOLON)});
     static const inline PatternPtr continue_statement = sequence({token(TOK_CONTINUE), token(TOK_SEMICOLON)});
-    static const inline PatternPtr switch_statement = sequence({token(TOK_SWITCH), until_colon});
+    static const inline PatternPtr switch_statement = sequence({keyword_switch, until_colon});
 
     // --- ERROR HANDLING ---
     static const inline PatternPtr catch_statement = sequence({
