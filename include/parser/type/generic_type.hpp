@@ -29,8 +29,8 @@ class GenericType : public Type {
         return false;
     }
 
-    bool is_runtime_compatible() const override {
-        return false;
+    bool is_runtime_compatible([[maybe_unused]] const bool allow_unknown, const bool allow_generic) const override {
+        return allow_generic;
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //

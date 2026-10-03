@@ -36,14 +36,14 @@ class FnType : public Type {
         return false;
     }
 
-    bool is_runtime_compatible() const override {
+    bool is_runtime_compatible(const bool allow_unknown, const bool allow_generic) const override {
         for (const auto &[type, is_mutable] : params) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(allow_unknown, allow_generic)) {
                 return false;
             }
         }
         for (const auto &type : return_types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(allow_unknown, allow_generic)) {
                 return false;
             }
         }

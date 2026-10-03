@@ -208,6 +208,12 @@ std::vector<FunctionNode *> Namespace::get_functions_from_call_types( //
         auto cvl_copy = cvl;
         const auto &specialized = Specializer::specialize_function(found_functions.front(), arg_types, cvl_copy);
         if (!specialized.has_value()) {
+            PosTriple pos = PosTriple{
+                .line = found_functions.front()->line,
+                .column = found_functions.front()->column,
+                .length = found_functions.front()->length,
+            };
+            THROW_ERR(ErrFnSpecializationFailed, ERR_PARSING, found_functions.front()->file_hash, pos, found_functions.front()->cpl);
             return {};
         }
         found_functions.front() = specialized.value();

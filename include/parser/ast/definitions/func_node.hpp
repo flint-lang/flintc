@@ -15,8 +15,7 @@ class FuncNode : public DefinitionNode {
     struct RequiredData {
         std::shared_ptr<Type> type;
         std::string accessor_name;
-        size_t line;
-        size_t column;
+        PosTriple pos;
     };
 
     explicit FuncNode(                                             //

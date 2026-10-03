@@ -17,8 +17,8 @@ class FunctionReferenceNode : public ExpressionNode {
         ExpressionNode(hash, pos, true),
         referenced_function(referenced_function) {
         std::vector<std::pair<std::shared_ptr<Type>, bool>> params;
-        for (const auto &[param_type, param_name, param_is_mutable] : referenced_function->parameters) {
-            params.emplace_back(param_type, param_is_mutable);
+        for (const auto &param : referenced_function->parameters) {
+            params.emplace_back(param.type, param.is_mutable);
         }
         std::shared_ptr<Type> fn_type = std::make_shared<FnType>(                       //
             params, referenced_function->return_types, referenced_function->error_types //

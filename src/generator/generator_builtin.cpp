@@ -828,7 +828,7 @@ bool Generator::Builtin::generate_builtin_main( //
     const bool main_function_has_ret = !Parser::main_function.load()->return_types.empty();
     if (main_function_has_args) {
         std::shared_ptr<Type> str_arr_type = Type::get_type_from_str("str[]").value();
-        parameters.emplace_back(FunctionNode::Parameter{.type = str_arr_type, .name = "args", .is_mutable = false});
+        parameters.emplace_back(FunctionNode::Parameter{.type = str_arr_type, .name = "args", .is_mutable = false, .pos = {}});
     }
     std::vector<std::shared_ptr<Type>> return_types;
     std::optional<std::shared_ptr<Scope>> scope;

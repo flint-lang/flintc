@@ -30,8 +30,8 @@ class OptionalType : public Type {
         return true;
     }
 
-    bool is_runtime_compatible() const override {
-        return base_type->is_runtime_compatible();
+    bool is_runtime_compatible([[maybe_unused]] const bool allow_unknown, const bool allow_generic) const override {
+        return base_type->is_runtime_compatible(allow_unknown, allow_generic);
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //

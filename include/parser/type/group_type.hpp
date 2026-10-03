@@ -29,9 +29,9 @@ class GroupType : public Type {
         return false;
     }
 
-    bool is_runtime_compatible() const override {
+    bool is_runtime_compatible(const bool allow_unknown, const bool allow_generic) const override {
         for (const auto &type : types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(allow_unknown, allow_generic)) {
                 return false;
             }
         }

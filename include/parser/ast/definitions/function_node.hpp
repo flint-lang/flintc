@@ -40,6 +40,10 @@ class FunctionNode : public DefinitionNode {
         /// @var `is_mutable`
         /// @brief Whether the function parameter is mutable
         bool is_mutable;
+
+        /// @var `pos`
+        /// @brief The position of the parameter
+        PosTriple pos;
     };
 
     explicit FunctionNode(                                         //
@@ -166,19 +170,19 @@ class FunctionNode : public DefinitionNode {
                     oss << " ";
                 }
             }
-            const auto &[param_type, param_name, is_mut] = parameters.at(j);
+            const auto &param = parameters.at(j);
             if (include_modifiers) {
                 ASSERT(emit_spaces);
-                if (is_mut) {
+                if (param.is_mutable) {
                     oss << "mut ";
                 } else {
                     oss << "const ";
                 }
             }
-            oss << param_type->to_string();
+            oss << param.type->to_string();
             if (include_param_names) {
                 ASSERT(emit_spaces);
-                oss << " " << param_name;
+                oss << " " << param.name;
             }
         }
         oss << ")";

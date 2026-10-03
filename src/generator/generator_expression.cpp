@@ -1643,8 +1643,8 @@ Generator::group_mapping Generator::Expression::generate_call( //
     std::vector<llvm::Value *> args;
     garbage_type garbage;
     std::vector<std::pair<std::shared_ptr<Type>, bool>> parameters;
-    for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
-        parameters.emplace_back(param_type, param_is_mutable);
+    for (const auto &param : call_node->function->parameters) {
+        parameters.emplace_back(param.type, param.is_mutable);
     }
     if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters, is_core_function)) {
         return std::nullopt;
@@ -2695,8 +2695,8 @@ Generator::group_mapping Generator::Expression::generate_instance_call( //
             // Prepare all the arguments we pass to the function
             std::vector<llvm::Value *> args;
             std::vector<std::pair<std::shared_ptr<Type>, bool>> parameters;
-            for (const auto &[param_type, param_name, param_is_mutable] : call_node->function->parameters) {
-                parameters.emplace_back(param_type, param_is_mutable);
+            for (const auto &param: call_node->function->parameters) {
+                parameters.emplace_back(param.type, param.is_mutable);
             }
             if (!generate_call_arg_prep(builder, ctx, args, garbage, call_node->arguments, parameters)) {
                 return std::nullopt;

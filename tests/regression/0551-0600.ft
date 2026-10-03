@@ -136,3 +136,28 @@ test "0573":
 	str path = "regression/0551-0600";
 	str file = "0573.ft";
 	test_file_ok($"{path}/{file}", "Inlined in executable\nx = 10\nPresent\n");
+
+test "0574":
+	str path = "regression/0551-0600";
+	str file = "0574.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0574.ft:3:9\n└─┬┤E0000│\n3 │ def add(int x, int y) -> int:\n┌─┴─────────┘\n├─ Parameters of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");
+
+test "0575":
+	str path = "regression/0551-0600";
+	str file = "0575.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0575.ft:3:22\n└─┬┤E0000│\n3 │ def add[type T](T x, int y) -> T:\n┌─┴──────────────────────┘\n├─ Parameters of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");
+
+test "0576":
+	str path = "regression/0551-0600";
+	str file = "0576.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0576.ft:3:26\n└─┬┤E0000│\n3 │ def add(i32 x, i32 y) -> int:\n┌─┴──────────────────────────┘\n├─ Return type of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");
+
+test "0577":
+	str path = "regression/0551-0600";
+	str file = "0577.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0577.ft:3:30\n└─┬┤E0000│\n3 │ def add[type T](T x, T y) -> int:\n┌─┴──────────────────────────────┘\n├─ Return type of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");
+
+test "0578":
+	str path = "regression/0551-0600";
+	str file = "0578.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0578.ft:3:32\n└─┬┤E0000│\n3 │ def add(i32 x, i32 y) -> (i32, int):\n┌─┴────────────────────────────────┘\n├─ Return type of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");

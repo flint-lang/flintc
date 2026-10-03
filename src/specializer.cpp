@@ -21,6 +21,7 @@
 #include "parser/type/object_type.hpp"
 #include "parser/type/optional_type.hpp"
 #include "parser/type/pointer_type.hpp"
+#include "parser/type/primitive_type.hpp"
 #include "parser/type/tuple_type.hpp"
 #include "parser/type/unknown_type.hpp"
 #include "parser/type/variant_type.hpp"
@@ -204,6 +205,7 @@ std::optional<FunctionNode *const> Specializer::specialize_function( //
         const auto &new_type = specialize_type(src_ns, param.type, definition->cpl, cvl);
         if (!new_type.has_value()) {
             map.erase(specialization_key);
+            THROW_ERR(ErrFnSpecializeParamTypeFailed, ERR_PARSING, definition->file_hash, param.pos);
             return std::nullopt;
         }
         parameters.emplace_back(new_type.value().second, param.name, param.is_mutable);
@@ -965,7 +967,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
             if (!child.has_value() || child.value().first) {
                 return child;
             }
-            return make_pair(false, alias->type);
+            return std::make_pair(false, alias->type);
         }
         case Type::Variation::ARRAY: {
             const auto *const array = type->as<ArrayType>();
@@ -978,7 +980,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
                 if (!ns->add_type(new_type)) {
                     new_type = ns->get_type_from_str(new_type->to_string()).value();
                 }
-                return make_pair(true, new_type);
+                return std::make_pair(true, new_type);
             }
             break;
         }
@@ -986,7 +988,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
             const auto *const comptime = type->as<ComptimeType>();
             for (size_t i = 0; i < cpl.size(); i++) {
                 if (cpl.at(i).name == comptime->name) {
-                    return make_pair(true, cvl.at(i));
+                    return std::make_pair(true, cvl.at(i));
                 }
             }
             // This case is unreachable because of how comptime types are created. If no comptime parameter with the same identifier as
@@ -1037,7 +1039,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
                 if (!ns->add_type(new_fn)) {
                     new_fn = ns->get_type_from_str(new_fn->to_string()).value();
                 }
-                return make_pair(true, new_fn);
+                return std::make_pair(true, new_fn);
             }
             break;
         }
@@ -1054,7 +1056,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
             }
             const auto &specialized = specialize(ns, generic->base, new_cvl);
             if (specialized.has_value()) {
-                return make_pair(true, specialized.value());
+                return std::make_pair(true, specialized.value());
             }
             // Residual generics/comptimes cannot be made concrete here
             return std::nullopt;
@@ -1100,7 +1102,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
                 if (!ns->add_type(new_type)) {
                     new_type = ns->get_type_from_str(new_type->to_string()).value();
                 }
-                return make_pair(true, new_type);
+                return std::make_pair(true, new_type);
             }
             break;
         }
@@ -1115,7 +1117,14 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
                 if (!ns->add_type(new_type)) {
                     new_type = ns->get_type_from_str(new_type->to_string()).value();
                 }
-                return make_pair(true, new_type);
+                return std::make_pair(true, new_type);
+            }
+            break;
+        }
+        case Type::Variation::PRIMITIVE: {
+            const auto *const primitive = type->as<PrimitiveType>();
+            if (primitive->type_name == "int" || primitive->type_name == "float") {
+                return std::nullopt;
             }
             break;
         }
@@ -1155,7 +1164,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
                     if (!ns->add_type(new_variant)) {
                         new_variant = ns->get_type_from_str(new_variant->to_string()).value();
                     }
-                    return make_pair(true, new_variant);
+                    return std::make_pair(true, new_variant);
                 }
             }
             break;
@@ -1163,7 +1172,6 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
         case Type::Variation::ENUM:
         case Type::Variation::ERROR_SET:
         case Type::Variation::OPAQUE:
-        case Type::Variation::PRIMITIVE:
         case Type::Variation::RANGE:
         case Type::Variation::UNKNOWN:
         case Type::Variation::TYPE:
@@ -1172,7 +1180,7 @@ std::optional<std::pair<bool, std::shared_ptr<Type>>> Specializer::specialize_ty
             break;
     }
     // No specialization applied, return pair contining the type + info that nothing was specialized
-    return make_pair(false, type);
+    return std::make_pair(false, type);
 }
 
 std::optional<bool> Specializer::specialize_type_list(         //

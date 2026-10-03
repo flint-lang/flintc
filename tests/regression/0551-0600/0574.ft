@@ -1,0 +1,8 @@
+use Core.print
+
+def add(int x, int y) -> int:
+	return x + y;
+
+def main():
+	i32 res = add(10, 20);
+	print($"res = {res}\n");

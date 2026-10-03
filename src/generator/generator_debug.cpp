@@ -470,12 +470,12 @@ llvm::DIType *Generator::Debug::create_debug_type_fn(llvm::Module *const module)
 
         std::vector<llvm::Metadata *> parameter_members;
         uint64_t parameter_size = 0;
-        for (const auto &[param_type, param_name, param_mutable] : fn->parameters) {
-            llvm::DIType *const param_debug_type = get_or_create_debug_type(module, param_type);
+        for (const auto &param : fn->parameters) {
+            llvm::DIType *const param_debug_type = get_or_create_debug_type(module, param.type);
             const size_t size_bits = param_debug_type->getSizeInBits();
             const size_t align_bits = param_debug_type->getAlignInBits();
             llvm::DIDerivedType *const param_member = DIB->createMemberType(         //
-                fn_file_meta, param_name, fn_file_meta, fn->line, size_bits,         //
+                fn_file_meta, param.name, fn_file_meta, fn->line, size_bits,         //
                 align_bits, parameter_size, llvm::DINode::FlagZero, param_debug_type //
             );
             parameter_members.emplace_back(param_member);
@@ -1160,12 +1160,12 @@ void Generator::Debug::generate_parameter_debug_info( //
     }
 
     for (size_t i = 0; i < function_node->parameters.size(); i++) {
-        const auto &[param_type, param_name, param_mutable] = function_node->parameters.at(i);
-        const std::string alloca_name = "s" + std::to_string(function_node->scope.value()->scope_id) + "::" + param_name;
+        const auto &param = function_node->parameters.at(i);
+        const std::string alloca_name = "s" + std::to_string(function_node->scope.value()->scope_id) + "::" + param.name;
         llvm::Value *const alloca = Allocation::get(builder, ctx, alloca_name);
-        llvm::DIType *const debug_type = get_or_create_debug_type(ctx.parent->getParent(), param_type);
+        llvm::DIType *const debug_type = get_or_create_debug_type(ctx.parent->getParent(), param.type);
         llvm::DILocalVariable *const var = DIB->createParameterVariable(            //
-            sp, param_name, i + 1, file_meta, function_node->line, debug_type, true //
+            sp, param.name, i + 1, file_meta, function_node->line, debug_type, true //
         );
         llvm::DILocation *const diloc = llvm::DILocation::get(Generator::context, sp->getLine(), 0, sp);
         llvm::DIExpression *const expr = DIB->createExpression({llvm::dwarf::DW_OP_deref});

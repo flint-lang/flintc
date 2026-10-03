@@ -93,8 +93,10 @@ class Type {
     /// @brief Whether this type is runtime-compatible, e.g. whether it can be used by the generator and at codegen. Generic types, for
     /// example, are not runtime compatible, just like comptime-types like the `type` type or types like `int` and `float`
     ///
+    /// @param `allow_unknown` Whether to allow unknown types (For allowed-param & return type checks)
+    /// @param `allow_generic` Whether to allow generic types (For generic templates for example)
     /// @return `bool` Whether this type is runtime-compatible
-    virtual bool is_runtime_compatible() const = 0;
+    virtual bool is_runtime_compatible(const bool allow_unknown, const bool allow_generic) const = 0;
 
     /// @function `get_default_value`
     /// @brief Returns the default-constructed value of this type, nullopt if this type is not default-constructible

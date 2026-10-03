@@ -29,7 +29,7 @@ class PrimitiveType : public Type {
             (type_name == "str" || type_name == "bool" || type_name[0] == 'f' || type_name[0] == 'i' || type_name[0] == 'u');
     }
 
-    bool is_runtime_compatible() const override {
+    bool is_runtime_compatible([[maybe_unused]] const bool allow_unknown, [[maybe_unused]] const bool allow_generic) const override {
         return type_name != "int" && type_name != "float";
     }
 

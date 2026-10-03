@@ -122,6 +122,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                 .type = data_param.type,
                 .name = data_param.accessor_name,
                 .is_mutable = !is_const,
+                .pos = data_param.pos,
             });
         }
     }
@@ -167,6 +168,14 @@ std::optional<FunctionNode> Parser::create_function(                            
     // If this function is defined within a different generic definition, its cpl gets prepended before the function's own cpl so that the
     // outer definitions comptime parameters are resolved first when specialization happens
     cpl.insert(cpl.begin(), parent_cpl.begin(), parent_cpl.end());
+
+    bool is_generic_template = false;
+    for (const auto &param : cpl) {
+        if (!param.applied_value.has_value()) {
+            is_generic_template = true;
+            break;
+        }
+    }
 
     // Skip the left paren
     def_it++;
@@ -221,10 +230,15 @@ std::optional<FunctionNode> Parser::create_function(                            
                     THROW_ERR(ErrFnVoidParamType, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
                     return std::nullopt;
                 }
+                if (!param_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+                    THROW_ERR(ErrFnComptimeParamType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), param_type.value().type);
+                    return std::nullopt;
+                }
                 parameters.emplace_back(FunctionNode::Parameter{
                     .type = param_type.value().type,
                     .name = param_name,
                     .is_mutable = is_mutable,
+                    .pos = get_pos_triple({last_param_begin, std::next(def_it)}),
                 });
                 last_param_begin = def_it + 2;
             }
@@ -260,6 +274,10 @@ std::optional<FunctionNode> Parser::create_function(                            
                 THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value().type);
                 return std::nullopt;
             }
+            if (!return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+                THROW_ERR(ErrFnComptimeReturnType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), return_type.value().type);
+                return std::nullopt;
+            }
             if (!return_type.value().type->equals(Type::get_primitive_type("void"))) {
                 return_types.emplace_back(return_type.value().type);
             }
@@ -292,6 +310,10 @@ std::optional<FunctionNode> Parser::create_function(                            
                     }
                     if (return_type.value().type->equals(Type::get_primitive_type("void"))) {
                         THROW_ERR(ErrFnVoidInReturnGroup, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
+                        return std::nullopt;
+                    }
+                    if (!return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+                        THROW_ERR(ErrFnComptimeReturnType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), return_type.value().type);
                         return std::nullopt;
                     }
                     return_types.emplace_back(return_type.value().type);
@@ -692,8 +714,7 @@ std::optional<FuncNode> Parser::create_func(const token_slice &definition, const
             required_data.emplace_back(FuncNode::RequiredData{
                 .type = required_data_type.value().type,
                 .accessor_name = access_name,
-                .line = tok_it->line,
-                .column = tok_it->column,
+                .pos = get_pos_triple({tok_it, tok_it + next_range.value().second - 2}),
             });
             tok_it = type_tokens.second + 1;
             if (tok_it->token == TOK_COMMA) {
@@ -969,8 +990,7 @@ std::optional<ObjectNode> Parser::create_object(const token_slice &definition, c
             std::vector<FuncNode::RequiredData>{FuncNode::RequiredData{
                 .type = object_type,
                 .accessor_name = "self",
-                .line = 0,
-                .column = 0,
+                .pos = PosTriple{0, 0, 0},
             }} //
         );
         std::optional<FunctionNode> function_node = create_function(definition_tokens, required_data, cpl);

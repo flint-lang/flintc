@@ -127,6 +127,7 @@ void Parser::init_core_modules() {
                         .type = param_type,
                         .name = param_name_str,
                         .is_mutable = false,
+                        .pos = PosTriple{0, 0, 0},
                     });
                 }
 
@@ -194,6 +195,7 @@ void Parser::init_core_modules() {
                             .type = param_type,
                             .name = param_name_str,
                             .is_mutable = param_is_mutable,
+                            .pos = PosTriple{0, 0, 0},
                         });
                     }
                     std::vector<std::shared_ptr<Type>> return_types;
@@ -553,9 +555,9 @@ bool Parser::resolve_all_unknown_types() {
                                 const UnknownType *unknown_type = required_data.type->as<UnknownType>();
                                 auto type = file_namespace->get_type_from_str(unknown_type->type_str);
                                 if (!type.has_value()) {
-                                    THROW_ERR(                                                                  //
-                                        ErrDefFuncRequiredTypeUnknown, ERR_PARSING, parser.file_hash,           //
-                                        required_data.line, required_data.column, unknown_type->type_str.size() //
+                                    THROW_ERR(                                                                          //
+                                        ErrDefFuncRequiredTypeUnknown, ERR_PARSING, parser.file_hash,                   //
+                                        required_data.pos.line, required_data.pos.column, unknown_type->type_str.size() //
                                     );
                                     return false;
                                 }
@@ -571,9 +573,9 @@ bool Parser::resolve_all_unknown_types() {
                                 }
                                 [[fallthrough]];
                             default:
-                                THROW_ERR(                                                                           //
-                                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, parser.file_hash,                    //
-                                    required_data.line, required_data.column, required_data.type->to_string().size() //
+                                THROW_ERR(                                                                                   //
+                                    ErrDefFuncRequiredTypeNotData, ERR_PARSING, parser.file_hash,                            //
+                                    required_data.pos.line, required_data.pos.column, required_data.type->to_string().size() //
                                 );
                                 return false;
                         }
@@ -806,7 +808,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     // Go through all core Modules and collect all freeable types they provide
     for (const auto &[module_name, module_file] : core_module_files) {
         for (const auto &[type_string, type] : module_file->file_namespace->public_symbols.types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(false, false)) {
                 continue;
             }
             if (!type->is_freeable()) {
@@ -821,7 +823,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     // Go through all instances of the parser and collect all freeable types from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(false, false)) {
                 continue;
             }
             if (!type->is_freeable()) {
@@ -835,7 +837,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_freeable_types() {
     }
     // Go through all public types and collect all freable types
     for (const auto &[type_string, type] : Type::types) {
-        if (!type->is_runtime_compatible()) {
+        if (!type->is_runtime_compatible(false, false)) {
             continue;
         }
         if (!type->is_freeable()) {
@@ -856,7 +858,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all core Modules and collect all non-freeable types they provide
     for (const auto &[module_name, module_file] : core_module_files) {
         for (const auto &[type_string, type] : module_file->file_namespace->public_symbols.types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(false, false)) {
                 continue;
             }
             if (type->get_variation() == Type::Variation::UNKNOWN) {
@@ -881,7 +883,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all instances of the parser and collect all non-freeable types from all instances
     for (const auto &instance : Parser::instances) {
         for (const auto &[type_string, type] : instance.file_node_ptr->file_namespace->public_symbols.types) {
-            if (!type->is_runtime_compatible()) {
+            if (!type->is_runtime_compatible(false, false)) {
                 continue;
             }
             if (type->get_variation() == Type::Variation::UNKNOWN) {
@@ -906,7 +908,7 @@ std::vector<std::shared_ptr<Type>> Parser::get_all_nonfreeable_types() {
     // Go through all public types and collect all freable types
     const std::vector<std::string> skipped_types = {"float", "int", "void", "void?", "type.flint.default", "type.flint.str.lit"};
     for (const auto &[type_string, type] : Type::types) {
-        if (!type->is_runtime_compatible()) {
+        if (!type->is_runtime_compatible(false, false)) {
             continue;
         }
         if (type->get_variation() == Type::Variation::UNKNOWN) {

@@ -37,7 +37,7 @@ class VariantType : public Type {
         return false;
     }
 
-    bool is_runtime_compatible() const override {
+    bool is_runtime_compatible(const bool allow_unknown, const bool allow_generic) const override {
         if (std::holds_alternative<VariantNode *const>(var_or_list)) {
             const auto *variant = std::get<VariantNode *const>(var_or_list);
             if (variant->is_generic_template()) {
@@ -46,7 +46,7 @@ class VariantType : public Type {
         } else {
             const auto &possible_types = std::get<std::vector<std::shared_ptr<Type>>>(var_or_list);
             for (const auto &type : possible_types) {
-                if (!type->is_runtime_compatible()) {
+                if (!type->is_runtime_compatible(allow_unknown, allow_generic)) {
                     return false;
                 }
             }

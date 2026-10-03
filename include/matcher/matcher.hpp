@@ -741,7 +741,7 @@ class Matcher {
         token(TOK_SEMICOLON)                          //
     });
     static const inline PatternPtr function_definition = sequence({
-        optional(token(TOK_EXPORT)), optional(token(TOK_CONST)), token(TOK_DEF),                                                   //
+        optional(token(TOK_EXPORT)), optional(token(TOK_CONST)), keyword_def,                                                      //
         token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
             sequence({token(TOK_ARROW), group_type}),

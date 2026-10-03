@@ -1,0 +1,8 @@
+use Core.print
+
+def add[type T](T x, T y) -> int:
+	return x + y;
+
+def main():
+	i32 res = add[i32](10, 20);
+	print($"res = {res}\n");

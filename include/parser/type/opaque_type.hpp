@@ -37,7 +37,7 @@ class OpaqueType : public Type {
         return true;
     }
 
-    bool is_runtime_compatible() const override {
+    bool is_runtime_compatible([[maybe_unused]] const bool allow_unknown, [[maybe_unused]] const bool allow_generic) const override {
         return true;
     }
 

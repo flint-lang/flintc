@@ -26,8 +26,8 @@ class UnknownType : public Type {
         return false;
     }
 
-    bool is_runtime_compatible() const override {
-        return false;
+    bool is_runtime_compatible(const bool allow_unknown, [[maybe_unused]] const bool allow_generic) const override {
+        return allow_unknown;
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //

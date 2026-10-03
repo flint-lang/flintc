@@ -37,8 +37,8 @@ class ArrayType : public Type {
         return !sizes.has_value() || type->is_default_constructible();
     }
 
-    bool is_runtime_compatible() const override {
-        return type->is_runtime_compatible();
+    bool is_runtime_compatible(const bool allow_unknown, const bool allow_generic) const override {
+        return type->is_runtime_compatible(allow_unknown, allow_generic);
     }
 
     std::optional<std::unique_ptr<ExpressionNode>> get_default_value( //
