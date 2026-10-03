@@ -161,3 +161,13 @@ test "0578":
 	str path = "regression/0551-0600";
 	str file = "0578.ft";
 	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0578.ft:3:32\n└─┬┤E0000│\n3 │ def add(i32 x, i32 y) -> (i32, int):\n┌─┴────────────────────────────────┘\n├─ Return type of runtime function cannot be of compile-time only type 'int'\n└─ If you want a function to operate on compile-time types, you need to define the function as compile-time only using '@def'\n");
+
+test "0579":
+	str path = "regression/0551-0600";
+	str file = "0579.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0579.ft:7:15\n└─┬┤E0000│\n6 │ def main():\n7 │ »   i32 res = add(10, 20);\n┌─┴───────────────┘\n├─ Comptime-only function 'add' cannot be called at runtime\n└─ Comptime-only functions must be called at comptime by prefixing the call with '@'\n");
+
+test "0580":
+	str path = "regression/0551-0600";
+	str file = "0580.ft";
+	test_file_fail($"{path}/{file}", "Parse Error at regression/0551-0600/0580.ft:6:15\n└─┬┤E0000│\n5 │ def main():\n6 │ »   i32 res = @add(10, 20);\n┌─┴───────────────┘\n├─ Extern function 'add' cannot be called at comptime\n└─ Extern functions are implemented outside of Flint and have no body the compiler could evaluate. Remove the '@' to call it at runtime\n");

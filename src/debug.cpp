@@ -1780,6 +1780,9 @@ namespace Debug {
                 case FunctionNode::Visibility::EXPORT:
                     std::cout << "export ";
                     break;
+                case FunctionNode::Visibility::COMPTIME:
+                    std::cout << "@";
+                    break;
                 case FunctionNode::Visibility::CORE:
                     UNREACHABLE();
                     break;

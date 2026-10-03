@@ -1120,8 +1120,29 @@ std::optional<Parser::CreateCallBaseRet> Parser::create_call_base( //
                 break;
         }
     }
+    FunctionNode *const function = functions.front().first;
+    switch (function->get_eval_domain()) {
+        case FunctionNode::EvalDomain::RUNTIME:
+            if (!is_comptime) {
+                break;
+            }
+            if (function->visibility == FunctionNode::Visibility::CORE) {
+                // TODO: Add support for evaluating Core module functions at comptime
+                UNREACHABLE();
+            }
+            THROW_ERR(ErrCallOfExternFunctionAtComptime, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens), function->name);
+            return std::nullopt;
+        case FunctionNode::EvalDomain::COMPTIME:
+            if (!is_comptime) {
+                THROW_ERR(ErrCallOfComptimeOnlyFunction, ERR_PARSING, file_hash, get_pos_triple(ctx.tokens), function->name);
+                return std::nullopt;
+            }
+            break;
+        case FunctionNode::EvalDomain::BOTH:
+            break;
+    }
+
     // Check if the argument count does match the parameter count
-    FunctionNode *function = functions.front().first;
     const auto &parameters = function->parameters;
     [[maybe_unused]] const unsigned int param_count = parameters.size();
     [[maybe_unused]] const unsigned int arg_count = arguments.size();

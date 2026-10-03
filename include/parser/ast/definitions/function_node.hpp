@@ -1,5 +1,6 @@
 #pragma once
 
+#include "assert.hpp"
 #include "linearizer/line.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
 #include "parser/ast/scope.hpp"
@@ -26,6 +27,17 @@ class FunctionNode : public DefinitionNode {
         EXPORT,
         /// @brief The function comes from a Core module and thus does not obey the rules of the TS
         CORE,
+        /// @brief This is a comptime-only function and can only be called at comptime
+        COMPTIME,
+    };
+
+    enum class EvalDomain {
+        /// @brief The function may only be called at runtime
+        RUNTIME,
+        /// @brief The function may only be called at comptime
+        COMPTIME,
+        /// @brief The function may be called at runtime or comptime
+        BOTH,
     };
 
     struct Parameter {
@@ -94,6 +106,23 @@ class FunctionNode : public DefinitionNode {
 
     Variation get_variation() const override {
         return Variation::FUNCTION;
+    }
+
+    [[nodiscard]] EvalDomain get_eval_domain() const {
+        switch (visibility) {
+            case Visibility::INTERN:
+                return EvalDomain::BOTH;
+            case Visibility::EXTERN:
+                return EvalDomain::RUNTIME;
+            case Visibility::EXPORT:
+                return EvalDomain::BOTH;
+            case Visibility::CORE:
+                // TODO: Add support to call Core module functions at comtpime too
+                return EvalDomain::RUNTIME;
+            case Visibility::COMPTIME:
+                return EvalDomain::COMPTIME;
+        }
+        UNREACHABLE();
     }
 
     size_t get_id() const {

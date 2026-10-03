@@ -24,6 +24,7 @@ static const std::unordered_map<std::string_view, Token> symbols = {
     {"_", TOK_UNDERSCORE},
     {"#", TOK_ANNOTATION},
     {"$", TOK_DOLLAR},
+    {"@", TOK_AT},
     // dual character tokens
     {"->", TOK_ARROW},
     {"|>", TOK_PIPE},
@@ -83,6 +84,7 @@ static const std::unordered_map<Token, std::string_view> symbols_rev = {
     {TOK_UNDERSCORE, "_"},
     {TOK_ANNOTATION, "#"},
     {TOK_DOLLAR, "$"},
+    {TOK_AT, "@"},
     // dual character tokens
     {TOK_ARROW, "->"},
     {TOK_PIPE, "|>"},
@@ -243,6 +245,9 @@ static const std::unordered_map<Token, std::string_view> keywords_rev = {
     {TOK_PERSISTENT, "persistent"},
     // other tokens
     {TOK_TEST, "test"},
+    // fip tokens
+    {TOK_EXTERN, "extern"},
+    {TOK_EXPORT, "export"},
 };
 
 static const std::unordered_map<std::string_view, Token> primitives = {

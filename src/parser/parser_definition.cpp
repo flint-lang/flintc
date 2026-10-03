@@ -75,6 +75,7 @@ std::optional<FunctionNode> Parser::create_function(                            
     bool is_const = false;
     bool is_extern = false;
     bool is_export = false;
+    bool is_comptime = false;
 
     auto def_it = definition.first;
     // Parse everything before the parameters
@@ -82,14 +83,13 @@ std::optional<FunctionNode> Parser::create_function(                            
     while (def_it != definition.second && std::next(def_it) != definition.second) {
         if (def_it->token == TOK_CONST) {
             is_const = true;
-        }
-        if (def_it->token == TOK_EXTERN) {
+        } else if (def_it->token == TOK_EXTERN) {
             is_extern = true;
-        }
-        if (def_it->token == TOK_EXPORT) {
+        } else if (def_it->token == TOK_EXPORT) {
             is_export = true;
-        }
-        if (def_it->token == TOK_DEF) {
+        } else if (def_it->token == TOK_AT) {
+            is_comptime = true;
+        } else if (def_it->token == TOK_DEF) {
             def_it++;
             if (def_it->token != TOK_IDENTIFIER) {
                 THROW_ERR(                                                                        //
@@ -102,11 +102,27 @@ std::optional<FunctionNode> Parser::create_function(                            
             def_missing = false;
             def_it++;
             break;
+        } else {
+            THROW_ERR(                                                                        //
+                ErrParsUnexpectedToken, ERR_PARSING, file_hash, def_it->line, def_it->column, //
+                std::vector<Token>{TOK_CONST, TOK_EXTERN, TOK_EXPORT, TOK_DEF}, def_it->token //
+            );
+            return std::nullopt;
         }
         def_it++;
     }
     if (is_extern && is_export) {
         // A function cannot be extern and export at the same time
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (is_extern && is_comptime) {
+        // A function which is defined as extern cannot be comptime-only
+        THROW_BASIC_ERR(ERR_PARSING);
+        return std::nullopt;
+    }
+    if (is_export && is_comptime) {
+        // A function which is defined as being exported cannot be comptime-only
         THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
@@ -135,6 +151,10 @@ std::optional<FunctionNode> Parser::create_function(                            
         // Redefinition of the main function
         token_slice err_tokens = {std::prev(def_it), definition.second};
         THROW_ERR(ErrFnMainRedefinition, ERR_PARSING, file_hash, err_tokens, main_function.load());
+        return std::nullopt;
+    } else if (name == "main" && is_comptime) {
+        // The main function is not allowed to be defined as comptime-only
+        THROW_BASIC_ERR(ERR_PARSING);
         return std::nullopt;
     }
 
@@ -230,7 +250,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                     THROW_ERR(ErrFnVoidParamType, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
                     return std::nullopt;
                 }
-                if (!param_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+                if (!is_comptime && !param_type.value().type->is_runtime_compatible(true, is_generic_template)) {
                     THROW_ERR(ErrFnComptimeParamType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), param_type.value().type);
                     return std::nullopt;
                 }
@@ -274,7 +294,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                 THROW_ERR(ErrFnCannotReturnTuple, ERR_PARSING, file_hash, type_tokens, return_type.value().type);
                 return std::nullopt;
             }
-            if (!return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+            if (!is_comptime && !return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
                 THROW_ERR(ErrFnComptimeReturnType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), return_type.value().type);
                 return std::nullopt;
             }
@@ -312,7 +332,7 @@ std::optional<FunctionNode> Parser::create_function(                            
                         THROW_ERR(ErrFnVoidInReturnGroup, ERR_PARSING, file_hash, get_pos_triple(type_tokens));
                         return std::nullopt;
                     }
-                    if (!return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
+                    if (!is_comptime && !return_type.value().type->is_runtime_compatible(true, is_generic_template)) {
                         THROW_ERR(ErrFnComptimeReturnType, ERR_PARSING, file_hash, get_pos_triple(type_tokens), return_type.value().type);
                         return std::nullopt;
                     }
@@ -462,6 +482,8 @@ std::optional<FunctionNode> Parser::create_function(                            
         visibility = FunctionNode::Visibility::EXTERN;
     } else if (is_export) {
         visibility = FunctionNode::Visibility::EXPORT;
+    } else if (is_comptime) {
+        visibility = FunctionNode::Visibility::COMPTIME;
     }
     return FunctionNode(                                                                        //
         file_hash, line, column, length, {},                                                    //

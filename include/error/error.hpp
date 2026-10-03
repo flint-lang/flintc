@@ -134,6 +134,9 @@
 #include "error_types/parsing/variables/err_var_not_declared.hpp"
 #include "error_types/parsing/variables/err_var_redefinition.hpp"
 
+#include "error_types/parsing/err_call_of_comptime_only_function.hpp"
+#include "error_types/parsing/err_call_of_extern_function_at_comptime.hpp"
+
 // --- GENERATING ERRORS ---
 #include "error_types/generating/fip/err_extern_compilation_failed.hpp"
 #include "error_types/generating/fip/err_extern_duplicate_function.hpp"
