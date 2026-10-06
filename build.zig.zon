@@ -4,6 +4,10 @@
     .fingerprint = 0xa822051bf53ee93a, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
+        .llvm = .{
+            .url = "https://github.com/llvm/llvm-project/archive/refs/tags/llvmorg-22.1.8.tar.gz",
+            .hash = "N-V-__8AAG-Pn3iaPHpN-xihMGNpVagJ-J3K1CJ3VdYsbfGp",
+        },
         .fip = .{
             .url = "git+https://github.com/flint-lang/fip#9dc9a0ea56cca64f4ea2da6f5c9e6b8d23685d78",
             .hash = "fip-0.4.1-jXH3OfTgAwCa2HvYOj0rCgELdFEWAc7nuUKauJ-2AAjm",

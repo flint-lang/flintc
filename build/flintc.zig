@@ -12,7 +12,6 @@ pub fn build(
     optimize: std.builtin.OptimizeMode,
     flint_parser_lib: *std.Build.Step.Compile,
     previous_step: *std.Build.Step,
-    llvm_prebuilt_dir: ?[]const u8,
     commit_hash: []const u8,
     build_date: []const u8,
 ) !*std.Build.Step.Compile {
@@ -25,6 +24,7 @@ pub fn build(
             .pic = true,
         }),
     });
+    exe.step.dependOn(previous_step);
     exe.root_module.linkLibrary(flint_parser_lib);
     exe.link_function_sections = true;
     exe.link_data_sections = true;
@@ -40,22 +40,22 @@ pub fn build(
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
-    const llvm_dir = if (llvm_prebuilt_dir) |dir| dir else switch (target.result.os.tag) {
+    const llvm_dir = switch (target.result.os.tag) {
         .linux => "vendor/llvm-linux",
         .windows => "vendor/llvm-mingw",
         else => return error.TargetNeedsToBeLinuxOrWindows,
     };
 
     // Add Include paths
-    exe.root_module.addSystemIncludePath(.{ .cwd_relative = b.fmt("{s}/include", .{llvm_dir}) });
+    exe.root_module.addSystemIncludePath(b.path(b.fmt("{s}/include", .{llvm_dir})));
     exe.root_module.addIncludePath(b.path("tests"));
     exe.root_module.addIncludePath(b.path("include"));
 
     // Add Library paths
-    exe.root_module.addLibraryPath(.{ .cwd_relative = b.fmt("{s}/lib", .{llvm_dir}) });
+    exe.root_module.addLibraryPath(b.path(b.fmt("{s}/lib", .{llvm_dir})));
 
     // Collect C++ files
-    var src_dir: std.Io.Dir = try std.Io.Dir.cwd().openDir(b.graph.io, "src", .{ .iterate = true });
+    var src_dir: std.Io.Dir = try b.build_root.handle.openDir(b.graph.io, "src", .{ .iterate = true });
     defer src_dir.close(b.graph.io);
     var walker = try src_dir.walk(b.allocator);
     defer walker.deinit();
@@ -83,6 +83,6 @@ pub fn build(
     exe.root_module.linkSystemLibrary("lldCommon", .{});
 
     // Link LLVM libraries
-    try llvm.link(b, previous_step, exe);
+    try llvm.link(exe);
     return exe;
 }

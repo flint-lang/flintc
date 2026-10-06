@@ -2,89 +2,161 @@ const std = @import("std");
 
 const makeEmptyStep = @import("../build.zig").makeEmptyStep;
 
-pub const DEFAULT_LLVM_VERSION = "llvmorg-22.1.8";
-
 pub fn build(
     b: *std.Build,
+    previous_step: *std.Build.Step,
     target: std.Build.ResolvedTarget,
-    prev_step: *std.Build.Step,
-    prebuilt_dir: ?[]const u8,
-    rebuild: bool,
+    force_rebuild: bool,
     jobs: usize,
+    llvm_dep: *std.Build.Dependency,
+    /// linux/mingw
+    platform_name: []const u8,
+    /// llvm-{ linux, mingw }
+    llvm_platform_dirname: []const u8,
+    /// vendor/llvm-{ linux, mingw }
+    install_dir: []const u8,
 ) !*std.Build.Step {
-    if (prebuilt_dir != null) {
-        return prev_step;
-    }
-    return try buildLLVM(b, prev_step, target, rebuild, jobs, prebuilt_dir);
-}
+    const cmake_exe_path: []const u8 = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
+    _ = b.findProgram(&.{"ld.lld"}, &.{}) catch @panic("LLD not found on this system");
+    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
+    _ = b.findProgram(&.{ "python", "python3" }, &.{}) catch @panic("Python3 not found on this system");
 
-pub fn update(b: *std.Build, llvm_version: []const u8) !*std.Build.Step {
-    _ = b.findProgram(&.{"git"}, &.{}) catch @panic("Git not found on this system");
-
-    std.debug.print("-- Updating the 'llvm-project' repository\n", .{});
-    // 1. Check if llvm-project exists in vendor directory
-    if (std.Io.Dir.cwd().openDir(b.graph.io, "vendor/sources/llvm-project", .{})) |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, skipping updating 'llvm-project'...\n", .{});
+    if (b.build_root.handle.openDir(b.graph.io, install_dir, .{})) |_| {
+        // LLVM is already built, rebuilt only if requested
+        if (force_rebuild) {
+            try b.build_root.handle.deleteTree(b.graph.io, install_dir);
+        } else {
             return makeEmptyStep(b);
         }
+    } else |_| {}
 
-        // 3. Reset hard
-        const reset_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "reset", "--hard", "-q" });
-        reset_llvm_cmd.setName("reset_llvm");
-        reset_llvm_cmd.setCwd(b.path("vendor/sources/llvm-project"));
+    std.debug.print("-- Building LLVM for {s}\n", .{platform_name});
 
-        // 4. Fetch llvm-project
-        const fetch_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "fetch", "-fq", "--depth", "1", "origin", "tag", llvm_version });
-        fetch_llvm_cmd.setName("fetch_llvm");
-        fetch_llvm_cmd.setCwd(b.path("vendor/sources/llvm-project"));
-        fetch_llvm_cmd.step.dependOn(&reset_llvm_cmd.step);
+    // Setup LLVM
+    const setup_llvm = std.Build.Step.Run.create(b, "llvm_setup");
+    setup_llvm.addArg(cmake_exe_path);
+    setup_llvm.addArg("-S");
+    setup_llvm.addDirectoryArg(llvm_dep.path("llvm"));
+    setup_llvm.addArg("-B");
+    const llvm_build_dir = setup_llvm.addOutputDirectoryArg(llvm_platform_dirname);
+    setup_llvm.addArgs(&.{ "-G", "Ninja" });
+    setup_llvm.addArgs(&[_][]const u8{
+        "-Wno-policy",
+        b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
+        "-DCMAKE_BUILD_TYPE=MinSizeRel",
+        b.fmt("-DCMAKE_C_COMPILER={s};cc;-target;{s}", .{ b.graph.zig_exe, switch (target.result.os.tag) {
+            .linux => "x86_64-linux-musl",
+            .windows => "x86_64-windows-gnu",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        } }),
+        b.fmt("-DCMAKE_CXX_COMPILER={s};c++;-target;{s}", .{ b.graph.zig_exe, switch (target.result.os.tag) {
+            .linux => "x86_64-linux-musl",
+            .windows => "x86_64-windows-gnu",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        } }),
+        b.fmt("-DCMAKE_ASM_COMPILER={s};cc;-target;{s}", .{ b.graph.zig_exe, switch (target.result.os.tag) {
+            .linux => "x86_64-linux-musl",
+            .windows => "x86_64-windows-gnu",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        } }),
+        "-DBUILD_SHARED_LIBS=OFF",
 
-        // 5. Checkout llvm-project at tag of `llvm_version`
-        const checkout_llvm_cmd = b.addSystemCommand(&[_][]const u8{ "git", "checkout", "-fq", llvm_version });
-        checkout_llvm_cmd.setName("checkout_llvm");
-        checkout_llvm_cmd.setCwd(b.path("vendor/sources/llvm-project"));
-        checkout_llvm_cmd.step.dependOn(&fetch_llvm_cmd.step);
+        "-DLLVM_TARGET_ARCH=X86",
+        "-DLLVM_TARGETS_TO_BUILD=X86",
 
-        return &checkout_llvm_cmd.step;
-    } else |_| {
-        // 2. Check for internet connection
-        if (!hasInternetConnection(b)) {
-            std.debug.print("-- No internet connection found, unable to clone dependency 'llvm-project'...\n", .{});
-            return error.NoInternetConnection;
-        }
+        "-DLLVM_ENABLE_PROJECTS=lld",
+        "-DLLVM_ENABLE_ASSERTIONS=ON",
+        "-DLLVM_ENABLE_CURL=OFF",
+        "-DLLVM_ENABLE_HTTPLIB=OFF",
+        "-DLLVM_ENABLE_FFI=OFF",
+        "-DLLVM_ENABLE_LIBEDIT=OFF",
+        "-DLLVM_ENABLE_LIBXML2=OFF",
+        "-DLLVM_ENABLE_Z3_SOLVER=OFF",
+        "-DLLVM_ENABLE_ZLIB=OFF",
+        "-DLLVM_ENABLE_ZSTD=OFF",
 
-        // 3. Clone llvm
-        const clone_llvm_step = b.addSystemCommand(&[_][]const u8{ "git", "clone", "--depth", "1", "--branch", llvm_version, "https://github.com/llvm/llvm-project.git", "vendor/sources/llvm-project" });
-        clone_llvm_step.setName("clone_llvm");
+        "-DLLVM_INCLUDE_BENCHMARKS=OFF",
+        "-DLLVM_INCLUDE_DOCS=OFF",
+        "-DLLVM_INCLUDE_EXAMPLES=OFF",
+        "-DLLVM_INCLUDE_RUNTIMES=OFF",
+        "-DLLVM_INCLUDE_TESTS=OFF",
+        "-DLLVM_INCLUDE_UTILS=OFF",
 
-        return &clone_llvm_step.step;
+        "-DLLVM_BUILD_STATIC=ON",
+        "-DLLVM_BUILD_BENCHMARKS=OFF",
+        "-DLLVM_BUILD_DOCS=OFF",
+        "-DLLVM_BUILD_EXAMPLES=OFF",
+        "-DLLVM_BUILD_RUNTIME=OFF",
+        "-DLLVM_BUILD_TESTS=OFF",
+        "-DLLVM_BUILD_UTILS=OFF",
+
+        // https://github.com/ziglang/zig/issues/23546
+        // https://codeberg.org/ziglang/zig/pulls/30073
+        "-DCMAKE_LINK_DEPENDS_USE_LINKER=FALSE", // To avoid "error: unsupported linker arg:", "--dependency-file"
+
+        "-DCMAKE_C_FLAGS=-mcpu=baseline",
+        "-DCMAKE_CXX_FLAGS=-mcpu=baseline",
+
+        // "-DCMAKE_VERBOSE_MAKEFILE=ON", // Increased build log verbosity
+        "-DCMAKE_INSTALL_MESSAGE=NEVER",
+        b.fmt("-DLLVM_PARALLEL_COMPILE_JOBS={d}", .{jobs}),
+        b.fmt("-DLLVM_PARALLEL_LINK_JOBS={d}", .{jobs}),
+    });
+    if (b.graph.host.result.os.tag != target.result.os.tag) {
+        setup_llvm.addArg(switch (target.result.os.tag) {
+            .linux => "-DCMAKE_SYSTEM_NAME=Linux",
+            .windows => "-DCMAKE_SYSTEM_NAME=Windows",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        });
     }
+    setup_llvm.setEnvironmentVariable("CC", b.fmt("{s};cc", .{b.graph.zig_exe}));
+    setup_llvm.setEnvironmentVariable("CXX", b.fmt("{s};c++", .{b.graph.zig_exe}));
+    setup_llvm.setEnvironmentVariable("ASM", b.fmt("{s};cc", .{b.graph.zig_exe}));
+    setup_llvm.step.dependOn(previous_step);
+
+    // Build main LLVM
+    const components = [_][]const u8{
+        "llvm-headers",
+        "lld-headers",
+        "llvm-libraries",
+        "llvm-config",
+        "lldCommon",
+        "lldELF",
+        "lldCOFF",
+        "lldMinGW",
+        "install-llvm-libraries",
+    };
+    const build_llvm = std.Build.Step.Run.create(b, "llvm_build");
+    build_llvm.addArg(cmake_exe_path);
+    build_llvm.addArg("--build");
+    build_llvm.addDirectoryArg(llvm_build_dir);
+    build_llvm.addArgs(&[_][]const u8{ b.fmt("-j{d}", .{jobs}), "--target" } ++ components);
+    build_llvm.step.dependOn(&setup_llvm.step);
+
+    // Install main LLVM
+    var install_run_steps: [components.len]*std.Build.Step = undefined;
+    for (components, 0..) |comp, i| {
+        const cmd = std.Build.Step.Run.create(b, b.fmt("llvm_install_{s}", .{comp}));
+        cmd.addArg(cmake_exe_path);
+        cmd.addArg("--install");
+        cmd.addDirectoryArg(llvm_build_dir);
+        cmd.addArgs(&.{ "--component", comp });
+        if (i == 0) {
+            cmd.step.dependOn(&build_llvm.step);
+        } else {
+            cmd.step.dependOn(install_run_steps[i - 1]);
+        }
+        install_run_steps[i] = &cmd.step;
+    }
+
+    return install_run_steps[install_run_steps.len - 1];
 }
 
-pub fn link(
-    b: *std.Build,
-    previous_step: *std.Build.Step,
-    exe: *std.Build.Step.Compile,
-) !void {
-    const LinkLLVMLibsStep = struct {
-        step: std.Build.Step,
-        exe: *std.Build.Step.Compile,
-        static_lib_names: []const []const u8,
-
-        pub fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) !void {
-            const self: *@This() = @fieldParentPtr("step", step);
-            for (self.static_lib_names) |lib_name| {
-                self.exe.root_module.linkSystemLibrary(lib_name, .{});
-            }
-        }
-    };
-
+pub fn link(exe: *std.Build.Step.Compile) !void {
     // Use command
     //     vendor/llvm-linux/bin/llvm-config --link-static --libs all | sed "s/ /\n/g" | sed "s/-l//g" | sed "s/^/\"/g" | sed "s/\$/\",/g"
     // To re-generate this list after a llvm version-upgrade
-    const static_llvm_libs: []const []const u8 = &.{
+    const llvm_libs: []const []const u8 = &.{
         "LLVMWindowsManifest",
         "LLVMXRay",
         "LLVMLibDriver",
@@ -189,185 +261,7 @@ pub fn link(
         "LLVMDemangle",
     };
 
-    const link_llvm_libs_step = try b.allocator.create(LinkLLVMLibsStep);
-    link_llvm_libs_step.* = .{
-        .step = std.Build.Step.init(.{
-            .id = .custom,
-            .name = "Link LLVM libraries",
-            .owner = b,
-            .makeFn = LinkLLVMLibsStep.make,
-        }),
-        .exe = exe,
-        .static_lib_names = static_llvm_libs,
-    };
-    link_llvm_libs_step.step.dependOn(previous_step);
-    exe.step.dependOn(&link_llvm_libs_step.step);
-}
-
-fn buildLLVM(
-    b: *std.Build,
-    previous_step: *std.Build.Step,
-    target: std.Build.ResolvedTarget,
-    force_rebuild: bool,
-    jobs: usize,
-    external_llvm_dir: ?[]const u8,
-) !*std.Build.Step {
-    _ = b.findProgram(&.{"ld.lld"}, &.{}) catch @panic("LLD not found on this system");
-    _ = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
-    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
-    _ = b.findProgram(&.{"python"}, &.{}) catch @panic("Python3 not found on this system");
-
-    const build_name: []const u8 = switch (target.result.os.tag) {
-        .linux => "linux",
-        .windows => "mingw",
-        else => return error.TargetNeedsToBeLinuxOrWindows,
-    };
-    const llvm_build_dir = b.fmt(".zig-cache/llvm-{s}", .{build_name});
-    const install_dir = b.fmt("vendor/llvm-{s}", .{build_name});
-    const llvm_dir = if (external_llvm_dir) |dir| dir else "vendor/sources/llvm-project";
-
-    if (std.Io.Dir.cwd().openDir(b.graph.io, install_dir, .{})) |_| {
-        // LLVM is already built, rebuilt only if requested
-        if (force_rebuild) {
-            try std.Io.Dir.cwd().deleteTree(b.graph.io, install_dir);
-        } else {
-            return makeEmptyStep(b);
-        }
-    } else |_| {}
-    if (force_rebuild) {
-        try std.Io.Dir.cwd().deleteTree(b.graph.io, llvm_build_dir);
+    for (llvm_libs) |lib| {
+        exe.root_module.linkSystemLibrary(lib, .{});
     }
-
-    std.debug.print("-- Building LLVM for {s}\n", .{build_name});
-
-    // Setup LLVM
-    const setup_llvm = b.addSystemCommand(&[_][]const u8{
-        "cmake",
-        "-S",
-        b.fmt("{s}/llvm", .{llvm_dir}),
-        "-B",
-        llvm_build_dir,
-        "-G",
-        "Ninja",
-        b.fmt("-DCMAKE_INSTALL_PREFIX={s}", .{install_dir}),
-        "-DCMAKE_BUILD_TYPE=MinSizeRel",
-        b.fmt("-DCMAKE_C_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;cc;-target;x86_64-linux-musl",
-            .windows => "zig;cc;-target;x86_64-windows-gnu",
-            else => return error.TargetNeedsToBeLinuxOrWindows,
-        }}),
-        b.fmt("-DCMAKE_CXX_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;c++;-target;x86_64-linux-musl",
-            .windows => "zig;c++;-target;x86_64-windows-gnu",
-            else => return error.TargetNeedsToBeLinuxOrWindows,
-        }}),
-        b.fmt("-DCMAKE_ASM_COMPILER={s}", .{switch (target.result.os.tag) {
-            .linux => "zig;cc;-target;x86_64-linux-musl",
-            .windows => "zig;cc;-target;x86_64-windows-gnu",
-            else => return error.TargetNeedsToBeLinuxOrWindows,
-        }}),
-        if (b.resolveTargetQuery(.{}).result.os.tag == target.result.os.tag) "" else switch (target.result.os.tag) {
-            .linux => "-DCMAKE_SYSTEM_NAME=Linux",
-            .windows => "-DCMAKE_SYSTEM_NAME=Windows",
-            else => return error.TargetNeedsToBeLinuxOrWindows,
-        },
-        "-DBUILD_SHARED_LIBS=OFF",
-
-        "-DLLVM_TARGET_ARCH=X86",
-        "-DLLVM_TARGETS_TO_BUILD=X86",
-
-        "-DLLVM_ENABLE_PROJECTS=lld",
-        "-DLLVM_ENABLE_ASSERTIONS=ON",
-        "-DLLVM_ENABLE_CURL=OFF",
-        "-DLLVM_ENABLE_HTTPLIB=OFF",
-        "-DLLVM_ENABLE_FFI=OFF",
-        "-DLLVM_ENABLE_LIBEDIT=OFF",
-        "-DLLVM_ENABLE_LIBXML2=OFF",
-        "-DLLVM_ENABLE_Z3_SOLVER=OFF",
-        "-DLLVM_ENABLE_ZLIB=OFF",
-        "-DLLVM_ENABLE_ZSTD=OFF",
-
-        "-DLLVM_INCLUDE_BENCHMARKS=OFF",
-        "-DLLVM_INCLUDE_DOCS=OFF",
-        "-DLLVM_INCLUDE_EXAMPLES=OFF",
-        "-DLLVM_INCLUDE_RUNTIMES=OFF",
-        "-DLLVM_INCLUDE_TESTS=OFF",
-        "-DLLVM_INCLUDE_UTILS=OFF",
-
-        "-DLLVM_BUILD_STATIC=ON",
-        "-DLLVM_BUILD_BENCHMARKS=OFF",
-        "-DLLVM_BUILD_DOCS=OFF",
-        "-DLLVM_BUILD_EXAMPLES=OFF",
-        "-DLLVM_BUILD_RUNTIME=OFF",
-        "-DLLVM_BUILD_TESTS=OFF",
-        "-DLLVM_BUILD_UTILS=OFF",
-
-        // https://github.com/ziglang/zig/issues/23546
-        // https://codeberg.org/ziglang/zig/pulls/30073
-        "-DCMAKE_LINK_DEPENDS_USE_LINKER=FALSE", // To avoid "error: unsupported linker arg:", "--dependency-file"
-
-        "-DCMAKE_C_FLAGS=-mcpu=baseline",
-        "-DCMAKE_CXX_FLAGS=-mcpu=baseline",
-
-        // "-DCMAKE_VERBOSE_MAKEFILE=ON", // Increased build log verbosity
-        "-DCMAKE_INSTALL_MESSAGE=NEVER",
-        b.fmt("-DLLVM_PARALLEL_COMPILE_JOBS={d}", .{jobs}),
-        b.fmt("-DLLVM_PARALLEL_LINK_JOBS={d}", .{jobs}),
-    });
-    setup_llvm.setEnvironmentVariable("CC", "zig;cc");
-    setup_llvm.setEnvironmentVariable("CXX", "zig;c++");
-    setup_llvm.setEnvironmentVariable("ASM", "zig;cc");
-    setup_llvm.setName("llvm_setup");
-    setup_llvm.step.dependOn(previous_step);
-
-    // Build main LLVM
-    const components = [_][]const u8{
-        "llvm-headers",
-        "lld-headers",
-        "llvm-libraries",
-        "llvm-config",
-        "lldCommon",
-        "lldELF",
-        "lldCOFF",
-        "lldMinGW",
-        "install-llvm-libraries",
-    };
-    const build_llvm = b.addSystemCommand(&[_][]const u8{
-        "cmake",                 "--build",  llvm_build_dir,
-        b.fmt("-j{d}", .{jobs}), "--target",
-    } ++ components);
-    build_llvm.setName("llvm_build");
-    build_llvm.step.dependOn(&setup_llvm.step);
-
-    // Install main LLVM
-    var install_runs: [components.len]*std.Build.Step.Run = undefined;
-    for (components, 0..) |comp, i| {
-        const cmd = b.addSystemCommand(&[_][]const u8{
-            "cmake", "--install", llvm_build_dir, "--component", comp,
-        });
-        cmd.setName(b.fmt("llvm_install_{s}", .{comp}));
-        if (i == 0) {
-            cmd.step.dependOn(&build_llvm.step);
-        } else {
-            cmd.step.dependOn(&install_runs[i - 1].step);
-        }
-        install_runs[i] = cmd;
-    }
-
-    return &install_runs[install_runs.len - 1].step;
-}
-
-fn hasInternetConnection(b: *std.Build) bool {
-    const hostname: std.Io.net.HostName = .{ .bytes = "google.com" };
-    const conn: std.Io.net.Stream = hostname.connect(
-        b.graph.io,
-        443,
-        .{
-            .mode = .stream,
-            .protocol = .tcp,
-            .timeout = .none,
-        },
-    ) catch return false;
-    conn.close(b.graph.io);
-    return true;
 }

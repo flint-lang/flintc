@@ -56,11 +56,17 @@ pub fn build(b: *std.Build) !void {
     // LLVM Options
     const o_llvm_jobs = b.option(usize, "llvm-jobs", "Number of cores to use for building LLVM") orelse
         (try std.Thread.getCpuCount() - 2);
-    const o_llvm_prebuilt_dir = b.option([]const u8, "llvm-prebuilt-dir", "Path to prebuilt LLVM installation.");
-    const o_llvm_version = b.option([]const u8, "llvm-version", b.fmt("LLVM version to use. Default: {s}", .{llvm.DEFAULT_LLVM_VERSION})) orelse
-        llvm.DEFAULT_LLVM_VERSION;
     const o_llvm_rebuild = b.option(bool, "llvm-rebuild", "Force rebuild LLVM") orelse
         false;
+
+    const llvm_dep = b.dependency("llvm", .{});
+    const platform_name: []const u8 = switch (target.result.os.tag) {
+        .linux => "linux",
+        .windows => "mingw",
+        else => return error.TargetNeedsToBeLinuxOrWindows,
+    };
+    const llvm_platform_dirname: []const u8 = b.fmt("llvm-{s}", .{platform_name});
+    const install_dir: []const u8 = b.fmt("vendor/{s}", .{llvm_platform_dirname});
 
     var targets_to_build: std.EnumArray(BuildTarget, bool) = .initFill(o_all);
     var single_build: ?struct {
@@ -79,11 +85,7 @@ pub fn build(b: *std.Build) !void {
         single_build = .{ .t = @enumFromInt(target_int), .s = undefined };
     }
 
-    var last_step: *std.Build.Step =
-        if (o_llvm_prebuilt_dir == null)
-            try llvm.update(b, o_llvm_version)
-        else
-            try makeEmptyStep(b);
+    var last_step: *std.Build.Step = try makeEmptyStep(b);
     var targets_it = targets_to_build.iterator();
     while (targets_it.next()) |kvp| {
         if (!kvp.value.*) {
@@ -94,11 +96,11 @@ pub fn build(b: *std.Build) !void {
 
         const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, false, .master, false);
         const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, false, .master, true);
-        const llvm_step = try llvm.build(b, tar, &flint_parser_lib_flintc.step, o_llvm_prebuilt_dir, o_llvm_rebuild, o_llvm_jobs);
+        const llvm_step = try llvm.build(b, &flint_parser_lib_flintc.step, tar, o_llvm_rebuild, o_llvm_jobs, llvm_dep, platform_name, llvm_platform_dirname, install_dir);
         const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, build_date);
         const fls_install_step = &b.addInstallArtifact(fls_exe, .{}).step;
         b.getInstallStep().dependOn(fls_install_step);
-        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, o_llvm_prebuilt_dir, commit_hash, build_date);
+        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, commit_hash, build_date);
         const flintc_install_step = &b.addInstallArtifact(flintc_exe, .{}).step;
         b.getInstallStep().dependOn(flintc_install_step);
         flintc_install_step.dependOn(fls_install_step);
@@ -124,10 +126,10 @@ pub fn build(b: *std.Build) !void {
     }
 }
 
-/// Create a no-op Run step that meets the return type requirements
+/// Create a no-op step that meets the return type requirements
 pub fn makeEmptyStep(b: *std.Build) !*std.Build.Step {
-    const run_step = b.addSystemCommand(&[_][]const u8{ "zig", "version" });
-    run_step.setName("make_empty_step");
+    const run_step = std.Build.Step.Run.create(b, "make_empty_step");
+    run_step.addArgs(&.{ b.graph.zig_exe, "version" });
     _ = run_step.captureStdOut(.{});
     return &run_step.step;
 }
