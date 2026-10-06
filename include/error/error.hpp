@@ -1,7 +1,7 @@
 #pragma once
 
 #include "colors.hpp"
-#include "diagnostics.hpp"
+#include "diagnostics.hpp" // IWYU pragma: keep
 #include "error_type.hpp"
 #include "globals.hpp"
 
@@ -9,145 +9,145 @@
 #include "error_types/base_error.hpp"
 
 // --- LEXING ERRORS ---
-#include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"
-#include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp"
-#include "error_types/lexing/literals/err_lit_expected_char_value.hpp"
-#include "error_types/lexing/literals/err_lit_int_too_large.hpp"
-#include "error_types/lexing/literals/err_lit_int_too_small.hpp"
-#include "error_types/lexing/literals/err_lit_unterminated_string.hpp"
-#include "error_types/lexing/unexpected/err_unexpected_token.hpp"
-#include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"
-#include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"
+#include "error_types/lexing/comments/err_comment_unterm_multiline.hpp"              // IWYU pragma: keep
+#include "error_types/lexing/literals/err_lit_char_longer_than_single_character.hpp" // IWYU pragma: keep
+#include "error_types/lexing/literals/err_lit_expected_char_value.hpp"               // IWYU pragma: keep
+#include "error_types/lexing/literals/err_lit_int_too_large.hpp"                     // IWYU pragma: keep
+#include "error_types/lexing/literals/err_lit_int_too_small.hpp"                     // IWYU pragma: keep
+#include "error_types/lexing/literals/err_lit_unterminated_string.hpp"               // IWYU pragma: keep
+#include "error_types/lexing/unexpected/err_unexpected_token.hpp"                    // IWYU pragma: keep
+#include "error_types/lexing/unexpected/err_unexpected_token_number.hpp"             // IWYU pragma: keep
+#include "error_types/lexing/unexpected/err_unexpected_token_pipe.hpp"               // IWYU pragma: keep
 
 // --- PARSING ERRORS ---
-#include "error_types/parsing/annotations/err_anno_duplicate.hpp"
-#include "error_types/parsing/annotations/err_anno_leftover.hpp"
-#include "error_types/parsing/annotations/err_anno_unknown.hpp"
+#include "error_types/parsing/annotations/err_anno_duplicate.hpp" // IWYU pragma: keep
+#include "error_types/parsing/annotations/err_anno_leftover.hpp"  // IWYU pragma: keep
+#include "error_types/parsing/annotations/err_anno_unknown.hpp"   // IWYU pragma: keep
 
-#include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"
-#include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"
-#include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"
-#include "error_types/parsing/definitions/err_def_no_main_function.hpp"
-#include "error_types/parsing/definitions/err_def_redefinition.hpp"
-#include "error_types/parsing/definitions/err_unexpected_definition.hpp"
-#include "error_types/parsing/definitions/func/err_def_func_contains_virtual_function.hpp"
-#include "error_types/parsing/definitions/func/err_def_func_required_type_not_data.hpp"
-#include "error_types/parsing/definitions/func/err_def_func_required_type_unknown.hpp"
-#include "error_types/parsing/definitions/func/err_def_func_requiring_same_data_twice.hpp"
-#include "error_types/parsing/definitions/function/err_fn_cannot_return_tuple.hpp"
-#include "error_types/parsing/definitions/function/err_fn_comptime_param_type.hpp"
-#include "error_types/parsing/definitions/function/err_fn_comptime_return_type.hpp"
-#include "error_types/parsing/definitions/function/err_fn_def_missing.hpp"
-#include "error_types/parsing/definitions/function/err_fn_main_err_set.hpp"
-#include "error_types/parsing/definitions/function/err_fn_main_no_returns.hpp"
-#include "error_types/parsing/definitions/function/err_fn_main_redefinition.hpp"
-#include "error_types/parsing/definitions/function/err_fn_main_too_many_args.hpp"
-#include "error_types/parsing/definitions/function/err_fn_main_wrong_arg_type.hpp"
-#include "error_types/parsing/definitions/function/err_fn_param_shadows_required_data.hpp"
-#include "error_types/parsing/definitions/function/err_fn_redefinition.hpp"
-#include "error_types/parsing/definitions/function/err_fn_reserved_name.hpp"
-#include "error_types/parsing/definitions/function/err_fn_specialization_failed.hpp"
-#include "error_types/parsing/definitions/function/err_fn_specialize_param_type_failed.hpp"
-#include "error_types/parsing/definitions/function/err_fn_void_in_return_group.hpp"
-#include "error_types/parsing/definitions/function/err_fn_void_param_type.hpp"
-#include "error_types/parsing/definitions/import/err_import_duplicate_alias.hpp"
-#include "error_types/parsing/definitions/import/err_import_exited_cwd.hpp"
-#include "error_types/parsing/definitions/import/err_import_nonexistent_file.hpp"
-#include "error_types/parsing/definitions/import/err_import_not_at_top_level.hpp"
-#include "error_types/parsing/definitions/import/err_import_same_file_twice.hpp"
-#include "error_types/parsing/definitions/import/err_import_unexpected_core_module.hpp"
-#include "error_types/parsing/definitions/interface/err_def_func_contains_virtual_function.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_duplicate_accessor.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_duplicate_data.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_duplicate_func.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_duplicate_interface.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_implemented_type_not_interface.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_implemented_type_unknown.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_missing_data.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_no_data.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_no_functionality.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_provided_type_not_data.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_provided_type_not_func.hpp"
-#include "error_types/parsing/definitions/object/err_def_object_unresolved_virtual.hpp"
-#include "error_types/parsing/definitions/test/err_test_entry_duplicate.hpp"
-#include "error_types/parsing/definitions/test/err_test_entry_invalid.hpp"
-#include "error_types/parsing/definitions/test/err_test_entry_on_main.hpp"
-#include "error_types/parsing/definitions/test/err_test_redefinition.hpp"
-#include "error_types/parsing/definitions/test/err_test_setup_duplicate.hpp"
+#include "error_types/parsing/definitions/data/err_def_data_duplicate_field_name.hpp"               // IWYU pragma: keep
+#include "error_types/parsing/definitions/data/err_def_data_wrong_constructor_name.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/definitions/err_def_err_only_one_parent.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/definitions/err_def_no_main_function.hpp"                             // IWYU pragma: keep
+#include "error_types/parsing/definitions/err_def_redefinition.hpp"                                 // IWYU pragma: keep
+#include "error_types/parsing/definitions/err_unexpected_definition.hpp"                            // IWYU pragma: keep
+#include "error_types/parsing/definitions/func/err_def_func_contains_virtual_function.hpp"          // IWYU pragma: keep
+#include "error_types/parsing/definitions/func/err_def_func_required_type_not_data.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/definitions/func/err_def_func_required_type_unknown.hpp"              // IWYU pragma: keep
+#include "error_types/parsing/definitions/func/err_def_func_requiring_same_data_twice.hpp"          // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_cannot_return_tuple.hpp"                  // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_comptime_param_type.hpp"                  // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_comptime_return_type.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_def_missing.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_main_err_set.hpp"                         // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_main_no_returns.hpp"                      // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_main_redefinition.hpp"                    // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_main_too_many_args.hpp"                   // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_main_wrong_arg_type.hpp"                  // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_param_shadows_required_data.hpp"          // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_redefinition.hpp"                         // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_reserved_name.hpp"                        // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_specialization_failed.hpp"                // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_specialize_param_type_failed.hpp"         // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_void_in_return_group.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/definitions/function/err_fn_void_param_type.hpp"                      // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_duplicate_alias.hpp"                    // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_exited_cwd.hpp"                         // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_nonexistent_file.hpp"                   // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_not_at_top_level.hpp"                   // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_same_file_twice.hpp"                    // IWYU pragma: keep
+#include "error_types/parsing/definitions/import/err_import_unexpected_core_module.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/definitions/interface/err_def_func_contains_virtual_function.hpp"     // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_duplicate_accessor.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_duplicate_data.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_duplicate_func.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_duplicate_interface.hpp"            // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_implemented_type_not_interface.hpp" // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_implemented_type_unknown.hpp"       // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_missing_data.hpp"                   // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_no_data.hpp"                        // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_no_functionality.hpp"               // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_provided_type_not_data.hpp"         // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_provided_type_not_func.hpp"         // IWYU pragma: keep
+#include "error_types/parsing/definitions/object/err_def_object_unresolved_virtual.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/definitions/test/err_test_entry_duplicate.hpp"                        // IWYU pragma: keep
+#include "error_types/parsing/definitions/test/err_test_entry_invalid.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/definitions/test/err_test_entry_on_main.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/definitions/test/err_test_redefinition.hpp"                           // IWYU pragma: keep
+#include "error_types/parsing/definitions/test/err_test_setup_duplicate.hpp"                        // IWYU pragma: keep
 
-#include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"
-#include "error_types/parsing/expressions/err_expr_array_needs_initializer.hpp"
-#include "error_types/parsing/expressions/err_expr_call_ambiguous.hpp"
-#include "error_types/parsing/expressions/err_expr_call_missing_closing_paren.hpp"
-#include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"
-#include "error_types/parsing/expressions/err_expr_call_of_virtual_function.hpp"
-#include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"
-#include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"
-#include "error_types/parsing/expressions/err_expr_cast_vector_length_mismatch.hpp"
-#include "error_types/parsing/expressions/err_expr_data_initializer_missing_default_value.hpp"
-#include "error_types/parsing/expressions/err_expr_enum_tag_not_present.hpp"
-#include "error_types/parsing/expressions/err_expr_field_access_not_allowed_on_type.hpp"
-#include "error_types/parsing/expressions/err_expr_field_access_on_object.hpp"
-#include "error_types/parsing/expressions/err_expr_field_nonexistent.hpp"
-#include "error_types/parsing/expressions/err_expr_fn_ref_core.hpp"
-#include "error_types/parsing/expressions/err_expr_fn_ref_nonexistent.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_duplicate_field.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_field_mixed_styles.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_field_not_default_constructible.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_field_wrong_format.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_too_many_values.hpp"
-#include "error_types/parsing/expressions/err_expr_initializer_wrong_arg_count.hpp"
-#include "error_types/parsing/expressions/err_expr_interpolation_only_one_expr.hpp"
-#include "error_types/parsing/expressions/err_expr_mutating_const.hpp"
-#include "error_types/parsing/expressions/err_expr_nested_group.hpp"
-#include "error_types/parsing/expressions/err_expr_not_recognizable.hpp"
-#include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"
-#include "error_types/parsing/expressions/err_expr_unary_op_missing_expr.hpp"
+#include "error_types/parsing/expressions/err_expr_array_access_not_allowed_on_type.hpp"            // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_array_needs_initializer.hpp"                     // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_ambiguous.hpp"                              // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_missing_closing_paren.hpp"                  // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_of_undefined_function.hpp"                  // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_of_virtual_function.hpp"                    // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_on_const_instance.hpp"                      // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_call_on_wrong_instance_type.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_cast_vector_length_mismatch.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_data_initializer_missing_default_value.hpp"      // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_enum_tag_not_present.hpp"                        // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_field_access_not_allowed_on_type.hpp"            // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_field_access_on_object.hpp"                      // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_field_nonexistent.hpp"                           // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_fn_ref_core.hpp"                                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_fn_ref_nonexistent.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_duplicate_field.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_field_mixed_styles.hpp"              // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_field_not_default_constructible.hpp" // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_field_wrong_format.hpp"              // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_too_many_values.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_initializer_wrong_arg_count.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_interpolation_only_one_expr.hpp"                 // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_mutating_const.hpp"                              // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_nested_group.hpp"                                // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_not_recognizable.hpp"                            // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_tuple_access_oob.hpp"                            // IWYU pragma: keep
+#include "error_types/parsing/expressions/err_expr_unary_op_missing_expr.hpp"                       // IWYU pragma: keep
 
-#include "error_types/parsing/fip/err_ambiguous_module_tag.hpp"
-#include "error_types/parsing/fip/err_extern_fn_not_found.hpp"
-#include "error_types/parsing/fip/err_extern_without_fip.hpp"
-#include "error_types/parsing/fip/err_no_fip_directory_found.hpp"
-#include "error_types/parsing/fip/err_unknown_module_tag.hpp"
-#include "error_types/parsing/fip/err_use_without_fip.hpp"
+#include "error_types/parsing/fip/err_ambiguous_module_tag.hpp"   // IWYU pragma: keep
+#include "error_types/parsing/fip/err_extern_fn_not_found.hpp"    // IWYU pragma: keep
+#include "error_types/parsing/fip/err_extern_without_fip.hpp"     // IWYU pragma: keep
+#include "error_types/parsing/fip/err_no_fip_directory_found.hpp" // IWYU pragma: keep
+#include "error_types/parsing/fip/err_unknown_module_tag.hpp"     // IWYU pragma: keep
+#include "error_types/parsing/fip/err_use_without_fip.hpp"        // IWYU pragma: keep
 
-#include "error_types/parsing/scopes/err_missing_body.hpp"
-#include "error_types/parsing/scopes/err_missing_colon.hpp"
-#include "error_types/parsing/scopes/err_missing_semicolon.hpp"
+#include "error_types/parsing/scopes/err_missing_body.hpp"      // IWYU pragma: keep
+#include "error_types/parsing/scopes/err_missing_colon.hpp"     // IWYU pragma: keep
+#include "error_types/parsing/scopes/err_missing_semicolon.hpp" // IWYU pragma: keep
 
-#include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"
-#include "error_types/parsing/statements/err_stmt_dangling_else.hpp"
-#include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"
-#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_freeable.hpp"
-#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_persistent.hpp"
-#include "error_types/parsing/statements/err_stmt_not_recognizable.hpp"
+#include "error_types/parsing/statements/err_stmt_dangling_catch.hpp"                    // IWYU pragma: keep
+#include "error_types/parsing/statements/err_stmt_dangling_else.hpp"                     // IWYU pragma: keep
+#include "error_types/parsing/statements/err_stmt_if_chain_missing_if.hpp"               // IWYU pragma: keep
+#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_freeable.hpp"   // IWYU pragma: keep
+#include "error_types/parsing/statements/err_stmt_mussing_initializer_of_persistent.hpp" // IWYU pragma: keep
+#include "error_types/parsing/statements/err_stmt_not_recognizable.hpp"                  // IWYU pragma: keep
 
-#include "error_types/parsing/types/err_type_not_default_constructible.hpp"
-#include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"
-#include "error_types/parsing/types/err_type_unknown.hpp"
-#include "error_types/parsing/types/err_type_unknown_for_default_construction.hpp"
+#include "error_types/parsing/types/err_type_not_default_constructible.hpp"        // IWYU pragma: keep
+#include "error_types/parsing/types/err_type_tuple_vector_overlap.hpp"             // IWYU pragma: keep
+#include "error_types/parsing/types/err_type_unknown.hpp"                          // IWYU pragma: keep
+#include "error_types/parsing/types/err_type_unknown_for_default_construction.hpp" // IWYU pragma: keep
 
-#include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp"
+#include "error_types/parsing/unexpected/err_pars_unexpected_token.hpp" // IWYU pragma: keep
 
-#include "error_types/parsing/variables/err_var_from_requires_list.hpp"
-#include "error_types/parsing/variables/err_var_mutating_const.hpp"
-#include "error_types/parsing/variables/err_var_not_declared.hpp"
-#include "error_types/parsing/variables/err_var_redefinition.hpp"
+#include "error_types/parsing/variables/err_var_from_requires_list.hpp" // IWYU pragma: keep
+#include "error_types/parsing/variables/err_var_mutating_const.hpp"     // IWYU pragma: keep
+#include "error_types/parsing/variables/err_var_not_declared.hpp"       // IWYU pragma: keep
+#include "error_types/parsing/variables/err_var_redefinition.hpp"       // IWYU pragma: keep
 
-#include "error_types/parsing/err_call_of_comptime_only_function.hpp"
-#include "error_types/parsing/err_call_of_extern_function_at_comptime.hpp"
+#include "error_types/parsing/err_call_of_comptime_only_function.hpp"      // IWYU pragma: keep
+#include "error_types/parsing/err_call_of_extern_function_at_comptime.hpp" // IWYU pragma: keep
 
 // --- GENERATING ERRORS ---
-#include "error_types/generating/fip/err_extern_compilation_failed.hpp"
-#include "error_types/generating/fip/err_extern_duplicate_function.hpp"
+#include "error_types/generating/fip/err_extern_compilation_failed.hpp" // IWYU pragma: keep
+#include "error_types/generating/fip/err_extern_duplicate_function.hpp" // IWYU pragma: keep
 
 // --- ANALYZING ERRORS ---
-#include "error_types/analyzing/err_empty_stored_fixed_array.hpp"
-#include "error_types/analyzing/err_expr_binop_type_mismatch.hpp"
-#include "error_types/analyzing/err_expr_cast_invalid.hpp"
-#include "error_types/analyzing/err_expr_type_mismatch.hpp"
-#include "error_types/analyzing/err_ptr_not_allowed_in_internal_function_definition.hpp"
-#include "error_types/analyzing/err_ptr_not_allowed_in_non_extern_context.hpp"
+#include "error_types/analyzing/err_empty_stored_fixed_array.hpp"                        // IWYU pragma: keep
+#include "error_types/analyzing/err_expr_binop_type_mismatch.hpp"                        // IWYU pragma: keep
+#include "error_types/analyzing/err_expr_cast_invalid.hpp"                               // IWYU pragma: keep
+#include "error_types/analyzing/err_expr_type_mismatch.hpp"                              // IWYU pragma: keep
+#include "error_types/analyzing/err_ptr_not_allowed_in_internal_function_definition.hpp" // IWYU pragma: keep
+#include "error_types/analyzing/err_ptr_not_allowed_in_non_extern_context.hpp"           // IWYU pragma: keep
 
 #include <iostream>
 #include <string>

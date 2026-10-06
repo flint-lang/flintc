@@ -7,7 +7,7 @@
 #include "parser/type/type.hpp"
 #include "types.hpp"
 
-#include <sstream> // Used by all derived error types, so we need it
+#include <sstream> // IWYU pragma: keep
 #include <string>
 
 /// @class `BaseError`
