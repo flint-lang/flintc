@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
     // Print the version if requested
     if (clp.print_version) {
-        std::cout << "flintc " << VERSION << " (" << COMMIT_HASH << ", " << BUILD_DATE << ")";
+        std::cout << "flintc v" << VERSION << " (" << COMMIT_HASH << ", " << BUILD_DATE << ")";
         if (DEBUG_MODE) {
             std::cout << " [debug]";
         }
