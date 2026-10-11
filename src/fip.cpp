@@ -177,18 +177,13 @@ bool FIP::init(                //
     fip_print(0, FIP_INFO, "Waiting for interop modules to connect...");
     // Wait for all connect messages from the IMs
     fip_print(0, FIP_INFO, "Waiting for all connect requests...");
-    fip_master_await_responses(       //
-        buffer,                       //
-        master_state.responses,       //
-        &master_state.response_count, //
-        FIP_MSG_CONNECT_REQUEST       //
-    );
+    fip_master_await_responses(master_state.responses, &master_state.response_count, FIP_MSG_CONNECT_REQUEST);
 
     // Check if each interop module has the correct version
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         const fip_msg_t *response = &master_state.responses[i];
         const fip_msg_connect_request_t *req = &response->u.con_req;
-        ASSERT(response->type == FIP_MSG_CONNECT_REQUEST);
+        ASSERT(response->tag == FIP_MSG_CONNECT_REQUEST);
         if (req->version.major != FIP_MAJOR    //
             || req->version.minor != FIP_MINOR //
             || req->version.patch != FIP_PATCH //
@@ -216,13 +211,13 @@ void FIP::shutdown() {
     }
     PROFILE_SCOPE("FIP shutdown");
     fip_free_msg(&message);
-    message.type = FIP_MSG_KILL;
+    message.tag = FIP_MSG_KILL;
     message.u.kill.reason = FIP_KILL_FINISH;
 #ifndef _WIN32
     auto sleep_100ms = timespec{.tv_sec = 0, .tv_nsec = 100000000};
     nanosleep(&sleep_100ms, NULL);
 #endif
-    fip_master_broadcast_message(buffer, &message);
+    fip_master_broadcast_message(&message);
 
     // Clean up
 #ifndef _WIN32
@@ -253,7 +248,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             for (const size_t len : type->sizes.value()) {
                 size *= len;
             }
-            dest->type = FIP_TYPE_ARRAY;
+            dest->tag = FIP_TYPE_ARRAY;
             dest->u.array.size = size;
             dest->u.array.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
             if (!convert_type(dest->u.array.base_type, type->type, is_mutable)) {
@@ -263,7 +258,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         }
         case Type::Variation::PRIMITIVE: {
             const auto *type = src->as<PrimitiveType>();
-            dest->type = FIP_TYPE_PRIMITIVE;
+            dest->tag = FIP_TYPE_PRIMITIVE;
 
             // Map primitive type string to enum
             const std::string type_str = type->to_string();
@@ -301,7 +296,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const auto *type = src->as<DataType>();
             // A data-type is just a struct and will be handled as such
             const DataNode *data_node = type->data_node;
-            dest->type = FIP_TYPE_STRUCT;
+            dest->tag = FIP_TYPE_STRUCT;
             dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
@@ -314,7 +309,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         case Type::Variation::TUPLE: {
             const auto *type = src->as<TupleType>();
             // A tuple-type is just a struct under the hood annyway
-            dest->type = FIP_TYPE_STRUCT;
+            dest->tag = FIP_TYPE_STRUCT;
             dest->u.struct_t.field_count = static_cast<uint8_t>(type->types.size());
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->types.size()));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
@@ -327,13 +322,13 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         case Type::Variation::OPAQUE: {
             const auto *type = src->as<OpaqueType>();
             if (type->name.has_value()) {
-                dest->type = FIP_TYPE_OPAQUE;
+                dest->tag = FIP_TYPE_OPAQUE;
                 memcpy(dest->u.opaque.name, type->name.value().data(), type->name.value().size());
                 dest->u.opaque.name[type->name.value().size()] = '\0';
             } else {
-                dest->type = FIP_TYPE_PTR;
+                dest->tag = FIP_TYPE_PTR;
                 dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
-                dest->u.ptr.base_type->type = FIP_TYPE_PRIMITIVE;
+                dest->u.ptr.base_type->tag = FIP_TYPE_PRIMITIVE;
                 dest->u.ptr.base_type->is_mutable = true;
                 dest->u.ptr.base_type->u.prim = FIP_VOID;
             }
@@ -342,7 +337,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         case Type::Variation::POINTER: {
             const auto *type = src->as<PointerType>();
             // A pointer type is essentially just the base type encoded but with a pointer type tag.
-            dest->type = FIP_TYPE_PTR;
+            dest->tag = FIP_TYPE_PTR;
             dest->u.ptr.base_type = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
             if (!convert_type(dest->u.ptr.base_type, type->base_type, is_mutable)) {
                 return false;
@@ -352,7 +347,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         case Type::Variation::ENUM: {
             const auto *type = src->as<EnumType>();
             const EnumNode *enum_node = type->enum_node;
-            dest->type = FIP_TYPE_ENUM;
+            dest->tag = FIP_TYPE_ENUM;
             // TODO: For now all enums in Flint are i32
             dest->u.enum_t.bit_width = 32;
             dest->u.enum_t.is_signed = true;
@@ -367,7 +362,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
         case Type::Variation::VECTOR: {
             const auto *type = src->as<VectorType>();
             // A vector-type will be handled just as a struct type and nothing more
-            dest->type = FIP_TYPE_STRUCT;
+            dest->tag = FIP_TYPE_STRUCT;
             dest->u.struct_t.field_count = static_cast<uint8_t>(type->width);
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->width));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
@@ -409,9 +404,9 @@ bool FIP::resolve_function(FunctionNode *function) {
         return true;
     }
     fip_msg_t msg = fip_msg_t{};
-    msg.type = FIP_MSG_SYMBOL_REQUEST;
-    msg.u.sym_req.type = FIP_SYM_FUNCTION;
-    strncpy(msg.u.sym_req.sig.fn.name, function->name.c_str(), function->name.size());
+    msg.tag = FIP_MSG_SYMBOL_REQUEST;
+    msg.u.sym_req.sig.tag = FIP_SIG_FUNCTION;
+    strncpy(msg.u.sym_req.sig.u.fn.name, function->name.c_str(), function->name.size());
     const std::string fn_str = function->get_signature_string(0, false, true, false, true, false);
     fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
@@ -426,9 +421,9 @@ bool FIP::resolve_function(FunctionNode *function) {
         } else {
             ret_type = function->return_types.front();
         }
-        msg.u.sym_req.sig.fn.rets_len = 1; // We *always* have only one return type, being either the value directly or a struct
-        msg.u.sym_req.sig.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
-        if (!convert_type(&msg.u.sym_req.sig.fn.rets[0], ret_type, true)) {
+        msg.u.sym_req.sig.u.fn.rets_len = 1; // We *always* have only one return type, being either the value directly or a struct
+        msg.u.sym_req.sig.u.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+        if (!convert_type(&msg.u.sym_req.sig.u.fn.rets[0], ret_type, true)) {
             const std::string type_str = ret_type->to_string();
             fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
             return false;
@@ -437,11 +432,11 @@ bool FIP::resolve_function(FunctionNode *function) {
 
     if (!function->parameters.empty()) {
         const uint8_t args_len = static_cast<uint8_t>(function->parameters.size());
-        msg.u.sym_req.sig.fn.args_len = args_len;
-        msg.u.sym_req.sig.fn.args = static_cast<fip_sig_fn_arg_t *>(malloc(sizeof(fip_sig_fn_arg_t) * args_len));
+        msg.u.sym_req.sig.u.fn.args_len = args_len;
+        msg.u.sym_req.sig.u.fn.args = static_cast<fip_sig_fn_arg_t *>(malloc(sizeof(fip_sig_fn_arg_t) * args_len));
         for (uint8_t i = 0; i < args_len; i++) {
             const FunctionNode::Parameter &param = function->parameters.at(i);
-            if (!convert_type(&msg.u.sym_req.sig.fn.args[i].type, param.type, param.is_mutable)) {
+            if (!convert_type(&msg.u.sym_req.sig.u.fn.args[i].type, param.type, param.is_mutable)) {
                 const std::string type_str = function->parameters.at(i).type->to_string();
                 fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
@@ -450,7 +445,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     }
 
     fip_print(0, FIP_INFO, "Checking whether the function '%s' exists", function->name.c_str());
-    if (!fip_master_symbol_request(buffer, &msg)) {
+    if (!fip_master_symbol_request(&msg)) {
         fip_print(0, FIP_ERROR, "The function '%s' could not be resolved", function->name.c_str());
         return false;
     }
@@ -461,9 +456,7 @@ bool FIP::resolve_function(FunctionNode *function) {
         fake_fn.arg_types.emplace_back(param.type);
     }
     for (uint8_t i = 0; i < master_state.response_count; i++) {
-        if (master_state.responses[i].type == FIP_MSG_SYMBOL_RESPONSE //
-            && master_state.responses[i].u.sym_res.found              //
-        ) {
+        if (master_state.responses[i].tag == FIP_MSG_SYMBOL_RESPONSE && master_state.responses[i].u.sym_res.found) {
             fake_fn.module_name = std::string(master_state.responses[i].u.sym_res.module_name);
             break;
         }
@@ -504,9 +497,9 @@ bool FIP::resolve_module_import(ImportNode *import) {
     import->path = module_hash;
     // Get the signature list from the tag request
     fip_msg_t msg{};
-    msg.type = FIP_MSG_TAG_REQUEST;
+    msg.tag = FIP_MSG_TAG_REQUEST;
     memcpy(msg.u.tag_req.tag, module_tag.data(), module_tag.size());
-    fip_tag_request_result_t result = fip_master_tag_request(buffer, &msg);
+    fip_tag_request_result_t result = fip_master_tag_request(&msg);
     switch (result.status) {
         case FIP_TAG_REQUEST_STATUS_OK:
             return generate_bindings_file(result.list, module_tag);
@@ -553,60 +546,60 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
         return false;
     }
     for (size_t i = 0; i < list->count; i++) {
-        switch (list->sigs[i].type) {
-            case FIP_SYM_UNKNOWN:
+        switch (list->sigs[i].tag) {
+            case FIP_SIG_UNKNOWN:
                 THROW_BASIC_ERR(ERR_PARSING);
                 break;
-            case FIP_SYM_FUNCTION: {
-                const fip_sig_fn_t *const f = &list->sigs[i].sig.fn;
-                file << "extern def " << f->name << "(";
-                for (size_t j = 0; j < f->args_len; j++) {
+            case FIP_SIG_FUNCTION: {
+                const fip_sig_fn_t *const fn = &list->sigs[i].u.fn;
+                file << "extern def " << fn->name << "(";
+                for (size_t j = 0; j < fn->args_len; j++) {
                     if (j > 0) {
                         file << ", ";
                     }
-                    if (f->args[j].type.is_mutable) {
+                    if (fn->args[j].type.is_mutable) {
                         file << "mut ";
                     } else {
                         file << "const ";
                     }
-                    generate_fip_type(&f->args[j].type, file, true);
-                    if (keywords.find(f->args[j].name) != keywords.end()) {
-                        file << " _" << f->args[j].name;
+                    generate_fip_type(&fn->args[j].type, file, true);
+                    if (keywords.find(fn->args[j].name) != keywords.end()) {
+                        file << " _" << fn->args[j].name;
                     } else {
-                        file << " " << f->args[j].name;
+                        file << " " << fn->args[j].name;
                     }
                 }
                 file << ")";
-                if (f->rets_len > 0) {
+                if (fn->rets_len > 0) {
                     file << " -> ";
                 }
-                if (f->rets_len > 1) {
+                if (fn->rets_len > 1) {
                     file << "(";
                 }
-                for (size_t j = 0; j < f->rets_len; j++) {
+                for (size_t j = 0; j < fn->rets_len; j++) {
                     if (j > 0) {
                         file << ", ";
                     }
-                    generate_fip_type(&f->rets[j], file, true);
+                    generate_fip_type(&fn->rets[j], file, true);
                 }
-                if (f->rets_len > 1) {
+                if (fn->rets_len > 1) {
                     file << ")";
                 }
                 file << ";\n";
                 break;
             }
-            case FIP_SYM_DATA: {
-                const fip_sig_data_t *const d = &list->sigs[i].sig.data;
+            case FIP_SIG_DATA: {
+                const fip_sig_data_t *const data = &list->sigs[i].u.data;
                 // Check if the data could be a vector-type instead, emit a type alias for that case
-                if (d->value_types[0].type == FIP_TYPE_PRIMITIVE) {
+                if (data->fields[0].type.tag == FIP_TYPE_PRIMITIVE) {
                     bool is_vector = true;
-                    const fip_type_prim_e prim_type = d->value_types[0].u.prim;
-                    for (size_t j = 1; j < d->value_count; j++) {
-                        if (d->value_types[j].type != FIP_TYPE_PRIMITIVE) {
+                    const fip_type_prim_e prim_type = data->fields[0].type.u.prim;
+                    for (size_t j = 1; j < data->field_count; j++) {
+                        if (data->fields[j].type.tag != FIP_TYPE_PRIMITIVE) {
                             is_vector = false;
                             break;
                         }
-                        if (d->value_types[j].u.prim != prim_type) {
+                        if (data->fields[j].type.u.prim != prim_type) {
                             is_vector = false;
                             break;
                         }
@@ -640,52 +633,51 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                                 type_str = "f64x";
                                 break;
                         }
-                        type_str += std::to_string(d->value_count);
+                        type_str += std::to_string(data->field_count);
                         if (is_valid && !type_str.empty() && Type::get_type_from_str(type_str).has_value()) {
-                            file << "type " << d->name << " " << type_str << "\n";
+                            file << "type " << data->name << " " << type_str << "\n";
                             break;
                         }
-                        generated_types[d->name] = Type::Variation::VECTOR;
+                        generated_types[data->name] = Type::Variation::VECTOR;
                     }
                 }
-                file << "data " << d->name << ":\n";
-                for (size_t j = 0; j < d->value_count; j++) {
+                file << "data " << data->name << ":\n";
+                for (size_t j = 0; j < data->field_count; j++) {
+                    fip_sig_data_field_t *const field = &data->fields[j];
                     file << "\t";
-                    generate_fip_type(&d->value_types[j], file, false);
-                    if (keywords.find(d->value_names[j]) != keywords.end()) {
-                        file << " _" << d->value_names[j] << ";\n";
+                    generate_fip_type(&field->type, file, false);
+                    if (keywords.find(field->name) != keywords.end()) {
+                        file << " _" << field->name << ";\n";
                     } else {
-                        file << " " << d->value_names[j] << ";\n";
+                        file << " " << field->name << ";\n";
                     }
-                    fip_free_type(&d->value_types[j]);
+                    fip_free_type(&field->type);
                 }
                 file << "\n";
-                free(d->value_types);
-                free(d->value_names);
-                generated_types[d->name] = Type::Variation::DATA;
+                free(data->fields);
+                generated_types[data->name] = Type::Variation::DATA;
                 break;
             }
-            case FIP_SYM_ENUM: {
-                const fip_sig_enum_t *const e = &list->sigs[i].sig.enum_t;
-                file << "enum " << e->name << ":\n";
-                for (size_t j = 0; j < e->value_count; j++) {
-                    file << "\t" << e->tags[j] << " = " << e->values[j];
-                    if (j + 1 == e->value_count) {
+            case FIP_SIG_ENUM: {
+                const fip_sig_enum_t *const enum_t = &list->sigs[i].u.enum_t;
+                file << "enum " << enum_t->name << ":\n";
+                for (size_t j = 0; j < enum_t->value_count; j++) {
+                    fip_sig_enum_value_t *const value = &enum_t->values[j];
+                    file << "\t" << value->tag << " = " << std::to_string(value->value);
+                    if (j + 1 == enum_t->value_count) {
                         file << ";\n";
                     } else {
                         file << ",\n";
                     }
-                    free(e->tags[j]);
                 }
                 file << "\n";
-                free(e->tags);
-                free(e->values);
-                generated_types[e->name] = Type::Variation::ENUM;
+                free(enum_t->values);
+                generated_types[enum_t->name] = Type::Variation::ENUM;
                 break;
             }
-            case FIP_SYM_OPAQUE: {
-                const fip_sig_opaque_t *const o = &list->sigs[i].sig.opaque;
-                file << "opaque " << o->name << ";\n";
+            case FIP_SIG_OPAQUE: {
+                const fip_sig_opaque_t *const opaque = &list->sigs[i].u.opaque;
+                file << "opaque " << opaque->name << ";\n";
                 break;
             }
         }
@@ -696,7 +688,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
 }
 
 void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is_fn_type) {
-    switch (type->type) {
+    switch (type->tag) {
         case FIP_TYPE_PRIMITIVE:
             switch (type->u.prim) {
                 case FIP_VOID:
@@ -741,10 +733,10 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             }
             break;
         case FIP_TYPE_PTR:
-            if (type->u.ptr.base_type->type == FIP_TYPE_PTR) {
+            if (type->u.ptr.base_type->tag == FIP_TYPE_PTR) {
                 generate_fip_type(type->u.ptr.base_type->u.ptr.base_type, file, is_fn_type);
                 file << "[]";
-            } else if (type->u.ptr.base_type->type == FIP_TYPE_PRIMITIVE && type->u.ptr.base_type->u.prim == FIP_VOID) {
+            } else if (type->u.ptr.base_type->tag == FIP_TYPE_PRIMITIVE && type->u.ptr.base_type->u.prim == FIP_VOID) {
                 // The `void*` type resolves to `opaque` in Flint
                 file << "opaque";
             } else if (is_fn_type) {
@@ -756,18 +748,18 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             }
             break;
         case FIP_TYPE_STRUCT: {
-            const fip_type_struct_t *s = &type->u.struct_t;
-            const size_t type_len = strlen(s->name);
+            const fip_type_struct_t *struct_t = &type->u.struct_t;
+            const size_t type_len = strlen(struct_t->name);
             if (type_len > 0) {
-                file << s->name;
+                file << struct_t->name;
                 break;
             }
-            file << "data[]";
-            for (size_t i = 0; i < s->field_count; i++) {
+            file << "data[";
+            for (size_t i = 0; i < struct_t->field_count; i++) {
                 if (i > 0) {
                     file << ", ";
                 }
-                generate_fip_type(&s->fields[i], file, false);
+                generate_fip_type(&struct_t->fields[i], file, false);
             }
             file << "]";
             break;
@@ -776,21 +768,21 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
         case FIP_TYPE_ENUM: {
-            const fip_type_enum_t *e = &type->u.enum_t;
-            const size_t type_len = strlen(e->name);
+            const fip_type_enum_t *enum_t = &type->u.enum_t;
+            const size_t type_len = strlen(enum_t->name);
             if (type_len > 0) {
-                file << e->name;
+                file << enum_t->name;
                 break;
             }
             file << "enum(";
-            file << (e->is_signed ? "i" : "u");
-            file << std::to_string(e->bit_width);
+            file << (enum_t->is_signed ? "i" : "u");
+            file << std::to_string(enum_t->bit_width);
             file << "){";
-            for (size_t i = 0; i < e->value_count; i++) {
+            for (size_t i = 0; i < enum_t->value_count; i++) {
                 if (i > 0) {
                     file << ", ";
                 }
-                file << e->values[i];
+                file << std::to_string(enum_t->values[i]);
             }
             file << "}";
             break;
@@ -817,9 +809,9 @@ void FIP::send_compile_request() {
         return;
     }
     fip_msg_t msg{};
-    msg.type = FIP_MSG_COMPILE_REQUEST;
+    msg.tag = FIP_MSG_COMPILE_REQUEST;
     // TODO: Change the target of the compile request
-    fip_master_broadcast_message(buffer, &msg);
+    fip_master_broadcast_message(&msg);
 }
 
 std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
@@ -828,12 +820,7 @@ std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
         return std::vector<std::array<char, 9>>{};
     }
     std::vector<std::array<char, 9>> objects;
-    uint8_t wrong_msg_count = fip_master_await_responses( //
-        buffer,                                           //
-        master_state.responses,                           //
-        &master_state.response_count,                     //
-        FIP_MSG_OBJECT_RESPONSE                           //
-    );
+    uint8_t wrong_msg_count = fip_master_await_responses(master_state.responses, &master_state.response_count, FIP_MSG_OBJECT_RESPONSE);
     if (wrong_msg_count > 0) {
         fip_print(0, FIP_WARN, "Recieved %u faulty messages", wrong_msg_count);
         return {};
@@ -842,7 +829,7 @@ std::optional<std::vector<std::array<char, 9>>> FIP::gather_objects() {
     // recieved
     for (uint8_t i = 0; i < master_state.response_count; i++) {
         const fip_msg_t *response = &master_state.responses[i];
-        ASSERT(response->type == FIP_MSG_OBJECT_RESPONSE);
+        ASSERT(response->tag == FIP_MSG_OBJECT_RESPONSE);
         if (response->u.obj_res.has_obj) {
             fip_print(0, FIP_INFO, "Object response from module: %s", response->u.obj_res.module_name);
             fip_print(0, FIP_DEBUG, "Paths: %s", response->u.obj_res.paths);

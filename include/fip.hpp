@@ -65,10 +65,6 @@ class FIP {
     /// @brief All the available modules of the FIP which contains the file descriptors of all active and spawned modules
     static inline fip_interop_modules_t modules;
 
-    /// @var `buffer`
-    /// @brief The message buffer of FIP
-    alignas(alignof(size_t)) static inline char buffer[FIP_MSG_SIZE];
-
     /// @var `message`
     /// @brief The message which will be re-used for all FIP communications
     static inline fip_msg_t message;
