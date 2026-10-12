@@ -353,9 +353,12 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             dest->u.enum_t.is_signed = true;
             ASSERT(enum_node->values.size() <= 255);
             dest->u.enum_t.value_count = type->enum_node->values.size();
-            dest->u.enum_t.values = static_cast<size_t *>(malloc(sizeof(size_t) * dest->u.enum_t.value_count));
+            dest->u.enum_t.values = static_cast<fip_type_enum_value_t *>(          //
+                malloc(sizeof(fip_type_enum_value_t) * dest->u.enum_t.value_count) //
+            );
             for (size_t i = 0; i < enum_node->values.size(); i++) {
-                dest->u.enum_t.values[i] = enum_node->values.at(i).second;
+                dest->u.enum_t.values[i].is_signed = false;
+                dest->u.enum_t.values[i].value = enum_node->values.at(i).second;
             }
             break;
         }
@@ -550,8 +553,14 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
             case FIP_SIG_UNKNOWN:
                 THROW_BASIC_ERR(ERR_PARSING);
                 break;
+            case FIP_SIG_ALIAS: {
+                fip_sig_alias_t *const alias = &list->sigs[i].u.alias;
+                file << "type " << alias->name << " ";
+                generate_fip_type(&alias->type, file, false);
+                break;
+            }
             case FIP_SIG_FUNCTION: {
-                const fip_sig_fn_t *const fn = &list->sigs[i].u.fn;
+                fip_sig_fn_t *const fn = &list->sigs[i].u.fn;
                 file << "extern def " << fn->name << "(";
                 for (size_t j = 0; j < fn->args_len; j++) {
                     if (j > 0) {
@@ -589,7 +598,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 break;
             }
             case FIP_SIG_DATA: {
-                const fip_sig_data_t *const data = &list->sigs[i].u.data;
+                fip_sig_data_t *const data = &list->sigs[i].u.data;
                 // Check if the data could be a vector-type instead, emit a type alias for that case
                 if (data->fields[0].type.tag == FIP_TYPE_PRIMITIVE) {
                     bool is_vector = true;
@@ -659,11 +668,15 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 break;
             }
             case FIP_SIG_ENUM: {
-                const fip_sig_enum_t *const enum_t = &list->sigs[i].u.enum_t;
+                fip_sig_enum_t *const enum_t = &list->sigs[i].u.enum_t;
                 file << "enum " << enum_t->name << ":\n";
                 for (size_t j = 0; j < enum_t->value_count; j++) {
                     fip_sig_enum_value_t *const value = &enum_t->values[j];
-                    file << "\t" << value->tag << " = " << std::to_string(value->value);
+                    file << "\t" << value->tag << " = ";
+                    if (value->value.is_signed) {
+                        file << "-";
+                    }
+                    file << std::to_string(value->value.value);
                     if (j + 1 == enum_t->value_count) {
                         file << ";\n";
                     } else {
@@ -676,7 +689,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 break;
             }
             case FIP_SIG_OPAQUE: {
-                const fip_sig_opaque_t *const opaque = &list->sigs[i].u.opaque;
+                fip_sig_opaque_t *const opaque = &list->sigs[i].u.opaque;
                 file << "opaque " << opaque->name << ";\n";
                 break;
             }
@@ -764,7 +777,7 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             file << "]";
             break;
         }
-        case FIP_TYPE_RECURSIVE:
+        case FIP_TYPE_NAMED:
             THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
             break;
         case FIP_TYPE_ENUM: {
@@ -782,7 +795,10 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
                 if (i > 0) {
                     file << ", ";
                 }
-                file << std::to_string(enum_t->values[i]);
+                if (enum_t->values[i].is_signed) {
+                    file << "-";
+                }
+                file << std::to_string(enum_t->values[i].value);
             }
             file << "}";
             break;
