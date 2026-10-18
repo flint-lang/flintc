@@ -48,12 +48,13 @@ static std::optional<std::shared_ptr<Type>> get_type_from_ptr_map(     //
     const std::unordered_map<std::string, std::shared_ptr<Type>> &map, //
     const ASTNode *node_ptr                                            //
 ) {
-    for (const auto &[type_name, type] : map) {
+    for (const auto &[type_name, _type] : map) {
+        std::shared_ptr<Type> type = _type;
+        while (type->get_variation() == Type::Variation::ALIAS) {
+            type = type->as<AliasType>()->type;
+        }
         switch (type->get_variation()) {
             default:
-                break;
-            case Type::Variation::ALIAS:
-                ASSERT(false, "All aliases should have been resolved by now");
                 break;
             case Type::Variation::DATA:
                 if (type->as<DataType>()->data_node == node_ptr) {
