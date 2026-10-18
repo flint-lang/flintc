@@ -297,6 +297,8 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             // A data-type is just a struct and will be handled as such
             const DataNode *data_node = type->data_node;
             dest->tag = FIP_TYPE_STRUCT;
+            std::memset(dest->u.struct_t.name, 0, sizeof(dest->u.struct_t.name));
+            std::strncpy(dest->u.struct_t.name, data_node->name.c_str(), sizeof(dest->u.struct_t.name) - 1);
             dest->u.struct_t.field_count = static_cast<uint8_t>(data_node->fields.size());
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * data_node->fields.size()));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
@@ -310,6 +312,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const auto *type = src->as<TupleType>();
             // A tuple-type is just a struct under the hood annyway
             dest->tag = FIP_TYPE_STRUCT;
+            std::memset(dest->u.struct_t.name, 0, sizeof(dest->u.struct_t.name));
             dest->u.struct_t.field_count = static_cast<uint8_t>(type->types.size());
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->types.size()));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
@@ -348,6 +351,8 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const auto *type = src->as<EnumType>();
             const EnumNode *enum_node = type->enum_node;
             dest->tag = FIP_TYPE_ENUM;
+            std::memset(dest->u.enum_t.name, 0, sizeof(dest->u.enum_t.name));
+            std::strncpy(dest->u.enum_t.name, enum_node->name.c_str(), sizeof(dest->u.enum_t.name) - 1);
             // TODO: For now all enums in Flint are i32
             dest->u.enum_t.bit_width = 32;
             dest->u.enum_t.is_signed = true;
@@ -366,6 +371,7 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const auto *type = src->as<VectorType>();
             // A vector-type will be handled just as a struct type and nothing more
             dest->tag = FIP_TYPE_STRUCT;
+            std::memset(dest->u.struct_t.name, 0, sizeof(dest->u.struct_t.name));
             dest->u.struct_t.field_count = static_cast<uint8_t>(type->width);
             dest->u.struct_t.fields = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t) * type->width));
             for (uint8_t i = 0; i < dest->u.struct_t.field_count; i++) {
