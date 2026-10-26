@@ -30,6 +30,34 @@ fip_master_state_t master_state;
 ///        a value does not need to be typed as a `Data*` but should be typed just as `Data` instead
 static std::unordered_map<std::string, Type::Variation> generated_types;
 
+/// @const `MAX_CONVERSION_DEPTH`
+/// @brief Maximum nesting depth of data definitions during a single type conversion
+constexpr size_t MAX_CONVERSION_DEPTH = 256;
+
+/// @var `conversion_stack`
+/// @brief Ancestor stack for cycle detection in `FIP::convert_type`: holds the `DataNode`s of all data definitions currently being
+///        expanded, so self-references can be turned into `FIP_TYPE_RECURSIVE` markers instead of recursing infinitely. Only ever touched
+///        while the FIP mutex is held, as `convert_type` is only called from serialized contexts
+static const DataNode *conversion_stack[MAX_CONVERSION_DEPTH];
+
+/// @var `conversion_depth`
+/// @brief The current conversion depth
+static size_t conversion_depth = 0;
+
+/// @struct `ConversionFrame`
+/// @brief RAII push/pop guard for the `convert_type` ancestor stack, so every early `return false` inside a conversion unwinds the stack
+///        correctly
+struct ConversionFrame {
+    explicit ConversionFrame(const DataNode *node) {
+        conversion_stack[conversion_depth++] = node;
+    }
+    ~ConversionFrame() {
+        conversion_depth--;
+    }
+    ConversionFrame(const ConversionFrame &) = delete;
+    ConversionFrame &operator=(const ConversionFrame &) = delete;
+};
+
 // Helper: Split string by delimiter (':' on Unix, ';' on Windows)
 std::vector<std::string> split_path(const std::string &path, const char delimiter) {
     std::vector<std::string> parts;
@@ -296,6 +324,27 @@ bool FIP::convert_type(fip_type_t *dest, const std::shared_ptr<Type> &src, const
             const auto *type = src->as<DataType>();
             // A data-type is just a struct and will be handled as such
             const DataNode *data_node = type->data_node;
+
+            // If this data definition is already being expanded further up the tree then this is a self-reference: emit a
+            // `recursive(levels_back)` marker pointing at the ancestor frame instead of recursing forever. `levels_back` counts the amount
+            // of definition frames between this marker and the frame it references, with the innermost enclosing frame being one level back
+            for (size_t i = 0; i < conversion_depth; i++) {
+                if (conversion_stack[i] == data_node) {
+                    const size_t levels_back = conversion_depth - i;
+                    if (levels_back > 255) {
+                        // Too deeply nested to be representable on the wire
+                        return false;
+                    }
+                    dest->tag = FIP_TYPE_RECURSIVE;
+                    dest->u.recursive.levels_back = static_cast<uint8_t>(levels_back);
+                    return true;
+                }
+            }
+            if (conversion_depth >= MAX_CONVERSION_DEPTH) {
+                return false;
+            }
+            const ConversionFrame frame(data_node);
+
             dest->tag = FIP_TYPE_STRUCT;
             std::memset(dest->u.struct_t.name, 0, sizeof(dest->u.struct_t.name));
             std::strncpy(dest->u.struct_t.name, data_node->name.c_str(), sizeof(dest->u.struct_t.name) - 1);
@@ -415,7 +464,8 @@ bool FIP::resolve_function(FunctionNode *function) {
     fip_msg_t msg = fip_msg_t{};
     msg.tag = FIP_MSG_SYMBOL_REQUEST;
     msg.u.sym_req.sig.tag = FIP_SIG_FUNCTION;
-    strncpy(msg.u.sym_req.sig.u.fn.name, function->name.c_str(), function->name.size());
+    fip_sig_fn_t *const fn_sig = &msg.u.sym_req.sig.u.fn;
+    strncpy(fn_sig->name, function->name.c_str(), function->name.size());
     const std::string fn_str = function->get_signature_string(0, false, true, false, true, false);
     fip_print(0, FIP_INFO, "Trying to resolve function: '%s'", fn_str.c_str());
 
@@ -430,9 +480,10 @@ bool FIP::resolve_function(FunctionNode *function) {
         } else {
             ret_type = function->return_types.front();
         }
-        msg.u.sym_req.sig.u.fn.rets_len = 1; // We *always* have only one return type, being either the value directly or a struct
-        msg.u.sym_req.sig.u.fn.rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
-        if (!convert_type(&msg.u.sym_req.sig.u.fn.rets[0], ret_type, true)) {
+        // We *always* have only one return type, being either the value directly or a struct
+        fn_sig->rets_len = 1;
+        fn_sig->rets = static_cast<fip_type_t *>(malloc(sizeof(fip_type_t)));
+        if (!convert_type(&fn_sig->rets[0], ret_type, true)) {
             const std::string type_str = ret_type->to_string();
             fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
             return false;
@@ -440,12 +491,13 @@ bool FIP::resolve_function(FunctionNode *function) {
     }
 
     if (!function->parameters.empty()) {
-        const uint8_t args_len = static_cast<uint8_t>(function->parameters.size());
-        msg.u.sym_req.sig.u.fn.args_len = args_len;
-        msg.u.sym_req.sig.u.fn.args = static_cast<fip_sig_fn_arg_t *>(malloc(sizeof(fip_sig_fn_arg_t) * args_len));
-        for (uint8_t i = 0; i < args_len; i++) {
+        const size_t args_len = function->parameters.size();
+        fn_sig->args_len = args_len;
+        fn_sig->args = static_cast<fip_sig_fn_arg_t *>(malloc(sizeof(fip_sig_fn_arg_t) * args_len));
+        for (size_t i = 0; i < args_len; i++) {
             const FunctionNode::Parameter &param = function->parameters.at(i);
-            if (!convert_type(&msg.u.sym_req.sig.u.fn.args[i].type, param.type, param.is_mutable)) {
+            memcpy(&fn_sig->args[i].name, param.name.data(), param.name.size());
+            if (!convert_type(&fn_sig->args[i].type, param.type, param.is_mutable)) {
                 const std::string type_str = function->parameters.at(i).type->to_string();
                 fip_print(0, FIP_ERROR, "Type '%s' not compatible with FIP", type_str.c_str());
                 return false;
@@ -454,6 +506,7 @@ bool FIP::resolve_function(FunctionNode *function) {
     }
 
     fip_print(0, FIP_INFO, "Checking whether the function '%s' exists", function->name.c_str());
+    fip_print_msg(&msg, 0);
     if (!fip_master_symbol_request(&msg)) {
         fip_print(0, FIP_ERROR, "The function '%s' could not be resolved", function->name.c_str());
         return false;
@@ -561,8 +614,19 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
                 break;
             case FIP_SIG_ALIAS: {
                 fip_sig_alias_t *const alias = &list->sigs[i].u.alias;
-                file << "type " << alias->name << " ";
-                generate_fip_type(&alias->type, file, false);
+                if (alias->type.tag == FIP_TYPE_NAMED && strcmp(alias->name, alias->type.u.named.name) == 0) {
+                    // That would be an aliased alias of itself so it doesn't make any sense, so something like 'type ABC ABC'
+                    break;
+                }
+                std::stringstream base_stream;
+                generate_fip_type(&alias->type, base_stream, false);
+                const std::string base_type_str = base_stream.str();
+                if (base_type_str == "opaque") {
+                    // Opaque aliases are emitted as named opaques
+                    file << "opaque " << alias->name << ";\n";
+                    break;
+                }
+                file << "type " << alias->name << " " << base_type_str << "\n";
                 break;
             }
             case FIP_SIG_FUNCTION: {
@@ -706,7 +770,7 @@ bool FIP::generate_bindings_file(fip_sig_list_t *list, const std::string &module
     return true;
 }
 
-void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is_fn_type) {
+void FIP::generate_fip_type(fip_type_t *type, std::ostream &file, const bool is_fn_type) {
     switch (type->tag) {
         case FIP_TYPE_PRIMITIVE:
             switch (type->u.prim) {
@@ -761,9 +825,11 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             } else if (is_fn_type) {
                 generate_fip_type(type->u.ptr.base_type, file, is_fn_type);
                 file << "*";
-            } else {
+            } else if (type->u.ptr.base_type->tag == FIP_TYPE_STRUCT) {
                 // Just emit the base type itself and nothing more
                 generate_fip_type(type->u.ptr.base_type, file, is_fn_type);
+            } else {
+                file << "opaque";
             }
             break;
         case FIP_TYPE_STRUCT: {
@@ -783,9 +849,20 @@ void FIP::generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is
             file << "]";
             break;
         }
-        case FIP_TYPE_NAMED:
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+        case FIP_TYPE_RECURSIVE: {
+            // `recursive` markers are only produced by the master when serializing its own types into symbol requests: they are de Bruijn
+            // back-references into the structural request tree, needed because the two sides cannot agree on names. Tag exports (the only
+            // input this function renders) always reference types by name instead, precisely so they can be turned back into source. A
+            // recursive marker here means the exporting module violated the protocol, and a de Bruijn reference has no Flint source
+            // representation to fall back to
+            THROW_BASIC_ERR(ERR_PARSING);
             break;
+        }
+        case FIP_TYPE_NAMED: {
+            const fip_type_named_t *named = &type->u.named;
+            file << named->name;
+            break;
+        }
         case FIP_TYPE_ENUM: {
             const fip_type_enum_t *enum_t = &type->u.enum_t;
             const size_t type_len = strlen(enum_t->name);

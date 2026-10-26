@@ -144,7 +144,7 @@ class FIP {
     /// definition
     ///
     /// @note This function frees the passed-in type by calling `fip_free_type`
-    static void generate_fip_type(fip_type_t *type, std::ofstream &file, const bool is_fn_type);
+    static void generate_fip_type(fip_type_t *type, std::ostream &file, const bool is_fn_type);
 
     /// @function `send_compile_request`
     /// @brief Sends the compile request to all interop modules, meaning that they now can start compiling their respective source files
