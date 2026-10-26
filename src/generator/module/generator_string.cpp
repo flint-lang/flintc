@@ -1,4 +1,5 @@
 #include "error/error.hpp"
+#include "evaluator/value/str_value.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
 #include "lexer/builtins.hpp"
@@ -1311,22 +1312,27 @@ llvm::Value *Generator::Module::String::generate_string_declaration( //
         return builder.CreateCall(create_str_fn, {zero}, "empty_str");
     }
 
-    // If there is a rhs, we first check if its a literal node or not.
-    if (rhs_expr.value()->get_variation() != ExpressionNode::Variation::LITERAL) {
-        // Just return the rhs, as this is a declaration the lhs definitely doesnt have a value saved on it
-        return rhs;
+    // If the rhs is a literal or a comptime value then we need to create a new string, otherwise we can just use the already present rhs
+    size_t lit_len = 0;
+    switch (rhs_expr.value()->get_variation()) {
+        default:
+            // Just return the rhs value directly, no need to create a new string
+            return rhs;
+        case ExpressionNode::Variation::LITERAL: {
+            const auto *literal = rhs_expr.value()->as<LiteralNode>();
+            lit_len = std::get<LitStr>(literal->value).value.length();
+            break;
+        }
+        case ExpressionNode::Variation::COMPTIME: {
+            const auto *comptime = rhs_expr.value()->as<ComptimeNode>();
+            lit_len = comptime->value->as<StrValue>()->value.length();
+            break;
+        }
     }
-    const auto *literal = rhs_expr.value()->as<LiteralNode>();
-    // If its a literal string the declaration looks differently than if its a variable
-    // Get the `init_str` function
+
+    llvm::Value *const lit_len_ptr = llvm::ConstantInt::get(builder.getInt64Ty(), lit_len);
     llvm::Function *const init_str_fn = string_manip_functions.at("init_str");
-
-    // Get the length of the literal
-    const size_t len = std::get<LitStr>(literal->value).value.length();
-    llvm::Value *const len_val = llvm::ConstantInt::get(builder.getInt64Ty(), len);
-
-    // Call the `init_str` function
-    return builder.CreateCall(init_str_fn, {rhs, len_val}, "str_init");
+    return builder.CreateCall(init_str_fn, {rhs, lit_len_ptr}, "str_init");
 }
 
 void Generator::Module::String::generate_string_assignment( //
