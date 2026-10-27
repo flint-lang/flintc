@@ -534,6 +534,10 @@ std::optional<std::unique_ptr<llvm::Module>> Generator::generate_program_ir( //
         if ((!is_test || libname.has_value()) && function_node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
             continue;
         }
+        if (function_node->visibility == FunctionNode::Visibility::COMPTIME) {
+            // Comptime-only functions are never generated into the binary
+            continue;
+        }
         if (!Function::generate_function_setup(module.get(), function_node)) {
             return std::nullopt;
         }
@@ -825,6 +829,10 @@ bool Generator::generate_file_ir(             //
                     continue;
                 }
                 if ((!is_test || libname.has_value()) && function_node->contains_annotation(AnnotationKind::TEST_ENTRY)) {
+                    continue;
+                }
+                if (function_node->visibility == FunctionNode::Visibility::COMPTIME) {
+                    // Comptime-only functions are never generated into the binary
                     continue;
                 }
                 if (!Function::generate_function_body(function_node, file.imported_core_modules)) {

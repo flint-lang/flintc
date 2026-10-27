@@ -88,6 +88,10 @@ bool Generator::Function::generate_function_setup(llvm::Module *module, const Fu
         // Do nothing as the "declaration" of the extern function actually already happened inside the forward-declaration of the module
         return true;
     }
+    if (function_node->visibility == FunctionNode::Visibility::COMPTIME) {
+        // Comptime-only functions never are generated into the binary
+        return true;
+    }
     llvm::FunctionType *function_type = generate_function_type(module, function_node);
 
     // Creating the function itself only if it's the main function. All other functions should have been forward-declared already so we

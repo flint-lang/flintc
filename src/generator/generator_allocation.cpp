@@ -89,7 +89,9 @@ std::optional<llvm::StructType *> Generator::Allocation::generate_function_alloc
     const FunctionNode *function,                                                       //
     std::unordered_map<std::string, AllocationInfo> &allocations                        //
 ) {
-    ASSERT(function->scope.has_value() && function->visibility != FunctionNode::Visibility::EXTERN);
+    ASSERT(function->scope.has_value());
+    ASSERT(function->visibility != FunctionNode::Visibility::EXTERN);
+    ASSERT(function->visibility != FunctionNode::Visibility::COMPTIME);
     std::vector<std::pair<std::string, llvm::Type *const>> types_list;
 
     // We start with all the return values of the function for the type list for the function frame
