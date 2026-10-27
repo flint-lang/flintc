@@ -1,6 +1,8 @@
 #include "analyzer/analyzer.hpp"
 
 #include "assert.hpp"
+#include "evaluator/value/float_value.hpp"
+#include "evaluator/value/int_value.hpp"
 #include "lexer/builtins.hpp"
 #include "parser/ast/definitions/error_node.hpp"
 #include "parser/ast/definitions/func_node.hpp"
@@ -38,23 +40,48 @@ bool Analyzer::Castability::resolve_comptime_type_of_expr(  //
 ) {
     const std::string &type_str = expr->type->to_string();
     if ((type_str == "int" || type_str == "float") && target_type.has_value() && target_type.value()->to_string() == "str") {
-        assert(expr->get_variation() == ExpressionNode::Variation::LITERAL);
-        LiteralNode *const literal = expr->as<LiteralNode>();
-        const std::string str_value = type_str == "int"          //
-            ? std::get<LitInt>(literal->value).value.to_string() //
-            : std::get<LitFloat>(literal->value).value.to_string();
-        const unsigned int line = literal->line;
-        const unsigned int column = literal->column;
-        const unsigned int length = literal->length;
-        const PosTriple literal_pos = {line, column, length};
-        LitValue new_value = LitStr{str_value};
-        expr = std::make_unique<LiteralNode>(                                                                            //
-            parser.file_hash, literal_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded //
-        );
-        expr = std::make_unique<TypeCastNode>(parser.file_hash, literal_pos, Type::get_primitive_type("str"), expr);
-        expr->line = line;
-        expr->column = column;
-        expr->length = length;
+        switch (expr->get_variation()) {
+            default:
+                THROW_BASIC_ERR(ERR_ANALYZING);
+                return false;
+            case ExpressionNode::Variation::LITERAL: {
+                LiteralNode *const literal = expr->as<LiteralNode>();
+                const std::string str_value = type_str == "int"          //
+                    ? std::get<LitInt>(literal->value).value.to_string() //
+                    : std::get<LitFloat>(literal->value).value.to_string();
+                const unsigned int line = literal->line;
+                const unsigned int column = literal->column;
+                const unsigned int length = literal->length;
+                const PosTriple literal_pos = {line, column, length};
+                LitValue new_value = LitStr{str_value};
+                expr = std::make_unique<LiteralNode>(                                                                            //
+                    parser.file_hash, literal_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), literal->is_folded //
+                );
+                expr = std::make_unique<TypeCastNode>(parser.file_hash, literal_pos, Type::get_primitive_type("str"), expr);
+                expr->line = line;
+                expr->column = column;
+                expr->length = length;
+                break;
+            }
+            case ExpressionNode::Variation::COMPTIME:
+                ComptimeNode *const comptime = expr->as<ComptimeNode>();
+                const std::string str_value = type_str == "int"          //
+                    ? comptime->value->as<IntValue>()->value.to_string() //
+                    : comptime->value->as<FloatValue>()->value.to_string();
+                const unsigned int line = comptime->line;
+                const unsigned int column = comptime->column;
+                const unsigned int length = comptime->length;
+                const PosTriple comptime_pos = {line, column, length};
+                LitValue new_value = LitStr{str_value};
+                expr = std::make_unique<LiteralNode>(                                                               //
+                    parser.file_hash, comptime_pos, new_value, Type::get_primitive_type("type.flint.str.lit"), true //
+                );
+                expr = std::make_unique<TypeCastNode>(parser.file_hash, comptime_pos, Type::get_primitive_type("str"), expr);
+                expr->line = line;
+                expr->column = column;
+                expr->length = length;
+                break;
+        }
         return true;
     }
     if (type_str == "int") {
