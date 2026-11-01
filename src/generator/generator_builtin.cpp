@@ -1382,6 +1382,19 @@ void Generator::Builtin::generate_c_functions(llvm::Module *module) {
         llvm::Function *fwrite_fn = llvm::Function::Create(fwrite_type, llvm::Function::ExternalLinkage, "fwrite", module);
         c_functions[FWRITE] = fwrite_fn;
     }
+    // fputc
+    {
+        llvm::FunctionType *fputc_type = llvm::FunctionType::get( //
+            llvm::Type::getInt32Ty(context),                      // return i32
+            {
+                llvm::Type::getInt32Ty(context), // i32 c
+                PTR_TY                           // FILE* stream
+            },                                   //
+            false                                // No vaarg
+        );
+        llvm::Function *fputc_fn = llvm::Function::Create(fputc_type, llvm::Function::ExternalLinkage, "fputc", module);
+        c_functions[FPUTC] = fputc_fn;
+    }
     // getenv
     {
         llvm::FunctionType *getenv_type = llvm::FunctionType::get( //
@@ -1685,6 +1698,7 @@ bool Generator::Builtin::refresh_c_functions(llvm::Module *module) {
     c_functions[REWIND] = module->getFunction("rewind");
     c_functions[FGETS] = module->getFunction("fgets");
     c_functions[FWRITE] = module->getFunction("fwrite");
+    c_functions[FPUTC] = module->getFunction("fputc");
     c_functions[GETENV] = module->getFunction("getenv");
     if (!is_target_windows()) {
         c_functions[SETENV] = module->getFunction("setenv");

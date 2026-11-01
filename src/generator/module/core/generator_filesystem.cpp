@@ -1,5 +1,4 @@
 #include "generator/generator.hpp"
-#include "llvm/IR/Constants.h"
 
 static const Hash hash(std::string("filesystem"));
 static const std::string prefix = hash.to_string() + ".filesystem.";
@@ -706,14 +705,16 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     //     if (!file) {
     //         return; // File open error
     //     }
-    //     // Write content to the file
     //     fwrite(content->value, 1, content->len, file);
-    //     // Close the file
+    //     if (content->value[content->len - 1] != '\n') {
+    //         fputc('\n', file);
+    //     }
     //     fclose(file);
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const fopen_fn = c_functions.at(FOPEN);
     llvm::Function *const fwrite_fn = c_functions.at(FWRITE);
+    llvm::Function *const fputc_fn = c_functions.at(FPUTC);
     llvm::Function *const fclose_fn = c_functions.at(FCLOSE);
     llvm::Function *const create_str_fn = String::string_manip_functions.at("create_str");
 
@@ -752,6 +753,8 @@ void Generator::Module::FileSystem::generate_write_file_function( //
     llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", write_file_fn);
     llvm::BasicBlock *const file_fail_block = llvm::BasicBlock::Create(context, "file_fail", write_file_fn);
     llvm::BasicBlock *const file_ok_block = llvm::BasicBlock::Create(context, "file_ok", write_file_fn);
+    llvm::BasicBlock *const no_eol_term_block = llvm::BasicBlock::Create(context, "no_eol_term", write_file_fn);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", write_file_fn);
 
     // Set insertion point to entry block
     builder->SetInsertPoint(entry_block);
@@ -795,7 +798,22 @@ void Generator::Module::FileSystem::generate_write_file_function( //
         fwrite_fn, {content_value_ptr, builder->getInt64(1), content_len, file}, "bytes_written" //
     );
 
+    // Check if last character of content is a '\n' character
+    llvm::Value *const content_len_eq_0 = builder->CreateICmpEQ(content_len, builder->getInt64(0), "content_len_eq_0");
+    llvm::Value *const content_len_m1 = builder->CreateSub(content_len, builder->getInt64(1), "content_len_m1");
+    llvm::Value *const last_char_idx = builder->CreateSelect(content_len_eq_0, builder->getInt64(0), content_len_m1, "last_char_idx");
+    llvm::Value *const last_char_addr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, last_char_idx, "last_char_addr");
+    llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_addr, "last_char");
+    llvm::Value *const last_char_eq_eol = builder->CreateICmpEQ(last_char, builder->getInt8('\n'), "last_char_eq_eol");
+    llvm::Value *const needs_eol_added = builder->CreateOr(content_len_eq_0, last_char_eq_eol, "needs_eol_added");
+    builder->CreateCondBr(needs_eol_added, no_eol_term_block, merge_block);
+
+    builder->SetInsertPoint(no_eol_term_block);
+    builder->CreateCall(fputc_fn, {builder->getInt32('\n'), file});
+    builder->CreateBr(merge_block);
+
     // Close the file
+    builder->SetInsertPoint(merge_block);
     builder->CreateCall(fclose_fn, {file});
 
     // Check if write was successful (bytes_written == content_len)
@@ -831,14 +849,16 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     //     if (!file) {
     //         return; // File open error
     //     }
-    //     // Append content to the file
     //     fwrite(content->value, 1, content->len, file);
-    //     // Close the file
+    //     if (content->value[content->len - 1] != '\n') {
+    //         fputc('\n', file);
+    //     }
     //     fclose(file);
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
     llvm::Function *const fopen_fn = c_functions.at(FOPEN);
     llvm::Function *const fwrite_fn = c_functions.at(FWRITE);
+    llvm::Function *const fputc_fn = c_functions.at(FPUTC);
     llvm::Function *const fclose_fn = c_functions.at(FCLOSE);
 
     const std::vector<error_value> &ErrIOValues = std::get<2>(core_module_error_sets.at("filesystem").at(0));
@@ -876,6 +896,8 @@ void Generator::Module::FileSystem::generate_append_file_function( //
     llvm::BasicBlock *const entry_block = llvm::BasicBlock::Create(context, "entry", append_file_fn);
     llvm::BasicBlock *const file_fail_block = llvm::BasicBlock::Create(context, "file_fail", append_file_fn);
     llvm::BasicBlock *const file_ok_block = llvm::BasicBlock::Create(context, "file_ok", append_file_fn);
+    llvm::BasicBlock *const no_eol_term_block = llvm::BasicBlock::Create(context, "no_eol_term", append_file_fn);
+    llvm::BasicBlock *const merge_block = llvm::BasicBlock::Create(context, "merge", append_file_fn);
     llvm::BasicBlock *const write_fail_block = llvm::BasicBlock::Create(context, "write_fail", append_file_fn);
     llvm::BasicBlock *const write_ok_block = llvm::BasicBlock::Create(context, "write_ok", append_file_fn);
 
@@ -921,7 +943,22 @@ void Generator::Module::FileSystem::generate_append_file_function( //
         fwrite_fn, {content_value_ptr, builder->getInt64(1), content_len, file}, "bytes_written" //
     );
 
+    // Check if last character of content is a '\n' character
+    llvm::Value *const content_len_eq_0 = builder->CreateICmpEQ(content_len, builder->getInt64(0), "content_len_eq_0");
+    llvm::Value *const content_len_m1 = builder->CreateSub(content_len, builder->getInt64(1), "content_len_m1");
+    llvm::Value *const last_char_idx = builder->CreateSelect(content_len_eq_0, builder->getInt64(0), content_len_m1, "last_char_idx");
+    llvm::Value *const last_char_addr = builder->CreateGEP(builder->getInt8Ty(), content_value_ptr, last_char_idx, "last_char_addr");
+    llvm::Value *const last_char = IR::aligned_load(*builder, builder->getInt8Ty(), last_char_addr, "last_char");
+    llvm::Value *const last_char_eq_eol = builder->CreateICmpEQ(last_char, builder->getInt8('\n'), "last_char_eq_eol");
+    llvm::Value *const needs_eol_added = builder->CreateOr(content_len_eq_0, last_char_eq_eol, "needs_eol_added");
+    builder->CreateCondBr(needs_eol_added, no_eol_term_block, merge_block);
+
+    builder->SetInsertPoint(no_eol_term_block);
+    builder->CreateCall(fputc_fn, {builder->getInt32('\n'), file});
+    builder->CreateBr(merge_block);
+
     // Close the file
+    builder->SetInsertPoint(merge_block);
     builder->CreateCall(fclose_fn, {file});
 
     // Check if write was successful (bytes_written == content_len)

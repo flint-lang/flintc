@@ -469,7 +469,7 @@ static const inline std::unordered_map<std::string_view, std::vector<data_type>>
     }, // End of the 'time' module
 };
 
-/// @enum `CFunctions`
+/// @enum `CFunction`
 /// @brief An enum used to access all the C functions
 enum CFunction {
     PRINTF,
@@ -499,6 +499,7 @@ enum CFunction {
     REWIND,
     FGETS,
     FWRITE,
+    FPUTC,
     GETENV,
     SETENV,
     POPEN,

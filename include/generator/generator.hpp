@@ -224,6 +224,7 @@ class Generator {
         {CFunction::REWIND, nullptr},
         {CFunction::FGETS, nullptr},
         {CFunction::FWRITE, nullptr},
+        {CFunction::FPUTC, nullptr},
         {CFunction::GETENV, nullptr},
         {CFunction::SETENV, nullptr},
         {CFunction::POPEN, nullptr},
