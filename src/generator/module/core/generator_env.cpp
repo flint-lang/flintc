@@ -199,6 +199,10 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //         // Contains null byte
     //         THROW_ERR(ErrEnv, InvalidValue);
     //     }
+    //     if (!overwrite && getenv(c_var) != NULL) {
+    //         // We will never overwrite the already existent env variable
+    //         return false;
+    //     }
     //     int success = setenv(c_var, c_content, overwrite);
     //     if (success != 0) {
     //         return false;
@@ -206,6 +210,7 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     //     return true;
     // }
     llvm::Type *const str_type = IR::get_type(module, Type::get_primitive_type("type.flint.str")).type;
+    llvm::Function *const getenv_fn = c_functions.at(GETENV);
     llvm::Function *const setenv_fn = is_target_windows() ? env_functions.at("setenv") : c_functions.at(SETENV);
     llvm::Function *const strlen_fn = c_functions.at(STRLEN);
 
@@ -242,6 +247,9 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     llvm::BasicBlock *const name_ok_block = llvm::BasicBlock::Create(context, "name_ok", set_env_fn);
     llvm::BasicBlock *const value_fail_block = llvm::BasicBlock::Create(context, "value_fail", set_env_fn);
     llvm::BasicBlock *const value_ok_block = llvm::BasicBlock::Create(context, "value_ok_block", set_env_fn);
+    llvm::BasicBlock *const already_exists_check_block = llvm::BasicBlock::Create(context, "already_exists_check", set_env_fn);
+    llvm::BasicBlock *const already_exists_block = llvm::BasicBlock::Create(context, "already_exists", set_env_fn);
+    llvm::BasicBlock *const early_exit_merge_block = llvm::BasicBlock::Create(context, "early_exit_merge", set_env_fn);
 
     // Get the parameters
     llvm::Argument *const var_arg = set_env_fn->arg_begin();
@@ -302,6 +310,27 @@ void Generator::Module::Env::generate_set_env_function(llvm::IRBuilder<> *builde
     // Convert bool overwrite to int for setenv (setenv expects int, not bool)
     builder->SetInsertPoint(value_ok_block);
     llvm::Value *const overwrite_int = builder->CreateZExt(overwrite_arg, builder->getInt32Ty(), "overwrite_int");
+    builder->CreateCondBr(overwrite_arg, early_exit_merge_block, already_exists_check_block);
+
+    builder->SetInsertPoint(already_exists_check_block);
+    llvm::Value *const getenv_ret = builder->CreateCall(getenv_fn, {c_var}, "getenv_ret");
+    llvm::Value *const already_exists = builder->CreateICmpNE(getenv_ret, llvm::ConstantPointerNull::get(PTR_TY), "already_exists");
+    builder->CreateCondBr(already_exists, already_exists_block, early_exit_merge_block);
+
+    builder->SetInsertPoint(already_exists_block);
+    {
+        llvm::AllocaInst *const ret_result_alloc = builder->CreateAlloca(function_result_type, 0, nullptr, "ret_result_alloc");
+        llvm::Value *const ret_result_err_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 0, "ret_result_err_ptr");
+        llvm::StructType *const err_type = type_map.at("type.flint.err");
+        llvm::Value *const err_struct = IR::get_default_value_of_type(err_type);
+        IR::aligned_store(*builder, err_struct, ret_result_err_ptr);
+        llvm::Value *const ret_result_val_ptr = builder->CreateStructGEP(function_result_type, ret_result_alloc, 1, "ret_result_val_ptr");
+        IR::aligned_store(*builder, builder->getInt1(false), ret_result_val_ptr);
+        llvm::Value *const ret_result_val = IR::aligned_load(*builder, function_result_type, ret_result_alloc, "ret_result_val");
+        builder->CreateRet(ret_result_val);
+    }
+
+    builder->SetInsertPoint(early_exit_merge_block);
     llvm::Value *const success = builder->CreateCall(setenv_fn, {c_var, c_content, overwrite_int}, "success");
 
     // Check if success != 0 (failure)
