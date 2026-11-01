@@ -76,7 +76,11 @@ class Generator {
     static inline llvm::PointerType *PTR_TY;
 
     /// @function `get_flintc_cache_path`
-    /// @brief Returns the path to the `flntc` cache directory in `$HOME/.cache/` or in `C:\\Program Files\\Flint\\Cache\\`
+    /// @brief Returns the path to the `flintc` cache directory:
+    /// - `$XDG_CACHE_HOME/flint/flintc` (or `$HOME/.config/flint/flintc` if that fails) on Linux or
+    /// - `C:\\Program Files\\Flint\\Cache\\flintc` on Windows
+    ///
+    /// @note When cross-compiling the `cross-compile` subpath is added
     ///
     /// @return `std::filesystem::path` The path to the flint cache directory
     static std::filesystem::path get_flintc_cache_path();

@@ -55,7 +55,15 @@ std::filesystem::path Generator::get_flintc_cache_path() {
 #ifdef _WIN32
     std::filesystem::path cache_path = std::filesystem::path(std::getenv("LOCALAPPDATA")) / "Flint" / "Cache" / "flintc";
 #else
-    std::filesystem::path cache_path = std::filesystem::path(std::getenv("XDG_CACHE_HOME")) / "flint" / "flintc";
+    const char *xdg_cache_home = std::getenv("XDG_CACHE_HOME");
+    std::filesystem::path cache_path;
+    if (xdg_cache_home != NULL) {
+        cache_path = std::filesystem::path(xdg_cache_home) / "flint" / "flintc";
+    } else {
+        const char *home = std::getenv("HOME");
+        ASSERT(home != NULL);
+        cache_path = std::filesystem::path(home) / ".cache" / "flint" / "flintc";
+    }
 #endif
     if (COMPILATION_TARGET != Target::NATIVE) {
         cache_path /= "cross_compile";
