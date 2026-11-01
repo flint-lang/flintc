@@ -10,7 +10,6 @@ pub fn build(
     optimize: std.builtin.OptimizeMode,
     prev_step: *std.Build.Step,
     install_headers: bool,
-    lib_mode: fip.LibMode,
     lsp_mode: bool,
 ) !*std.Build.Step.Compile {
     const name: []const u8 = if (lsp_mode) "flint-parser-lsp" else "flint-parser";
@@ -33,14 +32,18 @@ pub fn build(
     lib.build_id = .fast;
 
     lib.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
-    if (optimize == .Debug) {
+    if (optimize == .debug) {
         lib.root_module.addCMacro("DEBUG_BUILD", "");
     }
     if (lsp_mode) {
         lib.root_module.addCMacro("FLINT_LSP", "");
     }
 
-    const fip_dep = b.dependency("fip", .{ .target = target, .optimize = optimize, .@"lib-mode" = lib_mode });
+    const fip_dep = b.dependency("fip", .{
+        .target = target,
+        .optimize = optimize,
+        .@"lib-mode" = .master,
+    });
     lib.root_module.linkLibrary(fip_dep.artifact("fip"));
     lib.installLibraryHeaders(fip_dep.artifact("fip"));
 
@@ -48,8 +51,7 @@ pub fn build(
     lib.root_module.addIncludePath(b.path("include"));
 
     // Collect C++ files
-    const path = try b.path(".").getPath4(b, &lib.step);
-    var src_dir: std.Io.Dir = try path.openDir(b.graph.io, "src", .{ .iterate = true });
+    var src_dir: std.Io.Dir = try b.root.openDir(b.graph.io, "src", .{ .iterate = true });
     defer src_dir.close(b.graph.io);
     var cpp_files: std.ArrayList([]const u8) = .empty;
     defer cpp_files.deinit(b.allocator);

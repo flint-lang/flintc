@@ -16,7 +16,7 @@ pub fn build(
     build_date: []const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
-        .name = if (optimize == .Debug) "flintc-debug" else "flintc",
+        .name = if (optimize == .debug) "flintc-debug" else "flintc",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -33,10 +33,10 @@ pub fn build(
     exe.build_id = .fast;
 
     // Add Macros
-    exe.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
-    exe.root_module.addCMacro("COMMIT_HASH", commit_hash);
-    exe.root_module.addCMacro("BUILD_DATE", build_date);
-    if (optimize == .Debug) {
+    exe.root_module.addCMacro("VERSION", b.fmt("{q}", .{FLINTC_VERSION}));
+    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{q}", .{commit_hash}));
+    exe.root_module.addCMacro("BUILD_DATE", b.fmt("{q}", .{build_date}));
+    if (optimize == .debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 
@@ -55,7 +55,7 @@ pub fn build(
     exe.root_module.addLibraryPath(b.path(b.fmt("{s}/lib", .{llvm_dir})));
 
     // Collect C++ files
-    var src_dir: std.Io.Dir = try b.build_root.handle.openDir(b.graph.io, "src", .{ .iterate = true });
+    var src_dir: std.Io.Dir = try b.root.openDir(b.graph.io, "src", .{ .iterate = true });
     defer src_dir.close(b.graph.io);
     var walker = try src_dir.walk(b.allocator);
     defer walker.deinit();
@@ -77,10 +77,6 @@ pub fn build(
     if (target.result.os.tag == .windows) {
         exe.root_module.linkSystemLibrary("ole32", .{});
     }
-    exe.root_module.linkSystemLibrary("lldMinGW", .{});
-    exe.root_module.linkSystemLibrary("lldCOFF", .{});
-    exe.root_module.linkSystemLibrary("lldELF", .{});
-    exe.root_module.linkSystemLibrary("lldCommon", .{});
 
     // Link LLVM libraries
     try llvm.link(exe);

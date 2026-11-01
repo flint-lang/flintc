@@ -14,7 +14,7 @@ pub fn build(
     build_date: []const u8,
 ) !*std.Build.Step.Compile {
     const exe = b.addExecutable(.{
-        .name = if (optimize == .Debug) "fls-debug" else "fls",
+        .name = if (optimize == .debug) "fls-debug" else "fls",
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
@@ -31,10 +31,10 @@ pub fn build(
 
     // Add Macros
     exe.root_module.addCMacro("FLINT_LSP", "");
-    exe.root_module.addCMacro("VERSION", b.fmt("\"{s}\"", .{FLINTC_VERSION}));
-    exe.root_module.addCMacro("COMMIT_HASH", commit_hash);
-    exe.root_module.addCMacro("BUILD_DATE", build_date);
-    if (optimize == .Debug) {
+    exe.root_module.addCMacro("VERSION", b.fmt("{q}", .{FLINTC_VERSION}));
+    exe.root_module.addCMacro("COMMIT_HASH", b.fmt("{q}", .{commit_hash}));
+    exe.root_module.addCMacro("BUILD_DATE", b.fmt("{q}", .{build_date}));
+    if (optimize == .debug) {
         exe.root_module.addCMacro("DEBUG_BUILD", "");
     }
 

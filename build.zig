@@ -9,11 +9,14 @@ const flintc = @import("build/flintc.zig");
 const fls = @import("build/fls.zig");
 
 pub fn build(b: *std.Build) !void {
-    const host_target = b.resolveTargetQuery(.{});
+    const git_exe_path: []const u8 = b.findProgram(.{ .names = &.{"git"} }) orelse @panic("'git' not found on this system");
+
     const optimize = b.standardOptimizeOption(.{});
 
+    const llvm_dep = b.dependency("llvm", .{});
+
     const o_target: OSTag = b.option(OSTag, "target", "The OS to build for") orelse
-        switch (host_target.result.os.tag) {
+        switch (b.graph.host.result.os.tag) {
             .linux => .linux,
             .windows => .windows,
             else => @panic("Unsupported OS"),
@@ -24,34 +27,23 @@ pub fn build(b: *std.Build) !void {
     const only_build_flint_parser = b.option(bool, "only-build-flint-parser", "Build only the flintc-parser library") orelse
         false;
     if (only_build_flint_parser) {
-        _ = try flint_parser.build(b, target, optimize, try makeEmptyStep(b), only_build_flint_parser, .master, false);
+        _ = try flint_parser.build(b, target, optimize, try makeEmptyStep(b), only_build_flint_parser, false);
         return;
     }
 
-    const o_git_hash = b.option([]const u8, "git-hash", "Git hash of the project needed for nix-build.");
-    const commit_hash: []const u8 = blk: {
-        const hash = if (o_git_hash) |hash| hash else std.mem.trim(
-            u8,
-            b.run(&[_][]const u8{ "git", "rev-parse", "--short", "HEAD" }),
-            &std.ascii.whitespace,
-        );
-        break :blk b.fmt("\"{s}\"", .{hash});
-    };
-    std.debug.print("-- Commit Hash is {s}\n", .{commit_hash});
+    const commit_hash: []const u8 = std.mem.trim(
+        u8,
+        b.run(&.{ git_exe_path, "rev-parse", "--short", "HEAD" }),
+        &std.ascii.whitespace,
+    );
+    std.debug.print("-- Commit Hash is {q}\n", .{commit_hash});
 
-    const build_date: []const u8 = blk: {
-        const current_timestamp: u64 = @intCast(std.Io.Timestamp.now(b.graph.io, .real).toSeconds());
-        const epoch_seconds: std.time.epoch.EpochSeconds = .{ .secs = current_timestamp };
-        const epoch_day = epoch_seconds.getEpochDay();
-        const year_day = epoch_day.calculateYearDay();
-        const month_day = year_day.calculateMonthDay();
-        break :blk b.fmt("\"{d}-{d:0>2}-{d:0>2}\"", .{
-            year_day.year,
-            month_day.month.numeric(),
-            month_day.day_index + 1, // day_index is 0-based
-        });
-    };
-    std.debug.print("-- Build Date is {s}\n", .{build_date});
+    const commit_date: []const u8 = std.mem.trim(
+        u8,
+        b.run(&[_][]const u8{ git_exe_path, "log", "-1", "--date=format:%Y-%m-%d", "--format=%cd" }),
+        &std.ascii.whitespace,
+    );
+    std.debug.print("-- Commit Date is {s}\n", .{commit_date});
 
     // LLVM Options
     const o_llvm_jobs = b.option(usize, "llvm-jobs", "Number of cores to use for building LLVM") orelse
@@ -59,30 +51,21 @@ pub fn build(b: *std.Build) !void {
     const o_llvm_rebuild = b.option(bool, "llvm-rebuild", "Force rebuild LLVM") orelse
         false;
 
-    const llvm_dep = b.dependency("llvm", .{});
-    const platform_name: []const u8 = switch (target.result.os.tag) {
-        .linux => "linux",
-        .windows => "mingw",
-        else => return error.TargetNeedsToBeLinuxOrWindows,
-    };
-    const llvm_platform_dirname: []const u8 = b.fmt("llvm-{s}", .{platform_name});
-    const install_dir: []const u8 = b.fmt("vendor/{s}", .{llvm_platform_dirname});
-
     var targets_to_build: std.EnumArray(BuildTarget, bool) = .initFill(o_all);
     var single_build: ?struct {
         t: BuildTarget,
         s: *std.Build.Step.Compile,
     } = null;
     if (!o_all) {
-        var target_int: u4 = switch (o_target) {
+        var target_int: u2 = switch (o_target) {
             .linux => 0,
             .windows => 2,
         };
-        if (optimize != .Debug) {
+        if (optimize != .debug) {
             target_int += 1;
         }
-        targets_to_build.set(@enumFromInt(target_int), true);
-        single_build = .{ .t = @enumFromInt(target_int), .s = undefined };
+        targets_to_build.set(@fromBackingInt(target_int), true);
+        single_build = .{ .t = @fromBackingInt(target_int), .s = undefined };
     }
 
     var last_step: *std.Build.Step = try makeEmptyStep(b);
@@ -94,13 +77,21 @@ pub fn build(b: *std.Build) !void {
         const opt = resolveOptimize(kvp.key, optimize);
         const tar = resolveTarget(b, .{ .target = kvp.key });
 
-        const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, false, .master, false);
-        const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, false, .master, true);
+        const platform_name: []const u8 = switch (tar.result.os.tag) {
+            .linux => "linux",
+            .windows => "mingw",
+            else => return error.TargetNeedsToBeLinuxOrWindows,
+        };
+        const llvm_platform_dirname: []const u8 = b.fmt("llvm-{s}", .{platform_name});
+        const install_dir: []const u8 = b.fmt("vendor/{s}", .{llvm_platform_dirname});
+
+        const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, false, false);
+        const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, false, true);
         const llvm_step = try llvm.build(b, &flint_parser_lib_flintc.step, tar, o_llvm_rebuild, o_llvm_jobs, llvm_dep, platform_name, llvm_platform_dirname, install_dir);
-        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, build_date);
+        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, commit_date);
         const fls_install_step = &b.addInstallArtifact(fls_exe, .{}).step;
         b.getInstallStep().dependOn(fls_install_step);
-        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, commit_hash, build_date);
+        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, commit_hash, commit_date);
         const flintc_install_step = &b.addInstallArtifact(flintc_exe, .{}).step;
         b.getInstallStep().dependOn(flintc_install_step);
         flintc_install_step.dependOn(fls_install_step);
@@ -112,13 +103,13 @@ pub fn build(b: *std.Build) !void {
 
     // Testing
     const test_step = b.step("test", "Test the app");
-    if (optimize == .Debug) {
+    if (optimize == .debug) {
         std.log.info("The 'test' build option requires a release build!", .{});
     } else if (single_build) |s| {
         const test_cmd = b.addRunArtifact(s.s);
         test_cmd.addFileArg(b.path("tests/tests.ft"));
         test_cmd.addArgs(&[_][]const u8{ "--test", "--run", "--rebuild-core" });
-        test_cmd.addPathDir(b.getInstallPath(.bin, ""));
+        // test_cmd.addDirectoryArg2(.{ .relative = .{ .base = .install_bin } }, .{});
         test_cmd.setCwd(b.path("tests"));
         test_cmd.has_side_effects = true;
         test_cmd.step.dependOn(last_step);
@@ -160,8 +151,8 @@ fn resolveTarget(b: *std.Build, t: union(enum) { os: OSTag, target: BuildTarget 
 
 fn resolveOptimize(t: BuildTarget, release_mode: std.builtin.OptimizeMode) std.builtin.OptimizeMode {
     return switch (t) {
-        .linux_debug, .windows_debug => .Debug,
-        .linux_release, .windows_release => if (release_mode != .Debug) release_mode else .ReleaseSmall,
+        .linux_debug, .windows_debug => .debug,
+        .linux_release, .windows_release => if (release_mode != .debug) release_mode else .small,
     };
 }
 

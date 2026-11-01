@@ -16,15 +16,15 @@ pub fn build(
     /// vendor/llvm-{ linux, mingw }
     install_dir: []const u8,
 ) !*std.Build.Step {
-    const cmake_exe_path: []const u8 = b.findProgram(&.{"cmake"}, &.{}) catch @panic("CMake not found on this system");
-    _ = b.findProgram(&.{"ld.lld"}, &.{}) catch @panic("LLD not found on this system");
-    _ = b.findProgram(&.{"ninja"}, &.{}) catch @panic("Ninja not found on this system");
-    _ = b.findProgram(&.{ "python", "python3" }, &.{}) catch @panic("Python3 not found on this system");
+    const cmake_exe_path: []const u8 = b.findProgram(.{ .names = &.{"cmake"} }) orelse @panic("CMake not found on this system");
+    _ = b.findProgram(.{ .names = &.{"ld.lld"} }) orelse @panic("LLD not found on this system");
+    _ = b.findProgram(.{ .names = &.{"ninja"} }) orelse @panic("Ninja not found on this system");
+    _ = b.findProgram(.{ .names = &.{ "python", "python3" } }) orelse @panic("Python3 not found on this system");
 
-    if (b.build_root.handle.openDir(b.graph.io, install_dir, .{})) |_| {
+    if (b.root.openDir(b.graph.io, install_dir, .{})) |_| {
         // LLVM is already built, rebuilt only if requested
         if (force_rebuild) {
-            try b.build_root.handle.deleteTree(b.graph.io, install_dir);
+            try b.root.root_dir.handle.deleteTree(b.graph.io, install_dir);
         } else {
             return makeEmptyStep(b);
         }
@@ -264,4 +264,9 @@ pub fn link(exe: *std.Build.Step.Compile) !void {
     for (llvm_libs) |lib| {
         exe.root_module.linkSystemLibrary(lib, .{});
     }
+
+    exe.root_module.linkSystemLibrary("lldMinGW", .{});
+    exe.root_module.linkSystemLibrary("lldCOFF", .{});
+    exe.root_module.linkSystemLibrary("lldELF", .{});
+    exe.root_module.linkSystemLibrary("lldCommon", .{});
 }
