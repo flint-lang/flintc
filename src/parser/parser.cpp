@@ -35,6 +35,23 @@
 
 std::vector<Parser> Parser::instances;
 
+std::filesystem::path Parser::get_core_doc_path() {
+#ifdef _WIN32
+    std::filesystem::path data_path = std::filesystem::path(std::getenv("LOCALAPPDATA")) / "Flint";
+#else
+    const char *xdg_data_home = std::getenv("XDG_DATA_HOME");
+    std::filesystem::path data_path;
+    if (xdg_data_home != NULL) {
+        data_path = std::filesystem::path(xdg_data_home);
+    } else {
+        const char *home = std::getenv("HOME");
+        ASSERT(home != NULL);
+        data_path = std::filesystem::path(home) / ".local" / "share" / "flint";
+    }
+#endif
+    return data_path / "bundles" / "active" / "Core";
+}
+
 void Parser::init_core_modules() {
     for (const auto &[module_name_view, overload_list] : core_module_functions) {
         const std::string module_name(module_name_view);

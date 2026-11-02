@@ -66,6 +66,7 @@
 #include "parser/type/type_type.hpp"
 #include "parser/type/variant_type.hpp"
 
+#include <filesystem>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -116,6 +117,16 @@ std::optional<FileNode *> LspServer::parse_program(const std::string &source_fil
     Parser::clear_instances();
     Type::clear_types();
     diagnostics.clear();
+
+    // Check if the file path is a Core documentation path, we dont do any checks on those files
+    {
+        const std::filesystem::path core_doc_path = Parser::get_core_doc_path();
+        const std::filesystem::path rel_path = std::filesystem::relative(file_path, core_doc_path);
+        if (!rel_path.empty() && rel_path.native()[0] != '.') {
+            // This file is contained within the Core doc path so we just skip it and do nothing
+            return std::nullopt;
+        }
+    }
 
     Profiler::start_task("ALL");
     Type::init_types();

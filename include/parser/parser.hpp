@@ -112,6 +112,14 @@ class Parser {
         }
     };
 
+    /// @function `get_core_doc_path`
+    /// @brief Returns the path to the Flint Core documentation directory:
+    /// - `$XDG_DATA_HOME/flint/bundles/active/Core` (or `$HOME/.local/share/flint/bundles/active/Core` if that fails) on Linux or
+    /// - `C:\\Program Files\\Flint\\bundles\\active\\Core` on Windows
+    ///
+    /// @return `std::filesystem::path` The path to the flint Core documentation directory
+    static std::filesystem::path get_core_doc_path();
+
     /// @function `init_core_modules`
     /// @brief Initializes all the file nodes of the Core modules to prepare them to be imported
     static void init_core_modules();
