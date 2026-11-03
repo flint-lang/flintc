@@ -22,6 +22,7 @@ pub fn build(
             .optimize = optimize,
             .link_libcpp = true,
             .pic = true,
+            .strip = optimize != .debug,
         }),
     });
     exe.step.dependOn(previous_step);

@@ -20,6 +20,7 @@ pub fn build(
             .optimize = optimize,
             .link_libcpp = true,
             .pic = true,
+            .strip = optimize != .debug,
         }),
     });
     exe.root_module.linkLibrary(flint_parser_lib);

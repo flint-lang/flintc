@@ -122,7 +122,9 @@ class Parser {
 
     /// @function `init_core_modules`
     /// @brief Initializes all the file nodes of the Core modules to prepare them to be imported
-    static void init_core_modules();
+    ///
+    /// @return `bool` Whether initializing all Core modules was successful
+    static bool init_core_modules();
 
     /// @function `create`
     /// @brief Creates a new instance of the Parser. The parser itself owns all instances of the parser
@@ -330,6 +332,13 @@ class Parser {
             instance.open_tests_list.clear();
         }
         instances.clear();
+        for (auto &instance : core_instances) {
+            instance.open_functions_list.clear();
+            instance.open_object_list.clear();
+            instance.open_data_list.clear();
+            instance.open_tests_list.clear();
+        }
+        core_instances.clear();
         main_function.store(nullptr, std::memory_order_release);
         test_entry_function.store(nullptr, std::memory_order_release);
         TestNode::clear_test_names();
@@ -384,6 +393,14 @@ class Parser {
     /// @note This is a plain (non-inline) static member because it references the incomplete `Parser` type, which C++20 does not allow
     /// inside the class body. It is defined out-of-line in `parser.cpp`.
     static std::vector<Parser> instances;
+
+    /// @var `core_instances`
+    /// @brief All parser instances of all Core module. This list is extra because the Core module "source" files do not ... in the same
+    /// parsing pipeline as the "real" source instances do.
+    ///
+    /// @note This is a plain (non-inline) static member because it references the incomplete `Parser` type, which C++20 does not allow
+    /// inside the class body. It is defined out-of-line in `parser.cpp`.
+    static std::vector<Parser> core_instances;
 
     /// @function `extract_from_to`
     /// @brief Extracts the tokens from a given index up to the given index from the given tokens list

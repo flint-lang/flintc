@@ -34,6 +34,7 @@
 #include <utility>
 
 std::vector<Parser> Parser::instances;
+std::vector<Parser> Parser::core_instances;
 
 std::filesystem::path Parser::get_core_doc_path() {
 #ifdef _WIN32
@@ -42,7 +43,7 @@ std::filesystem::path Parser::get_core_doc_path() {
     const char *xdg_data_home = std::getenv("XDG_DATA_HOME");
     std::filesystem::path data_path;
     if (xdg_data_home != NULL) {
-        data_path = std::filesystem::path(xdg_data_home);
+        data_path = std::filesystem::path(xdg_data_home) / "flint";
     } else {
         const char *home = std::getenv("HOME");
         ASSERT(home != NULL);
@@ -52,7 +53,60 @@ std::filesystem::path Parser::get_core_doc_path() {
     return data_path / "bundles" / "active" / "Core";
 }
 
-void Parser::init_core_modules() {
+bool Parser::init_core_modules() {
+    PROFILE_SCOPE("Parser::init_core_modules");
+    const std::filesystem::path core_doc_path = get_core_doc_path();
+    if (std::filesystem::exists(core_doc_path)) {
+        for (const auto &core_file : std::filesystem::directory_iterator(core_doc_path)) {
+            ASSERT(!core_file.is_directory());
+            const std::filesystem::path core_file_path = core_file.path();
+            const std::string file_name = core_file_path.filename();
+            ASSERT(file_name.size() > 3 && file_name.substr(file_name.size() - 3) == ".ft");
+            const std::string module_name = file_name.substr(0, file_name.size() - 3);
+
+            core_instances.push_back(Parser(core_file_path));
+            Parser &parser = core_instances.back();
+            std::optional<FileNode *> file = parser.parse();
+            if (!file.has_value()) {
+                std::cerr << RED << "Error" << DEFAULT << ": Failed to parse Core file " << YELLOW << module_name << DEFAULT << std::endl;
+                return false;
+            }
+
+            ASSERT(core_module_files.find(module_name) == core_module_files.end());
+            core_module_files[module_name] = std::move(parser.file_node_ptr);
+            FileNode *const core_file_node = core_module_files.at(module_name).get();
+
+            Namespace *const core_namespace = core_file_node->file_namespace.get();
+            const Hash old_hash = core_namespace->namespace_hash;
+            const Hash new_hash(module_name);
+            core_namespace->namespace_hash = new_hash;
+            Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace;
+
+            // Fix up hashes and various little bits and pieces of all types
+            for (auto &definition : core_namespace->public_symbols.definitions) {
+                definition->file_hash = new_hash;
+                switch (definition->get_variation()) {
+                    default:
+                        break;
+                    case DefinitionNode::Variation::ERROR: {
+                        auto *const err = definition->as<ErrorNode>();
+                        err->error_id = new_hash.get_type_id_from_str(err->name);
+                        break;
+                    }
+                    case DefinitionNode::Variation::FUNCTION: {
+                        auto *const function = definition->as<FunctionNode>();
+                        function->visibility = FunctionNode::Visibility::CORE;
+                        break;
+                    }
+                }
+            }
+
+            Resolver::namespace_map.erase(old_hash);
+            Resolver::namespace_map[new_hash] = core_namespace;
+        }
+        return true;
+    }
+    // Core docs are not installed, fall back to old internal core module "parsing"
     for (const auto &[module_name_view, overload_list] : core_module_functions) {
         const std::string module_name(module_name_view);
         ASSERT(core_module_files.find(module_name) == core_module_files.end());
@@ -237,6 +291,7 @@ void Parser::init_core_modules() {
             }
         }
     }
+    return true;
 }
 
 std::optional<Parser *> Parser::create(const std::filesystem::path &file) {
