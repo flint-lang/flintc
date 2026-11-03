@@ -714,8 +714,8 @@ bool Parser::resolve_all_unknown_types() {
                     return false;
                 }
             }
-            // Don't check local variables since extern functions don't have a body
-            if (function->visibility == FunctionNode::Visibility::EXTERN) {
+            // Don't check local variables for functions without a body
+            if (!function->scope.has_value()) {
                 continue;
             }
             // The parameters are added to the list of variables to the functions scope, so we need to change the types there too

@@ -4,6 +4,27 @@
 #include "types.hpp"
 
 #include <cstddef>
+#include <type_traits>
+
+/// @brief The terminator of a definition line, could be more than just one
+enum class Term : uint8_t {
+    // None means we are currently not looking at a definition line at all, so general statement rules apply
+    NONE = 0,
+    // The definition may end with a colon
+    COLON = 1,
+    // The definition may end with a semicolon
+    SEMICOLON = 2,
+    // The definition may end with an end of line
+    EOL = 4,
+};
+
+inline constexpr Term operator|(Term lhs, Term rhs) {
+    return static_cast<Term>(static_cast<std::underlying_type_t<Term>>(lhs) | static_cast<std::underlying_type_t<Term>>(rhs));
+}
+
+inline constexpr Term operator&(Term lhs, Term rhs) {
+    return static_cast<Term>(static_cast<std::underlying_type_t<Term>>(lhs) & static_cast<std::underlying_type_t<Term>>(rhs));
+}
 
 std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, token_list &source) {
     PROFILE_CUMULATIVE("Linearizer::linearize");
@@ -13,46 +34,96 @@ std::optional<std::vector<Line>> Linearizer::linearize(const Hash &file_hash, to
 
     // A logical line is everything from the start of a line up to a semicolon. Line-continuation is only possible if the next line has a
     // higher indentation level than the "last" line. We start by regularly collecting physical lines.
-    bool ends_with_colon = false;
+    // Definition lines are a bit special as they can end either with a eol, semicolon or colon, and for definition lines we match the "end
+    // of line" in a balanced manner, so only termiators at the top-level count as the end of the definition line.
+    Term def_terms = Term::NONE;
+    size_t balance = 0;
     for (auto it = source.begin(); it != source.end();) {
         if (it == current_line_start) {
             // Skip all the \t tokens but remember the indentation depth
             if (current_indent_lvl == 0) {
-                while (it != source.end()) {
-                    if (it->token != TOK_INDENT) {
-                        break;
-                    }
+                while (it != source.end() && it->token == TOK_INDENT) {
                     current_indent_lvl++;
                     ++it;
                 }
             }
-            ends_with_colon = current_indent_lvl == 0 //
-                && (it->token == TOK_DEF              //
-                       || it->token == TOK_FUNC       //
-                       || it->token == TOK_TEST       //
-                       || it->token == TOK_DATA       //
-                       || it->token == TOK_ENUM       //
-                       || it->token == TOK_VARIANT    //
-                       || it->token == TOK_ERROR      //
-                       || it->token == TOK_INTERFACE  //
-                       || it->token == TOK_OBJECT     //
-                   );
+            if (current_indent_lvl == 0) {
+                // Look through a leading `const`/`shared` modifier so that
+                // definitions like `const def ...` are recognized.
+                Token definition_kind = it != source.end() ? it->token : TOK_EOF;
+                if ((definition_kind == TOK_CONST || definition_kind == TOK_SHARED) && std::next(it) != source.end()) {
+                    definition_kind = (it + 1)->token;
+                }
+                switch (definition_kind) {
+                    default:
+                        def_terms = Term::NONE;
+                        break;
+                    case TOK_USE:
+                        def_terms = Term::EOL;
+                        break;
+                    case TOK_DEF:
+                        // Definitions: body starts at ':' or declaration ends at ';'
+                        def_terms = Term::COLON | Term::SEMICOLON;
+                        break;
+                    case TOK_TEST:
+                    case TOK_FUNC:
+                    case TOK_DATA:
+                    case TOK_ENUM:
+                    case TOK_VARIANT:
+                    case TOK_ERROR:
+                    case TOK_INTERFACE:
+                    case TOK_OBJECT:
+                        def_terms = Term::COLON;
+                        break;
+                }
+            } else {
+                def_terms = Term::NONE;
+            }
+            balance = 0;
         }
-        if (current_indent_lvl == 0 && ends_with_colon) {
-            if (it->token == TOK_COLON) {
-                ++it;
+        if (current_indent_lvl == 0 && def_terms != Term::NONE) {
+            if (it == source.end() || it->token == TOK_EOF) {
+                if (current_line_start != it) {
+                    physical_lines.emplace_back(Line{
+                        .indent_lvl = current_indent_lvl,
+                        .offset = 0,
+                        .len = 0,
+                        .tokens = {current_line_start, it},
+                    });
+                }
+                break;
+            }
+            // Update balance for closers before checking for a terminator
+            if (balance > 0 && (it->token == TOK_RIGHT_PAREN || it->token == TOK_RIGHT_BRACKET || it->token == TOK_RIGHT_BRACE)) {
+                balance--;
+            }
+            const bool is_terminator = balance == 0                                                     //
+                && (                                                                                    //
+                       (((def_terms & Term::COLON) != Term::NONE) && it->token == TOK_COLON)            //
+                       || (((def_terms & Term::SEMICOLON) != Term::NONE) && it->token == TOK_SEMICOLON) //
+                       || (((def_terms & Term::EOL) != Term::NONE) && it->token == TOK_EOL)             //
+                   );
+            if (is_terminator) {
+                if (it->token == TOK_COLON || it->token == TOK_SEMICOLON) {
+                    ++it;
+                }
                 physical_lines.emplace_back(Line{
                     .indent_lvl = current_indent_lvl,
                     .offset = 0,
                     .len = 0,
                     .tokens = {current_line_start, it},
                 });
-                if (it->token == TOK_EOL) [[likely]] {
+                if (it != source.end() && it->token == TOK_EOL) [[likely]] {
                     ++it;
                 }
                 current_line_start = it;
-                current_indent_lvl = std::prev(it)->line == it->line;
+                current_indent_lvl = (it != source.end()) ? (std::prev(it)->line == it->line ? 1 : 0) : 0;
+                def_terms = Term::NONE;
+                balance = 0;
                 continue;
+            }
+            if (it->token == TOK_LEFT_PAREN || it->token == TOK_LEFT_BRACKET || it->token == TOK_LEFT_BRACE) {
+                balance++;
             }
             ++it;
             continue;

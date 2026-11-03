@@ -52,6 +52,7 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
         case DefTrie::Pattern::USE:
         case DefTrie::Pattern::TYPE_ALIAS:
         case DefTrie::Pattern::EXTERN_FUNCTION:
+        case DefTrie::Pattern::FUNCTION_DECLARATION:
         case DefTrie::Pattern::OPAQUE:
             // Do not create a bdoy for these patterns
             break;
@@ -238,6 +239,20 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
             } else {
                 added_function.value()->body_lines = body_lines;
             }
+            break;
+        }
+        case DefTrie::Pattern::FUNCTION_DECLARATION: {
+            std::optional<FunctionNode> function_node = create_function(definition_tokens, {});
+            if (!function_node.has_value()) {
+                return false;
+            }
+            std::optional<FunctionNode *> added_function = file_node_ptr->add_function(function_node.value(), core_module_files);
+            if (!added_function.has_value()) {
+                return false;
+            }
+            added_function.value()->annotations = AnnotationNode::extract_consumable( //
+                annotation_queue, FunctionNode::consumable_annotations                //
+            );
             break;
         }
         case DefTrie::Pattern::TEST: {

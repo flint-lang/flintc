@@ -740,16 +740,16 @@ class Matcher {
         })),                                          //
         token(TOK_SEMICOLON)                          //
     });
-    static const inline PatternPtr function_definition = sequence({
+    static const inline PatternPtr function_base = sequence({                                                                      //
         optional(token(TOK_EXPORT)), optional(token(TOK_CONST)), keyword_def,                                                      //
         token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_LEFT_PAREN), optional(params), token(TOK_RIGHT_PAREN), //
         optional(one_of({
             sequence({token(TOK_ARROW), group_type}),
             sequence({token(TOK_ARROW), type}),
         })),
-        optional(sequence({token(TOK_LEFT_BRACE), continue_until_right_brace})),
-        token(TOK_COLON) //
-    });
+        optional(sequence({token(TOK_LEFT_BRACE), continue_until_right_brace}))});
+    static const inline PatternPtr function_definition = sequence({function_base, token(TOK_COLON)});
+    static const inline PatternPtr function_declaration = sequence({function_base, token(TOK_SEMICOLON)});
     static const inline PatternPtr data_definition = sequence({
         optional(one_of({TOK_SHARED, TOK_CONST})),                                                  //
         token(TOK_DATA), token(TOK_IDENTIFIER), optional(comptime_parameter_list), token(TOK_COLON) //

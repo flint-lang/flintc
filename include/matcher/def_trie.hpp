@@ -17,6 +17,7 @@ class DefTrie : public Trie<DefTrie> {
         EXTERN_FUNCTION,
         OPAQUE,
         FUNCTION,
+        FUNCTION_DECLARATION,
         TEST,
         DATA,
         FUNC,
@@ -62,7 +63,17 @@ class DefTrie : public Trie<DefTrie> {
             Pattern::EXTERN_FUNCTION,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::extern_function_declaration); },
+                [](const token_slice &tokens) {
+                    const size_t len = std::distance(tokens.first, tokens.second);
+                    if (len < 6) {
+                        // 'extern' 'def' 'identifier' '(' ')' ';'
+                        return false;
+                    }
+                    if (std::prev(tokens.second)->token != TOK_SEMICOLON) {
+                        return false;
+                    }
+                    return Matcher::tokens_match(tokens, Matcher::extern_function_declaration);
+                },
             },
         },
         {
@@ -82,7 +93,34 @@ class DefTrie : public Trie<DefTrie> {
             Pattern::FUNCTION,
             {
                 TrieAffinity::FORWARD,
-                [](const token_slice &tokens) { return Matcher::tokens_match(tokens, Matcher::function_definition); },
+                [](const token_slice &tokens) {
+                    const size_t len = std::distance(tokens.first, tokens.second);
+                    if (len < 5) {
+                        // 'def' 'identifier' '(' ')' ':'
+                        return false;
+                    }
+                    if (std::prev(tokens.second)->token != TOK_COLON) {
+                        return false;
+                    }
+                    return Matcher::tokens_match(tokens, Matcher::function_definition);
+                },
+            },
+        },
+        {
+            Pattern::FUNCTION_DECLARATION,
+            {
+                TrieAffinity::FORWARD,
+                [](const token_slice &tokens) {
+                    const size_t len = std::distance(tokens.first, tokens.second);
+                    if (len < 5) {
+                        // 'def' 'identifier' '(' ')' ';'
+                        return false;
+                    }
+                    if (std::prev(tokens.second)->token != TOK_SEMICOLON) {
+                        return false;
+                    }
+                    return Matcher::tokens_match(tokens, Matcher::function_declaration);
+                },
             },
         },
         {
