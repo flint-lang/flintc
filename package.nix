@@ -5,9 +5,6 @@
   makeWrapper,
 
   zig,
-  cmake,
-  ninja,
-  python3,
   llvm_22,
   lld_22,
   zlib,
@@ -60,9 +57,6 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [
     zig
-    cmake
-    ninja
-    python3
     llvm_22
     lld_22
     autoPatchelfHook
@@ -76,15 +70,10 @@ stdenv.mkDerivation {
     zlib
   ];
 
-  # Disable Nixpkgs' default Zig CPU/optimization flags
   dontSetZigDefaultFlags = true;
   enableParallelBuilding = true;
   dontAddPrefix = true;
 
-  # Tests are not part of the initial package build yet
-  doCheck = false;
-
-  # These flags are used by both zigBuildPhase and zigInstallPhase
   zigBuildFlags = [
     "-Dllvm-dynamic"
     "-Dstdcpp-include=${stdenv.cc.cc}/include/c++/${stdenv.cc.cc.version}:${stdenv.cc.cc}/include/c++/${stdenv.cc.cc.version}/x86_64-unknown-linux-gnu:${stdenv.cc.cc}/lib/gcc/x86_64-unknown-linux-gnu/${stdenv.cc.cc.version}/include"
@@ -105,29 +94,15 @@ stdenv.mkDerivation {
     "--release=small"
   ];
 
-  postInstall = ''
-    # Verify that Zig produced all expected output directories.
-    for dir in bin lib include; do
-      if [ ! -d "zig-out/$dir" ]; then
-        echo "Missing expected Zig output directory: zig-out/$dir" >&2
-        exit 1
-      fi
-    done
+  zigInstallFlags = [
+    "--prefix-exe-dir"
+    "${placeholder "out"}/bin"
+    "--prefix-lib-dir"
+    "${placeholder "lib"}/lib"
+    "--prefix-include-dir"
+    "${placeholder "dev"}/include"
+  ];
 
-    if [ ! -x zig-out/bin/flintc ]; then
-      echo "Missing executable: zig-out/bin/flintc" >&2
-      exit 1
-    fi
-
-    install -d "$out/bin" "$lib/lib" "$dev/include"
-
-    cp -a zig-out/bin/. "$out/bin/"
-    cp -a zig-out/lib/. "$lib/lib/"
-    cp -a zig-out/include/. "$dev/include/"
-  '';
-
-  # Flint invokes ld.lld by name when compiling programs.
-  # Make sure the matching LLD executable is available at runtime.
   postFixup = ''
     wrapProgram "$out/bin/flintc" \
       --prefix PATH : "${lib.makeBinPath [ lld_22 ]}"
@@ -139,8 +114,6 @@ stdenv.mkDerivation {
     license = lib.licenses.mit;
     platforms = [ "x86_64-linux" ];
     mainProgram = "flintc";
-
-    # A normal installation should install the executable output only.
     outputsToInstall = [ "out" ];
   };
 }
