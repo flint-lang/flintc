@@ -78,8 +78,8 @@ stdenv.mkDerivation {
 
   # Disable Nixpkgs' default Zig CPU/optimization flags
   dontSetZigDefaultFlags = true;
-  dontUseZigInstall = true;
   enableParallelBuilding = true;
+  dontAddPrefix = true;
 
   # Tests are not part of the initial package build yet
   doCheck = false;
@@ -105,9 +105,7 @@ stdenv.mkDerivation {
     "--release=small"
   ];
 
-  installPhase = ''
-    runHook preInstall
-
+  postInstall = ''
     # Verify that Zig produced all expected output directories.
     for dir in bin lib include; do
       if [ ! -d "zig-out/$dir" ]; then
@@ -116,13 +114,16 @@ stdenv.mkDerivation {
       fi
     done
 
+    if [ ! -x zig-out/bin/flintc ]; then
+      echo "Missing executable: zig-out/bin/flintc" >&2
+      exit 1
+    fi
+
     install -d "$out/bin" "$lib/lib" "$dev/include"
 
     cp -a zig-out/bin/. "$out/bin/"
     cp -a zig-out/lib/. "$lib/lib/"
     cp -a zig-out/include/. "$dev/include/"
-
-    runHook postInstall
   '';
 
   # Flint invokes ld.lld by name when compiling programs.
