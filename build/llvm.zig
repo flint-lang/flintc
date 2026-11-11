@@ -8,18 +8,26 @@ pub fn build(
     target: std.Build.ResolvedTarget,
     force_rebuild: bool,
     jobs: usize,
-    llvm_dep: *std.Build.Dependency,
     /// linux/mingw
     platform_name: []const u8,
     /// llvm-{ linux, mingw }
     llvm_platform_dirname: []const u8,
     /// vendor/llvm-{ linux, mingw }
     install_dir: []const u8,
+    llvm_dynamic: bool,
 ) !*std.Build.Step {
-    const cmake_exe_path: []const u8 = b.findProgram(.{ .names = &.{"cmake"} }) orelse @panic("CMake not found on this system");
-    _ = b.findProgram(.{ .names = &.{"ld.lld"} }) orelse @panic("LLD not found on this system");
-    _ = b.findProgram(.{ .names = &.{"ninja"} }) orelse @panic("Ninja not found on this system");
-    _ = b.findProgram(.{ .names = &.{ "python", "python3" } }) orelse @panic("Python3 not found on this system");
+    if (llvm_dynamic) {
+        return makeEmptyStep(b);
+    }
+
+    const cmake_exe_path: []const u8 = b.findProgram(.{ .names = &.{"cmake"} }) orelse
+        return error.CMakeNotFound;
+    _ = b.findProgram(.{ .names = &.{"ld.lld"} }) orelse
+        return error.LLDNotFound;
+    _ = b.findProgram(.{ .names = &.{"ninja"} }) orelse
+        return error.NinjaNotFound;
+    _ = b.findProgram(.{ .names = &.{ "python", "python3" } }) orelse
+        return error.PythonNotFound;
 
     if (b.root.openDir(b.graph.io, install_dir, .{})) |_| {
         // LLVM is already built, rebuilt only if requested
@@ -31,6 +39,8 @@ pub fn build(
     } else |_| {}
 
     std.debug.print("-- Building LLVM for {s}\n", .{platform_name});
+
+    const llvm_dep = try b.dependencyLazy("llvm", .{});
 
     // Setup LLVM
     const setup_llvm = std.Build.Step.Run.create(b, "llvm_setup");

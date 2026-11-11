@@ -1,16 +1,19 @@
 const std = @import("std");
-const fip = @import("fip");
 
 const FLINTC_VERSION = @import("../build.zig.zon").version;
 const COMPILE_FLAGS = @import("../build.zig").compile_flags;
+const DYNAMIC_FLAGS = @import("../build.zig").dynamic_flags;
 
 pub fn build(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     prev_step: *std.Build.Step,
-    install_headers: bool,
+    fip_lib: *std.Build.Step.Compile,
     lsp_mode: bool,
+    llvm_dynamic: bool,
+    stdcpp_include: ?[]const u8,
+    glibc_include: ?[]const u8,
 ) !*std.Build.Step.Compile {
     const name: []const u8 = if (lsp_mode) "flint-parser-lsp" else "flint-parser";
     const lib = b.addLibrary(.{
@@ -18,13 +21,12 @@ pub fn build(
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
-            .link_libcpp = true,
+            .link_libcpp = !llvm_dynamic,
             .pic = true,
         }),
         .linkage = .static,
     });
     b.installArtifact(lib);
-    lib.step.dependOn(prev_step);
     lib.link_function_sections = true;
     lib.link_data_sections = true;
     lib.link_gc_sections = true;
@@ -39,13 +41,24 @@ pub fn build(
         lib.root_module.addCMacro("FLINT_LSP", "");
     }
 
-    const fip_dep = b.dependency("fip", .{
-        .target = target,
-        .optimize = optimize,
-        .@"lib-mode" = .master,
-    });
-    lib.root_module.linkLibrary(fip_dep.artifact("fip"));
-    lib.installLibraryHeaders(fip_dep.artifact("fip"));
+    lib.root_module.linkLibrary(fip_lib);
+    lib.installLibraryHeaders(fip_lib);
+
+    if (llvm_dynamic) {
+        const stdcpp_include_dir = stdcpp_include orelse
+            return error.MissingOptionStdcppInclude;
+        const glibc_include_dir = glibc_include orelse
+            return error.MissingOptionGlibcInclude;
+
+        var it = std.mem.splitScalar(u8, stdcpp_include_dir, ':');
+        while (it.next()) |p| {
+            if (p.len > 0) {
+                lib.root_module.addSystemIncludePath(b.graph.cwdRelativePath(p));
+            }
+        }
+
+        lib.root_module.addSystemIncludePath(b.graph.cwdRelativePath(glibc_include_dir));
+    }
 
     // Add Include paths
     lib.root_module.addIncludePath(b.path("include"));
@@ -69,29 +82,54 @@ pub fn build(
         }
     }
 
+    const flags = if (llvm_dynamic)
+        COMPILE_FLAGS ++ DYNAMIC_FLAGS
+    else
+        COMPILE_FLAGS;
+
     // Add C++ src files
     lib.root_module.addCSourceFiles(.{
         .root = b.path("src"),
         .files = cpp_files.items,
-        .flags = COMPILE_FLAGS,
+        .flags = flags,
     });
 
-    if (install_headers) {
-        lib.installHeadersDirectory(b.path("include/analyzer"), "analyzer", .{ .include_extensions = &.{".hpp"} });
-        lib.installHeadersDirectory(b.path("include/error"), "error", .{ .include_extensions = &.{".hpp"} });
-        lib.installHeadersDirectory(b.path("include/lexer"), "lexer", .{ .include_extensions = &.{".hpp"} });
-        lib.installHeadersDirectory(b.path("include/matcher"), "matcher", .{ .include_extensions = &.{".hpp"} });
-        lib.installHeadersDirectory(b.path("include/parser"), "parser", .{ .include_extensions = &.{".hpp"} });
-        lib.installHeadersDirectory(b.path("include/resolver"), "resolver", .{ .include_extensions = &.{".hpp"} });
+    const to_install_dirs = [_][]const u8{
+        "analyzer",
+        "error",
+        "lexer",
+        "matcher",
+        "parser",
+        "resolver",
+    };
+    const to_install_files = [_][]const u8{
+        "colors",
+        "debug",
+        "fip",
+        "globals",
+        "persistent_thread_pool",
+        "profiler",
+        "single_executor_guard",
+        "types",
+    };
 
-        lib.installHeader(b.path("include/colors.hpp"), "colors.hpp");
-        lib.installHeader(b.path("include/debug.hpp"), "debug.hpp");
-        lib.installHeader(b.path("include/fip.hpp"), "fip.hpp");
-        lib.installHeader(b.path("include/globals.hpp"), "globals.hpp");
-        lib.installHeader(b.path("include/persistent_thread_pool.hpp"), "persistent_thread_pool.hpp");
-        lib.installHeader(b.path("include/profiler.hpp"), "profiler.hpp");
-        lib.installHeader(b.path("include/single_executor_guard.hpp"), "single_executor_guard.hpp");
-        lib.installHeader(b.path("include/types.hpp"), "types.hpp");
+    var last: *std.Build.Step = prev_step;
+    for (to_install_dirs) |dir| {
+        const install = b.addInstallDirectory(.{
+            .source_dir = b.path(b.fmt("include/{s}", .{dir})),
+            .install_dir = .header,
+            .install_subdir = dir,
+        });
+        install.step.dependOn(last);
+        last = &install.step;
     }
+
+    for (to_install_files) |file| {
+        const install = b.addInstallHeaderFile(b.path(b.fmt("include/{s}.hpp", .{file})), b.fmt("{s}.hpp", .{file}));
+        install.step.dependOn(last);
+        last = &install.step;
+    }
+
+    lib.step.dependOn(last);
     return lib;
 }

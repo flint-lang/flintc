@@ -28,5 +28,6 @@ test.o
 logfile
 zig-out
 zig-pkg
+result
 
 chat.txt

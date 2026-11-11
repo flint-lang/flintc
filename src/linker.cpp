@@ -520,14 +520,22 @@ std::optional<std::vector<std::string>> Linker::get_linux_gnu_args( //
     }
     args.push_back("-L" + Generator::get_flintc_cache_path().string());
     args.push_back("-lbuiltins");
+#ifdef NIX_GLIBC_LIB_PATH
+    args.push_back("-L" NIX_GLIBC_LIB_PATH);
+#else
     args.push_back("-L/usr/lib");
     args.push_back("-L/usr/lib/x86_64-linux-gnu");
+#endif
     args.push_back("-lc");
     args.push_back("-lm");
     args.push_back("-l:crt1.o");
     args.push_back("-l:crti.o");
     args.push_back("-l:crtn.o");
+#ifdef NIX_DYNAMIC_LINKER
+    args.push_back("--dynamic-linker=" NIX_DYNAMIC_LINKER);
+#else
     args.push_back("--dynamic-linker=/lib64/ld-linux-x86-64.so.2");
+#endif
 
     // Output file
     args.push_back("-o");
@@ -598,6 +606,9 @@ std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
     args.push_back("-L" + Generator::get_flintc_cache_path().string());
     args.push_back("-lbuiltins");
 
+#ifdef NIX_MUSL_LIB_PATH
+    const std::string_view musl_libc_path = NIX_MUSL_LIB_PATH;
+#else
     // Find musl libc.a - check multiple possible locations
     std::vector<std::string> possible_musl_paths = {
         "/usr/lib/musl/lib/libc.a",          // Arch Linux
@@ -612,11 +623,12 @@ std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
             break;
         }
     }
-
     if (musl_libc_path.empty()) {
         std::cerr << "Error: Could not find musl libc.a. Please install musl-dev or equivalent." << std::endl;
         return std::nullopt;
     }
+#endif
+
     if (DEBUG_MODE) {
         std::cout << "-- Using musl libc from: " << musl_libc_path << "\n" << std::endl;
     }
@@ -629,7 +641,11 @@ std::optional<std::vector<std::string>> Linker::get_linux_musl_args( //
         args.push_back(musl_crt1);
     } else {
         // Fall back to system crt1.o
+#ifdef NIX_GLIBC_LIB_PATH
+        args.push_back(NIX_GLIBC_LIB_PATH "/crt1.o");
+#else
         args.push_back("/usr/lib/crt1.o");
+#endif
     }
 
     // Add object files

@@ -7,13 +7,62 @@ const flint_parser = @import("build/flint-parser.zig");
 const llvm = @import("build/llvm.zig");
 const flintc = @import("build/flintc.zig");
 const fls = @import("build/fls.zig");
+const fip = @import("build/fip.zig");
 
 pub fn build(b: *std.Build) !void {
-    const git_exe_path: []const u8 = b.findProgram(.{ .names = &.{"git"} }) orelse @panic("'git' not found on this system");
-
     const optimize = b.standardOptimizeOption(.{});
 
-    const llvm_dep = b.dependency("llvm", .{});
+    // Source options for nix
+    const o_fip_source = b.option(
+        []const u8,
+        "fip-source",
+        "Path to FIP source directory",
+    );
+    const o_tomlc17_source = b.option(
+        []const u8,
+        "tomlc17-source",
+        "Path to tomlc17 source directory",
+    );
+
+    // LLVM Options
+    const o_llvm_jobs = b.option(usize, "llvm-jobs", "Number of cores to use for building LLVM") orelse
+        (try std.Thread.getCpuCount() - 2);
+    const o_llvm_rebuild = b.option(bool, "llvm-rebuild", "Force rebuild LLVM") orelse
+        false;
+    const o_llvm_dynamic = b.option(bool, "llvm-dynamic", "Whether to link dynamically with LLVM. This option only exists for NixOS") orelse
+        false;
+    const o_stdcpp_include = b.option([]const u8, "stdcpp-include", "Colon-separated GCC/libstdc++ include paths");
+    const o_stdcpp_lib = b.option([]const u8, "stdcpp-lib", "Absolute path to the libstdc++ shared library");
+    const o_glibc_include = b.option([]const u8, "glibc-include", "Path to glibc headers for dynamic builds");
+    const o_glibc_lib = b.option([]const u8, "glibc-lib", "Path to glibc libraries for dynamic builds");
+    const o_musl_lib = b.option([]const u8, "musl-lib", "Path to musl libraries for dynamic builds");
+    const o_llvm_include = b.option([]const u8, "llvm-include", "Path to LLVM headers for dynamic builds");
+    const o_llvm_lib = b.option([]const u8, "llvm-lib", "Path to LLVM libraries for dynamic builds");
+    const o_lld_include = b.option([]const u8, "lld-include", "Path to LLD headers for dynamic builds");
+    const o_lld_lib = b.option([]const u8, "lld-lib", "Path to LLD libraries for dynamic builds");
+    const o_zlib_lib = b.option([]const u8, "zlib-lib", "Path to zlib libraries for dynamic builds");
+
+    const commit_hash = b.option([]const u8, "commit-hash", "Flint Git revision") orelse blk: {
+        const git_exe_path: []const u8 = b.findProgram(.{ .names = &.{"git"} }) orelse
+            break :blk "unknown";
+        break :blk std.mem.trim(
+            u8,
+            b.run(&.{ git_exe_path, "rev-parse", "--short", "HEAD" }),
+            &std.ascii.whitespace,
+        );
+    };
+    std.debug.print("-- Commit Hash is {q}\n", .{commit_hash});
+
+    const commit_date = b.option([]const u8, "commit-date", "Date of last commit") orelse blk: {
+        const git_exe_path: []const u8 = b.findProgram(.{ .names = &.{"git"} }) orelse
+            break :blk "unknown";
+        break :blk std.mem.trim(
+            u8,
+            b.run(&[_][]const u8{ git_exe_path, "log", "-1", "--date=format:%Y-%m-%d", "--format=%cd" }),
+            &std.ascii.whitespace,
+        );
+    };
+    std.debug.print("-- Commit Date is {s}\n", .{commit_date});
 
     const o_target: OSTag = b.option(OSTag, "target", "The OS to build for") orelse
         switch (b.graph.host.result.os.tag) {
@@ -21,35 +70,26 @@ pub fn build(b: *std.Build) !void {
             .windows => .windows,
             else => @panic("Unsupported OS"),
         };
-    const target = resolveTarget(b, .{ .os = o_target });
+    const target = resolveTarget(b, .{ .os = o_target }, o_llvm_dynamic);
     const o_all = b.option(bool, "all", "Build all targets") orelse
         false;
     const only_build_flint_parser = b.option(bool, "only-build-flint-parser", "Build only the flintc-parser library") orelse
         false;
     if (only_build_flint_parser) {
-        _ = try flint_parser.build(b, target, optimize, try makeEmptyStep(b), only_build_flint_parser, false);
+        const fip_lib = try fip.build(b, target, optimize, o_fip_source, o_tomlc17_source);
+        _ = try flint_parser.build(
+            b,
+            target,
+            optimize,
+            try makeEmptyStep(b),
+            fip_lib,
+            false,
+            o_llvm_dynamic,
+            o_stdcpp_include,
+            o_glibc_include,
+        );
         return;
     }
-
-    const commit_hash: []const u8 = std.mem.trim(
-        u8,
-        b.run(&.{ git_exe_path, "rev-parse", "--short", "HEAD" }),
-        &std.ascii.whitespace,
-    );
-    std.debug.print("-- Commit Hash is {q}\n", .{commit_hash});
-
-    const commit_date: []const u8 = std.mem.trim(
-        u8,
-        b.run(&[_][]const u8{ git_exe_path, "log", "-1", "--date=format:%Y-%m-%d", "--format=%cd" }),
-        &std.ascii.whitespace,
-    );
-    std.debug.print("-- Commit Date is {s}\n", .{commit_date});
-
-    // LLVM Options
-    const o_llvm_jobs = b.option(usize, "llvm-jobs", "Number of cores to use for building LLVM") orelse
-        (try std.Thread.getCpuCount() - 2);
-    const o_llvm_rebuild = b.option(bool, "llvm-rebuild", "Force rebuild LLVM") orelse
-        false;
 
     var targets_to_build: std.EnumArray(BuildTarget, bool) = .initFill(o_all);
     var single_build: ?struct {
@@ -75,7 +115,7 @@ pub fn build(b: *std.Build) !void {
             continue;
         }
         const opt = resolveOptimize(kvp.key, optimize);
-        const tar = resolveTarget(b, .{ .target = kvp.key });
+        const tar = resolveTarget(b, .{ .target = kvp.key }, o_llvm_dynamic);
 
         const platform_name: []const u8 = switch (tar.result.os.tag) {
             .linux => "linux",
@@ -85,13 +125,33 @@ pub fn build(b: *std.Build) !void {
         const llvm_platform_dirname: []const u8 = b.fmt("llvm-{s}", .{platform_name});
         const install_dir: []const u8 = b.fmt("vendor/{s}", .{llvm_platform_dirname});
 
-        const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, false, false);
-        const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, false, true);
-        const llvm_step = try llvm.build(b, &flint_parser_lib_flintc.step, tar, o_llvm_rebuild, o_llvm_jobs, llvm_dep, platform_name, llvm_platform_dirname, install_dir);
-        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, commit_date);
+        const fip_lib = try fip.build(b, tar, opt, o_fip_source, o_tomlc17_source);
+        const flint_parser_lib_flintc = try flint_parser.build(b, tar, opt, last_step, fip_lib, false, o_llvm_dynamic, o_stdcpp_include, o_glibc_include);
+        const flint_parser_lib_fls = try flint_parser.build(b, tar, opt, last_step, fip_lib, true, o_llvm_dynamic, o_stdcpp_include, o_glibc_include);
+        const llvm_step = try llvm.build(b, &flint_parser_lib_flintc.step, tar, o_llvm_rebuild, o_llvm_jobs, platform_name, llvm_platform_dirname, install_dir, o_llvm_dynamic);
+        const fls_exe = try fls.build(b, tar, opt, flint_parser_lib_fls, commit_hash, commit_date, o_llvm_dynamic, o_stdcpp_include, o_stdcpp_lib, o_glibc_include);
         const fls_install_step = &b.addInstallArtifact(fls_exe, .{}).step;
         b.getInstallStep().dependOn(fls_install_step);
-        const flintc_exe = try flintc.build(b, tar, opt, flint_parser_lib_flintc, llvm_step, commit_hash, commit_date);
+        const flintc_exe = try flintc.build(
+            b,
+            tar,
+            opt,
+            flint_parser_lib_flintc,
+            llvm_step,
+            commit_hash,
+            commit_date,
+            o_llvm_dynamic,
+            o_stdcpp_include,
+            o_stdcpp_lib,
+            o_glibc_include,
+            o_glibc_lib,
+            o_musl_lib,
+            o_llvm_include,
+            o_llvm_lib,
+            o_lld_include,
+            o_lld_lib,
+            o_zlib_lib,
+        );
         const flintc_install_step = &b.addInstallArtifact(flintc_exe, .{}).step;
         b.getInstallStep().dependOn(flintc_install_step);
         flintc_install_step.dependOn(fls_install_step);
@@ -125,7 +185,7 @@ pub fn makeEmptyStep(b: *std.Build) !*std.Build.Step {
     return &run_step.step;
 }
 
-fn resolveTarget(b: *std.Build, t: union(enum) { os: OSTag, target: BuildTarget }) std.Build.ResolvedTarget {
+fn resolveTarget(b: *std.Build, t: union(enum) { os: OSTag, target: BuildTarget }, llvm_dynamic: bool) std.Build.ResolvedTarget {
     const os_select: OSTag = switch (t) {
         .os => |os| os,
         .target => |target| switch (target) {
@@ -138,7 +198,12 @@ fn resolveTarget(b: *std.Build, t: union(enum) { os: OSTag, target: BuildTarget 
             .cpu_model = .baseline,
             .cpu_arch = .x86_64,
             .os_tag = .linux,
-            .abi = .musl,
+            .abi = if (llvm_dynamic) .gnu else .musl,
+            .glibc_version = if (llvm_dynamic) .{
+                .major = 2,
+                .minor = 42,
+                .patch = 0,
+            } else null,
         }),
         .windows => b.resolveTargetQuery(.{
             .cpu_model = .baseline,
@@ -155,6 +220,13 @@ fn resolveOptimize(t: BuildTarget, release_mode: std.builtin.OptimizeMode) std.b
         .linux_release, .windows_release => if (release_mode != .debug) release_mode else .small,
     };
 }
+
+pub const dynamic_flags = &[_][]const u8{
+    "-nostdinc++",
+    "-nostdlib++",
+    "-nostdinc",
+    "-nobuiltininc",
+};
 
 // zig fmt: off
 pub const compile_flags = &[_][]const u8{
