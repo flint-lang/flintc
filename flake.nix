@@ -129,14 +129,7 @@
 
     in
     {
-      packages.${system} = {
-        default = flintc;
-        flintc = flintc;
-
-        flintc-lib = flintc.lib;
-        flintc-dev = flintc.dev;
-      };
-
+      packages.${system}.default = flintc;
       devShells.${system}.default = devShell;
     };
 }

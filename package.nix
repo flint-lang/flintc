@@ -116,9 +116,11 @@ stdenv.mkDerivation {
       fi
     done
 
-    install -d "zig-out/bin/"     "$out/bin"
-    install -d "zig-out/lib/"     "$lib/lib"
-    install -d "zig-out/include/" "$dev/include"
+    install -d "$out/bin" "$lib/lib" "$dev/include"
+
+    cp -a zig-out/bin/. "$out/bin/"
+    cp -a zig-out/lib/. "$lib/lib/"
+    cp -a zig-out/include/. "$dev/include/"
 
     runHook postInstall
   '';
