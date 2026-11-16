@@ -1,9 +1,9 @@
 #pragma once
 
 #include "cli_parser_base.hpp"
-#include "generator/generator.hpp"
 #include "globals.hpp"
 #include "io.hpp"
+#include "parser/parser.hpp"
 #ifdef DEBUG_BUILD
 #include "colors.hpp"
 #endif
@@ -99,17 +99,14 @@ class CLIParserMain : public CLIParserBase {
                                 print_help_targets();
                                 std::exit(0);
                             }
-                            if (target_str == "native") {
-                                COMPILATION_TARGET = Target::NATIVE;
-                            } else if (target_str == "linux") {
-                                COMPILATION_TARGET = Target::LINUX;
-#ifdef _WIN32
-                            } else if (target_str == "windows-msvc") {
-                                COMPILATION_TARGET = Target::WINDOWS_MSVC;
-#else
-                            } else if (target_str == "windows-gnu") {
-                                COMPILATION_TARGET = Target::WINDOWS_GNU;
-#endif
+                            if (target_str == "x86_64-linux-gnu") {
+                                COMPILATION_TARGET = Target::x86_64_linux_gnu;
+                            } else if (target_str == "x86_64-linux-musl") {
+                                COMPILATION_TARGET = Target::x86_64_linux_musl;
+                            } else if (target_str == "x86_64-windows-gnu") {
+                                COMPILATION_TARGET = Target::x86_64_windows_gnu;
+                            } else if (target_str == "x86_64-windows-msvc") {
+                                COMPILATION_TARGET = Target::x86_64_windows_msvc;
                             } else {
                                 return print_err("Unknown Target: " + target_str);
                             }
@@ -168,17 +165,14 @@ class CLIParserMain : public CLIParserBase {
                     print_help_targets();
                     std::exit(0);
                 }
-                if (target_str == "native") {
-                    COMPILATION_TARGET = Target::NATIVE;
-                } else if (target_str == "linux") {
-                    COMPILATION_TARGET = Target::LINUX;
-#ifdef _WIN32
-                } else if (target_str == "windows-msvc") {
-                    COMPILATION_TARGET = Target::WINDOWS_MSVC;
-#else
-                } else if (target_str == "windows-gnu") {
-                    COMPILATION_TARGET = Target::WINDOWS_GNU;
-#endif
+                if (target_str == "x86_64-linux-gnu") {
+                    COMPILATION_TARGET = Target::x86_64_linux_gnu;
+                } else if (target_str == "x86_64-linux-musl") {
+                    COMPILATION_TARGET = Target::x86_64_linux_musl;
+                } else if (target_str == "x86_64-windows-gnu") {
+                    COMPILATION_TARGET = Target::x86_64_windows_gnu;
+                } else if (target_str == "x86_64-windows-msvc") {
+                    COMPILATION_TARGET = Target::x86_64_windows_msvc;
                 } else {
                     return print_err("Unknown Target: " + target_str);
                 }
@@ -294,7 +288,7 @@ class CLIParserMain : public CLIParserBase {
             } else if (arg == "--rebuild-core") {
                 BUILTIN_LIBS_TO_PRINT = static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
             } else if (arg == "--print-libbuiltins-path") {
-                std::cout << Generator::get_flintc_cache_path().string();
+                std::cout << Parser::get_flintc_cache_path().string();
                 std::flush(std::cout);
                 std::exit(0);
             } else if (arg == "--no-colors") {
@@ -557,17 +551,27 @@ class CLIParserMain : public CLIParserBase {
         std::cout << "Usage: flintc <file.ft> --target <TARGET>\n";
         std::cout << "\n";
         std::cout << "Available Targets:\n";
-        std::cout << "  native          [Default] The native target triple of the platform the compiler is executed on\n";
-#ifdef _WIN32
-        std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-musl', statically linked via musl)\n";
-#else
-        std::cout << "  linux           Targetting Linux (target triple 'x86_64-pc-linux-gnu')\n";
+        std::cout << "  x86_64-linux-gnu      ";
+#ifndef _WIN32
+        std::cout << "[Default]";
 #endif
+        std::cout << "\n";
+        std::cout
+            << "  x86_64-linux-musl     When building for musl, the built binary expects the '/lib/ld-musl-x86_64.so.1' dynamic linker to be present.\n";
+        std::cout << "                        The built binary thus is only executable on musl-based systems, like Apline Linux.\n";
+        std::cout << "                        If you want to execute the built binary on other Linux systems you have two options:\n";
+        std::cout
+            << "                          - Compile the program using the '--static' flag as then the dynamic linker then is not needed\n";
+        std::cout << "                          - Execute the built binary using the command:\n";
+        std::cout << "                            '$HOME/.local/share/flint/targets/x86_64-linux-musl/ld-musl-x86_64.so.1 ./main'\n";
+        std::cout
+            << "                  NOTE: When using the '--run' flag the Flint compiler will automatcially invoke 'main' using the dynamic linker\n";
+        std::cout << "  x86_64-windows-gnu    \n";
+        std::cout << "  x86_64-windows-msvc   ";
 #ifdef _WIN32
-        std::cout << "  windows-msvc    Targetting Windows (target triple 'x86_64-pc-windows-msvc')\n";
-#else
-        std::cout << "  windows-gnu     Targetting Windows (target triple 'x86_64-pc-windows-gnu')\n";
+        std::cout << "[Default]";
 #endif
+        std::cout << "\n";
         std::flush(std::cout);
     }
 

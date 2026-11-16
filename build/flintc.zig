@@ -19,8 +19,6 @@ pub fn build(
     stdcpp_include: ?[]const u8,
     stdcpp_lib: ?[]const u8,
     glibc_include: ?[]const u8,
-    glibc_lib: ?[]const u8,
-    musl_lib: ?[]const u8,
     llvm_include: ?[]const u8,
     llvm_lib: ?[]const u8,
     lld_include: ?[]const u8,
@@ -64,10 +62,6 @@ pub fn build(
             return error.CannotResolveStdcppLibraryDir;
         const glibc_include_dir = glibc_include orelse
             return error.MissingOptionGlibcInclude;
-        const glibc_lib_dir = glibc_lib orelse
-            return error.MissingOptionGlibcLib;
-        const musl_lib_dir = musl_lib orelse
-            return error.MissingOptionMuslLib;
         const llvm_include_dir = llvm_include orelse
             return error.MissingOptionLLVMInclude;
         const llvm_lib_dir = llvm_lib orelse
@@ -88,10 +82,6 @@ pub fn build(
 
         exe.root_module.addSystemIncludePath(b.graph.cwdRelativePath(glibc_include_dir));
         exe.root_module.addObjectFile(b.graph.cwdRelativePath(stdcpp_library));
-
-        exe.root_module.addCMacro("NIX_GLIBC_LIB_PATH", b.fmt("{q}", .{glibc_lib_dir}));
-        exe.root_module.addCMacro("NIX_DYNAMIC_LINKER", b.fmt("\"{s}/ld-linux-x86-64.so.2\"", .{glibc_lib_dir}));
-        exe.root_module.addCMacro("NIX_MUSL_LIB_PATH", b.fmt("{q}", .{musl_lib_dir}));
 
         exe.root_module.addLibraryPath(b.graph.cwdRelativePath(stdcpp_library_dir));
         exe.root_module.linkSystemLibrary("gcc_s", .{});

@@ -126,11 +126,26 @@ int main(int argc, char *argv[]) {
             std::cout << "\n"
                       << YELLOW << "[Debug Info] Running the executable '" << clp.out_file_path.string() << "'" << DEFAULT << std::endl;
         }
-#ifdef _WIN32
-        const std::string system_command(std::string(".\\" + clp.out_file_path.string() + ".exe"));
-#else
-        const std::string system_command(std::string("./" + clp.out_file_path.string()));
-#endif
+        std::string system_command = "";
+        switch (COMPILATION_TARGET) {
+            case Target::x86_64_linux_musl:
+                if (!clp.is_static) {
+                    system_command += Parser::get_target_path().string() + "/ld-musl-x86_64.so.1 ";
+                }
+                system_command += "./" + clp.out_file_path.string();
+                break;
+            case Target::x86_64_linux_gnu:
+                if (!clp.is_static) {
+                    system_command += Parser::get_target_path().string() + "/ld-linux-x86_64.so.2 ";
+                }
+                system_command += "./" + clp.out_file_path.string();
+                break;
+            case Target::x86_64_windows_gnu:
+                [[fallthrough]];
+            case Target::x86_64_windows_msvc:
+                system_command += ".\\" + clp.out_file_path.string() + ".exe";
+                break;
+        }
         return system(system_command.c_str());
     }
     return 0;

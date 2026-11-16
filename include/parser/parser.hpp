@@ -112,6 +112,14 @@ class Parser {
         }
     };
 
+    /// @function `get_flint_root_path`
+    /// @brief Returns the path to flint toolchain root directory:
+    /// - `$XDG_DATA_HOME/flint` (or `$HOME/.local/share/flint` if that fails) on Linux or
+    /// - `C:\\Program Files\\Flint` on Windows
+    ///
+    /// @return `std::filesystem::path` The path to the flint toolchain root directory
+    static std::filesystem::path get_flint_root_path();
+
     /// @function `get_core_doc_path`
     /// @brief Returns the path to the Flint Core documentation directory:
     /// - `$XDG_DATA_HOME/flint/bundles/active/Core` (or `$HOME/.local/share/flint/bundles/active/Core` if that fails) on Linux or
@@ -119,6 +127,22 @@ class Parser {
     ///
     /// @return `std::filesystem::path` The path to the flint Core documentation directory
     static std::filesystem::path get_core_doc_path();
+
+    /// @function `get_target_path`
+    /// @brief Returns the path to the current target directory:
+    /// - `$XDG_DATA_HOME/flint/targets/<triple>` (or `$HOME/.local/share/flint/targets/<triple>` if that fails) on Linux or
+    /// - `C:\\Program Files\\Flint\\targets\\<triple>` on Windows
+    ///
+    /// @return `std::filesystem::path` The path to the current target directory
+    static std::filesystem::path get_target_path();
+
+    /// @function `get_flintc_cache_path`
+    /// @brief Returns the path to the `flintc` cache directory:
+    /// - `$XDG_CACHE_HOME/flint/flintc` (or `$HOME/.config/flint/flintc` if that fails) on Linux or
+    /// - `C:\\Program Files\\Flint\\Cache\\flintc` on Windows
+    ///
+    /// @return `std::filesystem::path` The path to the flint cache directory
+    static std::filesystem::path get_flintc_cache_path();
 
     /// @function `init_core_modules`
     /// @brief Initializes all the file nodes of the Core modules to prepare them to be imported

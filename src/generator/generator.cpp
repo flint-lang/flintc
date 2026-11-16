@@ -51,35 +51,6 @@
 #include <utility>
 #include <variant>
 
-std::filesystem::path Generator::get_flintc_cache_path() {
-#ifdef _WIN32
-    std::filesystem::path cache_path = std::filesystem::path(std::getenv("LOCALAPPDATA")) / "Flint" / "Cache" / "flintc";
-#else
-    const char *xdg_cache_home = std::getenv("XDG_CACHE_HOME");
-    std::filesystem::path cache_path;
-    if (xdg_cache_home != NULL) {
-        cache_path = std::filesystem::path(xdg_cache_home) / "flint" / "flintc";
-    } else {
-        const char *home = std::getenv("HOME");
-        ASSERT(home != NULL);
-        cache_path = std::filesystem::path(home) / ".cache" / "flint" / "flintc";
-    }
-#endif
-    if (COMPILATION_TARGET != Target::NATIVE) {
-        cache_path /= "cross_compile";
-    }
-    // Check if the cache path exists, if not create directories, like `mkdir -p`
-    try {
-        if (!std::filesystem::exists(cache_path)) {
-            std::filesystem::create_directories(cache_path);
-        }
-        return cache_path;
-    } catch (const std::filesystem::filesystem_error &e) {
-        std::cerr << "Error: Could not create cache path: '" << cache_path.string() << "'" << std::endl;
-        return std::filesystem::path();
-    }
-}
-
 std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module *module) {
     // Initialize LLVM targets (should only be called once in the compiler)
     static bool initialized = false;
@@ -93,38 +64,13 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
         initialized = true;
     }
 
-    // Get the target triple (architecture, OS, etc.)
-    std::string target_triple = "";
-    switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef _WIN32
-            target_triple = "x86_64-pc-windows-msvc";
-#else
-            target_triple = llvm::sys::getDefaultTargetTriple();
-#endif
-            break;
-        case Target::WINDOWS_MSVC:
-            target_triple = "x86_64-pc-windows-msvc";
-            break;
-        case Target::WINDOWS_GNU:
-            target_triple = "x86_64-pc-windows-gnu";
-            break;
-        case Target::LINUX:
-#ifdef _WIN32
-            target_triple = "x86_64-pc-linux-musl";
-#else
-            target_triple = "x86_64-pc-linux-gnu";
-#endif
-            break;
-    }
-
     if (PRINT_TARGET) {
-        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple << "\n" << std::endl;
+        std::cout << YELLOW << "[Debug Info] Target triple information" << DEFAULT << "\n" << target_triple() << "\n" << std::endl;
     }
-    module->setTargetTriple(llvm::Triple(llvm::StringRef(target_triple)));
+    module->setTargetTriple(llvm::Triple(llvm::StringRef(target_quadruple())));
 
     std::string error;
-    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(llvm::Triple(target_triple), error);
+    const llvm::Target *target = llvm::TargetRegistry::lookupTarget(llvm::Triple(target_quadruple()), error);
     if (!target) {
         llvm::errs() << "Error: " << error << "\n";
         return std::nullopt;
@@ -132,12 +78,12 @@ std::optional<llvm::TargetMachine *> Generator::init_target_machine(llvm::Module
 
     // Create the target machine
     llvm::TargetOptions opt;
-    llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
-        ? llvm::CodeGenOptLevel::None                                               //
+    const llvm::CodeGenOptLevel codegen_optlevel = (OPTIMIZE_MODE == OptimizeMode::DEBUG) //
+        ? llvm::CodeGenOptLevel::None                                                     //
         : llvm::CodeGenOptLevel::Default;
-    llvm::TargetMachine *const target_machine = target->createTargetMachine( //
-        llvm::Triple(target_triple), llvm::sys::getHostCPUName(), "", opt,   //
-        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel            //
+    llvm::TargetMachine *const target_machine = target->createTargetMachine(  //
+        llvm::Triple(target_quadruple()), llvm::StringRef("x86-64"), "", opt, //
+        llvm::Reloc::DynamicNoPIC, std::nullopt, codegen_optlevel             //
     );
 
     // Enable individual sections for functions and data
@@ -169,19 +115,14 @@ bool Generator::compile_program(              //
     std::string obj_file = binary_file.string();
     std::string file_ending = "";
     switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef _WIN32
-            file_ending = ".obj";
-#else
-            file_ending = ".o";
-#endif
-            break;
-        case Target::LINUX:
-            file_ending = ".o";
-            break;
-        case Target::WINDOWS_MSVC:
+        case Target::x86_64_linux_gnu:
             [[fallthrough]];
-        case Target::WINDOWS_GNU:
+        case Target::x86_64_linux_musl:
+            file_ending = ".o";
+            break;
+        case Target::x86_64_windows_gnu:
+            [[fallthrough]];
+        case Target::x86_64_windows_msvc:
             file_ending = ".obj";
             break;
     }
@@ -231,19 +172,14 @@ bool Generator::compile_module(llvm::Module *module, const std::filesystem::path
     std::error_code EC;
     std::string obj_file = module_path.string();
     switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef _WIN32
-            obj_file += ".obj";
-#else
-            obj_file += ".o";
-#endif
-            break;
-        case Target::LINUX:
-            obj_file += ".o";
-            break;
-        case Target::WINDOWS_MSVC:
+        case Target::x86_64_linux_gnu:
             [[fallthrough]];
-        case Target::WINDOWS_GNU:
+        case Target::x86_64_linux_musl:
+            obj_file += ".o";
+            break;
+        case Target::x86_64_windows_gnu:
+            [[fallthrough]];
+        case Target::x86_64_windows_msvc:
             obj_file += ".obj";
             break;
     }

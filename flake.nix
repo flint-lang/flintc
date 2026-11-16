@@ -68,7 +68,6 @@
         packages = [
           pkgs.glibc
           pkgs.glibc.dev
-          pkgs.musl
           pkgs.llvm_22.dev
           pkgs.llvm_22.lib
           pkgs.lld_22.dev
@@ -103,8 +102,6 @@
             "-Dstdcpp-include=${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}:${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}/x86_64-unknown-linux-gnu:${pkgs.stdenv.cc.cc}/lib/gcc/x86_64-unknown-linux-gnu/${pkgs.stdenv.cc.cc.version}/include" \
             "-Dstdcpp-lib=${pkgs.stdenv.cc.cc.lib}/lib/libstdc++.so" \
             "-Dglibc-include=${pkgs.glibc.dev}/include" \
-            "-Dglibc-lib=${pkgs.glibc}/lib" \
-            "-Dmusl-lib=${pkgs.musl}/lib" \
             "-Dllvm-include=${pkgs.llvm_22.dev}/include" \
             "-Dllvm-lib=${pkgs.llvm_22.lib}/lib" \
             "-Dlld-include=${pkgs.lld_22.dev}/include" \

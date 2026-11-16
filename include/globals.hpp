@@ -68,41 +68,51 @@ enum class OptimizeMode {
 extern OptimizeMode OPTIMIZE_MODE;
 
 enum class Target {
-    NATIVE,
-    LINUX,
-    WINDOWS_MSVC,
-    WINDOWS_GNU,
+    x86_64_linux_gnu,
+    x86_64_linux_musl,
+    x86_64_windows_gnu,
+    x86_64_windows_msvc,
 };
 extern Target COMPILATION_TARGET;
 
 inline bool is_target_windows() {
     switch (COMPILATION_TARGET) {
-        case Target::WINDOWS_MSVC:
+        case Target::x86_64_linux_gnu:
             [[fallthrough]];
-        case Target::WINDOWS_GNU:
-            return true;
-        case Target::LINUX:
+        case Target::x86_64_linux_musl:
             return false;
-        case Target::NATIVE:
-#ifdef _WIN32
+        case Target::x86_64_windows_gnu:
+            [[fallthrough]];
+        case Target::x86_64_windows_msvc:
             return true;
-#else
-            return false;
-#endif
     }
     UNREACHABLE();
 }
 
-inline const char *target_name() {
+inline const char *target_triple() {
     switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-            return "native";
-        case Target::LINUX:
-            return "linux";
-        case Target::WINDOWS_MSVC:
-            return "windows-msvc";
-        case Target::WINDOWS_GNU:
-            return "windows-gnu";
+        case Target::x86_64_linux_gnu:
+            return "x86_64-linux-gnu";
+        case Target::x86_64_linux_musl:
+            return "x86_64-linux-musl";
+        case Target::x86_64_windows_gnu:
+            return "x86_64-windows-gnu";
+        case Target::x86_64_windows_msvc:
+            return "x86_64-windows-msvc";
+    }
+    UNREACHABLE();
+}
+
+inline const char *target_quadruple() {
+    switch (COMPILATION_TARGET) {
+        case Target::x86_64_linux_gnu:
+            return "x86_64-pc-linux-gnu";
+        case Target::x86_64_linux_musl:
+            return "x86_64-pc-linux-musl";
+        case Target::x86_64_windows_gnu:
+            return "x86_64-pc-windows-gnu";
+        case Target::x86_64_windows_msvc:
+            return "x86_64-pc-windows-msvc";
     }
     UNREACHABLE();
 }

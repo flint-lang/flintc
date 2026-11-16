@@ -34,8 +34,6 @@ pub fn build(b: *std.Build) !void {
     const o_stdcpp_include = b.option([]const u8, "stdcpp-include", "Colon-separated GCC/libstdc++ include paths");
     const o_stdcpp_lib = b.option([]const u8, "stdcpp-lib", "Absolute path to the libstdc++ shared library");
     const o_glibc_include = b.option([]const u8, "glibc-include", "Path to glibc headers for dynamic builds");
-    const o_glibc_lib = b.option([]const u8, "glibc-lib", "Path to glibc libraries for dynamic builds");
-    const o_musl_lib = b.option([]const u8, "musl-lib", "Path to musl libraries for dynamic builds");
     const o_llvm_include = b.option([]const u8, "llvm-include", "Path to LLVM headers for dynamic builds");
     const o_llvm_lib = b.option([]const u8, "llvm-lib", "Path to LLVM libraries for dynamic builds");
     const o_lld_include = b.option([]const u8, "lld-include", "Path to LLD headers for dynamic builds");
@@ -144,8 +142,6 @@ pub fn build(b: *std.Build) !void {
             o_stdcpp_include,
             o_stdcpp_lib,
             o_glibc_include,
-            o_glibc_lib,
-            o_musl_lib,
             o_llvm_include,
             o_llvm_lib,
             o_lld_include,

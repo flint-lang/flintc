@@ -56,7 +56,11 @@ std::string RED_UNDERLINE = "\033[4:3;58;2;255;0;0m";
 
 unsigned int BUILTIN_LIBS_TO_PRINT = 0;
 OptimizeMode OPTIMIZE_MODE = OptimizeMode::DEBUG;
-Target COMPILATION_TARGET = Target::NATIVE;
+#ifdef _WIN32
+Target COMPILATION_TARGET = Target::x86_64_windows_msvc;
+#else
+Target COMPILATION_TARGET = Target::x86_64_linux_gnu;
+#endif
 ArithmeticOverflowMode overflow_mode = ArithmeticOverflowMode::PRINT;
 ArrayOutOfBoundsMode oob_mode = ArrayOutOfBoundsMode::PRINT;
 OpaqueLeakMode opaque_leak_mode = OpaqueLeakMode::PRINT;

@@ -8,9 +8,7 @@
   llvm_22,
   lld_22,
   zlib,
-
   glibc,
-  musl,
 
   fipSrc,
   tomlc17Src,
@@ -79,8 +77,6 @@ stdenv.mkDerivation {
     "-Dstdcpp-include=${stdenv.cc.cc}/include/c++/${stdenv.cc.cc.version}:${stdenv.cc.cc}/include/c++/${stdenv.cc.cc.version}/x86_64-unknown-linux-gnu:${stdenv.cc.cc}/lib/gcc/x86_64-unknown-linux-gnu/${stdenv.cc.cc.version}/include"
     "-Dstdcpp-lib=${stdenv.cc.cc.lib}/lib/libstdc++.so"
     "-Dglibc-include=${glibc.dev}/include"
-    "-Dglibc-lib=${glibc}/lib"
-    "-Dmusl-lib=${musl}/lib"
     "-Dllvm-include=${llvm_22.dev}/include"
     "-Dllvm-lib=${llvm_22.lib}/lib"
     "-Dlld-include=${lld_22.dev}/include"

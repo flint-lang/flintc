@@ -75,16 +75,6 @@ class Generator {
     /// is just painful
     static inline llvm::PointerType *PTR_TY;
 
-    /// @function `get_flintc_cache_path`
-    /// @brief Returns the path to the `flintc` cache directory:
-    /// - `$XDG_CACHE_HOME/flint/flintc` (or `$HOME/.config/flint/flintc` if that fails) on Linux or
-    /// - `C:\\Program Files\\Flint\\Cache\\flintc` on Windows
-    ///
-    /// @note When cross-compiling the `cross-compile` subpath is added
-    ///
-    /// @return `std::filesystem::path` The path to the flint cache directory
-    static std::filesystem::path get_flintc_cache_path();
-
     /// @function `init_target_machine`
     /// @brief This function creates a target machine and set's it for the passed-in `module`. Also sets up things like correct data layout
     /// in the module, PIC etc.

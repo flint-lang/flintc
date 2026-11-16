@@ -4,6 +4,7 @@
 #include "globals.hpp"
 #include "io.hpp"
 #include "linker/linker.hpp"
+#include "parser/parser.hpp"
 #include "profiler.hpp"
 
 #include <json/parser.hpp>
@@ -137,7 +138,7 @@ bool Generator::Module::generate_module(     //
 }
 
 bool Generator::Module::generate_modules() {
-    std::filesystem::path cache_path = get_flintc_cache_path();
+    std::filesystem::path cache_path = Parser::get_flintc_cache_path();
 
     // Check if the files need to be rebuilt at all
     const unsigned int which_need_rebuilding = which_modules_to_rebuild();
@@ -199,19 +200,14 @@ bool Generator::Module::generate_modules() {
     // Now, merge together all object files into one single .o / .obj file
     std::string file_ending = "";
     switch (COMPILATION_TARGET) {
-        case Target::NATIVE:
-#ifdef _WIN32
-            file_ending = ".obj";
-#else
-            file_ending = ".o";
-#endif
-            break;
-        case Target::LINUX:
-            file_ending = ".o";
-            break;
-        case Target::WINDOWS_MSVC:
+        case Target::x86_64_linux_gnu:
             [[fallthrough]];
-        case Target::WINDOWS_GNU:
+        case Target::x86_64_linux_musl:
+            file_ending = ".o";
+            break;
+        case Target::x86_64_windows_gnu:
+            [[fallthrough]];
+        case Target::x86_64_windows_msvc:
             file_ending = ".obj";
             break;
     }
@@ -239,14 +235,23 @@ bool Generator::Module::generate_modules() {
 
     // Create the static .a file from all `.o` files
     bool merge_success;
-    if (COMPILATION_TARGET == Target::WINDOWS_MSVC) {
-        Profiler::start_task("Creating static library builtins.lib");
-        merge_success = Linker::create_static_library(libs, cache_path / "builtins");
-        Profiler::end_task("Creating static library builtins.lib");
-    } else {
-        Profiler::start_task("Creating static library libbuiltins.a");
-        merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins");
-        Profiler::end_task("Creating static library libbuiltins.a");
+    switch (COMPILATION_TARGET) {
+        case Target::x86_64_linux_gnu:
+            [[fallthrough]];
+        case Target::x86_64_linux_musl: {
+            Profiler::start_task("Creating static library libbuiltins.a");
+            merge_success = Linker::create_static_library(libs, cache_path / "libbuiltins");
+            Profiler::end_task("Creating static library libbuiltins.a");
+            break;
+        }
+        case Target::x86_64_windows_gnu:
+            [[fallthrough]];
+        case Target::x86_64_windows_msvc: {
+            Profiler::start_task("Creating static library builtins.lib");
+            merge_success = Linker::create_static_library(libs, cache_path / "builtins");
+            Profiler::end_task("Creating static library builtins.lib");
+            break;
+        }
     }
     return merge_success;
 }
@@ -256,7 +261,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
     unsigned int needed_rebuilds = BUILTIN_LIBS_TO_PRINT;
 
     // Then, we parse the metadata.json file in the cache directory, or if it doesnt exist, create it
-    const std::filesystem::path cache_path = get_flintc_cache_path();
+    const std::filesystem::path cache_path = Parser::get_flintc_cache_path();
     const std::filesystem::path metadata_file = cache_path / "metadata.json";
     if (!std::filesystem::exists(metadata_file)) {
         // If no metadata file existed, we need to re-build everything as we cannot be sure with which settings the .o files were built the
@@ -293,7 +298,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
                 }
                 continue;
             } else if (json_string->name == "target") {
-                if (json_string->value != target_name()) {
+                if (json_string->value != target_triple()) {
                     return static_cast<unsigned int>(0) - static_cast<unsigned int>(1);
                 }
                 continue;
@@ -398,7 +403,7 @@ unsigned int Generator::Module::which_modules_to_rebuild() {
 void Generator::Module::save_metadata_json_file(int arithmetic_mode, int array_mode, int optimize_mode) {
     std::unique_ptr<JsonObject> commit_hash_object = std::make_unique<JsonString>("commit_hash", COMMIT_HASH);
 
-    std::unique_ptr<JsonObject> target_object = std::make_unique<JsonString>("target", target_name());
+    std::unique_ptr<JsonObject> target_object = std::make_unique<JsonString>("target", target_triple());
 
     std::unique_ptr<JsonObject> mode_object = std::make_unique<JsonNumber>("mode", arithmetic_mode);
     std::vector<std::unique_ptr<JsonObject>> arithmetic_group_content;
@@ -423,7 +428,7 @@ void Generator::Module::save_metadata_json_file(int arithmetic_mode, int array_m
     std::string main_object_string = JsonParser::to_string(main_object.get());
     main_object.reset();
 
-    const std::filesystem::path metadata_file = get_flintc_cache_path() / "metadata.json";
+    const std::filesystem::path metadata_file = Parser::get_flintc_cache_path() / "metadata.json";
     if (std::filesystem::exists(metadata_file)) {
         IO::remove_with_retry(metadata_file);
     }

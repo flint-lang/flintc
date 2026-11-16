@@ -36,9 +36,9 @@
 std::vector<Parser> Parser::instances;
 std::vector<Parser> Parser::core_instances;
 
-std::filesystem::path Parser::get_core_doc_path() {
+std::filesystem::path Parser::get_flint_root_path() {
 #ifdef _WIN32
-    std::filesystem::path data_path = std::filesystem::path(std::getenv("LOCALAPPDATA")) / "Flint";
+    return std::filesystem::path(std::getenv("LOCALAPPDATA")) / "Flint";
 #else
     const char *xdg_data_home = std::getenv("XDG_DATA_HOME");
     std::filesystem::path data_path;
@@ -49,8 +49,43 @@ std::filesystem::path Parser::get_core_doc_path() {
         ASSERT(home != NULL);
         data_path = std::filesystem::path(home) / ".local" / "share" / "flint";
     }
+    return data_path;
 #endif
-    return data_path / "bundles" / "active" / "Core";
+}
+
+std::filesystem::path Parser::get_core_doc_path() {
+    return get_flint_root_path() / "bundles" / "active" / "Core";
+}
+
+std::filesystem::path Parser::get_target_path() {
+    return get_flint_root_path() / "targets" / target_triple();
+}
+
+std::filesystem::path Parser::get_flintc_cache_path() {
+#ifdef _WIN32
+    std::filesystem::path cache_path = get_flint_root_path() / "cache" / "flintc";
+#else
+    const char *xdg_cache_home = std::getenv("XDG_CACHE_HOME");
+    std::filesystem::path cache_path;
+    if (xdg_cache_home != NULL) {
+        cache_path = std::filesystem::path(xdg_cache_home) / "flint" / "flintc";
+    } else {
+        const char *home = std::getenv("HOME");
+        ASSERT(home != NULL);
+        cache_path = std::filesystem::path(home) / ".cache" / "flint" / "flintc";
+    }
+#endif
+    cache_path = cache_path / target_triple();
+    // Check if the cache path exists, if not create directories, like `mkdir -p`
+    try {
+        if (!std::filesystem::exists(cache_path)) {
+            std::filesystem::create_directories(cache_path);
+        }
+        return cache_path;
+    } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Error: Could not create cache path: '" << cache_path.string() << "'" << std::endl;
+        return std::filesystem::path();
+    }
 }
 
 bool Parser::init_core_modules() {
