@@ -9,7 +9,7 @@
 
     # Flint Interop Protocol 0.4.1
     fipSrc = {
-      url = "github:flint-lang/fip/306dc342e37258832bdc216c049cd3cdaa312245";
+      url = "github:flint-lang/fip/6d62ec61d6c370da8b031e4897160d88d5ba610c";
       flake = false;
     };
 

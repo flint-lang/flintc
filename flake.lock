@@ -3,17 +3,17 @@
     "fipSrc": {
       "flake": false,
       "locked": {
-        "lastModified": 1793546497,
-        "narHash": "sha256-0uq9njGpKQ77Oz3PYocQnGu4xz9SO14Y/AhVJJ1GWzA=",
+        "lastModified": 1795122266,
+        "narHash": "sha256-lDJ5SmjPBBO+SgWgDOVI+jtSmwhEb7KP4Inuf0qzZ7Q=",
         "owner": "flint-lang",
         "repo": "fip",
-        "rev": "306dc342e37258832bdc216c049cd3cdaa312245",
+        "rev": "6d62ec61d6c370da8b031e4897160d88d5ba610c",
         "type": "github"
       },
       "original": {
         "owner": "flint-lang",
         "repo": "fip",
-        "rev": "306dc342e37258832bdc216c049cd3cdaa312245",
+        "rev": "6d62ec61d6c370da8b031e4897160d88d5ba610c",
         "type": "github"
       }
     },
