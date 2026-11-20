@@ -65,13 +65,18 @@
         inputsFrom = [ flintc ];
 
         # These outputs are also needed by Flint's generated linker.
-        packages = [
-          pkgs.glibc
-          pkgs.glibc.dev
-          pkgs.llvm_22.dev
-          pkgs.llvm_22.lib
-          pkgs.lld_22.dev
-          pkgs.lld_22.lib
+        packages = with pkgs; [
+          # For building LLVM if requested
+          cmake
+          ninja
+          python314
+
+          glibc
+          glibc.dev
+          llvm_22.dev
+          llvm_22.lib
+          lld_22.dev
+          lld_22.lib
         ];
 
         DEV_ENVIRONMENT = "flintc";
@@ -113,14 +118,10 @@
             "$@"
           }
 
-          alias zbr="zb --release=small"
-          alias zbt="zb test --release=small"
-
           echo "Flint development shell ready."
           echo "Available commands: ('...' are all extra args needed for Nix builds)"
-          echo " - zb: Executes 'zig build ...'"
-          echo " - zbr: Executes 'zig build --release=small ...'"
-          echo " - zbt: Executes 'zig build test --release=small ...'"
+          echo " - zb:        Executes 'zig build' with all flags needed for Nix to build it dynamically (no LLVM build)"
+          echo " - zig build: Available as usual, builds LLVM"
         '';
       };
 
