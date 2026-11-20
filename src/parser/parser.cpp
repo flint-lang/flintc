@@ -95,7 +95,7 @@ bool Parser::init_core_modules() {
         for (const auto &core_file : std::filesystem::directory_iterator(core_doc_path)) {
             ASSERT(!core_file.is_directory());
             const std::filesystem::path core_file_path = core_file.path();
-            const std::string file_name = core_file_path.filename();
+            const std::string file_name = core_file_path.filename().string();
             ASSERT(file_name.size() > 3 && file_name.substr(file_name.size() - 3) == ".ft");
             const std::string module_name = file_name.substr(0, file_name.size() - 3);
 
