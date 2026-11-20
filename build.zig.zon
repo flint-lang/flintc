@@ -11,7 +11,7 @@
         },
         .fip = .{
             .url = "git+https://github.com/flint-lang/fip#6d62ec61d6c370da8b031e4897160d88d5ba610c",
-            .hash = "fip-0.4.1-jXH3OV_oAgBzsf1MwFW1bfnemaM6u9wd3lgM5Fdpxxpo",
+            .hash = "fip-0.4.1-jXH3OYvoAgBrgRm86hZX993Vk1z3wkNuWahqHniTdkeL",
             .lazy = true,
         },
     },
