@@ -60,6 +60,24 @@
           ;
       };
 
+      clangdConfig = pkgs.writeText "flintc-clangd" ''
+        CompileFlags:
+          Add:
+            - -isystem
+            - ${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}
+            - -isystem
+            - ${pkgs.stdenv.cc.cc}/include/c++/${pkgs.stdenv.cc.cc.version}/x86_64-unknown-linux-gnu
+            - -isystem
+            - ${pkgs.stdenv.cc.cc}/lib/gcc/x86_64-unknown-linux-gnu/${pkgs.stdenv.cc.cc.version}/include
+            - -isystem
+            - ${pkgs.glibc.dev}/include
+            - -I${fipSrc}
+            - -I${tomlc17Src}/src
+            - -DDEBUG_BUILD
+          Remove:
+            - -Izig-out/include
+      '';
+
       devShell = pkgs.mkShell {
         # Reuse the package's nativeBuildInputs and buildInputs.
         inputsFrom = [ flintc ];
@@ -77,12 +95,15 @@
           llvm_22.lib
           lld_22.dev
           lld_22.lib
+          clang_22
         ];
 
         DEV_ENVIRONMENT = "flintc";
 
         shellHook = ''
           export FLINTC_ROOT="$(${pkgs.git}/bin/git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+          ${pkgs.coreutils}/bin/install -m 644 ${clangdConfig} "$FLINTC_ROOT/.clangd"
 
           flintc() {
             "$FLINTC_ROOT/zig-out/bin/flintc" "$@"
