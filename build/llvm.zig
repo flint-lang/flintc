@@ -44,6 +44,7 @@ pub fn build(
 
     // Setup LLVM
     const setup_llvm = std.Build.Step.Run.create(b, "llvm_setup");
+    setup_llvm.removeEnvironmentVariable("NIX_CFLAGS_COMPILE");
     setup_llvm.addArg(cmake_exe_path);
     setup_llvm.addArg("-S");
     setup_llvm.addDirectoryArg(llvm_dep.path("llvm"));
@@ -137,6 +138,7 @@ pub fn build(
         "install-llvm-libraries",
     };
     const build_llvm = std.Build.Step.Run.create(b, "llvm_build");
+    build_llvm.removeEnvironmentVariable("NIX_CFLAGS_COMPILE");
     build_llvm.addArg(cmake_exe_path);
     build_llvm.addArg("--build");
     build_llvm.addDirectoryArg(llvm_build_dir);
