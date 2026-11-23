@@ -1,0 +1,24 @@
+use Core.print
+
+data Vec:
+	i32 x;
+
+data Box:
+	i32? value = none;
+
+object Holder:
+	data: Box box;
+
+	def copy_from(Vec? source):
+		box.value = source?.x;
+
+	const def print_value():
+		if box.value != none:
+			print($"value = {box.value!}\n");
+		else:
+			print("none\n");
+
+def main():
+	b := Holder{};
+	b.copy_from(Vec{42});
+	b.print_value();

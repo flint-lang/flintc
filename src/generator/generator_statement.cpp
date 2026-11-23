@@ -2302,7 +2302,10 @@ bool Generator::Statement::generate_data_field_assignment( //
     // Check if the field is an optional type
     if (field_type->get_variation() == Type::Variation::OPTIONAL) {
         const auto *optional_type = field_type->as<OptionalType>();
-        const TypeCastNode *rhs_cast = data_field_assignment->expression->as<TypeCastNode>();
+        const TypeCastNode *rhs_cast = nullptr;
+        if (data_field_assignment->expression->get_variation() == ExpressionNode::Variation::TYPE_CAST) {
+            rhs_cast = data_field_assignment->expression->as<TypeCastNode>();
+        }
         llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
 
         // Handle special cases (like str cleanup)
