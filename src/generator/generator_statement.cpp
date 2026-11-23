@@ -2308,6 +2308,15 @@ bool Generator::Statement::generate_data_field_assignment( //
         }
         llvm::StructType *field_optional_type = IR::add_and_or_get_type(ctx.parent->getParent(), field_type, false);
 
+        // Optional fields generate their RHS as a reference, so a data access to an optional yields a pointer to the optional. Load it to
+        // get the optional value itself, otherwise the pointer would end up in the optional's value field and `types_match` would never
+        // hit.
+        const bool rhs_is_same_optional = data_field_assignment->expression->type->get_variation() == Type::Variation::OPTIONAL &&
+            data_field_assignment->expression->type->equals(field_type);
+        if (rhs_is_same_optional && expr_val->getType()->isPointerTy()) {
+            expr_val = IR::aligned_load(builder, field_optional_type, expr_val, "loaded_optional_rhs");
+        }
+
         // Handle special cases (like str cleanup)
         if (optional_type->base_type->to_string() == "str") {
             llvm::Value *field_value_ptr = builder.CreateStructGEP(field_optional_type, field_ptr, 1, "field_value_ptr");

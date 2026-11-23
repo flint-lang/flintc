@@ -1,0 +1,21 @@
+use Core.print
+
+data Box:
+	i32? value = none;
+
+object Holder:
+	data: Box box;
+
+	def copy_from(Box source):
+		box.value = source.value;
+
+	const def print_value():
+		if box.value != none:
+			print($"value = {box.value!}\n");
+		else:
+			print("none\n");
+
+def main():
+	b := Holder{};
+	b.copy_from(Box{42});
+	b.print_value();
