@@ -118,8 +118,11 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
             break;
         }
         case DefinitionNode::Variation::FUNC: {
-            [[maybe_unused]] const auto *const node = definition->as<FuncNode>();
-            UNREACHABLE();
+            const auto *const node = definition->as<FuncNode>();
+            if (!specialize_func(static_cast<FuncNode *>(result), node, cvl)) {
+                return std::nullopt;
+            }
+            break;
         }
         case DefinitionNode::Variation::FUNCTION: {
             [[maybe_unused]] const auto *const node = definition->as<FunctionNode>();
@@ -488,8 +491,24 @@ std::optional<DefinitionNode *> Specializer::pre_create(const DefinitionNode *co
             break;
         }
         case DefinitionNode::Variation::FUNC: {
-            [[maybe_unused]] const auto *const node = definition->as<FuncNode>();
-            UNREACHABLE();
+            const auto *const node = definition->as<FuncNode>();
+            std::vector<FuncNode::RequiredData> required_data;
+            std::vector<FunctionNode *> functions;
+            FuncNode new_node = FuncNode( //
+                node->file_hash,          //
+                node->line,               //
+                node->column,             //
+                node->length,             //
+                name,                     //
+                {},                       //
+                required_data,            //
+                functions                 //
+            );
+            const std::optional<FuncNode *> added_func = src_ns->file_node->add_func(new_node);
+            if (!added_func.has_value()) {
+                return std::nullopt;
+            }
+            added_node = added_func;
             break;
         }
         case DefinitionNode::Variation::FUNCTION: {
@@ -667,6 +686,159 @@ bool Specializer::specialize_interface(           //
         };
         node->functions.emplace_back(added_fn.value());
     }
+    return true;
+}
+
+bool Specializer::specialize_func(                //
+    FuncNode *const node,                         //
+    const FuncNode *const definition,             //
+    const std::vector<std::shared_ptr<Type>> &cvl //
+) {
+    ASSERT(definition->cpl.size() == cvl.size());
+    node->specialization = {
+        .origin = const_cast<FuncNode *>(definition),
+        .applied_cvl = cvl,
+    };
+    Namespace *const src_ns = definition->file_hash.get_namespace();
+    std::vector<DefinitionNode::ComptimeParameter> applied_cpl = definition->cpl;
+    for (size_t i = 0; i < cvl.size(); i++) {
+        applied_cpl.at(i).applied_value = cvl.at(i);
+    }
+
+    // The required data types are part of the function signatures and have to match the specialized data components of the object
+    for (const auto &required : definition->required_data) {
+        const auto &new_type = specialize_type(src_ns, required.type, definition->cpl, cvl);
+        if (!new_type.has_value()) {
+            return false;
+        }
+        node->required_data.emplace_back(FuncNode::RequiredData{
+            .type = new_type.value().second,
+            .accessor_name = required.accessor_name,
+            .pos = required.pos,
+        });
+    }
+
+    for (const FunctionNode *const function : definition->functions) {
+        std::vector<FunctionNode::Parameter> parameters;
+        for (size_t i = 0; i < function->parameters.size(); i++) {
+            const auto &param = function->parameters.at(i);
+            if (i < definition->required_data.size()) {
+                parameters.emplace_back(FunctionNode::Parameter{
+                    .type = node->required_data.at(i).type,
+                    .name = param.name,
+                    .is_mutable = param.is_mutable,
+                    .pos = param.pos,
+                });
+                continue;
+            }
+            const auto &new_type = specialize_type(src_ns, param.type, definition->cpl, cvl);
+            if (!new_type.has_value()) {
+                return false;
+            }
+            parameters.emplace_back(FunctionNode::Parameter{
+                .type = new_type.value().second,
+                .name = param.name,
+                .is_mutable = param.is_mutable,
+                .pos = param.pos,
+            });
+        }
+        std::vector<std::shared_ptr<Type>> return_types = function->return_types;
+        if (!specialize_type_list(src_ns, return_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+        std::vector<std::shared_ptr<Type>> error_types = function->error_types;
+        if (!specialize_type_list(src_ns, error_types, definition->cpl, cvl).has_value()) {
+            return false;
+        }
+
+        // The member functions are named using the specialized func component's name as prefix, so that instance calls find their functions
+        // by stripping the func component node's name from the function's name (like free-floating object functions)
+        const std::string name = node->name + "." + function->name.substr(function->name.find('.') + 1);
+        std::optional<std::shared_ptr<Scope>> scope = std::make_shared<Scope>();
+        std::shared_ptr<Type> return_type = nullptr;
+        switch (return_types.size()) {
+            case 0:
+                return_type = Type::get_primitive_type("void");
+                break;
+            case 1:
+                return_type = return_types.front();
+                break;
+            default:
+                return_type = std::make_shared<GroupType>(return_types);
+                if (!src_ns->add_type(return_type)) {
+                    return_type = src_ns->get_type_from_str(return_type->to_string()).value();
+                }
+                break;
+        }
+        scope.value()->add_variable("flint.return_type",
+            {
+                .type = return_type,
+                .scope_id = 0,
+                .scope_segment = 0,
+                .is_mutable = false,
+                .is_persistent = false,
+                .is_fn_param = true,
+                .is_pseudo_variable = true,
+            });
+        for (const auto &param : parameters) {
+            scope.value()->add_variable(param.name,
+                {
+                    .type = param.type,
+                    .scope_id = scope.value()->scope_id,
+                    .scope_segment = 0,
+                    .is_mutable = param.is_mutable,
+                    .is_persistent = false,
+                    .is_fn_param = true,
+                });
+        }
+        FunctionNode new_node(     //
+            function->file_hash,   //
+            function->line,        //
+            function->column,      //
+            function->length,      //
+            function->annotations, //
+            function->is_const,    //
+            function->visibility,  //
+            name,                  //
+            applied_cpl,           //
+            parameters,            //
+            return_types,          //
+            error_types,           //
+            scope,                 //
+            function->mangle_id    //
+        );
+        // The specialized body is re-parsed from the template's own body copy, so carry the tokens and body lines over to the new node
+        new_node.tokens = function->tokens;
+        new_node.scope.value()->lines = function->body_lines;
+        Line::update_tokens(new_node.scope.value()->lines, new_node.tokens.begin());
+        const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
+        if (!added_fn.has_value()) {
+            return false;
+        }
+        added_fn.value()->specialization = {
+            .origin = const_cast<FunctionNode *>(function),
+            .applied_cvl = cvl,
+        };
+        node->functions.emplace_back(added_fn.value());
+    }
+
+    // The bodies of the member functions are re-parsed after all of them have been registered
+    bool found_parser = false;
+    for (auto &parser : Parser::instances) {
+        if (parser.file_node_ptr.get() != src_ns->file_node) {
+            continue;
+        }
+        found_parser = true;
+        for (FunctionNode *const function : node->functions) {
+            if (!parser.collapse_types_in_lines(function->cpl, function->scope.value()->lines, function->tokens)) {
+                return false;
+            }
+            if (!Parser::parse_open_function(parser, function)) {
+                return false;
+            }
+        }
+    }
+    ASSERT(found_parser);
     return true;
 }
 

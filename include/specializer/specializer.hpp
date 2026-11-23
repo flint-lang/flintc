@@ -2,6 +2,7 @@
 
 #include "parser/ast/definitions/data_node.hpp"
 #include "parser/ast/definitions/definition_node.hpp"
+#include "parser/ast/definitions/func_node.hpp"
 #include "parser/ast/definitions/interface_node.hpp"
 #include "parser/ast/definitions/object_node.hpp"
 #include "parser/ast/definitions/variant_node.hpp"
@@ -130,6 +131,19 @@ class Specializer {
     [[nodiscard]] static bool specialize_interface(   //
         InterfaceNode *const node,                    //
         const InterfaceNode *const definition,        //
+        const std::vector<std::shared_ptr<Type>> &cvl //
+    );
+
+    /// @function `specialize_func`
+    /// @brief Specializes the given func definition into the given node and returns whether specialization was successful.
+    ///
+    /// @param `node` The destination func definition to put the specialized func definition into
+    /// @param `definition` The source func definition to specialize
+    /// @param `cvl` All comptime values applied to the definition to specialize it
+    /// @return `bool` Whether specialization was successful
+    [[nodiscard]] static bool specialize_func(        //
+        FuncNode *const node,                         //
+        const FuncNode *const definition,             //
         const std::vector<std::shared_ptr<Type>> &cvl //
     );
 

@@ -1,0 +1,20 @@
+data Node[type T]:
+	T value;
+	Node[T]? next = none;
+
+func FList[type T] requires(Node[T] list):
+	def append(T value):
+		if list.next != none:
+			FList.append[T](list.next!, value);
+		else:
+			list.next = Node[T]{value};
+
+object List[type T]:
+	data: Node[T];
+	func: FList[T];
+
+test "append":
+	l := List[i32]{};
+	l.append(10);
+	l.append(20);
+	l.append(30);

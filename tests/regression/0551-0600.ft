@@ -176,3 +176,13 @@ test "0581":
 	str path = "regression/0551-0600";
 	str file = "0581.ft";
 	test_file_ok($"{path}/{file}", "res = 30\n");
+
+test "0582":
+	str path = "regression/0551-0600";
+	str file = "0582.ft";
+	test_file_ok($"{path}/{file}", "0 -> 10 -> 20 -> 30\n");
+
+test "0583":
+	str path = "regression/0551-0600";
+	str file = "0583.ft";
+	test_test_ok(path, file, none);
