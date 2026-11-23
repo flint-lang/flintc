@@ -130,13 +130,15 @@ int main(int argc, char *argv[]) {
         switch (COMPILATION_TARGET) {
             case Target::x86_64_linux_musl:
                 if (!clp.is_static) {
-                    system_command += Parser::get_target_path().string() + "/ld-musl-x86-64.so.1 ";
+                    const std::string target_path = Parser::get_target_path().string();
+                    system_command += target_path + "/ld-musl-x86-64.so.1 --library-path " + target_path + " ";
                 }
                 system_command += "./" + clp.out_file_path.string();
                 break;
             case Target::x86_64_linux_gnu:
                 if (!clp.is_static) {
-                    system_command += Parser::get_target_path().string() + "/ld-linux-x86-64.so.2 ";
+                    const std::string target_path = Parser::get_target_path().string();
+                    system_command += target_path + "/ld-linux-x86-64.so.2 --library-path " + target_path + " ";
                 }
                 system_command += "./" + clp.out_file_path.string();
                 break;
