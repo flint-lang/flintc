@@ -1,0 +1,8 @@
+use Core.print
+
+use "imported.ft"
+
+def main():
+	v3 := Vec3[i32]{};
+	v3.(x, y, z) = (10, 20, 30);
+	print($"v3.(x, y, z) = {v3.(x, y, z)}\n");

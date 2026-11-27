@@ -96,6 +96,7 @@
           lld_22.dev
           lld_22.lib
           clang_22
+          lldb_22
         ];
 
         DEV_ENVIRONMENT = "flintc";

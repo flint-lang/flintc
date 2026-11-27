@@ -470,8 +470,7 @@ bool Parser::collapse_types_in_region(                         //
                     region_len -= 2;
                 }
             }
-            ++i;
-            continue;
+            // Fall through. If the alias resolved to a type then we potentially still need to further collapse it
         }
         // Check if the next chunk is a type definition, if it is we replace all tokens forming the type with a single type token
         const token_slice region_slice{source.begin() + region_start + i, source.begin() + region_start + region_len};

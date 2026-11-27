@@ -201,3 +201,8 @@ test "0586":
 	str path = "regression/0551-0600/0586";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "v3.(x, y, z) = (10, 20, 30)\n");
+
+test "0587":
+	str path = "regression/0551-0600/0587";
+	str file = "main.ft";
+	test_file_ok_in(path, file, "v3.(x, y, z) = (10, 20, 30)\n");
