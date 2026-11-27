@@ -170,10 +170,10 @@ class Resolver {
     /// @param `dependencies` The dependencies the given dependency (`dep_name`) has
     /// @param `next_dependencies` The map where to write the next dependencies to, which have to be processed next
     /// @return `bool` Whether the processing of the dependency was successful, false if it failed
-    static bool process_dependency_file(                                      //
-        const Hash &dep_hash,                                                 //
-        const std::vector<dependency> &dependencies,                          //
-        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies  //
+    static bool process_dependency_file(                                     //
+        const Hash &dep_hash,                                                //
+        const std::vector<dependency> &dependencies,                         //
+        std::unordered_map<Hash, std::vector<dependency>> &next_dependencies //
     );
 
     /// @function `create_dependency`

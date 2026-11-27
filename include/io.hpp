@@ -5,6 +5,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <system_error>
 #include <thread>
 
 /// @class `IO`
@@ -54,8 +55,39 @@ class IO {
         if (!file) {
             throw std::runtime_error("Failed to load file " + path.string());
         }
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        return buffer.str();
+        std::stringstream buf;
+        buf << file.rdbuf();
+        return buf.str();
+    }
+
+    /// @function `is_parent_of`
+    /// @brief Checks if a given `parent` path is the parent of another `path`
+    ///
+    /// @param `parent` The potential parent path
+    /// @param `path` The path to check
+    /// @return `bool` Whether `path` is equal to or contained within `parent`
+    [[nodiscard]] static bool is_parent_of(const std::filesystem::path &parent, const std::filesystem::path &path) {
+        PROFILE_CUMULATIVE("IO::is_parent_of");
+        if (parent.empty() || path.empty()) {
+            return false;
+        }
+        std::error_code ec;
+        const std::filesystem::path c_parent = std::filesystem::weakly_canonical(parent, ec);
+        if (ec) {
+            return false;
+        }
+        const std::filesystem::path c_path = std::filesystem::weakly_canonical(path, ec);
+        if (ec) {
+            return false;
+        }
+
+        auto parent_iter = c_parent.begin();
+        auto path_iter = c_path.begin();
+        for (; parent_iter != c_parent.end(); ++parent_iter, ++path_iter) {
+            if (path_iter == c_path.end() || *parent_iter != *path_iter) {
+                return false;
+            }
+        }
+        return true;
     }
 };
