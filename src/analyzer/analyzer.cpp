@@ -888,8 +888,7 @@ bool Analyzer::analyze_expression(                            //
                     // Every argument needs to equal the type of the corresponding data module
                     const ObjectNode *object_node = node->type->as<ObjectType>()->object_node;
                     for (const auto &[data_component, accessor] : object_node->data_components) {
-                        const auto data_type =
-                            local_ctx.parser.file_node_ptr->file_namespace->get_type_from_str(data_component->name).value();
+                        const auto data_type = data_component->file_hash.get_namespace()->get_type_from_ptr(data_component).value();
                         for (auto &[field_name, field_value] : node->fields) {
                             if (field_name != accessor) {
                                 continue;

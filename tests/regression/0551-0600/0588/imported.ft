@@ -1,0 +1,13 @@
+use Core.print
+
+data BoxData[type T]:
+	T value;
+
+object Box[type T]:
+	data: BoxData[T] d;
+
+	def set(T value):
+		d.value = value;
+
+	def print():
+		print($"d.value = {d.value}\n");

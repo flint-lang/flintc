@@ -1,0 +1,6 @@
+use "imported.ft"
+
+def main():
+	b := Box[i32]{};
+	b.set(100);
+	b.print();
