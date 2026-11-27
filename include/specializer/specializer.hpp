@@ -21,12 +21,12 @@ class Specializer {
     /// have the same same size as the CPL of the definition. If specialization fails this function returns a nullopt. If it succeeds it
     /// means that the specialized definition has been added to the file node etc
     ///
-    /// @param `ns` The namespace in which we try to specialize the type
+    /// @param `context_ns` The namespace in which we try to specialize the type, for additional context
     /// @param `type` The type to specialize with the given CVL
     /// @param `cvl` All comptime values applied to the definition to specialize it
     /// @return `std::optional<std::shared_ptr<Type>>` The specialized type, nullopt if specialization failed
     [[nodiscard]] static std::optional<std::shared_ptr<Type>> specialize( //
-        Namespace *const ns,                                              //
+        Namespace *const context_ns,                                      //
         std::shared_ptr<Type> type,                                       //
         std::vector<std::shared_ptr<Type>> cvl                            //
     );

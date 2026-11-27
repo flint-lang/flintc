@@ -27,7 +27,7 @@
 #include "parser/type/variant_type.hpp"
 
 std::optional<std::shared_ptr<Type>> Specializer::specialize( //
-    Namespace *const ns,                                      //
+    Namespace *const context_ns,                              //
     std::shared_ptr<Type> type,                               //
     std::vector<std::shared_ptr<Type>> cvl                    //
 ) {
@@ -35,12 +35,12 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
     if (type->get_variation() == Type::Variation::UNKNOWN) {
         auto *const unknown = type->as<UnknownType>();
         // Try to resolve type first, if it fails then we just return a generic type with the unknown as the base type
-        if (const auto &resolved = ns->get_type_from_str(unknown->type_str)) {
+        if (const auto &resolved = context_ns->get_type_from_str(unknown->type_str)) {
             type = resolved.value();
         } else {
             std::shared_ptr<Type> new_type = std::make_shared<GenericType>(type, cvl);
-            if (!ns->add_type(new_type)) {
-                new_type = ns->get_type_from_str(new_type->to_string()).value();
+            if (!context_ns->add_type(new_type)) {
+                new_type = context_ns->get_type_from_str(new_type->to_string()).value();
             }
             return new_type;
         }
@@ -83,19 +83,20 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
     }
     if (!std::all_of(cvl.begin(), cvl.end(), &is_specializable)) {
         std::shared_ptr<Type> new_type = std::make_shared<GenericType>(type, cvl);
-        if (!ns->add_type(new_type)) {
-            new_type = ns->get_type_from_str(new_type->to_string()).value();
+        if (!context_ns->add_type(new_type)) {
+            new_type = context_ns->get_type_from_str(new_type->to_string()).value();
         }
         return new_type;
     }
 
     // Check if specialization already exists, return that one if present
+    Namespace *const owner_ns = definition->file_hash.get_namespace();
     const std::string definition_key = get_definition_string(definition, cvl, false);
     std::lock_guard<std::recursive_mutex> lock(specializations_mutex);
     specialization_map &map = specializations[definition_key];
     const std::string specialization_key = get_definition_string(definition, cvl, true);
     if (map.find(specialization_key) != map.end()) {
-        return ns->get_type_from_ptr(map.at(specialization_key));
+        return owner_ns->get_type_from_ptr(map.at(specialization_key));
     }
 
     // Pre-create fake specialized node as support for recursive types
@@ -150,7 +151,7 @@ std::optional<std::shared_ptr<Type>> Specializer::specialize( //
             break;
         }
     }
-    return ns->get_type_from_ptr(result);
+    return owner_ns->get_type_from_ptr(result);
 }
 
 std::optional<FunctionNode *const> Specializer::specialize_function( //
@@ -583,6 +584,7 @@ bool Specializer::specialize_data(                //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    Namespace *const src_ns = definition->file_hash.get_namespace();
     node->specialization = {
         .origin = const_cast<DataNode *>(definition),
         .applied_cvl = cvl,
@@ -594,7 +596,7 @@ bool Specializer::specialize_data(                //
             .initializer_tokens = field.initializer_tokens,
             .initializer = std::nullopt,
         };
-        const auto &new_type = specialize_type(definition->file_hash.get_namespace(), new_field.type, definition->cpl, cvl);
+        const auto &new_type = specialize_type(src_ns, new_field.type, definition->cpl, cvl);
         if (!new_type.has_value()) {
             return false;
         }
@@ -615,12 +617,13 @@ bool Specializer::specialize_variant(             //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    Namespace *const src_ns = definition->file_hash.get_namespace();
     node->specialization = {
         .origin = const_cast<VariantNode *>(definition),
         .applied_cvl = cvl,
     };
     for (const auto &[type_tag, type] : definition->possible_types) {
-        const auto &new_type = specialize_type(definition->file_hash.get_namespace(), type, definition->cpl, cvl);
+        const auto &new_type = specialize_type(src_ns, type, definition->cpl, cvl);
         if (!new_type.has_value()) {
             return false;
         }
@@ -635,6 +638,7 @@ bool Specializer::specialize_interface(           //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    Namespace *const src_ns = definition->file_hash.get_namespace();
     node->specialization = {
         .origin = const_cast<InterfaceNode *>(definition),
         .applied_cvl = cvl,
@@ -642,18 +646,18 @@ bool Specializer::specialize_interface(           //
     for (const FunctionNode *const function : definition->functions) {
         std::vector<FunctionNode::Parameter> parameters;
         for (const auto &param : function->parameters) {
-            const auto &new_type = specialize_type(definition->file_hash.get_namespace(), param.type, definition->cpl, cvl);
+            const auto &new_type = specialize_type(src_ns, param.type, definition->cpl, cvl);
             if (!new_type.has_value()) {
                 return false;
             }
             parameters.emplace_back(new_type.value().second, param.name, param.is_mutable);
         }
         std::vector<std::shared_ptr<Type>> return_types = function->return_types;
-        if (!specialize_type_list(definition->file_hash.get_namespace(), return_types, definition->cpl, cvl).has_value()) {
+        if (!specialize_type_list(src_ns, return_types, definition->cpl, cvl).has_value()) {
             return false;
         }
         std::vector<std::shared_ptr<Type>> error_types = function->error_types;
-        if (!specialize_type_list(definition->file_hash.get_namespace(), error_types, definition->cpl, cvl).has_value()) {
+        if (!specialize_type_list(src_ns, error_types, definition->cpl, cvl).has_value()) {
             return false;
         }
         // The virtual function declarations are named using the specialized interface's name as prefix, so that interface-typed calls find
@@ -676,7 +680,7 @@ bool Specializer::specialize_interface(           //
             scope,                 //
             function->mangle_id    //
         );
-        const auto added_fn = definition->file_hash.get_namespace()->file_node->add_function(new_node, Parser::core_module_files);
+        const auto added_fn = src_ns->file_node->add_function(new_node, Parser::core_module_files);
         if (!added_fn.has_value()) {
             return false;
         }
@@ -695,11 +699,11 @@ bool Specializer::specialize_func(                //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    Namespace *const src_ns = definition->file_hash.get_namespace();
     node->specialization = {
         .origin = const_cast<FuncNode *>(definition),
         .applied_cvl = cvl,
     };
-    Namespace *const src_ns = definition->file_hash.get_namespace();
     std::vector<DefinitionNode::ComptimeParameter> applied_cpl = definition->cpl;
     for (size_t i = 0; i < cvl.size(); i++) {
         applied_cpl.at(i).applied_value = cvl.at(i);
@@ -848,11 +852,11 @@ bool Specializer::specialize_object(              //
     const std::vector<std::shared_ptr<Type>> &cvl //
 ) {
     ASSERT(definition->cpl.size() == cvl.size());
+    Namespace *const src_ns = definition->file_hash.get_namespace();
     node->specialization = {
         .origin = const_cast<ObjectNode *>(definition),
         .applied_cvl = cvl,
     };
-    Namespace *const src_ns = definition->file_hash.get_namespace();
     std::vector<DefinitionNode::ComptimeParameter> applied_cpl = definition->cpl;
     for (size_t i = 0; i < cvl.size(); i++) {
         applied_cpl.at(i).applied_value = cvl.at(i);
