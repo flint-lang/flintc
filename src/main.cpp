@@ -2,6 +2,7 @@
 #include "fip.hpp"
 #include "generator/generator.hpp"
 #include "globals.hpp"
+#include "package.hpp"
 #include "parser/parser.hpp"
 #include "profiler.hpp"
 #include "resolver/resolver.hpp"
@@ -45,6 +46,10 @@ int main(int argc, char *argv[]) {
     main_file_path = clp.source_file_path;
 
     Profiler::start_task("ALL");
+    if (!PackageRoot::init()) {
+        Profiler::end_task("ALL");
+        return 1;
+    }
     const auto &dep_graph = Parser::parse_program(clp.source_file_path, clp.test, clp.parallel, clp.libname);
     if (!dep_graph.has_value()) {
         Parser::clear_instances();

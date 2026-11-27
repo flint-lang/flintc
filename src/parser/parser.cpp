@@ -10,6 +10,7 @@
 #include "matcher/expr_trie.hpp"
 #include "matcher/scoped_stmt_trie.hpp"
 #include "matcher/stmt_trie.hpp"
+#include "package.hpp"
 #include "parser/type/array_type.hpp"
 #include "parser/type/comptime_type.hpp"
 #include "parser/type/data_type.hpp"
@@ -495,12 +496,22 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
         } else {
             // Check if it's a core module, continue if it's not
             const auto &import_segments = std::get<std::vector<std::string>>(import->path);
-            if (import_segments.size() > 2 || import_segments.front() != "Core") {
-                continue;
+            if (import_segments.size() == 2 && import_segments.front() == "Core") {
+                // Not-available core modules should have been caught some time earlier
+                ASSERT(core_module_files.find(import_segments.back()) != core_module_files.end());
+                imported_namespace = core_module_files.at(import_segments.back())->file_namespace.get();
+            } else {
+                // Library imports like 'use Std' etc
+                if (import_segments.size() > 1) {
+                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                    return false;
+                }
+                const auto &lib = PackageRoot::get_lib_file(file_namespace->file_path, import_segments.front());
+                if (!lib.has_value()) {
+                    return false;
+                }
+                imported_namespace = Resolver::get_namespace_from_hash(Hash(lib.value()));
             }
-            // Not-available core modules should have been caught some time earlier
-            ASSERT(core_module_files.find(import_segments.back()) != core_module_files.end());
-            imported_namespace = core_module_files.at(import_segments.back())->file_namespace.get();
         }
         // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
         if (alias) {

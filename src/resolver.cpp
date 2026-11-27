@@ -2,6 +2,7 @@
 #include "analyzer/analyzer.hpp"
 #include "error/error.hpp"
 #include "error/error_type.hpp"
+#include "package.hpp"
 #include "parser/ast/definitions/import_node.hpp"
 #include "parser/parser.hpp"
 #include "persistent_thread_pool.hpp"
@@ -153,22 +154,33 @@ bool Resolver::process_dependency_file(                                  //
     std::unordered_map<Hash, std::vector<dependency>> &next_dependencies //
 ) {
     for (const auto &open_dep_dep : dependencies) {
-        if (std::holds_alternative<std::vector<std::string>>(open_dep_dep)) {
+        Hash file_hash = Hash(std::string(""));
+        if (std::holds_alternative<FileDependency>(open_dep_dep)) {
+            // File reference
+            const auto file_dep = std::get<FileDependency>(open_dep_dep);
+            file_hash = Hash(file_dep.directory / file_dep.filename);
+        } else {
             // Library reference
             auto lib_dep = std::get<std::vector<std::string>>(open_dep_dep);
-            if (lib_dep.size() == 2 && lib_dep.front() == "Core") {
+            ASSERT(lib_dep.size() >= 1);
+            if (lib_dep.front() == "Core") {
                 // Core imports are not handled here
                 continue;
             }
-            // TODO: Implement the fetching (and pre-fetching into local cache) of FlintHub Libraries
-            // TODO: Create FlintHub at all first, lol
-            THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-            continue;
+
+            if (lib_dep.size() > 1) {
+                // submodule imports like Std.LinkedList are not supported yet
+                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                return false;
+            }
+            const auto &lib = PackageRoot::get_lib_file(dep_hash.get_namespace()->file_path, lib_dep.front());
+            if (!lib.has_value()) {
+                return false;
+            }
+            file_hash = Hash(lib.value());
         }
 
         // File path
-        auto file_dep = std::get<FileDependency>(open_dep_dep);
-        const Hash file_hash(file_dep.directory / file_dep.filename);
         // Check if the file has been parsed already. If it has been, add the DepNode as weak reference to the root dep node
         ResourceLock file_lock(file_hash.to_string());
         if (namespace_map.find(file_hash) != namespace_map.end()) {
@@ -225,7 +237,7 @@ bool Resolver::process_dependency_file(                                  //
 
 dependency Resolver::create_dependency(const ImportNode &node) {
     if (std::holds_alternative<std::vector<std::string>>(node.path)) {
-        // Core library import (e.g., Core.print)
+        // Named / library import (e.g., Core.print, Std etc)
         return std::get<std::vector<std::string>>(node.path);
     } else {
         // File import - track if it's aliased

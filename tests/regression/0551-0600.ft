@@ -1,6 +1,8 @@
 use "../utils.ft"
 
+use Core.assert
 use Core.filesystem
+use Core.system
 
 test "0551":
 	str path = "regression/0551-0600";
@@ -211,3 +213,12 @@ test "0588":
 	str path = "regression/0551-0600/0588";
 	str file = "main.ft";
 	test_file_ok_in(path, file, "d.value = 100\n");
+
+test "0589":
+	str path = "regression/0551-0600/0589";
+	(exit_code, output) := system_command($"cd {path} && flint init");
+	assert(exit_code == 0);
+	(exit_code, output) = system_command($"cd {path} && flint fetch");
+	assert(exit_code == 0);
+	str file = "src/main.ft";
+	test_file_ok_in(path, file, "Hello from lib!\ns = 100 -> 200 -> 300\n");

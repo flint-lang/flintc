@@ -6,6 +6,7 @@
 #include "lexer/token.hpp"
 #include "matcher/def_trie.hpp"
 #include "matcher/matcher.hpp"
+#include "package.hpp"
 #include "parser/ast/expressions/expression_node.hpp"
 #include "parser/parser.hpp"
 #include "parser/type/alias_type.hpp"
@@ -25,6 +26,7 @@
 #include "single_executor_guard.hpp"
 
 #include <algorithm>
+#include <variant>
 
 bool Parser::add_next_main_node(std::vector<Line> &lines) {
     PROFILE_CUMULATIVE("Parser::add_next_main_node");
@@ -147,6 +149,16 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                     }
                 } else if (import_vec.size() == 2 && import_vec.front() == "Fip") {
                     if (!FIP::resolve_module_import(&import_node.value())) {
+                        return false;
+                    }
+                } else {
+                    if (import_vec.size() != 1) {
+                        // Submodule imports are not supported yet
+                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
+                        return false;
+                    }
+                    const auto &lib = PackageRoot::get_lib_file(file_hash.path, import_vec.front());
+                    if (!lib.has_value()) {
                         return false;
                     }
                 }
