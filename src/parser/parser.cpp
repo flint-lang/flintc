@@ -32,6 +32,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <utility>
 
 std::vector<Parser> Parser::instances;
@@ -91,6 +92,9 @@ std::filesystem::path Parser::get_flintc_cache_path() {
 
 bool Parser::init_core_modules() {
     PROFILE_SCOPE("Parser::init_core_modules");
+    core_root_namespace = std::make_unique<Namespace>(std::string("Core"));
+    Resolver::namespace_map[core_root_namespace->namespace_hash] = core_root_namespace.get();
+
     const std::filesystem::path core_doc_path = get_core_doc_path();
     if (std::filesystem::exists(core_doc_path)) {
         for (const auto &core_file : std::filesystem::directory_iterator(core_doc_path)) {
@@ -117,6 +121,7 @@ bool Parser::init_core_modules() {
             const Hash new_hash(module_name);
             core_namespace->namespace_hash = new_hash;
             Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace;
+            core_root_namespace->public_symbols.aliased_imports[module_name] = core_namespace;
 
             // Fix up hashes and various little bits and pieces of all types
             for (auto &definition : core_namespace->public_symbols.definitions) {
@@ -153,6 +158,7 @@ bool Parser::init_core_modules() {
         Namespace *const core_namespace = core_file_node->file_namespace.get();
         core_namespace->file_node = core_file_node;
         Resolver::namespace_map[core_namespace->namespace_hash] = core_namespace;
+        core_root_namespace->public_symbols.aliased_imports[module_name] = core_namespace;
         auto &types = core_namespace->public_symbols.types;
         // First go through all types the core module defines and add them to the namespace
         // - Add all error set types
@@ -352,6 +358,7 @@ std::optional<FileNode *> Parser::parse() {
         Resolver::namespace_map.emplace(file_node_ptr->file_namespace->namespace_hash, file_node_ptr->file_namespace.get());
     }
     file_node_ptr->file_namespace->file_node = file_node_ptr.get();
+    add_implicit_alias_imports();
     Lexer lexer(file, *source_code.get());
     file_node_ptr->tokens = lexer.scan();
     if (file_node_ptr->tokens.empty()) {
@@ -487,42 +494,22 @@ std::optional<std::shared_ptr<DepNode>> Parser::parse_program( //
 
 bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) {
     PROFILE_CUMULATIVE("Parser::resolve_imports");
-    const auto &imports = file_namespace->public_symbols.imports;
-    for (const auto &import : imports) {
-        Namespace *imported_namespace = nullptr;
-        if (std::holds_alternative<Hash>(import->path)) {
-            const Hash &import_hash = std::get<Hash>(import->path);
-            imported_namespace = Resolver::get_namespace_from_hash(import_hash);
-        } else {
-            // Check if it's a core module, continue if it's not
-            const auto &import_segments = std::get<std::vector<std::string>>(import->path);
-            if (import_segments.size() == 2 && import_segments.front() == "Core") {
-                // Not-available core modules should have been caught some time earlier
-                ASSERT(core_module_files.find(import_segments.back()) != core_module_files.end());
-                imported_namespace = core_module_files.at(import_segments.back())->file_namespace.get();
-            } else {
-                // Library imports like 'use Std' etc
-                if (import_segments.size() > 1) {
-                    THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                    return false;
-                }
-                const auto &lib = PackageRoot::get_lib_file(file_namespace->file_path, import_segments.front());
-                if (!lib.has_value()) {
-                    return false;
-                }
-                imported_namespace = Resolver::get_namespace_from_hash(Hash(lib.value()));
-            }
-        }
-        // Only update the alias map if the import is aliased but do not add any symbols from the namespace in here
-        if (alias) {
-            if (import->alias.has_value()) {
-                auto &aliased_imports = file_namespace->public_symbols.aliased_imports;
-                aliased_imports[import->alias.value()] = imported_namespace;
-            }
-            continue;
-        } else if (import->alias.has_value()) {
+    if (alias) {
+        size_t resolved_count = 0;
+        return resolve_import_aliases(file_namespace, resolved_count);
+    }
+
+    for (const auto &import : file_namespace->public_symbols.imports) {
+        if (import->alias.has_value()) {
             continue;
         }
+        const auto imported_namespace_maybe = resolve_import_target(file_namespace, import.get());
+        if (!imported_namespace_maybe.has_value()) {
+            THROW_BASIC_ERR(ERR_PARSING);
+            return false;
+        }
+        Namespace *const imported_namespace = imported_namespace_maybe.value();
+
         // Place all symbols of non-aliased imports to the private symbol list
         // Place all defined types in the private types map and all functions in the function map
         const Hash import_hash = imported_namespace->namespace_hash;
@@ -531,7 +518,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
             switch (definition->get_variation()) {
                 case DefinitionNode::Variation::DATA: {
                     auto *const node = definition->as<DataNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> data_type = std::make_shared<DataType>(node);
                         private_symbols.types[data_type->to_string()] = data_type;
                     }
@@ -539,7 +526,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 }
                 case DefinitionNode::Variation::ENUM: {
                     auto *const node = definition->as<EnumNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> enum_type = std::make_shared<EnumType>(node);
                         private_symbols.types[enum_type->to_string()] = enum_type;
                     }
@@ -547,7 +534,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 }
                 case DefinitionNode::Variation::ERROR: {
                     auto *const node = definition->as<ErrorNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> error_type = std::make_shared<ErrorSetType>(node);
                         private_symbols.types[error_type->to_string()] = error_type;
                     }
@@ -555,7 +542,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 }
                 case DefinitionNode::Variation::FUNC: {
                     auto *const node = definition->as<FuncNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> error_type = std::make_shared<FuncType>(node);
                         private_symbols.types[error_type->to_string()] = error_type;
                     }
@@ -574,7 +561,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                     break;
                 case DefinitionNode::Variation::INTERFACE: {
                     auto *const node = definition->as<InterfaceNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> error_type = std::make_shared<InterfaceType>(node);
                         private_symbols.types[error_type->to_string()] = error_type;
                     }
@@ -582,7 +569,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                 }
                 case DefinitionNode::Variation::OBJECT: {
                     auto *const node = definition->as<ObjectNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> error_type = std::make_shared<ObjectType>(node);
                         private_symbols.types[error_type->to_string()] = error_type;
                     }
@@ -592,7 +579,7 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
                     break;
                 case DefinitionNode::Variation::VARIANT: {
                     auto *const node = definition->as<VariantNode>();
-                    if (!file_namespace->get_type_from_ptr(node).has_value()) {
+                    if (!file_namespace->get_type_from_ptr_local(node).has_value()) {
                         std::shared_ptr<Type> variant_type = std::make_shared<VariantType>(node, false);
                         private_symbols.types[variant_type->to_string()] = variant_type;
                     }
@@ -621,20 +608,129 @@ bool Parser::resolve_imports(Namespace *const file_namespace, const bool alias) 
     return true;
 }
 
+void Parser::add_implicit_alias_imports() {
+    auto &aliases = file_node_ptr->file_namespace->public_symbols.aliased_imports;
+    aliases.emplace("Core", core_root_namespace.get());
+
+    const std::optional<PackageRoot *> root = PackageRoot::get_from_path(file_hash.path);
+    if (!root.has_value()) {
+        return;
+    }
+    for (const auto &[dep_name, dep_root] : root.value()->deps) {
+        if (!dep_root->lib_file.has_value() || aliases.find(dep_name) != aliases.end()) {
+            continue;
+        }
+        aliases.emplace(dep_name, nullptr);
+        ImportNode implicit_import(file_hash, 0, 0, 0, std::vector<std::string>{dep_name}, dep_name, true);
+        file_node_ptr->add_import(implicit_import);
+    }
+}
+
+std::optional<Namespace *> Parser::resolve_import_target(Namespace *const file_namespace, const ImportNode *import) {
+    if (std::holds_alternative<Hash>(import->path)) {
+        const Hash &import_hash = std::get<Hash>(import->path);
+        std::shared_lock lock(Resolver::namespace_map_mutex);
+        const auto it = Resolver::namespace_map.find(import_hash);
+        if (it == Resolver::namespace_map.end()) {
+            return std::nullopt;
+        }
+        return it->second;
+    }
+
+    const std::vector<std::string> &segments = std::get<std::vector<std::string>>(import->path);
+    if (segments.empty()) {
+        return std::nullopt;
+    }
+
+    Namespace *current = nullptr;
+    if (segments.front() == "Core" && core_root_namespace != nullptr) {
+        current = core_root_namespace.get();
+    } else if (segments.size() == 1) {
+        const std::optional<std::filesystem::path> lib = PackageRoot::get_lib_file(file_namespace->file_path, segments.front());
+        if (!lib.has_value()) {
+            return std::nullopt;
+        }
+        std::shared_lock lock(Resolver::namespace_map_mutex);
+        const auto it = Resolver::namespace_map.find(Hash(lib.value()));
+        if (it == Resolver::namespace_map.end()) {
+            return std::nullopt;
+        }
+        return it->second;
+    } else {
+        const auto first = file_namespace->get_namespace_from_alias(segments.front());
+        if (!first.has_value() || first.value() == nullptr) {
+            // The alias has not been resolved yet. The caller retries after other imports have been resolved.
+            return std::nullopt;
+        }
+        current = first.value();
+    }
+
+    std::unordered_set<Namespace *> visited;
+    visited.insert(current);
+    for (size_t i = 1; i < segments.size(); i++) {
+        const auto next = current->get_namespace_from_alias(segments[i]);
+        if (!next.has_value() || next.value() == nullptr) {
+            return std::nullopt;
+        }
+        if (!visited.insert(next.value()).second) {
+            // Cyclic alias chain
+            return std::nullopt;
+        }
+        current = next.value();
+    }
+    return current;
+}
+
+bool Parser::resolve_import_aliases(Namespace *const file_namespace, size_t &resolved_count) {
+    resolved_count = 0;
+    auto &aliased_imports = file_namespace->public_symbols.aliased_imports;
+    for (const auto &import : file_namespace->public_symbols.imports) {
+        if (!import->alias.has_value()) {
+            continue;
+        }
+        const auto it = aliased_imports.find(import->alias.value());
+        if (it != aliased_imports.end() && it->second != nullptr) {
+            continue;
+        }
+        const auto target = resolve_import_target(file_namespace, import.get());
+        if (!target.has_value()) {
+            continue;
+        }
+        aliased_imports[import->alias.value()] = target.value();
+        resolved_count++;
+    }
+    return true;
+}
+
 bool Parser::resolve_all_imports() {
     PROFILE_CUMULATIVE("Parser::resolve_all_imports");
-    // We need to resolve all imports in two passed because the first fill all aliased_imports placeholders, then import symbols. Ordering
-    // is mandatory because the symbol pass recurses through aliased_imports via `Namespace::get_type_from_ptr()`, and unfilled placeholders
-    // are nullptr which would lead to null-references if we did not strictly control the ordering
-    for (const auto &instance : instances) {
-        const auto &file_namespace = instance.file_node_ptr->file_namespace;
-        if (!resolve_imports(file_namespace.get(), true)) {
-            return false;
+    // Alias targets must be filled before symbols are imported: the symbol pass recurses through aliased_imports via
+    // `Namespace::get_type_from_ptr()`. Alias chains can span multiple files, so resolving them is a fixed-point loop.
+    while (true) {
+        size_t total_resolved = 0;
+        for (const auto &instance : instances) {
+            size_t resolved = 0;
+            if (!resolve_import_aliases(instance.file_node_ptr->file_namespace.get(), resolved)) {
+                return false;
+            }
+            total_resolved += resolved;
+        }
+        if (total_resolved == 0) {
+            break;
         }
     }
+
     for (const auto &instance : instances) {
-        const auto &file_namespace = instance.file_node_ptr->file_namespace;
-        if (!resolve_imports(file_namespace.get(), false)) {
+        for (const auto &[alias, namespace_ptr] : instance.file_node_ptr->file_namespace->public_symbols.aliased_imports) {
+            if (namespace_ptr == nullptr) {
+                THROW_BASIC_ERR(ERR_PARSING);
+                return false;
+            }
+        }
+    }
+
+    for (const auto &instance : instances) {
+        if (!resolve_imports(instance.file_node_ptr->file_namespace.get(), false)) {
             return false;
         }
     }

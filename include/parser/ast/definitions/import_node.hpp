@@ -17,11 +17,13 @@ class ImportNode : public DefinitionNode {
         const unsigned int column,                                //
         const unsigned int length,                                //
         const std::variant<Hash, std::vector<std::string>> &path, //
-        const std::optional<std::string> &alias                   //
+        const std::optional<std::string> &alias,                  //
+        const bool implicit = false                               //
         ) :
         DefinitionNode(file_hash, line, column, length, {}, {}),
         path(path),
-        alias(alias) {}
+        alias(alias),
+        implicit(implicit) {}
 
     Variation get_variation() const override {
         return Variation::IMPORT;
@@ -36,4 +38,8 @@ class ImportNode : public DefinitionNode {
     /// @var `alias`
     /// @brief The alias of the import, nullopt if no alias is provided
     std::optional<std::string> alias;
+
+    /// @var `implicit`
+    /// @brief Whether this import was inserted by the compiler to seed implicit aliases (e.g. dependency names)
+    bool implicit;
 };

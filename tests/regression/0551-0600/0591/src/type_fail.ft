@@ -1,0 +1,4 @@
+use Std as std
+
+def main():
+	l := std.LinkedList[i32]{};

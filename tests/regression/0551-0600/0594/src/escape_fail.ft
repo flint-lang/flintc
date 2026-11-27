@@ -1,0 +1,4 @@
+use "../../outside.ft" as lib
+
+def main():
+	return;

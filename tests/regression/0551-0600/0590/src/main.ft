@@ -1,0 +1,4 @@
+def main():
+	Core.print.print("core\n");
+	Core.time.TimeStamp ts = Core.time.now();
+	Core.print.print($"ts={ts.value > 0}\n");

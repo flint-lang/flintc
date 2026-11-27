@@ -1,0 +1,4 @@
+use Core.print
+
+def deep_greet():
+	print("deep\n");

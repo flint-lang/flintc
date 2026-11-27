@@ -1514,6 +1514,9 @@ Parser::AliasLookupResult Parser::resolve_alias_in_type( //
             lookahead_it += 2;
             continue;
         }
+        if (ns.value() == core_root_namespace.get() && core_module_files.find(type_name) != core_module_files.end()) {
+            file_node_ptr->register_core_module_use(type_name, file_hash);
+        }
         const auto next_ns = ns.value()->get_namespace_from_alias(type_name);
         if (next_ns.has_value()) {
             ns = next_ns.value();

@@ -44,6 +44,10 @@ class FileNode : public ASTNode {
     /// ImportNode is used to check for import aliasing of the core modules.
     std::unordered_map<std::string, ImportNode *const> imported_core_modules;
 
+    /// @var `implicit_core_module_imports`
+    /// @brief Owns synthetic import nodes created when a Core module is used through an alias chain instead of an explicit `use`
+    std::vector<std::unique_ptr<ImportNode>> implicit_core_module_imports;
+
     /// @var `tokens`
     /// @brief The source tokens of this file. The whole parser only has views into this list, but the FileNode owns it
     token_list tokens;
@@ -54,6 +58,13 @@ class FileNode : public ASTNode {
     /// @param `import` The import node to add
     /// @return `ImportNode *` A pointer to the added import node, because this function takes ownership of `import`
     std::optional<ImportNode *> add_import(ImportNode &import);
+
+    /// @function `register_core_module_use`
+    /// @brief Registers a Core module as used through a qualified alias chain, so code generation includes its builtins
+    ///
+    /// @param `module_name` The Core module name
+    /// @param `file_hash` The hash of the file using the module
+    void register_core_module_use(const std::string &module_name, const Hash &file_hash);
 
     /// @function `add_data`
     /// @brief Adds a data node to this file node
@@ -94,8 +105,8 @@ class FileNode : public ASTNode {
     /// @param `core_module_files` Reference to the Parser-internal initialized core module file nodes map
     /// @return `std::optional<FunctionNode *>` A pointer to the added function node, because this function takes ownership of `function`,
     /// nullopt if the given function already existed in the file's namespace, e.g. duplicate definition
-    std::optional<FunctionNode *> add_function(                                          //
-        FunctionNode &function,                                                          //
+    std::optional<FunctionNode *> add_function(                                             //
+        FunctionNode &function,                                                             //
         const std::unordered_map<std::string, std::unique_ptr<FileNode>> &core_module_files //
     );
 

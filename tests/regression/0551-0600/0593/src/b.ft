@@ -1,0 +1,4 @@
+use "a.ft" as a
+
+def bfn():
+	Core.print.print("bfn\n");

@@ -27,6 +27,7 @@
 #include "specializer/specializer.hpp"
 
 #include <algorithm>
+#include <unordered_set>
 
 std::optional<std::shared_ptr<Type>> Namespace::get_type_from_str(const std::string &type_str) const {
     // First check the global types since they are the most common
@@ -100,20 +101,42 @@ static std::optional<std::shared_ptr<Type>> get_type_from_ptr_map(     //
     return std::nullopt;
 }
 
-std::optional<std::shared_ptr<Type>> Namespace::get_type_from_ptr(const ASTNode *node_ptr) const {
-    // Node-types never are global types so we can skip the global type check
+static std::optional<std::shared_ptr<Type>> get_type_from_ptr_in_namespace( //
+    const Namespace *name_space,                                            //
+    const ASTNode *node_ptr,                                                //
+    std::unordered_set<const Namespace *> &visited                          //
+) {
+    if (!name_space || !visited.insert(name_space).second) {
+        return std::nullopt;
+    }
+    if (const auto &type = get_type_from_ptr_map(name_space->public_symbols.types, node_ptr)) {
+        return type;
+    }
+    if (const auto &type = get_type_from_ptr_map(name_space->private_symbols.types, node_ptr)) {
+        return type;
+    }
+    for (const auto &[alias, aliased_namespace] : name_space->public_symbols.aliased_imports) {
+        if (const auto &type = get_type_from_ptr_in_namespace(aliased_namespace, node_ptr, visited)) {
+            return type;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::shared_ptr<Type>> Namespace::get_type_from_ptr_local(const ASTNode *node_ptr) const {
     if (const auto &type = get_type_from_ptr_map(public_symbols.types, node_ptr)) {
         return type;
     }
     if (const auto &type = get_type_from_ptr_map(private_symbols.types, node_ptr)) {
         return type;
     }
-    for (const auto &import : public_symbols.aliased_imports) {
-        if (const auto &type = import.second->get_type_from_ptr(node_ptr)) {
-            return type;
-        }
-    }
     return std::nullopt;
+}
+
+std::optional<std::shared_ptr<Type>> Namespace::get_type_from_ptr(const ASTNode *node_ptr) const {
+    // Node-types never are global types so the global type check can be skipped
+    std::unordered_set<const Namespace *> visited;
+    return get_type_from_ptr_in_namespace(this, node_ptr, visited);
 }
 
 std::optional<Namespace *> Namespace::get_namespace_from_alias(const std::string &alias) const {

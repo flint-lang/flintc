@@ -169,9 +169,9 @@ bool Resolver::process_dependency_file(                                  //
             }
 
             if (lib_dep.size() > 1) {
-                // submodule imports like Std.LinkedList are not supported yet
-                THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                return false;
+                // Alias-chain imports do not add a new root file. The first alias is resolved through an import in this file, so the files
+                // behind the rest of the chain are reached through that import's own dependencies.
+                continue;
             }
             const auto &lib = PackageRoot::get_lib_file(dep_hash.get_namespace()->file_path, lib_dep.front());
             if (!lib.has_value()) {

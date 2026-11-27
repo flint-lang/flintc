@@ -1,0 +1,4 @@
+use "b.ft" as b
+
+def afn():
+	Core.print.print("afn\n");

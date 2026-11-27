@@ -222,3 +222,38 @@ test "0589":
 	assert(exit_code == 0);
 	str file = "src/main.ft";
 	test_file_ok_in(path, file, "Hello from lib!\ns = 100 -> 200 -> 300\n");
+
+test "0590":
+	str path = "regression/0551-0600/0590";
+	str file = "src/main.ft";
+	test_file_ok_in(path, file, "core\nts=true\n");
+
+test "0591":
+	str path = "regression/0551-0600/0591";
+	(exit_code, output) := system_command($"cd {path} && flint init");
+	assert(exit_code == 0);
+	(exit_code, output) = system_command($"cd {path} && flint fetch");
+	assert(exit_code == 0);
+	test_file_ok_in(path, "src/direct.ft", "direct: 100 -> 200 -> 300\n");
+	test_file_ok_in(path, "src/file.ft", "file: 100 -> 200 -> 300\n");
+	test_file_ok_in(path, "src/alias.ft", "alias: 100 -> 200 -> 300\n");
+	str bare_error = "Parse Error at src/bare_fail.ft:4:10\n└─┬┤E0000│\n3 │ def main():\n4 │ »   l := LinkedList[i32]{};\n┌─┴──────────┘\n└─ Expression not recognizable by matcher\n";
+	test_file_fail_in(path, "src/bare_fail.ft", bare_error);
+	str type_error = "Parse Error at src/type_fail.ft:4:10\n└─┬┤E0000│\n3 │ def main():\n4 │ »   l := std.LinkedList[i32]{};\n┌─┴──────────┘\n└─ Expression not recognizable by matcher\n";
+	test_file_fail_in(path, "src/type_fail.ft", type_error);
+
+test "0592":
+	str path = "regression/0551-0600/0592";
+	str file = "src/main.ft";
+	test_file_ok_in(path, file, "deep\nns\n");
+
+test "0593":
+	str path = "regression/0551-0600/0593";
+	test_file_ok_in(path, "src/main.ft", "afn\nbfn\nbfn\n");
+
+test "0594":
+	str path = "regression/0551-0600/0594";
+	str file = "src/main.ft";
+	test_file_ok_in(path, file, "relative\n");
+	str escape_error = "Parse Error at src/escape_fail.ft:1:5\n└─┬┤E0000│\n1 │ use \"../../outside.ft\" as lib\n┌─┴─────┘\n├─ The import tried to escape the current working directory of the compiler\n";
+	test_file_fail_in(path, "src/escape_fail.ft", escape_error);

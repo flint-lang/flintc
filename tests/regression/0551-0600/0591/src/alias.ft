@@ -1,0 +1,9 @@
+use Core.print
+use Std.LinkedList as LL
+
+def main():
+	l := LL.LinkedList[i32]{};
+	l.append(100);
+	l.append(200);
+	l.append(300);
+	print($"alias: {l.to_string()}\n");

@@ -225,6 +225,29 @@ class Parser {
     /// @return `bool` Whether everything went as expected
     static bool resolve_imports(Namespace *const file_namespace, const bool alias);
 
+    /// @function `add_implicit_alias_imports`
+    /// @brief Seeds the file namespace with the implicit `Core` alias and one alias per declared package dependency
+    void add_implicit_alias_imports();
+
+    /// @function `resolve_import_target`
+    /// @brief Resolves an import node to the namespace it ultimately targets, following alias chains for named imports
+    ///
+    /// @param `file_namespace` The namespace to resolve the import in
+    /// @param `import` The import node to resolve to the actual namespace it targets
+    /// @return `std::optional<Namespace *>` The namespace targetted by the import, nullopt if anything failed
+    static std::optional<Namespace *> resolve_import_target(Namespace *const file_namespace, const ImportNode *import);
+
+    /// @function `resolve_import_aliases`
+    /// @brief Fills unresolved aliased imports that can be resolved with the currently known namespaces
+    ///
+    /// @param `file_namespace` The namespace to resolve all import aliases in
+    /// @param `resolved_count` The number of import aliases resolved by this function call
+    /// @return `bool` Whether resolving was ok (true) or an error occured (false)
+    ///
+    /// @attention This function needs to be called until the out parameter `resolved_count` reaches 0, as this means that there are no more
+    ///            import aliases to resolve
+    static bool resolve_import_aliases(Namespace *const file_namespace, size_t &resolved_count);
+
     /// @function `resolve_all_imports`
     /// @brief Resolves all imports and puts all public symbols of imported files into the private symbol list of the file's namespace. This
     /// also checks for multiple definitions of the same symbol in multiple imported files and prints that it has defined at multiple places
@@ -372,6 +395,7 @@ class Parser {
             std::lock_guard<std::mutex> lock(parsed_tests_mutex);
             parsed_tests.clear();
             core_module_files.clear();
+            core_root_namespace.reset();
         }
     }
 
@@ -410,6 +434,10 @@ class Parser {
     /// @var `core_module_files`
     /// @brief A map mapping the names of each core module to the file node containing that module's namespace with all its definitions
     static inline std::unordered_map<std::string, std::unique_ptr<FileNode>> core_module_files;
+
+    /// @var `core_root_namespace`
+    /// @brief Synthetic namespace that backs the implicit `Core` alias and contains an alias for every Core module
+    static inline std::unique_ptr<Namespace> core_root_namespace;
 
     /// @var `instances`
     /// @brief All Parser instances which are present. Used by the two-pass parsing system

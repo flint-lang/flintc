@@ -1,0 +1,5 @@
+use Core.print
+use "deep.ft" as deep
+
+def greet():
+	print("ns\n");

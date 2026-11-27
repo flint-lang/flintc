@@ -13,8 +13,12 @@
 
 std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
     auto &imports = file_namespace->public_symbols.imports;
-    // Check if we already imported that core module before
+    // Check if we already imported that core module before. Implicit aliases only seed namespace resolution and do not count as real
+    // imports, so an explicit `use` with the same path is still allowed.
     for (const auto &imported : imports) {
+        if (import.implicit || imported->implicit) {
+            continue;
+        }
         if (import.path == imported->path) {
             // Imported same file / core module
             THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_namespace->namespace_hash, &import);
@@ -30,6 +34,16 @@ std::optional<ImportNode *> FileNode::add_import(ImportNode &import) {
         }
     }
     return added_import;
+}
+
+void FileNode::register_core_module_use(const std::string &module_name, const Hash &file_hash) {
+    if (imported_core_modules.find(module_name) != imported_core_modules.end()) {
+        return;
+    }
+    implicit_core_module_imports.emplace_back(                                                                              //
+        std::make_unique<ImportNode>(file_hash, 0, 0, 0, std::vector<std::string>{"Core", module_name}, std::nullopt, true) //
+    );
+    imported_core_modules.emplace(module_name, implicit_core_module_imports.back().get());
 }
 
 std::optional<DataNode *> FileNode::add_data(DataNode &data) {
@@ -99,8 +113,8 @@ std::optional<ObjectNode *> FileNode::add_object(ObjectNode &object) {
     return added_object;
 }
 
-std::optional<FunctionNode *> FileNode::add_function(                                  //
-    FunctionNode &function,                                                            //
+std::optional<FunctionNode *> FileNode::add_function(                                   //
+    FunctionNode &function,                                                             //
     const std::unordered_map<std::string, std::unique_ptr<FileNode>> &core_module_files //
 ) {
     auto &public_definitions = file_namespace->public_symbols.definitions;

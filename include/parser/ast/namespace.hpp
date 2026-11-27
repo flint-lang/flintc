@@ -125,6 +125,13 @@ class Namespace {
     /// @return `std::optional<std::shared_ptr<Type>>` The found type, nullopt if the
     [[nodiscard]] std::optional<std::shared_ptr<Type>> get_type_from_ptr(const ASTNode *node_ptr) const;
 
+    /// @function `get_type_from_ptr_local`
+    /// @brief Finds a type by its defining AST node in this namespace only, without following aliased imports
+    ///
+    /// @param `node_ptr` The pointer to the ASTNode to get the type from
+    /// @return `std::optional<std::shared_ptr<Type>>` The found type, nullopt if the
+    [[nodiscard]] std::optional<std::shared_ptr<Type>> get_type_from_ptr_local(const ASTNode *node_ptr) const;
+
     /// @function `get_namespace_from_alias`
     /// @brief Returns the namespace imported through an alias
     ///

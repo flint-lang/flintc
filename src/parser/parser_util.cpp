@@ -109,6 +109,9 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                 return false;
             }
             for (const auto &imported_file : imported_files) {
+                if (import_node.value().implicit || imported_file->implicit) {
+                    continue;
+                }
                 if (imported_file->path == import_node.value().path) {
                     THROW_ERR(ErrImportSameFileTwice, ERR_PARSING, file_hash, &import_node.value());
                     return false;
@@ -151,12 +154,11 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                     if (!FIP::resolve_module_import(&import_node.value())) {
                         return false;
                     }
+                } else if (import_vec.size() > 1) {
+                    // Alias chain import: the chain is resolved in `resolve_all_imports`. Delaying it keeps imports order-independent,
+                    // since the first segment may be an alias declared later in the file.
                 } else {
-                    if (import_vec.size() != 1) {
-                        // Submodule imports are not supported yet
-                        THROW_BASIC_ERR(ERR_NOT_IMPLEMENTED_YET);
-                        return false;
-                    }
+                    ASSERT(import_vec.size() == 1);
                     const auto &lib = PackageRoot::get_lib_file(file_hash.path, import_vec.front());
                     if (!lib.has_value()) {
                         return false;
@@ -433,6 +435,7 @@ bool Parser::collapse_types_in_region(                         //
         if (cursor_token == TOK_IDENTIFIER &&
             alias_namespace->get_namespace_from_alias(std::string(source[region_start + i].lexme)).has_value()) {
             alias_namespace = alias_namespace->get_namespace_from_alias(std::string(source[region_start + i].lexme)).value();
+            const bool starts_at_core_root = alias_namespace == core_root_namespace.get();
             source[region_start + i] = TokenContext( //
                 TOK_ALIAS,                           //
                 source[region_start + i].line,       //
@@ -440,18 +443,21 @@ bool Parser::collapse_types_in_region(                         //
                 source[region_start + i].file_id,    //
                 alias_namespace                      //
             );
-            while (i + 1 < region_len                                   //
+            while (alias_namespace != nullptr                           //
+                && i + 1 < region_len                                   //
                 && source[region_start + i + 1].token == TOK_DOT        //
                 && i + 2 < region_len                                   //
                 && source[region_start + i + 2].token == TOK_IDENTIFIER //
             ) {
                 // Check if the next two tokens are another alias, for example in the expression `a.b.call()` we collapse the alias
-                // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` instead it will collapse to a single
-                // `Type` instead, since we know which exact type from which file it targets
-                std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias( //
-                    std::string(source[region_start + i + 2].lexme)                                          //
-                );
+                // chain to a single alias, `b.call()` here. If it's an expression of `a.b.Type` it will collapse to a single `Type`
+                // instead, since we know which exact type from which file it targets
+                const std::string next_name(source[region_start + i + 2].lexme);
+                std::optional<Namespace *> next_alias_namespace = alias_namespace->get_namespace_from_alias(next_name);
                 if (next_alias_namespace.has_value()) {
+                    if (starts_at_core_root && core_module_files.find(next_name) != core_module_files.end()) {
+                        file_node_ptr->register_core_module_use(next_name, file_hash);
+                    }
                     source[region_start + i].alias_namespace = next_alias_namespace.value();
                     alias_namespace = next_alias_namespace.value();
                     // Delete the `.b` since we changed the import of `a` to point to the `b` namespace directly
@@ -463,7 +469,8 @@ bool Parser::collapse_types_in_region(                         //
             }
             // Check if it's an imported type from another namespaces. Types from other namespaces will *always* only be an
             // `alias.identifier`, they can never be anything else since otherwise they would not be exportable.
-            if (i + 1 < region_len                                      //
+            if (alias_namespace != nullptr                              //
+                && i + 1 < region_len                                   //
                 && source[region_start + i + 1].token == TOK_DOT        //
                 && i + 2 < region_len                                   //
                 && source[region_start + i + 2].token == TOK_IDENTIFIER //

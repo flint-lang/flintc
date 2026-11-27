@@ -1,0 +1,7 @@
+use "a.ft" as a
+use a.b
+
+def main():
+	a.afn();
+	a.b.bfn();
+	bfn();

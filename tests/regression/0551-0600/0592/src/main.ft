@@ -1,0 +1,8 @@
+use Core.print
+use sf.ns.deep
+use sf.ns as n
+use "lib.ft" as sf
+
+def main():
+	deep_greet();
+	n.greet();
