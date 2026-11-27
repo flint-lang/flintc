@@ -133,7 +133,6 @@ bool Parser::add_next_main_node(std::vector<Line> &lines) {
                         aliased_import = import.get();
                     }
                 }
-                ASSERT(aliased_import != nullptr);
                 THROW_ERR(                                                                                                         //
                     ErrImportDuplicateAlias, ERR_PARSING, file_hash,                                                               //
                     import_node->line, import_node->column, import_node->length, import_node.value().alias.value(), aliased_import //

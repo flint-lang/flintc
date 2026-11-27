@@ -22,8 +22,13 @@ class ErrImportDuplicateAlias : public BaseError {
     [[nodiscard]]
     std::string to_string() const override {
         std::ostringstream oss;
-        oss << BaseError::to_string() << "├─ The import alias '" << YELLOW << alias << DEFAULT << "' is already taken\n";
-        oss << "└─ First used at: " << GREEN << cwd_relative(first_import->file_hash, first_import->line, first_import->column) << DEFAULT;
+        if (first_import == nullptr) {
+            oss << BaseError::to_string() << "└─ The import alias '" << YELLOW << alias << DEFAULT << "' is already taken";
+        } else {
+            oss << BaseError::to_string() << "├─ The import alias '" << YELLOW << alias << DEFAULT << "' is already taken\n";
+            oss << "└─ First used at: " << GREEN << cwd_relative(first_import->file_hash, first_import->line, first_import->column)
+                << DEFAULT;
+        }
         return oss.str();
     }
 

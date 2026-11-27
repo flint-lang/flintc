@@ -1,0 +1,4 @@
+use "imported.ft" as Core
+
+def main():
+	return;
